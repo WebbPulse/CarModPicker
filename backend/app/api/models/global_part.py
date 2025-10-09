@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from .category import Category
     from .user import User
     from .build_list_part import BuildListPart
-    from .global_part_vote import GlobalPartVote
-    from .global_part_report import GlobalPartReport
+    from .vote import Vote
+    from .report import Report
 
 
 class GlobalPart(Base):
@@ -59,9 +59,17 @@ class GlobalPart(Base):
     build_lists: Mapped[list["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="global_part", cascade="all, delete-orphan"
     )
-    votes: Mapped[list["GlobalPartVote"]] = relationship(
-        "GlobalPartVote", back_populates="global_part", cascade="all, delete-orphan"
+    votes: Mapped[list["Vote"]] = relationship(
+        "Vote",
+        foreign_keys="[Vote.entity_id]",
+        primaryjoin="and_(Vote.entity_id == GlobalPart.id, Vote.entity_type == 'global_part')",
+        cascade="all, delete-orphan",
+        overlaps="votes,votes",
     )
-    reports: Mapped[list["GlobalPartReport"]] = relationship(
-        "GlobalPartReport", back_populates="global_part", cascade="all, delete-orphan"
+    reports: Mapped[list["Report"]] = relationship(
+        "Report",
+        foreign_keys="[Report.entity_id]",
+        primaryjoin="and_(Report.entity_id == GlobalPart.id, Report.entity_type == 'global_part')",
+        cascade="all, delete-orphan",
+        overlaps="reports,reports",
     )

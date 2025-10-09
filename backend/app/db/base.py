@@ -5,8 +5,8 @@ from app.api.models.build_list_part import BuildListPart
 from app.api.models.car import Car
 from app.api.models.category import Category
 from app.api.models.global_part import GlobalPart
-from app.api.models.global_part_report import GlobalPartReport
-from app.api.models.global_part_vote import GlobalPartVote
+from app.api.models.report import Report
+from app.api.models.vote import Vote
 from app.api.models.subscription import Subscription
 
 # actual models

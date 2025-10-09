@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from .car import Car
     from .user import User
     from .build_list_part import BuildListPart
-    from .build_list_vote import BuildListVote
-    from .build_list_report import BuildListReport
+    from .vote import Vote
+    from .report import Report
 
 
 class BuildList(Base):
@@ -36,9 +36,17 @@ class BuildList(Base):
         "BuildListPart", back_populates="build_list"
     )
     # votes and reports
-    votes: Mapped[List["BuildListVote"]] = relationship(
-        "BuildListVote", back_populates="build_list", cascade="all, delete-orphan"
+    votes: Mapped[List["Vote"]] = relationship(
+        "Vote",
+        foreign_keys="[Vote.entity_id]",
+        primaryjoin="and_(Vote.entity_id == BuildList.id, Vote.entity_type == 'build_list')",
+        cascade="all, delete-orphan",
+        overlaps="votes",
     )
-    reports: Mapped[List["BuildListReport"]] = relationship(
-        "BuildListReport", back_populates="build_list", cascade="all, delete-orphan"
+    reports: Mapped[List["Report"]] = relationship(
+        "Report",
+        foreign_keys="[Report.entity_id]",
+        primaryjoin="and_(Report.entity_id == BuildList.id, Report.entity_type == 'build_list')",
+        cascade="all, delete-orphan",
+        overlaps="reports",
     )
