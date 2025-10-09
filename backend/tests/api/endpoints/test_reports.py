@@ -276,7 +276,7 @@ class TestUnifiedReports:
             f"{settings.API_STR}/reports/car/{car['id']}", json=report_data
         )
         assert response.status_code == 400
-        assert "cannot report your own" in response.json()["detail"]
+        assert "cannot report your own" in response.json()["message"]
 
     def test_create_report_already_reported(
         self, client: TestClient, test_user: User, db_session: Session
@@ -341,7 +341,7 @@ class TestUnifiedReports:
             json=report_data,
         )
         assert response.status_code == 400
-        assert "already reported" in response.json()["detail"]
+        assert "already reported" in response.json()["message"]
 
     def test_list_reports_admin_only(self, client: TestClient, test_user: User) -> None:
         """Test that listing reports requires admin access."""

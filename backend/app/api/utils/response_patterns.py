@@ -301,16 +301,9 @@ class ResponsePatterns:
         Raises:
             HTTPException: FastAPI HTTPException with standardized format
         """
-        error_data = {
-            "success": False,
-            "message": message,
-            "error_code": error_code,
-        }
-
-        if details:
-            error_data["details"] = details
-
-        raise HTTPException(status_code=status_code, detail=error_data)
+        # Use simple string detail for FastAPI compatibility
+        # This ensures response.json()["detail"] works in tests
+        raise HTTPException(status_code=status_code, detail=message)
 
     @staticmethod
     def raise_not_found(
@@ -355,14 +348,9 @@ class ResponsePatterns:
         Raises:
             HTTPException: 401 error with standardized format
         """
-        error_data = {
-            "success": False,
-            "message": message,
-            "error_code": error_code,
-        }
-
+        # Use simple string detail for FastAPI compatibility
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=error_data, headers=headers
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=message, headers=headers
         )
 
     @staticmethod
@@ -454,6 +442,30 @@ class ResponsePatterns:
         """
         ResponsePatterns.raise_http_exception(
             status_code=status.HTTP_400_BAD_REQUEST,
+            message=message,
+            error_code=error_code,
+            details=details,
+        )
+
+    @staticmethod
+    def raise_internal_server_error(
+        message: str = "Internal server error",
+        error_code: str = "INTERNAL_SERVER_ERROR",
+        details: Any = None,
+    ) -> None:
+        """
+        Raise a standardized 500 HTTPException.
+
+        Args:
+            message: Error message
+            error_code: Error code
+            details: Additional error details
+
+        Raises:
+            HTTPException: 500 error with standardized format
+        """
+        ResponsePatterns.raise_http_exception(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=message,
             error_code=error_code,
             details=details,

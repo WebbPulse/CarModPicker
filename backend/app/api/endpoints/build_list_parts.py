@@ -30,7 +30,7 @@ from app.api.utils.authorization import (
 )
 from app.api.utils.common_patterns import (
     get_entity_or_404,
-    verify_entity_ownership,
+    verify_user_access_or_admin,
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import standard_responses
@@ -65,8 +65,8 @@ async def add_global_part_to_build_list(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_entity_ownership(
-        current_user, db_build_list.user_id, "modify this build list"
+    verify_user_access_or_admin(
+        current_user, db_build_list.user_id, "modify this build list", logger
     )
 
     # Verify global part exists
@@ -123,8 +123,8 @@ async def get_build_list_parts(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_entity_ownership(
-        current_user, db_build_list.user_id, "access this build list"
+    verify_user_access_or_admin(
+        current_user, db_build_list.user_id, "access this build list", logger
     )
 
     db_build_list_parts = (
@@ -245,8 +245,8 @@ async def create_global_part_and_add_to_build_list(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_entity_ownership(
-        current_user, db_build_list.user_id, "modify this build list"
+    verify_user_access_or_admin(
+        current_user, db_build_list.user_id, "modify this build list", logger
     )
 
     # Create the global part with the current user as creator
@@ -317,8 +317,8 @@ async def get_global_parts_in_build_list(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_entity_ownership(
-        current_user, db_build_list.user_id, "access this build list"
+    verify_user_access_or_admin(
+        current_user, db_build_list.user_id, "access this build list", logger
     )
 
     db_build_list_parts = (

@@ -1,0 +1,9 @@
+I am in the middle of some refactors with my web app that revolve around making votes and reports a related entity for cars, parts, and build lists. The reason I have chose to consolidate it this way is that I am trying to cut down on the amount of similiar entities/tables.
+
+My refactor is currently incomplete. Can you ensure that my tests are sensible for the current app strucuture, and begin debugging the problems with the current implementation? My backend testing is with pytest and I have setup isolated multithreading tests that are quick to run that you should favor
+
+
+I also am in the middle of a refactor that attempted to cutdown on code re-use by using a lots more utils functions in Please make sure that these changes made sense and are not overly verbose, complex, or unwieldy
+
+
+I am particularly interested in analyzing disable_endpoints in BaseEndpointRouter as a I feel like it might be leading to weird coding patterns in some places. Be sure that where it is used there is a good reason

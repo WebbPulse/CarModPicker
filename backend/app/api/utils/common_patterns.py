@@ -5,6 +5,7 @@ This module provides reusable patterns for common operations like pagination,
 ownership verification, admin checks, and standard query parameters.
 """
 
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Type
 from functools import wraps
 from fastapi import Depends, Query, HTTPException, status
@@ -70,7 +71,10 @@ def get_standard_endpoint_dependencies():
     }
 
 
-def get_standard_public_endpoint_dependencies():
+def get_standard_public_endpoint_dependencies(
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+):
     """
     Standard dependencies for public endpoints that need database and logger.
 
@@ -78,8 +82,8 @@ def get_standard_public_endpoint_dependencies():
         Dictionary of standard dependencies
     """
     return {
-        "db": Depends(get_db),
-        "logger": Depends(get_logger),
+        "db": db,
+        "logger": logger,
     }
 
 
@@ -568,11 +572,12 @@ def handle_vote_operation(
     entity_model: Type,
     vote_model: Type,
     entity_name: str,
+    entity_type: str,
     logger: Any,
     existing_vote: Optional[Any] = None,
 ) -> Any:
     """
-    Handle vote operations (create/update) with consistent patterns.
+    Handle vote operations (create/update) with consistent patterns for unified Vote model.
 
     Args:
         db: Database session
@@ -582,6 +587,7 @@ def handle_vote_operation(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
         logger: Logger instance
         existing_vote: Existing vote if updating
 
@@ -604,10 +610,11 @@ def handle_vote_operation(
             )
             return existing_vote
         else:
-            # Create new vote
+            # Create new vote using polymorphic pattern
             new_vote = vote_model(
                 user_id=user_id,
-                **{f"{entity_name.lower().replace(' ', '_')}_id": entity_id},
+                entity_type=entity_type,
+                entity_id=entity_id,
                 vote_type=vote_type,
             )
             db.add(new_vote)
@@ -630,10 +637,11 @@ def remove_vote_operation(
     entity_model: Type,
     vote_model: Type,
     entity_name: str,
+    entity_type: str,
     logger: Any,
 ) -> dict[str, str]:
     """
-    Handle vote removal with consistent patterns.
+    Handle vote removal with consistent patterns for unified Vote model.
 
     Args:
         db: Database session
@@ -642,6 +650,7 @@ def remove_vote_operation(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
         logger: Logger instance
 
     Returns:
@@ -652,12 +661,13 @@ def remove_vote_operation(
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
-    # Find and remove vote
+    # Find and remove vote using polymorphic pattern
     vote = (
         db.query(vote_model)
         .filter(
             vote_model.user_id == user_id,
-            **{f"{entity_name.lower().replace(' ', '_')}_id": entity_id},
+            vote_model.entity_type == entity_type,
+            vote_model.entity_id == entity_id,
         )
         .first()
     )
@@ -684,10 +694,11 @@ def get_vote_summary(
     entity_model: Type,
     vote_model: Type,
     entity_name: str,
+    entity_type: str,
     logger: Any,
 ) -> dict[str, Any]:
     """
-    Get vote summary statistics for an entity.
+    Get vote summary statistics for an entity using unified Vote model.
 
     Args:
         db: Database session
@@ -695,6 +706,7 @@ def get_vote_summary(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
         logger: Logger instance
 
     Returns:
@@ -708,10 +720,13 @@ def get_vote_summary(
     try:
         from sqlalchemy import func
 
-        # Get vote counts
+        # Get vote counts using polymorphic pattern
         vote_counts = (
             db.query(vote_model.vote_type, func.count(vote_model.id).label("count"))
-            .filter(**{f"{entity_name.lower().replace(' ', '_')}_id": entity_id})
+            .filter(
+                vote_model.entity_type == entity_type,
+                vote_model.entity_id == entity_id,
+            )
             .group_by(vote_model.vote_type)
             .all()
         )
@@ -749,11 +764,12 @@ def handle_report_creation(
     entity_model: Type,
     report_model: Type,
     entity_name: str,
+    entity_type: str,
     logger: Any,
     additional_filters: Optional[dict] = None,
 ) -> Any:
     """
-    Handle report creation with consistent patterns.
+    Handle report creation with consistent patterns for unified Report model.
 
     Args:
         db: Database session
@@ -763,6 +779,7 @@ def handle_report_creation(
         entity_model: Model class for the entity
         report_model: Model class for the report
         entity_name: Human-readable name of the entity
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
         logger: Logger instance
         additional_filters: Additional filters for entity lookup
 
@@ -779,12 +796,13 @@ def handle_report_creation(
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
-    # Check if user has already reported this entity
+    # Check if user has already reported this entity using polymorphic pattern
     existing_report = (
         db.query(report_model)
         .filter(
             report_model.user_id == user_id,
-            **{f"{entity_name.lower().replace(' ', '_')}_id": entity_id},
+            report_model.entity_type == entity_type,
+            report_model.entity_id == entity_id,
         )
         .first()
     )
@@ -793,10 +811,11 @@ def handle_report_creation(
         ResponsePatterns.raise_conflict(f"User has already reported this {entity_name}")
 
     try:
-        # Create new report
+        # Create new report using polymorphic pattern
         new_report = report_model(
             user_id=user_id,
-            **{f"{entity_name.lower().replace(' ', '_')}_id": entity_id},
+            entity_type=entity_type,
+            entity_id=entity_id,
             **report_data,
         )
         db.add(new_report)
@@ -819,13 +838,14 @@ def get_reports_by_entity(
     entity_model: Type,
     report_model: Type,
     entity_name: str,
+    entity_type: str,
     logger: Any,
     skip: int = 0,
     limit: int = 100,
     status_filter: Optional[str] = None,
 ) -> List[Any]:
     """
-    Get reports for a specific entity with pagination and filtering.
+    Get reports for a specific entity with pagination and filtering for unified Report model.
 
     Args:
         db: Database session
@@ -833,6 +853,7 @@ def get_reports_by_entity(
         entity_model: Model class for the entity
         report_model: Model class for the report
         entity_name: Human-readable name of the entity
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
         logger: Logger instance
         skip: Number of reports to skip
         limit: Maximum number of reports to return
@@ -847,8 +868,10 @@ def get_reports_by_entity(
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
     try:
+        # Query using polymorphic pattern
         query = db.query(report_model).filter(
-            **{f"{entity_name.lower().replace(' ', '_')}_id": entity_id}
+            report_model.entity_type == entity_type,
+            report_model.entity_id == entity_id,
         )
 
         if status_filter:

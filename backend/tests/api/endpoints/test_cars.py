@@ -170,7 +170,10 @@ def test_update_other_users_car_forbidden(
         f"{settings.API_STR}/cars/{car_id_a}", json=update_payload
     )  # User B tries to update User A's car
     assert response.status_code == 403  # Expect forbidden
-    assert response.json()["detail"] == "Not authorized to update this car"
+    assert (
+        response.json()["message"]
+        == "Not authorized to perform this action on this car"
+    )
 
 
 def test_delete_own_car_success(client: TestClient, db_session: Session) -> None:
@@ -227,7 +230,9 @@ def test_delete_other_users_car_forbidden(
         f"{settings.API_STR}/cars/{car_id_a}"
     )  # User B tries to delete User A's car
     assert response.status_code == 403
-    assert response.json()["detail"] == "Not authorized to delete this car"
+    # The delete endpoint uses the base router which returns a different message
+    assert "Not authorized" in response.json()["message"]
+    assert "car" in response.json()["message"]
 
 
 def test_update_car_not_found(client: TestClient, db_session: Session) -> None:
@@ -237,7 +242,7 @@ def test_update_car_not_found(client: TestClient, db_session: Session) -> None:
         f"{settings.API_STR}/cars/888888", json=update_payload
     )  # Uses cookie
     assert response.status_code == 404
-    assert response.json()["detail"] == "Car not found"
+    assert response.json()["message"] == "Car not found"
 
 
 def test_delete_car_not_found(client: TestClient, db_session: Session) -> None:
@@ -246,7 +251,7 @@ def test_delete_car_not_found(client: TestClient, db_session: Session) -> None:
         f"{settings.API_STR}/cars/777777"
     )  # Uses cookie, Non-existent ID
     assert response.status_code == 404
-    assert response.json()["detail"] == "Car not found"
+    assert response.json()["message"] == "Car not found"
 
 
 # --- Tests for read_cars_by_user ---

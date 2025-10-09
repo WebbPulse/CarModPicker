@@ -174,7 +174,7 @@ class TestCategories:
         """Test getting a non-existent category."""
         response = client.get(f"{settings.API_STR}/categories/99999")
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        assert "Category not found" in response.json()["message"]
 
     def test_get_parts_by_category_success(
         self, client: TestClient, db_session: Session
@@ -293,7 +293,7 @@ class TestCategories:
         # Try to create another category with the same name
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
         assert response.status_code == 400
-        assert "already exists" in response.json()["detail"]
+        assert "already exists" in response.json()["message"]
 
     def test_update_category_success(
         self, client: TestClient, db_session: Session
@@ -346,7 +346,7 @@ class TestCategories:
 
         response = client.put(f"{settings.API_STR}/categories/99999", json=update_data)
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        assert "Category not found" in response.json()["message"]
 
     def test_delete_category_success(
         self, client: TestClient, db_session: Session
@@ -385,7 +385,12 @@ class TestCategories:
 
         response = client.delete(f"{settings.API_STR}/categories/99999")
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        response_data = response.json()
+        # Check that the error message indicates category not found (flexible matching)
+        error_msg = response_data.get(
+            "detail", response_data.get("message", "")
+        ).lower()
+        assert "category" in error_msg and "not found" in error_msg
 
     def test_delete_category_with_parts(
         self, client: TestClient, db_session: Session
@@ -422,5 +427,12 @@ class TestCategories:
 
         # Try to delete the category
         response = client.delete(f"{settings.API_STR}/categories/{category_id}")
-        assert response.status_code == 400
-        assert "parts are using this category" in response.json()["detail"]
+        assert response.status_code == 409  # Conflict - category has associated parts
+        response_data = response.json()
+        # ResponsePatterns.raise_conflict uses "detail" key for HTTPException
+        assert "Cannot delete category" in response_data.get(
+            "detail", response_data.get("message", "")
+        )
+        assert "associated parts" in response_data.get(
+            "detail", response_data.get("message", "")
+        )

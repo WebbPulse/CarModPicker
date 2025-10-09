@@ -89,6 +89,11 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
 
         # Prepare data for creation
         entity_data = data.model_dump()
+
+        # Add user_id if the model has a user_id field
+        if hasattr(self.model, "user_id"):
+            entity_data["user_id"] = current_user.id
+
         if additional_data:
             entity_data.update(additional_data)
 

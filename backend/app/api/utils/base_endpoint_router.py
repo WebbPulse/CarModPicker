@@ -2,8 +2,8 @@
 Base endpoint router with common patterns to reduce redundancy.
 """
 
-from typing import List, Optional, Type, TypeVar, Generic, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import List, Optional, Type, TypeVar, Generic, Dict, Any, Annotated
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -35,6 +35,9 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         allow_public_read: bool = False,
         additional_create_data: Optional[Dict[str, Any]] = None,
         disable_endpoints: Optional[List[str]] = None,
+        create_schema: Optional[Type[CreateSchema]] = None,
+        read_schema: Optional[Type[ReadSchema]] = None,
+        update_schema: Optional[Type[UpdateSchema]] = None,
     ):
         """
         Initialize the base endpoint router.
@@ -46,6 +49,9 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             allow_public_read: Whether to allow public read access
             additional_create_data: Additional data to include when creating entities
             disable_endpoints: List of endpoint names to disable (e.g., ["list", "create"])
+            create_schema: Concrete CreateSchema type (required for proper FastAPI validation)
+            read_schema: Concrete ReadSchema type (required for proper FastAPI validation)
+            update_schema: Concrete UpdateSchema type (required for proper FastAPI validation)
         """
         self.service = service
         self.router = router
@@ -54,6 +60,11 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         self.additional_create_data = additional_create_data or {}
         self.disable_endpoints = disable_endpoints or []
 
+        # Store concrete schema types for proper FastAPI validation
+        self.create_schema = create_schema
+        self.read_schema = read_schema
+        self.update_schema = update_schema
+
         # Register common endpoints
         self._register_common_endpoints()
 
@@ -61,36 +72,46 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         """Register common CRUD endpoints."""
 
         # Create endpoint
-        @self.router.post(
-            "/",
-            response_model=ReadSchema,
-            responses={
-                400: {"description": f"Invalid {self.entity_name} data"},
-                403: {"description": f"Not authorized to create {self.entity_name}"},
-                402: {"description": "Subscription limit reached"},
-            },
-        )
-        async def create_entity(
-            data: CreateSchema,
-            db: Session = Depends(get_db),
-            logger=Depends(get_logger),
-            current_user: DBUser = Depends(get_current_user),
-        ) -> ModelType:
-            """Create a new entity."""
-            return self.service.create(
-                db=db,
-                data=data,
-                current_user=current_user,
-                logger=logger,
-                additional_data=self.additional_create_data,
+        if "create" not in self.disable_endpoints:
+            # Use concrete schema types if provided, otherwise use TypeVars
+            _create_schema = self.create_schema if self.create_schema else CreateSchema
+            _read_schema = self.read_schema if self.read_schema else ReadSchema
+
+            @self.router.post(
+                "/",
+                response_model=_read_schema,
+                responses={
+                    400: {"description": f"Invalid {self.entity_name} data"},
+                    403: {
+                        "description": f"Not authorized to create {self.entity_name}"
+                    },
+                    402: {"description": "Subscription limit reached"},
+                },
             )
+            async def create_entity(
+                *,
+                data: _create_schema,
+                db: Session = Depends(get_db),
+                logger=Depends(get_logger),
+                current_user: DBUser = Depends(get_current_user),
+            ) -> ModelType:
+                """Create a new entity."""
+                return self.service.create(
+                    db=db,
+                    data=data,
+                    current_user=current_user,
+                    logger=logger,
+                    additional_data=self.additional_create_data,
+                )
 
         # Get by ID endpoint
+        _read_schema = self.read_schema if self.read_schema else ReadSchema
+
         if self.allow_public_read:
 
             @self.router.get(
                 "/{entity_id}",
-                response_model=ReadSchema,
+                response_model=_read_schema,
                 responses={
                     404: {"description": f"{self.entity_name.title()} not found"},
                 },
@@ -113,7 +134,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
 
             @self.router.get(
                 "/{entity_id}",
-                response_model=ReadSchema,
+                response_model=_read_schema,
                 responses={
                     404: {"description": f"{self.entity_name.title()} not found"},
                     403: {
@@ -141,7 +162,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
 
             @self.router.get(
                 "/",
-                response_model=List[ReadSchema],
+                response_model=List[_read_schema],
                 responses={
                     200: {
                         "description": f"List of {self.entity_name}s retrieved successfully"
@@ -176,57 +197,75 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 )
 
         # Update endpoint
-        @self.router.put(
-            "/{entity_id}",
-            response_model=ReadSchema,
-            responses={
-                404: {"description": f"{self.entity_name.title()} not found"},
-                403: {
-                    "description": f"Not authorized to update this {self.entity_name}"
+        if "update" not in self.disable_endpoints:
+            _update_schema = self.update_schema if self.update_schema else UpdateSchema
+
+            @self.router.put(
+                "/{entity_id}",
+                response_model=_read_schema,
+                responses={
+                    404: {"description": f"{self.entity_name.title()} not found"},
+                    403: {
+                        "description": f"Not authorized to update this {self.entity_name}"
+                    },
                 },
-            },
-        )
-        async def update_entity(
-            entity_id: int,
-            data: UpdateSchema,
-            db: Session = Depends(get_db),
-            logger=Depends(get_logger),
-            current_user: DBUser = Depends(get_current_user),
-        ) -> ModelType:
-            """Update an existing entity."""
-            return self.service.update(
-                db=db,
-                entity_id=entity_id,
-                data=data,
-                current_user=current_user,
-                logger=logger,
             )
+            async def update_entity(
+                entity_id: int,
+                *,
+                data: _update_schema,
+                db: Session = Depends(get_db),
+                logger=Depends(get_logger),
+                current_user: DBUser = Depends(get_current_user),
+            ) -> ModelType:
+                """Update an existing entity."""
+                return self.service.update(
+                    db=db,
+                    entity_id=entity_id,
+                    data=data,
+                    current_user=current_user,
+                    logger=logger,
+                )
 
         # Delete endpoint
-        @self.router.delete(
-            "/{entity_id}",
-            response_model=Dict[str, str],
-            responses={
-                404: {"description": f"{self.entity_name.title()} not found"},
-                403: {
-                    "description": f"Not authorized to delete this {self.entity_name}"
+        if "delete" not in self.disable_endpoints:
+
+            @self.router.delete(
+                "/{entity_id}",
+                response_model=_read_schema,
+                responses={
+                    404: {"description": f"{self.entity_name.title()} not found"},
+                    403: {
+                        "description": f"Not authorized to delete this {self.entity_name}"
+                    },
                 },
-            },
-        )
-        async def delete_entity(
-            entity_id: int,
-            db: Session = Depends(get_db),
-            logger=Depends(get_logger),
-            current_user: DBUser = Depends(get_current_user),
-        ) -> Dict[str, str]:
-            """Delete an entity."""
-            self.service.delete(
-                db=db,
-                entity_id=entity_id,
-                current_user=current_user,
-                logger=logger,
             )
-            return {"message": f"{self.entity_name.title()} deleted successfully"}
+            async def delete_entity(
+                entity_id: int,
+                db: Session = Depends(get_db),
+                logger=Depends(get_logger),
+                current_user: DBUser = Depends(get_current_user),
+            ) -> ModelType:
+                """Delete an entity and return the deleted data."""
+                # Get the entity before deletion to return it
+                entity = self.service.get_by_id(
+                    db=db,
+                    entity_id=entity_id,
+                    current_user=current_user,
+                    allow_public=False,
+                    logger=logger,
+                )
+
+                # Now delete it
+                self.service.delete(
+                    db=db,
+                    entity_id=entity_id,
+                    current_user=current_user,
+                    logger=logger,
+                )
+
+                # Return the entity data that was deleted
+                return entity
 
     def _get_search_fields(self) -> List[str]:
         """Get search fields for the entity. Override in subclasses if needed."""

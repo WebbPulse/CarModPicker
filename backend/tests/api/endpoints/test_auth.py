@@ -88,7 +88,7 @@ def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
     login_data = {"username": "wronguser_cookie", "password": "password123"}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
     assert response.status_code == 401
-    assert response.json()["detail"] == "Incorrect username or password"
+    assert response.json()["message"] == "Incorrect username or password"
     assert "access_token" not in response.cookies  # Check no cookie is set
 
 
@@ -110,7 +110,7 @@ def test_login_for_access_token_incorrect_password(
     login_data = {"username": username, "password": "wrong_password"}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
     assert response.status_code == 401
-    assert response.json()["detail"] == "Incorrect username or password"
+    assert response.json()["message"] == "Incorrect username or password"
     assert "access_token" not in response.cookies  # Check no cookie is set
 
 
@@ -161,5 +161,5 @@ def test_login_for_access_token_disabled_user(
     login_data = {"username": username, "password": password}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
     assert response.status_code == 400, response.text
-    assert response.json()["detail"] == "Inactive user"
+    assert response.json()["message"] == "Inactive user"
     assert "access_token" not in response.cookies  # Ensure no new cookie is set
