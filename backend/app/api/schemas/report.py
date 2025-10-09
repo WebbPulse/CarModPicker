@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from enum import Enum
 
 
@@ -19,20 +19,29 @@ class ReportStatus(str, Enum):
     DISMISSED = "dismissed"
 
 
-class CarReportCreate(BaseModel):
+class EntityType(str, Enum):
+    CAR = "car"
+    BUILD_LIST = "build_list"
+    GLOBAL_PART = "global_part"
+
+
+class ReportCreate(BaseModel):
     reason: ReportReason
     description: Optional[str] = None
+    entity_type: EntityType
+    entity_id: int
 
 
-class CarReportUpdate(BaseModel):
+class ReportUpdate(BaseModel):
     status: ReportStatus
     admin_notes: Optional[str] = None
 
 
-class CarReportRead(BaseModel):
+class ReportRead(BaseModel):
     id: int
     user_id: int
-    car_id: int
+    entity_type: str
+    entity_id: int
     reason: str
     description: Optional[str] = None
     status: str
@@ -45,11 +54,10 @@ class CarReportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class CarReportWithDetails(CarReportRead):
+class ReportWithDetails(ReportRead):
     reporter_username: str
-    car_make: str
-    car_model: str
-    car_year: int
+    entity_name: str
+    entity_description: Optional[str] = None
     reviewer_username: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -17,14 +17,14 @@ import type {
   CategoryResponse,
   CategoryCreate,
   CategoryUpdate,
-  GlobalPartVoteCreate,
-  GlobalPartVoteRead,
-  GlobalPartVoteSummary,
-  FlaggedGlobalPartSummary,
-  GlobalPartReportCreate,
-  GlobalPartReportRead,
-  GlobalPartReportWithDetails,
-  GlobalPartReportUpdate,
+  VoteCreate,
+  VoteRead,
+  VoteSummary,
+  FlaggedEntitySummary,
+  ReportCreate,
+  ReportRead,
+  ReportWithDetails,
+  ReportUpdate,
   SubscriptionStatus,
   SubscriptionResponse,
   UpgradeRequest,
@@ -214,65 +214,97 @@ export const categoriesApi = {
     }),
 };
 
-// Global Part Votes API
-export const globalPartVotesApi = {
-  voteOnGlobalPart: (partId: number, data: GlobalPartVoteCreate) =>
-    apiClient.post<GlobalPartVoteRead>(
-      `/global-part-votes/${partId}/vote`,
+// Unified Votes API
+export const votesApi = {
+  voteOnEntity: (entityType: 'car' | 'build_list' | 'global_part', entityId: number, data: VoteCreate) =>
+    apiClient.post<VoteRead>(
+      `/votes/${entityType}/${entityId}`,
       data
     ),
-  removeVote: (partId: number) =>
+  removeVote: (entityType: 'car' | 'build_list' | 'global_part', entityId: number) =>
     apiClient.delete<Record<string, string>>(
-      `/global-part-votes/${partId}/vote`
+      `/votes/${entityType}/${entityId}`
     ),
-  getVoteSummary: (partId: number) =>
-    apiClient.get<GlobalPartVoteSummary>(
-      `/global-part-votes/${partId}/vote-summary`
+  getVoteSummary: (entityType: 'car' | 'build_list' | 'global_part', entityId: number) =>
+    apiClient.get<VoteSummary>(
+      `/votes/${entityType}/${entityId}/summary`
     ),
-  getVoteSummaries: (partIds: string) =>
-    apiClient.get<GlobalPartVoteSummary[]>('/global-part-votes/', {
-      params: { part_ids: partIds },
-    }),
-  getFlaggedParts: (params?: {
-    threshold?: number;
-    min_votes?: number;
-    min_downvote_ratio?: number;
-    days_back?: number;
-    skip?: number;
-    limit?: number;
-  }) =>
-    apiClient.get<FlaggedGlobalPartSummary[]>(
-      '/global-part-votes/flagged-parts',
-      {
-        params,
-      }
+  getFlaggedEntities: (entityType: 'car' | 'build_list' | 'global_part', limit?: number) =>
+    apiClient.get<FlaggedEntitySummary[]>(
+      `/votes/admin/flagged/${entityType}`,
+      { params: { limit } }
     ),
 };
 
-// Global Part Reports API
-export const globalPartReportsApi = {
-  reportGlobalPart: (partId: number, data: GlobalPartReportCreate) =>
-    apiClient.post<GlobalPartReportRead>(
-      `/global-part-reports/${partId}/report`,
+// Unified Reports API
+export const reportsApi = {
+  reportEntity: (entityType: 'car' | 'build_list' | 'global_part', entityId: number, data: ReportCreate) =>
+    apiClient.post<ReportRead>(
+      `/reports/${entityType}/${entityId}`,
       data
     ),
-  getReports: (params?: { status?: string; skip?: number; limit?: number }) =>
-    apiClient.get<GlobalPartReportWithDetails[]>('/global-part-reports/', {
+  getReports: (params?: { 
+    entity_type?: 'car' | 'build_list' | 'global_part'; 
+    status?: string; 
+    skip?: number; 
+    limit?: number 
+  }) =>
+    apiClient.get<ReportRead[]>('/reports/admin/list', {
+      params,
+    }),
+  getReportsWithDetails: (params?: { 
+    entity_type?: 'car' | 'build_list' | 'global_part'; 
+    status?: string; 
+    skip?: number; 
+    limit?: number 
+  }) =>
+    apiClient.get<ReportWithDetails[]>('/reports/admin/list-with-details', {
       params,
     }),
   getReport: (reportId: number) =>
-    apiClient.get<GlobalPartReportWithDetails>(
-      `/global-part-reports/reports/${reportId}`
+    apiClient.get<ReportWithDetails>(
+      `/reports/${reportId}`
     ),
-  updateReport: (reportId: number, data: GlobalPartReportUpdate) =>
-    apiClient.put<GlobalPartReportRead>(
-      `/global-part-reports/reports/${reportId}`,
+  updateReport: (reportId: number, data: ReportUpdate) =>
+    apiClient.put<ReportRead>(
+      `/reports/${reportId}`,
       data
     ),
-  getPendingReportsCount: () =>
-    apiClient.get<Record<string, number>>(
-      '/global-part-reports/reports/pending/count'
-    ),
+};
+
+// Legacy APIs for backward compatibility (will be removed in future versions)
+export const globalPartVotesApi = {
+  voteOnGlobalPart: (partId: number, data: { vote_type: 'upvote' | 'downvote' }) =>
+    votesApi.voteOnEntity('global_part', partId, {
+      vote_type: data.vote_type,
+      entity_type: 'global_part',
+      entity_id: partId,
+    }),
+  removeVote: (partId: number) =>
+    votesApi.removeVote('global_part', partId),
+  getVoteSummary: (partId: number) =>
+    votesApi.getVoteSummary('global_part', partId),
+  getFlaggedParts: (params?: { limit?: number }) =>
+    votesApi.getFlaggedEntities('global_part', params?.limit),
+};
+
+export const globalPartReportsApi = {
+  reportGlobalPart: (partId: number, data: { reason: string; description?: string }) =>
+    reportsApi.reportEntity('global_part', partId, {
+      reason: data.reason as 'inappropriate_content' | 'spam' | 'inaccurate' | 'duplicate' | 'other',
+      description: data.description,
+      entity_type: 'global_part',
+      entity_id: partId,
+    }),
+  getReports: (params?: { status?: string; skip?: number; limit?: number }) =>
+    reportsApi.getReports({ ...params, entity_type: 'global_part' }),
+  getReport: (reportId: number) =>
+    reportsApi.getReport(reportId),
+  updateReport: (reportId: number, data: { status: string; admin_notes?: string }) =>
+    reportsApi.updateReport(reportId, {
+      status: data.status as 'pending' | 'reviewed' | 'resolved' | 'dismissed',
+      admin_notes: data.admin_notes,
+    }),
 };
 
 // Build List Parts API (Relationships between global parts and build lists)

@@ -15,12 +15,8 @@ from .api.endpoints import (
     users,
     subscriptions,
     categories,
-    global_part_votes,
-    global_part_reports,
-    car_votes,
-    car_reports,
-    build_list_votes,
-    build_list_reports,
+    votes,
+    reports,
 )
 from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
@@ -139,38 +135,19 @@ endpoint_registry.register_endpoint(
     description="Subscription and billing operations",
 )
 
-# Vote endpoints
-endpoint_registry.register_vote_endpoint(
-    car_votes.router, entity_name="cars", description="Car voting operations"
+# Unified vote and report endpoints
+endpoint_registry.register_endpoint(
+    votes.router,
+    prefix="/votes",
+    tags=["votes"],
+    description="Unified voting operations for all entity types",
 )
 
-endpoint_registry.register_vote_endpoint(
-    global_part_votes.router,
-    entity_name="global-parts",
-    description="Global part voting operations",
-)
-
-endpoint_registry.register_vote_endpoint(
-    build_list_votes.router,
-    entity_name="build-lists",
-    description="Build list voting operations",
-)
-
-# Report endpoints
-endpoint_registry.register_report_endpoint(
-    car_reports.router, entity_name="car", description="Car reporting operations"
-)
-
-endpoint_registry.register_report_endpoint(
-    global_part_reports.router,
-    entity_name="global-parts",
-    description="Global part reporting operations",
-)
-
-endpoint_registry.register_report_endpoint(
-    build_list_reports.router,
-    entity_name="build-lists",
-    description="Build list reporting operations",
+endpoint_registry.register_endpoint(
+    reports.router,
+    prefix="/reports",
+    tags=["reports"],
+    description="Unified reporting operations for all entity types",
 )
 
 # Print registration summary

@@ -9,8 +9,8 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .user import User
     from .build_list import BuildList
-    from .car_vote import CarVote
-    from .car_report import CarReport
+    from .vote import Vote
+    from .report import Report
 
 
 class Car(Base):
@@ -36,9 +36,17 @@ class Car(Base):
         "BuildList", back_populates="car", cascade="all, delete-orphan"
     )
     # votes and reports
-    votes: Mapped[List["CarVote"]] = relationship(
-        "CarVote", back_populates="car", cascade="all, delete-orphan"
+    votes: Mapped[List["Vote"]] = relationship(
+        "Vote",
+        foreign_keys="[Vote.entity_id]",
+        primaryjoin="and_(Vote.entity_id == Car.id, Vote.entity_type == 'car')",
+        cascade="all, delete-orphan",
+        overlaps="votes",
     )
-    reports: Mapped[List["CarReport"]] = relationship(
-        "CarReport", back_populates="car", cascade="all, delete-orphan"
+    reports: Mapped[List["Report"]] = relationship(
+        "Report",
+        foreign_keys="[Report.entity_id]",
+        primaryjoin="and_(Report.entity_id == Car.id, Report.entity_type == 'car')",
+        cascade="all, delete-orphan",
+        overlaps="reports",
     )

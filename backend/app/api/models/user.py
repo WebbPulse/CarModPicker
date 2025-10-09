@@ -8,15 +8,11 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .car import Car
     from .subscription import Subscription
-    from .global_part_vote import GlobalPartVote
-    from .global_part_report import GlobalPartReport
     from .global_part import GlobalPart
     from .build_list import BuildList
     from .build_list_part import BuildListPart
-    from .car_vote import CarVote
-    from .car_report import CarReport
-    from .build_list_vote import BuildListVote
-    from .build_list_report import BuildListReport
+    from .vote import Vote
+    from .report import Report
 
 
 class User(Base):
@@ -63,32 +59,13 @@ class User(Base):
     subscriptions: Mapped[List["Subscription"]] = relationship(
         "Subscription", back_populates="user", cascade="all, delete-orphan"
     )
-    global_part_votes: Mapped[List["GlobalPartVote"]] = relationship(
-        "GlobalPartVote", back_populates="user", cascade="all, delete-orphan"
+    # Unified votes and reports
+    votes: Mapped[List["Vote"]] = relationship(
+        "Vote", back_populates="user", cascade="all, delete-orphan"
     )
-    global_part_reports: Mapped[List["GlobalPartReport"]] = relationship(
-        "GlobalPartReport",
-        foreign_keys="GlobalPartReport.user_id",
-        back_populates="reporter",
-        cascade="all, delete-orphan",
-    )
-    # Car votes and reports
-    car_votes: Mapped[List["CarVote"]] = relationship(
-        "CarVote", back_populates="user", cascade="all, delete-orphan"
-    )
-    car_reports: Mapped[List["CarReport"]] = relationship(
-        "CarReport",
-        foreign_keys="CarReport.user_id",
-        back_populates="reporter",
-        cascade="all, delete-orphan",
-    )
-    # Build list votes and reports
-    build_list_votes: Mapped[List["BuildListVote"]] = relationship(
-        "BuildListVote", back_populates="user", cascade="all, delete-orphan"
-    )
-    build_list_reports: Mapped[List["BuildListReport"]] = relationship(
-        "BuildListReport",
-        foreign_keys="BuildListReport.user_id",
+    reports: Mapped[List["Report"]] = relationship(
+        "Report",
+        foreign_keys="Report.user_id",
         back_populates="reporter",
         cascade="all, delete-orphan",
     )
