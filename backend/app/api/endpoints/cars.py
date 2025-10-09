@@ -37,13 +37,16 @@ router = APIRouter()
 # Create service
 car_service = CarService()
 
-# Create base endpoint router
+# Create base endpoint router with all standard CRUD operations
 base_router = BaseEndpointRouter(
     service=car_service,
     router=router,
     entity_name="car",
     allow_public_read=True,  # Cars can be viewed publicly
     additional_create_data={},  # No additional data needed for cars
+    create_schema=CarCreate,
+    read_schema=CarRead,
+    update_schema=CarUpdate,
 )
 
 # Override search fields for cars
@@ -126,7 +129,7 @@ async def search_cars(
 @router.get(
     "/user/{user_id}",
     response_model=List[CarRead],
-    responses=pagination_responses("car", allow_public_read=False),
+    responses=pagination_responses("car", allow_public_read=True),
 )
 async def get_cars_by_user(
     user_id: int,
@@ -135,15 +138,10 @@ async def get_cars_by_user(
         100, ge=1, le=1000, description="Maximum number of cars to return"
     ),
     deps: dict = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
 ) -> List[CarRead]:
-    """Get cars by user ID with pagination."""
-    # Users can only see their own cars
-    if current_user.id != user_id:
-        ResponsePatterns.raise_forbidden("Not authorized to view other users' cars")
-
+    """Get cars by user ID with pagination. Public endpoint - anyone can view a user's cars."""
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_cars_by_user(
+    cars = car_service.get_by_user(
         db=deps["db"], user_id=user_id, skip=skip, limit=limit, logger=deps["logger"]
     )
     return [CarRead.model_validate(car) for car in cars]

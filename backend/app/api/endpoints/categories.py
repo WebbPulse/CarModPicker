@@ -71,7 +71,13 @@ base_router = BaseEndpointRouter(
     entity_name="category",
     allow_public_read=True,  # Categories can be viewed publicly
     additional_create_data={},  # No additional data needed
-    disable_endpoints=["list"],  # Disable automatic list endpoint to use custom one
+    disable_endpoints=[
+        "list",
+        "delete",
+    ],  # Disable automatic list and delete endpoints to use custom ones
+    create_schema=CategoryCreate,
+    read_schema=CategoryResponse,
+    update_schema=CategoryUpdate,
 )
 
 # Override search fields for categories

@@ -5,7 +5,7 @@ Unified vote service for all entity types.
 import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, case, Float
+from sqlalchemy import func, and_, or_, case, Float, exists, select
 from datetime import datetime, UTC, timedelta
 
 from app.api.models.vote import Vote as DBVote
@@ -287,15 +287,16 @@ class VoteService:
                     ),
                     else_=0.0,
                 ).label("downvote_ratio"),
-                func.exists()
-                .where(
-                    and_(
-                        DBVote.entity_type == entity_type.value,
-                        DBVote.entity_id == entity_model.id,
-                        DBVote.status == "pending",
+                exists(
+                    select(1)
+                    .select_from(DBVote)
+                    .where(
+                        and_(
+                            DBVote.entity_type == entity_type.value,
+                            DBVote.entity_id == entity_model.id,
+                        )
                     )
-                )
-                .label("has_reports"),
+                ).label("has_reports"),
             )
             .join(vote_stats, entity_model.id == vote_stats.c.entity_id)
             .filter(

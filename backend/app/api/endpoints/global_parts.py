@@ -62,6 +62,9 @@ base_router = BaseEndpointRouter(
     entity_name="global part",
     allow_public_read=True,  # Global parts can be viewed publicly
     additional_create_data={},  # No additional data needed for global parts
+    create_schema=GlobalPartCreate,
+    read_schema=GlobalPartRead,
+    update_schema=GlobalPartUpdate,
 )
 
 # Override search fields for global parts

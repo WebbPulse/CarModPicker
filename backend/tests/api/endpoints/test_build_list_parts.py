@@ -33,6 +33,8 @@ class TestBuildListParts:
             "year": 2020,
         }
         response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        if response.status_code != 200:
+            print(f"Car creation failed: {response.status_code} - {response.json()}")
         assert response.status_code == 200
         car = response.json()
 

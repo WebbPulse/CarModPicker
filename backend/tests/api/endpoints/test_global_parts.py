@@ -367,22 +367,22 @@ class TestGlobalParts:
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 422
-        error_detail = response.json()["detail"][0]
+        error_detail = response.json()["details"][0]
         assert error_detail["type"] == "less_than_equal"
-        assert "price" in error_detail["loc"]
+        assert "price" in error_detail["field"]
 
         # Test with negative price
         part_data["price"] = -1
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 422
-        error_detail = response.json()["detail"][0]
+        error_detail = response.json()["details"][0]
         assert error_detail["type"] == "greater_than_equal"
-        assert "price" in error_detail["loc"]
+        assert "price" in error_detail["field"]
 
         # Test with extremely large price
         part_data["price"] = 999999999999999999
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 422
-        error_detail = response.json()["detail"][0]
+        error_detail = response.json()["details"][0]
         assert error_detail["type"] == "less_than_equal"
-        assert "price" in error_detail["loc"]
+        assert "price" in error_detail["field"]

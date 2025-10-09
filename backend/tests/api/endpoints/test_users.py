@@ -99,7 +99,7 @@ def test_create_user_duplicate_username(
     }
     response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
     assert response.status_code == 400, response.text
-    assert "username already registered" in response.json()["detail"].lower()
+    assert "username already registered" in response.json()["message"].lower()
 
 
 def test_create_user_duplicate_email(client: TestClient, db_session: Session) -> None:
@@ -114,7 +114,7 @@ def test_create_user_duplicate_email(client: TestClient, db_session: Session) ->
     }
     response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
     assert response.status_code == 400, response.text
-    assert "email already registered" in response.json()["detail"].lower()
+    assert "email already registered" in response.json()["message"].lower()
 
 
 # --- Read User (/me) Tests ---
@@ -151,7 +151,7 @@ def test_read_user_by_id_success(client: TestClient, db_session: Session) -> Non
 def test_read_user_by_id_not_found(client: TestClient, db_session: Session) -> None:
     response = client.get(f"{settings.API_STR}/users/9999999")  # Non-existent ID
     assert response.status_code == 404
-    assert response.json()["detail"] == "User not found"
+    assert response.json()["message"] == "User not found"
 
 
 # --- Update User Tests ---
@@ -222,7 +222,7 @@ def test_update_own_user_incorrect_current_password(
     }
     response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
-    assert "incorrect current password" in response.json()["detail"].lower()
+    assert "incorrect current password" in response.json()["message"].lower()
 
 
 def test_update_other_user_forbidden(client: TestClient, db_session: Session) -> None:
@@ -244,7 +244,7 @@ def test_update_other_user_forbidden(client: TestClient, db_session: Session) ->
         f"{settings.API_STR}/users/{user_a_id}", json=update_payload
     )  # User B tries to update User A
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert response.json()["detail"] == "Not authorized to update this user"
+    assert response.json()["message"] == "Not authorized to update this user"
 
 
 def test_update_user_unauthenticated(client: TestClient, db_session: Session) -> None:
@@ -270,7 +270,7 @@ def test_update_user_not_found(client: TestClient, db_session: Session) -> None:
         f"{settings.API_STR}/users/9999998", json=update_payload  # Non-existent ID
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json()["detail"] == "User not found"
+    assert response.json()["message"] == "User not found"
 
 
 # --- Delete User Tests ---
@@ -313,7 +313,7 @@ def test_delete_other_user_forbidden(client: TestClient, db_session: Session) ->
         f"{settings.API_STR}/users/{user_a_id}"
     )  # User B tries to delete User A
     assert response.status_code == 403
-    assert response.json()["detail"] == "Not authorized to delete this user"
+    assert response.json()["message"] == "Not authorized to delete this user"
 
 
 def test_delete_user_unauthenticated(client: TestClient, db_session: Session) -> None:
@@ -331,7 +331,7 @@ def test_delete_user_not_found(client: TestClient, db_session: Session) -> None:
     response = client.delete(f"{settings.API_STR}/users/9999997")  # Non-existent ID
     assert response.status_code == 403  # Changed from 404
     assert (
-        response.json()["detail"] == "Not authorized to delete this user"
+        response.json()["message"] == "Not authorized to delete this user"
     )  # Changed detail
 
 
@@ -348,7 +348,7 @@ def test_update_user_conflict_username(client: TestClient, db_session: Session) 
         f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload
     )
     assert response.status_code == 400
-    assert "username already registered" in response.json()["detail"].lower()
+    assert "username already registered" in response.json()["message"].lower()
 
 
 def test_update_user_conflict_email(client: TestClient, db_session: Session) -> None:
@@ -364,4 +364,4 @@ def test_update_user_conflict_email(client: TestClient, db_session: Session) -> 
         f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload
     )
     assert response.status_code == 400
-    assert "email already registered" in response.json()["detail"].lower()
+    assert "email already registered" in response.json()["message"].lower()

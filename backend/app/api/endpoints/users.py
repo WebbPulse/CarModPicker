@@ -47,6 +47,10 @@ base_router = BaseEndpointRouter(
     entity_name="user",
     allow_public_read=False,  # Users are private
     additional_create_data={},  # No additional data needed
+    disable_endpoints=["create", "update", "delete"],  # Use custom endpoints instead
+    create_schema=UserCreate,
+    read_schema=UserRead,
+    update_schema=UserUpdate,
 )
 
 # Override search fields for users

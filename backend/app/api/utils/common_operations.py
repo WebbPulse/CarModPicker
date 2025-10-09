@@ -339,6 +339,8 @@ def create_entity(
     Returns:
         The created entity
     """
+    from sqlalchemy.exc import IntegrityError
+
     try:
         db_entity = model(**data)
         db.add(db_entity)
@@ -354,6 +356,31 @@ def create_entity(
         )
 
         return db_entity
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Failed to create {entity_name}: {str(e)}")
+
+        # Handle common integrity errors
+        error_detail_str = str(e).lower()
+        if "unique constraint" in error_detail_str or "duplicate" in error_detail_str:
+            if "name" in error_detail_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{entity_name.title()} with this name already exists",
+                )
+            elif "email" in error_detail_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{entity_name.title()} with this email already exists",
+                )
+            else:
+                raise HTTPException(
+                    status_code=400, detail=f"This {entity_name} already exists"
+                )
+        else:
+            raise HTTPException(
+                status_code=400, detail=f"Data validation failed for {entity_name}"
+            )
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create {entity_name}: {str(e)}")
@@ -382,6 +409,8 @@ def update_entity(
     Returns:
         The updated entity
     """
+    from sqlalchemy.exc import IntegrityError
+
     try:
         # Update model fields
         for key, value in update_data.items():
@@ -401,6 +430,31 @@ def update_entity(
         )
 
         return entity
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Failed to update {entity_name} {entity.id}: {str(e)}")
+
+        # Handle common integrity errors
+        error_detail_str = str(e).lower()
+        if "unique constraint" in error_detail_str or "duplicate" in error_detail_str:
+            if "name" in error_detail_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{entity_name.title()} with this name already exists",
+                )
+            elif "email" in error_detail_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{entity_name.title()} with this email already exists",
+                )
+            else:
+                raise HTTPException(
+                    status_code=400, detail=f"This {entity_name} already exists"
+                )
+        else:
+            raise HTTPException(
+                status_code=400, detail=f"Data validation failed for {entity_name}"
+            )
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update {entity_name} {entity.id}: {str(e)}")
@@ -427,6 +481,8 @@ def delete_entity(
     Returns:
         Success message
     """
+    from sqlalchemy.exc import IntegrityError
+
     try:
         entity_id = entity.id
         db.delete(entity)
@@ -441,6 +497,22 @@ def delete_entity(
         )
 
         return {"message": f"{entity_name.title()} deleted successfully"}
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Failed to delete {entity_name} {entity.id}: {str(e)}")
+
+        # Handle foreign key constraint errors
+        error_detail_str = str(e).lower()
+        if "foreign key" in error_detail_str or "constraint failed" in error_detail_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete {entity_name} because it is referenced by other records",
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete {entity_name} due to data integrity constraints",
+            )
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to delete {entity_name} {entity.id}: {str(e)}")

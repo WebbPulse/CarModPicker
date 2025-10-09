@@ -22,7 +22,7 @@ from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
     validate_pagination_params,
     get_entity_or_404,
-    verify_entity_ownership,
+    verify_user_access_or_admin,
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import (
@@ -46,6 +46,9 @@ base_router = BaseEndpointRouter(
     entity_name="build list",
     allow_public_read=False,  # Build lists are private
     additional_create_data={},  # No additional data needed
+    create_schema=BuildListCreate,
+    read_schema=BuildListRead,
+    update_schema=BuildListUpdate,
 )
 
 # Override search fields for build lists
@@ -80,8 +83,8 @@ async def read_build_lists_by_car(
     db_car = get_entity_or_404(db, DBCar, car_id, "car")
 
     # Check authorization - users can only access build lists for cars they own, or admins can access any
-    verify_entity_ownership(
-        current_user, db_car.user_id, "access this car's build lists"
+    verify_user_access_or_admin(
+        current_user, db_car.user_id, "access this car's build lists", logger
     )
 
     build_lists = (
@@ -159,7 +162,9 @@ async def read_build_lists_by_user(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Check authorization - users can only access their own build lists, or admins can access any
-    verify_entity_ownership(current_user, user_id, "access this user's build lists")
+    verify_user_access_or_admin(
+        current_user, user_id, "access this user's build lists", logger
+    )
 
     build_lists = (
         db.query(DBBuildList)
