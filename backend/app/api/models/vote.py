@@ -1,16 +1,16 @@
-from typing import Optional, TYPE_CHECKING
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, UniqueConstraint, Index
+from sqlalchemy import ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
-    from .user import User
-    from .car import Car
     from .build_list import BuildList
+    from .car import Car
     from .global_part import GlobalPart
+    from .user import User
 
 
 class Vote(Base):
@@ -18,42 +18,41 @@ class Vote(Base):
     Unified vote model that can be applied to any entity type.
     Uses polymorphic association to link votes to different entity types.
     """
+
     __tablename__ = "votes"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     vote_type: Mapped[str] = mapped_column(nullable=False)  # 'upvote', 'downvote'
-    
+
     # Polymorphic entity reference
     entity_type: Mapped[str] = mapped_column(nullable=False)  # 'car', 'build_list', 'global_part'
     entity_id: Mapped[int] = mapped_column(nullable=False)
-    
+
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="votes")
-    
+
     # Polymorphic relationships (these will be handled by the entity models)
     car: Mapped[Optional["Car"]] = relationship(
-        "Car", 
+        "Car",
         foreign_keys="[Vote.entity_id]",
         primaryjoin="and_(Vote.entity_id == Car.id, Vote.entity_type == 'car')",
-        viewonly=True
+        viewonly=True,
     )
     build_list: Mapped[Optional["BuildList"]] = relationship(
-        "BuildList", 
+        "BuildList",
         foreign_keys="[Vote.entity_id]",
         primaryjoin="and_(Vote.entity_id == BuildList.id, Vote.entity_type == 'build_list')",
-        viewonly=True
+        viewonly=True,
     )
     global_part: Mapped[Optional["GlobalPart"]] = relationship(
-        "GlobalPart", 
+        "GlobalPart",
         foreign_keys="[Vote.entity_id]",
         primaryjoin="and_(Vote.entity_id == GlobalPart.id, Vote.entity_type == 'global_part')",
-        viewonly=True
+        viewonly=True,
     )
 
     # Ensure one vote per user per entity

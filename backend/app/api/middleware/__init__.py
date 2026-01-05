@@ -3,8 +3,8 @@ Middleware package for the CarModPicker API.
 """
 
 from .rate_limiter import (
-    SophisticatedRateLimiter,
     RateLimitConfig,
+    SophisticatedRateLimiter,
     rate_limit_middleware,
 )
 

@@ -5,8 +5,9 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining category-specific functionality.
 """
 
-from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import Dict, List
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -18,21 +19,18 @@ from app.api.schemas.global_part import GlobalPartRead
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
-    get_standard_pagination_params,
-    validate_pagination_params,
+    PublicEndpointDeps,
     get_entity_or_404,
-    handle_integrity_error,
     get_standard_public_endpoint_dependencies,
+    handle_integrity_error,
+    validate_pagination_params,
 )
 from app.api.utils.endpoint_decorators import (
     crud_responses,
     pagination_responses,
-    admin_only,
     standard_responses,
 )
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
-from app.db.session import get_db
 
 
 # Create base CRUD service
@@ -41,7 +39,7 @@ class CategoryService(
 ):
     """Category service that extends the base CRUD service."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             model=DBCategory,
             entity_name="category",
@@ -52,7 +50,7 @@ class CategoryService(
         """Get all active categories ordered by sort order."""
         return (
             db.query(DBCategory)
-            .filter(DBCategory.is_active == True)
+            .filter(DBCategory.is_active.is_(True))
             .order_by(DBCategory.sort_order)
             .all()
         )
@@ -80,16 +78,14 @@ base_router = BaseEndpointRouter(
     create_schema=CategoryCreate,
     read_schema=CategoryResponse,
     update_schema=CategoryUpdate,
+    search_fields=["name", "description"],
 )
-
-# Override search fields for categories
-base_router._get_search_fields = lambda: ["name", "description"]
 
 
 # Custom endpoints specific to categories
 @router.get("/", response_model=List[CategoryResponse])
 async def get_categories(
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CategoryResponse]:
     """
     Get all active categories.
@@ -103,7 +99,7 @@ async def get_categories(
 @router.get("/{category_id}", response_model=CategoryResponse)
 async def get_category(
     category_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> CategoryResponse:
     """
     Get specific category details.
@@ -124,7 +120,7 @@ async def get_global_parts_by_category(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of parts to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[GlobalPartRead]:
     """
     Get global parts by category with pagination.
@@ -132,7 +128,7 @@ async def get_global_parts_by_category(
     db = deps["db"]
 
     # First verify the category exists
-    category = get_entity_or_404(db, DBCategory, category_id, "category")
+    _ = get_entity_or_404(db, DBCategory, category_id, "category")
 
     # Validate pagination parameters
     skip, limit = validate_pagination_params(skip, limit)
@@ -155,14 +151,13 @@ async def get_global_parts_by_category(
 )
 async def create_category(
     category: CategoryCreate,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CategoryResponse:
     """
     Create a new category (admin only).
     """
     db = deps["db"]
-    logger = deps["logger"]
 
     # Check if category with same name already exists
     existing_category = (
@@ -188,7 +183,7 @@ async def create_category(
 async def update_category(
     category_id: int,
     category: CategoryUpdate,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CategoryResponse:
     """
@@ -222,6 +217,7 @@ async def update_category(
     except Exception as e:
         deps["db"].rollback()
         handle_integrity_error(e, "category")
+        raise  # Type narrowing
 
 
 @router.delete(
@@ -231,7 +227,7 @@ async def update_category(
 )
 async def delete_category(
     category_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CategoryResponse:
     """
@@ -269,8 +265,8 @@ async def delete_category(
 )
 async def get_category_parts_count(
     category_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-) -> dict[str, int]:
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
     """
     Get the count of parts in a specific category.
     """

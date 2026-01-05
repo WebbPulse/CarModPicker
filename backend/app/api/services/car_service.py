@@ -2,14 +2,15 @@
 Car service that extends BaseCRUDService to eliminate redundancy.
 """
 
-from typing import List, Optional, Dict, Any
+import logging
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
 from app.api.schemas.car import CarCreate, CarRead, CarUpdate
 from app.api.services.base_crud_service import BaseCRUDService
-from app.core.logging import get_logger
 
 
 class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
@@ -20,7 +21,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     and only implementing car-specific logic.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the car service."""
         super().__init__(
             model=DBCar,
@@ -35,7 +36,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         year: Optional[int] = None,
         skip: int = 0,
         limit: int = 100,
-        logger=None,
+        logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
         Get cars filtered by make and/or year.
@@ -51,7 +52,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         Returns:
             List of cars matching the filters
         """
-        filters = {}
+        filters: Dict[str, Any] = {}
         if make:
             filters["make"] = make
         if year:
@@ -71,7 +72,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         search_term: str,
         skip: int = 0,
         limit: int = 100,
-        logger=None,
+        logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
         Search cars by make, model, or year.
@@ -100,7 +101,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         db: Session,
         skip: int = 0,
         limit: int = 100,
-        logger=None,
+        logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
         Get cars with owner details loaded.
@@ -128,7 +129,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         db: Session,
         car_id: int,
         current_user: DBUser,
-        logger=None,
+        logger: Optional[logging.Logger] = None,
     ) -> DBCar:
         """
         Verify that a car exists and belongs to the current user.

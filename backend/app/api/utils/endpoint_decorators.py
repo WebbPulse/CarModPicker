@@ -5,12 +5,17 @@ This module provides decorators that automatically add consistent response docum
 and error handling patterns to FastAPI endpoints.
 """
 
-from typing import Any, Dict, List, Optional, Type, Union, Callable
+from collections.abc import Awaitable
 from functools import wraps
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import JSONResponse
+from typing import Annotated, Any, Callable, Dict, Optional, ParamSpec, TypeVar, cast
+
+from fastapi import Query
 
 from .response_patterns import ResponsePatterns
+
+# Type variables for decorators
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 def standard_responses(
@@ -20,8 +25,8 @@ def standard_responses(
     forbidden: bool = False,
     validation_error: bool = False,
     conflict: bool = False,
-    custom_responses: Optional[Dict[int, Dict[str, Any]]] = None,
-) -> Dict[int, Dict[str, Any]]:
+    custom_responses: Optional[Dict[int | str, Dict[str, Any]]] = None,
+) -> Dict[int | str, Dict[str, Any]]:
     """
     Generate standardized response documentation for endpoints.
 
@@ -37,7 +42,7 @@ def standard_responses(
     Returns:
         Dictionary of response codes and their documentation
     """
-    responses = {
+    responses: Dict[int | str, Dict[str, Any]] = {
         200: {"description": success_description},
     }
 
@@ -57,7 +62,8 @@ def standard_responses(
         responses[409] = {"description": "Resource conflict"}
 
     if custom_responses:
-        responses.update(custom_responses)
+        for key, value in custom_responses.items():
+            responses[key] = value
 
     return responses
 
@@ -66,8 +72,8 @@ def crud_responses(
     entity_name: str,
     operation: str,
     allow_public_read: bool = False,
-    custom_responses: Optional[Dict[int, Dict[str, Any]]] = None,
-) -> Dict[int, Dict[str, Any]]:
+    custom_responses: Optional[Dict[int | str, Dict[str, Any]]] = None,
+) -> Dict[int | str, Dict[str, Any]]:
     """
     Generate standardized CRUD operation response documentation.
 
@@ -80,7 +86,7 @@ def crud_responses(
     Returns:
         Dictionary of response codes and their documentation
     """
-    base_responses = {}
+    base_responses: Dict[int | str, Dict[str, Any]] = {}
 
     if operation == "create":
         base_responses = {
@@ -132,7 +138,8 @@ def crud_responses(
             }
 
     if custom_responses:
-        base_responses.update(custom_responses)
+        for key, value in custom_responses.items():
+            base_responses[key] = value
 
     return base_responses
 
@@ -140,8 +147,8 @@ def crud_responses(
 def pagination_responses(
     entity_name: str,
     allow_public_read: bool = False,
-    custom_responses: Optional[Dict[int, Dict[str, Any]]] = None,
-) -> Dict[int, Dict[str, Any]]:
+    custom_responses: Optional[Dict[int | str, Dict[str, Any]]] = None,
+) -> Dict[int | str, Dict[str, Any]]:
     """
     Generate standardized pagination response documentation.
 
@@ -153,7 +160,7 @@ def pagination_responses(
     Returns:
         Dictionary of response codes and their documentation
     """
-    base_responses = {
+    base_responses: Dict[int | str, Dict[str, Any]] = {
         200: {"description": f"List of {entity_name}s retrieved successfully"},
     }
 
@@ -162,7 +169,8 @@ def pagination_responses(
         base_responses[403] = {"description": f"Not authorized to list {entity_name}s"}
 
     if custom_responses:
-        base_responses.update(custom_responses)
+        for key, value in custom_responses.items():
+            base_responses[key] = value
 
     return base_responses
 
@@ -170,8 +178,8 @@ def pagination_responses(
 def search_responses(
     entity_name: str,
     allow_public_read: bool = False,
-    custom_responses: Optional[Dict[int, Dict[str, Any]]] = None,
-) -> Dict[int, Dict[str, Any]]:
+    custom_responses: Optional[Dict[int | str, Dict[str, Any]]] = None,
+) -> Dict[int | str, Dict[str, Any]]:
     """
     Generate standardized search response documentation.
 
@@ -183,7 +191,7 @@ def search_responses(
     Returns:
         Dictionary of response codes and their documentation
     """
-    base_responses = {
+    base_responses: Dict[int | str, Dict[str, Any]] = {
         200: {
             "description": f"Search results for {entity_name}s retrieved successfully"
         },
@@ -197,16 +205,17 @@ def search_responses(
         }
 
     if custom_responses:
-        base_responses.update(custom_responses)
+        for key, value in custom_responses.items():
+            base_responses[key] = value
 
     return base_responses
 
 
 def standard_pagination_params(
-    skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of items to return"
-    ),
+    skip: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
+    limit: Annotated[
+        int, Query(ge=1, le=1000, description="Maximum number of items to return")
+    ] = 100,
 ) -> tuple[int, int]:
     """
     Standard pagination parameters for endpoints.
@@ -244,7 +253,7 @@ def ownership_verification(
     user_id_field: str = "user_id",
     not_found_detail: Optional[str] = None,
     forbidden_detail: Optional[str] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     """
     Decorator for verifying entity ownership.
 
@@ -259,30 +268,36 @@ def ownership_verification(
         Decorator function
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract parameters from kwargs
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Extract parameters from kwargs with proper typing
             entity_id = kwargs.get(entity_id_param)
-            db = kwargs.get("db")
-            current_user = kwargs.get("current_user")
-            logger = kwargs.get("logger")
+            db_value = kwargs.get("db")
+            user_value = kwargs.get("current_user")
 
-            if not all([entity_id, db, current_user]):
+            if not all([entity_id, db_value, user_value]):
                 raise ValueError(
                     f"Missing required parameters for ownership verification: {entity_name}"
                 )
 
-            # Get entity and verify ownership
+            from sqlalchemy.orm import Session
+            from app.api.models.user import User as DBUser
+
+            db = cast(Session, db_value)
+            current_user = cast(DBUser, user_value)
+            model_class = func.__annotations__["return"]
             entity = (
-                db.query(func.__annotations__["return"])
-                .filter(getattr(func.__annotations__["return"], "id") == entity_id)
+                db.query(model_class)
+                .filter(getattr(model_class, "id") == entity_id)
                 .first()
             )
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(entity_name, entity_id)
+                ResponsePatterns.raise_not_found(
+                    entity_name, int(entity_id) if isinstance(entity_id, int) else 0
+                )
 
             if getattr(entity, user_id_field) != current_user.id:
                 detail = (
@@ -297,28 +312,33 @@ def ownership_verification(
     return decorator
 
 
-def admin_only(func: Callable) -> Callable:
+def admin_only(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     """
     Decorator to ensure only admin users can access an endpoint.
     """
 
     @wraps(func)
-    async def wrapper(*args, **kwargs):
-        current_user = kwargs.get("current_user")
-        if not current_user or not current_user.is_admin:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        from app.api.models.user import User as DBUser
+
+        user_value = kwargs.get("current_user")
+        if not user_value:
+            ResponsePatterns.raise_forbidden("Admin access required")
+        current_user = cast(DBUser, user_value)
+        if not current_user.is_admin:
             ResponsePatterns.raise_forbidden("Admin access required")
         return await func(*args, **kwargs)
 
     return wrapper
 
 
-def public_read_optional(func: Callable) -> Callable:
+def public_read_optional(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     """
     Decorator to make an endpoint optionally public readable.
     """
 
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         # This decorator can be used to modify response models or add public access
         # Implementation depends on specific use case
         return await func(*args, **kwargs)

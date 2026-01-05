@@ -8,8 +8,8 @@ Create Date: 2025-08-24 16:13:18.177839
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -25,9 +25,7 @@ def upgrade() -> None:
     op.rename_table("parts", "global_parts")
 
     # Update foreign key references in build_list_parts table
-    op.drop_constraint(
-        "build_list_parts_part_id_fkey", "build_list_parts", type_="foreignkey"
-    )
+    op.drop_constraint("build_list_parts_part_id_fkey", "build_list_parts", type_="foreignkey")
     op.create_foreign_key(
         "build_list_parts_global_part_id_fkey",
         "build_list_parts",
@@ -64,42 +62,28 @@ def upgrade() -> None:
 
     # Update unique constraint in part_votes table
     op.drop_constraint("unique_user_part_vote", "part_votes", type_="unique")
-    op.create_unique_constraint(
-        "unique_user_global_part_vote", "part_votes", ["user_id", "global_part_id"]
-    )
+    op.create_unique_constraint("unique_user_global_part_vote", "part_votes", ["user_id", "global_part_id"])
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # Revert unique constraint in part_votes table
     op.drop_constraint("unique_user_global_part_vote", "part_votes", type_="unique")
-    op.create_unique_constraint(
-        "unique_user_part_vote", "part_votes", ["user_id", "part_id"]
-    )
+    op.create_unique_constraint("unique_user_part_vote", "part_votes", ["user_id", "part_id"])
 
     # Revert foreign key references in part_reports table
     op.alter_column("part_reports", "global_part_id", new_column_name="part_id")
-    op.drop_constraint(
-        "part_reports_global_part_id_fkey", "part_reports", type_="foreignkey"
-    )
-    op.create_foreign_key(
-        "part_reports_part_id_fkey", "part_reports", "parts", ["part_id"], ["id"]
-    )
+    op.drop_constraint("part_reports_global_part_id_fkey", "part_reports", type_="foreignkey")
+    op.create_foreign_key("part_reports_part_id_fkey", "part_reports", "parts", ["part_id"], ["id"])
 
     # Revert foreign key references in part_votes table
     op.alter_column("part_votes", "global_part_id", new_column_name="part_id")
-    op.drop_constraint(
-        "part_votes_global_part_id_fkey", "part_votes", type_="foreignkey"
-    )
-    op.create_foreign_key(
-        "part_votes_part_id_fkey", "part_votes", "parts", ["part_id"], ["id"]
-    )
+    op.drop_constraint("part_votes_global_part_id_fkey", "part_votes", type_="foreignkey")
+    op.create_foreign_key("part_votes_part_id_fkey", "part_votes", "parts", ["part_id"], ["id"])
 
     # Revert foreign key references in build_list_parts table
     op.alter_column("build_list_parts", "global_part_id", new_column_name="part_id")
-    op.drop_constraint(
-        "build_list_parts_global_part_id_fkey", "build_list_parts", type_="foreignkey"
-    )
+    op.drop_constraint("build_list_parts_global_part_id_fkey", "build_list_parts", type_="foreignkey")
     op.create_foreign_key(
         "build_list_parts_part_id_fkey",
         "build_list_parts",

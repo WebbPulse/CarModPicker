@@ -3,25 +3,24 @@ Unified vote service for all entity types.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, case, Float, exists, select
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
+from typing import List, Optional, Type, Union
 
-from app.api.models.vote import Vote as DBVote
-from app.api.models.user import User as DBUser
-from app.api.models.car import Car as DBCar
+from fastapi import HTTPException
+from sqlalchemy import Float, and_, case, exists, func, or_, select
+from sqlalchemy.orm import Session
+
 from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
-    VoteCreate,
-    VoteRead,
-    VoteSummary,
-    FlaggedEntitySummary,
     EntityType,
+    FlaggedEntitySummary,
+    VoteCreate,
+    VoteSummary,
 )
 from app.api.utils.common_operations import verify_entity_exists
-from fastapi import HTTPException
 
 
 class VoteService:
@@ -32,7 +31,7 @@ class VoteService:
     using the unified Vote model.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the unified vote service."""
         pass
 
@@ -193,10 +192,10 @@ class VoteService:
         )
 
         upvotes = sum(
-            count.count for count in vote_counts if count.vote_type == "upvote"
+            int(count[1]) for count in vote_counts if count.vote_type == "upvote"
         )
         downvotes = sum(
-            count.count for count in vote_counts if count.vote_type == "downvote"
+            int(count[1]) for count in vote_counts if count.vote_type == "downvote"
         )
         total_votes = upvotes + downvotes
         vote_score = upvotes - downvotes
@@ -352,10 +351,21 @@ class VoteService:
                 created_at=entity.created_at,
                 flagged_at=datetime.now(UTC),
             )
-            for entity, upvotes, downvotes, total_votes, recent_downvotes, vote_score, downvote_ratio, has_reports in flagged_entities
+            for (
+                entity,
+                upvotes,
+                downvotes,
+                total_votes,
+                recent_downvotes,
+                vote_score,
+                downvote_ratio,
+                has_reports,
+            ) in flagged_entities
         ]
 
-    def _get_entity_model(self, entity_type: EntityType):
+    def _get_entity_model(
+        self, entity_type: EntityType
+    ) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.CAR:
             return DBCar
@@ -366,13 +376,13 @@ class VoteService:
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_name(self, entity, entity_type: EntityType) -> str:
+    def _get_entity_name(
+        self, entity: Union[DBCar, DBBuildList, DBGlobalPart], entity_type: EntityType
+    ) -> str:
         """Get the display name for an entity."""
         if entity_type == EntityType.CAR:
-            return f"{entity.make} {entity.model} {entity.year}"
+            return str(f"{entity.make} {entity.model} {entity.year}")
         elif entity_type == EntityType.BUILD_LIST:
-            return entity.name
-        elif entity_type == EntityType.GLOBAL_PART:
-            return entity.name
-        else:
-            return str(entity.id)
+            return str(entity.name)
+        else:  # EntityType.GLOBAL_PART
+            return str(entity.name)

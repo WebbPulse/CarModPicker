@@ -8,15 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
     auth,
-    build_lists,
     build_list_parts,
+    build_lists,
     cars,
-    global_parts,
-    users,
-    subscriptions,
     categories,
-    votes,
+    global_parts,
     reports,
+    subscriptions,
+    users,
+    votes,
 )
 from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
@@ -38,11 +38,7 @@ def run_migrations() -> None:
     try:
         logger.info("Running database migrations...")
         # Determine the correct working directory for alembic
-        cwd = (
-            "/app"
-            if os.path.exists("/app/alembic")
-            else os.path.dirname(os.path.dirname(__file__))
-        )
+        cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
         result = subprocess.run(
             ["alembic", "upgrade", "head"],
             cwd=cwd,
@@ -87,13 +83,9 @@ endpoint_registry = EndpointRegistry(app)
 
 # Register all endpoints using the registry
 # Core CRUD endpoints
-endpoint_registry.register_crud_endpoint(
-    users.router, entity_name="users", description="User management operations"
-)
+endpoint_registry.register_crud_endpoint(users.router, entity_name="users", description="User management operations")
 
-endpoint_registry.register_crud_endpoint(
-    cars.router, entity_name="cars", description="Car management operations"
-)
+endpoint_registry.register_crud_endpoint(cars.router, entity_name="cars", description="Car management operations")
 
 endpoint_registry.register_crud_endpoint(
     build_lists.router,

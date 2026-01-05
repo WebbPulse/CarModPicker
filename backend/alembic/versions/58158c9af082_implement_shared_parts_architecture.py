@@ -8,8 +8,8 @@ Create Date: 2025-08-19 22:58:45.172590
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -44,14 +44,10 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_build_list_parts_id"), "build_list_parts", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_build_list_parts_id"), "build_list_parts", ["id"], unique=False)
     op.add_column("build_lists", sa.Column("created_at", sa.DateTime(), nullable=True))
     op.add_column("build_lists", sa.Column("updated_at", sa.DateTime(), nullable=True))
-    op.add_column(
-        "parts", sa.Column("user_id", sa.Integer(), nullable=True)
-    )  # Temporarily nullable for migration
+    op.add_column("parts", sa.Column("user_id", sa.Integer(), nullable=True))  # Temporarily nullable for migration
     op.add_column("parts", sa.Column("brand", sa.String(), nullable=True))
     op.add_column("parts", sa.Column("specifications", sa.JSON(), nullable=True))
     op.add_column("parts", sa.Column("is_verified", sa.Boolean(), nullable=True))
@@ -137,15 +133,9 @@ def downgrade() -> None:
     )
     op.create_index(op.f("ix_parts_price"), "parts", ["price"], unique=False)
     op.create_index(op.f("ix_parts_part_type"), "parts", ["part_type"], unique=False)
-    op.create_index(
-        op.f("ix_parts_part_number"), "parts", ["part_number"], unique=False
-    )
-    op.create_index(
-        op.f("ix_parts_manufacturer"), "parts", ["manufacturer"], unique=False
-    )
-    op.create_index(
-        op.f("ix_parts_description"), "parts", ["description"], unique=False
-    )
+    op.create_index(op.f("ix_parts_part_number"), "parts", ["part_number"], unique=False)
+    op.create_index(op.f("ix_parts_manufacturer"), "parts", ["manufacturer"], unique=False)
+    op.create_index(op.f("ix_parts_description"), "parts", ["description"], unique=False)
     op.drop_column("parts", "updated_at")
     op.drop_column("parts", "created_at")
     op.drop_column("parts", "edit_count")

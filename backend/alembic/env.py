@@ -3,7 +3,7 @@ import sys
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, engine_from_config, pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
 

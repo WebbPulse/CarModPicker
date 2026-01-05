@@ -1,24 +1,23 @@
-import os
 import gc
-from typing import Generator, Dict, Optional, Any
-from unittest.mock import patch
+import os
+from typing import Any, Dict, Generator, Optional
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # Disable rate limiting for tests
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
-# Import after environment setup
-from app.db.base import Base
-from app.db.session import get_db
-from app.api.models.category import Category
-from app.api.models.user import User
-from app.api.dependencies.auth import get_password_hash
-from app.main import app as fastapi_app
+# Import after environment setup - environment variables must be set before importing app code
+from app.api.dependencies.auth import get_password_hash  # noqa: E402
+from app.api.models.category import Category  # noqa: E402
+from app.api.models.user import User  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.db.session import get_db  # noqa: E402
+from app.main import app as fastapi_app  # noqa: E402
 
 
 # Get worker ID for parallel testing
@@ -39,11 +38,11 @@ def get_test_database_url() -> str:
 
 
 # Global session factory for testing
-TestingSessionLocal: Optional[sessionmaker] = None
+TestingSessionLocal: Optional[sessionmaker[Session]] = None
 _test_engine: Optional[Any] = None
 
 
-def get_test_session_factory() -> sessionmaker:
+def get_test_session_factory() -> sessionmaker[Session]:
     """Get the test session factory, creating it if needed."""
     global TestingSessionLocal, _test_engine
 
@@ -60,9 +59,7 @@ def get_test_session_factory() -> sessionmaker:
     # Create all tables
     Base.metadata.create_all(bind=_test_engine)
 
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=_test_engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_test_engine)
     return TestingSessionLocal
 
 
@@ -266,9 +263,7 @@ def get_default_category_id(db_session: Session) -> int:
     return category.id
 
 
-def login_user(
-    client: TestClient, username: str, password: str = "testpassword"
-) -> None:
+def login_user(client: TestClient, username: str, password: str = "testpassword") -> None:
     """Login a user and set the authentication cookie for subsequent requests."""
     from app.core.config import settings
 
@@ -282,8 +277,8 @@ def create_and_login_user(
     client: TestClient,
     username: str,
     password_override: str = "testpassword",
-    db_session: Session = None,
-) -> dict:
+    db_session: Optional[Session] = None,
+) -> Dict[str, Any]:
     """Create a user and log them in, returning the user info."""
     from app.core.config import settings
 
@@ -295,7 +290,7 @@ def create_and_login_user(
     }
     response = client.post(f"{settings.API_STR}/users/", json=user_data)
     assert response.status_code == 200
-    user_data_response = response.json()
+    user_data_response: Dict[str, Any] = response.json()
     assert isinstance(user_data_response, dict)
 
     # Manually verify the email for testing purposes
@@ -337,9 +332,9 @@ def create_car_for_user_cookie_auth(client: TestClient) -> int:
     }
     response = client.post(f"{settings.API_STR}/cars/", json=car_data)
     assert response.status_code == 200
-    car_data_response = response.json()
+    car_data_response: Dict[str, Any] = response.json()
     assert isinstance(car_data_response, dict)
-    car_id = car_data_response["id"]
+    car_id: int = car_data_response["id"]
     assert isinstance(car_id, int)
     return car_id
 
@@ -356,7 +351,7 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     }
     response = client.post(f"{settings.API_STR}/auth/register", json=user_data)
     assert response.status_code == 200
-    admin_user_data = response.json()
+    admin_user_data: Dict[str, Any] = response.json()
     assert isinstance(admin_user_data, dict)
 
     # Login
@@ -366,10 +361,14 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     # This is a test utility function, so this is acceptable
     from app.api.models.user import User
 
+    user_id: int = admin_user_data.get("id", 0)
+    user_name: str = admin_user_data.get("username", "")
+    user_email: str = admin_user_data.get("email", "")
+
     return User(
-        id=admin_user_data.get("id", 0),
-        username=admin_user_data.get("username", ""),
-        email=admin_user_data.get("email", ""),
+        id=user_id,
+        username=user_name,
+        email=user_email,
         hashed_password="",
         email_verified=True,
         disabled=False,

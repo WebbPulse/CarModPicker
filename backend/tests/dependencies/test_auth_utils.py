@@ -53,9 +53,7 @@ def test_create_access_token() -> None:
     assert "exp" in payload
 
     # Check default expiration
-    expected_exp_datetime = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expected_exp_datetime = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     actual_exp_datetime = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
     # Allow a small delta for execution time
     assert abs((expected_exp_datetime - actual_exp_datetime).total_seconds()) < 5

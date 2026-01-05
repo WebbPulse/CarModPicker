@@ -6,18 +6,17 @@ standardized response formats using ResponsePatterns.
 """
 
 import logging
-from typing import Any, Dict
-from fastapi import Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import HTTPException, RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from typing import Awaitable, Callable, Dict, List
 
-from ..utils.response_patterns import ResponsePatterns
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.responses import JSONResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
 
 
-async def error_handler_middleware(request: Request, call_next):
+async def error_handler_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """
     Middleware to catch and standardize all error responses.
 
@@ -35,16 +34,16 @@ async def error_handler_middleware(request: Request, call_next):
         # Handle FastAPI HTTPExceptions
         return handle_http_exception(exc)
     except StarletteHTTPException as exc:
-        # Handle Starlette HTTPExceptions
-        return handle_http_exception(exc)
+        # Handle Starlette HTTPExceptions - convert to FastAPI HTTPException
+        headers_dict = dict(exc.headers) if exc.headers else None
+        fastapi_exc = HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers_dict)
+        return handle_http_exception(fastapi_exc)
     except RequestValidationError as exc:
         # Handle validation errors
         return handle_validation_error(exc)
     except Exception as exc:
         # Handle unexpected errors
-        logger.error(
-            f"Unexpected error in {request.url.path}: {str(exc)}", exc_info=True
-        )
+        logger.error(f"Unexpected error in {request.url.path}: {str(exc)}", exc_info=True)
         return handle_unexpected_error(exc)
 
 
@@ -58,23 +57,14 @@ def handle_http_exception(exc: HTTPException) -> JSONResponse:
     Returns:
         Standardized JSONResponse
     """
-    # Check if the exception already has standardized format
-    if isinstance(exc.detail, dict) and "success" in exc.detail:
-        # Already standardized, return as is
-        return JSONResponse(
-            content=exc.detail, status_code=exc.status_code, headers=exc.headers
-        )
-
     # Convert to standardized format
-    error_data = {
+    error_data: Dict[str, str | bool] = {
         "success": False,
         "message": str(exc.detail),
         "error_code": get_error_code(exc.status_code),
     }
 
-    return JSONResponse(
-        content=error_data, status_code=exc.status_code, headers=exc.headers
-    )
+    return JSONResponse(content=error_data, status_code=exc.status_code, headers=exc.headers)
 
 
 def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
@@ -87,7 +77,7 @@ def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
     Returns:
         Standardized JSONResponse
     """
-    error_details = []
+    error_details: List[Dict[str, str]] = []
     for error in exc.errors():
         error_details.append(
             {
@@ -97,16 +87,14 @@ def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
             }
         )
 
-    error_data = {
+    error_data: Dict[str, str | bool | List[Dict[str, str]]] = {
         "success": False,
         "message": "Validation error",
         "error_code": "VALIDATION_ERROR",
         "details": error_details,
     }
 
-    return JSONResponse(
-        content=error_data, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
-    )
+    return JSONResponse(content=error_data, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 def handle_unexpected_error(exc: Exception) -> JSONResponse:
@@ -119,15 +107,13 @@ def handle_unexpected_error(exc: Exception) -> JSONResponse:
     Returns:
         Standardized JSONResponse
     """
-    error_data = {
+    error_data: Dict[str, str | bool] = {
         "success": False,
         "message": "Internal server error",
         "error_code": "INTERNAL_ERROR",
     }
 
-    return JSONResponse(
-        content=error_data, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-    )
+    return JSONResponse(content=error_data, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def get_error_code(status_code: int) -> str:
@@ -157,7 +143,7 @@ def get_error_code(status_code: int) -> str:
     return error_codes.get(status_code, "UNKNOWN_ERROR")
 
 
-def register_error_handlers(app):
+def register_error_handlers(app: FastAPI) -> None:
     """
     Register error handlers with FastAPI app.
 
@@ -166,18 +152,20 @@ def register_error_handlers(app):
     """
 
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException):
+    async def http_exception_handler(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
         return handle_http_exception(exc)
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
+    async def validation_exception_handler(  # pyright: ignore[reportUnusedFunction]
         request: Request, exc: RequestValidationError
-    ):
+    ) -> JSONResponse:
         return handle_validation_error(exc)
 
     @app.exception_handler(Exception)
-    async def general_exception_handler(request: Request, exc: Exception):
-        logger.error(
-            f"Unhandled exception in {request.url.path}: {str(exc)}", exc_info=True
-        )
+    async def general_exception_handler(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        logger.error(f"Unhandled exception in {request.url.path}: {str(exc)}", exc_info=True)
         return handle_unexpected_error(exc)

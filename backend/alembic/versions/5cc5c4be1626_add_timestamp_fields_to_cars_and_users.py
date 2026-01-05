@@ -9,8 +9,8 @@ Create Date: 2025-09-01 16:49:26.985078
 from typing import Sequence, Union
 from datetime import datetime, UTC
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -28,9 +28,7 @@ def upgrade() -> None:
 
     # Set default values for existing records
     current_time = datetime.now(UTC)
-    op.execute(
-        f"UPDATE cars SET created_at = '{current_time}', updated_at = '{current_time}'"
-    )
+    op.execute(f"UPDATE cars SET created_at = '{current_time}', updated_at = '{current_time}'")
 
     # Make columns non-nullable after setting defaults
     op.alter_column("cars", "created_at", nullable=False)
@@ -41,9 +39,7 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("updated_at", sa.DateTime(), nullable=True))
 
     # Set default values for existing records
-    op.execute(
-        f"UPDATE users SET created_at = '{current_time}', updated_at = '{current_time}'"
-    )
+    op.execute(f"UPDATE users SET created_at = '{current_time}', updated_at = '{current_time}'")
 
     # Make columns non-nullable after setting defaults
     op.alter_column("users", "created_at", nullable=False)

@@ -3,24 +3,25 @@ Unified report service for all entity types.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, desc
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional, Type, Union
 
+from fastapi import HTTPException
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
+from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.car import Car as DBCar
+from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
-from app.api.models.car import Car as DBCar
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.schemas.report import (
+    EntityType,
     ReportCreate,
     ReportRead,
     ReportWithDetails,
-    EntityType,
 )
 from app.api.utils.common_operations import verify_entity_exists
-from fastapi import HTTPException
 
 
 class ReportService:
@@ -31,7 +32,7 @@ class ReportService:
     using the unified Report model.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the unified report service."""
         pass
 
@@ -85,9 +86,7 @@ class ReportService:
         )
 
         if existing_report:
-            raise HTTPException(
-                status_code=400, detail="You have already reported this entity"
-            )
+            raise HTTPException(status_code=400, detail="You have already reported this entity")
 
         # Create new report
         db_report = DBReport(
@@ -101,9 +100,7 @@ class ReportService:
         db.commit()
         db.refresh(db_report)
 
-        logger.info(
-            f"Report created: {db_report.id} by user {user_id} on {entity_type.value} {entity_id}"
-        )
+        logger.info(f"Report created: {db_report.id} by user {user_id} on {entity_type.value} {entity_id}")
         return db_report
 
     def get_reports(
@@ -137,9 +134,7 @@ class ReportService:
         if status:
             query = query.filter(DBReport.status == status)
 
-        reports = (
-            query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
-        )
+        reports = query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
 
         return [ReportRead.model_validate(report) for report in reports]
 
@@ -179,18 +174,14 @@ class ReportService:
             query = query.filter(DBReport.status == status)
 
         # Get entity details based on type
-        entity_details = []
-        for report, reporter_username, reporter_id in (
-            query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
-        ):
+        entity_details: List[ReportWithDetails] = []
+        for report, reporter_username, _ in query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all():
             entity = self._get_entity_details(db, report.entity_type, report.entity_id)
 
             # Get reviewer username if reviewed
             reviewer_username = None
             if report.reviewed_by:
-                reviewer = (
-                    db.query(DBUser).filter(DBUser.id == report.reviewed_by).first()
-                )
+                reviewer = db.query(DBUser).filter(DBUser.id == report.reviewed_by).first()
                 reviewer_username = reviewer.username if reviewer else None
 
             entity_details.append(
@@ -256,9 +247,7 @@ class ReportService:
         db.refresh(report)
 
         if logger:
-            logger.info(
-                f"Report updated: {report_id} by reviewer {reviewer_id} to status {status}"
-            )
+            logger.info(f"Report updated: {report_id} by reviewer {reviewer_id} to status {status}")
 
         return report
 
@@ -317,9 +306,7 @@ class ReportService:
         if status:
             query = query.filter(DBReport.status == status)
 
-        reports = (
-            query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
-        )
+        reports = query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
 
         if logger:
             logger.info(f"Retrieved {len(reports)} reports by user {user_id}")
@@ -363,7 +350,7 @@ class ReportService:
         if not result:
             return None
 
-        report, reporter_username, reporter_id = result
+        report, reporter_username, _ = result
 
         # Authorization check: user can only see their own reports unless they're admin
         if not is_admin and report.user_id != current_user_id:
@@ -397,7 +384,7 @@ class ReportService:
             reviewer_username=reviewer_username,
         )
 
-    def _get_entity_model(self, entity_type: EntityType):
+    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.CAR:
             return DBCar
@@ -408,9 +395,7 @@ class ReportService:
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_details(
-        self, db: Session, entity_type: str, entity_id: int
-    ) -> Dict[str, Any]:
+    def _get_entity_details(self, db: Session, entity_type: str, entity_id: int) -> Dict[str, Any]:
         """Get entity details for report display."""
         if entity_type == "car":
             entity = db.query(DBCar).filter(DBCar.id == entity_id).first()

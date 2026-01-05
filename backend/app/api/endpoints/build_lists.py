@@ -5,11 +5,9 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining build list-specific functionality.
 """
 
-import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -17,21 +15,17 @@ from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.build_list_service import BuildListService
-from app.api.services.subscription_service import SubscriptionService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
-    validate_pagination_params,
+    PublicEndpointDeps,
     get_entity_or_404,
-    verify_user_access_or_admin,
     get_standard_public_endpoint_dependencies,
+    validate_pagination_params,
+    verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
-    crud_responses,
 )
-from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
-from app.db.session import get_db
 
 # Create router
 router = APIRouter()
@@ -49,10 +43,8 @@ base_router = BaseEndpointRouter(
     create_schema=BuildListCreate,
     read_schema=BuildListRead,
     update_schema=BuildListUpdate,
+    search_fields=["name", "description"],
 )
-
-# Override search fields for build lists
-base_router._get_search_fields = lambda: ["name", "description"]
 
 
 # Add custom endpoints specific to build lists
@@ -67,7 +59,7 @@ async def read_build_lists_by_car(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of build lists to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListRead]:
     """
@@ -111,7 +103,7 @@ async def read_my_build_lists(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of build lists to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListRead]:
     """
@@ -149,7 +141,7 @@ async def read_build_lists_by_user(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of build lists to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListRead]:
     """

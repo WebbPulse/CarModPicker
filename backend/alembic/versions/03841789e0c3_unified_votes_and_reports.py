@@ -8,8 +8,8 @@ Create Date: 2025-10-08 21:00:42.468857
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -36,14 +36,10 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "user_id", "entity_type", "entity_id", name="unique_user_entity_vote"
-        ),
+        sa.UniqueConstraint("user_id", "entity_type", "entity_id", name="unique_user_entity_vote"),
     )
     op.create_index(op.f("ix_votes_id"), "votes", ["id"], unique=False)
-    op.create_index(
-        op.f("ix_votes_entity"), "votes", ["entity_type", "entity_id"], unique=False
-    )
+    op.create_index(op.f("ix_votes_entity"), "votes", ["entity_type", "entity_id"], unique=False)
     op.create_index(
         op.f("ix_votes_user_entity_type"),
         "votes",
@@ -77,9 +73,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_reports_id"), "reports", ["id"], unique=False)
-    op.create_index(
-        op.f("ix_reports_entity"), "reports", ["entity_type", "entity_id"], unique=False
-    )
+    op.create_index(op.f("ix_reports_entity"), "reports", ["entity_type", "entity_id"], unique=False)
     op.create_index(op.f("ix_reports_status"), "reports", ["status"], unique=False)
     op.create_index(
         op.f("ix_reports_user_entity_type"),
@@ -199,13 +193,9 @@ def downgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "user_id", "build_list_id", name="unique_user_build_list_vote"
-        ),
+        sa.UniqueConstraint("user_id", "build_list_id", name="unique_user_build_list_vote"),
     )
-    op.create_index(
-        op.f("ix_build_list_votes_id"), "build_list_votes", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_build_list_votes_id"), "build_list_votes", ["id"], unique=False)
 
     op.create_table(
         "global_part_votes",
@@ -224,13 +214,9 @@ def downgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "user_id", "global_part_id", name="unique_user_global_part_vote"
-        ),
+        sa.UniqueConstraint("user_id", "global_part_id", name="unique_user_global_part_vote"),
     )
-    op.create_index(
-        op.f("ix_global_part_votes_id"), "global_part_votes", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_global_part_votes_id"), "global_part_votes", ["id"], unique=False)
 
     op.create_table(
         "car_reports",
@@ -288,9 +274,7 @@ def downgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_build_list_reports_id"), "build_list_reports", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_build_list_reports_id"), "build_list_reports", ["id"], unique=False)
 
     op.create_table(
         "global_part_reports",
@@ -319,9 +303,7 @@ def downgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_global_part_reports_id"), "global_part_reports", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_global_part_reports_id"), "global_part_reports", ["id"], unique=False)
 
     # Migrate data back from unified tables to old tables
     # Migrate car votes back

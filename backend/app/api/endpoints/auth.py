@@ -5,10 +5,10 @@ This endpoint uses standardized patterns for error handling and response formatt
 while maintaining authentication-specific functionality.
 """
 
+import logging
 from datetime import timedelta
-from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -36,7 +36,7 @@ async def login_for_access_token(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> DBUser:
     """
     Authenticate user, set JWT token in an HTTP-only cookie, and return user details.
@@ -73,7 +73,7 @@ async def login_for_access_token(
 async def verify_email(
     email: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Send verification email to user."""
     user = db.query(DBUser).filter(DBUser.email == email).first()
@@ -117,7 +117,7 @@ async def verify_email(
 async def verify_email_confirm(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> RedirectResponse:
     """Confirm email verification with token."""
     if settings.DEBUG:
@@ -178,7 +178,7 @@ async def verify_email_confirm(
 async def reset_password(
     email: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Send password reset email to user."""
     user = db.query(DBUser).filter(DBUser.email == email).first()
@@ -217,7 +217,7 @@ async def reset_password_confirm(
     token: str = Body(..., embed=True),
     new_password: NewPassword = Body(...),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Confirm password reset with token and new password."""
     try:
@@ -247,6 +247,9 @@ async def reset_password_confirm(
     except JWTError as e:
         logger.warning(f"JWT error during password reset: {e}")
         ResponsePatterns.raise_bad_request("Invalid or expired reset token")
+    except HTTPException:
+        # Re-raise HTTPException so it's not caught by the generic handler
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during password reset: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to reset password")
@@ -255,7 +258,7 @@ async def reset_password_confirm(
 @router.post("/logout")
 async def logout(
     response: Response,
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Logout user by clearing the access token cookie."""
     response.delete_cookie(

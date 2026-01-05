@@ -1,12 +1,11 @@
 import os
-import pytest
 from typing import Any
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.api.models.user import User
+from fastapi.testclient import TestClient
+
 from app.api.models.category import Category
+from app.api.models.user import User
+from app.core.config import settings
 
 
 def get_unique_name(base_name: str) -> str:
@@ -84,7 +83,7 @@ class TestGlobalParts:
         response = client.get(f"{settings.API_STR}/global-parts/")
         assert response.status_code == 200
 
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
 
@@ -137,8 +136,9 @@ class TestGlobalParts:
             f"{settings.API_STR}/global-parts/?category_id={test_category.id}"
         )
         assert response.status_code == 200
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
+        part: Any
         for part in data:
             assert part["category_id"] == test_category.id
 
@@ -164,10 +164,10 @@ class TestGlobalParts:
         # Search by name
         response = client.get(f"{settings.API_STR}/global-parts/?search={unique_name}")
         assert response.status_code == 200
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
-        assert any(unique_name in part["name"] for part in data)
+        assert any(unique_name in part["name"] for part in data)  # type: ignore[misc]
 
     def test_get_global_part_by_id(
         self, client: TestClient, test_user: User, test_category: Category
@@ -341,10 +341,10 @@ class TestGlobalParts:
         # Get parts with votes
         response = client.get(f"{settings.API_STR}/global-parts/with-votes")
         assert response.status_code == 200
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
         if len(data) > 0:
-            part = data[0]
+            part: Any = data[0]
             assert "upvotes" in part
             assert "downvotes" in part
             assert "user_vote" in part

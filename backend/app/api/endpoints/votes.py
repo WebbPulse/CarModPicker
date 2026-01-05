@@ -2,26 +2,31 @@
 Unified votes endpoint for all entity types.
 """
 
+import logging
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
-    get_current_user,
     get_current_admin_user,
+    get_current_user,
     get_optional_current_user,
 )
 from app.api.models.user import User as DBUser
 from app.api.schemas.vote import (
+    EntityType,
+    FlaggedEntitySummary,
     VoteCreate,
     VoteRead,
     VoteSummary,
-    FlaggedEntitySummary,
-    EntityType,
 )
 from app.api.services.vote_service import VoteService
+from app.api.utils.common_patterns import (
+    PublicEndpointDeps,
+    get_standard_public_endpoint_dependencies,
+)
 from app.api.utils.endpoint_decorators import standard_responses
-from app.api.utils.common_patterns import get_standard_public_endpoint_dependencies
 from app.core.logging import get_logger
 from app.db.session import get_db
 
@@ -47,7 +52,7 @@ async def vote_on_entity(
     entity_id: int,
     vote_data: VoteCreate,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> VoteRead:
     """Vote on an entity (car, build list, or global part)."""
@@ -73,9 +78,9 @@ async def remove_vote(
     entity_type: EntityType,
     entity_id: int,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
-) -> dict:
+) -> dict[str, str]:
     """Remove a vote from an entity."""
     removed = vote_service.remove_vote(
         db=db,
@@ -104,7 +109,7 @@ async def remove_vote(
 async def get_vote_summary(
     entity_type: EntityType,
     entity_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> VoteSummary:
     """Get vote summary for an entity (public endpoint, authentication optional)."""
@@ -135,7 +140,7 @@ async def get_flagged_entities(
     limit: int = Query(
         50, ge=1, le=100, description="Maximum number of flagged entities to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[FlaggedEntitySummary]:
     """Get flagged entities (those with high downvote ratios or reports). Admin only."""
