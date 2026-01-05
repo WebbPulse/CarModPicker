@@ -8,9 +8,9 @@ Create Date: 2025-04-27 20:47:17.391997
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
+import sqlalchemy as sa  # noqa: F401
 
-from alembic import op
+from alembic import op  # noqa: F401
 
 # revision identifiers, used by Alembic.
 revision: str = "f1d9900b5316"
@@ -29,9 +29,7 @@ def upgrade() -> None:
         sa.Column("description", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_items_description"), "items", ["description"], unique=False
-    )
+    op.create_index(op.f("ix_items_description"), "items", ["description"], unique=False)
     op.create_index(op.f("ix_items_id"), "items", ["id"], unique=False)
     op.create_index(op.f("ix_items_name"), "items", ["name"], unique=False)
     # ### end Alembic commands ###

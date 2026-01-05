@@ -8,17 +8,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
     auth,
-    build_lists,
     build_list_parts,
+    build_lists,
     cars,
-    global_parts,
-    users,
-    subscriptions,
     categories,
-    global_part_votes,
-    global_part_reports,
+    global_parts,
+    reports,
+    subscriptions,
+    users,
+    votes,
 )
 from .api.middleware import rate_limit_middleware
+from .api.middleware.error_handler import register_error_handlers
+from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 
 # Configure logging for the entire application
@@ -36,11 +38,7 @@ def run_migrations() -> None:
     try:
         logger.info("Running database migrations...")
         # Determine the correct working directory for alembic
-        cwd = (
-            "/app"
-            if os.path.exists("/app/alembic")
-            else os.path.dirname(os.path.dirname(__file__))
-        )
+        cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
         result = subprocess.run(
             ["alembic", "upgrade", "head"],
             cwd=cwd,
@@ -77,42 +75,75 @@ app.add_middleware(
 # Add rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
 
-app.include_router(users.router, prefix=settings.API_STR + "/users", tags=["users"])
-app.include_router(cars.router, prefix=settings.API_STR + "/cars", tags=["cars"])
-app.include_router(
-    build_lists.router, prefix=settings.API_STR + "/build-lists", tags=["build_lists"]
+# Register error handlers for standardized error responses
+register_error_handlers(app)
+
+# Create endpoint registry for standardized registration
+endpoint_registry = EndpointRegistry(app)
+
+# Register all endpoints using the registry
+# Core CRUD endpoints
+endpoint_registry.register_crud_endpoint(users.router, entity_name="users", description="User management operations")
+
+endpoint_registry.register_crud_endpoint(cars.router, entity_name="cars", description="Car management operations")
+
+endpoint_registry.register_crud_endpoint(
+    build_lists.router,
+    entity_name="build-lists",
+    description="Build list management operations",
 )
-app.include_router(
+
+endpoint_registry.register_crud_endpoint(
     global_parts.router,
-    prefix=settings.API_STR + "/global-parts",
-    tags=["global_parts"],
+    entity_name="global-parts",
+    description="Global part catalog operations",
 )
-app.include_router(
+
+endpoint_registry.register_crud_endpoint(
     build_list_parts.router,
-    prefix=settings.API_STR + "/build-list-parts",
-    tags=["build_list_parts"],
+    entity_name="build-list-parts",
+    description="Build list part management operations",
 )
-app.include_router(auth.router, prefix=settings.API_STR + "/auth", tags=["auth"])
-app.include_router(
-    subscriptions.router,
-    prefix=settings.API_STR + "/subscriptions",
-    tags=["subscriptions"],
-)
-app.include_router(
+
+endpoint_registry.register_crud_endpoint(
     categories.router,
-    prefix=settings.API_STR + "/categories",
-    tags=["categories"],
+    entity_name="categories",
+    description="Category management operations",
 )
-app.include_router(
-    global_part_votes.router,
-    prefix=settings.API_STR + "/global-part-votes",
-    tags=["global_part_votes"],
+
+# Authentication endpoint
+endpoint_registry.register_endpoint(
+    auth.router,
+    prefix="/auth",
+    tags=["authentication"],
+    description="User authentication and authorization",
 )
-app.include_router(
-    global_part_reports.router,
-    prefix=settings.API_STR + "/global-part-reports",
-    tags=["global_part_reports"],
+
+# Subscription endpoint
+endpoint_registry.register_endpoint(
+    subscriptions.router,
+    prefix="/subscriptions",
+    tags=["subscriptions"],
+    description="Subscription and billing operations",
 )
+
+# Unified vote and report endpoints
+endpoint_registry.register_endpoint(
+    votes.router,
+    prefix="/votes",
+    tags=["votes"],
+    description="Unified voting operations for all entity types",
+)
+
+endpoint_registry.register_endpoint(
+    reports.router,
+    prefix="/reports",
+    tags=["reports"],
+    description="Unified reporting operations for all entity types",
+)
+
+# Print registration summary
+endpoint_registry.print_registration_summary()
 
 
 @app.get("/")

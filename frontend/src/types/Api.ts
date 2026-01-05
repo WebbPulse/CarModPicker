@@ -77,7 +77,7 @@ export interface CarUpdate {
 export interface BuildListCreate {
   name: string;
   description?: string | null;
-  car_id: number;
+  car_id?: number | null;
   image_url?: string | null;
 }
 
@@ -85,8 +85,11 @@ export interface BuildListRead {
   id: number;
   name: string;
   description?: string | null;
-  car_id: number;
+  car_id?: number | null;
+  user_id: number;
   image_url?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BuildListUpdate {
@@ -175,33 +178,38 @@ export interface CategoryUpdate {
   sort_order?: number | null;
 }
 
-// New interfaces for voting system
-export interface GlobalPartVoteCreate {
+// Unified voting system interfaces
+export interface VoteCreate {
   vote_type: 'upvote' | 'downvote';
+  entity_type: 'car' | 'build_list' | 'global_part';
+  entity_id: number;
 }
 
-export interface GlobalPartVoteRead {
+export interface VoteRead {
   id: number;
   user_id: number;
-  part_id: number;
-  vote_type: 'upvote' | 'downvote';
+  vote_type: string;
+  entity_type: string;
+  entity_id: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface GlobalPartVoteSummary {
-  part_id: number;
+export interface VoteSummary {
+  entity_id: number;
+  entity_type: string;
   upvotes: number;
   downvotes: number;
   total_votes: number;
+  vote_score: number;
   user_vote?: 'upvote' | 'downvote' | null;
 }
 
-export interface FlaggedGlobalPartSummary {
-  part_id: number;
-  part_name: string;
-  part_brand?: string | null;
-  category_id: number;
+export interface FlaggedEntitySummary {
+  entity_id: number;
+  entity_type: string;
+  entity_name: string;
+  entity_description?: string | null;
   upvotes: number;
   downvotes: number;
   total_votes: number;
@@ -213,19 +221,27 @@ export interface FlaggedGlobalPartSummary {
   flagged_at: string;
 }
 
-// New interfaces for reporting system
-export interface GlobalPartReportCreate {
-  reason: string;
+// Unified reporting system interfaces
+export interface ReportCreate {
+  reason:
+    | 'inappropriate_content'
+    | 'spam'
+    | 'inaccurate'
+    | 'duplicate'
+    | 'other';
   description?: string | null;
+  entity_type: 'car' | 'build_list' | 'global_part';
+  entity_id: number;
 }
 
-export interface GlobalPartReportRead {
+export interface ReportRead {
   id: number;
   user_id: number;
-  part_id: number;
+  entity_type: string;
+  entity_id: number;
   reason: string;
   description?: string | null;
-  status: 'pending' | 'resolved' | 'dismissed';
+  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
   admin_notes?: string | null;
   reviewed_by?: number | null;
   reviewed_at?: string | null;
@@ -233,15 +249,15 @@ export interface GlobalPartReportRead {
   updated_at: string;
 }
 
-export interface GlobalPartReportWithDetails extends GlobalPartReportRead {
+export interface ReportWithDetails extends ReportRead {
   reporter_username: string;
-  part_name: string;
-  part_brand?: string | null;
+  entity_name: string;
+  entity_description?: string | null;
   reviewer_username?: string | null;
 }
 
-export interface GlobalPartReportUpdate {
-  status: 'pending' | 'resolved' | 'dismissed';
+export interface ReportUpdate {
+  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
   admin_notes?: string | null;
 }
 
@@ -271,6 +287,8 @@ export interface UpgradeRequest {
 
 // Build list part relationship
 export interface BuildListPartCreate {
+  global_part_id?: number | null;
+  quantity?: number;
   notes?: string | null;
 }
 
@@ -279,6 +297,7 @@ export interface BuildListPartRead {
   build_list_id: number;
   global_part_id: number;
   added_by: number;
+  quantity: number;
   notes?: string | null;
   added_at: string;
 }
@@ -288,6 +307,7 @@ export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
 }
 
 export interface BuildListPartUpdate {
+  quantity?: number | null;
   notes?: string | null;
 }
 

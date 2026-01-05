@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 import bcrypt
 from fastapi import Cookie, Depends, HTTPException, status
@@ -40,20 +40,16 @@ def get_password_hash(password: str) -> str:
 # --- JWT Utilities ---
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Creates a JWT access token."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         # Use default expiration from settings
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.HASH_ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.HASH_ALGORITHM)
     return str(encoded_jwt)
 
 
@@ -76,9 +72,7 @@ async def get_current_user(
         raise credentials_exception
 
     try:
-        payload = jwt.decode(
-            access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM]
-        )
+        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -90,13 +84,36 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     if user.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
     if not user.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not verified"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not verified")
+    return user
+
+
+async def get_optional_current_user(
+    access_token: Optional[str] = Cookie(None),  # Read "access_token" cookie
+    db: Session = Depends(get_db),
+) -> Optional[DBUser]:
+    """
+    Decodes JWT token from cookie and returns the user, or None if not authenticated.
+    This is for endpoints that can work with or without authentication.
+    """
+    if access_token is None:
+        return None
+
+    try:
+        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        username: Optional[str] = payload.get("sub")
+        if username is None:
+            return None
+        token_data = TokenData(username=username)
+    except JWTError:
+        return None
+
+    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    if user is None or user.disabled or not user.email_verified:
+        return None
+
     return user
 
 
@@ -111,9 +128,7 @@ async def get_current_active_user_optional(
     if access_token is None:
         return None
     try:
-        payload = jwt.decode(
-            access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM]
-        )
+        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             return None  # Invalid token payload

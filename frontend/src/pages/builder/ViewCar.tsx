@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; 
-import apiClient from '../../services/Api';
+import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
-import type { CarRead, UserRead } from '../../types/Api';
 import { useAuth } from '../../hooks/useAuth';
+import apiClient from '../../services/Api';
+import type { CarRead, UserRead } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Divider from '../../components/layout/Divider';
-import Dialog from '../../components/common/Dialog';
-import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
 import BuildListList from '../../components/buildLists/BuildListList';
+import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
 import ActionButton from '../../components/buttons/ActionButton';
 import EditCarForm from '../../components/cars/EditCarForm';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import { ErrorAlert } from '../../components/common/Alerts';
+import Card from '../../components/common/Card';
+import CardInfoItem from '../../components/common/CardInfoItem';
+import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog'; 
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import Divider from '../../components/layout/Divider';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchCarRequestFn = (carId: string) =>
   apiClient.get<CarRead>(`/cars/${carId}`);
@@ -28,18 +28,18 @@ const fetchUserRequestFn = (userId: number) =>
   apiClient.get<UserRead>(`/users/${userId}`);
 
 const deleteCarRequestFn = (carId: string) =>
-  apiClient.delete(`/cars/${carId}`); 
+  apiClient.delete(`/cars/${carId}`);
 
 function ViewCar() {
   const { carId } = useParams<{ carId: string }>();
   const { user: currentUser } = useAuth();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] =
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
   const [isEditCarFormOpen, setIsEditCarFormOpen] = useState(false);
   const [carOwner, setCarOwner] = useState<UserRead | null>(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false); 
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const {
     data: car,
@@ -179,7 +179,7 @@ function ViewCar() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="">
             <ImageWithPlaceholder
-              srcUrl={car.image_url}
+              srcUrl={car.image_url ?? null}
               altText={`${car.year} ${car.make} ${car.model}`}
               imageClassName="h-48 w-auto object-contain rounded"
               containerClassName="h-48 flex justify-left items-center"
@@ -261,19 +261,19 @@ function ViewCar() {
       </Dialog>
 
       {/* Build Lists Section */}
-      <BuildListList
-        carId={car.id}
-        carOwnerId={car.user_id}
-        currentUserId={currentUser?.id}
-        refreshKey={buildListRefreshTrigger}
-        title={`Build Lists for ${car.make} ${car.model}`}
-        emptyMessage="This car doesn't have any build lists yet."
-        onAddBuildListClick={
-          currentUser && currentUser.id === car.user_id
-            ? openCreateBuildListDialog
-            : undefined
-        }
-      />
+      {currentUser && (
+        <BuildListList
+          carId={car.id}
+          carOwnerId={car.user_id}
+          currentUserId={currentUser.id}
+          refreshKey={buildListRefreshTrigger}
+          title={`Build Lists for ${car.make} ${car.model}`}
+          emptyMessage="This car doesn't have any build lists yet."
+          {...(currentUser.id === car.user_id && {
+            onAddBuildListClick: openCreateBuildListDialog,
+          })}
+        />
+      )}
     </div>
   );
 }

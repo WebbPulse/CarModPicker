@@ -1,15 +1,15 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { globalPartsApi } from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { globalPartsApi } from '../../services/Api';
 import type { GlobalPartReadWithVotes } from '../../types/Api';
 
-import Card from '../common/Card';
-import SectionHeader from '../layout/SectionHeader';
-import LoadingSpinner from '../common/LoadingSpinner';
-import { ErrorAlert } from '../common/Alerts';
 import ActionButton from '../buttons/ActionButton';
+import { ErrorAlert } from '../common/Alerts';
+import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import LoadingSpinner from '../common/LoadingSpinner';
+import SectionHeader from '../layout/SectionHeader';
 import VoteButtons from './VoteButtons';
 
 interface GlobalPartListProps {
@@ -104,7 +104,7 @@ function GlobalPartList({
               >
                 <div className="aspect-square mb-3">
                   <ImageWithPlaceholder
-                    srcUrl={globalPart.image_url}
+                    srcUrl={globalPart.image_url ?? null}
                     altText={globalPart.name}
                     imageClassName="w-full h-full object-cover rounded"
                     containerClassName="w-full h-full flex justify-center items-center"
@@ -144,7 +144,7 @@ function GlobalPartList({
                     partId={globalPart.id}
                     upvotes={globalPart.upvotes}
                     downvotes={globalPart.downvotes}
-                    userVote={globalPart.user_vote}
+                    userVote={globalPart.user_vote ?? null}
                     onVoteUpdate={onVoteUpdate}
                   />
                 </div>

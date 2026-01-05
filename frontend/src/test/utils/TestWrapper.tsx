@@ -19,7 +19,7 @@ const AllTheProviders = ({
   initialAuthState?: CustomRenderOptions['initialAuthState'];
 }) => {
   return (
-    <TestProviders initialAuthState={initialAuthState}>
+    <TestProviders {...(initialAuthState && { initialAuthState })}>
       {children}
     </TestProviders>
   );

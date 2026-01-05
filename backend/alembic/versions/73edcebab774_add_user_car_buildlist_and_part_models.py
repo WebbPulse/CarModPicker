@@ -8,9 +8,9 @@ Create Date: 2025-04-28 20:17:15.666211
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
+import sqlalchemy as sa  # noqa: F401
 
-from alembic import op
+from alembic import op  # noqa: F401
 
 # revision identifiers, used by Alembic.
 revision: str = "73edcebab774"
@@ -31,9 +31,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_buildlists_id"), "buildlists", ["id"], unique=False)
     op.create_index(op.f("ix_buildlists_name"), "buildlists", ["name"], unique=False)
-    op.create_index(
-        op.f("ix_buildlists_owner_id"), "buildlists", ["owner_id"], unique=False
-    )
+    op.create_index(op.f("ix_buildlists_owner_id"), "buildlists", ["owner_id"], unique=False)
     op.create_table(
         "cars",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -54,12 +52,8 @@ def upgrade() -> None:
         sa.Column("buildlist_id", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_parts_buildlist_id"), "parts", ["buildlist_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_parts_description"), "parts", ["description"], unique=False
-    )
+    op.create_index(op.f("ix_parts_buildlist_id"), "parts", ["buildlist_id"], unique=False)
+    op.create_index(op.f("ix_parts_description"), "parts", ["description"], unique=False)
     op.create_index(op.f("ix_parts_id"), "parts", ["id"], unique=False)
     op.create_index(op.f("ix_parts_name"), "parts", ["name"], unique=False)
     op.create_table(

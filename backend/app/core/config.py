@@ -13,9 +13,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database settings
-    DATABASE_URL: str = (
-        "sqlite:///./test.db"  # will load url from env but will fallback to this if not found
-    )
+    DATABASE_URL: str = "sqlite:///./test.db"  # will load url from env but will fallback to this if not found
 
     # Railway-specific database URL (Railway provides this automatically)
     # This will override DATABASE_URL if present
@@ -35,7 +33,11 @@ class Settings(BaseSettings):
 
     # CORS settings
     ALLOWED_ORIGINS: str = Field(
-        default="http://localhost,http://localhost:3000,http://localhost:4000,https://carmodpicker.webbpulse.com,https://api.carmodpicker.webbpulse.com",
+        default=(
+            "http://localhost,http://localhost:3000,http://localhost:4000,"
+            "https://carmodpicker.webbpulse.com,"
+            "https://api.carmodpicker.webbpulse.com"
+        ),
         description="Comma-separated list of allowed origins",
     )
 
@@ -44,11 +46,7 @@ class Settings(BaseSettings):
         """Get ALLOWED_ORIGINS as a list."""
         if not self.ALLOWED_ORIGINS:
             return []
-        return [
-            origin.strip()
-            for origin in self.ALLOWED_ORIGINS.split(",")
-            if origin.strip()
-        ]
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     # Railway deployment settings
     PORT: int = 8000
@@ -75,9 +73,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE: int = 30
     RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR: int = 300
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 
 
 @lru_cache()

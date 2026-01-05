@@ -1,41 +1,36 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
-import type {
-  GlobalPartReportWithDetails,
-  GlobalPartReportUpdate,
-} from '../../types/Api';
+import { useAuth } from '../../hooks/useAuth';
+import apiClient from '../../services/Api';
+import type { ReportUpdate, ReportWithDetails } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Card from '../../components/common/Card';
 import Dialog from '../../components/common/Dialog';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchReportsRequestFn = (params?: {
   status?: string;
   skip?: number;
   limit?: number;
 }) =>
-  apiClient.get<GlobalPartReportWithDetails[]>('/global-part-reports/', {
+  apiClient.get<ReportWithDetails[]>('/reports/admin/list', {
     params,
   });
 const updateReportRequestFn = (payload: {
   reportId: number;
-  data: GlobalPartReportUpdate;
+  data: ReportUpdate;
 }) =>
-  apiClient.put<GlobalPartReportWithDetails>(
-    `/global-part-reports/reports/${payload.reportId}`,
+  apiClient.put<ReportWithDetails>(
+    `/reports/${payload.reportId}`,
     payload.data
   );
 const getPendingReportsCountRequestFn = () =>
-  apiClient.get<Record<string, number>>(
-    '/global-part-reports/reports/pending/count'
-  );
+  apiClient.get<Record<string, number>>('/reports/admin/pending/count');
 
 function ReportReview() {
   const { user } = useAuth();
@@ -44,7 +39,7 @@ function ReportReview() {
   const [selectedStatus, setSelectedStatus] = useState<string>('pending');
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] =
-    useState<GlobalPartReportWithDetails | null>(null);
+    useState<ReportWithDetails | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [pendingCount, setPendingCount] = useState<number>(0);
 
@@ -80,7 +75,7 @@ function ReportReview() {
 
   useEffect(() => {
     if (countData) {
-      setPendingCount(countData.pending_count || 0);
+      setPendingCount(countData['pending_count'] || 0);
     }
   }, [countData]);
 
@@ -126,7 +121,7 @@ function ReportReview() {
     }
   };
 
-  const openReviewDialog = (report: GlobalPartReportWithDetails) => {
+  const openReviewDialog = (report: ReportWithDetails) => {
     setUpdateError(null);
     setSelectedReport(report);
     setAdminNotes(report.admin_notes || '');
@@ -168,7 +163,7 @@ function ReportReview() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title="Report Review"
-        subtitle="Review and manage part reports"
+        subtitle="Review and manage reports for all entities"
       />
 
       <div className="flex justify-between items-center mb-4">
@@ -228,7 +223,7 @@ function ReportReview() {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-200">
-                        Report #{report.id} - {report.part_name}
+                        Report #{report.id} - {report.entity_name}
                       </h3>
                       <p className="text-gray-400">
                         Reported by {report.reporter_username} on{' '}
@@ -255,11 +250,15 @@ function ReportReview() {
                     </div>
                     <div>
                       <h4 className="font-medium text-gray-300 mb-1">
-                        Part Details
+                        Entity Details
                       </h4>
                       <p className="text-gray-400">
-                        {report.part_name}
-                        {report.part_brand && ` - ${report.part_brand}`}
+                        {report.entity_name}
+                        {report.entity_description &&
+                          ` - ${report.entity_description}`}
+                      </p>
+                      <p className="text-gray-500 text-sm">
+                        Type: {report.entity_type}
                       </p>
                     </div>
                   </div>
@@ -307,7 +306,8 @@ function ReportReview() {
             <h4 className="font-medium text-gray-300 mb-2">Report Details</h4>
             <div className="bg-gray-800 p-3 rounded">
               <p>
-                <strong>Part:</strong> {selectedReport?.part_name}
+                <strong>Entity:</strong> {selectedReport?.entity_name} (
+                {selectedReport?.entity_type})
               </p>
               <p>
                 <strong>Reason:</strong> {selectedReport?.reason}

@@ -1,34 +1,34 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
 import {
-  globalPartsApi,
   categoriesApi,
+  globalPartsApi,
   globalPartVotesApi,
   usersApi,
 } from '../../services/Api';
-import useApiRequest from '../../hooks/UseApiRequest';
 import type {
-  GlobalPartReadWithVotes,
   CategoryResponse,
+  GlobalPartReadWithVotes,
 } from '../../types/Api';
-import { useAuth } from '../../hooks/useAuth';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Divider from '../../components/layout/Divider';
-import Dialog from '../../components/common/Dialog';
+import ReportDialog from '../../components/admin/ReportDialog';
 import ActionButton from '../../components/buttons/ActionButton';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import { ErrorAlert } from '../../components/common/Alerts';
+import Card from '../../components/common/Card';
+import CardInfoItem from '../../components/common/CardInfoItem';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import Dialog from '../../components/common/Dialog';
+import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
 import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm';
 import VoteButtons from '../../components/globalParts/VoteButtons';
-import ReportDialog from '../../components/admin/ReportDialog';
-import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
+import Divider from '../../components/layout/Divider';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchPartRequestFn = (partId: string) =>
   globalPartsApi.getGlobalPart(Number(partId));
@@ -134,7 +134,7 @@ function ViewGlobalPart() {
         upvotes: voteSummary.upvotes,
         downvotes: voteSummary.downvotes,
         total_votes: voteSummary.total_votes,
-        user_vote: voteSummary.user_vote,
+        user_vote: voteSummary.user_vote ?? null,
       });
     }
   }, [part, voteSummary]);
@@ -319,7 +319,7 @@ function ViewGlobalPart() {
                 partId={part.id}
                 upvotes={partWithVotes.upvotes}
                 downvotes={partWithVotes.downvotes}
-                userVote={partWithVotes.user_vote}
+                userVote={partWithVotes.user_vote ?? null}
                 onVoteUpdate={handleVoteUpdate}
                 size="lg"
               />
@@ -330,7 +330,7 @@ function ViewGlobalPart() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="Part Image">
             <ImageWithPlaceholder
-              srcUrl={part.image_url}
+              srcUrl={part.image_url ?? null}
               altText={part.name}
               imageClassName="h-48 w-auto object-contain rounded"
               containerClassName="h-48 flex justify-left items-center"

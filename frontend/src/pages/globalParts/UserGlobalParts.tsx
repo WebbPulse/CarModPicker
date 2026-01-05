@@ -1,27 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { globalPartsApi } from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
+import { globalPartsApi } from '../../services/Api';
 import type { GlobalPartRead } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { ErrorAlert } from '../../components/common/Alerts';
 import ActionButton from '../../components/buttons/ActionButton';
 import SecondaryButton from '../../components/buttons/SecondaryButton';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import { ErrorAlert } from '../../components/common/Alerts';
+import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 function UserGlobalParts() {
   const { user } = useAuth();
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Note: Backend doesn't have a dedicated endpoint for user's global parts
+  // We can use the main endpoint with search or filter by user_id on the frontend
   const fetchUserGlobalPartsRequestFn = useCallback(
-    (userId: number) => globalPartsApi.getGlobalPartsByUser(userId),
+    () => globalPartsApi.getGlobalParts({ limit: 1000 }),
     []
   );
 
@@ -34,7 +36,7 @@ function UserGlobalParts() {
 
   useEffect(() => {
     if (user) {
-      void fetchUserGlobalParts(user.id);
+      void fetchUserGlobalParts();
     }
   }, [user, fetchUserGlobalParts]);
 
@@ -44,7 +46,7 @@ function UserGlobalParts() {
       await globalPartsApi.deleteGlobalPart(partId);
       // Refresh the list
       if (user) {
-        await fetchUserGlobalParts(user.id);
+        await fetchUserGlobalParts();
       }
     } catch (error) {
       console.error('Failed to delete global part:', error);
@@ -98,7 +100,9 @@ function UserGlobalParts() {
           </Link>
         </div>
 
-        {!globalParts || globalParts.length === 0 ? (
+        {!globalParts ||
+        globalParts.filter((part) => user && part.user_id === user.id)
+          .length === 0 ? (
           <div className="text-center py-8 text-gray-400">
             <p>You haven't created any global parts yet.</p>
             <p className="text-sm mt-2">
@@ -128,79 +132,81 @@ function UserGlobalParts() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {globalParts.map((globalPart) => (
-              <div
-                key={globalPart.id}
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full">
-                    Global Part
-                  </span>
-                </div>
-                <Link
-                  to={`/global-parts/${globalPart.id}`}
-                  className="block group"
+            {globalParts
+              .filter((part) => user && part.user_id === user.id)
+              .map((globalPart) => (
+                <div
+                  key={globalPart.id}
+                  className="bg-gray-800 rounded-lg p-4 border border-gray-700"
                 >
-                  <div className="aspect-square mb-3">
-                    <ImageWithPlaceholder
-                      srcUrl={globalPart.image_url}
-                      altText={globalPart.name}
-                      imageClassName="w-full h-full object-cover rounded"
-                      containerClassName="w-full h-full flex justify-center items-center"
-                      fallbackText="No image"
-                    />
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full">
+                      Global Part
+                    </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                    {globalPart.name}
-                  </h3>
-                  {globalPart.brand && (
-                    <p className="text-sm text-gray-400 mb-1">
-                      {globalPart.brand}
-                    </p>
-                  )}
-                  {globalPart.part_number && (
-                    <p className="text-sm text-gray-400 mb-1">
-                      #{globalPart.part_number}
-                    </p>
-                  )}
-                  {globalPart.price !== null &&
-                    globalPart.price !== undefined && (
-                      <p className="text-sm font-medium text-green-400">
-                        ${globalPart.price.toFixed(2)}
+                  <Link
+                    to={`/global-parts/${globalPart.id}`}
+                    className="block group"
+                  >
+                    <div className="aspect-square mb-3">
+                      <ImageWithPlaceholder
+                        srcUrl={globalPart.image_url ?? null}
+                        altText={globalPart.name}
+                        imageClassName="w-full h-full object-cover rounded"
+                        containerClassName="w-full h-full flex justify-center items-center"
+                        fallbackText="No image"
+                      />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                      {globalPart.name}
+                    </h3>
+                    {globalPart.brand && (
+                      <p className="text-sm text-gray-400 mb-1">
+                        {globalPart.brand}
                       </p>
                     )}
-                  {globalPart.description && (
-                    <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-                      {globalPart.description}
-                    </p>
-                  )}
-                </Link>
+                    {globalPart.part_number && (
+                      <p className="text-sm text-gray-400 mb-1">
+                        #{globalPart.part_number}
+                      </p>
+                    )}
+                    {globalPart.price !== null &&
+                      globalPart.price !== undefined && (
+                        <p className="text-sm font-medium text-green-400">
+                          ${globalPart.price.toFixed(2)}
+                        </p>
+                      )}
+                    {globalPart.description && (
+                      <p className="text-sm text-gray-400 mt-2 line-clamp-2">
+                        {globalPart.description}
+                      </p>
+                    )}
+                  </Link>
 
-                {/* Action Buttons */}
-                <div className="mt-3 pt-3 border-t border-gray-700 flex space-x-2">
-                  {canEditGlobalPart(globalPart) && (
-                    <Link
-                      to={`/global-parts/${globalPart.id}/edit`}
-                      className="flex-1"
-                    >
-                      <SecondaryButton className="w-full text-sm">
-                        Edit
-                      </SecondaryButton>
-                    </Link>
-                  )}
-                  {canDeleteGlobalPart(globalPart) && (
-                    <ActionButton
-                      onClick={() => setDeletingPartId(globalPart.id)}
-                      className="flex-1 text-sm bg-red-600 hover:bg-red-700"
-                      disabled={isDeleting}
-                    >
-                      Delete
-                    </ActionButton>
-                  )}
+                  {/* Action Buttons */}
+                  <div className="mt-3 pt-3 border-t border-gray-700 flex space-x-2">
+                    {canEditGlobalPart(globalPart) && (
+                      <Link
+                        to={`/global-parts/${globalPart.id}/edit`}
+                        className="flex-1"
+                      >
+                        <SecondaryButton className="w-full text-sm">
+                          Edit
+                        </SecondaryButton>
+                      </Link>
+                    )}
+                    {canDeleteGlobalPart(globalPart) && (
+                      <ActionButton
+                        onClick={() => setDeletingPartId(globalPart.id)}
+                        className="flex-1 text-sm bg-red-600 hover:bg-red-700"
+                        disabled={isDeleting}
+                      >
+                        Delete
+                      </ActionButton>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </Card>

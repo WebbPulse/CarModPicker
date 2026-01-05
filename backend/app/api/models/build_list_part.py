@@ -1,5 +1,5 @@
-from typing import Optional, TYPE_CHECKING
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,22 +22,14 @@ class BuildListPart(Base):
     __tablename__ = "build_list_parts"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    build_list_id: Mapped[int] = mapped_column(
-        ForeignKey("build_lists.id"), nullable=False
-    )
-    global_part_id: Mapped[int] = mapped_column(
-        ForeignKey("global_parts.id"), nullable=False
-    )
+    build_list_id: Mapped[int] = mapped_column(ForeignKey("build_lists.id"), nullable=False)
+    global_part_id: Mapped[int] = mapped_column(ForeignKey("global_parts.id"), nullable=False)
     added_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
     added_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     # Relationships
-    build_list: Mapped["BuildList"] = relationship(
-        "BuildList", back_populates="build_list_parts"
-    )
-    global_part: Mapped["GlobalPart"] = relationship(
-        "GlobalPart", back_populates="build_lists"
-    )
+    build_list: Mapped["BuildList"] = relationship("BuildList", back_populates="build_list_parts")
+    global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="build_lists")
     user: Mapped["User"] = relationship("User", back_populates="build_list_parts")

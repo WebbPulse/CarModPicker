@@ -8,8 +8,8 @@ Create Date: 2025-08-19 22:18:26.434236
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -40,18 +40,12 @@ def upgrade() -> None:
     op.create_index(op.f("ix_subscriptions_id"), "subscriptions", ["id"], unique=False)
     op.add_column(
         "users",
-        sa.Column(
-            "subscription_tier", sa.String(), nullable=False, server_default="free"
-        ),
+        sa.Column("subscription_tier", sa.String(), nullable=False, server_default="free"),
     )
-    op.add_column(
-        "users", sa.Column("subscription_expires_at", sa.DateTime(), nullable=True)
-    )
+    op.add_column("users", sa.Column("subscription_expires_at", sa.DateTime(), nullable=True))
     op.add_column(
         "users",
-        sa.Column(
-            "subscription_status", sa.String(), nullable=False, server_default="active"
-        ),
+        sa.Column("subscription_status", sa.String(), nullable=False, server_default="active"),
     )
     # ### end Alembic commands ###
 
