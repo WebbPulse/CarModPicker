@@ -1,8 +1,8 @@
 import React from 'react';
 import type { BuildListPartReadWithGlobalPart } from '../../types/Api';
-import BuildListPartListItem from './BuildListPartListItem';
-import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
+import LoadingSpinner from '../common/LoadingSpinner';
+import BuildListPartListItem from './BuildListPartListItem';
 
 interface BuildListPartListProps {
   buildListParts: BuildListPartReadWithGlobalPart[];
@@ -51,8 +51,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         <BuildListPartListItem
           key={buildListPart.id}
           buildListPart={buildListPart}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          {...(onEdit && { onEdit })}
+          {...(onDelete && { onDelete })}
           canEdit={canEdit && (!canEditPart || canEditPart(buildListPart))}
           canDelete={
             canDelete && (!canDeletePart || canDeletePart(buildListPart))

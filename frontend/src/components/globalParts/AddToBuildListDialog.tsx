@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
-import { buildListPartsApi, buildListsApi } from '../../services/Api';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { buildListPartsApi, buildListsApi } from '../../services/Api';
 import type {
-  GlobalPartReadWithVotes,
-  BuildListRead,
   BuildListPartCreate,
+  BuildListRead,
+  GlobalPartReadWithVotes,
 } from '../../types/Api';
 
-import Dialog from '../common/Dialog';
-import Card from '../common/Card';
-import Input from '../common/Input';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
-import LoadingSpinner from '../common/LoadingSpinner';
+import Card from '../common/Card';
+import Dialog from '../common/Dialog';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import Input from '../common/Input';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface AddToBuildListDialogProps {
   isOpen: boolean;
@@ -140,7 +140,7 @@ function AddToBuildListDialog({
           <div className="flex gap-4">
             <div className="flex-shrink-0">
               <ImageWithPlaceholder
-                srcUrl={globalPart.image_url}
+                srcUrl={globalPart.image_url ?? null}
                 altText={globalPart.name}
                 imageClassName="w-24 h-24 object-cover rounded-lg"
                 containerClassName="w-24 h-24 flex justify-center items-center"
@@ -223,7 +223,10 @@ function AddToBuildListDialog({
             visible to you.
           </p>
           <div>
-            <label htmlFor="build-list-notes" className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="build-list-notes"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               Notes
             </label>
             <Input

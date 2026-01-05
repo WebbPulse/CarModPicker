@@ -4,17 +4,17 @@ import PageHeader from '../../components/layout/PageHeader';
 
 import CarList from '../../components/cars/CarList';
 import CreateCarForm from '../../components/cars/CreateCarForm';
+import Dialog from '../../components/common/Dialog';
 import { useAuth } from '../../hooks/useAuth';
-import Dialog from '../../components/common/Dialog'; 
 
 function Builder() {
   const { user } = useAuth();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isCreateCarFormOpen, setIsCreateCarFormOpen] = useState(false); 
+  const [isCreateCarFormOpen, setIsCreateCarFormOpen] = useState(false);
 
   const handleCarCreated = () => {
     setRefreshTrigger((prev) => prev + 1);
-    setIsCreateCarFormOpen(false); 
+    setIsCreateCarFormOpen(false);
   };
 
   const openCreateCarDialog = () => {
@@ -40,15 +40,16 @@ function Builder() {
         <CreateCarForm onCarCreated={handleCarCreated} />
       </Dialog>
 
-      <CarList
-        userId={user?.id}
-        refreshKey={refreshTrigger}
-        title="Your Garage"
-        emptyMessage="You haven't added any cars yet. Add one above to get started!"
-        onAddCarClick={openCreateCarDialog} 
-        showAddCarTile={true} 
-      />
-      
+      {user && (
+        <CarList
+          userId={user.id}
+          refreshKey={refreshTrigger}
+          title="Your Garage"
+          emptyMessage="You haven't added any cars yet. Add one above to get started!"
+          onAddCarClick={openCreateCarDialog}
+          showAddCarTile={true}
+        />
+      )}
     </div>
   );
 }

@@ -77,7 +77,7 @@ export interface CarUpdate {
 export interface BuildListCreate {
   name: string;
   description?: string | null;
-  car_id: number;
+  car_id?: number | null;
   image_url?: string | null;
 }
 
@@ -85,8 +85,11 @@ export interface BuildListRead {
   id: number;
   name: string;
   description?: string | null;
-  car_id: number;
+  car_id?: number | null;
+  user_id: number;
   image_url?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BuildListUpdate {
@@ -220,7 +223,12 @@ export interface FlaggedEntitySummary {
 
 // Unified reporting system interfaces
 export interface ReportCreate {
-  reason: 'inappropriate_content' | 'spam' | 'inaccurate' | 'duplicate' | 'other';
+  reason:
+    | 'inappropriate_content'
+    | 'spam'
+    | 'inaccurate'
+    | 'duplicate'
+    | 'other';
   description?: string | null;
   entity_type: 'car' | 'build_list' | 'global_part';
   entity_id: number;
@@ -279,6 +287,8 @@ export interface UpgradeRequest {
 
 // Build list part relationship
 export interface BuildListPartCreate {
+  global_part_id?: number | null;
+  quantity?: number;
   notes?: string | null;
 }
 
@@ -287,6 +297,7 @@ export interface BuildListPartRead {
   build_list_id: number;
   global_part_id: number;
   added_by: number;
+  quantity: number;
   notes?: string | null;
   added_at: string;
 }
@@ -296,6 +307,7 @@ export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
 }
 
 export interface BuildListPartUpdate {
+  quantity?: number | null;
   notes?: string | null;
 }
 
