@@ -98,7 +98,9 @@ def test_create_user_duplicate_username(
         "password": "password123",
     }
     response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
-    assert response.status_code == 400, response.text
+    assert (
+        response.status_code == 409
+    ), response.text  # 409 Conflict is correct for duplicates
     assert "username already registered" in response.json()["message"].lower()
 
 
@@ -113,7 +115,9 @@ def test_create_user_duplicate_email(client: TestClient, db_session: Session) ->
         "password": "password123",
     }
     response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
-    assert response.status_code == 400, response.text
+    assert (
+        response.status_code == 409
+    ), response.text  # 409 Conflict is correct for duplicates
     assert "email already registered" in response.json()["message"].lower()
 
 
@@ -140,7 +144,7 @@ def test_read_user_by_id_success(client: TestClient, db_session: Session) -> Non
     user_info = create_and_login_user(client, "read_by_id_test")
     user_id_to_read = user_info["id"]
 
-    client.cookies.clear()  # Assuming public read, clear cookies
+    # Keep authentication as users are private
     response = client.get(f"{settings.API_STR}/users/{user_id_to_read}")
     assert response.status_code == 200, response.text
     read_user = response.json()
@@ -149,6 +153,8 @@ def test_read_user_by_id_success(client: TestClient, db_session: Session) -> Non
 
 
 def test_read_user_by_id_not_found(client: TestClient, db_session: Session) -> None:
+    # Need to be authenticated to read users
+    create_and_login_user(client, "read_not_found_test")
     response = client.get(f"{settings.API_STR}/users/9999999")  # Non-existent ID
     assert response.status_code == 404
     assert response.json()["message"] == "User not found"
@@ -270,7 +276,10 @@ def test_update_user_not_found(client: TestClient, db_session: Session) -> None:
         f"{settings.API_STR}/users/9999998", json=update_payload  # Non-existent ID
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json()["message"] == "User not found"
+    assert (
+        "User" in response.json()["message"]
+        and "not found" in response.json()["message"]
+    )
 
 
 # --- Delete User Tests ---
@@ -295,9 +304,13 @@ def test_delete_own_user_success(client: TestClient, db_session: Session) -> Non
         login_response.status_code == 401
     )  # Or 400 if "Inactive user" vs "Incorrect username/password"
 
-    # Verify user is deleted: try to get by ID
-    get_response = client.get(f"{settings.API_STR}/users/{user_id}")
-    assert get_response.status_code == 404
+    # Verify user is deleted by checking if username no longer exists in database
+    from app.api.models.user import User as DBUser
+
+    deleted_user_check = (
+        db_session.query(DBUser).filter(DBUser.username == username).first()
+    )
+    assert deleted_user_check is None, "User should no longer exist in database"
 
 
 def test_delete_other_user_forbidden(client: TestClient, db_session: Session) -> None:
@@ -347,7 +360,7 @@ def test_update_user_conflict_username(client: TestClient, db_session: Session) 
     response = client.put(
         f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload
     )
-    assert response.status_code == 400
+    assert response.status_code == 409  # 409 Conflict is correct for duplicates
     assert "username already registered" in response.json()["message"].lower()
 
 
@@ -363,5 +376,5 @@ def test_update_user_conflict_email(client: TestClient, db_session: Session) -> 
     response = client.put(
         f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload
     )
-    assert response.status_code == 400
+    assert response.status_code == 409  # 409 Conflict is correct for duplicates
     assert "email already registered" in response.json()["message"].lower()

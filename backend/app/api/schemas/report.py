@@ -28,8 +28,6 @@ class EntityType(str, Enum):
 class ReportCreate(BaseModel):
     reason: ReportReason
     description: Optional[str] = None
-    entity_type: EntityType
-    entity_id: int
 
 
 class ReportUpdate(BaseModel):

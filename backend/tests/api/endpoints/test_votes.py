@@ -22,8 +22,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test successfully upvoting a car."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the car
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        car_owner = DBUser(
+            username=f"car_owner_{os.getpid()}_{id(db_session)}",
+            email=f"car_owner_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(car_owner)
+        db_session.commit()
+        db_session.refresh(car_owner)
+
+        # Login as car owner and create a car
+        login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -37,6 +54,11 @@ class TestUnifiedVotes:
         response = client.post(f"{settings.API_STR}/cars/", json=car_data)
         assert response.status_code == 200
         car = response.json()
+
+        # Login as test user and upvote the car
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
 
         # Upvote the car
         vote_data = {"vote_type": "upvote"}
@@ -56,8 +78,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test successfully downvoting a build list."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the build list
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(build_list_owner)
+        db_session.commit()
+        db_session.refresh(build_list_owner)
+
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -69,6 +108,11 @@ class TestUnifiedVotes:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
         assert response.status_code == 200
         build_list = response.json()
+
+        # Login as test user and downvote the build list
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
 
         # Downvote the build list
         vote_data = {"vote_type": "downvote"}
@@ -88,10 +132,22 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test successfully voting on a global part."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
+        # Create a second user to own the global part
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        part_owner = DBUser(
+            username=f"part_owner_{os.getpid()}_{id(db_session)}",
+            email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(part_owner)
+        db_session.commit()
+        db_session.refresh(part_owner)
 
         # Create a category first
         from app.api.models.category import Category as DBCategory
@@ -101,16 +157,26 @@ class TestUnifiedVotes:
         db_session.commit()
         db_session.refresh(category)
 
+        # Login as part owner and create a global part
+        login_data = {"username": part_owner.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+
         # Create a global part
         part_data = {
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
             "category_id": category.id,
-            "price": 99.99,
+            "price": 9999,  # price in cents (99.99)
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 200
         part = response.json()
+
+        # Login as test user and upvote the part
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
 
         # Upvote the part
         vote_data = {"vote_type": "upvote"}
@@ -149,8 +215,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test updating an existing vote."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the car
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        car_owner = DBUser(
+            username=f"car_owner_update_{os.getpid()}_{id(db_session)}",
+            email=f"car_owner_update_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(car_owner)
+        db_session.commit()
+        db_session.refresh(car_owner)
+
+        # Login as car owner and create a car
+        login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -164,6 +247,11 @@ class TestUnifiedVotes:
         response = client.post(f"{settings.API_STR}/cars/", json=car_data)
         assert response.status_code == 200
         car = response.json()
+
+        # Login as test user and vote
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
 
         # First upvote
         vote_data = {"vote_type": "upvote"}
@@ -190,8 +278,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test successfully removing a vote."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the car
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        car_owner = DBUser(
+            username=f"car_owner_remove_{os.getpid()}_{id(db_session)}",
+            email=f"car_owner_remove_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(car_owner)
+        db_session.commit()
+        db_session.refresh(car_owner)
+
+        # Login as car owner and create a car
+        login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -206,7 +311,11 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         car = response.json()
 
-        # Create a vote
+        # Login as test user and create a vote
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
@@ -223,8 +332,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test removing a vote that doesn't exist."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the car
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        car_owner = DBUser(
+            username=f"car_owner_not_found_{os.getpid()}_{id(db_session)}",
+            email=f"car_owner_not_found_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(car_owner)
+        db_session.commit()
+        db_session.refresh(car_owner)
+
+        # Login as car owner and create a car
+        login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -239,7 +365,11 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         car = response.json()
 
-        # Try to remove non-existent vote
+        # Login as test user and try to remove non-existent vote
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+
         response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}")
         assert response.status_code == 404
 
@@ -247,8 +377,25 @@ class TestUnifiedVotes:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test successfully getting vote summary for an entity."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
+        # Create a second user to own the car
+        from app.api.models.user import User as DBUser
+        from app.api.dependencies.auth import get_password_hash
+
+        car_owner = DBUser(
+            username=f"car_owner_summary_{os.getpid()}_{id(db_session)}",
+            email=f"car_owner_summary_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(car_owner)
+        db_session.commit()
+        db_session.refresh(car_owner)
+
+        # Login as car owner and create a car
+        login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
 
@@ -263,7 +410,11 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         car = response.json()
 
-        # Create an upvote
+        # Login as test user and create an upvote
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",

@@ -16,7 +16,9 @@ class Category(Base):
     name: Mapped[str] = mapped_column(
         unique=True, nullable=False
     )  # 'exhaust', 'suspension'
-    display_name: Mapped[str] = mapped_column(nullable=False)  # 'Exhaust Systems'
+    display_name: Mapped[Optional[str]] = mapped_column(
+        nullable=True
+    )  # 'Exhaust Systems'
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     icon: Mapped[Optional[str]] = mapped_column(nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)

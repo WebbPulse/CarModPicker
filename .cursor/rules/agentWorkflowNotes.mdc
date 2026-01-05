@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+
+- use the agentWorkspace folder in the top level of the project to write a brief summary of the work you complete only at the end of the task. These notes should be left in previosActionSummarys folder.
+- use the agentWorkspace folder in the top level of the project to write a brief summary of the todo items you did not complete during the session.These notes should be left in toDoNotes folder.
+- after you complete a task that was left in the toDoNotes folder, delete the content.
+- you may be working along side other agents you cant see. It is possible that files might change without you knowing. This is normal and you should not be alarmed.

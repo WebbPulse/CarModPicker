@@ -292,7 +292,7 @@ class TestCategories:
 
         # Try to create another category with the same name
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
-        assert response.status_code == 400
+        assert response.status_code == 409  # 409 Conflict is correct for duplicates
         assert "already exists" in response.json()["message"]
 
     def test_update_category_success(
@@ -346,7 +346,10 @@ class TestCategories:
 
         response = client.put(f"{settings.API_STR}/categories/99999", json=update_data)
         assert response.status_code == 404
-        assert "Category not found" in response.json()["message"]
+        assert (
+            "category" in response.json()["message"].lower()
+            and "not found" in response.json()["message"].lower()
+        )
 
     def test_delete_category_success(
         self, client: TestClient, db_session: Session

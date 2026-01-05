@@ -117,7 +117,9 @@ class TestSubscriptions:
         response = client.post(
             f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data
         )
-        assert response.status_code == 400
+        assert (
+            response.status_code == 409
+        )  # 409 Conflict is correct for already having premium
 
     def test_cancel_subscription_success(
         self, client: TestClient, test_user: Any

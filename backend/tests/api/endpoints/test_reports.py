@@ -186,7 +186,7 @@ class TestUnifiedReports:
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
             "category_id": category.id,
-            "price": 99.99,
+            "price": 9999,  # price in cents (99.99)
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 200

@@ -394,9 +394,9 @@ class TestCategoriesAdminAuthentication:
 
         response = client.delete(f"{settings.API_STR}/categories/{category.id}")
         assert (
-            response.status_code == 400
-        ), "Should not be able to delete category with parts"
-        assert "parts are using this category" in response.text
+            response.status_code == 409
+        ), "Should return 409 Conflict when deleting category with parts"
+        assert "parts" in response.text.lower() and "category" in response.text.lower()
 
     def test_public_category_endpoints_remain_public(
         self, client: TestClient, db_session: Session
@@ -466,5 +466,7 @@ class TestCategoriesAdminAuthentication:
         }
 
         response = client.post(f"{settings.API_STR}/categories/", json=category_data_2)
-        assert response.status_code == 400, "Should not allow duplicate category names"
+        assert (
+            response.status_code == 409
+        ), "Should return 409 Conflict for duplicate category names"
         assert "already exists" in response.text

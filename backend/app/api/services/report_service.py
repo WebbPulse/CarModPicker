@@ -262,6 +262,141 @@ class ReportService:
 
         return report
 
+    def delete_report(
+        self,
+        db: Session,
+        report_id: int,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        """
+        Delete a report (admin only).
+
+        Args:
+            db: Database session
+            report_id: ID of the report to delete
+            logger: Optional logger instance
+
+        Raises:
+            HTTPException: If report doesn't exist
+        """
+        report = db.query(DBReport).filter(DBReport.id == report_id).first()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+
+        db.delete(report)
+        db.commit()
+
+        if logger:
+            logger.info(f"Report deleted: {report_id}")
+
+    def get_user_reports(
+        self,
+        db: Session,
+        user_id: int,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+        logger: Optional[logging.Logger] = None,
+    ) -> List[ReportRead]:
+        """
+        Get all reports created by a specific user.
+
+        Args:
+            db: Database session
+            user_id: ID of the user
+            status: Optional status filter
+            skip: Number of reports to skip
+            limit: Maximum number of reports to return
+            logger: Optional logger instance
+
+        Returns:
+            List of reports created by the user
+        """
+        query = db.query(DBReport).filter(DBReport.user_id == user_id)
+
+        if status:
+            query = query.filter(DBReport.status == status)
+
+        reports = (
+            query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
+        )
+
+        if logger:
+            logger.info(f"Retrieved {len(reports)} reports by user {user_id}")
+
+        return [ReportRead.model_validate(report) for report in reports]
+
+    def get_report_by_id(
+        self,
+        db: Session,
+        report_id: int,
+        current_user_id: int,
+        is_admin: bool = False,
+        logger: Optional[logging.Logger] = None,
+    ) -> Optional[ReportWithDetails]:
+        """
+        Get a specific report by ID with authorization check.
+
+        Args:
+            db: Database session
+            report_id: ID of the report to retrieve
+            current_user_id: ID of the current user
+            is_admin: Whether the current user is an admin
+            logger: Optional logger instance
+
+        Returns:
+            Report with details if found and authorized, None otherwise
+        """
+        # Query the report with user details
+        query = (
+            db.query(
+                DBReport,
+                DBUser.username.label("reporter_username"),
+                DBUser.id.label("reporter_id"),
+            )
+            .join(DBUser, DBReport.user_id == DBUser.id)
+            .filter(DBReport.id == report_id)
+        )
+
+        result = query.first()
+
+        if not result:
+            return None
+
+        report, reporter_username, reporter_id = result
+
+        # Authorization check: user can only see their own reports unless they're admin
+        if not is_admin and report.user_id != current_user_id:
+            return None
+
+        # Get entity details
+        entity = self._get_entity_details(db, report.entity_type, report.entity_id)
+
+        # Get reviewer username if reviewed
+        reviewer_username = None
+        if report.reviewed_by:
+            reviewer = db.query(DBUser).filter(DBUser.id == report.reviewed_by).first()
+            reviewer_username = reviewer.username if reviewer else None
+
+        return ReportWithDetails(
+            id=report.id,
+            user_id=report.user_id,
+            entity_type=report.entity_type,
+            entity_id=report.entity_id,
+            reason=report.reason,
+            description=report.description,
+            status=report.status,
+            admin_notes=report.admin_notes,
+            reviewed_by=report.reviewed_by,
+            reviewed_at=report.reviewed_at,
+            created_at=report.created_at,
+            updated_at=report.updated_at,
+            reporter_username=reporter_username,
+            entity_name=entity["name"],
+            entity_description=entity.get("description"),
+            reviewer_username=reviewer_username,
+        )
+
     def _get_entity_model(self, entity_type: EntityType):
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.CAR:
