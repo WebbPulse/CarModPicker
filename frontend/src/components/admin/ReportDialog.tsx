@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { globalPartReportsApi } from '../../services/Api';
-import Dialog from '../common/Dialog';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
+import Dialog from '../common/Dialog';
 
 interface ReportDialogProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
       setIsSubmitting(true);
       await globalPartReportsApi.reportGlobalPart(partId, {
         reason: reason.trim(),
-        description: description.trim() || undefined,
+        description: description.trim() || null,
       });
 
       // Reset form

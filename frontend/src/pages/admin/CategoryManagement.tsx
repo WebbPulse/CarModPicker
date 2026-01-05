@@ -1,23 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
+import apiClient from '../../services/Api';
 import type {
-  CategoryResponse,
   CategoryCreate,
+  CategoryResponse,
   CategoryUpdate,
 } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Card from '../../components/common/Card';
+import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
 import Input from '../../components/common/Input';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchCategoriesRequestFn = () =>
   apiClient.get<CategoryResponse[]>('/categories/');
@@ -342,7 +342,7 @@ function CategoryManagement() {
             id="create-sort-order"
             label="Sort Order"
             type="number"
-            value={formData.sort_order}
+            value={formData.sort_order ?? 0}
             onChange={(e) =>
               setFormData({
                 ...formData,
@@ -425,7 +425,7 @@ function CategoryManagement() {
             id="edit-sort-order"
             label="Sort Order"
             type="number"
-            value={formData.sort_order}
+            value={formData.sort_order ?? 0}
             onChange={(e) =>
               setFormData({
                 ...formData,

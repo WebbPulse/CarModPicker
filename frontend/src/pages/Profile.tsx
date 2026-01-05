@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import PageHeader from '../components/layout/PageHeader';
-import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
-import apiClient from '../services/Api';
-import useApiRequest from '../hooks/UseApiRequest';
-import type { UserUpdate, UserRead } from '../types/Api';
-import Input from '../components/common/Input';
-import ButtonStretch from '../components/buttons/StretchButton';
-import Card from '../components/common/Card';
-import SectionHeader from '../components/layout/SectionHeader';
-import CardInfoItem from '../components/common/CardInfoItem';
 import AuthCard from '../components/auth/AuthCard';
 import AuthRedirectLink from '../components/auth/AuthRedirectLink';
 import ActionButton from '../components/buttons/ActionButton';
 import SecondaryButton from '../components/buttons/SecondaryButton';
-import Divider from '../components/layout/Divider';
+import ButtonStretch from '../components/buttons/StretchButton';
 import CarList from '../components/cars/CarList';
+import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
+import Card from '../components/common/Card';
+import CardInfoItem from '../components/common/CardInfoItem';
+import Input from '../components/common/Input';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import Divider from '../components/layout/Divider';
+import PageHeader from '../components/layout/PageHeader';
+import SectionHeader from '../components/layout/SectionHeader';
+import useApiRequest from '../hooks/UseApiRequest';
+import { useAuth } from '../hooks/useAuth';
+import apiClient from '../services/Api';
+import type { UserRead, UserUpdate } from '../types/Api';
 
 function Profile() {
   const {
@@ -393,11 +393,13 @@ function Profile() {
       <Divider />
 
       {/* Display User's Cars */}
-      <CarList
-        userId={user && !isEditing ? user.id : undefined}
-        title="Your Cars"
-        emptyMessage="You haven't added any cars yet. Go to the Builder to add your first car!"
-      />
+      {user && !isEditing && (
+        <CarList
+          userId={user.id}
+          title="Your Cars"
+          emptyMessage="You haven't added any cars yet. Go to the Builder to add your first car!"
+        />
+      )}
     </div>
   );
 }

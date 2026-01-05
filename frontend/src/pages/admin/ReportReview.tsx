@@ -1,20 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
-import type {
-  ReportWithDetails,
-  ReportUpdate,
-} from '../../types/Api';
+import { useAuth } from '../../hooks/useAuth';
+import apiClient from '../../services/Api';
+import type { ReportUpdate, ReportWithDetails } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Card from '../../components/common/Card';
 import Dialog from '../../components/common/Dialog';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchReportsRequestFn = (params?: {
   status?: string;
@@ -33,9 +30,7 @@ const updateReportRequestFn = (payload: {
     payload.data
   );
 const getPendingReportsCountRequestFn = () =>
-  apiClient.get<Record<string, number>>(
-    '/reports/admin/pending/count'
-  );
+  apiClient.get<Record<string, number>>('/reports/admin/pending/count');
 
 function ReportReview() {
   const { user } = useAuth();
@@ -80,7 +75,7 @@ function ReportReview() {
 
   useEffect(() => {
     if (countData) {
-      setPendingCount(countData.pending_count || 0);
+      setPendingCount(countData['pending_count'] || 0);
     }
   }, [countData]);
 
@@ -259,7 +254,8 @@ function ReportReview() {
                       </h4>
                       <p className="text-gray-400">
                         {report.entity_name}
-                        {report.entity_description && ` - ${report.entity_description}`}
+                        {report.entity_description &&
+                          ` - ${report.entity_description}`}
                       </p>
                       <p className="text-gray-500 text-sm">
                         Type: {report.entity_type}
@@ -310,7 +306,8 @@ function ReportReview() {
             <h4 className="font-medium text-gray-300 mb-2">Report Details</h4>
             <div className="bg-gray-800 p-3 rounded">
               <p>
-                <strong>Entity:</strong> {selectedReport?.entity_name} ({selectedReport?.entity_type})
+                <strong>Entity:</strong> {selectedReport?.entity_name} (
+                {selectedReport?.entity_type})
               </p>
               <p>
                 <strong>Reason:</strong> {selectedReport?.reason}

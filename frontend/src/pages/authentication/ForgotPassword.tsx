@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import Input from '../../components/common/Input';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import apiClient from '../../services/Api';
 import AuthCard from '../../components/auth/AuthCard';
-import { ErrorAlert, ConfirmationAlert } from '../../components/common/Alerts';
-import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
-import useApiRequest from '../../hooks/UseApiRequest';
 import AuthForm from '../../components/auth/AuthForm';
+import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
+import ButtonStretch from '../../components/buttons/StretchButton';
+import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
+import Input from '../../components/common/Input';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { authApi } from '../../services/Api';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const forgotPasswordRequestFn = (payload: { email: string }) =>
-    apiClient.post<Record<string, never>>('/auth/forgot-password', payload);
+    authApi.resetPassword(payload);
 
   const {
     error: apiError,

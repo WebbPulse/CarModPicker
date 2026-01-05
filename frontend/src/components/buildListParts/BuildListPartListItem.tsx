@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { BuildListPartReadWithGlobalPart } from '../../types/Api';
+import ActionButton from '../buttons/ActionButton';
+import SecondaryButton from '../buttons/SecondaryButton';
 import Card from '../common/Card';
 import CardInfoItem from '../common/CardInfoItem';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
 
 interface BuildListPartListItemProps {
   buildListPart: BuildListPartReadWithGlobalPart;
@@ -39,7 +39,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
         {/* Image */}
         <div className="flex-shrink-0">
           <ImageWithPlaceholder
-            srcUrl={global_part.image_url}
+            srcUrl={global_part.image_url ?? null}
             altText={`${global_part.name} image`}
             imageClassName="w-32 h-32 object-cover rounded-lg"
           />

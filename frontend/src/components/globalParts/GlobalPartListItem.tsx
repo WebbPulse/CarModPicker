@@ -13,7 +13,7 @@ const GlobalPartListItem: React.FC<GlobalPartListItemProps> = ({ part }) => {
     <Link to={`/global-parts/${part.id}`} className="block hover:no-underline">
       <Card className="flex flex-row items-start gap-4 p-4 border-2 border-transparent w-full">
         <ImageWithPlaceholder
-          srcUrl={part.image_url}
+          srcUrl={part.image_url ?? null}
           altText={part.name}
           imageClassName="w-24 h-24 object-cover rounded-md"
           containerClassName="w-24 h-24 flex-shrink-0"
