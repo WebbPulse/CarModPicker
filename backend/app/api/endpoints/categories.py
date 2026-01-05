@@ -74,7 +74,9 @@ base_router = BaseEndpointRouter(
     disable_endpoints=[
         "list",
         "delete",
-    ],  # Disable automatic list and delete endpoints to use custom ones
+        "create",
+        "update",
+    ],  # Disable automatic endpoints - categories should be admin-only for write operations
     create_schema=CategoryCreate,
     read_schema=CategoryResponse,
     update_schema=CategoryUpdate,

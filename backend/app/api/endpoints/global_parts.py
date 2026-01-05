@@ -55,23 +55,10 @@ class GlobalPartService(
 
 global_part_service = GlobalPartService()
 
-# Create base endpoint router
-base_router = BaseEndpointRouter(
-    service=global_part_service,
-    router=router,
-    entity_name="global part",
-    allow_public_read=True,  # Global parts can be viewed publicly
-    additional_create_data={},  # No additional data needed for global parts
-    create_schema=GlobalPartCreate,
-    read_schema=GlobalPartRead,
-    update_schema=GlobalPartUpdate,
-)
-
-# Override search fields for global parts
-base_router._get_search_fields = lambda: ["name", "description", "category"]
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper route precedence
+# (More specific routes like /with-votes must be registered before generic routes like /{entity_id})
 
 
-# Add custom endpoints specific to global parts
 @router.get(
     "/with-votes",
     response_model=List[GlobalPartReadWithVotes],
@@ -138,6 +125,22 @@ async def get_global_parts_by_category(
     )
     logger.info(f"Retrieved {len(parts)} parts for category {category_id}")
     return [GlobalPartRead.model_validate(part) for part in parts]
+
+
+# Create base endpoint router AFTER custom endpoints to avoid route collision
+base_router = BaseEndpointRouter(
+    service=global_part_service,
+    router=router,
+    entity_name="global part",
+    allow_public_read=True,  # Global parts can be viewed publicly
+    additional_create_data={},  # No additional data needed for global parts
+    create_schema=GlobalPartCreate,
+    read_schema=GlobalPartRead,
+    update_schema=GlobalPartUpdate,
+)
+
+# Override search fields for global parts
+base_router._get_search_fields = lambda: ["name", "description", "category"]
 
 
 @router.get(

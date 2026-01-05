@@ -40,7 +40,21 @@ router = APIRouter()
 # Create service
 user_service = UserService()
 
-# Create base endpoint router
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper route precedence
+# (More specific routes like /me must be registered before generic routes like /{entity_id})
+
+
+@router.get("/me", response_model=UserRead)
+async def read_users_me_route(
+    current_user: DBUser = Depends(get_current_user),
+) -> DBUser:
+    """
+    Fetch the current logged in user.
+    """
+    return current_user
+
+
+# Create base endpoint router AFTER /me to avoid route collision
 base_router = BaseEndpointRouter(
     service=user_service,
     router=router,
@@ -57,15 +71,7 @@ base_router = BaseEndpointRouter(
 base_router._get_search_fields = lambda: ["username", "email"]
 
 
-# Custom endpoints specific to users
-@router.get("/me", response_model=UserRead)
-async def read_users_me_route(
-    current_user: DBUser = Depends(get_current_user),
-) -> DBUser:
-    """
-    Fetch the current logged in user.
-    """
-    return current_user
+# Custom endpoints specific to users (continued)
 
 
 @router.post(
@@ -233,6 +239,40 @@ async def update_user(
                 "A user with the provided username or email may already exist, or another integrity constraint was violated."
             )
     return UserRead.model_validate(db_user)
+
+
+@router.delete(
+    "/{user_id}",
+    response_model=UserRead,
+    responses=crud_responses("user", "delete"),
+)
+async def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+    current_user: DBUser = Depends(get_current_user),
+) -> UserRead:
+    """
+    Delete a user account. Users can only delete their own account.
+    """
+    # Check if the current user is trying to delete their own account
+    if user_id != current_user.id:
+        logger.warning(
+            f"User {current_user.id} attempted to delete user {user_id} without authorization."
+        )
+        ResponsePatterns.raise_forbidden("Not authorized to delete this user")
+
+    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if not db_user:
+        ResponsePatterns.raise_not_found("User", user_id)
+
+    # Convert the SQLAlchemy model to the Pydantic model before deleting
+    deleted_user_data = UserRead.model_validate(db_user)
+
+    db.delete(db_user)
+    db.commit()
+    logger.info(f"User {current_user.id} deleted their own account")
+    return deleted_user_data
 
 
 # --- Admin Endpoints ---

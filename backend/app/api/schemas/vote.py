@@ -17,8 +17,6 @@ class EntityType(str, Enum):
 
 class VoteCreate(BaseModel):
     vote_type: VoteType
-    entity_type: EntityType
-    entity_id: int
 
 
 class VoteUpdate(BaseModel):

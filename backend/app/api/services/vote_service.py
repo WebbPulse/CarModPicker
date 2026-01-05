@@ -173,7 +173,14 @@ class VoteService:
 
         Returns:
             Vote summary
+
+        Raises:
+            HTTPException: If entity not found
         """
+        # Verify entity exists
+        entity_model = self._get_entity_model(entity_type)
+        verify_entity_exists(db, entity_model, entity_id, entity_type.value)
+
         # Get vote counts
         vote_counts = (
             db.query(DBVote.vote_type, func.count(DBVote.id).label("count"))

@@ -6,7 +6,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user, get_current_admin_user
+from app.api.dependencies.auth import (
+    get_current_user,
+    get_current_admin_user,
+    get_optional_current_user,
+)
 from app.api.models.user import User as DBUser
 from app.api.schemas.vote import (
     VoteCreate,
@@ -84,7 +88,9 @@ async def remove_vote(
     if removed:
         return {"message": "Vote removed successfully"}
     else:
-        return {"message": "No vote found to remove"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No vote found to remove"
+        )
 
 
 @router.get(
@@ -99,9 +105,9 @@ async def get_vote_summary(
     entity_type: EntityType,
     entity_id: int,
     deps: dict = Depends(get_standard_public_endpoint_dependencies),
-    current_user: Optional[DBUser] = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> VoteSummary:
-    """Get vote summary for an entity."""
+    """Get vote summary for an entity (public endpoint, authentication optional)."""
     db = deps["db"]
     logger = deps["logger"]
 

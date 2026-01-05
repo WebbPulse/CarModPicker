@@ -95,6 +95,34 @@ async def list_reports(
 
 
 @router.get(
+    "/my-reports",
+    response_model=List[ReportRead],
+    responses=standard_responses(
+        success_description="User's reports retrieved successfully",
+    ),
+)
+async def get_my_reports(
+    status: Optional[str] = Query(None, description="Filter by status"),
+    skip: int = Query(0, ge=0, description="Number of reports to skip"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of reports to return"
+    ),
+    db: Session = Depends(get_db),
+    logger=Depends(get_logger),
+    current_user: DBUser = Depends(get_current_user),
+) -> List[ReportRead]:
+    """Get all reports created by the current user."""
+    return report_service.get_user_reports(
+        db=db,
+        user_id=current_user.id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        logger=logger,
+    )
+
+
+@router.get(
     "/admin/list-with-details",
     response_model=List[ReportWithDetails],
     responses=standard_responses(
@@ -159,35 +187,54 @@ async def update_report(
     return ReportRead.model_validate(report)
 
 
+@router.delete(
+    "/{report_id}",
+    responses=standard_responses(
+        success_description="Report deleted successfully",
+        not_found=True,
+        unauthorized=True,
+        forbidden=True,
+    ),
+)
+async def delete_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    logger=Depends(get_logger),
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> dict:
+    """Delete a report (admin only)."""
+    report_service.delete_report(
+        db=db,
+        report_id=report_id,
+        logger=logger,
+    )
+    return {"message": "Report deleted successfully"}
+
+
 @router.get(
     "/{report_id}",
     response_model=ReportWithDetails,
     responses=standard_responses(
         success_description="Report retrieved successfully",
         not_found=True,
-        unauthorized=True,
-        forbidden=True,
     ),
 )
 async def get_report(
     report_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+    logger=Depends(get_logger),
+    current_user: DBUser = Depends(get_current_user),
 ) -> ReportWithDetails:
-    """Get a specific report with details. Admin only."""
-    db = deps["db"]
-    logger = deps["logger"]
-
-    reports = report_service.get_reports_with_details(
+    """Get a specific report with details. Users can access their own reports, admins can access any report."""
+    report = report_service.get_report_by_id(
         db=db,
-        skip=0,
-        limit=1,
+        report_id=report_id,
+        current_user_id=current_user.id,
+        is_admin=current_user.is_admin,
         logger=logger,
     )
 
-    # Find the specific report
-    for report in reports:
-        if report.id == report_id:
-            return report
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
 
-    raise HTTPException(status_code=404, detail="Report not found")
+    return report

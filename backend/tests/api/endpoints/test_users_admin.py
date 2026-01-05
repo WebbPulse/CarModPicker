@@ -565,7 +565,10 @@ class TestAdminUserManagement:
             f"{settings.API_STR}/users/admin/users/99999", json=update_data
         )
         assert response.status_code == 404, "Should return 404 for nonexistent user"
-        assert "User not found" in response.text
+        assert (
+            "User" in response.json()["message"]
+            and "not found" in response.json()["message"]
+        )
 
     def test_admin_delete_nonexistent_user(
         self, client: TestClient, db_session: Session
@@ -578,7 +581,10 @@ class TestAdminUserManagement:
 
         response = client.delete(f"{settings.API_STR}/users/admin/users/99999")
         assert response.status_code == 404, "Should return 404 for nonexistent user"
-        assert "User not found" in response.text
+        assert (
+            "User" in response.json()["message"]
+            and "not found" in response.json()["message"]
+        )
 
     def test_admin_update_user_with_duplicate_username(
         self, client: TestClient, db_session: Session
@@ -621,7 +627,9 @@ class TestAdminUserManagement:
         response = client.put(
             f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data
         )
-        assert response.status_code == 400, "Should not allow duplicate username"
+        assert (
+            response.status_code == 409
+        ), "Should return 409 Conflict for duplicate username"
         assert "already exists" in response.text
 
     def test_admin_update_user_with_duplicate_email(
@@ -663,5 +671,7 @@ class TestAdminUserManagement:
         response = client.put(
             f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data
         )
-        assert response.status_code == 400, "Should not allow duplicate email"
+        assert (
+            response.status_code == 409
+        ), "Should return 409 Conflict for duplicate email"
         assert "already exists" in response.text

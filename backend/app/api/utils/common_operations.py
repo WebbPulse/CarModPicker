@@ -195,10 +195,15 @@ def build_search_query(
     from sqlalchemy import or_
 
     search_conditions = []
+    model = base_query.column_descriptions[0]["type"]
+
     for field_name in search_fields:
-        if hasattr(base_query.column_descriptions[0]["type"], field_name):
-            field = getattr(base_query.column_descriptions[0]["type"], field_name)
-            search_conditions.append(field.ilike(f"%{search_term}%"))
+        if hasattr(model, field_name):
+            field = getattr(model, field_name)
+            # Only apply ilike to actual columns (not relationships)
+            if hasattr(field, "property") and hasattr(field.property, "columns"):
+                # This is a column attribute, safe to use ilike
+                search_conditions.append(field.ilike(f"%{search_term}%"))
 
     if search_conditions:
         base_query = base_query.filter(or_(*search_conditions))
