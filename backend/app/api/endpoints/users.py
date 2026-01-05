@@ -1,29 +1,49 @@
-import logging
-from typing import Any, List
+"""
+Refactored users endpoint using base classes to eliminate redundancy.
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
+This endpoint now uses the BaseEndpointRouter to provide common CRUD
+operations while maintaining user-specific functionality like password
+hashing and admin management.
+"""
+
+import logging
+from typing import List
+
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
-    get_current_user,
     get_current_admin_user,
+    get_current_user,
     get_password_hash,
     verify_password,
 )
 from app.api.models.user import User as DBUser
 from app.api.schemas.user import (
+    AdminUserUpdate,
     UserCreate,
     UserRead,
     UserUpdate,
-    AdminUserUpdate,
 )
+from app.api.services.user_service import UserService
+from app.api.utils.base_endpoint_router import BaseEndpointRouter
+from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
+from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
 
+# Create router
 router = APIRouter()
+
+# Create service
+user_service = UserService()
+
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper
+# route precedence (More specific routes like /me must be registered
+# before generic routes like /{entity_id})
 
 
 @router.get("/me", response_model=UserRead)
@@ -36,13 +56,28 @@ async def read_users_me_route(
     return current_user
 
 
+# Create base endpoint router AFTER /me to avoid route collision
+base_router = BaseEndpointRouter(
+    service=user_service,
+    router=router,
+    entity_name="user",
+    allow_public_read=False,  # Users are private
+    additional_create_data={},  # No additional data needed
+    disable_endpoints=["create", "update", "delete"],  # Use custom endpoints instead
+    create_schema=UserCreate,
+    read_schema=UserRead,
+    update_schema=UserUpdate,
+    search_fields=["username", "email"],
+)
+
+
+# Custom endpoints specific to users (continued)
+
+
 @router.post(
     "/",
     response_model=UserRead,
-    responses={
-        400: {"description": "User already exists"},
-        403: {"description": "Not authorized to create a user"},
-    },
+    responses=crud_responses("user", "create"),
 )
 async def create_user(
     user: UserCreate,
@@ -58,16 +93,13 @@ async def create_user(
         db.query(DBUser).filter(DBUser.username == user.username).first()
     )
     if db_user_by_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered",
+        ResponsePatterns.raise_conflict(
+            "Username already registered", "USERNAME_EXISTS"
         )
+
     db_user_by_email = db.query(DBUser).filter(DBUser.email == user.email).first()
     if db_user_by_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
-        )
+        ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
 
     # Hash the received password
     hashed_password = get_password_hash(user.password)
@@ -75,7 +107,7 @@ async def create_user(
     # Create DBUser instance (excluding plain password)
     # Auto-verify email in test environment (when using SQLite in-memory database)
     is_test_environment = (
-        "sqlite:///:memory:" in str(db.bind.url)
+        "sqlite:///:memory:" in str(getattr(db.bind, "url", ""))
         if db.bind and hasattr(db.bind, "url")
         else False
     )
@@ -95,41 +127,10 @@ async def create_user(
     return db_user
 
 
-@router.get(
-    "/{user_id}",
-    response_model=UserRead,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Not authorized to access this user"},
-    },
-)
-async def read_user(
-    user_id: int,
-    db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
-) -> DBUser:
-    db_user = (
-        db.query(DBUser).filter(DBUser.id == user_id).first()
-    )  # Query the database
-    if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    logger.info(msg=f"User retrieved from database: {db_user}")
-    return db_user
-
-
 @router.put(
     "/{user_id}",
     response_model=UserRead,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Not authorized to update this user"},
-        400: {
-            "description": "Invalid input, e.g., username or email already registered"
-        },
-    },
+    responses=crud_responses("user", "update"),
 )
 async def update_user(
     user_id: int,
@@ -138,25 +139,20 @@ async def update_user(
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
-) -> DBUser:
+) -> UserRead:
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
 
     if not db_user:
         logger.warning(f"Attempt to update non-existent user {user_id}.")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+        ResponsePatterns.raise_not_found("User", user_id)
 
     # Check if the current user is the user being updated
     if db_user.id != current_user.id:
         logger.warning(
-            f"User {current_user.id} attempt to update user {user_id} without authorization."
+            f"User {current_user.id} attempt to update user {user_id} "
+            f"without authorization."
         )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this user",
-        )
+        ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
     if user.current_password and not verify_password(
         user.current_password, db_user.hashed_password
@@ -164,10 +160,7 @@ async def update_user(
         logger.warning(
             f"User {current_user.id} provided incorrect current password for update."
         )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect current password",
-        )
+        ResponsePatterns.raise_unauthorized("Incorrect current password")
 
     update_data = user.model_dump(
         exclude_unset=True, exclude={"current_password"}
@@ -199,7 +192,8 @@ async def update_user(
 
         if username_changed:
             logger.info(
-                f"Username for user {user_id} changed to '{db_user.username}'. Issuing new access token."
+                f"Username for user {user_id} changed to '{db_user.username}'. "
+                f"Issuing new access token."
             )
             # Create a new access token with the new username
             new_access_token_data = {"sub": db_user.username}
@@ -213,7 +207,8 @@ async def update_user(
                 max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 path="/",
                 samesite="lax",
-                secure=False,  # TODO: Change to True in production if served over HTTPS (e.g., settings.SECURE_COOKIES)
+                # TODO: Change to True in production if served over HTTPS
+                secure=False,
             )
 
     except IntegrityError as e:
@@ -230,9 +225,8 @@ async def update_user(
                 and "users.username" in error_detail_str
             )
         ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered",
+            ResponsePatterns.raise_conflict(
+                "Username already registered", "USERNAME_EXISTS"
             )
         elif (
             "users_email_key" in error_detail_str
@@ -242,25 +236,19 @@ async def update_user(
                 and "users.email" in error_detail_str
             )
         ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
-            )
+            ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A user with the provided username or email may already exist, or another integrity constraint was violated.",
+            ResponsePatterns.raise_bad_request(
+                "A user with the provided username or email may already exist, "
+                "or another integrity constraint was violated."
             )
-    return db_user
+    return UserRead.model_validate(db_user)
 
 
 @router.delete(
     "/{user_id}",
     response_model=UserRead,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Not authorized to delete this user"},
-    },
+    responses=crud_responses("user", "delete"),
 )
 async def delete_user(
     user_id: int,
@@ -268,27 +256,27 @@ async def delete_user(
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
-    # Authorization check
-    if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this user",
+    """
+    Delete a user account. Users can only delete their own account.
+    """
+    # Check if the current user is trying to delete their own account
+    if user_id != current_user.id:
+        logger.warning(
+            f"User {current_user.id} attempted to delete user {user_id} "
+            f"without authorization."
         )
+        ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
-    if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    if not db_user:
+        ResponsePatterns.raise_not_found("User", user_id)
 
-    # Convert the SQLAlchemy model to the Pydantic model *before* deleting
+    # Convert the SQLAlchemy model to the Pydantic model before deleting
     deleted_user_data = UserRead.model_validate(db_user)
 
     db.delete(db_user)
     db.commit()
-    # Log the deleted user data
-    logger.info(msg=f"User deleted from database: {deleted_user_data.id}")
+    logger.info(f"User {current_user.id} deleted their own account")
     return deleted_user_data
 
 
@@ -298,9 +286,7 @@ async def delete_user(
 @router.get(
     "/admin/users",
     response_model=List[UserRead],
-    responses={
-        403: {"description": "Admin privileges required"},
-    },
+    responses=crud_responses("user", "list", allow_public_read=False),
 )
 async def get_all_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
@@ -310,22 +296,20 @@ async def get_all_users(
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> List[DBUser]:
+) -> List[UserRead]:
     """
     Get all users (admin only).
     """
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
     users = db.query(DBUser).offset(skip).limit(limit).all()
     logger.info(f"Admin {current_user.id} retrieved {len(users)} users")
-    return users
+    return [UserRead.model_validate(user) for user in users]
 
 
 @router.put(
     "/admin/users/{user_id}",
     response_model=UserRead,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Admin privileges required"},
-    },
+    responses=crud_responses("user", "update"),
 )
 async def admin_update_user(
     user_id: int,
@@ -333,25 +317,19 @@ async def admin_update_user(
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> DBUser:
+) -> UserRead:
     """
     Update a user with admin privileges (admin only).
     """
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+        ResponsePatterns.raise_not_found("User", user_id)
 
     # Prevent admin from removing their own admin privileges
     if user_id == current_user.id and (
         user_update.is_admin is False or user_update.is_superuser is False
     ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot remove your own admin privileges",
-        )
+        ResponsePatterns.raise_bad_request("Cannot remove your own admin privileges")
 
     update_data = user_update.model_dump(exclude_unset=True)
 
@@ -368,24 +346,19 @@ async def admin_update_user(
         db.commit()
         db.refresh(db_user)
         logger.info(f"Admin {current_user.id} updated user {user_id}")
-        return db_user
+        return UserRead.model_validate(db_user)
     except IntegrityError as e:
         db.rollback()
         logger.warning(f"IntegrityError during admin user update: {e.orig}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already exists",
+        ResponsePatterns.raise_conflict(
+            "Username or email already exists", "USERNAME_EMAIL_EXISTS"
         )
 
 
 @router.delete(
     "/admin/users/{user_id}",
     response_model=UserRead,
-    responses={
-        404: {"description": "User not found"},
-        403: {"description": "Admin privileges required"},
-        400: {"description": "Cannot delete yourself"},
-    },
+    responses=crud_responses("user", "delete"),
 )
 async def admin_delete_user(
     user_id: int,
@@ -398,17 +371,11 @@ async def admin_delete_user(
     """
     # Prevent admin from deleting themselves
     if user_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete your own account",
-        )
+        ResponsePatterns.raise_bad_request("Cannot delete your own account")
 
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+        ResponsePatterns.raise_not_found("User", user_id)
 
     # Convert the SQLAlchemy model to the Pydantic model before deleting
     deleted_user_data = UserRead.model_validate(db_user)
@@ -417,3 +384,7 @@ async def admin_delete_user(
     db.commit()
     logger.info(f"Admin {current_user.id} deleted user {user_id}")
     return deleted_user_data
+
+
+# Add count endpoint
+base_router.add_count_endpoint()

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Input from '../../components/common/Input';
+import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
+import { GiRaceCar } from 'react-icons/gi';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/buttons/Button';
+import Input from '../../components/common/Input';
+import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient from '../../services/Api';
 import type { UserCreate, UserRead } from '../../types/Api';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { GiRaceCar } from 'react-icons/gi';
-import { Link } from 'react-router-dom';
 
 function Register() {
   const [username, setUsername] = useState('');
@@ -69,7 +68,10 @@ function Register() {
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+        <div
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1s' }}
+        ></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md">
@@ -164,7 +166,8 @@ function Register() {
                 </button>
               }
               variant="glass"
-              error={password !== confirmPassword && confirmPassword ? "Passwords don't match" : undefined}
+              {...(password !== confirmPassword &&
+                confirmPassword && { error: "Passwords don't match" })}
             />
 
             {apiError && (
@@ -204,7 +207,10 @@ function Register() {
         <div className="mt-8 text-center">
           <p className="text-neutral-500 text-xs">
             By creating an account, you agree to our{' '}
-            <Link to="/privacy-policy" className="text-neutral-400 hover:text-white transition-colors">
+            <Link
+              to="/privacy-policy"
+              className="text-neutral-400 hover:text-white transition-colors"
+            >
               Privacy Policy
             </Link>
           </p>

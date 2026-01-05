@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Input from '../../components/common/Input';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import apiClient from '../../services/Api';
 import AuthCard from '../../components/auth/AuthCard';
-import { ErrorAlert, ConfirmationAlert } from '../../components/common/Alerts';
-import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
-import useApiRequest from '../../hooks/UseApiRequest';
 import AuthForm from '../../components/auth/AuthForm';
+import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
+import ButtonStretch from '../../components/buttons/StretchButton';
+import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
+import Input from '../../components/common/Input';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { authApi } from '../../services/Api';
 import type { NewPassword } from '../../types/Api';
 
 function ForgotPasswordConfirm() {
@@ -20,11 +20,7 @@ function ForgotPasswordConfirm() {
   const forgotPasswordConfirmRequestFn = (payload: {
     token: string;
     newPasswordData: NewPassword;
-  }) =>
-    apiClient.post(
-      `/auth/forgot-password/confirm?token=${payload.token}`,
-      payload.newPasswordData
-    );
+  }) => authApi.resetPasswordConfirm(payload.token, payload.newPasswordData);
 
   const {
     error: apiError,
@@ -32,7 +28,7 @@ function ForgotPasswordConfirm() {
     executeRequest: confirmPasswordReset,
     setError: setApiError,
   } = useApiRequest<
-    Record<string, never>,
+    Record<string, string>,
     { token: string; newPasswordData: NewPassword }
   >(forgotPasswordConfirmRequestFn);
 

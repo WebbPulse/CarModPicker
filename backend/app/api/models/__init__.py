@@ -1,12 +1,12 @@
-from .user import User
-from .car import Car
 from .build_list import BuildList
-from .global_part import GlobalPart
-from .subscription import Subscription
-from .category import Category
 from .build_list_part import BuildListPart
-from .global_part_vote import GlobalPartVote
-from .global_part_report import GlobalPartReport
+from .car import Car
+from .category import Category
+from .global_part import GlobalPart
+from .report import Report
+from .subscription import Subscription
+from .user import User
+from .vote import Vote
 
 __all__ = [
     "User",
@@ -16,6 +16,6 @@ __all__ = [
     "Subscription",
     "Category",
     "BuildListPart",
-    "GlobalPartVote",
-    "GlobalPartReport",
+    "Vote",
+    "Report",
 ]

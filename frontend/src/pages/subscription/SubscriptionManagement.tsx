@@ -1,27 +1,22 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
-import type { SubscriptionStatus, UpgradeRequest } from '../../types/Api';
+import { useAuth } from '../../hooks/useAuth';
+import { subscriptionsApi } from '../../services/Api';
+import type { UpgradeRequest } from '../../types/Api';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Card from '../../components/common/Card';
 import Dialog from '../../components/common/Dialog';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchSubscriptionStatusRequestFn = () =>
-  apiClient.get<SubscriptionStatus>('/subscriptions/subscriptions/status');
+const fetchSubscriptionStatusRequestFn = () => subscriptionsApi.getStatus();
 const upgradeSubscriptionRequestFn = (data: UpgradeRequest) =>
-  apiClient.post<SubscriptionStatus>(
-    '/subscriptions/subscriptions/upgrade',
-    data
-  );
-const cancelSubscriptionRequestFn = () =>
-  apiClient.post<SubscriptionStatus>('/subscriptions/subscriptions/cancel');
+  subscriptionsApi.upgrade(data);
+const cancelSubscriptionRequestFn = () => subscriptionsApi.cancel();
 
 function SubscriptionManagement() {
   const { user } = useAuth();
@@ -222,8 +217,8 @@ function SubscriptionManagement() {
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-gray-400">Cars</span>
                       <span className="text-gray-200">
-                        {subscriptionStatus.usage.cars || 0} /{' '}
-                        {subscriptionStatus.limits.cars || '∞'}
+                        {subscriptionStatus.usage['cars'] || 0} /{' '}
+                        {subscriptionStatus.limits['cars'] || '∞'}
                       </span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
@@ -231,8 +226,8 @@ function SubscriptionManagement() {
                         className="bg-blue-600 h-2 rounded-full"
                         style={{
                           width: `${Math.min(
-                            ((subscriptionStatus.usage.cars || 0) /
-                              (subscriptionStatus.limits.cars || 1)) *
+                            ((subscriptionStatus.usage['cars'] || 0) /
+                              (subscriptionStatus.limits['cars'] || 1)) *
                               100,
                             100
                           )}%`,
@@ -245,8 +240,8 @@ function SubscriptionManagement() {
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-gray-400">Build Lists</span>
                       <span className="text-gray-200">
-                        {subscriptionStatus.usage.build_lists || 0} /{' '}
-                        {subscriptionStatus.limits.build_lists || '∞'}
+                        {subscriptionStatus.usage['build_lists'] || 0} /{' '}
+                        {subscriptionStatus.limits['build_lists'] || '∞'}
                       </span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
@@ -254,8 +249,8 @@ function SubscriptionManagement() {
                         className="bg-green-600 h-2 rounded-full"
                         style={{
                           width: `${Math.min(
-                            ((subscriptionStatus.usage.build_lists || 0) /
-                              (subscriptionStatus.limits.build_lists || 1)) *
+                            ((subscriptionStatus.usage['build_lists'] || 0) /
+                              (subscriptionStatus.limits['build_lists'] || 1)) *
                               100,
                             100
                           )}%`,

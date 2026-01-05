@@ -1,5 +1,5 @@
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,9 +14,7 @@ class BuildListCreate(BaseModel):
 
 # Schema for request body when updating a build list (all fields optional)
 class BuildListUpdate(BaseModel):
-    name: Optional[str] = Field(
-        None, min_length=1, description="Build list name cannot be empty"
-    )
+    name: Optional[str] = Field(None, min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
     car_id: Optional[int] = None
     image_url: Optional[str] = None

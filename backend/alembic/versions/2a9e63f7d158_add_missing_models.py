@@ -8,9 +8,9 @@ Create Date: 2025-05-01 19:26:10.199620
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
+import sqlalchemy as sa  # noqa: F401
 
-from alembic import op
+from alembic import op  # noqa: F401
 
 # revision identifiers, used by Alembic.
 revision: str = "2a9e63f7d158"
@@ -34,9 +34,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_build_lists_description"), "build_lists", ["description"], unique=False
-    )
+    op.create_index(op.f("ix_build_lists_description"), "build_lists", ["description"], unique=False)
     op.create_index(op.f("ix_build_lists_id"), "build_lists", ["id"], unique=False)
     op.create_index(op.f("ix_build_lists_name"), "build_lists", ["name"], unique=False)
     op.create_table(
@@ -55,17 +53,11 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_parts_description"), "parts", ["description"], unique=False
-    )
+    op.create_index(op.f("ix_parts_description"), "parts", ["description"], unique=False)
     op.create_index(op.f("ix_parts_id"), "parts", ["id"], unique=False)
-    op.create_index(
-        op.f("ix_parts_manufacturer"), "parts", ["manufacturer"], unique=False
-    )
+    op.create_index(op.f("ix_parts_manufacturer"), "parts", ["manufacturer"], unique=False)
     op.create_index(op.f("ix_parts_name"), "parts", ["name"], unique=False)
-    op.create_index(
-        op.f("ix_parts_part_number"), "parts", ["part_number"], unique=False
-    )
+    op.create_index(op.f("ix_parts_part_number"), "parts", ["part_number"], unique=False)
     op.create_index(op.f("ix_parts_part_type"), "parts", ["part_type"], unique=False)
     op.create_index(op.f("ix_parts_price"), "parts", ["price"], unique=False)
     # ### end Alembic commands ###

@@ -1,5 +1,5 @@
-from typing import Optional, TYPE_CHECKING
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -16,14 +16,10 @@ class Subscription(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     tier: Mapped[str] = mapped_column(nullable=False)  # 'free', 'premium'
-    status: Mapped[str] = mapped_column(
-        nullable=False
-    )  # 'active', 'cancelled', 'expired'
+    status: Mapped[str] = mapped_column(nullable=False)  # 'active', 'cancelled', 'expired'
     expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")

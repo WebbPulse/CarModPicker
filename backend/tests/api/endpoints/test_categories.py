@@ -1,18 +1,19 @@
-import pytest
+from typing import Any
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.user import User as DBUser
 from app.api.dependencies.auth import get_password_hash
-from tests.conftest import get_default_category_id
-from app.core.config import settings
 from app.api.models.category import Category
+from app.api.models.user import User as DBUser
+from app.core.config import settings
+from tests.conftest import get_default_category_id
 
 
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Session, username_suffix: str = "admin"
-) -> dict:
+) -> dict[str, Any]:
     """Create an admin user and log them in."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
@@ -144,12 +145,13 @@ class TestCategories:
         response = client.get(f"{settings.API_STR}/categories/")
         assert response.status_code == 200
 
-        categories = response.json()
+        categories: list[Any] = response.json()
         assert isinstance(categories, list)
         # Should return at least the default categories
         assert len(categories) > 0
 
         # Check that all returned categories are active
+        category: Any
         for category in categories:
             assert category["is_active"] is True
 
@@ -174,7 +176,7 @@ class TestCategories:
         """Test getting a non-existent category."""
         response = client.get(f"{settings.API_STR}/categories/99999")
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        assert "Category not found" in response.json()["message"]
 
     def test_get_parts_by_category_success(
         self, client: TestClient, db_session: Session
@@ -224,7 +226,7 @@ class TestCategories:
         )
         assert response.status_code == 200
 
-        parts = response.json()
+        parts: list[Any] = response.json()
         assert isinstance(parts, list)
         assert len(parts) <= 2
 
@@ -292,8 +294,8 @@ class TestCategories:
 
         # Try to create another category with the same name
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
-        assert response.status_code == 400
-        assert "already exists" in response.json()["detail"]
+        assert response.status_code == 409  # 409 Conflict is correct for duplicates
+        assert "already exists" in response.json()["message"]
 
     def test_update_category_success(
         self, client: TestClient, db_session: Session
@@ -346,7 +348,10 @@ class TestCategories:
 
         response = client.put(f"{settings.API_STR}/categories/99999", json=update_data)
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        assert (
+            "category" in response.json()["message"].lower()
+            and "not found" in response.json()["message"].lower()
+        )
 
     def test_delete_category_success(
         self, client: TestClient, db_session: Session
@@ -385,7 +390,12 @@ class TestCategories:
 
         response = client.delete(f"{settings.API_STR}/categories/99999")
         assert response.status_code == 404
-        assert "Category not found" in response.json()["detail"]
+        response_data = response.json()
+        # Check that the error message indicates category not found (flexible matching)
+        error_msg = response_data.get(
+            "detail", response_data.get("message", "")
+        ).lower()
+        assert "category" in error_msg and "not found" in error_msg
 
     def test_delete_category_with_parts(
         self, client: TestClient, db_session: Session
@@ -422,5 +432,12 @@ class TestCategories:
 
         # Try to delete the category
         response = client.delete(f"{settings.API_STR}/categories/{category_id}")
-        assert response.status_code == 400
-        assert "parts are using this category" in response.json()["detail"]
+        assert response.status_code == 409  # Conflict - category has associated parts
+        response_data = response.json()
+        # ResponsePatterns.raise_conflict uses "detail" key for HTTPException
+        assert "Cannot delete category" in response_data.get(
+            "detail", response_data.get("message", "")
+        )
+        assert "associated parts" in response_data.get(
+            "detail", response_data.get("message", "")
+        )

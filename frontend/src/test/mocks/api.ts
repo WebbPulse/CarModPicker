@@ -1,12 +1,12 @@
 import { vi } from 'vitest';
 import type {
-  UserRead,
-  CarRead,
   BuildListRead,
-  GlobalPartRead,
+  CarRead,
   CategoryResponse,
-  GlobalPartVoteSummary,
+  GlobalPartRead,
   SubscriptionResponse,
+  UserRead,
+  VoteSummary,
 } from '../../types/Api';
 
 // Mock user data
@@ -39,7 +39,10 @@ export const mockBuildList: BuildListRead = {
   name: 'Test Build',
   description: 'Test build description',
   car_id: 1,
+  user_id: 1,
   image_url: 'https://example.com/build.jpg',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
 };
 
 // Mock global part data
@@ -75,11 +78,13 @@ export const mockCategory: CategoryResponse = {
 };
 
 // Mock vote summary
-export const mockVoteSummary: GlobalPartVoteSummary = {
-  part_id: 1,
+export const mockVoteSummary: VoteSummary = {
+  entity_id: 1,
+  entity_type: 'global_part',
   upvotes: 5,
   downvotes: 1,
   total_votes: 6,
+  vote_score: 4,
   user_vote: 'upvote',
 };
 

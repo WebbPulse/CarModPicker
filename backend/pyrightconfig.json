@@ -1,0 +1,23 @@
+{
+  "include": ["app", "tests"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/venv",
+    "alembic/versions"
+  ],
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "none",
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
+  "reportUnusedFunction": "information",
+  "reportUnusedClass": "information",
+  "reportUndefinedVariable": "error",
+  "reportOptionalMemberAccess": "warning",
+  "reportOptionalSubscript": "warning",
+  "reportOptionalCall": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "reportPrivateUsage": "warning",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "strict"
+}
