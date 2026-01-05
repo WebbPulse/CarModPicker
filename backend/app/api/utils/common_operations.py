@@ -3,15 +3,18 @@ Common operations and utilities for API endpoints.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
-from sqlalchemy.orm import Session, Query
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional, Type, TypeVar
+
 from fastapi import HTTPException, status
-from datetime import datetime, UTC
+from sqlalchemy.orm import Query, Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.models.user import User as DBUser
+from app.api.protocols import HasId
 
-# Generic type for different models
-ModelType = TypeVar("ModelType")
+# Generic type for different models - bound to HasId protocol to ensure id attribute exists
+ModelType = TypeVar("ModelType", bound=HasId)
 
 
 def verify_entity_exists(
@@ -32,7 +35,7 @@ def verify_entity_exists(
     Raises:
         HTTPException: If entity not found
     """
-    entity = db.query(model).filter(model.id == entity_id).first()
+    entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
     if not entity:
         raise HTTPException(status_code=404, detail=f"{entity_name.title()} not found")
     return entity
@@ -63,7 +66,10 @@ def verify_entity_ownership(
     """
     entity = verify_entity_exists(db, model, entity_id, entity_name)
 
-    if hasattr(entity, "user_id") and entity.user_id != current_user.id:
+    if (
+        hasattr(entity, "user_id")
+        and getattr(entity, "user_id", None) != current_user.id
+    ):
         raise HTTPException(
             status_code=403,
             detail=f"Not authorized to perform this action on this {entity_name}",
@@ -100,7 +106,7 @@ def verify_entity_access(
     entity = verify_entity_exists(db, model, entity_id, entity_name)
 
     if not allow_public and hasattr(entity, "user_id"):
-        if entity.user_id != current_user.id:
+        if getattr(entity, "user_id", None) != current_user.id:
             raise HTTPException(
                 status_code=403,
                 detail=f"Not authorized to access this {entity_name}",
@@ -124,12 +130,12 @@ def verify_admin_access(current_user: DBUser) -> None:
 
 
 def apply_pagination_and_ordering(
-    query: Query,
+    query: Query[Any],
     skip: int = 0,
     limit: int = 100,
     order_by_field: str = "created_at",
     order_direction: str = "desc",
-) -> Query:
+) -> Query[Any]:
     """
     Apply pagination and ordering to a database query.
 
@@ -155,7 +161,7 @@ def apply_pagination_and_ordering(
     return query.offset(skip).limit(limit)
 
 
-def build_filtered_query(base_query: Query, filters: Dict[str, Any]) -> Query:
+def build_filtered_query(base_query: Query[Any], filters: Dict[str, Any]) -> Query[Any]:
     """
     Build a filtered query based on provided filters.
 
@@ -176,8 +182,8 @@ def build_filtered_query(base_query: Query, filters: Dict[str, Any]) -> Query:
 
 
 def build_search_query(
-    base_query: Query, search_term: str, search_fields: List[str]
-) -> Query:
+    base_query: Query[Any], search_term: str, search_fields: List[str]
+) -> Query[Any]:
     """
     Build a search query with ILIKE filters on multiple fields.
 
@@ -194,7 +200,7 @@ def build_search_query(
 
     from sqlalchemy import or_
 
-    search_conditions = []
+    search_conditions: List[ColumnElement[bool]] = []
     model = base_query.column_descriptions[0]["type"]
 
     for field_name in search_fields:
@@ -252,7 +258,7 @@ def create_error_response(
     Returns:
         Standardized error response dictionary
     """
-    error_response = {
+    error_response: Dict[str, Any] = {
         "error": {
             "status_code": status_code,
             "detail": detail,
@@ -291,7 +297,7 @@ def validate_pagination_params(skip: int, limit: int, max_limit: int = 1000) -> 
 
 
 def get_entity_details(
-    db: Session, entity: ModelType, detail_fields: List[str]
+    db: Session, entity: HasId, detail_fields: List[str]
 ) -> Dict[str, Any]:
     """
     Get additional details for an entity.
@@ -304,7 +310,7 @@ def get_entity_details(
     Returns:
         Dictionary of entity details
     """
-    details = {}
+    details: Dict[str, Any] = {}
 
     for field_name in detail_fields:
         if hasattr(entity, field_name):
@@ -468,7 +474,7 @@ def update_entity(
 
 def delete_entity(
     db: Session,
-    entity: ModelType,
+    entity: HasId,
     user_id: int,
     logger: logging.Logger,
     entity_name: str = "entity",
@@ -489,7 +495,7 @@ def delete_entity(
     from sqlalchemy.exc import IntegrityError
 
     try:
-        entity_id = entity.id
+        entity_id = getattr(entity, "id")
         db.delete(entity)
         db.commit()
 
@@ -504,7 +510,9 @@ def delete_entity(
         return {"message": f"{entity_name.title()} deleted successfully"}
     except IntegrityError as e:
         db.rollback()
-        logger.error(f"Failed to delete {entity_name} {entity.id}: {str(e)}")
+        logger.error(
+            f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}"
+        )
 
         # Handle foreign key constraint errors
         error_detail_str = str(e).lower()
@@ -520,7 +528,9 @@ def delete_entity(
             )
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to delete {entity_name} {entity.id}: {str(e)}")
+        logger.error(
+            f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail=f"Failed to delete {entity_name}")
 
 
@@ -608,7 +618,10 @@ def check_subscription_limits(
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
-                "message": f"{entity_name.title()} creation limit reached. Upgrade to premium for unlimited {entity_name}s.",
+                "message": (
+                    f"{entity_name.title()} creation limit reached. "
+                    f"Upgrade to premium for unlimited {entity_name}s."
+                ),
                 "limits": limits,
                 "usage": usage,
             },

@@ -5,31 +5,24 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining car-specific functionality.
 """
 
-from typing import List, Optional
+from typing import List
+
 from fastapi import APIRouter, Depends, Query
 
-from app.api.dependencies.auth import get_current_user
 from app.api.models.car import Car as DBCar
-from app.api.models.user import User as DBUser
 from app.api.schemas.car import CarCreate, CarRead, CarUpdate
 from app.api.services.car_service import CarService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
-    get_standard_pagination_params,
-    validate_pagination_params,
+    PublicEndpointDeps,
     get_standard_public_endpoint_dependencies,
-    get_paginated_response,
-    apply_standard_filters,
+    validate_pagination_params,
 )
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
     search_responses,
-    crud_responses,
     standard_responses,
 )
-from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
-from app.db.session import get_db
 
 # Create router
 router = APIRouter()
@@ -37,23 +30,33 @@ router = APIRouter()
 # Create service
 car_service = CarService()
 
-# Create base endpoint router with all standard CRUD operations
-base_router = BaseEndpointRouter(
-    service=car_service,
-    router=router,
-    entity_name="car",
-    allow_public_read=True,  # Cars can be viewed publicly
-    additional_create_data={},  # No additional data needed for cars
-    create_schema=CarCreate,
-    read_schema=CarRead,
-    update_schema=CarUpdate,
+
+# Add custom endpoints specific to cars BEFORE base router
+# These need to be defined first to avoid conflicts with /{entity_id} route
+@router.get(
+    "/search",
+    response_model=List[CarRead],
+    responses=search_responses("car", allow_public_read=True),
 )
+async def search_cars(
+    q: str = Query(..., description="Search term for car make or model"),
+    skip: int = Query(0, ge=0, description="Number of cars to skip"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of cars to return"
+    ),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> List[CarRead]:
+    """Search cars by make or model with pagination."""
+    db = deps["db"]
+    logger = deps["logger"]
 
-# Override search fields for cars
-base_router._get_search_fields = lambda: ["make", "model"]
+    skip, limit = validate_pagination_params(skip, limit)
+    cars = car_service.search_cars(
+        db=db, search_term=q, skip=skip, limit=limit, logger=logger
+    )
+    return [CarRead.model_validate(car) for car in cars]
 
 
-# Add custom endpoints specific to cars
 @router.get(
     "/make/{make}",
     response_model=List[CarRead],
@@ -65,7 +68,7 @@ async def get_cars_by_make(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of cars to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by make with pagination."""
     db = deps["db"]
@@ -89,7 +92,7 @@ async def get_cars_by_year(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of cars to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by year with pagination."""
     db = deps["db"]
@@ -98,30 +101,6 @@ async def get_cars_by_year(
     skip, limit = validate_pagination_params(skip, limit)
     cars = car_service.get_cars_by_make_and_year(
         db=db, year=year, skip=skip, limit=limit, logger=logger
-    )
-    return [CarRead.model_validate(car) for car in cars]
-
-
-@router.get(
-    "/search",
-    response_model=List[CarRead],
-    responses=search_responses("car", allow_public_read=True),
-)
-async def search_cars(
-    q: str = Query(..., description="Search term for car make or model"),
-    skip: int = Query(0, ge=0, description="Number of cars to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of cars to return"
-    ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-) -> List[CarRead]:
-    """Search cars by make or model with pagination."""
-    db = deps["db"]
-    logger = deps["logger"]
-
-    skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.search_cars(
-        db=db, search_term=q, skip=skip, limit=limit, logger=logger
     )
     return [CarRead.model_validate(car) for car in cars]
 
@@ -137,7 +116,7 @@ async def get_cars_by_user(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of cars to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by user ID with pagination. Public endpoint - anyone can view a user's cars."""
     skip, limit = validate_pagination_params(skip, limit)
@@ -155,7 +134,7 @@ async def get_cars_by_user(
     ),
 )
 async def get_car_make_stats(
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> dict[str, int]:
     """Get statistics of cars by make."""
     from sqlalchemy import func
@@ -183,7 +162,7 @@ async def get_car_make_stats(
     ),
 )
 async def get_car_year_stats(
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> dict[str, int]:
     """Get statistics of cars by year."""
     from sqlalchemy import func
@@ -202,6 +181,20 @@ async def get_car_year_stats(
     logger.info(f"Retrieved car year statistics: {len(result)} years")
     return result
 
+
+# Create base endpoint router with all standard CRUD operations
+# This must come AFTER custom endpoints to avoid route conflicts
+base_router = BaseEndpointRouter(
+    service=car_service,
+    router=router,
+    entity_name="car",
+    allow_public_read=True,  # Cars can be viewed publicly
+    additional_create_data={},  # No additional data needed for cars
+    create_schema=CarCreate,
+    read_schema=CarRead,
+    update_schema=CarUpdate,
+    search_fields=["make", "model"],
+)
 
 # Add count endpoint
 base_router.add_count_endpoint()

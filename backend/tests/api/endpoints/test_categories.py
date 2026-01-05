@@ -1,18 +1,19 @@
-import pytest
+from typing import Any
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.user import User as DBUser
 from app.api.dependencies.auth import get_password_hash
-from tests.conftest import get_default_category_id
-from app.core.config import settings
 from app.api.models.category import Category
+from app.api.models.user import User as DBUser
+from app.core.config import settings
+from tests.conftest import get_default_category_id
 
 
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Session, username_suffix: str = "admin"
-) -> dict:
+) -> dict[str, Any]:
     """Create an admin user and log them in."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
@@ -144,12 +145,13 @@ class TestCategories:
         response = client.get(f"{settings.API_STR}/categories/")
         assert response.status_code == 200
 
-        categories = response.json()
+        categories: list[Any] = response.json()
         assert isinstance(categories, list)
         # Should return at least the default categories
         assert len(categories) > 0
 
         # Check that all returned categories are active
+        category: Any
         for category in categories:
             assert category["is_active"] is True
 
@@ -224,7 +226,7 @@ class TestCategories:
         )
         assert response.status_code == 200
 
-        parts = response.json()
+        parts: list[Any] = response.json()
         assert isinstance(parts, list)
         assert len(parts) <= 2
 

@@ -2,23 +2,27 @@
 Unified reports endpoint for all entity types.
 """
 
+import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user, get_current_admin_user
+from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
 from app.api.schemas.report import (
+    EntityType,
     ReportCreate,
     ReportRead,
-    ReportWithDetails,
     ReportUpdate,
-    EntityType,
-    ReportStatus,
+    ReportWithDetails,
 )
 from app.api.services.report_service import ReportService
+from app.api.utils.common_patterns import (
+    PublicEndpointDeps,
+    get_standard_public_endpoint_dependencies,
+)
 from app.api.utils.endpoint_decorators import standard_responses
-from app.api.utils.common_patterns import get_standard_public_endpoint_dependencies
 from app.core.logging import get_logger
 from app.db.session import get_db
 
@@ -44,7 +48,7 @@ async def report_entity(
     entity_id: int,
     report_data: ReportCreate,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> ReportRead:
     """Report an entity (car, build list, or global part) for admin review."""
@@ -77,7 +81,7 @@ async def list_reports(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of reports to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[ReportRead]:
     """List reports with optional filtering. Admin only."""
@@ -108,7 +112,7 @@ async def get_my_reports(
         100, ge=1, le=1000, description="Maximum number of reports to return"
     ),
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[ReportRead]:
     """Get all reports created by the current user."""
@@ -140,7 +144,7 @@ async def list_reports_with_details(
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of reports to return"
     ),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[ReportWithDetails]:
     """List reports with detailed information. Admin only."""
@@ -172,7 +176,7 @@ async def update_report(
     report_id: int,
     report_update: ReportUpdate,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> ReportRead:
     """Update a report (typically for admin review). Admin only."""
@@ -199,9 +203,9 @@ async def update_report(
 async def delete_report(
     report_id: int,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> dict:
+) -> dict[str, str]:
     """Delete a report (admin only)."""
     report_service.delete_report(
         db=db,
@@ -222,7 +226,7 @@ async def delete_report(
 async def get_report(
     report_id: int,
     db: Session = Depends(get_db),
-    logger=Depends(get_logger),
+    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> ReportWithDetails:
     """Get a specific report with details. Users can access their own reports, admins can access any report."""

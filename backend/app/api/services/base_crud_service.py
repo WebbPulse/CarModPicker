@@ -3,28 +3,32 @@ Base service class for CRUD operations to eliminate code duplication.
 """
 
 import logging
-from typing import List, Optional, TypeVar, Generic, Dict, Any, Type
-from sqlalchemy.orm import Session
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
 from fastapi import HTTPException
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.user import User as DBUser
+from app.api.protocols import BaseModel, HasModelDump
 from app.api.utils.common_operations import (
-    verify_entity_exists,
-    verify_entity_ownership,
-    verify_entity_access,
+    check_subscription_limits,
     create_entity,
-    update_entity,
     delete_entity,
     get_entities_with_pagination,
-    check_subscription_limits,
+    update_entity,
     validate_pagination_params,
+    verify_entity_access,
+    verify_entity_exists,
+    verify_entity_ownership,
 )
 
 # Generic types for different models and schemas
-ModelType = TypeVar("ModelType")
-CreateSchema = TypeVar("CreateSchema")
+# ModelType must have an 'id' attribute at minimum
+ModelType = TypeVar("ModelType", bound=BaseModel)
+# Schema types are bound to HasModelDump to ensure they have the model_dump method
+CreateSchema = TypeVar("CreateSchema", bound=HasModelDump)
 ReadSchema = TypeVar("ReadSchema")
-UpdateSchema = TypeVar("UpdateSchema")
+UpdateSchema = TypeVar("UpdateSchema", bound=HasModelDump)
 
 
 class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]):
@@ -88,6 +92,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             )
 
         # Prepare data for creation
+        # CreateSchema is bound to HasModelDump, so model_dump() is available
         entity_data = data.model_dump()
 
         # Add user_id if the model has a user_id field
@@ -253,6 +258,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         )
 
         # Update the entity
+        # UpdateSchema is bound to HasModelDump, so model_dump() is available
         update_data = data.model_dump(exclude_unset=True)
         return update_entity(
             db=db,
@@ -313,7 +319,18 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         Returns:
             Count of entities
         """
-        count = db.query(self.model).filter(self.model.user_id == user_id).count()
+        # Check if model has user_id attribute
+        if not hasattr(self.model, "user_id"):
+            raise AttributeError(
+                f"Model {self.model.__name__} does not have a user_id attribute"
+            )
+
+        # Use getattr for dynamic attribute access
+        count = (
+            db.query(self.model)
+            .filter(getattr(self.model, "user_id") == user_id)
+            .count()
+        )
 
         if logger:
             logger.info(f"Counted {count} {self.entity_name}s for user {user_id}")
@@ -334,8 +351,10 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         Returns:
             True if entity exists, False otherwise
         """
+        # Use getattr for dynamic attribute access
         exists = (
-            db.query(self.model).filter(self.model.id == entity_id).first() is not None
+            db.query(self.model).filter(getattr(self.model, "id") == entity_id).first()
+            is not None
         )
 
         if logger:
@@ -373,10 +392,10 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         query = db.query(self.model)
         for relation in relations:
             if hasattr(self.model, relation):
-                query = query.options(db.joinedload(getattr(self.model, relation)))
+                query = query.options(joinedload(getattr(self.model, relation)))
 
-        # Get entity
-        entity = query.filter(self.model.id == entity_id).first()
+        # Get entity - use getattr for dynamic attribute access
+        entity = query.filter(getattr(self.model, "id") == entity_id).first()
         if not entity:
             raise HTTPException(
                 status_code=404, detail=f"{self.entity_name.title()} not found"
@@ -384,7 +403,10 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
 
         # Check access if user is provided
         if current_user and not allow_public:
-            if hasattr(entity, "user_id") and entity.user_id != current_user.id:
+            if (
+                hasattr(entity, "user_id")
+                and getattr(entity, "user_id", None) != current_user.id
+            ):
                 raise HTTPException(
                     status_code=403,
                     detail=f"Not authorized to access this {self.entity_name}",

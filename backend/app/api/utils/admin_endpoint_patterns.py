@@ -5,20 +5,23 @@ This module provides common patterns for admin-only endpoints including
 authentication, authorization, and response handling.
 """
 
-from typing import List, TypeVar, Generic, Type, Optional, Any
+import logging
 from functools import wraps
+from typing import Any, List, Type, TypeVar
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.user import User as DBUser
+from app.api.protocols import HasId
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.logging import get_logger
 from app.db.session import get_db
 
 # Generic types
-ModelType = TypeVar("ModelType")
+ModelType = TypeVar("ModelType", bound="HasId")
 ReadSchema = TypeVar("ReadSchema")
 UpdateSchema = TypeVar("UpdateSchema")
 
@@ -44,7 +47,7 @@ def admin_list_endpoint(
         Decorated endpoint function
     """
 
-    def decorator(func):
+    def decorator(func: Any) -> Any:
         @router.get(
             f"/admin/{entity_name.replace(' ', '-')}s",
             response_model=response_model,
@@ -62,12 +65,12 @@ def admin_list_endpoint(
                 description=f"Maximum number of {entity_name}s to return",
             ),
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> List[ModelType]:
             """Get all entities (admin only)."""
             skip, limit = validate_pagination_params(skip=skip, limit=limit)
-            entities = db.query(model).offset(skip).limit(limit).all()
+            entities = db.query(model).offset(skip).limit(limit).all()  # type: ignore[arg-type]
             logger.info(
                 f"Admin {current_user.id} retrieved {len(entities)} {entity_name}s"
             )
@@ -103,7 +106,7 @@ def admin_update_endpoint(
         Decorated endpoint function
     """
 
-    def decorator(func):
+    def decorator(func: Any) -> Any:
         @router.put(
             f"/admin/{entity_name.replace(' ', '-')}s/{{entity_id}}",
             response_model=response_model,
@@ -112,17 +115,19 @@ def admin_update_endpoint(
         @wraps(func)
         async def wrapper(
             entity_id: int,
-            update_data: update_schema,
+            update_data: UpdateSchema,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Update an entity with admin privileges (admin only)."""
-            db_entity = db.query(model).filter(model.id == entity_id).first()
+            db_entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
             if db_entity is None:
                 ResponsePatterns.raise_not_found(entity_name.title(), entity_id)
+                raise
 
-            return func(db_entity, update_data, db, logger, current_user)
+            result: ModelType = func(db_entity, update_data, db, logger, current_user)
+            return result
 
         return wrapper
 
@@ -148,7 +153,7 @@ def admin_delete_endpoint(
         Decorated endpoint function
     """
 
-    def decorator(func):
+    def decorator(func: Any) -> Any:
         @router.delete(
             f"/admin/{entity_name.replace(' ', '-')}s/{{entity_id}}",
             response_model=response_model,
@@ -158,15 +163,17 @@ def admin_delete_endpoint(
         async def wrapper(
             entity_id: int,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Delete an entity with admin privileges (admin only)."""
-            db_entity = db.query(model).filter(model.id == entity_id).first()
+            db_entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
             if db_entity is None:
                 ResponsePatterns.raise_not_found(entity_name.title(), entity_id)
+                raise
 
-            return func(db_entity, db, logger, current_user)
+            result: ModelType = func(db_entity, db, logger, current_user)
+            return result
 
         return wrapper
 

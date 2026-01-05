@@ -1,5 +1,5 @@
-from typing import List, Optional, TYPE_CHECKING
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,10 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
-    from .user import User
     from .build_list import BuildList
-    from .vote import Vote
     from .report import Report
+    from .user import User
+    from .vote import Vote
 
 
 class Car(Base):
@@ -25,9 +25,7 @@ class Car(Base):
     image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # owner
     user: Mapped["User"] = relationship("User", back_populates="cars")

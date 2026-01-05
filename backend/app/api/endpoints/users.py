@@ -1,30 +1,31 @@
 """
 Refactored users endpoint using base classes to eliminate redundancy.
 
-This endpoint now uses the BaseEndpointRouter to provide common CRUD operations
-while maintaining user-specific functionality like password hashing and admin management.
+This endpoint now uses the BaseEndpointRouter to provide common CRUD
+operations while maintaining user-specific functionality like password
+hashing and admin management.
 """
 
 import logging
-from typing import Any, List
+from typing import List
 
-from fastapi import APIRouter, Depends, Response, status, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
-    get_current_user,
     get_current_admin_user,
+    get_current_user,
     get_password_hash,
     verify_password,
 )
 from app.api.models.user import User as DBUser
 from app.api.schemas.user import (
+    AdminUserUpdate,
     UserCreate,
     UserRead,
     UserUpdate,
-    AdminUserUpdate,
 )
 from app.api.services.user_service import UserService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
@@ -40,8 +41,9 @@ router = APIRouter()
 # Create service
 user_service = UserService()
 
-# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper route precedence
-# (More specific routes like /me must be registered before generic routes like /{entity_id})
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper
+# route precedence (More specific routes like /me must be registered
+# before generic routes like /{entity_id})
 
 
 @router.get("/me", response_model=UserRead)
@@ -65,10 +67,8 @@ base_router = BaseEndpointRouter(
     create_schema=UserCreate,
     read_schema=UserRead,
     update_schema=UserUpdate,
+    search_fields=["username", "email"],
 )
-
-# Override search fields for users
-base_router._get_search_fields = lambda: ["username", "email"]
 
 
 # Custom endpoints specific to users (continued)
@@ -107,7 +107,7 @@ async def create_user(
     # Create DBUser instance (excluding plain password)
     # Auto-verify email in test environment (when using SQLite in-memory database)
     is_test_environment = (
-        "sqlite:///:memory:" in str(db.bind.url)
+        "sqlite:///:memory:" in str(getattr(db.bind, "url", ""))
         if db.bind and hasattr(db.bind, "url")
         else False
     )
@@ -124,7 +124,7 @@ async def create_user(
     db.commit()
     db.refresh(db_user)
     logger.info(msg=f"User added to database: {db_user}")
-    return UserRead.model_validate(db_user)
+    return db_user
 
 
 @router.put(
@@ -149,7 +149,8 @@ async def update_user(
     # Check if the current user is the user being updated
     if db_user.id != current_user.id:
         logger.warning(
-            f"User {current_user.id} attempt to update user {user_id} without authorization."
+            f"User {current_user.id} attempt to update user {user_id} "
+            f"without authorization."
         )
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
@@ -191,7 +192,8 @@ async def update_user(
 
         if username_changed:
             logger.info(
-                f"Username for user {user_id} changed to '{db_user.username}'. Issuing new access token."
+                f"Username for user {user_id} changed to '{db_user.username}'. "
+                f"Issuing new access token."
             )
             # Create a new access token with the new username
             new_access_token_data = {"sub": db_user.username}
@@ -205,7 +207,8 @@ async def update_user(
                 max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 path="/",
                 samesite="lax",
-                secure=False,  # TODO: Change to True in production if served over HTTPS (e.g., settings.SECURE_COOKIES)
+                # TODO: Change to True in production if served over HTTPS
+                secure=False,
             )
 
     except IntegrityError as e:
@@ -236,7 +239,8 @@ async def update_user(
             ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
         else:
             ResponsePatterns.raise_bad_request(
-                "A user with the provided username or email may already exist, or another integrity constraint was violated."
+                "A user with the provided username or email may already exist, "
+                "or another integrity constraint was violated."
             )
     return UserRead.model_validate(db_user)
 
@@ -258,7 +262,8 @@ async def delete_user(
     # Check if the current user is trying to delete their own account
     if user_id != current_user.id:
         logger.warning(
-            f"User {current_user.id} attempted to delete user {user_id} without authorization."
+            f"User {current_user.id} attempted to delete user {user_id} "
+            f"without authorization."
         )
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 

@@ -2,21 +2,24 @@
 Base report router with common patterns to reduce redundancy.
 """
 
-from typing import TypeVar, Generic, Type, Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import logging
+from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user, get_current_admin_user
+from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
+from app.api.protocols import BaseModel, HasModelDump, ReportModel
 from app.api.services.base_report_service import BaseReportService
 from app.core.logging import get_logger
 from app.db.session import get_db
 
 # Generic types
-ReportModelType = TypeVar("ReportModelType")
-ReportCreateSchema = TypeVar("ReportCreateSchema")
+ReportModelType = TypeVar("ReportModelType", bound=ReportModel)
+ReportCreateSchema = TypeVar("ReportCreateSchema", bound=HasModelDump)
 ReportReadSchema = TypeVar("ReportReadSchema")
-EntityModelType = TypeVar("EntityModelType")
+EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
 class BaseReportRouter(
@@ -55,26 +58,26 @@ class BaseReportRouter(
         # Register common report endpoints
         self._register_common_report_endpoints()
 
-    def _register_common_report_endpoints(self):
+    def _register_common_report_endpoints(self) -> None:
         """Register common reporting endpoints."""
 
         # Create report endpoint
         @self.router.post(
             f"/{{{self.report_entity_id_param}}}/report",
-            response_model=ReportReadSchema,
+            response_model=ReportReadSchema,  # type: ignore[misc]
             responses={
-                400: {"description": f"Invalid report data"},
+                400: {"description": "Invalid report data"},
                 404: {"description": f"{self.entity_name.title()} not found"},
                 409: {
                     "description": f"You have already reported this {self.entity_name}"
                 },
             },
         )
-        async def create_report(
+        async def create_report(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             report: ReportCreateSchema,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> ReportModelType:
             """Create a report for an entity."""
@@ -97,11 +100,11 @@ class BaseReportRouter(
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
-        async def get_reports_by_entity(
+        async def get_reports_by_entity(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             status: str = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
         ) -> List[ReportModelType]:
             """Get all reports for a specific entity."""
             return self.service.get_reports_by_entity(
@@ -121,10 +124,10 @@ class BaseReportRouter(
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
-        async def get_report_summary(
+        async def get_report_summary(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
             """Get report summary for an entity."""
             return self.service.get_report_summary(
@@ -141,10 +144,10 @@ class BaseReportRouter(
                 200: {"description": "User's reports retrieved successfully"},
             },
         )
-        async def get_my_reports(
+        async def get_my_reports(  # pyright: ignore[reportUnusedFunction]
             status: str = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> List[ReportModelType]:
             """Get all reports created by the current user."""
@@ -165,13 +168,13 @@ class BaseReportRouter(
                 403: {"description": "Admin access required"},
             },
         )
-        async def get_pending_reports(
+        async def get_pending_reports(  # pyright: ignore[reportUnusedFunction]
             skip: int = Query(0, ge=0, description="Number of reports to skip"),
             limit: int = Query(
                 100, ge=1, le=1000, description="Maximum number of reports to return"
             ),
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> List[ReportModelType]:
             """Get all pending reports (admin only)."""
@@ -185,18 +188,18 @@ class BaseReportRouter(
         # Update report status endpoint (admin only)
         @self.router.put(
             "/admin/{report_id}/status",
-            response_model=ReportReadSchema,
+            response_model=ReportReadSchema,  # type: ignore[misc]
             responses={
                 200: {"description": "Report status updated successfully"},
                 403: {"description": "Admin access required"},
                 404: {"description": "Report not found"},
             },
         )
-        async def update_report_status(
+        async def update_report_status(  # pyright: ignore[reportUnusedFunction]
             report_id: int,
             status_update: Dict[str, Any],
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ReportModelType:
             """Update the status of a report (admin only)."""
@@ -223,8 +226,8 @@ class BaseReportRouter(
         path: str,
         response_model: Type[ReportReadSchema],
         method: str = "get",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Callable[[Any], Any]:
         """
         Add a custom report endpoint to the router.
 
@@ -235,7 +238,7 @@ class BaseReportRouter(
             **kwargs: Additional FastAPI endpoint parameters
         """
 
-        def decorator(func):
+        def decorator(func: Any) -> Any:
             if method.lower() == "get":
                 self.router.get(path, response_model=response_model, **kwargs)(func)
             elif method.lower() == "post":

@@ -5,13 +5,14 @@ This module provides common pagination patterns and utilities for
 consistent pagination implementation across endpoints.
 """
 
-from typing import List, TypeVar, Generic, Type, Optional, Tuple, Any
-from fastapi import Query, Depends
-from sqlalchemy.orm import Session, Query as SQLAlchemyQuery
-from sqlalchemy import func
+import logging
+from typing import Any, List, Optional, Tuple, TypeVar
+
+from fastapi import Query
+from sqlalchemy.orm import Query as SQLAlchemyQuery
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.utils.endpoint_decorators import validate_pagination_params
-from app.core.logging import get_logger
 
 # Generic types
 ModelType = TypeVar("ModelType")
@@ -54,7 +55,7 @@ def paginate_query(
     query: SQLAlchemyQuery[ModelType],
     skip: int,
     limit: int,
-    logger: Any = None,
+    logger: Optional[logging.Logger] = None,
     entity_name: str = "items",
 ) -> List[ModelType]:
     """
@@ -100,7 +101,7 @@ def create_paginated_response(
     skip: int,
     limit: int,
     entity_name: str = "items",
-) -> dict:
+) -> dict[str, Any]:
     """
     Create a standardized paginated response.
 
@@ -151,7 +152,7 @@ def apply_search_filter(
     if not search:
         return query
 
-    search_terms = []
+    search_terms: List[ColumnElement[bool]] = []
     for field in search_fields:
         if hasattr(query.column_descriptions[0]["entity"], field):
             if case_sensitive:

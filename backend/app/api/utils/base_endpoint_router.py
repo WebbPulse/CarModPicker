@@ -2,21 +2,24 @@
 Base endpoint router with common patterns to reduce redundancy.
 """
 
-from typing import List, Optional, Type, TypeVar, Generic, Dict, Any, Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
+import logging
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.api.models.user import User as DBUser
+from app.api.protocols import BaseModel, HasModelDump
 from app.api.services.base_crud_service import BaseCRUDService
 from app.core.logging import get_logger
 from app.db.session import get_db
 
-# Generic types
-ModelType = TypeVar("ModelType")
-CreateSchema = TypeVar("CreateSchema")
+# Generic types - ModelType must have an 'id' attribute at minimum
+ModelType = TypeVar("ModelType", bound=BaseModel)
+CreateSchema = TypeVar("CreateSchema", bound=HasModelDump)
 ReadSchema = TypeVar("ReadSchema")
-UpdateSchema = TypeVar("UpdateSchema")
+UpdateSchema = TypeVar("UpdateSchema", bound=HasModelDump)
 
 
 class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]):
@@ -38,6 +41,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         create_schema: Optional[Type[CreateSchema]] = None,
         read_schema: Optional[Type[ReadSchema]] = None,
         update_schema: Optional[Type[UpdateSchema]] = None,
+        search_fields: Optional[List[str]] = None,
     ):
         """
         Initialize the base endpoint router.
@@ -52,6 +56,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             create_schema: Concrete CreateSchema type (required for proper FastAPI validation)
             read_schema: Concrete ReadSchema type (required for proper FastAPI validation)
             update_schema: Concrete UpdateSchema type (required for proper FastAPI validation)
+            search_fields: Fields to search in for the list endpoint (defaults to ["name", "description"])
         """
         self.service = service
         self.router = router
@@ -59,6 +64,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         self.allow_public_read = allow_public_read
         self.additional_create_data = additional_create_data or {}
         self.disable_endpoints = disable_endpoints or []
+        self._search_fields = search_fields or ["name", "description"]
 
         # Store concrete schema types for proper FastAPI validation
         self.create_schema = create_schema
@@ -68,14 +74,13 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         # Register common endpoints
         self._register_common_endpoints()
 
-    def _register_common_endpoints(self):
+    def _register_common_endpoints(self) -> None:
         """Register common CRUD endpoints."""
 
         # Create endpoint
         if "create" not in self.disable_endpoints:
-            # Use concrete schema types if provided, otherwise use TypeVars
-            _create_schema = self.create_schema if self.create_schema else CreateSchema
-            _read_schema = self.read_schema if self.read_schema else ReadSchema
+            _create_schema = self.create_schema if self.create_schema else CreateSchema  # type: ignore[assignment]
+            _read_schema = self.read_schema if self.read_schema else ReadSchema  # type: ignore[assignment]
 
             @self.router.post(
                 "/",
@@ -88,24 +93,24 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     402: {"description": "Subscription limit reached"},
                 },
             )
-            async def create_entity(
+            async def create_entity(  # pyright: ignore[reportUnusedFunction]
                 *,
-                data: _create_schema,
+                data: _create_schema,  # type: ignore[valid-type]
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Create a new entity."""
                 return self.service.create(
                     db=db,
-                    data=data,
+                    data=data,  # type: ignore[arg-type]
                     current_user=current_user,
                     logger=logger,
                     additional_data=self.additional_create_data,
                 )
 
         # Get by ID endpoint
-        _read_schema = self.read_schema if self.read_schema else ReadSchema
+        _read_schema = self.read_schema if self.read_schema else ReadSchema  # type: ignore[assignment]
 
         if self.allow_public_read:
 
@@ -116,10 +121,10 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     404: {"description": f"{self.entity_name.title()} not found"},
                 },
             )
-            async def get_entity_public(
+            async def get_entity_public(  # pyright: ignore[reportUnusedFunction]
                 entity_id: int,
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
             ) -> ModelType:
                 """Get an entity by ID (public access)."""
                 return self.service.get_by_id(
@@ -142,10 +147,10 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     },
                 },
             )
-            async def get_entity_private(
+            async def get_entity_private(  # pyright: ignore[reportUnusedFunction]
                 entity_id: int,
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Get an entity by ID (private access)."""
@@ -162,14 +167,14 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
 
             @self.router.get(
                 "/",
-                response_model=List[_read_schema],
+                response_model=List[_read_schema],  # type: ignore[valid-type]
                 responses={
                     200: {
                         "description": f"List of {self.entity_name}s retrieved successfully"
                     },
                 },
             )
-            async def list_entities(
+            async def list_entities(  # pyright: ignore[reportUnusedFunction]
                 skip: int = Query(
                     0, ge=0, description=f"Number of {self.entity_name}s to skip"
                 ),
@@ -184,7 +189,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     description=f"Search in {self.entity_name} names and descriptions",
                 ),
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
             ) -> List[ModelType]:
                 """List all entities with pagination and search."""
                 return self.service.list_all(
@@ -192,13 +197,13 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     skip=skip,
                     limit=limit,
                     search=search,
-                    search_fields=self._get_search_fields(),
+                    search_fields=self.get_search_fields(),
                     logger=logger,
                 )
 
         # Update endpoint
         if "update" not in self.disable_endpoints:
-            _update_schema = self.update_schema if self.update_schema else UpdateSchema
+            _update_schema = self.update_schema if self.update_schema else UpdateSchema  # type: ignore[assignment]
 
             @self.router.put(
                 "/{entity_id}",
@@ -210,19 +215,19 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     },
                 },
             )
-            async def update_entity(
+            async def update_entity(  # pyright: ignore[reportUnusedFunction]
                 entity_id: int,
                 *,
-                data: _update_schema,
+                data: _update_schema,  # type: ignore[valid-type]
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Update an existing entity."""
                 return self.service.update(
                     db=db,
                     entity_id=entity_id,
-                    data=data,
+                    data=data,  # type: ignore[arg-type]
                     current_user=current_user,
                     logger=logger,
                 )
@@ -240,10 +245,10 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     },
                 },
             )
-            async def delete_entity(
+            async def delete_entity(  # pyright: ignore[reportUnusedFunction]
                 entity_id: int,
                 db: Session = Depends(get_db),
-                logger=Depends(get_logger),
+                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Delete an entity and return the deleted data."""
@@ -267,11 +272,11 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 # Return the entity data that was deleted
                 return entity
 
-    def _get_search_fields(self) -> List[str]:
-        """Get search fields for the entity. Override in subclasses if needed."""
-        return ["name", "description"]
+    def get_search_fields(self) -> List[str]:
+        """Get search fields for the entity."""
+        return self._search_fields
 
-    def add_filter_endpoint(self, filter_name: str, filter_field: str):
+    def add_filter_endpoint(self, filter_name: str, filter_field: str) -> None:
         """
         Add a filter endpoint for a specific field.
 
@@ -289,7 +294,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 },
             },
         )
-        async def filter_entities(
+        async def filter_entities(  # pyright: ignore[reportUnusedFunction]
             filter_id: int,
             skip: int = Query(
                 0, ge=0, description=f"Number of {self.entity_name}s to skip"
@@ -301,10 +306,10 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 description=f"Maximum number of {self.entity_name}s to return",
             ),
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
         ) -> List[ModelType]:
             """Filter entities by a specific field."""
-            return self.service.filter_by_field(
+            return self.service.filter_by_field(  # type: ignore[no-any-return, attr-defined]
                 db=db,
                 field_name=filter_field,
                 field_value=filter_id,
@@ -313,7 +318,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 logger=logger,
             )
 
-    def add_count_endpoint(self):
+    def add_count_endpoint(self) -> None:
         """Add a count endpoint for the entity."""
 
         @self.router.get(
@@ -323,10 +328,10 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 200: {"description": f"Count of {self.entity_name}s"},
             },
         )
-        async def count_entities(
+        async def count_entities(  # pyright: ignore[reportUnusedFunction]
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, int]:
             """Get total count of entities."""
-            count = self.service.count_all(db=db, logger=logger)
+            count = self.service.count_all(db=db, logger=logger)  # type: ignore[attr-defined]
             return {"count": count}

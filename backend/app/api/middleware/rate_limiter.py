@@ -7,9 +7,9 @@ import logging
 import os
 import time
 from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, Tuple, Optional
+from typing import Awaitable, Callable, Dict, Optional, Tuple
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
 from ...core.config import settings
@@ -51,14 +51,14 @@ class SophisticatedRateLimiter:
         self.config = config or RateLimitConfig()
 
         # Separate tracking for different rate limit types
-        self.minute_requests: Dict[str, list] = defaultdict(list)
-        self.hour_requests: Dict[str, list] = defaultdict(list)
-        self.get_minute_requests: Dict[str, list] = defaultdict(list)
-        self.get_hour_requests: Dict[str, list] = defaultdict(list)
-        self.auth_minute_requests: Dict[str, list] = defaultdict(list)
-        self.auth_hour_requests: Dict[str, list] = defaultdict(list)
-        self.admin_minute_requests: Dict[str, list] = defaultdict(list)
-        self.admin_hour_requests: Dict[str, list] = defaultdict(list)
+        self.minute_requests: Dict[str, list[float]] = defaultdict(list)
+        self.hour_requests: Dict[str, list[float]] = defaultdict(list)
+        self.get_minute_requests: Dict[str, list[float]] = defaultdict(list)
+        self.get_hour_requests: Dict[str, list[float]] = defaultdict(list)
+        self.auth_minute_requests: Dict[str, list[float]] = defaultdict(list)
+        self.auth_hour_requests: Dict[str, list[float]] = defaultdict(list)
+        self.admin_minute_requests: Dict[str, list[float]] = defaultdict(list)
+        self.admin_hour_requests: Dict[str, list[float]] = defaultdict(list)
 
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request, handling proxy headers."""
@@ -86,16 +86,10 @@ class SophisticatedRateLimiter:
         else:
             return f"default:{client_ip}"
 
-    def _cleanup_old_requests(
-        self, key: str, window_seconds: int, requests_dict: Dict[str, list]
-    ) -> None:
+    def _cleanup_old_requests(self, key: str, window_seconds: int, requests_dict: Dict[str, list[float]]) -> None:
         """Remove old requests outside the time window."""
         current_time = time.time()
-        requests_dict[key] = [
-            req_time
-            for req_time in requests_dict[key]
-            if current_time - req_time < window_seconds
-        ]
+        requests_dict[key] = [req_time for req_time in requests_dict[key] if current_time - req_time < window_seconds]
 
     def _get_rate_limits_for_request(self, request: Request) -> Tuple[int, int]:
         """Get the appropriate rate limits for the request."""
@@ -122,7 +116,7 @@ class SophisticatedRateLimiter:
 
     def _get_tracking_dicts_for_request(
         self, request: Request
-    ) -> Tuple[Dict[str, list], Dict[str, list]]:
+    ) -> Tuple[Dict[str, list[float]], Dict[str, list[float]]]:
         """Get the appropriate tracking dictionaries for the request."""
         path = request.url.path
         method = request.method
@@ -222,39 +216,22 @@ rate_limiter = SophisticatedRateLimiter(
     RateLimitConfig(
         requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
         requests_per_hour=settings.RATE_LIMIT_REQUESTS_PER_HOUR,
-        get_requests_per_minute=getattr(
-            settings, "RATE_LIMIT_GET_REQUESTS_PER_MINUTE", 120
-        ),
-        get_requests_per_hour=getattr(
-            settings, "RATE_LIMIT_GET_REQUESTS_PER_HOUR", 2000
-        ),
-        auth_requests_per_minute=getattr(
-            settings, "RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE", 10
-        ),
-        auth_requests_per_hour=getattr(
-            settings, "RATE_LIMIT_AUTH_REQUESTS_PER_HOUR", 100
-        ),
-        admin_requests_per_minute=getattr(
-            settings, "RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE", 30
-        ),
-        admin_requests_per_hour=getattr(
-            settings, "RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR", 300
-        ),
+        get_requests_per_minute=getattr(settings, "RATE_LIMIT_GET_REQUESTS_PER_MINUTE", 120),
+        get_requests_per_hour=getattr(settings, "RATE_LIMIT_GET_REQUESTS_PER_HOUR", 2000),
+        auth_requests_per_minute=getattr(settings, "RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE", 10),
+        auth_requests_per_hour=getattr(settings, "RATE_LIMIT_AUTH_REQUESTS_PER_HOUR", 100),
+        admin_requests_per_minute=getattr(settings, "RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE", 30),
+        admin_requests_per_hour=getattr(settings, "RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR", 300),
     )
 )
 
 
-async def rate_limit_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+async def rate_limit_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """
     FastAPI middleware for sophisticated rate limiting.
     """
     # Skip rate limiting if disabled in settings or in test environment
-    if (
-        not settings.ENABLE_RATE_LIMITING
-        or os.getenv("ENABLE_RATE_LIMITING", "true").lower() == "false"
-    ):
+    if not settings.ENABLE_RATE_LIMITING or os.getenv("ENABLE_RATE_LIMITING", "true").lower() == "false":
         response = await call_next(request)
         return response
 
@@ -287,9 +264,7 @@ async def rate_limit_middleware(
                 "X-RateLimit-Limit-Minute": str(limits_info["minute_limit"]),
                 "X-RateLimit-Limit-Hour": str(limits_info["hour_limit"]),
                 "X-RateLimit-Remaining-Minute": "0",
-                "X-RateLimit-Remaining-Hour": str(
-                    max(0, limits_info["hour_limit"] - limits_info["hour_count"])
-                ),
+                "X-RateLimit-Remaining-Hour": str(max(0, limits_info["hour_limit"] - limits_info["hour_count"])),
             },
         )
 
@@ -297,9 +272,7 @@ async def rate_limit_middleware(
     response = await call_next(request)
     remaining = rate_limiter.get_remaining_requests(request)
 
-    response.headers["X-RateLimit-Remaining-Minute"] = str(
-        remaining["minute_remaining"]
-    )
+    response.headers["X-RateLimit-Remaining-Minute"] = str(remaining["minute_remaining"])
     response.headers["X-RateLimit-Remaining-Hour"] = str(remaining["hour_remaining"])
     response.headers["X-RateLimit-Reset-Minute"] = str(remaining["minute_reset"])
     response.headers["X-RateLimit-Reset-Hour"] = str(remaining["hour_reset"])

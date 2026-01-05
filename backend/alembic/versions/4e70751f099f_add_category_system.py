@@ -8,8 +8,8 @@ Create Date: 2025-08-19 22:28:45.496841
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -73,9 +73,7 @@ def upgrade() -> None:
     op.alter_column("parts", "category_id", nullable=False)
 
     # Add foreign key constraint
-    op.create_foreign_key(
-        "fk_parts_category_id", "parts", "categories", ["category_id"], ["id"]
-    )
+    op.create_foreign_key("fk_parts_category_id", "parts", "categories", ["category_id"], ["id"])
     # ### end Alembic commands ###
 
 

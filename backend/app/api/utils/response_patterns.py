@@ -2,9 +2,10 @@
 Common response patterns utility for standardizing API responses and reducing redundancy.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NoReturn, Optional, Union
+
+from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
-from fastapi import status, HTTPException
 
 
 class ResponsePatterns:
@@ -32,7 +33,7 @@ class ResponsePatterns:
         Returns:
             JSONResponse with standardized success format
         """
-        response_data = {
+        response_data: Dict[str, Any] = {
             "success": True,
             "message": message,
             "data": data,
@@ -46,7 +47,7 @@ class ResponsePatterns:
     @staticmethod
     def error_response(
         message: str,
-        error_code: str = None,
+        error_code: str | None = None,
         details: Any = None,
         status_code: int = status.HTTP_400_BAD_REQUEST,
     ) -> JSONResponse:
@@ -62,7 +63,7 @@ class ResponsePatterns:
         Returns:
             JSONResponse with standardized error format
         """
-        response_data = {
+        response_data: Dict[str, Any] = {
             "success": False,
             "message": message,
             "error_code": error_code,
@@ -99,7 +100,7 @@ class ResponsePatterns:
         """
         total_pages = (total + limit - 1) // limit
 
-        response_data = {
+        response_data: Dict[str, Any] = {
             "success": True,
             "message": message,
             "data": data,
@@ -285,7 +286,7 @@ class ResponsePatterns:
         message: str,
         error_code: Optional[str] = None,
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized HTTPException with consistent error format.
 
@@ -309,7 +310,7 @@ class ResponsePatterns:
     def raise_not_found(
         resource_type: str = "Resource",
         resource_id: Optional[Union[int, str]] = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 404 HTTPException.
 
@@ -336,7 +337,7 @@ class ResponsePatterns:
         message: str = "Authentication required",
         error_code: str = "UNAUTHORIZED",
         headers: Optional[Dict[str, str]] = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 401 HTTPException.
 
@@ -349,16 +350,14 @@ class ResponsePatterns:
             HTTPException: 401 error with standardized format
         """
         # Use simple string detail for FastAPI compatibility
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=message, headers=headers
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message, headers=headers)
 
     @staticmethod
     def raise_forbidden(
         message: str = "Access denied",
         error_code: str = "FORBIDDEN",
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 403 HTTPException.
 
@@ -381,7 +380,7 @@ class ResponsePatterns:
     def raise_validation_error(
         message: str = "Validation error",
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 422 HTTPException.
 
@@ -404,7 +403,7 @@ class ResponsePatterns:
         message: str = "Resource conflict",
         error_code: str = "CONFLICT",
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 409 HTTPException.
 
@@ -428,7 +427,7 @@ class ResponsePatterns:
         message: str = "Bad request",
         error_code: str = "BAD_REQUEST",
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 400 HTTPException.
 
@@ -452,7 +451,7 @@ class ResponsePatterns:
         message: str = "Internal server error",
         error_code: str = "INTERNAL_SERVER_ERROR",
         details: Any = None,
-    ) -> None:
+    ) -> NoReturn:
         """
         Raise a standardized 500 HTTPException.
 

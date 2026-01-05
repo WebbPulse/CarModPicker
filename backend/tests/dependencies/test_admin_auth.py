@@ -10,9 +10,7 @@ class TestAdminAuthentication:
     """Test cases for admin authentication dependencies."""
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_admin_user(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_admin_user_with_admin_user(self, db_session: Session) -> None:
         """Test that admin user can access admin endpoints."""
         # Create an admin user
         admin_user = DBUser(
@@ -33,9 +31,7 @@ class TestAdminAuthentication:
         assert result == admin_user
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_superuser(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_admin_user_with_superuser(self, db_session: Session) -> None:
         """Test that superuser can access admin endpoints."""
         # Create a superuser
         superuser = DBUser(
@@ -56,9 +52,7 @@ class TestAdminAuthentication:
         assert result == superuser
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_regular_user(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_admin_user_with_regular_user(self, db_session: Session) -> None:
         """Test that regular user cannot access admin endpoints."""
         # Create a regular user
         regular_user = DBUser(
@@ -82,9 +76,7 @@ class TestAdminAuthentication:
         assert "Admin access required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_disabled_admin(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_admin_user_with_disabled_admin(self, db_session: Session) -> None:
         """Test that disabled admin user can still access admin endpoints (disabled check is in base dependency)."""
         # Create a disabled admin user
         disabled_admin = DBUser(
@@ -110,9 +102,7 @@ class TestSuperuserAuthentication:
     """Test cases for superuser authentication dependencies."""
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_superuser(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_superuser_with_superuser(self, db_session: Session) -> None:
         """Test that superuser can access superuser endpoints."""
         # Create a superuser
         superuser = DBUser(
@@ -133,9 +123,7 @@ class TestSuperuserAuthentication:
         assert result == superuser
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_admin_user(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_superuser_with_admin_user(self, db_session: Session) -> None:
         """Test that admin user cannot access superuser endpoints."""
         # Create an admin user (not superuser)
         admin_user = DBUser(
@@ -159,9 +147,7 @@ class TestSuperuserAuthentication:
         assert "Superuser privileges required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_regular_user(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_superuser_with_regular_user(self, db_session: Session) -> None:
         """Test that regular user cannot access superuser endpoints."""
         # Create a regular user
         regular_user = DBUser(
@@ -185,9 +171,7 @@ class TestSuperuserAuthentication:
         assert "Superuser privileges required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_disabled_superuser(
-        self, db_session: Session
-    ) -> None:
+    async def test_get_current_superuser_with_disabled_superuser(self, db_session: Session) -> None:
         """Test that disabled superuser can still access superuser endpoints (disabled check is in base dependency)."""
         # Create a disabled superuser
         disabled_superuser = DBUser(
@@ -213,9 +197,7 @@ class TestPrivilegeHierarchy:
     """Test cases for privilege hierarchy and edge cases."""
 
     @pytest.mark.asyncio
-    async def test_user_with_both_admin_and_superuser_flags(
-        self, db_session: Session
-    ) -> None:
+    async def test_user_with_both_admin_and_superuser_flags(self, db_session: Session) -> None:
         """Test user with both admin and superuser flags set."""
         # Create a user with both flags
         dual_user = DBUser(

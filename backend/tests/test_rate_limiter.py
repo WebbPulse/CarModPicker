@@ -6,12 +6,11 @@ import time
 import unittest.mock
 from unittest.mock import Mock
 
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.middleware.rate_limiter import (
-    SophisticatedRateLimiter,
     RateLimitConfig,
+    SophisticatedRateLimiter,
     rate_limit_middleware,
 )
 from app.main import app
@@ -77,7 +76,7 @@ class TestSophisticatedRateLimiter:
         request.headers = {}
         request.client.host = "192.168.1.1"
 
-        ip = limiter._get_client_ip(request)
+        ip = limiter._get_client_ip(request)  # pyright: ignore[reportPrivateUsage]
         assert ip == "192.168.1.1"
 
     def test_get_client_ip_proxy(self) -> None:
@@ -87,7 +86,7 @@ class TestSophisticatedRateLimiter:
         request.headers = {"X-Forwarded-For": "203.0.113.1, 10.0.0.1"}
         request.client.host = "10.0.0.1"
 
-        ip = limiter._get_client_ip(request)
+        ip = limiter._get_client_ip(request)  # pyright: ignore[reportPrivateUsage]
         assert ip == "203.0.113.1"
 
     def test_get_rate_limit_key_default(self) -> None:
@@ -99,7 +98,7 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "POST"
 
-        key = limiter._get_rate_limit_key(request)
+        key = limiter._get_rate_limit_key(request)  # pyright: ignore[reportPrivateUsage]
         assert key == "default:192.168.1.1"
 
     def test_get_rate_limit_key_get(self) -> None:
@@ -111,7 +110,7 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "GET"
 
-        key = limiter._get_rate_limit_key(request)
+        key = limiter._get_rate_limit_key(request)  # pyright: ignore[reportPrivateUsage]
         assert key == "get:192.168.1.1"
 
     def test_get_rate_limit_key_auth(self) -> None:
@@ -123,7 +122,7 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/auth/login"
         request.method = "POST"
 
-        key = limiter._get_rate_limit_key(request)
+        key = limiter._get_rate_limit_key(request)  # pyright: ignore[reportPrivateUsage]
         assert key == "auth:192.168.1.1"
 
     def test_get_rate_limit_key_admin(self) -> None:
@@ -135,7 +134,7 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/admin/users"
         request.method = "GET"
 
-        key = limiter._get_rate_limit_key(request)
+        key = limiter._get_rate_limit_key(request)  # pyright: ignore[reportPrivateUsage]
         assert key == "admin:192.168.1.1"
 
     def test_rate_limiting_default_minute_limit(self) -> None:
@@ -149,17 +148,17 @@ class TestSophisticatedRateLimiter:
         request.method = "POST"
 
         # First request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Second request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Third request should be limited
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
 
@@ -174,17 +173,17 @@ class TestSophisticatedRateLimiter:
         request.method = "GET"
 
         # First request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Second request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Third request should be limited
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
 
@@ -199,17 +198,17 @@ class TestSophisticatedRateLimiter:
         request.method = "POST"
 
         # First request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Second request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
         # Third request should be limited
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
 
@@ -224,15 +223,15 @@ class TestSophisticatedRateLimiter:
         request.method = "POST"
 
         # First request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
 
         # Second request should pass
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
 
         # Third request should be limited
-        is_limited, reason, limits_info = limiter.is_rate_limited(request)
+        is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
 
@@ -266,10 +265,10 @@ class TestSophisticatedRateLimiter:
         # Mock time.time to return our fixed time
         with unittest.mock.patch("time.time", return_value=current_time):
             # Cleanup should remove old requests
-            limiter._cleanup_old_requests(
+            limiter._cleanup_old_requests(  # pyright: ignore[reportPrivateUsage]
                 "default:192.168.1.1", 60, limiter.minute_requests
             )
-            limiter._cleanup_old_requests(
+            limiter._cleanup_old_requests(  # pyright: ignore[reportPrivateUsage]
                 "default:192.168.1.1", 3600, limiter.hour_requests
             )
 
@@ -344,8 +343,8 @@ class TestRateLimitMiddleware:
         from fastapi import FastAPI
 
         from app.api.middleware.rate_limiter import (
-            SophisticatedRateLimiter,
             RateLimitConfig,
+            SophisticatedRateLimiter,
         )
 
         test_app = FastAPI()
@@ -362,7 +361,7 @@ class TestRateLimitMiddleware:
             test_app.middleware("http")(rate_limit_middleware)
 
             @test_app.get("/test")
-            def test_endpoint() -> dict[str, str]:
+            def test_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
                 return {"message": "test"}
 
             client = TestClient(test_app)

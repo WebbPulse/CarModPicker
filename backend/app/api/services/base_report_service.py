@@ -3,19 +3,20 @@ Base service class for reporting operations to eliminate code duplication.
 """
 
 import logging
-from typing import TypeVar, Generic, Type, Optional, Dict, Any, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, desc
-from fastapi import HTTPException
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
-from app.api.models.user import User as DBUser
+from fastapi import HTTPException
+from sqlalchemy import and_, desc, func
+from sqlalchemy.orm import Session
+
+from app.api.protocols import BaseModel, HasModelDump, ReportModel
 from app.api.utils.common_operations import verify_entity_exists
 
 # Generic types for different report models and schemas
-ReportModelType = TypeVar("ReportModelType")
-ReportCreateSchema = TypeVar("ReportCreateSchema")
+ReportModelType = TypeVar("ReportModelType", bound=ReportModel)
+ReportCreateSchema = TypeVar("ReportCreateSchema", bound=HasModelDump)
 ReportReadSchema = TypeVar("ReportReadSchema")
-EntityModelType = TypeVar("EntityModelType")
+EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
 class BaseReportService(
@@ -79,7 +80,6 @@ class BaseReportService(
             model=self.entity_model,
             entity_id=entity_id,
             entity_name=self.entity_name,
-            logger=logger,
         )
 
         # Check if user has already reported this entity
@@ -114,7 +114,8 @@ class BaseReportService(
         db.refresh(db_report)
 
         logger.info(
-            f"Report created: {db_report.id} by user {user_id} on {self.entity_name} {entity_id}"
+            f"Report created: {db_report.id} by user {user_id} "
+            f"on {self.entity_name} {entity_id}"
         )
         return db_report
 
@@ -146,7 +147,6 @@ class BaseReportService(
             model=self.entity_model,
             entity_id=entity_id,
             entity_name=self.entity_name,
-            logger=logger,
         )
 
         query = db.query(self.report_model).filter(
@@ -201,7 +201,7 @@ class BaseReportService(
                 detail="Report not found",
             )
 
-        # Update status
+        # Update status - Protocol ensures status and resolution_notes attributes exist
         report.status = new_status
         if resolution_notes:
             report.resolution_notes = resolution_notes
@@ -271,12 +271,11 @@ class BaseReportService(
             model=self.entity_model,
             entity_id=entity_id,
             entity_name=self.entity_name,
-            logger=logger,
         )
 
-        # Get report counts by status
+        # Get report counts by status - Protocol ensures id and status attributes exist
         pending_reports = (
-            db.query(func.count(self.report_model.id))
+            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field)
@@ -288,7 +287,7 @@ class BaseReportService(
         )
 
         resolved_reports = (
-            db.query(func.count(self.report_model.id))
+            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field)
@@ -300,7 +299,7 @@ class BaseReportService(
         )
 
         dismissed_reports = (
-            db.query(func.count(self.report_model.id))
+            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field)
@@ -314,7 +313,9 @@ class BaseReportService(
         total_reports = pending_reports + resolved_reports + dismissed_reports
 
         logger.info(
-            f"Report summary for {self.entity_name} {entity_id}: pending={pending_reports}, resolved={resolved_reports}, dismissed={dismissed_reports}"
+            f"Report summary for {self.entity_name} {entity_id}: "
+            f"pending={pending_reports}, resolved={resolved_reports}, "
+            f"dismissed={dismissed_reports}"
         )
 
         return {

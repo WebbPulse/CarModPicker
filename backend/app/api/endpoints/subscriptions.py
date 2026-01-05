@@ -5,25 +5,27 @@ This endpoint now uses standardized error handling, response decorators, and
 service layer usage consistent with other endpoints.
 """
 
-from typing import Any
+import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
-from app.db.session import get_db
+from app.api.models.subscription import Subscription
 from app.api.models.user import User
 from app.api.schemas.subscription import (
+    SubscriptionResponse,
     SubscriptionStatus,
     UpgradeRequest,
-    SubscriptionResponse,
 )
 from app.api.services.subscription_service import SubscriptionService
-from app.api.models.subscription import Subscription
+from app.api.utils.common_patterns import (
+    PublicEndpointDeps,
+    get_standard_public_endpoint_dependencies,
+)
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.logging import get_logger
-from app.api.utils.common_patterns import get_standard_public_endpoint_dependencies
-from fastapi import HTTPException, status
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -37,9 +39,9 @@ router = APIRouter()
 )
 async def get_subscription_status(
     current_user: User = Depends(get_current_user),
-    db=Depends(get_db),
-    logger=Depends(get_logger),
-) -> Any:
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> SubscriptionStatus:
     """Get current subscription status and limits for the authenticated user."""
     status = SubscriptionService.get_subscription_status(db, current_user)
     logger.info(f"User {current_user.id} retrieved subscription status")
@@ -57,8 +59,8 @@ async def get_subscription_status(
 async def upgrade_subscription(
     upgrade_data: UpgradeRequest,
     current_user: User = Depends(get_current_user),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-) -> Any:
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Subscription:
     """Upgrade user to premium subscription."""
     db = deps["db"]
     logger = deps["logger"]
@@ -88,6 +90,11 @@ async def upgrade_subscription(
         .first()
     )
 
+    if not subscription:
+        ResponsePatterns.raise_internal_server_error(
+            "Failed to retrieve subscription record"
+        )
+
     logger.info(f"User {current_user.id} upgraded to premium subscription")
     return subscription
 
@@ -102,8 +109,8 @@ async def upgrade_subscription(
 )
 async def cancel_subscription(
     current_user: User = Depends(get_current_user),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-) -> Any:
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Subscription:
     """Cancel premium subscription."""
     db = deps["db"]
     logger = deps["logger"]
@@ -129,6 +136,11 @@ async def cancel_subscription(
         .first()
     )
 
+    if not subscription:
+        ResponsePatterns.raise_internal_server_error(
+            "Failed to retrieve subscription record"
+        )
+
     logger.info(f"User {current_user.id} cancelled premium subscription")
     return subscription
 
@@ -137,8 +149,8 @@ async def cancel_subscription(
 async def check_creation_limits(
     resource_type: str,  # 'car' or 'build_list'
     current_user: User = Depends(get_current_user),
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
-) -> Any:
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> dict[str, bool]:
     """
     Check if user can create a specific resource type.
     """
@@ -160,7 +172,7 @@ async def check_creation_limits(
 async def check_global_part_creation_limit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> Any:
+) -> dict[str, bool]:
     """
     Check if user can create a global part.
     """

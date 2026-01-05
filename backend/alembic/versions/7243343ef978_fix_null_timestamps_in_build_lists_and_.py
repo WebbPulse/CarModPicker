@@ -8,8 +8,8 @@ Create Date: 2025-08-27 20:44:28.129280
 
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op  # noqa: F401
+import sqlalchemy as sa  # noqa: F401
 
 
 # revision identifiers, used by Alembic.
@@ -43,20 +43,12 @@ def upgrade() -> None:
 
     elif "global_parts" in tables:
         # Fix NULL timestamp values in global_parts table
-        op.execute(
-            "UPDATE global_parts SET created_at = NOW() WHERE created_at IS NULL"
-        )
-        op.execute(
-            "UPDATE global_parts SET updated_at = NOW() WHERE updated_at IS NULL"
-        )
+        op.execute("UPDATE global_parts SET created_at = NOW() WHERE created_at IS NULL")
+        op.execute("UPDATE global_parts SET updated_at = NOW() WHERE updated_at IS NULL")
 
         # Fix NULL values for other required fields in global_parts table
-        op.execute(
-            "UPDATE global_parts SET is_verified = false WHERE is_verified IS NULL"
-        )
-        op.execute(
-            "UPDATE global_parts SET source = 'user_created' WHERE source IS NULL"
-        )
+        op.execute("UPDATE global_parts SET is_verified = false WHERE is_verified IS NULL")
+        op.execute("UPDATE global_parts SET source = 'user_created' WHERE source IS NULL")
         op.execute("UPDATE global_parts SET edit_count = 0 WHERE edit_count IS NULL")
 
 

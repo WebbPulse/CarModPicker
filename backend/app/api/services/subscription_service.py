@@ -1,13 +1,14 @@
+from datetime import UTC, datetime, timedelta
 from typing import Dict, Optional
-from datetime import datetime, UTC, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
 
-from app.api.models.user import User
-from app.api.models.subscription import Subscription
-from app.api.models.car import Car
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
 from app.api.models.build_list import BuildList
-from app.api.schemas.subscription import SubscriptionCreate, SubscriptionStatus
+from app.api.models.car import Car
+from app.api.models.subscription import Subscription
+from app.api.models.user import User
+from app.api.schemas.subscription import SubscriptionStatus
 
 
 class SubscriptionService:
@@ -35,9 +36,7 @@ class SubscriptionService:
     def get_user_usage(db: Session, user_id: int) -> Dict[str, int]:
         """Get current usage statistics for a user"""
         cars_count = db.query(Car).filter(Car.user_id == user_id).count()
-        build_lists_count = (
-            db.query(BuildList).filter(BuildList.user_id == user_id).count()
-        )
+        build_lists_count = db.query(BuildList).filter(BuildList.user_id == user_id).count()
 
         return {
             "cars": cars_count,
@@ -86,9 +85,7 @@ class SubscriptionService:
         )
 
     @staticmethod
-    def upgrade_to_premium(
-        db: Session, user: User, expires_at: Optional[datetime] = None
-    ) -> User:
+    def upgrade_to_premium(db: Session, user: User, expires_at: Optional[datetime] = None) -> User:
         """Upgrade user to premium subscription"""
         # Set expiration to 30 days from now if not provided
         if expires_at is None:
@@ -120,9 +117,7 @@ class SubscriptionService:
         # Update subscription record
         subscription = (
             db.query(Subscription)
-            .filter(
-                and_(Subscription.user_id == user.id, Subscription.status == "active")
-            )
+            .filter(and_(Subscription.user_id == user.id, Subscription.status == "active"))
             .first()
         )
 

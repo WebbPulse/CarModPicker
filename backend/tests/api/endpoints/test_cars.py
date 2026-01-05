@@ -1,3 +1,5 @@
+from typing import Any, List
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -275,13 +277,14 @@ def test_read_cars_by_user_success(client: TestClient, db_session: Session) -> N
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}")
     assert response.status_code == 200, response.text
 
-    cars_list = response.json()
+    cars_list: list[Any] = response.json()
     assert isinstance(cars_list, list)
     assert len(cars_list) == 1
 
-    retrieved_car_ids = {car["id"] for car in cars_list}
+    retrieved_car_ids: set[int] = {car["id"] for car in cars_list}
     assert car_id1 in retrieved_car_ids
 
+    car: Any
     for car in cars_list:
         assert car["user_id"] == user_id
         if car["id"] == car_id1:
@@ -300,7 +303,7 @@ def test_read_cars_by_user_no_cars(client: TestClient, db_session: Session) -> N
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}")
     assert response.status_code == 200, response.text
 
-    cars_list = response.json()
+    cars_list: list[Any] = response.json()
     assert isinstance(cars_list, list)
     assert len(cars_list) == 0
 
@@ -317,7 +320,7 @@ def test_read_cars_by_user_non_existent_user(
         response.status_code == 200
     ), response.text  # Endpoint returns 200 and empty list
 
-    cars_list = response.json()
+    cars_list: list[Any] = response.json()
     assert isinstance(cars_list, list)
     assert len(cars_list) == 0
 
@@ -330,7 +333,7 @@ def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -
     )  # Returns user_id directly
 
     # Create multiple cars for this user (reduced to 2 to avoid subscription limits)
-    car_ids = []
+    car_ids: List[int] = []
     for i in range(2):
         car_data = {
             "make": f"Brand{i}",
@@ -348,7 +351,7 @@ def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}?limit=1&skip=0")
     assert response.status_code == 200, response.text
 
-    cars_page1 = response.json()
+    cars_page1: list[Any] = response.json()
     assert isinstance(cars_page1, list)
     assert len(cars_page1) == 1
 
@@ -356,16 +359,304 @@ def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}?limit=1&skip=1")
     assert response.status_code == 200, response.text
 
-    cars_page2 = response.json()
+    cars_page2: list[Any] = response.json()
     assert isinstance(cars_page2, list)
     assert len(cars_page2) == 1  # Only 1 remaining
 
     # Verify no overlap between pages
-    page1_ids = {car["id"] for car in cars_page1}
-    page2_ids = {car["id"] for car in cars_page2}
+    page1_ids: set[int] = {car["id"] for car in cars_page1}  # type: ignore[misc]
+    page2_ids: set[int] = {car["id"] for car in cars_page2}  # type: ignore[misc]
 
     assert page1_ids.isdisjoint(page2_ids)
 
     # Verify all cars are returned across pages
-    all_ids = page1_ids | page2_ids
+    all_ids: set[int] = page1_ids | page2_ids
     assert all_ids == set(car_ids)
+
+
+# --- Tests for get_cars_by_make ---
+
+
+def test_get_cars_by_make_success(client: TestClient, db_session: Session) -> None:
+    """Test getting cars by make."""
+    # Create a user and add multiple cars
+    _ = create_and_login_user(client, "car_make_user", db_session)
+
+    # Create Toyota cars
+    toyota1_data = {"make": "Toyota", "model": "Camry", "year": 2020}
+    toyota2_data = {"make": "Toyota", "model": "Corolla", "year": 2021}
+    honda_data = {"make": "Honda", "model": "Civic", "year": 2020}
+
+    toyota1_response = client.post(f"{settings.API_STR}/cars/", json=toyota1_data)
+    assert toyota1_response.status_code == 200
+    toyota1_id = toyota1_response.json()["id"]
+
+    toyota2_response = client.post(f"{settings.API_STR}/cars/", json=toyota2_data)
+    assert toyota2_response.status_code == 200
+    toyota2_id = toyota2_response.json()["id"]
+
+    honda_response = client.post(f"{settings.API_STR}/cars/", json=honda_data)
+    assert honda_response.status_code == 200
+
+    # Clear cookies for public endpoint access
+    client.cookies.clear()
+
+    # Get cars by make "Toyota"
+    response = client.get(f"{settings.API_STR}/cars/make/Toyota")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) == 2
+
+    car_ids = {car["id"] for car in cars}
+    assert toyota1_id in car_ids
+    assert toyota2_id in car_ids
+
+    for car in cars:
+        assert car["make"] == "Toyota"
+
+
+def test_get_cars_by_make_no_results(client: TestClient, db_session: Session) -> None:
+    """Test getting cars by make with no results."""
+    client.cookies.clear()
+
+    response = client.get(f"{settings.API_STR}/cars/make/NonExistentMake")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) == 0
+
+
+def test_get_cars_by_make_pagination(client: TestClient, db_session: Session) -> None:
+    """Test pagination for cars by make."""
+    _ = create_and_login_user(client, "car_make_pagination_user", db_session)
+
+    # Create multiple Ford cars
+    ford_ids: List[int] = []
+    for i in range(2):
+        ford_data = {"make": "Ford", "model": f"Model{i}", "year": 2020 + i}
+        response = client.post(f"{settings.API_STR}/cars/", json=ford_data)
+        assert response.status_code == 200
+        ford_ids.append(response.json()["id"])
+
+    client.cookies.clear()
+
+    # Test pagination
+    response = client.get(f"{settings.API_STR}/cars/make/Ford?limit=1&skip=0")
+    assert response.status_code == 200
+
+    first_page: list[Any] = response.json()
+    assert len(first_page) == 1
+
+
+# --- Tests for get_cars_by_year ---
+
+
+def test_get_cars_by_year_success(client: TestClient, db_session: Session) -> None:
+    """Test getting cars by year."""
+    _ = create_and_login_user(client, "car_year_user", db_session)
+
+    # Create cars with specific years
+    car_2020_1_data = {"make": "Toyota", "model": "Camry", "year": 2020}
+    car_2020_2_data = {"make": "Honda", "model": "Civic", "year": 2020}
+    car_2021_data = {"make": "Ford", "model": "Focus", "year": 2021}
+
+    car_2020_1_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_1_data)
+    assert car_2020_1_response.status_code == 200
+    car_2020_1_id = car_2020_1_response.json()["id"]
+
+    car_2020_2_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_2_data)
+    assert car_2020_2_response.status_code == 200
+    car_2020_2_id = car_2020_2_response.json()["id"]
+
+    car_2021_response = client.post(f"{settings.API_STR}/cars/", json=car_2021_data)
+    assert car_2021_response.status_code == 200
+
+    client.cookies.clear()
+
+    # Get cars by year 2020
+    response = client.get(f"{settings.API_STR}/cars/year/2020")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) == 2
+
+    car_ids = {car["id"] for car in cars}
+    assert car_2020_1_id in car_ids
+    assert car_2020_2_id in car_ids
+
+    for car in cars:
+        assert car["year"] == 2020
+
+
+def test_get_cars_by_year_no_results(client: TestClient, db_session: Session) -> None:
+    """Test getting cars by year with no results."""
+    client.cookies.clear()
+
+    response = client.get(f"{settings.API_STR}/cars/year/1950")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) == 0
+
+
+# --- Tests for search_cars ---
+
+
+def test_search_cars_by_make(client: TestClient, db_session: Session) -> None:
+    """Test searching cars by make."""
+    _ = create_and_login_user(client, "car_search_user", db_session)
+
+    # Create cars with searchable names
+    tesla_data = {"make": "Tesla", "model": "Model 3", "year": 2021}
+    toyota_data = {"make": "Toyota", "model": "Corolla", "year": 2020}
+
+    tesla_response = client.post(f"{settings.API_STR}/cars/", json=tesla_data)
+    assert tesla_response.status_code == 200
+    tesla_id = tesla_response.json()["id"]
+
+    client.post(f"{settings.API_STR}/cars/", json=toyota_data)
+
+    client.cookies.clear()
+
+    # Search for "Tesla"
+    response = client.get(f"{settings.API_STR}/cars/search?q=Tesla")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) >= 1
+
+    # Verify Tesla car is in results
+    tesla_found = any(car["id"] == tesla_id for car in cars)
+    assert tesla_found
+
+
+def test_search_cars_by_model(client: TestClient, db_session: Session) -> None:
+    """Test searching cars by model."""
+    _ = create_and_login_user(client, "car_search_model_user", db_session)
+
+    # Create cars with specific models
+    car_data = {"make": "BMW", "model": "M3", "year": 2022}
+    car_response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+    assert car_response.status_code == 200
+    car_id = car_response.json()["id"]
+
+    client.cookies.clear()
+
+    # Search for "M3"
+    response = client.get(f"{settings.API_STR}/cars/search?q=M3")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert len(cars) >= 1
+
+    # Verify car is in results
+    car_found = any(car["id"] == car_id for car in cars)
+    assert car_found
+
+
+def test_search_cars_no_query(client: TestClient, db_session: Session) -> None:
+    """Test search without query parameter."""
+    client.cookies.clear()
+
+    # The search endpoint requires a 'q' parameter, so it should fail without it
+    response = client.get(f"{settings.API_STR}/cars/search")
+    assert response.status_code == 422  # Validation error for missing required param
+
+
+def test_search_cars_no_results(client: TestClient, db_session: Session) -> None:
+    """Test search with no matching results."""
+    client.cookies.clear()
+
+    response = client.get(f"{settings.API_STR}/cars/search?q=NonExistentCarBrandXYZ123")
+    assert response.status_code == 200, response.text
+
+    cars: list[Any] = response.json()
+    assert isinstance(cars, list)
+    assert len(cars) == 0
+
+
+# Note: VIN endpoint not implemented yet, tests removed
+
+
+def test_get_car_make_stats(client: TestClient, db_session: Session) -> None:
+    """Test getting car make statistics."""
+    import os
+
+    # Login as test user
+    _ = create_and_login_user(client, f"stats_test_make_{os.getpid()}", db_session)
+
+    # Create cars with different makes
+    car_data_honda1 = {
+        "make": "Honda",
+        "model": "Civic",
+        "year": 2020,
+    }
+    car_data_honda2 = {
+        "make": "Honda",
+        "model": "Accord",
+        "year": 2021,
+    }
+    car_data_toyota = {
+        "make": "Toyota",
+        "model": "Camry",
+        "year": 2019,
+    }
+
+    # Create the cars
+    client.post(f"{settings.API_STR}/cars/", json=car_data_honda1)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_honda2)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_toyota)
+
+    # Get make statistics
+    response = client.get(f"{settings.API_STR}/cars/stats/makes")
+    assert response.status_code == 200
+
+    stats = response.json()
+    assert isinstance(stats, dict)
+    # Should have at least Honda and Toyota
+    assert "Honda" in stats or "Toyota" in stats
+
+
+def test_get_car_year_stats(client: TestClient, db_session: Session) -> None:
+    """Test getting car year statistics."""
+    import os
+
+    # Login as test user
+    _ = create_and_login_user(client, f"stats_test_year_{os.getpid()}", db_session)
+
+    # Create cars with different years
+    car_data_2020 = {
+        "make": "Honda",
+        "model": "Civic",
+        "year": 2020,
+    }
+    car_data_2021_1 = {
+        "make": "Honda",
+        "model": "Accord",
+        "year": 2021,
+    }
+    car_data_2021_2 = {
+        "make": "Toyota",
+        "model": "Camry",
+        "year": 2021,
+    }
+
+    # Create the cars
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2020)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_1)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_2)
+
+    # Get year statistics
+    response = client.get(f"{settings.API_STR}/cars/stats/years")
+    assert response.status_code == 200
+
+    stats = response.json()
+    assert isinstance(stats, dict)
+    # Should have at least 2020 and 2021
+    assert "2020" in stats or "2021" in stats

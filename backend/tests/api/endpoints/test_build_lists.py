@@ -1,10 +1,11 @@
 import os
 from typing import Any
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.api.models.user import User
+from app.core.config import settings
 
 
 def get_unique_name(base_name: str) -> str:
@@ -164,7 +165,7 @@ class TestBuildLists:
         # Get user's build lists
         response = client.get(f"{settings.API_STR}/build-lists/user/me")
         assert response.status_code == 200
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
 
@@ -299,9 +300,10 @@ class TestBuildLists:
         # Get build lists for the car
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
         assert response.status_code == 200
-        data = response.json()
+        data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
+        build_list: Any
         for build_list in data:
             assert build_list["car_id"] == car["id"]
 

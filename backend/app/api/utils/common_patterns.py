@@ -6,17 +6,62 @@ ownership verification, admin checks, and standard query parameters.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Type
+from collections.abc import Awaitable
+from datetime import UTC, datetime
 from functools import wraps
-from fastapi import Depends, Query, HTTPException, status
-from sqlalchemy.orm import Session
-from datetime import datetime
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    ParamSpec,
+    Tuple,
+    Type,
+    TypeVar,
+    TypedDict,
+    cast,
+)
 
-from app.api.dependencies.auth import get_current_user, get_current_admin_user
+from fastapi import Depends, Query
+from sqlalchemy.orm import Query as SQLAlchemyQuery
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
+
+from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
+from app.api.protocols import HasId, HasUserId, UserOwnedModel
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.logging import get_logger
 from app.db.session import get_db
+
+# TypeVar for decorator return types
+P = ParamSpec("P")
+T = TypeVar("T")
+ModelT = TypeVar("ModelT", bound=HasId)
+
+
+class PublicEndpointDeps(TypedDict):
+    """Dependencies for public endpoints (no authentication required)."""
+
+    db: Session
+    logger: logging.Logger
+
+
+class AuthenticatedEndpointDeps(TypedDict):
+    """Dependencies for authenticated endpoints."""
+
+    db: Session
+    logger: logging.Logger
+    current_user: DBUser
+
+
+class AdminEndpointDeps(TypedDict):
+    """Dependencies for admin-only endpoints."""
+
+    db: Session
+    logger: logging.Logger
+    current_user: DBUser
 
 
 # Standard pagination parameters
@@ -57,12 +102,12 @@ def validate_pagination_params(skip: int, limit: int) -> Tuple[int, int]:
 
 
 # Standard endpoint dependencies
-def get_standard_endpoint_dependencies():
+def get_standard_endpoint_dependencies() -> Dict[str, Any]:
     """
     Standard dependencies for endpoints that need database, logger, and current user.
 
     Returns:
-        Dictionary of standard dependencies
+        Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
@@ -74,7 +119,7 @@ def get_standard_endpoint_dependencies():
 def get_standard_public_endpoint_dependencies(
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
-):
+) -> PublicEndpointDeps:
     """
     Standard dependencies for public endpoints that need database and logger.
 
@@ -92,7 +137,7 @@ def verify_user_access_or_admin(
     current_user: DBUser,
     target_user_id: int,
     action_description: str = "access this resource",
-    logger: Optional[Any] = None,
+    logger: Optional[logging.Logger] = None,
 ) -> None:
     """
     Verify that the current user can access a resource or is an admin.
@@ -110,18 +155,18 @@ def verify_user_access_or_admin(
     ):
         if logger:
             logger.warning(
-                f"Access denied: User {current_user.id} attempted to {action_description} "
-                f"for user {target_user_id}"
+                f"Access denied: User {current_user.id} "
+                f"attempted to {action_description} for user {target_user_id}"
             )
         ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
 
 
 def verify_entity_ownership_or_admin(
-    entity,
+    entity: HasUserId,
     current_user: DBUser,
     entity_name: str = "entity",
     action_description: str = "access this resource",
-    logger: Optional[Any] = None,
+    logger: Optional[logging.Logger] = None,
 ) -> None:
     """
     Verify that the current user owns an entity or is an admin.
@@ -140,21 +185,22 @@ def verify_entity_ownership_or_admin(
         if not current_user.is_admin and not current_user.is_superuser:
             if logger:
                 logger.warning(
-                    f"Access denied: User {current_user.id} attempted to {action_description} "
-                    f"for {entity_name} {getattr(entity, 'id', 'unknown')} owned by user {entity.user_id}"
+                    f"Access denied: User {current_user.id} "
+                    f"attempted to {action_description} for {entity_name} "
+                    f"{getattr(entity, 'id', 'unknown')} owned by user {entity.user_id}"
                 )
             ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
 
 
 # Standard pagination response patterns
 def get_paginated_response(
-    query,
+    query: SQLAlchemyQuery[ModelT],
     skip: int,
     limit: int,
-    logger: Any,
+    logger: logging.Logger,
     entity_name: str = "items",
     user_id: Optional[int] = None,
-) -> List[Any]:
+) -> List[ModelT]:
     """
     Get paginated response with consistent logging.
 
@@ -169,7 +215,7 @@ def get_paginated_response(
     Returns:
         List of paginated items
     """
-    items = query.offset(skip).limit(limit).all()
+    items: List[ModelT] = query.offset(skip).limit(limit).all()
 
     if not items:
         if user_id:
@@ -179,7 +225,8 @@ def get_paginated_response(
     else:
         if user_id:
             logger.info(
-                f"{entity_name.title()} retrieved for user {user_id}: {len(items)} items"
+                f"{entity_name.title()} retrieved for user {user_id}: "
+                f"{len(items)} items"
             )
         else:
             logger.info(f"{entity_name.title()} retrieved: {len(items)} items")
@@ -189,11 +236,11 @@ def get_paginated_response(
 
 # Standard search and filter patterns
 def apply_standard_filters(
-    query,
+    query: SQLAlchemyQuery[ModelT],
     search: Optional[str] = None,
     category_id: Optional[int] = None,
     search_fields: Optional[List[str]] = None,
-) -> Any:
+) -> SQLAlchemyQuery[ModelT]:
     """
     Apply standard search and filter patterns to a query.
 
@@ -207,14 +254,14 @@ def apply_standard_filters(
         Modified query object
     """
     if category_id:
-        query = query.filter(query.model.category_id == category_id)
+        query = query.filter(query.model.category_id == category_id)  # type: ignore[attr-defined, arg-type]
 
     if search and search_fields:
         search_term = f"%{search}%"
-        search_filters = []
+        search_filters: List[ColumnElement[bool]] = []
         for field in search_fields:
-            if hasattr(query.model, field):
-                search_filters.append(getattr(query.model, field).ilike(search_term))
+            if hasattr(query.model, field):  # type: ignore[attr-defined]
+                search_filters.append(getattr(query.model, field).ilike(search_term))  # type: ignore[attr-defined]
 
         if search_filters:
             from sqlalchemy import or_
@@ -231,7 +278,7 @@ def verify_ownership(
     user_id_field: str = "user_id",
     not_found_detail: Optional[str] = None,
     forbidden_detail: Optional[str] = None,
-):
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """
     Decorator for verifying entity ownership.
 
@@ -246,30 +293,35 @@ def verify_ownership(
         Decorator function
     """
 
-    def decorator(func):
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract parameters from kwargs
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Extract parameters from kwargs with proper typing
             entity_id = kwargs.get(entity_id_param)
-            db = kwargs.get("db")
-            current_user = kwargs.get("current_user")
-            logger = kwargs.get("logger")
+            db_value = kwargs.get("db")
+            user_value = kwargs.get("current_user")
 
-            if not all([entity_id, db, current_user]):
+            if not all([entity_id, db_value, user_value]):
                 raise ValueError(
-                    f"Missing required parameters for ownership verification: {entity_name}"
+                    f"Missing required parameters for ownership verification: "
+                    f"{entity_name}"
                 )
 
-            # Get entity and verify ownership
+            db = cast(Session, db_value)
+            current_user = cast(DBUser, user_value)
+
+            model_class = func.__annotations__["return"]
             entity = (
-                db.query(func.__annotations__["return"])
-                .filter(getattr(func.__annotations__["return"], "id") == entity_id)
+                db.query(model_class)
+                .filter(getattr(model_class, "id") == entity_id)
                 .first()
             )
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(entity_name, entity_id)
+                ResponsePatterns.raise_not_found(
+                    entity_name, int(entity_id) if isinstance(entity_id, int) else 0
+                )
 
             if getattr(entity, user_id_field) != current_user.id:
                 detail = (
@@ -285,15 +337,18 @@ def verify_ownership(
 
 
 # Admin-only decorator
-def admin_only(func):
+def admin_only(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     """
     Decorator to ensure only admin users can access an endpoint.
     """
 
     @wraps(func)
-    async def wrapper(*args, **kwargs):
-        current_user = kwargs.get("current_user")
-        if not current_user or not current_user.is_admin:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        user_value = kwargs.get("current_user")
+        if not user_value:
+            ResponsePatterns.raise_forbidden("Admin access required")
+        current_user = cast(DBUser, user_value)
+        if not current_user.is_admin:
             ResponsePatterns.raise_forbidden("Admin access required")
         return await func(*args, **kwargs)
 
@@ -303,11 +358,11 @@ def admin_only(func):
 # Common database operations
 def get_entity_or_404(
     db: Session,
-    model: Any,
+    model: Type[ModelT],
     entity_id: int,
     entity_name: str,
-    logger: Optional[Any] = None,
-) -> Any:
+    logger: Optional[logging.Logger] = None,
+) -> ModelT:
     """
     Get an entity by ID or raise 404 if not found.
 
@@ -324,7 +379,7 @@ def get_entity_or_404(
     Raises:
         HTTPException: 404 if entity not found
     """
-    entity = db.query(model).filter(model.id == entity_id).first()
+    entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
     if not entity:
         if logger:
             logger.warning(f"Attempt to access non-existent {entity_name} {entity_id}")
@@ -333,10 +388,10 @@ def get_entity_or_404(
 
 
 def verify_entity_ownership(
-    entity: Any,
+    entity: UserOwnedModel,
     current_user: DBUser,
     entity_name: str,
-    logger: Optional[Any] = None,
+    logger: Optional[logging.Logger] = None,
     custom_forbidden_detail: Optional[str] = None,
 ) -> None:
     """
@@ -366,10 +421,10 @@ def verify_entity_ownership(
 
 # Common query building
 def build_search_query(
-    query: Any,
+    query: SQLAlchemyQuery[ModelT],
     search_term: Optional[str],
     search_fields: List[str],
-) -> Any:
+) -> SQLAlchemyQuery[ModelT]:
     """
     Build a search query with LIKE filters.
 
@@ -384,7 +439,7 @@ def build_search_query(
     if not search_term:
         return query
 
-    search_filters = []
+    search_filters: List[ColumnElement[bool]] = []
     for field in search_fields:
         search_filters.append(
             getattr(query.column_descriptions[0]["entity"], field).ilike(
@@ -401,9 +456,9 @@ def build_search_query(
 
 
 def build_filtered_query(
-    query: Any,
+    query: SQLAlchemyQuery[ModelT],
     filters: Dict[str, Any],
-) -> Any:
+) -> SQLAlchemyQuery[ModelT]:
     """
     Build a filtered query based on filter parameters.
 
@@ -424,12 +479,12 @@ def build_filtered_query(
 
 
 def build_sorted_query(
-    query: Any,
+    query: SQLAlchemyQuery[ModelT],
     sort_by: Optional[str],
     sort_order: str,
     allowed_sort_fields: List[str],
     default_sort: str = "id",
-) -> Any:
+) -> SQLAlchemyQuery[ModelT]:
     """
     Build a sorted query.
 
@@ -458,7 +513,7 @@ def build_sorted_query(
 
 # Common response patterns
 def create_paginated_response(
-    data: List[Any],
+    data: List[ModelT],
     total: int,
     skip: int,
     limit: int,
@@ -500,7 +555,7 @@ def create_paginated_response(
 def handle_integrity_error(
     error: Exception,
     entity_name: str,
-    logger: Optional[Any] = None,
+    logger: Optional[logging.Logger] = None,
 ) -> None:
     """
     Handle database integrity errors with standardized responses.
@@ -535,12 +590,12 @@ def handle_integrity_error(
 
 
 # Common dependency injection
-def get_common_dependencies():
+def get_common_dependencies() -> Dict[str, Any]:
     """
     Common dependencies for endpoints.
 
     Returns:
-        Dictionary of common dependencies
+        Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
@@ -549,12 +604,12 @@ def get_common_dependencies():
     }
 
 
-def get_admin_dependencies():
+def get_admin_dependencies() -> Dict[str, Any]:
     """
     Admin-only dependencies for endpoints.
 
     Returns:
-        Dictionary of admin dependencies
+        Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
@@ -569,15 +624,16 @@ def handle_vote_operation(
     user_id: int,
     entity_id: int,
     vote_type: str,
-    entity_model: Type,
-    vote_model: Type,
+    entity_model: Type[Any],
+    vote_model: Type[Any],
     entity_name: str,
     entity_type: str,
-    logger: Any,
+    logger: logging.Logger,
     existing_vote: Optional[Any] = None,
 ) -> Any:
     """
-    Handle vote operations (create/update) with consistent patterns for unified Vote model.
+    Handle vote operations (create/update) with consistent patterns for
+    unified Vote model.
 
     Args:
         db: Database session
@@ -587,7 +643,8 @@ def handle_vote_operation(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
+        entity_type: Entity type for polymorphic association
+            ('car', 'build_list', 'global_part')
         logger: Logger instance
         existing_vote: Existing vote if updating
 
@@ -598,6 +655,7 @@ def handle_vote_operation(
     entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
+        raise  # Type hint - unreachable code
 
     try:
         if existing_vote:
@@ -606,7 +664,8 @@ def handle_vote_operation(
             db.commit()
             db.refresh(existing_vote)
             logger.info(
-                f"Vote updated: {existing_vote.id} by user {user_id} on {entity_name} {entity_id}"
+                f"Vote updated: {existing_vote.id} by user {user_id} "
+                f"on {entity_name} {entity_id}"
             )
             return existing_vote
         else:
@@ -621,25 +680,27 @@ def handle_vote_operation(
             db.commit()
             db.refresh(new_vote)
             logger.info(
-                f"Vote created: {new_vote.id} by user {user_id} on {entity_name} {entity_id}"
+                f"Vote created: {new_vote.id} by user {user_id} "
+                f"on {entity_name} {entity_id}"
             )
             return new_vote
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to handle vote operation: {e}")
-        ResponsePatterns.raise_internal_server_error(f"Failed to process vote")
+        ResponsePatterns.raise_internal_server_error("Failed to process vote")
+        raise  # Type hint - unreachable code
 
 
 def remove_vote_operation(
     db: Session,
     user_id: int,
     entity_id: int,
-    entity_model: Type,
-    vote_model: Type,
+    entity_model: Type[Any],
+    vote_model: Type[Any],
     entity_name: str,
     entity_type: str,
-    logger: Any,
-) -> dict[str, str]:
+    logger: logging.Logger,
+) -> Dict[str, str]:
     """
     Handle vote removal with consistent patterns for unified Vote model.
 
@@ -650,7 +711,8 @@ def remove_vote_operation(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
+        entity_type: Entity type for polymorphic association
+            ('car', 'build_list', 'global_part')
         logger: Logger instance
 
     Returns:
@@ -674,6 +736,7 @@ def remove_vote_operation(
 
     if not vote:
         ResponsePatterns.raise_not_found(f"Vote on {entity_name}")
+        raise  # Type hint - unreachable code
 
     try:
         db.delete(vote)
@@ -685,18 +748,19 @@ def remove_vote_operation(
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to remove vote: {e}")
-        ResponsePatterns.raise_internal_server_error(f"Failed to remove vote")
+        ResponsePatterns.raise_internal_server_error("Failed to remove vote")
+        raise  # Type hint - unreachable code
 
 
 def get_vote_summary(
     db: Session,
     entity_id: int,
-    entity_model: Type,
-    vote_model: Type,
+    entity_model: Type[Any],
+    vote_model: Type[Any],
     entity_name: str,
     entity_type: str,
-    logger: Any,
-) -> dict[str, Any]:
+    logger: logging.Logger,
+) -> Dict[str, Any]:
     """
     Get vote summary statistics for an entity using unified Vote model.
 
@@ -706,7 +770,8 @@ def get_vote_summary(
         entity_model: Model class for the entity
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
+        entity_type: Entity type for polymorphic association
+            ('car', 'build_list', 'global_part')
         logger: Logger instance
 
     Returns:
@@ -752,7 +817,8 @@ def get_vote_summary(
         }
     except Exception as e:
         logger.error(f"Failed to get vote summary: {e}")
-        ResponsePatterns.raise_internal_server_error(f"Failed to get vote summary")
+        ResponsePatterns.raise_internal_server_error("Failed to get vote summary")
+        raise  # Type narrowing
 
 
 # Report-related patterns
@@ -760,13 +826,13 @@ def handle_report_creation(
     db: Session,
     user_id: int,
     entity_id: int,
-    report_data: dict,
-    entity_model: Type,
-    report_model: Type,
+    report_data: Dict[str, Any],
+    entity_model: Type[Any],
+    report_model: Type[Any],
     entity_name: str,
     entity_type: str,
-    logger: Any,
-    additional_filters: Optional[dict] = None,
+    logger: logging.Logger,
+    additional_filters: Optional[Dict[str, Any]] = None,
 ) -> Any:
     """
     Handle report creation with consistent patterns for unified Report model.
@@ -823,29 +889,32 @@ def handle_report_creation(
         db.refresh(new_report)
 
         logger.info(
-            f"Report created: {new_report.id} by user {user_id} on {entity_name} {entity_id}"
+            f"Report created: {new_report.id} by user {user_id} "
+            f"on {entity_name} {entity_id}"
         )
         return new_report
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create report: {e}")
-        ResponsePatterns.raise_internal_server_error(f"Failed to create report")
+        ResponsePatterns.raise_internal_server_error("Failed to create report")
+        raise  # Type hint - unreachable code
 
 
 def get_reports_by_entity(
     db: Session,
     entity_id: int,
-    entity_model: Type,
-    report_model: Type,
+    entity_model: Type[Any],
+    report_model: Type[Any],
     entity_name: str,
     entity_type: str,
-    logger: Any,
+    logger: logging.Logger,
     skip: int = 0,
     limit: int = 100,
     status_filter: Optional[str] = None,
 ) -> List[Any]:
     """
-    Get reports for a specific entity with pagination and filtering for unified Report model.
+    Get reports for a specific entity with pagination and filtering for
+    unified Report model.
 
     Args:
         db: Database session
@@ -866,6 +935,7 @@ def get_reports_by_entity(
     entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
+        raise  # Type hint - unreachable code
 
     try:
         # Query using polymorphic pattern
@@ -883,18 +953,19 @@ def get_reports_by_entity(
         return reports
     except Exception as e:
         logger.error(f"Failed to get reports: {e}")
-        ResponsePatterns.raise_internal_server_error(f"Failed to get reports")
+        ResponsePatterns.raise_internal_server_error("Failed to get reports")
+        raise  # Type narrowing
 
 
 def update_report_status(
     db: Session,
     report_id: int,
     new_status: str,
-    report_model: Type,
-    logger: Any,
+    report_model: Type[Any],
+    logger: logging.Logger,
     admin_user_id: int,
     resolution_notes: Optional[str] = None,
-) -> dict[str, str]:
+) -> Dict[str, str]:
     """
     Update report status with consistent patterns.
 
@@ -913,10 +984,14 @@ def update_report_status(
     report = db.query(report_model).filter(report_model.id == report_id).first()
     if not report:
         ResponsePatterns.raise_not_found("Report", report_id)
+        raise  # Type hint - unreachable code
+
+    # Type narrowing - report is guaranteed to exist here
+    assert report is not None
 
     try:
         report.status = new_status
-        report.resolved_at = datetime.utcnow()
+        report.resolved_at = datetime.now(UTC)
         report.resolved_by = admin_user_id
 
         if resolution_notes:
@@ -925,10 +1000,12 @@ def update_report_status(
         db.commit()
 
         logger.info(
-            f"Report {report_id} status updated to {new_status} by admin {admin_user_id}"
+            f"Report {report_id} status updated to {new_status} "
+            f"by admin {admin_user_id}"
         )
         return {"message": f"Report status updated to {new_status}"}
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update report status: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to update report status")
+        raise  # Type hint - unreachable code

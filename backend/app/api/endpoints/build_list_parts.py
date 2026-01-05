@@ -5,11 +5,10 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining build list part-specific functionality.
 """
 
-import logging
-from typing import List, Optional
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import joinedload
 
 from app.api.dependencies.auth import get_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -23,20 +22,18 @@ from app.api.schemas.build_list_part import (
     BuildListPartUpdate,
     CreateGlobalPartAndAddToBuildListRequest,
 )
-from app.api.schemas.global_part import GlobalPartCreate
 from app.api.utils.authorization import (
-    require_build_list_part_edit_permission,
     require_build_list_part_delete_permission,
+    require_build_list_part_edit_permission,
 )
 from app.api.utils.common_patterns import (
+    PublicEndpointDeps,
     get_entity_or_404,
-    verify_user_access_or_admin,
     get_standard_public_endpoint_dependencies,
+    verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
-from app.db.session import get_db
 
 # Create router
 router = APIRouter()
@@ -56,7 +53,7 @@ async def add_global_part_to_build_list(
     build_list_id: int,
     global_part_id: int,
     build_list_part: BuildListPartCreate,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
     """Add an existing global part to a build list as a build list part."""
@@ -70,7 +67,7 @@ async def add_global_part_to_build_list(
     )
 
     # Verify global part exists
-    db_global_part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
 
     # Check if global part is already in build list
     existing_relationship = (
@@ -98,7 +95,8 @@ async def add_global_part_to_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Global part {global_part_id} added to build list {build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
+        f"Global part {global_part_id} added to build list {build_list_id} "
+        f"as build list part {db_build_list_part.id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(db_build_list_part)
 
@@ -114,7 +112,7 @@ async def add_global_part_to_build_list(
 )
 async def get_build_list_parts(
     build_list_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListPartRead]:
     """Get all build list parts in a build list."""
@@ -155,7 +153,7 @@ async def get_build_list_parts(
 async def update_build_list_part(
     build_list_part_id: int,
     build_list_part: BuildListPartUpdate,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
     """Update a build list part."""
@@ -196,7 +194,7 @@ async def update_build_list_part(
 )
 async def delete_build_list_part(
     build_list_part_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
     """Delete a build list part."""
@@ -236,10 +234,13 @@ async def delete_build_list_part(
 async def create_global_part_and_add_to_build_list(
     build_list_id: int,
     request: CreateGlobalPartAndAddToBuildListRequest,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartReadWithGlobalPart:
-    """Create a new global part and automatically add it to the specified build list as a build list part."""
+    """
+    Create a new global part and automatically add it to the specified
+    build list as a build list part.
+    """
     db = deps["db"]
     logger = deps["logger"]
 
@@ -250,7 +251,7 @@ async def create_global_part_and_add_to_build_list(
     )
 
     # Create the global part with the current user as creator
-    global_part_dict = {
+    global_part_dict: Dict[str, Any] = {
         "name": request.name,
         "description": request.description,
         "price": request.price,
@@ -281,7 +282,9 @@ async def create_global_part_and_add_to_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Global part {db_global_part.id} created and added to build list {build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
+        f"Global part {db_global_part.id} created and added to build list "
+        f"{build_list_id} as build list part {db_build_list_part.id} "
+        f"by user {current_user.id}"
     )
 
     # Return the build list part with global part details
@@ -308,7 +311,7 @@ async def create_global_part_and_add_to_build_list(
 )
 async def get_global_parts_in_build_list(
     build_list_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListPartReadWithGlobalPart]:
     """Get all build list parts in a build list."""
@@ -352,7 +355,7 @@ async def update_global_part_in_build_list(
     build_list_id: int,
     global_part_id: int,
     build_list_part: BuildListPartUpdate,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
     """Update a build list part's notes in a build list."""
@@ -360,7 +363,7 @@ async def update_global_part_in_build_list(
     logger = deps["logger"]
 
     # Verify build list exists
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     # Find the relationship
     db_build_list_part = (
@@ -387,7 +390,8 @@ async def update_global_part_in_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Build list part {db_build_list_part.id} updated in build list {build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} updated in build list "
+        f"{build_list_id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(db_build_list_part)
 
@@ -404,7 +408,7 @@ async def update_global_part_in_build_list(
 async def remove_global_part_from_build_list(
     build_list_id: int,
     global_part_id: int,
-    deps: dict = Depends(get_standard_public_endpoint_dependencies),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
     """Remove a build list part from a build list."""
@@ -412,7 +416,7 @@ async def remove_global_part_from_build_list(
     logger = deps["logger"]
 
     # Verify build list exists
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     # Find the relationship
     db_build_list_part = (
@@ -436,6 +440,7 @@ async def remove_global_part_from_build_list(
     db.commit()
 
     logger.info(
-        f"Build list part {db_build_list_part.id} removed from build list {build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} removed from build list "
+        f"{build_list_id} by user {current_user.id}"
     )
     return deleted_data

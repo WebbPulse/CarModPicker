@@ -1,7 +1,8 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class ReportReason(str, Enum):

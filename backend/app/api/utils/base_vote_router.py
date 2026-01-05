@@ -2,21 +2,24 @@
 Base vote router with common patterns to reduce redundancy.
 """
 
-from typing import TypeVar, Generic, Type, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import logging
+from typing import Any, Callable, Dict, Generic, Type, TypeVar
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.api.models.user import User as DBUser
+from app.api.protocols import BaseModel, HasModelDump, VoteModel
 from app.api.services.base_vote_service import BaseVoteService
 from app.core.logging import get_logger
 from app.db.session import get_db
 
-# Generic types
-VoteModelType = TypeVar("VoteModelType")
-VoteCreateSchema = TypeVar("VoteCreateSchema")
+# Generic types - constrained to match BaseVoteService requirements
+VoteModelType = TypeVar("VoteModelType", bound=VoteModel)
+VoteCreateSchema = TypeVar("VoteCreateSchema", bound=HasModelDump)
 VoteReadSchema = TypeVar("VoteReadSchema")
-EntityModelType = TypeVar("EntityModelType")
+EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
 class BaseVoteRouter(
@@ -55,24 +58,24 @@ class BaseVoteRouter(
         # Register common vote endpoints
         self._register_common_vote_endpoints()
 
-    def _register_common_vote_endpoints(self):
+    def _register_common_vote_endpoints(self) -> None:
         """Register common voting endpoints."""
 
         # Vote on entity endpoint
         @self.router.post(
             f"/{{{self.vote_entity_id_param}}}/vote",
-            response_model=VoteReadSchema,
+            response_model=VoteReadSchema,  # type: ignore[misc]
             responses={
-                400: {"description": f"Invalid vote data"},
+                400: {"description": "Invalid vote data"},
                 404: {"description": f"{self.entity_name.title()} not found"},
                 409: {"description": "User has already voted on this entity"},
             },
         )
-        async def vote_on_entity(
+        async def vote_on_entity(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             vote: VoteCreateSchema,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> VoteModelType:
             """Vote on an entity (upvote or downvote)."""
@@ -93,10 +96,10 @@ class BaseVoteRouter(
                 },
             },
         )
-        async def remove_vote(
+        async def remove_vote(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> Dict[str, str]:
             """Remove user's vote on an entity."""
@@ -122,10 +125,10 @@ class BaseVoteRouter(
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
-        async def get_vote_summary(
+        async def get_vote_summary(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
             """Get vote summary for an entity."""
             return self.service.get_vote_summary(
@@ -137,7 +140,7 @@ class BaseVoteRouter(
         # Get user's vote on entity endpoint
         @self.router.get(
             f"/{{{self.vote_entity_id_param}}}/my-vote",
-            response_model=VoteReadSchema,
+            response_model=VoteReadSchema,  # type: ignore[misc]
             responses={
                 200: {
                     "description": f"User's vote on {self.entity_name} retrieved successfully"
@@ -147,10 +150,10 @@ class BaseVoteRouter(
                 },
             },
         )
-        async def get_my_vote(
+        async def get_my_vote(  # pyright: ignore[reportUnusedFunction]
             entity_id: int,
             db: Session = Depends(get_db),
-            logger=Depends(get_logger),
+            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> VoteModelType:
             """Get the current user's vote on a specific entity."""
@@ -174,8 +177,8 @@ class BaseVoteRouter(
         path: str,
         response_model: Type[VoteReadSchema],
         method: str = "get",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Callable[[Any], Any]:
         """
         Add a custom vote endpoint to the router.
 
@@ -186,7 +189,7 @@ class BaseVoteRouter(
             **kwargs: Additional FastAPI endpoint parameters
         """
 
-        def decorator(func):
+        def decorator(func: Any) -> Any:
             if method.lower() == "get":
                 self.router.get(path, response_model=response_model, **kwargs)(func)
             elif method.lower() == "post":
