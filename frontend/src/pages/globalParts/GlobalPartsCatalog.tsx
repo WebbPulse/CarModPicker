@@ -1,18 +1,24 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Card from '../../components/common/Card';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Pagination from '../../components/common/Pagination';
 import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
 import CategoryFilter from '../../components/globalParts/CategoryFilter';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
 import PageHeader from '../../components/layout/PageHeader';
+import { useAuth } from '../../hooks/useAuth';
 import { categoriesApi } from '../../services/Api';
 import type {
   CategoryResponse,
   GlobalPartReadWithVotes,
+  PaginationInfo,
 } from '../../types/Api';
 
 const GlobalPartsCatalog: React.FC = () => {
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,6 +29,9 @@ const GlobalPartsCatalog: React.FC = () => {
     useState<GlobalPartReadWithVotes | null>(null);
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
     useState(false);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
+    null
+  );
   const loadCategories = useCallback(async () => {
     try {
       const response = await categoriesApi.getCategories();
@@ -61,12 +70,24 @@ const GlobalPartsCatalog: React.FC = () => {
     setSelectedCategory(null);
   };
 
-  const params = {
-    skip: (currentPage - 1) * itemsPerPage,
-    limit: itemsPerPage,
-    ...(selectedCategory && { category_id: selectedCategory }),
-    ...(searchTerm && { search: searchTerm }),
-  };
+  // Memoize params to prevent infinite re-render loop
+  const params = useMemo(
+    () => ({
+      skip: (currentPage - 1) * itemsPerPage,
+      limit: itemsPerPage,
+      ...(selectedCategory && { category_id: selectedCategory }),
+      ...(searchTerm && { search: searchTerm }),
+    }),
+    [currentPage, itemsPerPage, selectedCategory, searchTerm]
+  );
+
+  // Memoize the pagination change handler to prevent unnecessary re-renders
+  const handlePaginationChange = useCallback(
+    (pagination: PaginationInfo | null) => {
+      setPaginationInfo(pagination);
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -82,6 +103,35 @@ const GlobalPartsCatalog: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title="Parts Catalog" />
+
+      {/* Tab Navigation */}
+      {isAuthenticated && (
+        <div className="mb-6">
+          <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg border border-gray-700">
+            <Link
+              to="/global-parts"
+              className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                location.pathname === '/global-parts'
+                  ? 'bg-primary-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              Parts Catalog
+            </Link>
+            <Link
+              to="/my-global-parts"
+              className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                location.pathname === '/my-global-parts'
+                  ? 'bg-primary-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              My Parts
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Information Panel */}
       <Card className="mb-6">
         <div className="p-4">
@@ -183,7 +233,19 @@ const GlobalPartsCatalog: React.FC = () => {
         onVoteUpdate={handleVoteUpdate}
         showAddToBuildListButton={true}
         onAddToBuildList={handleAddToBuildList}
+        onPaginationChange={handlePaginationChange}
       />
+
+      {/* Pagination */}
+      {paginationInfo && (
+        <Pagination
+          currentPage={paginationInfo.current_page}
+          totalPages={paginationInfo.total_pages}
+          totalItems={paginationInfo.total_items}
+          itemsPerPage={paginationInfo.items_per_page}
+          onPageChange={(page) => setCurrentPage(page)}
+        />
+      )}
 
       {/* Add to Build List Dialog */}
       <AddToBuildListDialog

@@ -5,7 +5,6 @@ import AuthRedirectLink from '../components/auth/AuthRedirectLink';
 import ActionButton from '../components/buttons/ActionButton';
 import SecondaryButton from '../components/buttons/SecondaryButton';
 import ButtonStretch from '../components/buttons/StretchButton';
-import CarList from '../components/cars/CarList';
 import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import CardInfoItem from '../components/common/CardInfoItem';
@@ -389,17 +388,6 @@ function Profile() {
           </ActionButton>
         </div>
       </Card>
-
-      <Divider />
-
-      {/* Display User's Cars */}
-      {user && !isEditing && (
-        <CarList
-          userId={user.id}
-          title="Your Cars"
-          emptyMessage="You haven't added any cars yet. Go to the Builder to add your first car!"
-        />
-      )}
     </div>
   );
 }

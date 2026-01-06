@@ -17,6 +17,9 @@ export interface UserRead {
   image_url?: string | null;
   is_superuser: boolean;
   is_admin: boolean;
+  subscription_tier: string;
+  subscription_status: string;
+  subscription_expires_at?: string | null;
 }
 
 export interface UserCreate {
@@ -43,6 +46,9 @@ export interface AdminUserUpdate {
   is_superuser?: boolean | null;
   is_admin?: boolean | null;
   email_verified?: boolean | null;
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  subscription_expires_at?: string | null;
 }
 
 export interface CarCreate {
@@ -134,6 +140,20 @@ export interface GlobalPartReadWithVotes extends GlobalPartRead {
   downvotes: number;
   total_votes: number;
   user_vote?: 'upvote' | 'downvote' | null;
+}
+
+export interface PaginationInfo {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationInfo;
 }
 
 export interface GlobalPartUpdate {

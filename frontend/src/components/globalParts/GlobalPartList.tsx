@@ -1,8 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { globalPartsApi } from '../../services/Api';
-import type { GlobalPartReadWithVotes } from '../../types/Api';
+import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -29,6 +29,7 @@ interface GlobalPartListProps {
   ) => void;
   onAddToBuildList?: (globalPart: GlobalPartReadWithVotes) => void;
   showAddToBuildListButton?: boolean;
+  onPaginationChange?: (pagination: PaginationInfo | null) => void;
 }
 
 const fetchGlobalPartsRequestFn = (params?: {
@@ -47,9 +48,10 @@ function GlobalPartList({
   onVoteUpdate,
   onAddToBuildList,
   showAddToBuildListButton = false,
+  onPaginationChange,
 }: GlobalPartListProps) {
   const {
-    data: globalParts,
+    data: paginatedResponse,
     isLoading,
     error,
     executeRequest: fetchGlobalParts,
@@ -62,6 +64,24 @@ function GlobalPartList({
   useEffect(() => {
     memoizedFetchGlobalParts();
   }, [memoizedFetchGlobalParts, refreshKey]);
+
+  // Track previous pagination to prevent unnecessary updates
+  const prevPaginationRef = useRef<PaginationInfo | null>(null);
+
+  // Notify parent of pagination info when data changes
+  useEffect(() => {
+    const currentPagination = paginatedResponse?.pagination ?? null;
+
+    // Only notify if pagination actually changed
+    if (
+      onPaginationChange &&
+      JSON.stringify(prevPaginationRef.current) !==
+        JSON.stringify(currentPagination)
+    ) {
+      prevPaginationRef.current = currentPagination;
+      onPaginationChange(currentPagination);
+    }
+  }, [paginatedResponse, onPaginationChange]);
 
   if (isLoading) {
     return (
@@ -80,6 +100,8 @@ function GlobalPartList({
       </Card>
     );
   }
+
+  const globalParts = paginatedResponse?.data ?? [];
 
   return (
     <Card>

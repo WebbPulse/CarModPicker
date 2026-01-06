@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { globalPartsApi } from '../../services/Api';
@@ -16,6 +16,7 @@ import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
 function UserGlobalParts() {
+  const location = useLocation();
   const { user } = useAuth();
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -91,6 +92,32 @@ function UserGlobalParts() {
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title="Parts I Created in Global Catalog" />
+
+      {/* Tab Navigation */}
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg border border-gray-700">
+          <Link
+            to="/global-parts"
+            className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+              location.pathname === '/global-parts'
+                ? 'bg-primary-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            Parts Catalog
+          </Link>
+          <Link
+            to="/my-global-parts"
+            className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+              location.pathname === '/my-global-parts'
+                ? 'bg-primary-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            My Parts
+          </Link>
+        </div>
+      </div>
 
       <Card>
         <div className="flex justify-between items-center mb-4">

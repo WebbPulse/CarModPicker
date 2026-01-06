@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,8 +28,26 @@ class Settings(BaseSettings):
         return str(v)
 
     # JWT Auth
-    SECRET_KEY: str = Field(default="")
+    SECRET_KEY: str = Field(
+        default="",
+        description="Secret key for JWT token signing. MUST be set in production!",
+    )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    @model_validator(mode="after")
+    def validate_secret_key(self) -> "Settings":
+        """Validate that SECRET_KEY is set in production."""
+        is_prod = not self.DEBUG and self.RAILWAY_ENVIRONMENT.lower() != "development"
+        if not self.SECRET_KEY and is_prod:
+            # In production, SECRET_KEY must be set
+            import warnings
+
+            warnings.warn(
+                "SECRET_KEY is empty in production! JWT tokens will be insecure. "
+                "Set SECRET_KEY environment variable.",
+                UserWarning,
+            )
+        return self
 
     # CORS settings
     ALLOWED_ORIGINS: str = Field(
@@ -51,6 +69,17 @@ class Settings(BaseSettings):
     # Railway deployment settings
     PORT: int = 8000
     RAILWAY_ENVIRONMENT: str = "development"
+
+    # Security settings
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return not self.DEBUG and self.RAILWAY_ENVIRONMENT.lower() != "development"
+
+    @property
+    def secure_cookies(self) -> bool:
+        """Determine if cookies should use secure flag (HTTPS only)."""
+        return self.is_production
 
     # Email settings
     SENDGRID_API_KEY: str = Field(default="")
