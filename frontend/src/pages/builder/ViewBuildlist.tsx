@@ -181,7 +181,9 @@ function ViewBuildList() {
     );
   }
 
-  const canManage = currentUser && carOwner && currentUser.id === carOwner.id;
+  // Check if current user owns the build list (build lists have their own user_id)
+  const canManage =
+    currentUser && buildList && currentUser.id === buildList.user_id;
 
   return (
     <div className="container mx-auto px-4 py-8">

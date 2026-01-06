@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -30,6 +31,9 @@ class AdminUserUpdate(BaseModel):
     is_superuser: Optional[bool] = None
     is_admin: Optional[bool] = None
     email_verified: Optional[bool] = None
+    subscription_tier: Optional[str] = None  # 'free' or 'premium'
+    subscription_status: Optional[str] = None  # 'active', 'cancelled', or 'expired'
+    subscription_expires_at: Optional[datetime] = None
 
 
 # Schema for response body when reading a user (DO NOT include hashed password)
@@ -42,5 +46,8 @@ class UserRead(BaseModel):
     image_url: Optional[str] = None
     is_superuser: bool
     is_admin: bool
+    subscription_tier: str
+    subscription_status: str
+    subscription_expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

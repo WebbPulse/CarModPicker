@@ -62,9 +62,7 @@ async def add_global_part_to_build_list(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(
-        current_user, db_build_list.user_id, "modify this build list", logger
-    )
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
     # Verify global part exists
     _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
@@ -115,29 +113,21 @@ async def get_build_list_parts(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListPartRead]:
-    """Get all build list parts in a build list."""
+    """Get all build list parts in a build list.
+    All authenticated users can view build list parts (read-only).
+    Only owners can modify them.
+    """
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists and user owns it or is admin
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(
-        current_user, db_build_list.user_id, "access this build list", logger
-    )
+    # Verify build list exists - allow read access for all authenticated users
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_parts = (
-        db.query(DBBuildListPart)
-        .filter(DBBuildListPart.build_list_id == build_list_id)
-        .all()
-    )
+    db_build_list_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
 
-    build_list_parts = [
-        BuildListPartRead.model_validate(part) for part in db_build_list_parts
-    ]
+    build_list_parts = [BuildListPartRead.model_validate(part) for part in db_build_list_parts]
 
-    logger.info(
-        f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}"
-    )
+    logger.info(f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
     return build_list_parts
 
 
@@ -161,9 +151,7 @@ async def update_build_list_part(
     logger = deps["logger"]
 
     # Find the build list part
-    db_build_list_part = get_entity_or_404(
-        db, DBBuildListPart, build_list_part_id, "build list part"
-    )
+    db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
 
     # Check authorization - only the user who added the part or admin can edit it
     require_build_list_part_edit_permission(current_user, db_build_list_part)
@@ -177,9 +165,7 @@ async def update_build_list_part(
     db.commit()
     db.refresh(db_build_list_part)
 
-    logger.info(
-        f"Build list part {db_build_list_part.id} updated by user {current_user.id}"
-    )
+    logger.info(f"Build list part {db_build_list_part.id} updated by user {current_user.id}")
     return BuildListPartRead.model_validate(db_build_list_part)
 
 
@@ -202,9 +188,7 @@ async def delete_build_list_part(
     logger = deps["logger"]
 
     # Find the build list part
-    db_build_list_part = get_entity_or_404(
-        db, DBBuildListPart, build_list_part_id, "build list part"
-    )
+    db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
 
     # Check authorization - only the user who added the part or admin can delete it
     require_build_list_part_delete_permission(current_user, db_build_list_part)
@@ -215,9 +199,7 @@ async def delete_build_list_part(
     db.delete(db_build_list_part)
     db.commit()
 
-    logger.info(
-        f"Build list part {db_build_list_part.id} deleted by user {current_user.id}"
-    )
+    logger.info(f"Build list part {db_build_list_part.id} deleted by user {current_user.id}")
     return deleted_data
 
 
@@ -246,9 +228,7 @@ async def create_global_part_and_add_to_build_list(
 
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(
-        current_user, db_build_list.user_id, "modify this build list", logger
-    )
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
     # Create the global part with the current user as creator
     global_part_dict: Dict[str, Any] = {
@@ -314,15 +294,15 @@ async def get_global_parts_in_build_list(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[BuildListPartReadWithGlobalPart]:
-    """Get all build list parts in a build list."""
+    """Get all build list parts in a build list.
+    All authenticated users can view build list parts (read-only).
+    Only owners can modify them.
+    """
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists and user owns it or is admin
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(
-        current_user, db_build_list.user_id, "access this build list", logger
-    )
+    # Verify build list exists - allow read access for all authenticated users
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     db_build_list_parts = (
         db.query(DBBuildListPart)
@@ -331,14 +311,9 @@ async def get_global_parts_in_build_list(
         .all()
     )
 
-    build_list_parts = [
-        BuildListPartReadWithGlobalPart.model_validate(part)
-        for part in db_build_list_parts
-    ]
+    build_list_parts = [BuildListPartReadWithGlobalPart.model_validate(part) for part in db_build_list_parts]
 
-    logger.info(
-        f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}"
-    )
+    logger.info(f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
     return build_list_parts
 
 
@@ -390,8 +365,7 @@ async def update_global_part_in_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Build list part {db_build_list_part.id} updated in build list "
-        f"{build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} updated in build list " f"{build_list_id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(db_build_list_part)
 
@@ -440,7 +414,6 @@ async def remove_global_part_from_build_list(
     db.commit()
 
     logger.info(
-        f"Build list part {db_build_list_part.id} removed from build list "
-        f"{build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} removed from build list " f"{build_list_id} by user {current_user.id}"
     )
     return deleted_data

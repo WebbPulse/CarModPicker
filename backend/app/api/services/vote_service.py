@@ -6,7 +6,6 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import List, Optional, Type, Union
 
-from fastapi import HTTPException
 from sqlalchemy import Float, and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -59,18 +58,11 @@ class VoteService:
             The created or updated vote
 
         Raises:
-            HTTPException: If entity doesn't exist or user tries to vote on their own entity
+            HTTPException: If entity doesn't exist
         """
         # Verify entity exists
         entity_model = self._get_entity_model(entity_type)
-        entity = verify_entity_exists(db, entity_model, entity_id, entity_type.value)
-
-        # Check if user is trying to vote on their own entity
-        if entity.user_id == user_id:
-            raise HTTPException(
-                status_code=400,
-                detail=f"You cannot vote on your own {entity_type.value}",
-            )
+        _ = verify_entity_exists(db, entity_model, entity_id, entity_type.value)
 
         # Check for existing vote
         existing_vote = (
@@ -90,9 +82,7 @@ class VoteService:
             db.commit()
             db.refresh(existing_vote)
 
-            logger.info(
-                f"Vote updated: {existing_vote.id} by user {user_id} on {entity_type.value} {entity_id}"
-            )
+            logger.info(f"Vote updated: {existing_vote.id} by user {user_id} on {entity_type.value} {entity_id}")
             return existing_vote
         else:
             # Create new vote
@@ -106,9 +96,7 @@ class VoteService:
             db.commit()
             db.refresh(db_vote)
 
-            logger.info(
-                f"Vote created: {db_vote.id} by user {user_id} on {entity_type.value} {entity_id}"
-            )
+            logger.info(f"Vote created: {db_vote.id} by user {user_id} on {entity_type.value} {entity_id}")
             return db_vote
 
     def remove_vote(
@@ -145,9 +133,7 @@ class VoteService:
         if vote:
             db.delete(vote)
             db.commit()
-            logger.info(
-                f"Vote removed: {vote.id} by user {user_id} on {entity_type.value} {entity_id}"
-            )
+            logger.info(f"Vote removed: {vote.id} by user {user_id} on {entity_type.value} {entity_id}")
             return True
 
         return False
@@ -191,12 +177,8 @@ class VoteService:
             .all()
         )
 
-        upvotes = sum(
-            int(count[1]) for count in vote_counts if count.vote_type == "upvote"
-        )
-        downvotes = sum(
-            int(count[1]) for count in vote_counts if count.vote_type == "downvote"
-        )
+        upvotes = sum(int(count[1]) for count in vote_counts if count.vote_type == "upvote")
+        downvotes = sum(int(count[1]) for count in vote_counts if count.vote_type == "downvote")
         total_votes = upvotes + downvotes
         vote_score = upvotes - downvotes
 
@@ -249,20 +231,15 @@ class VoteService:
         vote_stats = (
             db.query(
                 DBVote.entity_id,
-                func.sum(case((DBVote.vote_type == "upvote", 1), else_=0)).label(
-                    "upvotes"
-                ),
-                func.sum(case((DBVote.vote_type == "downvote", 1), else_=0)).label(
-                    "downvotes"
-                ),
+                func.sum(case((DBVote.vote_type == "upvote", 1), else_=0)).label("upvotes"),
+                func.sum(case((DBVote.vote_type == "downvote", 1), else_=0)).label("downvotes"),
                 func.count(DBVote.id).label("total_votes"),
                 func.sum(
                     case(
                         (
                             and_(
                                 DBVote.vote_type == "downvote",
-                                DBVote.created_at
-                                >= datetime.now(UTC) - timedelta(days=7),
+                                DBVote.created_at >= datetime.now(UTC) - timedelta(days=7),
                             ),
                             1,
                         ),
@@ -284,8 +261,7 @@ class VoteService:
                 vote_stats.c.downvotes,
                 vote_stats.c.total_votes,
                 vote_stats.c.recent_downvotes,
-                func.coalesce(vote_stats.c.upvotes, 0)
-                - func.coalesce(vote_stats.c.downvotes, 0).label("vote_score"),
+                func.coalesce(vote_stats.c.upvotes, 0) - func.coalesce(vote_stats.c.downvotes, 0).label("vote_score"),
                 case(
                     (
                         vote_stats.c.total_votes > 0,
@@ -311,8 +287,7 @@ class VoteService:
                     case(
                         (
                             vote_stats.c.total_votes > 0,
-                            vote_stats.c.downvotes.cast(Float)
-                            / vote_stats.c.total_votes,
+                            vote_stats.c.downvotes.cast(Float) / vote_stats.c.total_votes,
                         ),
                         else_=0.0,
                     )
@@ -363,9 +338,7 @@ class VoteService:
             ) in flagged_entities
         ]
 
-    def _get_entity_model(
-        self, entity_type: EntityType
-    ) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
+    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.CAR:
             return DBCar
@@ -376,9 +349,7 @@ class VoteService:
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_name(
-        self, entity: Union[DBCar, DBBuildList, DBGlobalPart], entity_type: EntityType
-    ) -> str:
+    def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBGlobalPart], entity_type: EntityType) -> str:
         """Get the display name for an entity."""
         if entity_type == EntityType.CAR:
             return str(f"{entity.make} {entity.model} {entity.year}")
