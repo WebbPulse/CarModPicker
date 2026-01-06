@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    // Python
+    "ms-python.python",
+    "ms-python.pylance",
+    "ms-python.black-formatter",
+    "ms-python.isort",
+
+    // TypeScript/JavaScript
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // Enhanced error display
+    "usernamehw.errorlens",
+
+    // General productivity
+    "eamodio.gitlens",
+
+    // Optional but helpful
+    "gruntfuggly.todo-tree",
+    "yzhang.markdown-all-in-one"
+  ]
+}

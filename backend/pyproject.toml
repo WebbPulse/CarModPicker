@@ -37,6 +37,14 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = [
+    "alembic/.*",
+    "venv/.*",
+    "__pycache__/.*",
+    "\\.pytest_cache/.*",
+    "\\.mypy_cache/.*",
+    "../scripts/.*"
+]
 
 [[tool.mypy.overrides]]
 module = [

@@ -67,9 +67,7 @@ class AdminEndpointDeps(TypedDict):
 # Standard pagination parameters
 def get_standard_pagination_params(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of items to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
 ) -> Tuple[int, int]:
     """
     Standard pagination parameters for endpoints.
@@ -148,15 +146,10 @@ def verify_user_access_or_admin(
         action_description: Description of the action for error messages
         logger: Optional logger for warning messages
     """
-    if (
-        current_user.id != target_user_id
-        and not current_user.is_admin
-        and not current_user.is_superuser
-    ):
+    if current_user.id != target_user_id and not current_user.is_admin and not current_user.is_superuser:
         if logger:
             logger.warning(
-                f"Access denied: User {current_user.id} "
-                f"attempted to {action_description} for user {target_user_id}"
+                f"Access denied: User {current_user.id} " f"attempted to {action_description} for user {target_user_id}"
             )
         ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
 
@@ -224,10 +217,7 @@ def get_paginated_response(
             logger.info(f"No {entity_name} found")
     else:
         if user_id:
-            logger.info(
-                f"{entity_name.title()} retrieved for user {user_id}: "
-                f"{len(items)} items"
-            )
+            logger.info(f"{entity_name.title()} retrieved for user {user_id}: " f"{len(items)} items")
         else:
             logger.info(f"{entity_name.title()} retrieved: {len(items)} items")
 
@@ -253,15 +243,19 @@ def apply_standard_filters(
     Returns:
         Modified query object
     """
+    # Extract the entity class from the query
+    # Use column_descriptions to get the model class (more reliable than _entity_zero)
+    entity_class = query.column_descriptions[0]["entity"]
+
     if category_id:
-        query = query.filter(query.model.category_id == category_id)  # type: ignore[attr-defined, arg-type]
+        query = query.filter(getattr(entity_class, "category_id") == category_id)  # type: ignore[arg-type]
 
     if search and search_fields:
         search_term = f"%{search}%"
         search_filters: List[ColumnElement[bool]] = []
         for field in search_fields:
-            if hasattr(query.model, field):  # type: ignore[attr-defined]
-                search_filters.append(getattr(query.model, field).ilike(search_term))  # type: ignore[attr-defined]
+            if hasattr(entity_class, field):  # type: ignore[arg-type]
+                search_filters.append(getattr(entity_class, field).ilike(search_term))  # type: ignore[arg-type]
 
         if search_filters:
             from sqlalchemy import or_
@@ -302,31 +296,20 @@ def verify_ownership(
             user_value = kwargs.get("current_user")
 
             if not all([entity_id, db_value, user_value]):
-                raise ValueError(
-                    f"Missing required parameters for ownership verification: "
-                    f"{entity_name}"
-                )
+                raise ValueError(f"Missing required parameters for ownership verification: " f"{entity_name}")
 
             db = cast(Session, db_value)
             current_user = cast(DBUser, user_value)
 
             model_class = func.__annotations__["return"]
-            entity = (
-                db.query(model_class)
-                .filter(getattr(model_class, "id") == entity_id)
-                .first()
-            )
+            entity = db.query(model_class).filter(getattr(model_class, "id") == entity_id).first()
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(
-                    entity_name, int(entity_id) if isinstance(entity_id, int) else 0
-                )
+                ResponsePatterns.raise_not_found(entity_name, int(entity_id) if isinstance(entity_id, int) else 0)
 
             if getattr(entity, user_id_field) != current_user.id:
-                detail = (
-                    forbidden_detail or f"Not authorized to access this {entity_name}"
-                )
+                detail = forbidden_detail or f"Not authorized to access this {entity_name}"
                 ResponsePatterns.raise_forbidden(detail)
 
             return await func(*args, **kwargs)
@@ -408,9 +391,7 @@ def verify_entity_ownership(
         HTTPException: 403 if user doesn't own the entity
     """
     if entity.user_id != current_user.id:
-        detail = (
-            custom_forbidden_detail or f"Not authorized to access this {entity_name}"
-        )
+        detail = custom_forbidden_detail or f"Not authorized to access this {entity_name}"
         if logger:
             logger.warning(
                 f"User {current_user.id} attempted to access {entity_name} {entity.id} "
@@ -441,11 +422,7 @@ def build_search_query(
 
     search_filters: List[ColumnElement[bool]] = []
     for field in search_fields:
-        search_filters.append(
-            getattr(query.column_descriptions[0]["entity"], field).ilike(
-                f"%{search_term}%"
-            )
-        )
+        search_filters.append(getattr(query.column_descriptions[0]["entity"], field).ilike(f"%{search_term}%"))
 
     if search_filters:
         from sqlalchemy import or_
@@ -576,15 +553,11 @@ def handle_integrity_error(
     # Check for common constraint violations
     if "unique constraint" in error_detail_str or "duplicate key" in error_detail_str:
         if "username" in error_detail_str:
-            ResponsePatterns.raise_conflict(
-                "Username already exists", "USERNAME_EXISTS"
-            )
+            ResponsePatterns.raise_conflict("Username already exists", "USERNAME_EXISTS")
         elif "email" in error_detail_str:
             ResponsePatterns.raise_conflict("Email already exists", "EMAIL_EXISTS")
         else:
-            ResponsePatterns.raise_conflict(
-                f"{entity_name.title()} already exists", "DUPLICATE_ENTITY"
-            )
+            ResponsePatterns.raise_conflict(f"{entity_name.title()} already exists", "DUPLICATE_ENTITY")
     else:
         ResponsePatterns.raise_bad_request(f"Data validation failed for {entity_name}")
 
@@ -663,10 +636,7 @@ def handle_vote_operation(
             existing_vote.vote_type = vote_type
             db.commit()
             db.refresh(existing_vote)
-            logger.info(
-                f"Vote updated: {existing_vote.id} by user {user_id} "
-                f"on {entity_name} {entity_id}"
-            )
+            logger.info(f"Vote updated: {existing_vote.id} by user {user_id} " f"on {entity_name} {entity_id}")
             return existing_vote
         else:
             # Create new vote using polymorphic pattern
@@ -679,10 +649,7 @@ def handle_vote_operation(
             db.add(new_vote)
             db.commit()
             db.refresh(new_vote)
-            logger.info(
-                f"Vote created: {new_vote.id} by user {user_id} "
-                f"on {entity_name} {entity_id}"
-            )
+            logger.info(f"Vote created: {new_vote.id} by user {user_id} " f"on {entity_name} {entity_id}")
             return new_vote
     except Exception as e:
         db.rollback()
@@ -741,9 +708,7 @@ def remove_vote_operation(
     try:
         db.delete(vote)
         db.commit()
-        logger.info(
-            f"Vote removed: {vote.id} by user {user_id} on {entity_name} {entity_id}"
-        )
+        logger.info(f"Vote removed: {vote.id} by user {user_id} on {entity_name} {entity_id}")
         return {"message": f"Vote on {entity_name} removed successfully"}
     except Exception as e:
         db.rollback()
@@ -888,10 +853,7 @@ def handle_report_creation(
         db.commit()
         db.refresh(new_report)
 
-        logger.info(
-            f"Report created: {new_report.id} by user {user_id} "
-            f"on {entity_name} {entity_id}"
-        )
+        logger.info(f"Report created: {new_report.id} by user {user_id} " f"on {entity_name} {entity_id}")
         return new_report
     except Exception as e:
         db.rollback()
@@ -999,10 +961,7 @@ def update_report_status(
 
         db.commit()
 
-        logger.info(
-            f"Report {report_id} status updated to {new_status} "
-            f"by admin {admin_user_id}"
-        )
+        logger.info(f"Report {report_id} status updated to {new_status} " f"by admin {admin_user_id}")
         return {"message": f"Report status updated to {new_status}"}
     except Exception as e:
         db.rollback()

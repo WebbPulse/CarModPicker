@@ -1,11 +1,17 @@
+import { useState } from 'react';
+import { BsTools } from 'react-icons/bs';
+import {
+  FaBars,
+  FaCogs,
+  FaSearch,
+  FaSignOutAlt,
+  FaTimes,
+  FaUser,
+} from 'react-icons/fa';
+import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import LoadingSpinner from '../../common/LoadingSpinner';
-import { BsTools, BsGear } from 'react-icons/bs';
-import { GrDocumentText } from 'react-icons/gr';
-import { GiRaceCar } from 'react-icons/gi';
-import { FaCogs, FaUser, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
-import { useState } from 'react';
 
 function Header() {
   const { isAuthenticated, logout, isLoading, user } = useAuth();
@@ -24,15 +30,15 @@ function Header() {
     <header className="sticky top-0 z-50 w-full">
       {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95 backdrop-blur-md"></div>
-      
+
       {/* Main Header Content */}
       <div className="relative">
         {/* Top Tier - Logo and Auth */}
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             {/* Logo */}
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="flex items-center space-x-2 group animate-slideInLeft"
             >
               <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-primary-500/25 transition-all duration-300 group-hover:scale-110">
@@ -106,17 +112,14 @@ function Header() {
               <NavLink to="/builder" icon={<BsTools />}>
                 Builder
               </NavLink>
+              <NavLink to="/build-lists" icon={<GiRaceCar />}>
+                Build Lists
+              </NavLink>
               <NavLink to="/global-parts" icon={<FaCogs />}>
                 Parts Catalog
               </NavLink>
-              <NavLink to="/my-global-parts" icon={<BsGear />}>
-                My Parts
-              </NavLink>
-              <NavLink to="/guides" icon={<GrDocumentText />}>
-                Guides
-              </NavLink>
-              <NavLink to="/builder/my-buildlists" icon={<GiRaceCar />}>
-                My Builds
+              <NavLink to="/search" icon={<FaSearch />}>
+                Search
               </NavLink>
               {user?.is_admin && (
                 <NavLink to="/admin" icon={<FaCogs />}>
@@ -169,25 +172,43 @@ function Header() {
                     </Link>
                   </div>
                 )}
-                
+
                 <div className="border-t border-white/10 pt-3 space-y-2">
-                  <MobileNavLink to="/builder" icon={<BsTools />} onClick={() => setIsMobileMenuOpen(false)}>
+                  <MobileNavLink
+                    to="/builder"
+                    icon={<BsTools />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
                     Builder
                   </MobileNavLink>
-                  <MobileNavLink to="/global-parts" icon={<FaCogs />} onClick={() => setIsMobileMenuOpen(false)}>
+                  <MobileNavLink
+                    to="/global-parts"
+                    icon={<FaCogs />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
                     Parts Catalog
                   </MobileNavLink>
-                  <MobileNavLink to="/my-global-parts" icon={<BsGear />} onClick={() => setIsMobileMenuOpen(false)}>
-                    My Parts
+
+                  <MobileNavLink
+                    to="/build-lists"
+                    icon={<GiRaceCar />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Build Lists
                   </MobileNavLink>
-                  <MobileNavLink to="/guides" icon={<GrDocumentText />} onClick={() => setIsMobileMenuOpen(false)}>
-                    Guides
-                  </MobileNavLink>
-                  <MobileNavLink to="/builder/my-buildlists" icon={<GiRaceCar />} onClick={() => setIsMobileMenuOpen(false)}>
-                    My Builds
+                  <MobileNavLink
+                    to="/search"
+                    icon={<FaSearch />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Search
                   </MobileNavLink>
                   {user?.is_admin && (
-                    <MobileNavLink to="/admin" icon={<FaCogs />} onClick={() => setIsMobileMenuOpen(false)}>
+                    <MobileNavLink
+                      to="/admin"
+                      icon={<FaCogs />}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
                       Admin
                     </MobileNavLink>
                   )}
@@ -202,7 +223,15 @@ function Header() {
 }
 
 // Desktop Navigation Link Component
-function NavLink({ to, icon, children }: { to: string; icon: React.ReactNode; children: React.ReactNode }) {
+function NavLink({
+  to,
+  icon,
+  children,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       to={to}
@@ -217,14 +246,14 @@ function NavLink({ to, icon, children }: { to: string; icon: React.ReactNode; ch
 }
 
 // Mobile Navigation Link Component
-function MobileNavLink({ 
-  to, 
-  icon, 
-  children, 
-  onClick 
-}: { 
-  to: string; 
-  icon: React.ReactNode; 
+function MobileNavLink({
+  to,
+  icon,
+  children,
+  onClick,
+}: {
+  to: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
   onClick: () => void;
 }) {
