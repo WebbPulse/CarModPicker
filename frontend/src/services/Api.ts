@@ -23,6 +23,7 @@ import type {
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
   NewPassword,
+  PaginatedResponse,
   ReportCreate,
   ReportRead,
   ReportUpdate,
@@ -200,9 +201,12 @@ export const globalPartsApi = {
     category_id?: number;
     search?: string;
   }) =>
-    apiClient.get<GlobalPartReadWithVotes[]>('/global-parts/with-votes', {
-      params,
-    }),
+    apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
+      '/global-parts/with-votes',
+      {
+        params,
+      }
+    ),
 
   // Filter by category
   getGlobalPartsByCategory: (
@@ -476,6 +480,27 @@ export const authApi = {
       new_password: data,
     }),
   logout: () => apiClient.post<Record<string, string>>('/auth/logout'),
+};
+
+// Search API
+export interface SearchCategoryResults<T> {
+  data: T[];
+  total: number;
+  has_next: boolean;
+  skip: number;
+  limit: number;
+}
+
+export interface SearchResults {
+  build_lists: SearchCategoryResults<BuildListRead>;
+  users: SearchCategoryResults<UserRead>;
+  global_parts: SearchCategoryResults<GlobalPartRead>;
+  query: string;
+}
+
+export const searchApi = {
+  search: (params: { q: string; skip?: number; limit?: number }) =>
+    apiClient.get<SearchResults>('/search/', { params }),
 };
 
 // Utility/Health API

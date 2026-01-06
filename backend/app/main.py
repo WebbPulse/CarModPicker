@@ -14,6 +14,7 @@ from .api.endpoints import (
     categories,
     global_parts,
     reports,
+    search,
     subscriptions,
     users,
     votes,
@@ -64,12 +65,19 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# Restrict methods and headers for better security
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],  # Restrict to needed methods
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+    ],  # Restrict to needed headers
 )
 
 # Add rate limiting middleware
@@ -109,6 +117,14 @@ endpoint_registry.register_crud_endpoint(
     categories.router,
     entity_name="categories",
     description="Category management operations",
+)
+
+# Search endpoint
+endpoint_registry.register_endpoint(
+    search.router,
+    prefix="/search",
+    tags=["search"],
+    description="Unified search across build lists, users, and global parts",
 )
 
 # Authentication endpoint

@@ -1,12 +1,12 @@
-import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
-import PageHeader from '../../components/layout/PageHeader';
-import Card from '../../components/common/Card';
-import SectionHeader from '../../components/layout/SectionHeader';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
+import Card from '../../components/common/Card';
+import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 
 function AdminDashboard() {
   const { user } = useAuth();
@@ -59,12 +59,6 @@ function AdminDashboard() {
       description: 'Review and manage part reports',
       icon: '🚨',
       path: '/admin/reports',
-    },
-    {
-      title: 'Flagged Parts',
-      description: 'Review parts flagged by the voting system',
-      icon: '⚠️',
-      path: '/admin/flagged-parts',
     },
   ];
 

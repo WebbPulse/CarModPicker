@@ -4,7 +4,8 @@
     "**/node_modules",
     "**/__pycache__",
     "**/venv",
-    "alembic/versions"
+    "alembic/versions",
+    "../scripts/**"
   ],
   "reportMissingImports": "error",
   "reportMissingTypeStubs": "none",

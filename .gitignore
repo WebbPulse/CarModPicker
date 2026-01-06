@@ -4,7 +4,7 @@
 
 # Editor and IDE
 
-.vscode/
+
 .idea/
 *.swp
 *.swo

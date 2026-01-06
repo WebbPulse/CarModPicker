@@ -89,13 +89,9 @@ async def create_user(
     """
 
     # Checked if the user already exists
-    db_user_by_username = (
-        db.query(DBUser).filter(DBUser.username == user.username).first()
-    )
+    db_user_by_username = db.query(DBUser).filter(DBUser.username == user.username).first()
     if db_user_by_username:
-        ResponsePatterns.raise_conflict(
-            "Username already registered", "USERNAME_EXISTS"
-        )
+        ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
     db_user_by_email = db.query(DBUser).filter(DBUser.email == user.email).first()
     if db_user_by_email:
@@ -107,9 +103,7 @@ async def create_user(
     # Create DBUser instance (excluding plain password)
     # Auto-verify email in test environment (when using SQLite in-memory database)
     is_test_environment = (
-        "sqlite:///:memory:" in str(getattr(db.bind, "url", ""))
-        if db.bind and hasattr(db.bind, "url")
-        else False
+        "sqlite:///:memory:" in str(getattr(db.bind, "url", "")) if db.bind and hasattr(db.bind, "url") else False
     )
     email_verified = True if is_test_environment else False
 
@@ -148,18 +142,11 @@ async def update_user(
 
     # Check if the current user is the user being updated
     if db_user.id != current_user.id:
-        logger.warning(
-            f"User {current_user.id} attempt to update user {user_id} "
-            f"without authorization."
-        )
+        logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    if user.current_password and not verify_password(
-        user.current_password, db_user.hashed_password
-    ):
-        logger.warning(
-            f"User {current_user.id} provided incorrect current password for update."
-        )
+    if user.current_password and not verify_password(user.current_password, db_user.hashed_password):
+        logger.warning(f"User {current_user.id} provided incorrect current password for update.")
         ResponsePatterns.raise_unauthorized("Incorrect current password")
 
     update_data = user.model_dump(
@@ -191,10 +178,7 @@ async def update_user(
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
         if username_changed:
-            logger.info(
-                f"Username for user {user_id} changed to '{db_user.username}'. "
-                f"Issuing new access token."
-            )
+            logger.info(f"Username for user {user_id} changed to '{db_user.username}'. " f"Issuing new access token.")
             # Create a new access token with the new username
             new_access_token_data = {"sub": db_user.username}
             new_access_token = create_access_token(data=new_access_token_data)
@@ -208,33 +192,23 @@ async def update_user(
                 path="/",
                 samesite="lax",
                 # TODO: Change to True in production if served over HTTPS
-                secure=False,
+                secure=settings.secure_cookies,  # Use secure flag in production (HTTPS only)
             )
 
     except IntegrityError as e:
         db.rollback()
-        logger.warning(
-            f"IntegrityError during user update for user {user_id}: {e.orig}"
-        )
+        logger.warning(f"IntegrityError during user update for user {user_id}: {e.orig}")
         error_detail_str = str(e.orig).lower()
         if (
             "users_username_key" in error_detail_str
             or "ix_users_username" in error_detail_str
-            or (
-                "unique constraint" in error_detail_str
-                and "users.username" in error_detail_str
-            )
+            or ("unique constraint" in error_detail_str and "users.username" in error_detail_str)
         ):
-            ResponsePatterns.raise_conflict(
-                "Username already registered", "USERNAME_EXISTS"
-            )
+            ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
         elif (
             "users_email_key" in error_detail_str
             or "ix_users_email" in error_detail_str
-            or (
-                "unique constraint" in error_detail_str
-                and "users.email" in error_detail_str
-            )
+            or ("unique constraint" in error_detail_str and "users.email" in error_detail_str)
         ):
             ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
         else:
@@ -261,10 +235,7 @@ async def delete_user(
     """
     # Check if the current user is trying to delete their own account
     if user_id != current_user.id:
-        logger.warning(
-            f"User {current_user.id} attempted to delete user {user_id} "
-            f"without authorization."
-        )
+        logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
@@ -290,9 +261,7 @@ async def delete_user(
 )
 async def get_all_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of users to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
@@ -326,9 +295,7 @@ async def admin_update_user(
         ResponsePatterns.raise_not_found("User", user_id)
 
     # Prevent admin from removing their own admin privileges
-    if user_id == current_user.id and (
-        user_update.is_admin is False or user_update.is_superuser is False
-    ):
+    if user_id == current_user.id and (user_update.is_admin is False or user_update.is_superuser is False):
         ResponsePatterns.raise_bad_request("Cannot remove your own admin privileges")
 
     update_data = user_update.model_dump(exclude_unset=True)
@@ -350,9 +317,7 @@ async def admin_update_user(
     except IntegrityError as e:
         db.rollback()
         logger.warning(f"IntegrityError during admin user update: {e.orig}")
-        ResponsePatterns.raise_conflict(
-            "Username or email already exists", "USERNAME_EMAIL_EXISTS"
-        )
+        ResponsePatterns.raise_conflict("Username or email already exists", "USERNAME_EMAIL_EXISTS")
 
 
 @router.delete(

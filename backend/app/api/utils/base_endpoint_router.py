@@ -87,9 +87,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 response_model=_read_schema,
                 responses={
                     400: {"description": f"Invalid {self.entity_name} data"},
-                    403: {
-                        "description": f"Not authorized to create {self.entity_name}"
-                    },
+                    403: {"description": f"Not authorized to create {self.entity_name}"},
                     402: {"description": "Subscription limit reached"},
                 },
             )
@@ -112,55 +110,54 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         # Get by ID endpoint
         _read_schema = self.read_schema if self.read_schema else ReadSchema  # type: ignore[assignment]
 
-        if self.allow_public_read:
+        if "get" not in self.disable_endpoints:
+            if self.allow_public_read:
 
-            @self.router.get(
-                "/{entity_id}",
-                response_model=_read_schema,
-                responses={
-                    404: {"description": f"{self.entity_name.title()} not found"},
-                },
-            )
-            async def get_entity_public(  # pyright: ignore[reportUnusedFunction]
-                entity_id: int,
-                db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
-            ) -> ModelType:
-                """Get an entity by ID (public access)."""
-                return self.service.get_by_id(
-                    db=db,
-                    entity_id=entity_id,
-                    current_user=None,
-                    allow_public=True,
-                    logger=logger,
-                )
-
-        else:
-
-            @self.router.get(
-                "/{entity_id}",
-                response_model=_read_schema,
-                responses={
-                    404: {"description": f"{self.entity_name.title()} not found"},
-                    403: {
-                        "description": f"Not authorized to access this {self.entity_name}"
+                @self.router.get(
+                    "/{entity_id}",
+                    response_model=_read_schema,
+                    responses={
+                        404: {"description": f"{self.entity_name.title()} not found"},
                     },
-                },
-            )
-            async def get_entity_private(  # pyright: ignore[reportUnusedFunction]
-                entity_id: int,
-                db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
-                current_user: DBUser = Depends(get_current_user),
-            ) -> ModelType:
-                """Get an entity by ID (private access)."""
-                return self.service.get_by_id(
-                    db=db,
-                    entity_id=entity_id,
-                    current_user=current_user,
-                    allow_public=False,
-                    logger=logger,
                 )
+                async def get_entity_public(  # pyright: ignore[reportUnusedFunction]
+                    entity_id: int,
+                    db: Session = Depends(get_db),
+                    logger: logging.Logger = Depends(get_logger),
+                ) -> ModelType:
+                    """Get an entity by ID (public access)."""
+                    return self.service.get_by_id(
+                        db=db,
+                        entity_id=entity_id,
+                        current_user=None,
+                        allow_public=True,
+                        logger=logger,
+                    )
+
+            else:
+
+                @self.router.get(
+                    "/{entity_id}",
+                    response_model=_read_schema,
+                    responses={
+                        404: {"description": f"{self.entity_name.title()} not found"},
+                        403: {"description": f"Not authorized to access this {self.entity_name}"},
+                    },
+                )
+                async def get_entity_private(  # pyright: ignore[reportUnusedFunction]
+                    entity_id: int,
+                    db: Session = Depends(get_db),
+                    logger: logging.Logger = Depends(get_logger),
+                    current_user: DBUser = Depends(get_current_user),
+                ) -> ModelType:
+                    """Get an entity by ID (private access)."""
+                    return self.service.get_by_id(
+                        db=db,
+                        entity_id=entity_id,
+                        current_user=current_user,
+                        allow_public=False,
+                        logger=logger,
+                    )
 
         # List all endpoint
         if "list" not in self.disable_endpoints:
@@ -169,15 +166,11 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 "/",
                 response_model=List[_read_schema],  # type: ignore[valid-type]
                 responses={
-                    200: {
-                        "description": f"List of {self.entity_name}s retrieved successfully"
-                    },
+                    200: {"description": f"List of {self.entity_name}s retrieved successfully"},
                 },
             )
             async def list_entities(  # pyright: ignore[reportUnusedFunction]
-                skip: int = Query(
-                    0, ge=0, description=f"Number of {self.entity_name}s to skip"
-                ),
+                skip: int = Query(0, ge=0, description=f"Number of {self.entity_name}s to skip"),
                 limit: int = Query(
                     100,
                     ge=1,
@@ -210,9 +203,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 response_model=_read_schema,
                 responses={
                     404: {"description": f"{self.entity_name.title()} not found"},
-                    403: {
-                        "description": f"Not authorized to update this {self.entity_name}"
-                    },
+                    403: {"description": f"Not authorized to update this {self.entity_name}"},
                 },
             )
             async def update_entity(  # pyright: ignore[reportUnusedFunction]
@@ -240,9 +231,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 response_model=_read_schema,
                 responses={
                     404: {"description": f"{self.entity_name.title()} not found"},
-                    403: {
-                        "description": f"Not authorized to delete this {self.entity_name}"
-                    },
+                    403: {"description": f"Not authorized to delete this {self.entity_name}"},
                 },
             )
             async def delete_entity(  # pyright: ignore[reportUnusedFunction]
@@ -289,16 +278,12 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             f"/{filter_name}/{{{filter_name}_id}}",
             response_model=List[ReadSchema],
             responses={
-                200: {
-                    "description": f"List of {self.entity_name}s filtered by {filter_name} retrieved successfully"
-                },
+                200: {"description": f"List of {self.entity_name}s filtered by {filter_name} retrieved successfully"},
             },
         )
         async def filter_entities(  # pyright: ignore[reportUnusedFunction]
             filter_id: int,
-            skip: int = Query(
-                0, ge=0, description=f"Number of {self.entity_name}s to skip"
-            ),
+            skip: int = Query(0, ge=0, description=f"Number of {self.entity_name}s to skip"),
             limit: int = Query(
                 100,
                 ge=1,
