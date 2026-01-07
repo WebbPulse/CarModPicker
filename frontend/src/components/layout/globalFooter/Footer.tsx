@@ -7,7 +7,7 @@ function Footer() {
     <footer className="relative mt-auto w-full">
       {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95"></div>
-      
+
       {/* Footer Content */}
       <div className="relative">
         {/* Main Footer */}
@@ -24,8 +24,9 @@ function Footer() {
                 </span>
               </div>
               <p className="text-neutral-400 text-sm leading-relaxed max-w-md">
-                Your ultimate platform for discovering, planning, and sharing car modifications. 
-                Build, customize, and connect with fellow car enthusiasts.
+                Your ultimate platform for discovering, planning, and sharing
+                car modifications. Build, customize, and connect with fellow car
+                enthusiasts.
               </p>
             </div>
 
@@ -36,32 +37,32 @@ function Footer() {
               </h3>
               <ul className="space-y-2">
                 <li>
-                  <Link 
-                    to="/about" 
+                  <Link
+                    to="/about"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/contact-us" 
+                  <Link
+                    to="/contact-us"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     Contact
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/privacy-policy" 
+                  <Link
+                    to="/privacy-policy"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/global-parts" 
+                  <Link
+                    to="/global-parts"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     Parts Catalog
@@ -76,25 +77,25 @@ function Footer() {
                 Connect
               </h3>
               <div className="flex space-x-4">
-                <a 
-                  href="https://github.com" 
-                  target="_blank" 
+                <a
+                  href="https://github.com"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   <FaGithub className="text-lg" />
                 </a>
-                <a 
-                  href="https://twitter.com" 
-                  target="_blank" 
+                <a
+                  href="https://twitter.com"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   <FaTwitter className="text-lg" />
                 </a>
-                <a 
-                  href="https://linkedin.com" 
-                  target="_blank" 
+                <a
+                  href="https://linkedin.com"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
@@ -110,10 +111,13 @@ function Footer() {
           <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
               <p className="text-neutral-400 text-sm">
-                &copy; {new Date().getFullYear()} CarModPicker. All rights reserved.
+                &copy; {new Date().getFullYear()} CarModPicker. All rights
+                reserved.
               </p>
               <div className="flex items-center space-x-6 text-sm">
-                <span className="text-neutral-500">Made with ❤️ for car enthusiasts</span>
+                <span className="text-neutral-500">
+                  Made with ❤️ for car enthusiasts
+                </span>
               </div>
             </div>
           </div>

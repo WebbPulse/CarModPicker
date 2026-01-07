@@ -20,7 +20,9 @@ const Dialog: React.FC<DialogProps> = ({
       <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-fadeInScale">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">{title}</h2>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+              {title}
+            </h2>
             <button
               type="button"
               onClick={onClose}
@@ -30,9 +32,7 @@ const Dialog: React.FC<DialogProps> = ({
               &times;
             </button>
           </div>
-          <div className="space-y-6">
-            {children}
-          </div>
+          <div className="space-y-6">{children}</div>
         </div>
       </div>
     </div>

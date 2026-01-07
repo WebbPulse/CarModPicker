@@ -17,7 +17,7 @@ const fetchUserRequestFn = (
 ) => apiClient.get<UserRead>(`/users/${userId}`);
 
 function ViewUser() {
-  const { userId: userIdParam } = useParams<{ userId: string }>(); 
+  const { userId: userIdParam } = useParams<{ userId: string }>();
 
   const {
     data: user,
@@ -29,7 +29,6 @@ function ViewUser() {
   useEffect(() => {
     if (userIdParam) {
       void fetchUser(userIdParam);
-     
     }
   }, [userIdParam, fetchUser]); // Dependency array updated
 
@@ -91,7 +90,6 @@ function ViewUser() {
           <CardInfoItem label="User ID">
             <p>{user.id}</p>
           </CardInfoItem>
-         
         </div>
         <p className="text-sm text-gray-400">
           This is a public user profile. For privacy, detailed account
@@ -102,7 +100,7 @@ function ViewUser() {
       <Divider />
 
       <CarList
-        userId={user.id} 
+        userId={user.id}
         title="Their Cars"
         emptyMessage="This user hasn't added any cars yet."
         // No onAddCarClick or showAddCarTile for the public view

@@ -67,7 +67,6 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
       name: name.trim(),
       description: description.trim() || null,
       image_url: imageUrl.trim() || null,
-     
     };
 
     // Always submit the data, even if no changes detected
@@ -91,7 +90,10 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
     <div className="p-4">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
         <div>
-          <label htmlFor="edit-buildlist-name" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-buildlist-name"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Build List Name
           </label>
           <Input
@@ -103,18 +105,24 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-buildlist-description" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-buildlist-description"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Description (Optional)
           </label>
           <Input
-            type="text" 
+            type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={isLoading}
           />
         </div>
         <div>
-          <label htmlFor="edit-buildlist-image_url" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-buildlist-image_url"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Image URL (Optional)
           </label>
           <Input

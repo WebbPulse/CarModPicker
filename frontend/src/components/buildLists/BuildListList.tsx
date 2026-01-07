@@ -6,7 +6,7 @@ import { ErrorAlert } from '../common/Alerts';
 import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
 import LoadingSpinner from '../common/LoadingSpinner';
-import AddItemTile from '../common/AddItemTile'; 
+import AddItemTile from '../common/AddItemTile';
 interface BuildListListProps {
   carId: number;
   carOwnerId?: number; // To determine if current user can add build lists

@@ -9,7 +9,7 @@ interface HeaderNavLinkProps extends LinkProps {
 const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
   children,
   to,
-  icon, 
+  icon,
   ...props
 }) => {
   return (
@@ -18,8 +18,7 @@ const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
       className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 text-sm font-medium flex items-center"
       {...props}
     >
-      {icon && <span className="mr-2">{icon}</span>}{' '}
-      {children}
+      {icon && <span className="mr-2">{icon}</span>} {children}
     </Link>
   );
 };
