@@ -41,9 +41,7 @@ class TestUserService:
     def test_get_by_email_not_found(self, db_session: Session) -> None:
         """Test getting a user by email when it doesn't exist."""
         service = UserService()
-        result = service.get_by_email(
-            db_session, f"{get_unique_username('nonexistent')}@example.com"
-        )
+        result = service.get_by_email(db_session, f"{get_unique_username('nonexistent')}@example.com")
         assert result is None
 
     def test_get_all_users(self, db_session: Session, test_user: User) -> None:

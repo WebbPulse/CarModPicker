@@ -33,9 +33,7 @@ router = APIRouter()
 @router.get(
     "/status",
     response_model=SubscriptionStatus,
-    responses=standard_responses(
-        success_description="Subscription status retrieved successfully"
-    ),
+    responses=standard_responses(success_description="Subscription status retrieved successfully"),
 )
 async def get_subscription_status(
     current_user: User = Depends(get_current_user),
@@ -66,17 +64,10 @@ async def upgrade_subscription(
     logger = deps["logger"]
 
     if upgrade_data.tier != "premium":
-        ResponsePatterns.raise_bad_request(
-            "Only premium tier upgrades are supported", "INVALID_TIER"
-        )
+        ResponsePatterns.raise_bad_request("Only premium tier upgrades are supported", "INVALID_TIER")
 
-    if (
-        current_user.subscription_tier == "premium"
-        and current_user.subscription_status == "active"
-    ):
-        ResponsePatterns.raise_conflict(
-            "User already has an active premium subscription", "ALREADY_PREMIUM"
-        )
+    if current_user.subscription_tier == "premium" and current_user.subscription_status == "active":
+        ResponsePatterns.raise_conflict("User already has an active premium subscription", "ALREADY_PREMIUM")
 
     # In a real implementation, you would integrate with a payment processor here
     # For now, we'll just upgrade the user directly
@@ -91,9 +82,7 @@ async def upgrade_subscription(
     )
 
     if not subscription:
-        ResponsePatterns.raise_internal_server_error(
-            "Failed to retrieve subscription record"
-        )
+        ResponsePatterns.raise_internal_server_error("Failed to retrieve subscription record")
 
     logger.info(f"User {current_user.id} upgraded to premium subscription")
     return subscription
@@ -122,9 +111,7 @@ async def cancel_subscription(
         )
 
     if current_user.subscription_status != "active":
-        ResponsePatterns.raise_conflict(
-            "Subscription is not active", "INACTIVE_SUBSCRIPTION"
-        )
+        ResponsePatterns.raise_conflict("Subscription is not active", "INACTIVE_SUBSCRIPTION")
 
     updated_user = SubscriptionService.cancel_subscription(db, current_user)
 
@@ -137,9 +124,7 @@ async def cancel_subscription(
     )
 
     if not subscription:
-        ResponsePatterns.raise_internal_server_error(
-            "Failed to retrieve subscription record"
-        )
+        ResponsePatterns.raise_internal_server_error("Failed to retrieve subscription record")
 
     logger.info(f"User {current_user.id} cancelled premium subscription")
     return subscription
@@ -161,9 +146,7 @@ async def check_creation_limits(
     elif resource_type == "build_list":
         can_create = SubscriptionService.can_create_build_list(db, current_user)
     else:
-        ResponsePatterns.raise_bad_request(
-            "Invalid resource type. Must be 'car' or 'build_list'"
-        )
+        ResponsePatterns.raise_bad_request("Invalid resource type. Must be 'car' or 'build_list'")
 
     return {"can_create": can_create}
 

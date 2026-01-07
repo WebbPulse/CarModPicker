@@ -7,9 +7,7 @@ from app.core.config import settings
 from app.core.logging import logger
 
 
-def send_email(
-    to_email: str, template_id: str, dynamic_template_data: dict[str, Any]
-) -> Optional[int]:
+def send_email(to_email: str, template_id: str, dynamic_template_data: dict[str, Any]) -> Optional[int]:
     """
     Send an email using SendGrid.
     Args:

@@ -163,17 +163,12 @@
     "**/.pytest_cache": true,
     "**/.mypy_cache": true,
     "**/*.pyc": true,
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/.venv": true,
-    "**/venv": true
+    "**/node_modules": true
   },
 
   "search.exclude": {
     "**/node_modules": true,
-    "**/venv": true,
-    "**/.venv": true,
-    "**/dist": true,
+
     "**/__pycache__": true,
     "**/.pytest_cache": true,
     "**/.mypy_cache": true

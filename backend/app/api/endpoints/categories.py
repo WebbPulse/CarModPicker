@@ -34,9 +34,7 @@ from app.api.utils.response_patterns import ResponsePatterns
 
 
 # Create base CRUD service
-class CategoryService(
-    BaseCRUDService[DBCategory, CategoryCreate, CategoryResponse, CategoryUpdate]
-):
+class CategoryService(BaseCRUDService[DBCategory, CategoryCreate, CategoryResponse, CategoryUpdate]):
     """Category service that extends the base CRUD service."""
 
     def __init__(self) -> None:
@@ -48,12 +46,7 @@ class CategoryService(
 
     def get_active_categories(self, db: Session) -> List[DBCategory]:
         """Get all active categories ordered by sort order."""
-        return (
-            db.query(DBCategory)
-            .filter(DBCategory.is_active.is_(True))
-            .order_by(DBCategory.sort_order)
-            .all()
-        )
+        return db.query(DBCategory).filter(DBCategory.is_active.is_(True)).order_by(DBCategory.sort_order).all()
 
 
 # Create router
@@ -117,9 +110,7 @@ async def get_category(
 async def get_global_parts_by_category(
     category_id: int,
     skip: int = Query(0, ge=0, description="Number of parts to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of parts to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[GlobalPartRead]:
     """
@@ -133,13 +124,7 @@ async def get_global_parts_by_category(
     # Validate pagination parameters
     skip, limit = validate_pagination_params(skip, limit)
 
-    parts = (
-        db.query(DBGlobalPart)
-        .filter(DBGlobalPart.category_id == category_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    parts = db.query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).offset(skip).limit(limit).all()
     # Convert to Pydantic models for proper serialization
     return [GlobalPartRead.model_validate(part) for part in parts]
 
@@ -160,13 +145,9 @@ async def create_category(
     db = deps["db"]
 
     # Check if category with same name already exists
-    existing_category = (
-        db.query(DBCategory).filter(DBCategory.name == category.name).first()
-    )
+    existing_category = db.query(DBCategory).filter(DBCategory.name == category.name).first()
     if existing_category:
-        ResponsePatterns.raise_conflict(
-            "Category with this name already exists", "CATEGORY_EXISTS"
-        )
+        ResponsePatterns.raise_conflict("Category with this name already exists", "CATEGORY_EXISTS")
 
     db_category = DBCategory(**category.model_dump())
     db.add(db_category)
@@ -193,16 +174,9 @@ async def update_category(
 
     # Check if name is being changed and if it conflicts with existing
     if category.name and category.name != db_category.name:
-        existing_category = (
-            deps["db"]
-            .query(DBCategory)
-            .filter(DBCategory.name == category.name)
-            .first()
-        )
+        existing_category = deps["db"].query(DBCategory).filter(DBCategory.name == category.name).first()
         if existing_category:
-            ResponsePatterns.raise_conflict(
-                "Category with this name already exists", "CATEGORY_EXISTS"
-            )
+            ResponsePatterns.raise_conflict("Category with this name already exists", "CATEGORY_EXISTS")
 
     # Update fields
     update_data = category.model_dump(exclude_unset=True)
@@ -236,12 +210,7 @@ async def delete_category(
     db_category = get_entity_or_404(deps["db"], DBCategory, category_id, "category")
 
     # Check if category is being used by any parts
-    parts_count = (
-        deps["db"]
-        .query(DBGlobalPart)
-        .filter(DBGlobalPart.category_id == category_id)
-        .count()
-    )
+    parts_count = deps["db"].query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).count()
     if parts_count > 0:
         ResponsePatterns.raise_conflict(
             f"Cannot delete category that has {parts_count} associated parts",
@@ -273,12 +242,7 @@ async def get_category_parts_count(
     # Verify category exists
     get_entity_or_404(deps["db"], DBCategory, category_id, "category")
 
-    parts_count = (
-        deps["db"]
-        .query(DBGlobalPart)
-        .filter(DBGlobalPart.category_id == category_id)
-        .count()
-    )
+    parts_count = deps["db"].query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).count()
     return {"parts_count": parts_count}
 
 

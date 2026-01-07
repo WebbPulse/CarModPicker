@@ -111,9 +111,7 @@ class TestPaginateQuery:
         """Test pagination with logger."""
         logger = logging.getLogger("test")
         query = test_db_session.query(Car)
-        results = paginate_query(
-            query, skip=0, limit=5, logger=logger, entity_name="test_cars"
-        )
+        results = paginate_query(query, skip=0, limit=5, logger=logger, entity_name="test_cars")
 
         assert len(results) == 5
 
@@ -142,9 +140,7 @@ class TestPaginatedResponse:
     def test_create_paginated_response_first_page(self) -> None:
         """Test creating paginated response for first page."""
         data = [{"id": i} for i in range(10)]
-        response = create_paginated_response(
-            data=data, total=25, skip=0, limit=10, entity_name="items"
-        )
+        response = create_paginated_response(data=data, total=25, skip=0, limit=10, entity_name="items")
 
         assert len(response["data"]) == 10
         assert response["pagination"]["current_page"] == 1
@@ -157,9 +153,7 @@ class TestPaginatedResponse:
     def test_create_paginated_response_middle_page(self) -> None:
         """Test creating paginated response for middle page."""
         data = [{"id": i} for i in range(10, 20)]
-        response = create_paginated_response(
-            data=data, total=30, skip=10, limit=10, entity_name="items"
-        )
+        response = create_paginated_response(data=data, total=30, skip=10, limit=10, entity_name="items")
 
         assert response["pagination"]["current_page"] == 2
         assert response["pagination"]["total_pages"] == 3
@@ -169,9 +163,7 @@ class TestPaginatedResponse:
     def test_create_paginated_response_last_page(self) -> None:
         """Test creating paginated response for last page."""
         data = [{"id": i} for i in range(20, 25)]
-        response = create_paginated_response(
-            data=data, total=25, skip=20, limit=10, entity_name="items"
-        )
+        response = create_paginated_response(data=data, total=25, skip=20, limit=10, entity_name="items")
 
         assert len(response["data"]) == 5
         assert response["pagination"]["current_page"] == 3
@@ -182,9 +174,7 @@ class TestPaginatedResponse:
     def test_create_paginated_response_single_page(self) -> None:
         """Test creating paginated response when all items fit on one page."""
         data = [{"id": i} for i in range(5)]
-        response = create_paginated_response(
-            data=data, total=5, skip=0, limit=10, entity_name="items"
-        )
+        response = create_paginated_response(data=data, total=5, skip=0, limit=10, entity_name="items")
 
         assert response["pagination"]["current_page"] == 1
         assert response["pagination"]["total_pages"] == 1
@@ -194,9 +184,7 @@ class TestPaginatedResponse:
     def test_create_paginated_response_empty(self) -> None:
         """Test creating paginated response with no items."""
         data: list[dict[str, int]] = []
-        response = create_paginated_response(
-            data=data, total=0, skip=0, limit=10, entity_name="items"
-        )
+        response = create_paginated_response(data=data, total=0, skip=0, limit=10, entity_name="items")
 
         assert len(response["data"]) == 0
         assert response["pagination"]["total_items"] == 0
@@ -209,9 +197,7 @@ class TestSearchFilter:
     def test_apply_search_filter_with_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns results."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="Model1", search_fields=["model"]
-        )
+        filtered_query = apply_search_filter(query, search="Model1", search_fields=["model"])
 
         results = filtered_query.all()
         # Should find Model1, Model10-19 (11 total)
@@ -221,9 +207,7 @@ class TestSearchFilter:
     def test_apply_search_filter_no_search_term(self, test_db_session: Session) -> None:
         """Test applying search filter with no search term."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search=None, search_fields=["model"]
-        )
+        filtered_query = apply_search_filter(query, search=None, search_fields=["model"])
 
         results = filtered_query.all()
         assert len(results) == 20  # Should return all results
@@ -231,21 +215,15 @@ class TestSearchFilter:
     def test_apply_search_filter_no_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns no results."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="NonExistentModel", search_fields=["model"]
-        )
+        filtered_query = apply_search_filter(query, search="NonExistentModel", search_fields=["model"])
 
         results = filtered_query.all()
         assert len(results) == 0
 
-    def test_apply_search_filter_multiple_fields(
-        self, test_db_session: Session
-    ) -> None:
+    def test_apply_search_filter_multiple_fields(self, test_db_session: Session) -> None:
         """Test applying search filter across multiple fields."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="Make1", search_fields=["make", "model"]
-        )
+        filtered_query = apply_search_filter(query, search="Make1", search_fields=["make", "model"])
 
         results = filtered_query.all()
         assert len(results) >= 4  # At least the 4 cars with Make1
@@ -257,9 +235,7 @@ class TestSorting:
     def test_apply_sorting_ascending(self, test_db_session: Session) -> None:
         """Test applying ascending sort."""
         query = test_db_session.query(Car)
-        sorted_query = apply_sorting(
-            query, sort_by="year", sort_order="asc", allowed_sort_fields=["year"]
-        )
+        sorted_query = apply_sorting(query, sort_by="year", sort_order="asc", allowed_sort_fields=["year"])
 
         results = sorted_query.all()
         years = [car.year for car in results]
@@ -268,9 +244,7 @@ class TestSorting:
     def test_apply_sorting_descending(self, test_db_session: Session) -> None:
         """Test applying descending sort."""
         query = test_db_session.query(Car)
-        sorted_query = apply_sorting(
-            query, sort_by="year", sort_order="desc", allowed_sort_fields=["year"]
-        )
+        sorted_query = apply_sorting(query, sort_by="year", sort_order="desc", allowed_sort_fields=["year"])
 
         results = sorted_query.all()
         years = [car.year for car in results]
@@ -298,9 +272,7 @@ class TestSorting:
         results = sorted_query.all()
         assert len(results) == 20
 
-    def test_apply_sorting_without_allowed_fields(
-        self, test_db_session: Session
-    ) -> None:
+    def test_apply_sorting_without_allowed_fields(self, test_db_session: Session) -> None:
         """Test applying sort without allowed fields restriction."""
         query = test_db_session.query(Car)
         sorted_query = apply_sorting(query, sort_by="make", sort_order="asc")
@@ -331,9 +303,7 @@ class TestIntegration:
         results = paginate_query(query, skip=0, limit=2, entity_name="cars")
 
         # Create paginated response
-        response = create_paginated_response(
-            data=results, total=total, skip=0, limit=2, entity_name="cars"
-        )
+        response = create_paginated_response(data=results, total=total, skip=0, limit=2, entity_name="cars")
 
         assert len(response["data"]) <= 2
         assert response["pagination"]["total_items"] == total

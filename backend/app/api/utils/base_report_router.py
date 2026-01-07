@@ -22,9 +22,7 @@ ReportReadSchema = TypeVar("ReportReadSchema")
 EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
-class BaseReportRouter(
-    Generic[ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType]
-):
+class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType]):
     """
     Base report router that provides common reporting endpoint patterns.
 
@@ -34,9 +32,7 @@ class BaseReportRouter(
 
     def __init__(
         self,
-        service: BaseReportService[
-            ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType
-        ],
+        service: BaseReportService[ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType],
         router: APIRouter,
         entity_name: str = "entity",
         report_entity_id_param: str = "entity_id",
@@ -68,9 +64,7 @@ class BaseReportRouter(
             responses={
                 400: {"description": "Invalid report data"},
                 404: {"description": f"{self.entity_name.title()} not found"},
-                409: {
-                    "description": f"You have already reported this {self.entity_name}"
-                },
+                409: {"description": f"You have already reported this {self.entity_name}"},
             },
         )
         async def create_report(  # pyright: ignore[reportUnusedFunction]
@@ -94,9 +88,7 @@ class BaseReportRouter(
             f"/{{{self.report_entity_id_param}}}/reports",
             response_model=List[ReportReadSchema],
             responses={
-                200: {
-                    "description": f"Reports for {self.entity_name} retrieved successfully"
-                },
+                200: {"description": f"Reports for {self.entity_name} retrieved successfully"},
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
@@ -118,9 +110,7 @@ class BaseReportRouter(
         @self.router.get(
             f"/{{{self.report_entity_id_param}}}/report-summary",
             responses={
-                200: {
-                    "description": f"Report summary for {self.entity_name} retrieved successfully"
-                },
+                200: {"description": f"Report summary for {self.entity_name} retrieved successfully"},
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
@@ -170,9 +160,7 @@ class BaseReportRouter(
         )
         async def get_pending_reports(  # pyright: ignore[reportUnusedFunction]
             skip: int = Query(0, ge=0, description="Number of reports to skip"),
-            limit: int = Query(
-                100, ge=1, le=1000, description="Maximum number of reports to return"
-            ),
+            limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),

@@ -18,9 +18,7 @@ def get_unique_name(base_name: str) -> str:
 class TestBuildLists:
     """Test cases for build lists endpoints."""
 
-    def test_create_build_list_success(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_success(self, client: TestClient, test_user: User) -> None:
         """Test successfully creating a build list."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -50,9 +48,7 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
         assert response.status_code == 401
 
-    def test_create_build_list_missing_name(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_missing_name(self, client: TestClient, test_user: User) -> None:
         """Test creating a build list without providing a name."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -64,9 +60,7 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
         assert response.status_code == 422
 
-    def test_create_build_list_empty_name(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_empty_name(self, client: TestClient, test_user: User) -> None:
         """Test creating a build list with an empty name."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -109,17 +103,13 @@ class TestBuildLists:
         created_build_list = response.json()
 
         # Get the build list by ID
-        response = client.get(
-            f"{settings.API_STR}/build-lists/{created_build_list['id']}"
-        )
+        response = client.get(f"{settings.API_STR}/build-lists/{created_build_list['id']}")
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == created_build_list["id"]
         assert data["name"] == created_build_list["name"]
 
-    def test_get_build_list_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_get_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test retrieving a non-existent build list."""
         # Login first since the endpoint requires authentication
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -174,9 +164,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/user/me")
         assert response.status_code == 401
 
-    def test_update_build_list_success(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_build_list_success(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list."""
         # Login and create a build list
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -224,9 +212,7 @@ class TestBuildLists:
         response = client.put(f"{settings.API_STR}/build-lists/1", json=update_data)
         assert response.status_code == 401
 
-    def test_delete_build_list_success(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_delete_build_list_success(self, client: TestClient, test_user: User) -> None:
         """Test deleting a build list."""
         # Login and create a build list
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -254,15 +240,11 @@ class TestBuildLists:
         created_build_list = response.json()
 
         # Delete the build list
-        response = client.delete(
-            f"{settings.API_STR}/build-lists/{created_build_list['id']}"
-        )
+        response = client.delete(f"{settings.API_STR}/build-lists/{created_build_list['id']}")
         assert response.status_code == 200
 
         # Verify it's deleted
-        response = client.get(
-            f"{settings.API_STR}/build-lists/{created_build_list['id']}"
-        )
+        response = client.get(f"{settings.API_STR}/build-lists/{created_build_list['id']}")
         assert response.status_code == 404
 
     def test_delete_build_list_unauthorized(self, client: TestClient) -> None:
@@ -307,9 +289,7 @@ class TestBuildLists:
         for build_list in data:
             assert build_list["car_id"] == car["id"]
 
-    def test_get_build_lists_by_car_unauthorized(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_get_build_lists_by_car_unauthorized(self, client: TestClient, test_user: User) -> None:
         """Test retrieving build lists for a car owned by another user."""
         # Create a car as test_user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -332,9 +312,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
         assert response.status_code == 401
 
-    def test_create_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_with_extra_fields(self, client: TestClient, test_user: User) -> None:
         """Test creating a build list with extra fields in the request."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -354,9 +332,7 @@ class TestBuildLists:
         assert data["name"] == build_list_data["name"]
         assert data["description"] == build_list_data["description"]
 
-    def test_create_build_list_with_malformed_json(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_with_malformed_json(self, client: TestClient, test_user: User) -> None:
         """Test creating a build list with malformed JSON."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -371,9 +347,7 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_create_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_create_build_list_with_wrong_content_type(self, client: TestClient, test_user: User) -> None:
         """Test creating a build list with wrong content type."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -392,9 +366,7 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_update_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_build_list_with_extra_fields(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list with extra fields in the request."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -416,18 +388,14 @@ class TestBuildLists:
             "description": "An updated build list description",
             "extra_field": "should_be_ignored",
         }
-        response = client.put(
-            f"{settings.API_STR}/build-lists/{build_list['id']}", json=update_data
-        )
+        response = client.put(f"{settings.API_STR}/build-lists/{build_list['id']}", json=update_data)
         assert response.status_code == 200
 
         data = response.json()
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_build_list_with_malformed_json(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_build_list_with_malformed_json(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list with malformed JSON."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -451,9 +419,7 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_update_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_build_list_with_wrong_content_type(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list with wrong content type."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
