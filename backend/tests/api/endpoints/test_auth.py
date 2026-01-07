@@ -203,8 +203,9 @@ def test_verify_email_already_verified(client: TestClient, db_session: Session) 
 
 def test_verify_email_confirm_success(client: TestClient, db_session: Session) -> None:
     """Test email verification confirmation with valid token."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     username = get_unique_username("confirm_email_user")
     password = "password123"
@@ -249,8 +250,9 @@ def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Sess
 
 def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
     """Test email verification confirmation with token that has wrong purpose."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     email = "test@example.com"
 
@@ -310,8 +312,9 @@ def test_reset_password_nonexistent_email(client: TestClient, db_session: Sessio
 
 def test_reset_password_confirm_success(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with valid token."""
-    from app.api.dependencies.auth import create_access_token, verify_password
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token, verify_password
 
     username = get_unique_username("confirm_reset_user")
     old_password = "oldpassword123"
@@ -361,8 +364,9 @@ def test_reset_password_confirm_invalid_token(client: TestClient, db_session: Se
 
 def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with token that has wrong purpose."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     email = "test@example.com"
 

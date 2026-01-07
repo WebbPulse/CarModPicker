@@ -6,6 +6,7 @@ service layer usage consistent with other endpoints.
 """
 
 import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 

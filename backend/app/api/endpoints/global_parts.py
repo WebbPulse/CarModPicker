@@ -25,13 +25,13 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
 )
-from app.api.utils.pagination_utils import (
-    create_paginated_response,
-    get_total_count,
-)
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
     standard_responses,
+)
+from app.api.utils.pagination_utils import (
+    create_paginated_response,
+    get_total_count,
 )
 
 # Create router

@@ -274,6 +274,7 @@ def ownership_verification(
                 raise ValueError(f"Missing required parameters for ownership verification: {entity_name}")
 
             from sqlalchemy.orm import Session
+
             from app.api.models.user import User as DBUser
 
             db = cast(Session, db_value)
