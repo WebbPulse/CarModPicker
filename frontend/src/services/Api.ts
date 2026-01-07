@@ -106,6 +106,13 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
+    // Check for new access token in response header (e.g., after username change)
+    const newToken = response.headers['x-new-access-token'] as
+      | string
+      | undefined;
+    if (newToken && typeof newToken === 'string') {
+      setStoredToken(newToken);
+    }
     return response;
   },
   (error: unknown) => {
