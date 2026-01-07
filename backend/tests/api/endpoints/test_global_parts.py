@@ -315,7 +315,11 @@ class TestGlobalParts:
         # Get parts with votes
         response = client.get(f"{settings.API_STR}/global-parts/with-votes")
         assert response.status_code == 200
-        data: list[Any] = response.json()
+        result: dict[str, Any] = response.json()
+        assert isinstance(result, dict)
+        assert "data" in result
+        assert "pagination" in result
+        data: list[Any] = result["data"]
         assert isinstance(data, list)
         if len(data) > 0:
             part: Any = data[0]
