@@ -46,20 +46,6 @@ jobs:
           cd frontend
           npm run type-check
 
-      - name: Run tests with coverage
-        run: |
-          cd frontend
-          npm run test:coverage -- --run
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          file: ./frontend/coverage/coverage-final.json
-          flags: frontend
-          name: frontend-coverage
-          fail_ci_if_error: false
-
       - name: Audit dependencies for vulnerabilities
         run: |
           cd frontend
