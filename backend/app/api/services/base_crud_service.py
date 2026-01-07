@@ -136,9 +136,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             HTTPException: If entity not found or access denied
         """
         if current_user and not allow_public:
-            entity = verify_entity_access(
-                db, self.model, entity_id, current_user, self.entity_name, allow_public
-            )
+            entity = verify_entity_access(db, self.model, entity_id, current_user, self.entity_name, allow_public)
         else:
             entity = verify_entity_exists(db, self.model, entity_id, self.entity_name)
 
@@ -253,9 +251,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             HTTPException: If entity not found, access denied, or update fails
         """
         # Verify ownership
-        entity = verify_entity_ownership(
-            db, self.model, entity_id, current_user, self.entity_name
-        )
+        entity = verify_entity_ownership(db, self.model, entity_id, current_user, self.entity_name)
 
         # Update the entity
         # UpdateSchema is bound to HasModelDump, so model_dump() is available
@@ -292,9 +288,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             HTTPException: If entity not found, access denied, or deletion fails
         """
         # Verify ownership
-        entity = verify_entity_ownership(
-            db, self.model, entity_id, current_user, self.entity_name
-        )
+        entity = verify_entity_ownership(db, self.model, entity_id, current_user, self.entity_name)
 
         # Delete the entity
         return delete_entity(
@@ -305,9 +299,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             entity_name=self.entity_name,
         )
 
-    def count_by_user(
-        self, db: Session, user_id: int, logger: Optional[logging.Logger] = None
-    ) -> int:
+    def count_by_user(self, db: Session, user_id: int, logger: Optional[logging.Logger] = None) -> int:
         """
         Count entities owned by a specific user.
 
@@ -321,25 +313,17 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         """
         # Check if model has user_id attribute
         if not hasattr(self.model, "user_id"):
-            raise AttributeError(
-                f"Model {self.model.__name__} does not have a user_id attribute"
-            )
+            raise AttributeError(f"Model {self.model.__name__} does not have a user_id attribute")
 
         # Use getattr for dynamic attribute access
-        count = (
-            db.query(self.model)
-            .filter(getattr(self.model, "user_id") == user_id)
-            .count()
-        )
+        count = db.query(self.model).filter(getattr(self.model, "user_id") == user_id).count()
 
         if logger:
             logger.info(f"Counted {count} {self.entity_name}s for user {user_id}")
 
         return count
 
-    def exists(
-        self, db: Session, entity_id: int, logger: Optional[logging.Logger] = None
-    ) -> bool:
+    def exists(self, db: Session, entity_id: int, logger: Optional[logging.Logger] = None) -> bool:
         """
         Check if an entity exists.
 
@@ -352,10 +336,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             True if entity exists, False otherwise
         """
         # Use getattr for dynamic attribute access
-        exists = (
-            db.query(self.model).filter(getattr(self.model, "id") == entity_id).first()
-            is not None
-        )
+        exists = db.query(self.model).filter(getattr(self.model, "id") == entity_id).first() is not None
 
         if logger:
             logger.info(f"Entity {self.entity_name} {entity_id} exists: {exists}")
@@ -397,16 +378,11 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         # Get entity - use getattr for dynamic attribute access
         entity = query.filter(getattr(self.model, "id") == entity_id).first()
         if not entity:
-            raise HTTPException(
-                status_code=404, detail=f"{self.entity_name.title()} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"{self.entity_name.title()} not found")
 
         # Check access if user is provided
         if current_user and not allow_public:
-            if (
-                hasattr(entity, "user_id")
-                and getattr(entity, "user_id", None) != current_user.id
-            ):
+            if hasattr(entity, "user_id") and getattr(entity, "user_id", None) != current_user.id:
                 raise HTTPException(
                     status_code=403,
                     detail=f"Not authorized to access this {self.entity_name}",

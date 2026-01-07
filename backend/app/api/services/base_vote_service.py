@@ -19,9 +19,7 @@ VoteReadSchema = TypeVar("VoteReadSchema")
 EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
-class BaseVoteService(
-    Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType]
-):
+class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType]):
     """
     Base service class for voting operations.
 
@@ -102,10 +100,7 @@ class BaseVoteService(
                 existing_vote.vote_type = getattr(vote_type_value, "value", vote_type_value)  # type: ignore[attr-defined]
             db.commit()
             db.refresh(existing_vote)
-            logger.info(
-                f"Vote updated: {existing_vote.id} by user {user_id} "
-                f"on {self.entity_name} {entity_id}"
-            )
+            logger.info(f"Vote updated: {existing_vote.id} by user {user_id} " f"on {self.entity_name} {entity_id}")
             return existing_vote
         else:
             # Create new vote
@@ -117,10 +112,7 @@ class BaseVoteService(
             db.add(db_vote)
             db.commit()
             db.refresh(db_vote)
-            logger.info(
-                f"Vote created: {db_vote.id} by user {user_id} "
-                f"on {self.entity_name} {entity_id}"
-            )
+            logger.info(f"Vote created: {db_vote.id} by user {user_id} " f"on {self.entity_name} {entity_id}")
             return db_vote
 
     def remove_vote(
@@ -168,15 +160,10 @@ class BaseVoteService(
         if existing_vote:
             db.delete(existing_vote)
             db.commit()
-            logger.info(
-                f"Vote removed: {existing_vote.id} by user {user_id} "
-                f"on {self.entity_name} {entity_id}"
-            )
+            logger.info(f"Vote removed: {existing_vote.id} by user {user_id} " f"on {self.entity_name} {entity_id}")
             return True
         else:
-            logger.info(
-                f"No vote found for user {user_id} on {self.entity_name} {entity_id}"
-            )
+            logger.info(f"No vote found for user {user_id} on {self.entity_name} {entity_id}")
             return False
 
     def get_vote_summary(
@@ -277,13 +264,8 @@ class BaseVoteService(
 
         if vote:
             # VoteModelType is bound to HasVoteType which has vote_type attribute
-            logger.debug(
-                f"User {user_id} vote on {self.entity_name} {entity_id}: "
-                f"{vote.vote_type}"
-            )
+            logger.debug(f"User {user_id} vote on {self.entity_name} {entity_id}: " f"{vote.vote_type}")
         else:
-            logger.debug(
-                f"No vote found for user {user_id} on {self.entity_name} {entity_id}"
-            )
+            logger.debug(f"No vote found for user {user_id} on {self.entity_name} {entity_id}")
 
         return vote

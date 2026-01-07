@@ -15,9 +15,7 @@ from app.core.logging import get_logger
 logger = get_logger()
 
 
-class BuildListService(
-    BaseCRUDService[DBBuildList, BuildListCreate, BuildListRead, BuildListUpdate]
-):
+class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRead, BuildListUpdate]):
     """Build list service that extends the base CRUD service."""
 
     def __init__(self) -> None:
@@ -37,13 +35,7 @@ class BuildListService(
     ) -> List[DBBuildList]:
         """Get build lists by car ID with pagination."""
         log = logger if logger is not None else get_logger()
-        build_lists = (
-            db.query(DBBuildList)
-            .filter(DBBuildList.car_id == car_id)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        build_lists = db.query(DBBuildList).filter(DBBuildList.car_id == car_id).offset(skip).limit(limit).all()
 
         log.info(f"Retrieved {len(build_lists)} build lists for car {car_id}")
         return build_lists
@@ -58,13 +50,7 @@ class BuildListService(
     ) -> List[DBBuildList]:
         """Get build lists by user ID with pagination."""
         log = logger if logger is not None else get_logger()
-        build_lists = (
-            db.query(DBBuildList)
-            .filter(DBBuildList.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        build_lists = db.query(DBBuildList).filter(DBBuildList.user_id == user_id).offset(skip).limit(limit).all()
 
         log.info(f"Retrieved {len(build_lists)} build lists for user {user_id}")
         return build_lists

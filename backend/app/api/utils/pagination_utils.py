@@ -24,9 +24,7 @@ class PaginationParams:
     def __init__(
         self,
         skip: int = Query(0, ge=0, description="Number of items to skip"),
-        limit: int = Query(
-            100, ge=1, le=1000, description="Maximum number of items to return"
-        ),
+        limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     ):
         self.skip = skip
         self.limit = limit
@@ -34,9 +32,7 @@ class PaginationParams:
 
 def get_pagination_params(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of items to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
 ) -> Tuple[int, int]:
     """
     Get validated pagination parameters.
@@ -75,9 +71,7 @@ def paginate_query(
     results = paginated_query.all()
 
     if logger:
-        logger.info(
-            f"Retrieved {len(results)} {entity_name} (skip: {skip}, limit: {limit})"
-        )
+        logger.info(f"Retrieved {len(results)} {entity_name} (skip: {skip}, limit: {limit})")
 
     return results
 
@@ -156,17 +150,9 @@ def apply_search_filter(
     for field in search_fields:
         if hasattr(query.column_descriptions[0]["entity"], field):
             if case_sensitive:
-                search_terms.append(
-                    getattr(query.column_descriptions[0]["entity"], field).ilike(
-                        f"%{search}%"
-                    )
-                )
+                search_terms.append(getattr(query.column_descriptions[0]["entity"], field).ilike(f"%{search}%"))
             else:
-                search_terms.append(
-                    getattr(query.column_descriptions[0]["entity"], field).ilike(
-                        f"%{search}%"
-                    )
-                )
+                search_terms.append(getattr(query.column_descriptions[0]["entity"], field).ilike(f"%{search}%"))
 
     if search_terms:
         from sqlalchemy import or_

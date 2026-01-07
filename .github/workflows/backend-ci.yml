@@ -2,12 +2,12 @@ name: Backend CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
@@ -30,17 +30,45 @@ jobs:
           cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-cov black isort mypy
+          pip install pytest-cov pytest-xdist black isort pyright bandit pip-audit
 
       - name: Run linting
         run: |
           cd backend
           black --check --diff .
 
+      - name: Check import sorting
+        run: |
+          cd backend
+          isort . --check-only --diff
+
       - name: Run type checking
         run: |
           cd backend
-          mypy app/ --ignore-missing-imports
+          pyright
+
+      - name: Run security scan
+        run: |
+          cd backend
+          # Run Bandit security scanner
+          # First pass: Show all issues for visibility (low, medium, high)
+          # -r app: Recursively scan app directory
+          # Bandit auto-detects .bandit config file in the current directory
+          # -ll: Report all severity levels (for visibility)
+          # The config file skips known false positives (B404, B603, B607)
+          # Individual instances are suppressed with # nosec comments
+          echo "=== Bandit Security Scan (All Issues - Informational) ==="
+          bandit -r app -ll || true
+          echo ""
+          # Second pass: Only fail on medium/high severity issues
+          echo "=== Bandit Security Scan (Medium/High Severity - Failing) ==="
+          bandit -r app -ll
+
+      - name: Scan dependencies for vulnerabilities
+        run: |
+          cd backend
+          # Ignore ecdsa CVE-2024-23342: Not exploitable in this codebase as we use HS256 (HMAC) algorithm, not ECDSA-based algorithms
+          pip-audit -r requirements.txt --ignore-vuln CVE-2024-23342
 
       - name: Run tests with coverage
         env:
@@ -57,4 +85,4 @@ jobs:
           SENDGRID_RESET_PASSWORD_TEMPLATE_ID: test-reset-template
         run: |
           cd backend
-          python -m pytest
+          python -m pytest -n auto --cov=app --cov-report=xml --cov-report=term-missing

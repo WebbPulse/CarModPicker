@@ -69,10 +69,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   };
 
   return (
-    
     <div className="p-1">
       {' '}
-      
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <Input
           label="Build List Name"
@@ -88,7 +86,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
           label="Description (Optional)"
           id="buildlist-description"
           name="buildlist-description"
-          type="text" 
+          type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={isLoading}

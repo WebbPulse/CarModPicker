@@ -33,6 +33,20 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestArgs": ["backend/tests", "-n", "auto"],
 
+  // isort Configuration
+  // The isort extension automatically reads from backend/pyproject.toml [tool.isort] when working on backend files
+  // These args match pyproject.toml settings and serve as a fallback for consistency
+  // CI runs: isort . --check-only --diff from backend/ (uses pyproject.toml automatically)
+  "isort.args": [
+    "--profile",
+    "black",
+    "--line-length",
+    "120",
+    "--multi-line-output",
+    "3"
+  ],
+  // Enable isort to run on save (needed when python.languageServer is "None")
+
   // ============================================
   // TYPESCRIPT/JAVASCRIPT SETTINGS
   // ============================================
@@ -125,7 +139,7 @@
       "source.fixAll.eslint": "explicit",
       "source.organizeImports": "explicit"
     },
-    "editor.rulers": [100]
+    "editor.rulers": [80]
   },
 
   "[typescriptreact]": {
@@ -135,7 +149,7 @@
       "source.fixAll.eslint": "explicit",
       "source.organizeImports": "explicit"
     },
-    "editor.rulers": [100]
+    "editor.rulers": [80]
   },
 
   "[javascript]": {
@@ -163,17 +177,12 @@
     "**/.pytest_cache": true,
     "**/.mypy_cache": true,
     "**/*.pyc": true,
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/.venv": true,
-    "**/venv": true
+    "**/node_modules": true
   },
 
   "search.exclude": {
     "**/node_modules": true,
-    "**/venv": true,
-    "**/.venv": true,
-    "**/dist": true,
+
     "**/__pycache__": true,
     "**/.pytest_cache": true,
     "**/.mypy_cache": true

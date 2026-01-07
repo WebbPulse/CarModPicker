@@ -73,14 +73,10 @@ async def report_entity(
     ),
 )
 async def list_reports(
-    entity_type: Optional[EntityType] = Query(
-        None, description="Filter by entity type"
-    ),
+    entity_type: Optional[EntityType] = Query(None, description="Filter by entity type"),
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of reports to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[ReportRead]:
@@ -108,9 +104,7 @@ async def list_reports(
 async def get_my_reports(
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of reports to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
@@ -136,14 +130,10 @@ async def get_my_reports(
     ),
 )
 async def list_reports_with_details(
-    entity_type: Optional[EntityType] = Query(
-        None, description="Filter by entity type"
-    ),
+    entity_type: Optional[EntityType] = Query(None, description="Filter by entity type"),
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of reports to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[ReportWithDetails]:

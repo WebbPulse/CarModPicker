@@ -19,6 +19,8 @@ export const mockUser: UserRead = {
   image_url: 'https://example.com/user.jpg',
   is_superuser: false,
   is_admin: false,
+  subscription_tier: 'free',
+  subscription_status: 'active',
 };
 
 // Mock car data

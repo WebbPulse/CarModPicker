@@ -10,7 +10,7 @@ This endpoint provides unified search functionality across:
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, or_, cast
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.build_list import BuildList as DBBuildList

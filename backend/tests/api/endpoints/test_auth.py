@@ -17,9 +17,7 @@ def get_unique_username(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
-def create_test_user_direct_db(
-    db: Session, username: str, email: str, password: str, disabled: bool = False
-) -> DBUser:
+def create_test_user_direct_db(db: Session, username: str, email: str, password: str, disabled: bool = False) -> DBUser:
     hashed_password = get_password_hash(password)
     db_user = DBUser(
         username=username,
@@ -34,18 +32,14 @@ def create_test_user_direct_db(
 
 
 def test_login_for_access_token_success(client: TestClient) -> None:
-    username = get_unique_username(
-        "auth_test_user_cookie"
-    )  # Ensure unique username for test
+    username = get_unique_username("auth_test_user_cookie")  # Ensure unique username for test
     password = "auth_test_password"
     email = f"{username}@example.com"
 
     user_data = {"username": username, "email": email, "password": password}
     # Create user via API
     create_user_response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert (
-        create_user_response.status_code == 200
-    ), f"Failed to create user for auth test: {create_user_response.text}"
+    assert create_user_response.status_code == 200, f"Failed to create user for auth test: {create_user_response.text}"
 
     login_data = {"username": username, "password": password}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
@@ -74,9 +68,7 @@ def test_login_for_access_token_success(client: TestClient) -> None:
     assert response_data["username"] == username
     assert response_data["email"] == email
     assert "id" in response_data
-    assert isinstance(
-        response_data["id"], int
-    )  # or str, depending on your UserRead schema for id
+    assert isinstance(response_data["id"], int)  # or str, depending on your UserRead schema for id
     assert response_data["disabled"] is False
     assert "hashed_password" not in response_data  # Ensure password is not returned
     assert "access_token" not in response_data  # Ensure token is not in body
@@ -91,20 +83,14 @@ def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
     assert "access_token" not in response.cookies  # Check no cookie is set
 
 
-def test_login_for_access_token_incorrect_password(
-    client: TestClient, db_session: Session
-) -> None:
-    username = get_unique_username(
-        "auth_test_user_wrong_pass_cookie"
-    )  # Ensure unique username
+def test_login_for_access_token_incorrect_password(client: TestClient, db_session: Session) -> None:
+    username = get_unique_username("auth_test_user_wrong_pass_cookie")  # Ensure unique username
     password = "correct_password"
     email = f"{username}@example.com"
 
     user_data = {"username": username, "email": email, "password": password}
     create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert (
-        create_response.status_code == 200
-    ), f"User creation failed: {create_response.text}"
+    assert create_response.status_code == 200, f"User creation failed: {create_response.text}"
 
     login_data = {"username": username, "password": "wrong_password"}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
@@ -113,28 +99,20 @@ def test_login_for_access_token_incorrect_password(
     assert "access_token" not in response.cookies  # Check no cookie is set
 
 
-def test_login_for_access_token_disabled_user(
-    client: TestClient, db_session: Session
-) -> None:
+def test_login_for_access_token_disabled_user(client: TestClient, db_session: Session) -> None:
     username = get_unique_username("disabled_user_cookie")  # Ensure unique username
     password = "password123"
     email = f"{username}@example.com"
 
     user_data = {"username": username, "email": email, "password": password}
     create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert (
-        create_response.status_code == 200
-    ), f"User creation failed: {create_response.text}"
+    assert create_response.status_code == 200, f"User creation failed: {create_response.text}"
     user_id = create_response.json()["id"]
 
     # Log in as the user. The cookie will be set in the client for subsequent requests.
     login_data_for_session = {"username": username, "password": password}
-    token_response = client.post(
-        f"{settings.API_STR}/auth/token", data=login_data_for_session
-    )  # Changed
-    assert (
-        token_response.status_code == 200
-    ), f"Login to get session cookie failed: {token_response.text}"
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data_for_session)  # Changed
+    assert token_response.status_code == 200, f"Login to get session cookie failed: {token_response.text}"
     assert "access_token" in token_response.cookies  # Verify cookie was set
 
     # Disable the user via API. The client will automatically send the cookie.
@@ -145,12 +123,8 @@ def test_login_for_access_token_disabled_user(
         "current_password": password,
     }  # Add current_password
     # No explicit headers needed if the dependency reads from cookie
-    update_response = client.put(
-        f"{settings.API_STR}/users/{user_id}", json=update_payload
-    )
-    assert (
-        update_response.status_code == 200
-    ), f"Failed to disable user: {update_response.text}"
+    update_response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload)
+    assert update_response.status_code == 200, f"Failed to disable user: {update_response.text}"
     assert update_response.json()["disabled"] is True
 
     # Clear cookies from the client to ensure the next login attempt is fresh
@@ -180,9 +154,7 @@ def test_verify_email_send_success(client: TestClient, db_session: Session) -> N
 
     # Request email verification (this will fail in tests without actual SendGrid, but tests the flow)
     # We'll mock or expect the endpoint to return appropriately
-    response = client.post(
-        f"{settings.API_STR}/auth/verify-email", json={"email": email}
-    )
+    response = client.post(f"{settings.API_STR}/auth/verify-email", json={"email": email})
 
     # In test environment, user is created with email_verified=True by default
     # So we expect either 409 (already verified), 200 (success), or 500 (SendGrid error)
@@ -224,17 +196,16 @@ def test_verify_email_already_verified(client: TestClient, db_session: Session) 
     db_session.commit()
 
     # Try to request verification again
-    response = client.post(
-        f"{settings.API_STR}/auth/verify-email", json={"email": email}
-    )
+    response = client.post(f"{settings.API_STR}/auth/verify-email", json={"email": email})
     assert response.status_code == 409
     assert "already verified" in response.json()["message"].lower()
 
 
 def test_verify_email_confirm_success(client: TestClient, db_session: Session) -> None:
     """Test email verification confirmation with valid token."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     username = get_unique_username("confirm_email_user")
     password = "password123"
@@ -252,9 +223,7 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     db_session.refresh(user)
 
     # Create a valid token
-    token = create_access_token(
-        data={"sub": email, "purpose": "verify_email"}, expires_delta=timedelta(hours=1)
-    )
+    token = create_access_token(data={"sub": email, "purpose": "verify_email"}, expires_delta=timedelta(hours=1))
 
     # Confirm email verification
     response = client.get(
@@ -269,9 +238,7 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     assert user.email_verified is True
 
 
-def test_verify_email_confirm_invalid_token(
-    client: TestClient, db_session: Session
-) -> None:
+def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Session) -> None:
     """Test email verification confirmation with invalid token."""
     response = client.get(
         f"{settings.API_STR}/auth/verify-email/confirm?token=invalid_token",
@@ -281,12 +248,11 @@ def test_verify_email_confirm_invalid_token(
     assert "error=invalid_token" in response.headers["location"]
 
 
-def test_verify_email_confirm_wrong_purpose(
-    client: TestClient, db_session: Session
-) -> None:
+def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
     """Test email verification confirmation with token that has wrong purpose."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     email = "test@example.com"
 
@@ -324,9 +290,7 @@ def test_reset_password_send_success(client: TestClient, db_session: Session) ->
     db_session.commit()
 
     # Request password reset
-    response = client.post(
-        f"{settings.API_STR}/auth/reset-password", json={"email": email}
-    )
+    response = client.post(f"{settings.API_STR}/auth/reset-password", json={"email": email})
 
     # Should return success message regardless of email existence (security)
     assert response.status_code in [200, 500]  # Success or internal error (no SendGrid)
@@ -334,9 +298,7 @@ def test_reset_password_send_success(client: TestClient, db_session: Session) ->
         assert "message" in response.json()
 
 
-def test_reset_password_nonexistent_email(
-    client: TestClient, db_session: Session
-) -> None:
+def test_reset_password_nonexistent_email(client: TestClient, db_session: Session) -> None:
     """Test password reset with non-existent email (should not reveal existence)."""
     response = client.post(
         f"{settings.API_STR}/auth/reset-password",
@@ -348,12 +310,11 @@ def test_reset_password_nonexistent_email(
     assert "message" in response.json()
 
 
-def test_reset_password_confirm_success(
-    client: TestClient, db_session: Session
-) -> None:
+def test_reset_password_confirm_success(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with valid token."""
-    from app.api.dependencies.auth import create_access_token, verify_password
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token, verify_password
 
     username = get_unique_username("confirm_reset_user")
     old_password = "oldpassword123"
@@ -391,9 +352,7 @@ def test_reset_password_confirm_success(
     assert not verify_password(old_password, user.hashed_password)
 
 
-def test_reset_password_confirm_invalid_token(
-    client: TestClient, db_session: Session
-) -> None:
+def test_reset_password_confirm_invalid_token(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with invalid token."""
     response = client.post(
         f"{settings.API_STR}/auth/reset-password/confirm",
@@ -403,12 +362,11 @@ def test_reset_password_confirm_invalid_token(
     assert "invalid" in response.json()["message"].lower()
 
 
-def test_reset_password_confirm_wrong_purpose(
-    client: TestClient, db_session: Session
-) -> None:
+def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with token that has wrong purpose."""
-    from app.api.dependencies.auth import create_access_token
     from datetime import timedelta
+
+    from app.api.dependencies.auth import create_access_token
 
     email = "test@example.com"
 
