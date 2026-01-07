@@ -23,9 +23,11 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Get subscription status
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -45,13 +47,15 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Upgrade to premium
         upgrade_data = {
             "tier": "premium",
             "payment_method": "mock_payment",
         }
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -74,13 +78,15 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to upgrade to invalid tier
         upgrade_data = {
             "tier": "invalid_tier",
             "payment_method": "mock_payment",
         }
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 400
 
     def test_upgrade_subscription_already_premium(self, client: TestClient, test_user: User) -> None:
@@ -89,17 +95,19 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # First upgrade to premium
         upgrade_data = {
             "tier": "premium",
             "payment_method": "mock_payment",
         }
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 200
 
         # Try to upgrade again
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 409  # 409 Conflict is correct for already having premium
 
     def test_cancel_subscription_success(self, client: TestClient, test_user: Any) -> None:
@@ -108,17 +116,19 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # First upgrade to premium
         upgrade_data = {
             "tier": "premium",
             "payment_method": "mock_payment",
         }
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 200
 
         # Cancel subscription
-        response = client.post(f"{settings.API_STR}/subscriptions/cancel")
+        response = client.post(f"{settings.API_STR}/subscriptions/cancel", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -137,9 +147,11 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to cancel without having premium
-        response = client.post(f"{settings.API_STR}/subscriptions/cancel")
+        response = client.post(f"{settings.API_STR}/subscriptions/cancel", headers=headers)
         assert response.status_code == 400
 
     def test_subscription_limits_and_usage(self, client: TestClient, test_user: User) -> None:
@@ -148,9 +160,11 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Get subscription status
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -177,9 +191,11 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Check initial status (should be free)
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
         initial_data = response.json()
         assert initial_data["tier"] == "free"
@@ -189,22 +205,22 @@ class TestSubscriptions:
             "tier": "premium",
             "payment_method": "mock_payment",
         }
-        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data)
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
         assert response.status_code == 200
 
         # Check premium status
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
         premium_data = response.json()
         assert premium_data["tier"] == "premium"
         assert premium_data["status"] == "active"
 
         # Cancel subscription
-        response = client.post(f"{settings.API_STR}/subscriptions/cancel")
+        response = client.post(f"{settings.API_STR}/subscriptions/cancel", headers=headers)
         assert response.status_code == 200
 
         # Check canceled status
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
         canceled_data = response.json()
         assert canceled_data["tier"] == "premium"
@@ -216,9 +232,11 @@ class TestSubscriptions:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Get initial subscription status
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
         initial_data = response.json()
         initial_usage = initial_data["usage"]["build_lists"]
@@ -229,7 +247,7 @@ class TestSubscriptions:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -239,11 +257,11 @@ class TestSubscriptions:
             "description": "Test build list",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
         # Check that usage increased
-        response = client.get(f"{settings.API_STR}/subscriptions/status")
+        response = client.get(f"{settings.API_STR}/subscriptions/status", headers=headers)
         assert response.status_code == 200
         updated_data = response.json()
         updated_usage = updated_data["usage"]["build_lists"]
