@@ -8,11 +8,16 @@ from app.api.models.user import User as DBUser
 from app.core.config import settings
 
 
+def get_auth_headers(token: str) -> dict[str, str]:
+    """Get Authorization headers with Bearer token."""
+    return {"Authorization": f"Bearer {token}"}
+
+
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Session, username_suffix: str = "admin"
-) -> dict[str, Any]:
-    """Create an admin user and log them in."""
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
@@ -31,19 +36,20 @@ def create_and_login_admin_user(
     db_session.commit()
     db_session.refresh(admin_user)
 
-    # Log in to set cookie on the client
+    # Log in to get Bearer token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
 
-    return admin_user.__dict__
+    return admin_user.__dict__, token
 
 
 # Helper function to create and login a superuser
 def create_and_login_superuser(
     client: TestClient, db_session: Session, username_suffix: str = "superuser"
-) -> dict[str, Any]:
-    """Create a superuser and log them in."""
+) -> tuple[dict[str, Any], str]:
+    """Create a superuser and log them in. Returns (user_dict, token)."""
     username = f"superuser_test_{username_suffix}"
     email = f"superuser_test_{username_suffix}@example.com"
     password = "testpassword"
@@ -62,19 +68,20 @@ def create_and_login_superuser(
     db_session.commit()
     db_session.refresh(superuser)
 
-    # Log in to set cookie on the client
+    # Log in to get Bearer token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login superuser: {token_response.text}"
+    token = token_response.json()["access_token"]
 
-    return superuser.__dict__
+    return superuser.__dict__, token
 
 
 # Helper function to create and login a regular user
 def create_and_login_regular_user(
     client: TestClient, db_session: Session, username_suffix: str = "regular"
-) -> dict[str, Any]:
-    """Create a regular user and log them in."""
+) -> tuple[dict[str, Any], str]:
+    """Create a regular user and log them in. Returns (user_dict, token)."""
     username = f"regular_test_{username_suffix}"
     email = f"regular_test_{username_suffix}@example.com"
     password = "testpassword"
@@ -93,12 +100,13 @@ def create_and_login_regular_user(
     db_session.commit()
     db_session.refresh(regular_user)
 
-    # Log in to set cookie on the client
+    # Log in to get Bearer token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login regular user: {token_response.text}"
+    token = token_response.json()["access_token"]
 
-    return regular_user.__dict__
+    return regular_user.__dict__, token
 
 
 class TestAdminUserManagement:
@@ -108,14 +116,20 @@ class TestAdminUserManagement:
         """Test that getting all users without authentication fails."""
         response = client.get(f"{settings.API_STR}/users/admin/users")
         assert response.status_code == 401, "Should require authentication"
-        assert "Could not validate credentials" in response.text
+        response_data = response.json()
+        assert (
+            "not authenticated" in response_data.get("message", "").lower()
+            or "unauthorized" in response_data.get("message", "").lower()
+            or "credentials" in response_data.get("message", "").lower()
+        )
 
     def test_get_all_users_with_regular_user(self, client: TestClient, db_session: Session) -> None:
         """Test that regular users cannot get all users."""
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "get_users")
+        _, token = create_and_login_regular_user(client, db_session, "get_users")
 
-        response = client.get(f"{settings.API_STR}/users/admin/users")
+        headers = get_auth_headers(token)
+        response = client.get(f"{settings.API_STR}/users/admin/users", headers=headers)
         assert response.status_code == 403, "Regular users should not be able to get all users"
         assert "Admin access required" in response.text
 
@@ -144,9 +158,10 @@ class TestAdminUserManagement:
         db_session.commit()
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "get_users")
+        _, token = create_and_login_admin_user(client, db_session, "get_users")
 
-        response = client.get(f"{settings.API_STR}/users/admin/users")
+        headers = get_auth_headers(token)
+        response = client.get(f"{settings.API_STR}/users/admin/users", headers=headers)
         assert response.status_code == 200, f"Admin should be able to get all users: {response.text}"
 
         users = response.json()
@@ -160,9 +175,10 @@ class TestAdminUserManagement:
     def test_get_all_users_with_superuser(self, client: TestClient, db_session: Session) -> None:
         """Test that superusers can get all users."""
         # Create and login superuser
-        _ = create_and_login_superuser(client, db_session, "get_users")
+        _, token = create_and_login_superuser(client, db_session, "get_users")
 
-        response = client.get(f"{settings.API_STR}/users/admin/users")
+        headers = get_auth_headers(token)
+        response = client.get(f"{settings.API_STR}/users/admin/users", headers=headers)
         assert response.status_code == 200, f"Superuser should be able to get all users: {response.text}"
 
         users = response.json()
@@ -188,24 +204,25 @@ class TestAdminUserManagement:
         db_session.commit()
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "get_users_pagination")
+        _, token = create_and_login_admin_user(client, db_session, "get_users_pagination")
+        headers = get_auth_headers(token)
 
         # Test first page (limit=2, skip=0)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=0")
+        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=0", headers=headers)
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         users_page1 = response.json()
         assert len(users_page1) == 2
 
         # Test second page (limit=2, skip=2)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=2")
+        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=2", headers=headers)
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         users_page2 = response.json()
         assert len(users_page2) == 2
 
         # Test third page (limit=2, skip=4)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=4")
+        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=4", headers=headers)
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         users_page3 = response.json()
@@ -266,14 +283,15 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "update_user")
+        _, token = create_and_login_regular_user(client, db_session, "update_user")
 
         update_data = {
             "username": "updated_username",
             "email": "updated_email@example.com",
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data)
+        headers = get_auth_headers(token)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
         assert response.status_code == 403, "Regular users should not be able to update other users"
         assert "Admin access required" in response.text
 
@@ -294,7 +312,8 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "update_user")
+        _, token = create_and_login_admin_user(client, db_session, "update_user")
+        headers = get_auth_headers(token)
 
         update_data = {
             "username": "updated_username_by_admin",
@@ -303,7 +322,7 @@ class TestAdminUserManagement:
             "email_verified": True,
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
         assert response.status_code == 200, f"Admin should be able to update users: {response.text}"
 
         updated_user = response.json()
@@ -329,7 +348,8 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login superuser
-        _ = create_and_login_superuser(client, db_session, "update_user")
+        _, token = create_and_login_superuser(client, db_session, "update_user")
+        headers = get_auth_headers(token)
 
         update_data = {
             "username": "updated_username_by_superuser",
@@ -337,7 +357,7 @@ class TestAdminUserManagement:
             "is_superuser": True,
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
         assert response.status_code == 200, f"Superuser should be able to update users: {response.text}"
 
         updated_user = response.json()
@@ -362,13 +382,14 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "update_password")
+        _, token = create_and_login_admin_user(client, db_session, "update_password")
 
         update_data = {
             "password": "newpassword123",
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data)
+        headers = get_auth_headers(token)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
         assert response.status_code == 200, f"Admin should be able to update user password: {response.text}"
 
         # Verify password was updated by trying to login with new password
@@ -379,13 +400,16 @@ class TestAdminUserManagement:
     def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Session) -> None:
         """Test that admin cannot remove their own admin privileges."""
         # Create and login admin user
-        admin_user = create_and_login_admin_user(client, db_session, "remove_privileges")
+        admin_user_dict, token = create_and_login_admin_user(client, db_session, "remove_privileges")
+        headers = get_auth_headers(token)
 
         update_data = {
             "is_admin": False,
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{admin_user['id']}", json=update_data)
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{admin_user_dict['id']}", json=update_data, headers=headers
+        )
         assert response.status_code == 400, "Admin should not be able to remove their own admin privileges"
         assert "Cannot remove your own admin privileges" in response.text
 
@@ -425,9 +449,10 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "delete_user")
+        _, token = create_and_login_regular_user(client, db_session, "delete_user")
 
-        response = client.delete(f"{settings.API_STR}/users/admin/users/{test_user.id}")
+        headers = get_auth_headers(token)
+        response = client.delete(f"{settings.API_STR}/users/admin/users/{test_user.id}", headers=headers)
         assert response.status_code == 403, "Regular users should not be able to delete other users"
         assert "Admin access required" in response.text
 
@@ -448,43 +473,47 @@ class TestAdminUserManagement:
         db_session.refresh(test_user)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "delete_user")
+        _, token = create_and_login_admin_user(client, db_session, "delete_user")
 
-        response = client.delete(f"{settings.API_STR}/users/admin/users/{test_user.id}")
+        headers = get_auth_headers(token)
+        response = client.delete(f"{settings.API_STR}/users/admin/users/{test_user.id}", headers=headers)
         assert response.status_code == 200, f"Admin should be able to delete users: {response.text}"
 
         # Verify the user was deleted
-        get_response = client.get(f"{settings.API_STR}/users/{test_user.id}")
+        get_response = client.get(f"{settings.API_STR}/users/{test_user.id}", headers=headers)
         assert get_response.status_code == 404, "User should be deleted"
 
     def test_admin_cannot_delete_themselves(self, client: TestClient, db_session: Session) -> None:
         """Test that admin cannot delete themselves."""
         # Create and login admin user
-        admin_user = create_and_login_admin_user(client, db_session, "delete_self")
+        admin_user_dict, token = create_and_login_admin_user(client, db_session, "delete_self")
+        headers = get_auth_headers(token)
 
-        response = client.delete(f"{settings.API_STR}/users/admin/users/{admin_user['id']}")
+        response = client.delete(f"{settings.API_STR}/users/admin/users/{admin_user_dict['id']}", headers=headers)
         assert response.status_code == 400, "Admin should not be able to delete themselves"
         assert "Cannot delete your own account" in response.text
 
     def test_admin_update_nonexistent_user(self, client: TestClient, db_session: Session) -> None:
         """Test that updating a nonexistent user fails."""
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "update_nonexistent")
+        _, token = create_and_login_admin_user(client, db_session, "update_nonexistent")
+        headers = get_auth_headers(token)
 
         update_data = {
             "username": "updated_username",
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/99999", json=update_data)
+        response = client.put(f"{settings.API_STR}/users/admin/users/99999", json=update_data, headers=headers)
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 
     def test_admin_delete_nonexistent_user(self, client: TestClient, db_session: Session) -> None:
         """Test that deleting a nonexistent user fails."""
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "delete_nonexistent")
+        _, token = create_and_login_admin_user(client, db_session, "delete_nonexistent")
 
-        response = client.delete(f"{settings.API_STR}/users/admin/users/99999")
+        headers = get_auth_headers(token)
+        response = client.delete(f"{settings.API_STR}/users/admin/users/99999", headers=headers)
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 
@@ -515,14 +544,15 @@ class TestAdminUserManagement:
         db_session.refresh(user2)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "duplicate_username")
+        _, token = create_and_login_admin_user(client, db_session, "duplicate_username")
 
         # Try to update user2 with user1's username
         update_data = {
             "username": "user1",  # Duplicate username
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data)
+        headers = get_auth_headers(token)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data, headers=headers)
         assert response.status_code == 409, "Should return 409 Conflict for duplicate username"
         assert "already exists" in response.text
 
@@ -553,13 +583,14 @@ class TestAdminUserManagement:
         db_session.refresh(user2)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "duplicate_email")
+        _, token = create_and_login_admin_user(client, db_session, "duplicate_email")
 
         # Try to update user2 with user1's email
         update_data = {
             "email": "user1@example.com",  # Duplicate email
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data)
+        headers = get_auth_headers(token)
+        response = client.put(f"{settings.API_STR}/users/admin/users/{user2.id}", json=update_data, headers=headers)
         assert response.status_code == 409, "Should return 409 Conflict for duplicate email"
         assert "already exists" in response.text

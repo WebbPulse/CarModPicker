@@ -8,7 +8,7 @@ while maintaining authentication-specific functionality.
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -31,16 +31,16 @@ from app.db.session import get_db
 router = APIRouter()
 
 
-@router.post("/token", response_model=UserRead)
+@router.post("/token")
 async def login_for_access_token(
-    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
-) -> DBUser:
+) -> dict[str, str | UserRead]:
     """
-    Authenticate user, set JWT token in an HTTP-only cookie, and return user details.
+    Authenticate user and return access token and user details.
     Takes form data: username and password.
+    Returns Bearer token in response body for standard OAuth2 flow.
     """
     user = db.query(DBUser).filter(DBUser.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -53,18 +53,12 @@ async def login_for_access_token(
     access_token_data = {"sub": user.username}
     access_token = create_access_token(data=access_token_data)
 
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,  # Crucial for security
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Cookie expiry in seconds
-        path="/",  # Cookie available for all paths
-        samesite="lax",  # Recommended for CSRF protection balance
-        secure=settings.secure_cookies,  # Use secure flag in production (HTTPS only)
-    )
-
     logger.info(f"User logged in successfully: {user.username}")
-    return user  # Return user information
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserRead.model_validate(user),
+    }
 
 
 @router.post("/verify-email")
@@ -227,17 +221,11 @@ async def reset_password_confirm(
 
 @router.post("/logout")
 async def logout(
-    response: Response,
     logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
-    """Logout user by clearing the access token cookie."""
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=settings.secure_cookies,  # Use secure flag in production (HTTPS only)
-    )
-
+    """
+    Logout endpoint for client-side token removal.
+    Note: With Bearer tokens, the client is responsible for removing the token from storage.
+    """
     logger.info("User logged out successfully")
     return {"message": "Logged out successfully"}
