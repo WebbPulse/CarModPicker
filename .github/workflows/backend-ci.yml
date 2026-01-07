@@ -61,10 +61,8 @@ jobs:
           bandit -r app -ll || true
           echo ""
           # Second pass: Only fail on medium/high severity issues
-          # -s MEDIUM: Only report and fail on medium/high severity issues
-          # This will exit with code 1 only if medium or high severity issues are found
           echo "=== Bandit Security Scan (Medium/High Severity - Failing) ==="
-          bandit -r app -s MEDIUM
+          bandit -r app -ll
 
       - name: Scan dependencies for vulnerabilities
         run: |
