@@ -1,4 +1,4 @@
-import axios, { type AxiosError } from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import type {
   AdminUserUpdate,
   BodyLoginForAccessToken,
@@ -68,11 +68,33 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
 });
 
+// Token storage key
+const TOKEN_STORAGE_KEY = 'access_token';
+
+// Get token from storage
+export const getStoredToken = (): string | null => {
+  return localStorage.getItem(TOKEN_STORAGE_KEY);
+};
+
+// Store token in localStorage
+export const setStoredToken = (token: string): void => {
+  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+};
+
+// Remove token from storage
+export const removeStoredToken = (): void => {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+};
+
+// Request interceptor to add Bearer token to all requests
 apiClient.interceptors.request.use(
   (config) => {
+    const token = getStoredToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -84,6 +106,13 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
+    // Check for new access token in response header (e.g., after username change)
+    const newToken = response.headers['x-new-access-token'] as
+      | string
+      | undefined;
+    if (newToken && typeof newToken === 'string') {
+      setStoredToken(newToken);
+    }
     return response;
   },
   (error: unknown) => {
@@ -462,10 +491,26 @@ export const subscriptionsApi = {
 
 // Auth API
 export const authApi = {
-  login: (data: BodyLoginForAccessToken) =>
-    apiClient.post<UserRead>('/auth/token', data, {
+  login: async (
+    data: BodyLoginForAccessToken
+  ): Promise<AxiosResponse<UserRead>> => {
+    const response = await apiClient.post<{
+      access_token: string;
+      token_type: string;
+      user: UserRead;
+    }>('/auth/token', data, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    }),
+    });
+    // Store the token
+    if (response.data.access_token) {
+      setStoredToken(response.data.access_token);
+    }
+    // Return response with user data as the main data field
+    return {
+      ...response,
+      data: response.data.user,
+    } as AxiosResponse<UserRead>;
+  },
   verifyEmail: (data: BodyVerifyEmail) =>
     apiClient.post<Record<string, string>>('/auth/verify-email', data),
   verifyEmailConfirm: (token: string) =>
@@ -479,7 +524,13 @@ export const authApi = {
       token,
       new_password: data,
     }),
-  logout: () => apiClient.post<Record<string, string>>('/auth/logout'),
+  logout: async () => {
+    const response =
+      await apiClient.post<Record<string, string>>('/auth/logout');
+    // Remove token from storage
+    removeStoredToken();
+    return response;
+  },
 };
 
 // Search API

@@ -6,11 +6,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 
 
-# Helper function to create a user and log them in (sets cookie on client)
-# This function is similar to the one in test_build_lists.py
+# Helper function to create a user and log them in (returns user_id and token)
 def create_and_login_user(
     client: TestClient, username_suffix: str, db_session: Session | None = None
-) -> int:  # Returns user_id
+) -> tuple[int, str]:  # Returns (user_id, token)
     username = f"car_test_user_{username_suffix}"
     email = f"car_test_user_{username_suffix}@example.com"
     password = "testpassword"
@@ -40,14 +39,19 @@ def create_and_login_user(
         response.raise_for_status()  # Raise an exception for other errors
 
     login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     if token_response.status_code != 200:
         raise Exception(
             f"Failed to log in user {username}. Status: {token_response.status_code}, Detail: {token_response.text}"
         )
 
+    token_data = token_response.json()
+    assert "access_token" in token_data
+    token = token_data["access_token"]
+
     if user_id == -1:  # If user existed and was not created, fetch ID
-        me_response = client.get(f"{settings.API_STR}/users/me")
+        headers = {"Authorization": f"Bearer {token}"}
+        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
         if me_response.status_code == 200:
             user_id = me_response.json()["id"]
         else:
@@ -55,17 +59,23 @@ def create_and_login_user(
 
     if user_id == -1:
         raise Exception(f"User ID for {username} could not be determined.")
-    return user_id
+    return (user_id, token)
+
+
+def get_auth_headers(token: str) -> dict[str, str]:
+    """Get Authorization headers with Bearer token."""
+    return {"Authorization": f"Bearer {token}"}
 
 
 # --- Test Cases ---
 
 
 def test_create_car_success(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "creator_car", db_session)  # Logs in user, client gets cookie
+    _, token = create_and_login_user(client, "creator_car", db_session)  # Returns user_id and token
+    headers = get_auth_headers(token)
 
     car_data = {"make": "Honda", "model": "Civic", "year": 2022, "trim": "Sport"}
-    response = client.post(f"{settings.API_STR}/cars/", json=car_data)  # Cookie sent automatically
+    response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
     assert response.status_code == 200, response.text
     created_car = response.json()
     assert created_car["make"] == car_data["make"]
@@ -82,9 +92,10 @@ def test_create_car_unauthenticated(client: TestClient, db_session: Session) -> 
 
 
 def test_read_car_success(client: TestClient, db_session: Session) -> None:
-    user_id = create_and_login_user(client, "reader_car", db_session)  # Returns user_id directly
+    user_id, token = create_and_login_user(client, "reader_car", db_session)  # Returns user_id and token
+    headers = get_auth_headers(token)
     car_data_payload = {"make": "Mazda", "model": "3", "year": 2020}
-    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data_payload)
+    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data_payload, headers=headers)
     assert create_response.status_code == 200
     car_id = create_response.json()["id"]
 
@@ -106,15 +117,16 @@ def test_read_car_not_found(client: TestClient, db_session: Session) -> None:
 
 
 def test_update_own_car_success(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "updater_car", db_session)  # Logs in, client gets cookie
+    _, token = create_and_login_user(client, "updater_car", db_session)
+    headers = get_auth_headers(token)
 
     initial_car_data = {"make": "Nissan", "model": "Altima", "year": 2019}
-    create_response = client.post(f"{settings.API_STR}/cars/", json=initial_car_data)
+    create_response = client.post(f"{settings.API_STR}/cars/", json=initial_car_data, headers=headers)
     assert create_response.status_code == 200
     car_id = create_response.json()["id"]
 
     update_payload = {"model": "Maxima", "year": 2020}
-    response = client.put(f"{settings.API_STR}/cars/{car_id}", json=update_payload)  # Cookie sent
+    response = client.put(f"{settings.API_STR}/cars/{car_id}", json=update_payload, headers=headers)
     assert response.status_code == 200, response.text
     updated_car = response.json()
     assert updated_car["model"] == update_payload["model"]
@@ -123,13 +135,14 @@ def test_update_own_car_success(client: TestClient, db_session: Session) -> None
 
 
 def test_update_car_unauthenticated(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "owner_for_update_unauth_car", db_session)
+    _, token = create_and_login_user(client, "owner_for_update_unauth_car", db_session)
+    headers = get_auth_headers(token)
     car_data = {"make": "Subaru", "model": "WRX", "year": 2021}
-    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
     assert create_response.status_code == 200
     car_id = create_response.json()["id"]
 
-    client.cookies.clear()  # Clear cookie for unauthenticated request
+    # Try to update without authentication
     update_payload = {"year": 2022}
     response = client.put(f"{settings.API_STR}/cars/{car_id}", json=update_payload)
     assert response.status_code == 401
@@ -137,67 +150,72 @@ def test_update_car_unauthenticated(client: TestClient, db_session: Session) -> 
 
 def test_update_other_users_car_forbidden(client: TestClient, db_session: Session) -> None:
     # User A creates a car
-    _ = create_and_login_user(client, "userA_car_owner", db_session)  # Client has User A's cookie
+    _, token_a = create_and_login_user(client, "userA_car_owner", db_session)
+    headers_a = get_auth_headers(token_a)
     car_data_a = {"make": "Ford", "model": "Focus", "year": 2018}
-    create_response_a = client.post(f"{settings.API_STR}/cars/", json=car_data_a)
+    create_response_a = client.post(f"{settings.API_STR}/cars/", json=car_data_a, headers=headers_a)
     assert create_response_a.status_code == 200
     car_id_a = create_response_a.json()["id"]
 
-    # User B logs in (client now has User B's cookie)
-    client.cookies.clear()
-    _ = create_and_login_user(client, "userB_car_attacker", db_session)
+    # User B logs in
+    _, token_b = create_and_login_user(client, "userB_car_attacker", db_session)
+    headers_b = get_auth_headers(token_b)
 
     update_payload = {"year": 2023}
     response = client.put(
-        f"{settings.API_STR}/cars/{car_id_a}", json=update_payload
+        f"{settings.API_STR}/cars/{car_id_a}", json=update_payload, headers=headers_b
     )  # User B tries to update User A's car
     assert response.status_code == 403  # Expect forbidden
     assert response.json()["message"] == "Not authorized to perform this action on this car"
 
 
 def test_delete_own_car_success(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "deleter_car", db_session)  # Logs in, client gets cookie
+    _, token = create_and_login_user(client, "deleter_car", db_session)
+    headers = get_auth_headers(token)
     car_data = {"make": "Kia", "model": "Stinger", "year": 2020}
-    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
     assert create_response.status_code == 200
     car_id = create_response.json()["id"]
 
-    response = client.delete(f"{settings.API_STR}/cars/{car_id}")  # Cookie sent
+    response = client.delete(f"{settings.API_STR}/cars/{car_id}", headers=headers)
     assert response.status_code == 200, response.text
     deleted_car_data = response.json()
     assert deleted_car_data["id"] == car_id
 
-    # Verify car is deleted
-    client.cookies.clear()  # Clear cookie to ensure public 404 if car is gone
+    # Verify car is deleted (public endpoint, no auth needed)
     get_response = client.get(f"{settings.API_STR}/cars/{car_id}")
     assert get_response.status_code == 404
 
 
 def test_delete_car_unauthenticated(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "owner_for_delete_unauth_car", db_session)
+    _, token = create_and_login_user(client, "owner_for_delete_unauth_car", db_session)
+    headers = get_auth_headers(token)
     car_data = {"make": "Hyundai", "model": "Elantra", "year": 2019}
-    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+    create_response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
     assert create_response.status_code == 200
     car_id = create_response.json()["id"]
 
-    client.cookies.clear()  # Clear cookie
+    # Try to delete without authentication
     response = client.delete(f"{settings.API_STR}/cars/{car_id}")
     assert response.status_code == 401
 
 
 def test_delete_other_users_car_forbidden(client: TestClient, db_session: Session) -> None:
     # User A creates a car
-    _ = create_and_login_user(client, "userA_car_owner_del", db_session)  # Client has User A's cookie
+    _, token_a = create_and_login_user(client, "userA_car_owner_del", db_session)
+    headers_a = get_auth_headers(token_a)
     car_data_a = {"make": "BMW", "model": "M3", "year": 2021}
-    create_response_a = client.post(f"{settings.API_STR}/cars/", json=car_data_a)
+    create_response_a = client.post(f"{settings.API_STR}/cars/", json=car_data_a, headers=headers_a)
     assert create_response_a.status_code == 200
     car_id_a = create_response_a.json()["id"]
 
     # User B logs in
-    client.cookies.clear()
-    _ = create_and_login_user(client, "userB_car_deleter_attacker", db_session)  # Client has User B's cookie
+    _, token_b = create_and_login_user(client, "userB_car_deleter_attacker", db_session)
+    headers_b = get_auth_headers(token_b)
 
-    response = client.delete(f"{settings.API_STR}/cars/{car_id_a}")  # User B tries to delete User A's car
+    response = client.delete(
+        f"{settings.API_STR}/cars/{car_id_a}", headers=headers_b
+    )  # User B tries to delete User A's car
     assert response.status_code == 403
     # The delete endpoint uses the base router which returns a different message
     assert "Not authorized" in response.json()["message"]
@@ -205,16 +223,18 @@ def test_delete_other_users_car_forbidden(client: TestClient, db_session: Sessio
 
 
 def test_update_car_not_found(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "updater_car_notfound", db_session)  # Sets cookie
+    _, token = create_and_login_user(client, "updater_car_notfound", db_session)
+    headers = get_auth_headers(token)
     update_payload = {"make": "NonExistent"}
-    response = client.put(f"{settings.API_STR}/cars/888888", json=update_payload)  # Uses cookie
+    response = client.put(f"{settings.API_STR}/cars/888888", json=update_payload, headers=headers)
     assert response.status_code == 404
     assert response.json()["message"] == "Car not found"
 
 
 def test_delete_car_not_found(client: TestClient, db_session: Session) -> None:
-    _ = create_and_login_user(client, "deleter_car_notfound", db_session)  # Sets cookie
-    response = client.delete(f"{settings.API_STR}/cars/777777")  # Uses cookie, Non-existent ID
+    _, token = create_and_login_user(client, "deleter_car_notfound", db_session)
+    headers = get_auth_headers(token)
+    response = client.delete(f"{settings.API_STR}/cars/777777", headers=headers)  # Non-existent ID
     assert response.status_code == 404
     assert response.json()["message"] == "Car not found"
 
@@ -224,12 +244,13 @@ def test_delete_car_not_found(client: TestClient, db_session: Session) -> None:
 
 def test_read_cars_by_user_success(client: TestClient, db_session: Session) -> None:
     # Create a user and log them in to create cars
-    user_id = create_and_login_user(client, "car_owner_for_list", db_session)  # Returns user_id directly
+    user_id, token = create_and_login_user(client, "car_owner_for_list", db_session)
+    headers = get_auth_headers(token)
 
     # Create a car for this user (reduced to 1 to avoid subscription limits)
     car_data1 = {"make": "Toyota", "model": "Supra", "year": 1998}
 
-    response1 = client.post(f"{settings.API_STR}/cars/", json=car_data1)  # Uses cookie
+    response1 = client.post(f"{settings.API_STR}/cars/", json=car_data1, headers=headers)
     assert response1.status_code == 200
     car_id1 = response1.json()["id"]
 
@@ -255,10 +276,9 @@ def test_read_cars_by_user_success(client: TestClient, db_session: Session) -> N
 
 def test_read_cars_by_user_no_cars(client: TestClient, db_session: Session) -> None:
     # Create a user but no cars for them
-    user_id = create_and_login_user(client, "car_owner_no_cars", db_session)  # Returns user_id directly
+    user_id, _ = create_and_login_user(client, "car_owner_no_cars", db_session)
 
-    # Clear cookies as the endpoint is public
-    client.cookies.clear()
+    # Endpoint is public, no auth needed
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}")
     assert response.status_code == 200, response.text
 
@@ -283,7 +303,8 @@ def test_read_cars_by_user_non_existent_user(client: TestClient, db_session: Ses
 def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -> None:
     """Test pagination for cars by user."""
     # Create a user and log them in to create cars
-    user_id = create_and_login_user(client, "car_owner_for_pagination", db_session)  # Returns user_id directly
+    user_id, token = create_and_login_user(client, "car_owner_for_pagination", db_session)
+    headers = get_auth_headers(token)
 
     # Create multiple cars for this user (reduced to 2 to avoid subscription limits)
     car_ids: List[int] = []
@@ -293,12 +314,11 @@ def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -
             "model": f"Model{i}",
             "year": 2000 + i,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car_ids.append(response.json()["id"])
 
-    # Clear cookies as the endpoint is public
-    client.cookies.clear()
+    # Endpoint is public, no auth needed
 
     # Test first page (limit=1, skip=0)
     response = client.get(f"{settings.API_STR}/cars/user/{user_id}?limit=1&skip=0")
@@ -333,26 +353,26 @@ def test_read_cars_by_user_pagination(client: TestClient, db_session: Session) -
 def test_get_cars_by_make_success(client: TestClient, db_session: Session) -> None:
     """Test getting cars by make."""
     # Create a user and add multiple cars
-    _ = create_and_login_user(client, "car_make_user", db_session)
+    _, token = create_and_login_user(client, "car_make_user", db_session)
+    headers = get_auth_headers(token)
 
     # Create Toyota cars
     toyota1_data = {"make": "Toyota", "model": "Camry", "year": 2020}
     toyota2_data = {"make": "Toyota", "model": "Corolla", "year": 2021}
     honda_data = {"make": "Honda", "model": "Civic", "year": 2020}
 
-    toyota1_response = client.post(f"{settings.API_STR}/cars/", json=toyota1_data)
+    toyota1_response = client.post(f"{settings.API_STR}/cars/", json=toyota1_data, headers=headers)
     assert toyota1_response.status_code == 200
     toyota1_id = toyota1_response.json()["id"]
 
-    toyota2_response = client.post(f"{settings.API_STR}/cars/", json=toyota2_data)
+    toyota2_response = client.post(f"{settings.API_STR}/cars/", json=toyota2_data, headers=headers)
     assert toyota2_response.status_code == 200
     toyota2_id = toyota2_response.json()["id"]
 
-    honda_response = client.post(f"{settings.API_STR}/cars/", json=honda_data)
+    honda_response = client.post(f"{settings.API_STR}/cars/", json=honda_data, headers=headers)
     assert honda_response.status_code == 200
 
-    # Clear cookies for public endpoint access
-    client.cookies.clear()
+    # Endpoint is public, no auth needed
 
     # Get cars by make "Toyota"
     response = client.get(f"{settings.API_STR}/cars/make/Toyota")
@@ -384,13 +404,14 @@ def test_get_cars_by_make_no_results(client: TestClient, db_session: Session) ->
 
 def test_get_cars_by_make_pagination(client: TestClient, db_session: Session) -> None:
     """Test pagination for cars by make."""
-    _ = create_and_login_user(client, "car_make_pagination_user", db_session)
+    _, token = create_and_login_user(client, "car_make_pagination_user", db_session)
+    headers = get_auth_headers(token)
 
     # Create multiple Ford cars
     ford_ids: List[int] = []
     for i in range(2):
         ford_data = {"make": "Ford", "model": f"Model{i}", "year": 2020 + i}
-        response = client.post(f"{settings.API_STR}/cars/", json=ford_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=ford_data, headers=headers)
         assert response.status_code == 200
         ford_ids.append(response.json()["id"])
 
@@ -409,22 +430,23 @@ def test_get_cars_by_make_pagination(client: TestClient, db_session: Session) ->
 
 def test_get_cars_by_year_success(client: TestClient, db_session: Session) -> None:
     """Test getting cars by year."""
-    _ = create_and_login_user(client, "car_year_user", db_session)
+    _, token = create_and_login_user(client, "car_year_user", db_session)
+    headers = get_auth_headers(token)
 
     # Create cars with specific years
     car_2020_1_data = {"make": "Toyota", "model": "Camry", "year": 2020}
     car_2020_2_data = {"make": "Honda", "model": "Civic", "year": 2020}
     car_2021_data = {"make": "Ford", "model": "Focus", "year": 2021}
 
-    car_2020_1_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_1_data)
+    car_2020_1_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_1_data, headers=headers)
     assert car_2020_1_response.status_code == 200
     car_2020_1_id = car_2020_1_response.json()["id"]
 
-    car_2020_2_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_2_data)
+    car_2020_2_response = client.post(f"{settings.API_STR}/cars/", json=car_2020_2_data, headers=headers)
     assert car_2020_2_response.status_code == 200
     car_2020_2_id = car_2020_2_response.json()["id"]
 
-    car_2021_response = client.post(f"{settings.API_STR}/cars/", json=car_2021_data)
+    car_2021_response = client.post(f"{settings.API_STR}/cars/", json=car_2021_data, headers=headers)
     assert car_2021_response.status_code == 200
 
     client.cookies.clear()
@@ -462,17 +484,18 @@ def test_get_cars_by_year_no_results(client: TestClient, db_session: Session) ->
 
 def test_search_cars_by_make(client: TestClient, db_session: Session) -> None:
     """Test searching cars by make."""
-    _ = create_and_login_user(client, "car_search_user", db_session)
+    _, token = create_and_login_user(client, "car_search_user", db_session)
+    headers = get_auth_headers(token)
 
     # Create cars with searchable names
     tesla_data = {"make": "Tesla", "model": "Model 3", "year": 2021}
     toyota_data = {"make": "Toyota", "model": "Corolla", "year": 2020}
 
-    tesla_response = client.post(f"{settings.API_STR}/cars/", json=tesla_data)
+    tesla_response = client.post(f"{settings.API_STR}/cars/", json=tesla_data, headers=headers)
     assert tesla_response.status_code == 200
     tesla_id = tesla_response.json()["id"]
 
-    client.post(f"{settings.API_STR}/cars/", json=toyota_data)
+    client.post(f"{settings.API_STR}/cars/", json=toyota_data, headers=headers)
 
     client.cookies.clear()
 
@@ -491,11 +514,12 @@ def test_search_cars_by_make(client: TestClient, db_session: Session) -> None:
 
 def test_search_cars_by_model(client: TestClient, db_session: Session) -> None:
     """Test searching cars by model."""
-    _ = create_and_login_user(client, "car_search_model_user", db_session)
+    _, token = create_and_login_user(client, "car_search_model_user", db_session)
+    headers = get_auth_headers(token)
 
     # Create cars with specific models
     car_data = {"make": "BMW", "model": "M3", "year": 2022}
-    car_response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+    car_response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
     assert car_response.status_code == 200
     car_id = car_response.json()["id"]
 
@@ -542,7 +566,8 @@ def test_get_car_make_stats(client: TestClient, db_session: Session) -> None:
     import os
 
     # Login as test user
-    _ = create_and_login_user(client, f"stats_test_make_{os.getpid()}", db_session)
+    _, token = create_and_login_user(client, f"stats_test_make_{os.getpid()}", db_session)
+    headers = get_auth_headers(token)
 
     # Create cars with different makes
     car_data_honda1 = {
@@ -562,9 +587,9 @@ def test_get_car_make_stats(client: TestClient, db_session: Session) -> None:
     }
 
     # Create the cars
-    client.post(f"{settings.API_STR}/cars/", json=car_data_honda1)
-    client.post(f"{settings.API_STR}/cars/", json=car_data_honda2)
-    client.post(f"{settings.API_STR}/cars/", json=car_data_toyota)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_honda1, headers=headers)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_honda2, headers=headers)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_toyota, headers=headers)
 
     # Get make statistics
     response = client.get(f"{settings.API_STR}/cars/stats/makes")
@@ -581,7 +606,8 @@ def test_get_car_year_stats(client: TestClient, db_session: Session) -> None:
     import os
 
     # Login as test user
-    _ = create_and_login_user(client, f"stats_test_year_{os.getpid()}", db_session)
+    _, token = create_and_login_user(client, f"stats_test_year_{os.getpid()}", db_session)
+    headers = get_auth_headers(token)
 
     # Create cars with different years
     car_data_2020 = {
@@ -601,9 +627,9 @@ def test_get_car_year_stats(client: TestClient, db_session: Session) -> None:
     }
 
     # Create the cars
-    client.post(f"{settings.API_STR}/cars/", json=car_data_2020)
-    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_1)
-    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_2)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2020, headers=headers)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_1, headers=headers)
+    client.post(f"{settings.API_STR}/cars/", json=car_data_2021_2, headers=headers)
 
     # Get year statistics
     response = client.get(f"{settings.API_STR}/cars/stats/years")

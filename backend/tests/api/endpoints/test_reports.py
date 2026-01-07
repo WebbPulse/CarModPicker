@@ -45,6 +45,8 @@ class TestUnifiedReports:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -53,7 +55,7 @@ class TestUnifiedReports:
             "year": 2022,
             "trim": "Sport",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -61,6 +63,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -70,6 +74,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -109,13 +114,17 @@ class TestUnifiedReports:
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
         build_list = response.json()
 
@@ -123,6 +132,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -132,6 +143,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -179,6 +191,8 @@ class TestUnifiedReports:
         login_data = {"username": part_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        part_owner_token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {part_owner_token}"}
 
         # Create a global part
         part_data = {
@@ -187,7 +201,7 @@ class TestUnifiedReports:
             "category_id": category.id,
             "price": 9999,  # price in cents (99.99)
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -195,6 +209,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -204,6 +220,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/global_part/{part['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
@@ -231,13 +248,15 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to report non-existent entity
         report_data = {
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/99999", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/car/99999", json=report_data, headers=headers)
         assert response.status_code == 404
 
     def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -246,6 +265,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Create a car owned by the test user
         car_data = {
@@ -254,7 +275,7 @@ class TestUnifiedReports:
             "year": 2021,
             "trim": "SE",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -263,7 +284,7 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This car contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data, headers=headers)
         assert response.status_code == 400
         assert "cannot report your own" in response.json()["message"]
 
@@ -290,6 +311,8 @@ class TestUnifiedReports:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -298,7 +321,7 @@ class TestUnifiedReports:
             "year": 2023,
             "trim": "GT",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -306,6 +329,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create first report
         report_data = {
@@ -315,6 +340,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
@@ -326,6 +352,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 400
         assert "already reported" in response.json()["message"]
@@ -336,9 +363,11 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to list reports
-        response = client.get(f"{settings.API_STR}/reports/admin/list")
+        response = client.get(f"{settings.API_STR}/reports/admin/list", headers=headers)
         assert response.status_code == 403
 
     def test_list_reports_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -347,9 +376,11 @@ class TestUnifiedReports:
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # List reports
-        response = client.get(f"{settings.API_STR}/reports/admin/list")
+        response = client.get(f"{settings.API_STR}/reports/admin/list", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
@@ -359,9 +390,11 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Get my reports
-        response = client.get(f"{settings.API_STR}/reports/my-reports")
+        response = client.get(f"{settings.API_STR}/reports/my-reports", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
@@ -388,6 +421,8 @@ class TestUnifiedReports:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -396,7 +431,7 @@ class TestUnifiedReports:
             "year": 2022,
             "trim": "SS",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -404,6 +439,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -413,12 +450,13 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
         report = response.json()
 
         # Get the report by ID
-        response = client.get(f"{settings.API_STR}/reports/{report['id']}")
+        response = client.get(f"{settings.API_STR}/reports/{report['id']}", headers=test_user_headers)
         assert response.status_code == 200
         retrieved_report = response.json()
         assert retrieved_report["id"] == report["id"]
@@ -430,9 +468,11 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to get non-existent report
-        response = client.get(f"{settings.API_STR}/reports/99999")
+        response = client.get(f"{settings.API_STR}/reports/99999", headers=headers)
         assert response.status_code == 404
 
     def test_update_report_status_admin_only(self, client: TestClient, test_user: User) -> None:
@@ -441,10 +481,12 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to update report status
         update_data = {"status": "resolved", "admin_notes": "Issue resolved"}
-        response = client.put(f"{settings.API_STR}/reports/1", json=update_data)
+        response = client.put(f"{settings.API_STR}/reports/1", json=update_data, headers=headers)
         assert response.status_code == 403
 
     def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -470,6 +512,8 @@ class TestUnifiedReports:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -478,7 +522,7 @@ class TestUnifiedReports:
             "year": 2023,
             "trim": "Premium",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -500,6 +544,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -509,6 +555,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
         report = response.json()
@@ -517,9 +564,11 @@ class TestUnifiedReports:
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        admin_token = response.json()["access_token"]
+        admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
         update_data = {"status": "resolved", "admin_notes": "Issue resolved"}
-        response = client.put(f"{settings.API_STR}/reports/{report['id']}", json=update_data)
+        response = client.put(f"{settings.API_STR}/reports/{report['id']}", json=update_data, headers=admin_headers)
         assert response.status_code == 200
         updated_report = response.json()
         assert updated_report["status"] == "resolved"
@@ -531,9 +580,11 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to delete report
-        response = client.delete(f"{settings.API_STR}/reports/1")
+        response = client.delete(f"{settings.API_STR}/reports/1", headers=headers)
         assert response.status_code == 403
 
     def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -559,6 +610,8 @@ class TestUnifiedReports:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -567,7 +620,7 @@ class TestUnifiedReports:
             "year": 2022,
             "trim": "AMG",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -589,6 +642,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Create a report
         report_data = {
@@ -598,6 +653,7 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/car/{car['id']}",
             json=report_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
         report = response.json()
@@ -606,8 +662,10 @@ class TestUnifiedReports:
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        admin_token = response.json()["access_token"]
+        admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
-        response = client.delete(f"{settings.API_STR}/reports/{report['id']}")
+        response = client.delete(f"{settings.API_STR}/reports/{report['id']}", headers=admin_headers)
         assert response.status_code == 200
         assert response.json()["message"] == "Report deleted successfully"
 
@@ -617,13 +675,15 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to report with invalid entity type
         report_data = {
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/invalid_type/1", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/invalid_type/1", json=report_data, headers=headers)
         assert response.status_code == 422  # Validation error
 
     def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -632,6 +692,8 @@ class TestUnifiedReports:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Create a car
         car_data = {
@@ -640,7 +702,7 @@ class TestUnifiedReports:
             "year": 2023,
             "trim": "Performance",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -649,5 +711,5 @@ class TestUnifiedReports:
             "reason": "invalid_reason",
             "description": "This car has an invalid reason",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data, headers=headers)
         assert response.status_code == 422  # Validation error

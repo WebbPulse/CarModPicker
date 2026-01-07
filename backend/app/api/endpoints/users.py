@@ -31,7 +31,6 @@ from app.api.services.user_service import UserService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
 
@@ -178,22 +177,15 @@ async def update_user(
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
         if username_changed:
-            logger.info(f"Username for user {user_id} changed to '{db_user.username}'. " f"Issuing new access token.")
-            # Create a new access token with the new username
+            logger.info(
+                f"Username for user {user_id} changed to '{db_user.username}'. "
+                f"Client should re-authenticate to get new token."
+            )
+            # Note: With Bearer tokens, client should re-login to get a new token with updated username
+            # Return new token in response header for convenience
             new_access_token_data = {"sub": db_user.username}
             new_access_token = create_access_token(data=new_access_token_data)
-
-            # Set the new token in an HTTP-only cookie
-            response.set_cookie(
-                key="access_token",
-                value=new_access_token,
-                httponly=True,
-                max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-                path="/",
-                samesite="lax",
-                # TODO: Change to True in production if served over HTTPS
-                secure=settings.secure_cookies,  # Use secure flag in production (HTTPS only)
-            )
+            response.headers["X-New-Access-Token"] = new_access_token
 
     except IntegrityError as e:
         db.rollback()

@@ -263,14 +263,16 @@ def get_default_category_id(db_session: Session) -> int:
     return category.id
 
 
-def login_user(client: TestClient, username: str, password: str = "testpassword") -> None:
-    """Login a user and set the authentication cookie for subsequent requests."""
+def login_user(client: TestClient, username: str, password: str = "testpassword") -> str:
+    """Login a user and return the Bearer token for use in Authorization headers."""
     from app.core.config import settings
 
     login_data = {"username": username, "password": password}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 200
-    # The cookie is automatically set by the response
+    response_data = response.json()
+    assert "access_token" in response_data
+    return response_data["access_token"]
 
 
 def create_and_login_user(
@@ -315,7 +317,7 @@ def create_and_login_user(
             user.email_verified = True
             db_session.commit()
 
-    # Login
+    # Login (token is returned but not stored - tests should use it explicitly)
     login_user(client, username, password_override)
 
     return user_data_response

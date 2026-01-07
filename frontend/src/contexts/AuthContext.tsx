@@ -1,8 +1,8 @@
 // filepath: src/contexts/AuthContext.tsx
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../services/Api';
+import apiClient, { authApi, removeStoredToken } from '../services/Api';
 import type { UserRead } from '../types/Api';
 import { AuthContext } from './AuthContextDefinition';
 
@@ -29,6 +29,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       console.info('User not authenticated or failed to fetch status:', error);
       setUser(null);
       setIsAuthenticated(false);
+      // Clear invalid token on 401
+      if (
+        (error as { response?: { status?: number } }).response?.status === 401
+      ) {
+        removeStoredToken();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -46,9 +52,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await apiClient.post('/auth/logout');
+      await authApi.logout();
     } catch (error) {
       console.error('Logout failed:', error);
+      // Clear token even if logout API call fails
+      removeStoredToken();
     } finally {
       setUser(null);
       setIsAuthenticated(false);

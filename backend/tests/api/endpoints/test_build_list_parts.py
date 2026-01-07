@@ -16,13 +16,19 @@ def get_unique_name(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
+def get_auth_headers(token: str) -> dict[str, str]:
+    """Get Authorization headers with Bearer token."""
+    return {"Authorization": f"Bearer {token}"}
+
+
 class TestBuildListParts:
     """Test cases for build list parts endpoints."""
 
     def test_add_part_to_build_list_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test successfully adding a part to a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -30,7 +36,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         if response.status_code != 200:
             print(f"Car creation failed: {response.status_code} - {response.json()}")
         assert response.status_code == 200
@@ -42,7 +48,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -53,7 +59,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -64,6 +70,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -88,8 +95,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a non-existent build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a global part
         part_data = {
@@ -98,7 +106,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -109,13 +117,15 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/99999/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 404
 
     def test_add_part_to_build_list_part_not_found(self, client: TestClient, test_user: User) -> None:
         """Test adding a non-existent part to a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -123,7 +133,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -133,7 +143,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -144,6 +154,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 404
 
@@ -151,8 +162,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a build list without providing quantity."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -160,7 +172,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -170,7 +182,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -181,7 +193,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -192,6 +204,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -199,8 +212,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a build list with invalid quantity."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -208,7 +222,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -218,7 +232,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -229,7 +243,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -240,6 +254,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -247,8 +262,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a duplicate part to a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -256,7 +272,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -266,7 +282,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -277,7 +293,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -288,6 +304,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -295,13 +312,15 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 409
 
     def test_get_build_list_parts_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test getting parts from a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -309,7 +328,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -319,7 +338,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -330,7 +349,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -342,11 +361,12 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
         # Get parts from build list
-        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}")
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -359,11 +379,12 @@ class TestBuildListParts:
 
     def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting parts from a non-existent build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Try to get parts from non-existent build list
-        response = client.get(f"{settings.API_STR}/build-list-parts/99999")
+        response = client.get(f"{settings.API_STR}/build-list-parts/99999", headers=headers)
         assert response.status_code == 404
 
     def test_get_build_list_parts_unauthorized(self, client: TestClient) -> None:
@@ -374,8 +395,9 @@ class TestBuildListParts:
 
     def test_update_build_list_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test updating a build list part."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -383,7 +405,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -393,7 +415,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -404,7 +426,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -416,6 +438,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
         build_list_part = response.json()
@@ -428,6 +451,7 @@ class TestBuildListParts:
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
             json=update_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -438,15 +462,16 @@ class TestBuildListParts:
 
     def test_update_build_list_part_not_found(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list part that doesn't exist."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Try to update a build list part that doesn't exist
         update_data = {
             "quantity": 3,
             "notes": "Updated notes",
         }
-        response = client.put(f"{settings.API_STR}/build-list-parts/99999", json=update_data)
+        response = client.put(f"{settings.API_STR}/build-list-parts/99999", json=update_data, headers=headers)
         assert response.status_code == 404
 
     def test_update_build_list_part_unauthorized(self, client: TestClient) -> None:
@@ -463,8 +488,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test updating a build list part with invalid quantity."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -472,7 +498,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -482,7 +508,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -493,7 +519,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -506,6 +532,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
         build_list_part = response.json()
@@ -518,6 +545,7 @@ class TestBuildListParts:
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
             json=update_data,
+            headers=headers,
         )
         assert response.status_code == 422
 
@@ -525,8 +553,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test removing a part from a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -534,7 +563,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -544,7 +573,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -555,7 +584,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -567,27 +596,29 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
         build_list_part = response.json()
 
         # Remove the part
-        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list_part['id']}")
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list_part['id']}", headers=headers)
         assert response.status_code == 200
 
         # Verify the part was removed
-        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}")
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 0
 
     def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test removing a build list part that doesn't exist."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Try to remove a build list part that doesn't exist
-        response = client.delete(f"{settings.API_STR}/build-list-parts/99999")
+        response = client.delete(f"{settings.API_STR}/build-list-parts/99999", headers=headers)
         assert response.status_code == 404
 
     def test_remove_part_from_build_list_unauthorized(self, client: TestClient) -> None:
@@ -600,8 +631,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a build list with extra fields in the request."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -609,7 +641,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -619,7 +651,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -630,7 +662,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -643,6 +675,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -655,17 +688,16 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a build list with malformed JSON."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -676,15 +708,17 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
         # Try to add part with malformed JSON
+        auth_headers = headers.copy()
+        auth_headers["Content-Type"] = "application/json"
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             content="invalid json",
-            headers={"Content-Type": "application/json"},
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
@@ -692,8 +726,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test adding a part to a build list with wrong content type."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -701,7 +736,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -711,7 +746,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -722,7 +757,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -731,10 +766,12 @@ class TestBuildListParts:
             "quantity": 1,
             "notes": "Test notes",
         }
+        auth_headers = headers.copy()
+        auth_headers["Content-Type"] = "text/plain"
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             content=str(build_list_part_data).encode(),
-            headers={"Content-Type": "text/plain"},
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
@@ -742,8 +779,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test updating a build list part with extra fields in the request."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -751,7 +789,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -761,7 +799,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -772,7 +810,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -784,6 +822,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
         build_list_part = response.json()
@@ -797,6 +836,7 @@ class TestBuildListParts:
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
             json=update_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -808,57 +848,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test updating a build list part with malformed JSON."""
-        # Login as test user
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-
-        # Create a build list
-        build_list_data = {
-            "name": get_unique_name("test_build_list"),
-            "description": "A test build list description",
-        }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
-        assert response.status_code == 200
-        build_list = response.json()
-
-        # Create a global part
-        part_data = {
-            "name": get_unique_name("test_part"),
-            "description": "A test part description",
-            "price": 9999,
-            "category_id": test_category.id,
-        }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
-        assert response.status_code == 200
-        global_part = response.json()
-
-        # Add part to build list
-        build_list_part_data = {
-            "quantity": 1,
-            "notes": "Test notes",
-        }
-        response = client.post(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
-            json=build_list_part_data,
-        )
-        assert response.status_code == 200
-        build_list_part = response.json()
-
-        # Try to update with malformed JSON
-        response = client.put(
-            f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
-            content="invalid json",
-            headers={"Content-Type": "application/json"},
-        )
-        assert response.status_code == 422
-
-    def test_update_build_list_part_with_wrong_content_type(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
-        """Test updating a build list part with wrong content type."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -866,7 +858,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -876,7 +868,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -887,7 +879,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -899,6 +891,69 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+        build_list_part = response.json()
+
+        # Try to update with malformed JSON
+        auth_headers = headers.copy()
+        auth_headers["Content-Type"] = "application/json"
+        response = client.put(
+            f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
+            content="invalid json",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+
+    def test_update_build_list_part_with_wrong_content_type(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test updating a build list part with wrong content type."""
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first
+        car_data = {
+            "make": "Toyota",
+            "model": "Camry",
+            "year": 2020,
+        }
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
+        assert response.status_code == 200
+        car = response.json()
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Add part to build list
+        build_list_part_data = {
+            "quantity": 1,
+            "notes": "Test notes",
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
         build_list_part = response.json()
@@ -908,10 +963,12 @@ class TestBuildListParts:
             "quantity": 3,
             "notes": "Updated notes",
         }
+        auth_headers = headers.copy()
+        auth_headers["Content-Type"] = "text/plain"
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list_part['id']}",
             content=str(update_data).encode(),
-            headers={"Content-Type": "text/plain"},
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
@@ -952,7 +1009,8 @@ class TestBuildListParts:
         db_session.refresh(test_user)
 
         # Login as test user (this should work since email verification is checked later)
-        login_user(client, test_user.username)
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -960,7 +1018,7 @@ class TestBuildListParts:
             "model": "Camry",
             "year": 2020,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 401  # Should fail due to unverified email
 
         # The test demonstrates that unverified email users cannot access protected endpoints
@@ -969,8 +1027,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test creating a global part and adding it to a build list in one operation."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -978,7 +1037,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -988,7 +1047,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -1003,6 +1062,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/create-and-add-part",
             json=part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -1016,8 +1076,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test getting global parts from a build list with full part details."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -1025,7 +1086,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -1035,7 +1096,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -1046,7 +1107,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -1058,11 +1119,12 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
         # Get global parts with full details
-        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts")
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -1078,8 +1140,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test updating a global part in a build list by build_list_id and global_part_id."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -1087,7 +1150,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -1097,7 +1160,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -1108,7 +1171,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -1120,6 +1183,7 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -1131,6 +1195,7 @@ class TestBuildListParts:
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=update_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -1140,8 +1205,9 @@ class TestBuildListParts:
 
     def test_update_global_part_in_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test updating a non-existent global part in a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -1149,7 +1215,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -1159,7 +1225,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -1171,6 +1237,7 @@ class TestBuildListParts:
         response = client.put(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999",
             json=update_data,
+            headers=headers,
         )
         assert response.status_code == 404
 
@@ -1178,8 +1245,9 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category
     ) -> None:
         """Test removing a global part from a build list by build_list_id and global_part_id."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -1187,7 +1255,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -1197,7 +1265,7 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
@@ -1208,7 +1276,7 @@ class TestBuildListParts:
             "price": 9999,
             "category_id": test_category.id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         global_part = response.json()
 
@@ -1220,25 +1288,28 @@ class TestBuildListParts:
         response = client.post(
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
             json=build_list_part_data,
+            headers=headers,
         )
         assert response.status_code == 200
 
         # Remove the global part using build_list_id and global_part_id
         response = client.delete(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}"
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            headers=headers,
         )
         assert response.status_code == 200
 
         # Verify the part was removed
-        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}")
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 0
 
     def test_remove_global_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test removing a non-existent global part from a build list."""
-        # Login as test user
-        login_user(client, test_user.username)
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
 
         # Create a car first
         car_data = {
@@ -1246,7 +1317,7 @@ class TestBuildListParts:
             "model": "Accord",
             "year": 2021,
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -1256,10 +1327,12 @@ class TestBuildListParts:
             "description": "A test build list description",
             "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         build_list = response.json()
 
         # Try to remove non-existent part
-        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999")
+        response = client.delete(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999", headers=headers
+        )
         assert response.status_code == 404

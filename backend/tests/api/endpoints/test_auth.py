@@ -32,7 +32,7 @@ def create_test_user_direct_db(db: Session, username: str, email: str, password:
 
 
 def test_login_for_access_token_success(client: TestClient) -> None:
-    username = get_unique_username("auth_test_user_cookie")  # Ensure unique username for test
+    username = get_unique_username("auth_test_user")  # Ensure unique username for test
     password = "auth_test_password"
     email = f"{username}@example.com"
 
@@ -42,49 +42,47 @@ def test_login_for_access_token_success(client: TestClient) -> None:
     assert create_user_response.status_code == 200, f"Failed to create user for auth test: {create_user_response.text}"
 
     login_data = {"username": username, "password": password}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
+    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 200, response.text
 
-    # 1. Check for the cookie
-    assert "access_token" in response.cookies
-    access_token_cookie_value = response.cookies.get("access_token")
-    assert access_token_cookie_value is not None
-
-    # 2. Check cookie attributes by parsing the Set-Cookie header
-    # Note: httpx.Cookies (used by TestClient) doesn't directly expose all attributes like HttpOnly easily.
-    # Parsing the header is a reliable way.
-    set_cookie_header = response.headers.get("set-cookie")
-    assert set_cookie_header is not None
-    assert "access_token=" in set_cookie_header
-    assert "HttpOnly" in set_cookie_header
-    assert "Path=/" in set_cookie_header
-    assert f"Max-Age={settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60}" in set_cookie_header
-    assert "SameSite=lax" in set_cookie_header  # Or your configured samesite policy
-    # 'secure' attribute is not set in your current /token endpoint logic for non-HTTPS dev
-    assert "Secure" not in set_cookie_header
-
-    # 3. Check the response body for user details (UserRead schema)
+    # Check the response body for Bearer token and user details (OAuth2 standard)
     response_data = response.json()
-    assert response_data["username"] == username
-    assert response_data["email"] == email
-    assert "id" in response_data
-    assert isinstance(response_data["id"], int)  # or str, depending on your UserRead schema for id
-    assert response_data["disabled"] is False
-    assert "hashed_password" not in response_data  # Ensure password is not returned
-    assert "access_token" not in response_data  # Ensure token is not in body
-    assert "token_type" not in response_data  # Ensure token_type is not in body
+
+    # 1. Check for Bearer token in response body
+    assert "access_token" in response_data
+    assert "token_type" in response_data
+    assert response_data["token_type"] == "bearer"
+    access_token = response_data["access_token"]
+    assert access_token is not None
+    assert len(access_token) > 0
+
+    # 2. Check for user details in response body
+    assert "user" in response_data
+    user_data_response = response_data["user"]
+    assert user_data_response["username"] == username
+    assert user_data_response["email"] == email
+    assert "id" in user_data_response
+    assert isinstance(user_data_response["id"], int)
+    assert user_data_response["disabled"] is False
+    assert "hashed_password" not in user_data_response  # Ensure password is not returned
+
+    # 3. Ensure no cookie is set (Bearer token approach)
+    assert "access_token" not in response.cookies
 
 
 def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
-    login_data = {"username": "wronguser_cookie", "password": "password123"}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
+    login_data = {"username": "wronguser", "password": "password123"}
+    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 401
     assert response.json()["message"] == "Incorrect username or password"
-    assert "access_token" not in response.cookies  # Check no cookie is set
+    # Check no token is returned in response body
+    response_data = response.json()
+    assert "access_token" not in response_data
+    assert "access_token" not in response.cookies
 
 
 def test_login_for_access_token_incorrect_password(client: TestClient, db_session: Session) -> None:
-    username = get_unique_username("auth_test_user_wrong_pass_cookie")  # Ensure unique username
+    username = get_unique_username("auth_test_user_wrong_pass")  # Ensure unique username
     password = "correct_password"
     email = f"{username}@example.com"
 
@@ -93,14 +91,17 @@ def test_login_for_access_token_incorrect_password(client: TestClient, db_sessio
     assert create_response.status_code == 200, f"User creation failed: {create_response.text}"
 
     login_data = {"username": username, "password": "wrong_password"}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
+    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 401
     assert response.json()["message"] == "Incorrect username or password"
-    assert "access_token" not in response.cookies  # Check no cookie is set
+    # Check no token is returned in response body
+    response_data = response.json()
+    assert "access_token" not in response_data
+    assert "access_token" not in response.cookies
 
 
 def test_login_for_access_token_disabled_user(client: TestClient, db_session: Session) -> None:
-    username = get_unique_username("disabled_user_cookie")  # Ensure unique username
+    username = get_unique_username("disabled_user")  # Ensure unique username
     password = "password123"
     email = f"{username}@example.com"
 
@@ -109,33 +110,33 @@ def test_login_for_access_token_disabled_user(client: TestClient, db_session: Se
     assert create_response.status_code == 200, f"User creation failed: {create_response.text}"
     user_id = create_response.json()["id"]
 
-    # Log in as the user. The cookie will be set in the client for subsequent requests.
+    # Log in as the user to get Bearer token
     login_data_for_session = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data_for_session)  # Changed
-    assert token_response.status_code == 200, f"Login to get session cookie failed: {token_response.text}"
-    assert "access_token" in token_response.cookies  # Verify cookie was set
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data_for_session)
+    assert token_response.status_code == 200, f"Login to get token failed: {token_response.text}"
+    token_data = token_response.json()
+    assert "access_token" in token_data
+    access_token = token_data["access_token"]
 
-    # Disable the user via API. The client will automatically send the cookie.
-    # This assumes the PUT /users/{user_id} endpoint is protected by a dependency
-    # (e.g., get_current_user) that now reads the authentication token from the cookie.
+    # Disable the user via API using Bearer token in Authorization header
     update_payload = {
         "disabled": True,
         "current_password": password,
-    }  # Add current_password
-    # No explicit headers needed if the dependency reads from cookie
-    update_response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload)
+    }
+    headers = {"Authorization": f"Bearer {access_token}"}
+    update_response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
     assert update_response.status_code == 200, f"Failed to disable user: {update_response.text}"
     assert update_response.json()["disabled"] is True
 
-    # Clear cookies from the client to ensure the next login attempt is fresh
-    client.cookies.clear()
-
     # Attempt to login as the now disabled user
     login_data = {"username": username, "password": password}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)  # Changed
+    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 400, response.text
     assert response.json()["message"] == "Inactive user"
-    assert "access_token" not in response.cookies  # Ensure no new cookie is set
+    # Check no token is returned in response body
+    response_data = response.json()
+    assert "access_token" not in response_data
+    assert "access_token" not in response.cookies
 
 
 # --- Email Verification Tests ---
@@ -401,18 +402,16 @@ def test_logout_success(client: TestClient, db_session: Session) -> None:
     login_data = {"username": username, "password": password}
     login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert login_response.status_code == 200
-    assert "access_token" in login_response.cookies
+    login_data_response = login_response.json()
+    assert "access_token" in login_data_response
 
-    # Logout
+    # Logout (with Bearer tokens, logout is client-side, but endpoint confirms)
     logout_response = client.post(f"{settings.API_STR}/auth/logout")
     assert logout_response.status_code == 200
     assert logout_response.json()["message"] == "Logged out successfully"
 
-    # Verify cookie is cleared by checking Set-Cookie header
-    set_cookie_header = logout_response.headers.get("set-cookie", "")
-    assert "access_token=" in set_cookie_header
-    # Cookie should be set with Max-Age=0 or expires in the past to delete it
-    # The exact format may vary, but it should effectively clear the cookie
+    # With Bearer tokens, the client is responsible for removing the token
+    # The endpoint just confirms logout was successful
 
 
 def test_logout_without_login(client: TestClient, db_session: Session) -> None:
