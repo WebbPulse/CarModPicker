@@ -1,15 +1,10 @@
 [bandit]
 # Bandit configuration for CarModPicker backend
 # This file configures Bandit security scanner settings
+# Bandit auto-detects this file when using -r flag
 
-# Exclude directories from scanning
-exclude_dirs = 
-    .venv,
-    venv,
-    __pycache__,
-    .pytest_cache,
-    .mypy_cache,
-    alembic/versions
+# Exclude directories from scanning (comma-separated)
+exclude = .venv,venv,__pycache__,.pytest_cache,.mypy_cache,alembic/versions
 
 # Skip certain test IDs that are false positives in our use case
 # B404: subprocess import - We use subprocess safely for migrations (marked with # nosec)
