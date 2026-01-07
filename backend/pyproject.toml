@@ -58,3 +58,23 @@ module = [
     "jose.*"
 ]
 ignore_missing_imports = true
+
+[tool.bandit]
+# Bandit security scanner configuration
+# This complements the .bandit file for IDE integration
+
+# Exclude directories from scanning
+exclude_dirs = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    "alembic/versions"
+]
+
+# Skip certain test IDs that are false positives
+# B404: subprocess import - We use subprocess safely for migrations (marked with # nosec)
+# B603: subprocess call - We use hardcoded commands, not user input (marked with # nosec)
+# B607: partial path - We use pip-installed executables (alembic) (marked with # nosec)
+skips = ["B404", "B603", "B607"]
