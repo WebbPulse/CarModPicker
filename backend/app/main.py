@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess  # nosec B404 - Used safely for running database migrations
+import time
 from typing import Any
 
 from fastapi import FastAPI
@@ -35,26 +36,58 @@ logger = logging.getLogger(__name__)
 
 
 def run_migrations() -> None:
-    """Run database migrations on startup"""
-    try:
-        logger.info("Running database migrations...")
-        # Determine the correct working directory for alembic
-        cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
-        # nosec B603, B607 - Hardcoded command for database migrations, not user input
-        # alembic is installed via pip, so partial path is safe
-        result = subprocess.run(
-            ["alembic", "upgrade", "head"],  # nosec B603, B607
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        logger.info(f"Migrations completed successfully: {result.stdout}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Migration failed: {e.stderr}")
-        # Don't fail startup if migrations fail - let the app start and handle DB errors gracefully
-    except Exception as e:
-        logger.error(f"Unexpected error during migration: {e}")
+    """Run database migrations on startup with retry logic for Railway deployments."""
+    max_retries = 5
+    retry_delay = 2  # Start with 2 seconds
+
+    # Determine the correct working directory for alembic
+    cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Running database migrations (attempt {attempt}/{max_retries})...")
+            # nosec B603, B607 - Hardcoded command for database migrations, not user input
+            # alembic is installed via pip, so partial path is safe
+            result = subprocess.run(
+                ["alembic", "upgrade", "head"],  # nosec B603, B607
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.info(f"Migrations completed successfully: {result.stdout}")
+            return  # Success, exit the function
+        except subprocess.CalledProcessError as e:
+            error_output = e.stderr or e.stdout or str(e)
+            logger.warning(f"Migration attempt {attempt}/{max_retries} failed: {error_output}")
+
+            # Check if it's a connection error (database not ready)
+            is_connection_error = any(
+                keyword in error_output.lower()
+                for keyword in ["connection refused", "could not connect", "timeout", "network"]
+            )
+
+            if attempt < max_retries and is_connection_error:
+                # Exponential backoff: 2s, 4s, 8s, 16s, 32s
+                wait_time = retry_delay * (2 ** (attempt - 1))
+                logger.info(f"Database not ready. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                # Last attempt or non-connection error
+                if attempt == max_retries:
+                    logger.error(
+                        f"Migration failed after {max_retries} attempts. "
+                        f"Last error: {error_output}. "
+                        "App will start but database may not be migrated."
+                    )
+                else:
+                    logger.error(f"Migration failed with non-connection error: {error_output}")
+                # Don't fail startup - let the app start and handle DB errors gracefully
+                return
+        except Exception as e:
+            logger.error(f"Unexpected error during migration: {e}")
+            # Don't fail startup on unexpected errors either
+            return
 
 
 # Run migrations on startup
