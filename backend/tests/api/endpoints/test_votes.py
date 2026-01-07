@@ -14,6 +14,11 @@ def get_unique_name(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
+def get_auth_headers(token: str) -> dict[str, str]:
+    """Get Authorization headers with Bearer token."""
+    return {"Authorization": f"Bearer {token}"}
+
+
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
 
@@ -40,6 +45,8 @@ class TestUnifiedVotes:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -48,7 +55,7 @@ class TestUnifiedVotes:
             "year": 2022,
             "trim": "Sport",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -56,12 +63,15 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Upvote the car
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
@@ -94,13 +104,17 @@ class TestUnifiedVotes:
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
         }
-        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
         build_list = response.json()
 
@@ -108,12 +122,15 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Downvote the build list
         vote_data = {"vote_type": "downvote"}
         response = client.post(
             f"{settings.API_STR}/votes/build_list/{build_list['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
@@ -154,6 +171,8 @@ class TestUnifiedVotes:
         login_data = {"username": part_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        part_owner_token = response.json()["access_token"]
+        part_owner_headers = {"Authorization": f"Bearer {part_owner_token}"}
 
         # Create a global part
         part_data = {
@@ -162,7 +181,7 @@ class TestUnifiedVotes:
             "category_id": category.id,
             "price": 9999,  # price in cents (99.99)
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=part_owner_headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -170,12 +189,15 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # Upvote the part
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/global_part/{part['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
@@ -198,10 +220,12 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to vote on non-existent entity
         vote_data = {"vote_type": "upvote"}
-        response = client.post(f"{settings.API_STR}/votes/car/99999", json=vote_data)
+        response = client.post(f"{settings.API_STR}/votes/car/99999", json=vote_data, headers=headers)
         assert response.status_code == 404
 
     def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -227,6 +251,8 @@ class TestUnifiedVotes:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -235,7 +261,7 @@ class TestUnifiedVotes:
             "year": 2023,
             "trim": "GT",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -243,12 +269,15 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # First upvote
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
         first_vote = response.json()
@@ -259,6 +288,7 @@ class TestUnifiedVotes:
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
         updated_vote = response.json()
@@ -288,6 +318,8 @@ class TestUnifiedVotes:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -296,7 +328,7 @@ class TestUnifiedVotes:
             "year": 2022,
             "trim": "SS",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -304,16 +336,19 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
         # Remove the vote
-        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}")
+        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}", headers=test_user_headers)
         assert response.status_code == 200
         assert response.json()["message"] == "Vote removed successfully"
 
@@ -340,6 +375,8 @@ class TestUnifiedVotes:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -348,7 +385,7 @@ class TestUnifiedVotes:
             "year": 2021,
             "trim": "330i",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -356,8 +393,10 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}")
+        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}", headers=test_user_headers)
         assert response.status_code == 404
 
     def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -383,6 +422,8 @@ class TestUnifiedVotes:
         login_data = {"username": car_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        car_owner_token = response.json()["access_token"]
+        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
 
         # Create a car
         car_data = {
@@ -391,7 +432,7 @@ class TestUnifiedVotes:
             "year": 2023,
             "trim": "Premium",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
         assert response.status_code == 200
         car = response.json()
 
@@ -399,16 +440,19 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
             f"{settings.API_STR}/votes/car/{car['id']}",
             json=vote_data,
+            headers=test_user_headers,
         )
         assert response.status_code == 200
 
         # Get vote summary
-        response = client.get(f"{settings.API_STR}/votes/car/{car['id']}/summary")
+        response = client.get(f"{settings.API_STR}/votes/car/{car['id']}/summary", headers=test_user_headers)
         assert response.status_code == 200
         summary = response.json()
         assert summary["entity_id"] == car["id"]
@@ -421,8 +465,15 @@ class TestUnifiedVotes:
 
     def test_get_vote_summary_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting vote summary for an entity that doesn't exist."""
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
         # Try to get vote summary for non-existent entity
-        response = client.get(f"{settings.API_STR}/votes/car/99999/summary")
+        response = client.get(f"{settings.API_STR}/votes/car/99999/summary", headers=headers)
         assert response.status_code == 404
 
     def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -431,9 +482,11 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to get flagged entities
-        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car")
+        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car", headers=headers)
         assert response.status_code == 403
 
     def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -442,9 +495,11 @@ class TestUnifiedVotes:
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Get flagged entities
-        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car")
+        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car", headers=headers)
         assert response.status_code == 200
         # Should return empty list if no entities meet flagging criteria
         assert isinstance(response.json(), list)
@@ -455,10 +510,12 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Try to vote with invalid entity type
         vote_data = {"vote_type": "upvote"}
-        response = client.post(f"{settings.API_STR}/votes/invalid_type/1", json=vote_data)
+        response = client.post(f"{settings.API_STR}/votes/invalid_type/1", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error
 
     def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -467,6 +524,8 @@ class TestUnifiedVotes:
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Create a car
         car_data = {
@@ -475,11 +534,11 @@ class TestUnifiedVotes:
             "year": 2023,
             "trim": "Performance",
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data)
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
         assert response.status_code == 200
         car = response.json()
 
         # Try to vote with invalid vote type
         vote_data = {"vote_type": "invalid_vote"}
-        response = client.post(f"{settings.API_STR}/votes/car/{car['id']}", json=vote_data)
+        response = client.post(f"{settings.API_STR}/votes/car/{car['id']}", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error

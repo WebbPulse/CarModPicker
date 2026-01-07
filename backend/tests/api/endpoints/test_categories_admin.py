@@ -12,8 +12,8 @@ from app.core.config import settings
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Session, username_suffix: str = "admin"
-) -> dict[str, Any]:
-    """Create an admin user and log them in."""
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
@@ -32,19 +32,20 @@ def create_and_login_admin_user(
     db_session.commit()
     db_session.refresh(admin_user)
 
-    # Log in to set cookie on the client
+    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
 
-    return admin_user.__dict__
+    return admin_user.__dict__, token
 
 
 # Helper function to create and login a regular user
 def create_and_login_regular_user(
     client: TestClient, db_session: Session, username_suffix: str = "regular"
-) -> dict[str, Any]:
-    """Create a regular user and log them in."""
+) -> tuple[dict[str, Any], str]:
+    """Create a regular user and log them in. Returns (user_dict, token)."""
     username = f"regular_test_{username_suffix}"
     email = f"regular_test_{username_suffix}@example.com"
     password = "testpassword"
@@ -63,12 +64,13 @@ def create_and_login_regular_user(
     db_session.commit()
     db_session.refresh(regular_user)
 
-    # Log in to set cookie on the client
+    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login regular user: {token_response.text}"
+    token = token_response.json()["access_token"]
 
-    return regular_user.__dict__
+    return regular_user.__dict__, token
 
 
 class TestCategoriesAdminAuthentication:
@@ -86,12 +88,16 @@ class TestCategoriesAdminAuthentication:
 
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
         assert response.status_code == 401, "Should require authentication"
-        assert "Could not validate credentials" in response.text
+        # Check for authentication error (message format may vary)
+        response_data = response.json()
+        response_text = response_data.get("message", "").lower()
+        assert "not authenticated" in response_text or "unauthorized" in response_text or "credentials" in response_text
 
     def test_create_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
         """Test that regular users cannot create categories."""
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "create_cat")
+        _, token = create_and_login_regular_user(client, db_session, "create_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
         category_data = {
             "name": "test_category",
@@ -101,14 +107,15 @@ class TestCategoriesAdminAuthentication:
             "is_active": True,
         }
 
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data)
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code == 403, "Regular users should not be able to create categories"
         assert "Admin access required" in response.text
 
     def test_create_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
         """Test that admin users can create categories."""
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "create_cat")
+        _, token = create_and_login_admin_user(client, db_session, "create_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
         category_data = {
             "name": "test_category_admin",
@@ -118,7 +125,7 @@ class TestCategoriesAdminAuthentication:
             "is_active": True,
         }
 
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data)
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code == 200, f"Admin should be able to create categories: {response.text}"
 
         created_category = response.json()
@@ -149,6 +156,8 @@ class TestCategoriesAdminAuthentication:
         login_data = {"username": username, "password": password}
         token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert token_response.status_code == 200
+        token = token_response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
 
         category_data = {
             "name": "test_category_superuser",
@@ -158,7 +167,7 @@ class TestCategoriesAdminAuthentication:
             "is_active": True,
         }
 
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data)
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code == 200, f"Superuser should be able to create categories: {response.text}"
 
         created_category = response.json()
@@ -201,14 +210,15 @@ class TestCategoriesAdminAuthentication:
         db_session.refresh(category)
 
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "update_cat")
+        _, token = create_and_login_regular_user(client, db_session, "update_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
         update_data = {
             "display_name": "Updated Category Name",
             "description": "Updated description",
         }
 
-        response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data)
+        response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
         assert response.status_code == 403, "Regular users should not be able to update categories"
         assert "Admin access required" in response.text
 
@@ -227,7 +237,8 @@ class TestCategoriesAdminAuthentication:
         db_session.refresh(category)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "update_cat")
+        _, token = create_and_login_admin_user(client, db_session, "update_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
         update_data = {
             "display_name": "Updated Category Name by Admin",
@@ -235,7 +246,7 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 5,
         }
 
-        response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data)
+        response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
         assert response.status_code == 200, f"Admin should be able to update categories: {response.text}"
 
         updated_category = response.json()
@@ -275,9 +286,10 @@ class TestCategoriesAdminAuthentication:
         db_session.refresh(category)
 
         # Create and login regular user
-        _ = create_and_login_regular_user(client, db_session, "delete_cat")
+        _, token = create_and_login_regular_user(client, db_session, "delete_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
-        response = client.delete(f"{settings.API_STR}/categories/{category.id}")
+        response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code == 403, "Regular users should not be able to delete categories"
         assert "Admin access required" in response.text
 
@@ -296,13 +308,14 @@ class TestCategoriesAdminAuthentication:
         db_session.refresh(category)
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "delete_cat")
+        _, token = create_and_login_admin_user(client, db_session, "delete_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
-        response = client.delete(f"{settings.API_STR}/categories/{category.id}")
+        response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code == 200, f"Admin should be able to delete categories: {response.text}"
 
         # Verify the category was deleted
-        get_response = client.get(f"{settings.API_STR}/categories/{category.id}")
+        get_response = client.get(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert get_response.status_code == 404, "Category should be deleted"
 
     def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
@@ -346,9 +359,10 @@ class TestCategoriesAdminAuthentication:
         db_session.commit()
 
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "delete_cat_parts")
+        _, token = create_and_login_admin_user(client, db_session, "delete_cat_parts")
+        headers = {"Authorization": f"Bearer {token}"}
 
-        response = client.delete(f"{settings.API_STR}/categories/{category.id}")
+        response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code == 409, "Should return 409 Conflict when deleting category with parts"
         assert "parts" in response.text.lower() and "category" in response.text.lower()
 
@@ -390,7 +404,8 @@ class TestCategoriesAdminAuthentication:
     def test_duplicate_category_name_fails(self, client: TestClient, db_session: Session) -> None:
         """Test that creating a category with duplicate name fails."""
         # Create and login admin user
-        _ = create_and_login_admin_user(client, db_session, "duplicate_cat")
+        _, token = create_and_login_admin_user(client, db_session, "duplicate_cat")
+        headers = {"Authorization": f"Bearer {token}"}
 
         # Create first category
         category_data_1 = {
@@ -401,7 +416,7 @@ class TestCategoriesAdminAuthentication:
             "is_active": True,
         }
 
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data_1)
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data_1, headers=headers)
         assert response.status_code == 200, "First category should be created"
 
         # Try to create second category with same name
@@ -413,6 +428,6 @@ class TestCategoriesAdminAuthentication:
             "is_active": True,
         }
 
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data_2)
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data_2, headers=headers)
         assert response.status_code == 409, "Should return 409 Conflict for duplicate category names"
         assert "already exists" in response.text
