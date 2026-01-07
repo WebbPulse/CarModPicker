@@ -18,8 +18,8 @@ from typing import (
     ParamSpec,
     Tuple,
     Type,
-    TypeVar,
     TypedDict,
+    TypeVar,
     cast,
 )
 

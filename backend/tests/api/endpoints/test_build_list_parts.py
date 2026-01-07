@@ -3,9 +3,9 @@ import os
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.api.models.user import User
 from app.api.models.category import Category
+from app.api.models.user import User
+from app.core.config import settings
 from tests.conftest import login_user
 
 

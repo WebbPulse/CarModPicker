@@ -16,6 +16,7 @@ from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.build_list_service import BuildListService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
+from app.api.utils.common_operations import verify_entity_exists
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     get_entity_or_404,
@@ -23,7 +24,6 @@ from app.api.utils.common_patterns import (
     validate_pagination_params,
     verify_user_access_or_admin,
 )
-from app.api.utils.common_operations import verify_entity_exists
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
 )

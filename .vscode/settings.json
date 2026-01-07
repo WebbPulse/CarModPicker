@@ -33,6 +33,20 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestArgs": ["backend/tests", "-n", "auto"],
 
+  // isort Configuration
+  // The isort extension automatically reads from backend/pyproject.toml [tool.isort] when working on backend files
+  // These args match pyproject.toml settings and serve as a fallback for consistency
+  // CI runs: isort . --check-only --diff from backend/ (uses pyproject.toml automatically)
+  "isort.args": [
+    "--profile",
+    "black",
+    "--line-length",
+    "120",
+    "--multi-line-output",
+    "3"
+  ],
+  // Enable isort to run on save (needed when python.languageServer is "None")
+
   // ============================================
   // TYPESCRIPT/JAVASCRIPT SETTINGS
   // ============================================
