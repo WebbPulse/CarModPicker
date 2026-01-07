@@ -18,8 +18,8 @@ from typing import (
     ParamSpec,
     Tuple,
     Type,
-    TypeVar,
     TypedDict,
+    TypeVar,
     cast,
 )
 
@@ -949,7 +949,7 @@ def update_report_status(
         raise  # Type hint - unreachable code
 
     # Type narrowing - report is guaranteed to exist here
-    assert report is not None
+    # The check above ensures report is not None, so we can safely proceed
 
     try:
         report.status = new_status

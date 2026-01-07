@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404 - Used safely for running database migrations
 from typing import Any
 
 from fastapi import FastAPI
@@ -40,8 +40,10 @@ def run_migrations() -> None:
         logger.info("Running database migrations...")
         # Determine the correct working directory for alembic
         cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
+        # nosec B603, B607 - Hardcoded command for database migrations, not user input
+        # alembic is installed via pip, so partial path is safe
         result = subprocess.run(
-            ["alembic", "upgrade", "head"],
+            ["alembic", "upgrade", "head"],  # nosec B603, B607
             cwd=cwd,
             capture_output=True,
             text=True,

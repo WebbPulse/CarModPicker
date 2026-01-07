@@ -20,7 +20,7 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
   const [year, setYear] = useState<number | ''>('');
   const [trim, setTrim] = useState('');
   const [vin, setVin] = useState('');
-  const [imageUrl, setImageUrl] = useState(''); 
+  const [imageUrl, setImageUrl] = useState('');
   const [formMessage, setFormMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -60,7 +60,7 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
       year: Number(year),
       trim: trim.trim() || null,
       vin: vin.trim() || null,
-      image_url: imageUrl.trim() || null, 
+      image_url: imageUrl.trim() || null,
     };
 
     const result = await executeCreateCar(payload);
@@ -68,13 +68,13 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
     if (result) {
       setFormMessage({ type: 'success', text: 'Car created successfully!' });
       onCarCreated(result);
-     
+
       setMake('');
       setModel('');
       setYear('');
       setTrim('');
       setVin('');
-      setImageUrl(''); 
+      setImageUrl('');
     } else {
       // apiError will be set by the hook
       // setFormMessage({ type: 'error', text: apiError || 'Failed to create car.' });
@@ -110,7 +110,9 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
           name="year"
           type="number"
           value={year}
-          onChange={(e) => setYear(e.target.value === '' ? '' : Number(e.target.value))}
+          onChange={(e) =>
+            setYear(e.target.value === '' ? '' : Number(e.target.value))
+          }
           required
           disabled={isLoading}
         />

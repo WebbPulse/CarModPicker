@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Input from '../../components/common/Input';
 import Button from '../../components/buttons/Button';
 import apiClient from '../../services/Api';
-import type { UserRead } from '../../types/Api'; 
+import type { UserRead } from '../../types/Api';
 import { useAuth } from '../../hooks/useAuth';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { FaUser, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -60,7 +60,10 @@ function Login() {
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+        <div
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1s' }}
+        ></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md">
@@ -72,9 +75,7 @@ function Login() {
                 <GiRaceCar className="text-white text-2xl" />
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-2">
-              Welcome Back
-            </h2>
+            <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
             <p className="text-neutral-400">
               Sign in to your CarModPicker account
             </p>
@@ -165,7 +166,10 @@ function Login() {
         <div className="mt-8 text-center">
           <p className="text-neutral-500 text-xs">
             By signing in, you agree to our{' '}
-            <Link to="/privacy-policy" className="text-neutral-400 hover:text-white transition-colors">
+            <Link
+              to="/privacy-policy"
+              className="text-neutral-400 hover:text-white transition-colors"
+            >
               Privacy Policy
             </Link>
           </p>

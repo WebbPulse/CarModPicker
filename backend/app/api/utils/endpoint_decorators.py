@@ -192,17 +192,13 @@ def search_responses(
         Dictionary of response codes and their documentation
     """
     base_responses: Dict[int | str, Dict[str, Any]] = {
-        200: {
-            "description": f"Search results for {entity_name}s retrieved successfully"
-        },
+        200: {"description": f"Search results for {entity_name}s retrieved successfully"},
         400: {"description": "Invalid search parameters"},
     }
 
     if not allow_public_read:
         base_responses[401] = {"description": "Authentication required"}
-        base_responses[403] = {
-            "description": f"Not authorized to search {entity_name}s"
-        }
+        base_responses[403] = {"description": f"Not authorized to search {entity_name}s"}
 
     if custom_responses:
         for key, value in custom_responses.items():
@@ -213,9 +209,7 @@ def search_responses(
 
 def standard_pagination_params(
     skip: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
-    limit: Annotated[
-        int, Query(ge=1, le=1000, description="Maximum number of items to return")
-    ] = 100,
+    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of items to return")] = 100,
 ) -> tuple[int, int]:
     """
     Standard pagination parameters for endpoints.
@@ -277,32 +271,23 @@ def ownership_verification(
             user_value = kwargs.get("current_user")
 
             if not all([entity_id, db_value, user_value]):
-                raise ValueError(
-                    f"Missing required parameters for ownership verification: {entity_name}"
-                )
+                raise ValueError(f"Missing required parameters for ownership verification: {entity_name}")
 
             from sqlalchemy.orm import Session
+
             from app.api.models.user import User as DBUser
 
             db = cast(Session, db_value)
             current_user = cast(DBUser, user_value)
             model_class = func.__annotations__["return"]
-            entity = (
-                db.query(model_class)
-                .filter(getattr(model_class, "id") == entity_id)
-                .first()
-            )
+            entity = db.query(model_class).filter(getattr(model_class, "id") == entity_id).first()
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(
-                    entity_name, int(entity_id) if isinstance(entity_id, int) else 0
-                )
+                ResponsePatterns.raise_not_found(entity_name, int(entity_id) if isinstance(entity_id, int) else 0)
 
             if getattr(entity, user_id_field) != current_user.id:
-                detail = (
-                    forbidden_detail or f"Not authorized to access this {entity_name}"
-                )
+                detail = forbidden_detail or f"Not authorized to access this {entity_name}"
                 ResponsePatterns.raise_forbidden(detail)
 
             return await func(*args, **kwargs)

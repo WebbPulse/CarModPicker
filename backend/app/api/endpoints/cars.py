@@ -41,9 +41,7 @@ car_service = CarService()
 async def search_cars(
     q: str = Query(..., description="Search term for car make or model"),
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of cars to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Search cars by make or model with pagination."""
@@ -51,9 +49,7 @@ async def search_cars(
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.search_cars(
-        db=db, search_term=q, skip=skip, limit=limit, logger=logger
-    )
+    cars = car_service.search_cars(db=db, search_term=q, skip=skip, limit=limit, logger=logger)
     return [CarRead.model_validate(car) for car in cars]
 
 
@@ -65,9 +61,7 @@ async def search_cars(
 async def get_cars_by_make(
     make: str,
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of cars to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by make with pagination."""
@@ -75,9 +69,7 @@ async def get_cars_by_make(
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_cars_by_make_and_year(
-        db=db, make=make, skip=skip, limit=limit, logger=logger
-    )
+    cars = car_service.get_cars_by_make_and_year(db=db, make=make, skip=skip, limit=limit, logger=logger)
     return [CarRead.model_validate(car) for car in cars]
 
 
@@ -89,9 +81,7 @@ async def get_cars_by_make(
 async def get_cars_by_year(
     year: int,
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of cars to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by year with pagination."""
@@ -99,9 +89,7 @@ async def get_cars_by_year(
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_cars_by_make_and_year(
-        db=db, year=year, skip=skip, limit=limit, logger=logger
-    )
+    cars = car_service.get_cars_by_make_and_year(db=db, year=year, skip=skip, limit=limit, logger=logger)
     return [CarRead.model_validate(car) for car in cars]
 
 
@@ -113,25 +101,19 @@ async def get_cars_by_year(
 async def get_cars_by_user(
     user_id: int,
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
-    limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of cars to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Get cars by user ID with pagination. Public endpoint - anyone can view a user's cars."""
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_by_user(
-        db=deps["db"], user_id=user_id, skip=skip, limit=limit, logger=deps["logger"]
-    )
+    cars = car_service.get_by_user(db=deps["db"], user_id=user_id, skip=skip, limit=limit, logger=deps["logger"])
     return [CarRead.model_validate(car) for car in cars]
 
 
 @router.get(
     "/stats/makes",
     response_model=dict[str, int],
-    responses=standard_responses(
-        success_description="Car make statistics retrieved successfully"
-    ),
+    responses=standard_responses(success_description="Car make statistics retrieved successfully"),
 )
 async def get_car_make_stats(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -157,9 +139,7 @@ async def get_car_make_stats(
 @router.get(
     "/stats/years",
     response_model=dict[str, int],
-    responses=standard_responses(
-        success_description="Car year statistics retrieved successfully"
-    ),
+    responses=standard_responses(success_description="Car year statistics retrieved successfully"),
 )
 async def get_car_year_stats(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -171,10 +151,7 @@ async def get_car_year_stats(
     logger = deps["logger"]
 
     stats = (
-        db.query(DBCar.year, func.count(DBCar.id).label("count"))
-        .group_by(DBCar.year)
-        .order_by(DBCar.year.desc())
-        .all()
+        db.query(DBCar.year, func.count(DBCar.id).label("count")).group_by(DBCar.year).order_by(DBCar.year.desc()).all()
     )
 
     result = {str(year): count for year, count in stats}

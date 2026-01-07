@@ -22,9 +22,7 @@ VoteReadSchema = TypeVar("VoteReadSchema")
 EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
-class BaseVoteRouter(
-    Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType]
-):
+class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType]):
     """
     Base vote router that provides common voting endpoint patterns.
 
@@ -34,9 +32,7 @@ class BaseVoteRouter(
 
     def __init__(
         self,
-        service: BaseVoteService[
-            VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType
-        ],
+        service: BaseVoteService[VoteModelType, VoteCreateSchema, VoteReadSchema, EntityModelType],
         router: APIRouter,
         entity_name: str = "entity",
         vote_entity_id_param: str = "entity_id",
@@ -91,9 +87,7 @@ class BaseVoteRouter(
         @self.router.delete(
             f"/{{{self.vote_entity_id_param}}}/vote",
             responses={
-                404: {
-                    "description": f"{self.entity_name.title()} not found or no vote exists"
-                },
+                404: {"description": f"{self.entity_name.title()} not found or no vote exists"},
             },
         )
         async def remove_vote(  # pyright: ignore[reportUnusedFunction]
@@ -119,9 +113,7 @@ class BaseVoteRouter(
         @self.router.get(
             f"/{{{self.vote_entity_id_param}}}/vote-summary",
             responses={
-                200: {
-                    "description": f"Vote summary for {self.entity_name} retrieved successfully"
-                },
+                200: {"description": f"Vote summary for {self.entity_name} retrieved successfully"},
                 404: {"description": f"{self.entity_name.title()} not found"},
             },
         )
@@ -142,12 +134,8 @@ class BaseVoteRouter(
             f"/{{{self.vote_entity_id_param}}}/my-vote",
             response_model=VoteReadSchema,  # type: ignore[misc]
             responses={
-                200: {
-                    "description": f"User's vote on {self.entity_name} retrieved successfully"
-                },
-                404: {
-                    "description": f"{self.entity_name.title()} not found or no vote exists"
-                },
+                200: {"description": f"User's vote on {self.entity_name} retrieved successfully"},
+                404: {"description": f"{self.entity_name.title()} not found or no vote exists"},
             },
         )
         async def get_my_vote(  # pyright: ignore[reportUnusedFunction]

@@ -5,8 +5,8 @@ import ButtonStretch from '../../components/buttons/StretchButton';
 import apiClient from '../../services/Api';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { useAuth } from '../../hooks/useAuth'; 
-import LoadingSpinner from '../../components/common/LoadingSpinner'; 
+import { useAuth } from '../../hooks/useAuth';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 function VerifyEmail() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -76,7 +76,10 @@ function VerifyEmail() {
         )}
         <ErrorAlert message={apiError} />
         {!isSubmitted && (
-          <ButtonStretch onClick={() => void handleSubmit()} disabled={apiIsLoading}>
+          <ButtonStretch
+            onClick={() => void handleSubmit()}
+            disabled={apiIsLoading}
+          >
             {apiIsLoading ? 'Sending...' : 'Send Verification Email'}
           </ButtonStretch>
         )}

@@ -2,12 +2,12 @@ name: Frontend CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
@@ -31,6 +31,11 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Check code formatting
+        run: |
+          cd frontend
+          npx prettier --check "src/**/*.{ts,tsx,json,css}" "*.{ts,tsx,json}" ".prettierrc.json"
+
       - name: Run linting
         run: |
           cd frontend
@@ -39,7 +44,12 @@ jobs:
       - name: Run type checking
         run: |
           cd frontend
-          npx tsc --noEmit
+          npm run type-check
+
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate
 
       - name: Build application
         run: |

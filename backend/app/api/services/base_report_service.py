@@ -19,9 +19,7 @@ ReportReadSchema = TypeVar("ReportReadSchema")
 EntityModelType = TypeVar("EntityModelType", bound=BaseModel)
 
 
-class BaseReportService(
-    Generic[ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType]
-):
+class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadSchema, EntityModelType]):
     """
     Base service class for reporting operations.
 
@@ -88,8 +86,7 @@ class BaseReportService(
             .filter(
                 and_(
                     getattr(self.report_model, "user_id") == user_id,
-                    getattr(self.report_model, self.report_entity_id_field)
-                    == entity_id,
+                    getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "pending",
                 )
             )
@@ -113,10 +110,7 @@ class BaseReportService(
         db.commit()
         db.refresh(db_report)
 
-        logger.info(
-            f"Report created: {db_report.id} by user {user_id} "
-            f"on {self.entity_name} {entity_id}"
-        )
+        logger.info(f"Report created: {db_report.id} by user {user_id} " f"on {self.entity_name} {entity_id}")
         return db_report
 
     def get_reports_by_entity(
@@ -149,18 +143,14 @@ class BaseReportService(
             entity_name=self.entity_name,
         )
 
-        query = db.query(self.report_model).filter(
-            getattr(self.report_model, self.report_entity_id_field) == entity_id
-        )
+        query = db.query(self.report_model).filter(getattr(self.report_model, self.report_entity_id_field) == entity_id)
 
         if status:
             query = query.filter(getattr(self.report_model, "status") == status)
 
         reports = query.order_by(desc(getattr(self.report_model, "created_at"))).all()
 
-        logger.info(
-            f"Retrieved {len(reports)} reports for {self.entity_name} {entity_id}"
-        )
+        logger.info(f"Retrieved {len(reports)} reports for {self.entity_name} {entity_id}")
         return reports
 
     def update_report_status(
@@ -189,11 +179,7 @@ class BaseReportService(
         Raises:
             HTTPException: If report not found or status update fails
         """
-        report = (
-            db.query(self.report_model)
-            .filter(getattr(self.report_model, "id") == report_id)
-            .first()
-        )
+        report = db.query(self.report_model).filter(getattr(self.report_model, "id") == report_id).first()
 
         if not report:
             raise HTTPException(
@@ -209,9 +195,7 @@ class BaseReportService(
         db.commit()
         db.refresh(report)
 
-        logger.info(
-            f"Report {report_id} status updated to {new_status} by admin {admin_user_id}"
-        )
+        logger.info(f"Report {report_id} status updated to {new_status} by admin {admin_user_id}")
         return report
 
     def get_pending_reports(
@@ -278,8 +262,7 @@ class BaseReportService(
             db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
-                    getattr(self.report_model, self.report_entity_id_field)
-                    == entity_id,
+                    getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "pending",
                 )
             )
@@ -290,8 +273,7 @@ class BaseReportService(
             db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
-                    getattr(self.report_model, self.report_entity_id_field)
-                    == entity_id,
+                    getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "resolved",
                 )
             )
@@ -302,8 +284,7 @@ class BaseReportService(
             db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
             .filter(
                 and_(
-                    getattr(self.report_model, self.report_entity_id_field)
-                    == entity_id,
+                    getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "dismissed",
                 )
             )
@@ -344,9 +325,7 @@ class BaseReportService(
         Returns:
             List of reports created by the user
         """
-        query = db.query(self.report_model).filter(
-            getattr(self.report_model, "user_id") == user_id
-        )
+        query = db.query(self.report_model).filter(getattr(self.report_model, "user_id") == user_id)
 
         if status:
             query = query.filter(getattr(self.report_model, "status") == status)

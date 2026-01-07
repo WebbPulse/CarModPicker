@@ -95,7 +95,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
     <div className="p-4">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
         <div>
-          <label htmlFor="edit-make" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-make"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Make
           </label>
           <Input
@@ -107,7 +110,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-model" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-model"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Model
           </label>
           <Input
@@ -119,7 +125,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-year" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-year"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Year
           </label>
           <Input
@@ -133,7 +142,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-trim" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-trim"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Trim (Optional)
           </label>
           <Input
@@ -144,7 +156,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-vin" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-vin"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             VIN (Optional)
           </label>
           <Input
@@ -155,7 +170,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="edit-image_url" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="edit-image_url"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Image URL (Optional)
           </label>
           <Input

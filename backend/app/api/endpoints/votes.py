@@ -93,9 +93,7 @@ async def remove_vote(
     if removed:
         return {"message": "Vote removed successfully"}
     else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No vote found to remove"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No vote found to remove")
 
 
 @router.get(
@@ -137,9 +135,7 @@ async def get_vote_summary(
 )
 async def get_flagged_entities(
     entity_type: EntityType,
-    limit: int = Query(
-        50, ge=1, le=100, description="Maximum number of flagged entities to return"
-    ),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of flagged entities to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[FlaggedEntitySummary]:
