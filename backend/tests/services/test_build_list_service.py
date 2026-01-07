@@ -56,9 +56,7 @@ class TestBuildListService:
         assert isinstance(result, list)
         assert len(result) == 2
 
-    def test_get_build_lists_by_user(
-        self, db_session: Session, test_user: User
-    ) -> None:
+    def test_get_build_lists_by_user(self, db_session: Session, test_user: User) -> None:
         """Test getting build lists by user ID."""
         # Create a car
         car = Car(

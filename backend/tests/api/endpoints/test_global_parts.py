@@ -18,9 +18,7 @@ def get_unique_name(base_name: str) -> str:
 class TestGlobalParts:
     """Test cases for global parts endpoints."""
 
-    def test_create_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_create_global_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test successful creation of a global part."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -48,9 +46,7 @@ class TestGlobalParts:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_create_global_part_unauthorized(
-        self, client: TestClient, test_category: Category
-    ) -> None:
+    def test_create_global_part_unauthorized(self, client: TestClient, test_category: Category) -> None:
         """Test creating a global part without authentication."""
         part_data = {
             "name": get_unique_name("test_part"),
@@ -61,9 +57,7 @@ class TestGlobalParts:
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
         assert response.status_code == 401
 
-    def test_get_global_parts_list(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_get_global_parts_list(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test retrieving list of global parts."""
         # Login and create a part first
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -132,9 +126,7 @@ class TestGlobalParts:
         assert response.status_code == 200
 
         # Filter by category
-        response = client.get(
-            f"{settings.API_STR}/global-parts/?category_id={test_category.id}"
-        )
+        response = client.get(f"{settings.API_STR}/global-parts/?category_id={test_category.id}")
         assert response.status_code == 200
         data: list[Any] = response.json()
         assert isinstance(data, list)
@@ -142,9 +134,7 @@ class TestGlobalParts:
         for part in data:
             assert part["category_id"] == test_category.id
 
-    def test_get_global_parts_with_search(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_get_global_parts_with_search(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test searching global parts."""
         # Login and create a part
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -169,9 +159,7 @@ class TestGlobalParts:
         assert len(data) >= 1
         assert any(unique_name in part["name"] for part in data)  # type: ignore[misc]
 
-    def test_get_global_part_by_id(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_get_global_part_by_id(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test retrieving a specific global part by ID."""
         # Login and create a part
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -200,9 +188,7 @@ class TestGlobalParts:
         response = client.get(f"{settings.API_STR}/global-parts/99999")
         assert response.status_code == 404
 
-    def test_update_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_update_global_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test successful update of a global part."""
         # Login and create a part
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -225,9 +211,7 @@ class TestGlobalParts:
             "description": "Updated description",
             "price": 14999,  # Price in cents (integer)
         }
-        response = client.put(
-            f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data
-        )
+        response = client.put(f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == update_data["name"]
@@ -258,14 +242,10 @@ class TestGlobalParts:
 
         # Try to update without authentication
         update_data = {"name": "unauthorized_update"}
-        response = client.put(
-            f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data
-        )
+        response = client.put(f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data)
         assert response.status_code == 401
 
-    def test_delete_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_delete_global_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test successful deletion of a global part."""
         # Login and create a part
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -283,9 +263,7 @@ class TestGlobalParts:
         created_part = response.json()
 
         # Delete the part
-        response = client.delete(
-            f"{settings.API_STR}/global-parts/{created_part['id']}"
-        )
+        response = client.delete(f"{settings.API_STR}/global-parts/{created_part['id']}")
         assert response.status_code == 200
 
         # Verify it's deleted
@@ -315,14 +293,10 @@ class TestGlobalParts:
         client.cookies.clear()
 
         # Try to delete without authentication
-        response = client.delete(
-            f"{settings.API_STR}/global-parts/{created_part['id']}"
-        )
+        response = client.delete(f"{settings.API_STR}/global-parts/{created_part['id']}")
         assert response.status_code == 401
 
-    def test_get_global_parts_with_votes(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_get_global_parts_with_votes(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test retrieving global parts with vote data."""
         # Login and create a part
         login_data = {"username": test_user.username, "password": "testpassword"}

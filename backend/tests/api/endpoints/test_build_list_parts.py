@@ -19,9 +19,7 @@ def get_unique_name(base_name: str) -> str:
 class TestBuildListParts:
     """Test cases for build list parts endpoints."""
 
-    def test_add_part_to_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_add_part_to_build_list_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test successfully adding a part to a build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -74,9 +72,7 @@ class TestBuildListParts:
         assert data["global_part_id"] == global_part["id"]
         assert data["notes"] == "Test notes"
 
-    def test_add_part_to_build_list_unauthorized(
-        self, client: TestClient, test_category: Category
-    ) -> None:
+    def test_add_part_to_build_list_unauthorized(self, client: TestClient, test_category: Category) -> None:
         """Test adding a part to a build list without authentication."""
         # Try to add a part without authentication
         build_list_part_data = {
@@ -116,9 +112,7 @@ class TestBuildListParts:
         )
         assert response.status_code == 404
 
-    def test_add_part_to_build_list_part_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_add_part_to_build_list_part_not_found(self, client: TestClient, test_user: User) -> None:
         """Test adding a non-existent part to a build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -304,9 +298,7 @@ class TestBuildListParts:
         )
         assert response.status_code == 409
 
-    def test_get_build_list_parts_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_get_build_list_parts_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test getting parts from a build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -365,9 +357,7 @@ class TestBuildListParts:
         assert part["quantity"] == 2
         assert part["notes"] == "Test notes"
 
-    def test_get_build_list_parts_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting parts from a non-existent build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -382,9 +372,7 @@ class TestBuildListParts:
         response = client.get(f"{settings.API_STR}/build-list-parts/1")
         assert response.status_code == 401
 
-    def test_update_build_list_part_success(
-        self, client: TestClient, test_user: User, test_category: Category
-    ) -> None:
+    def test_update_build_list_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
         """Test updating a build list part."""
         # Login as test user
         login_user(client, test_user.username)
@@ -448,9 +436,7 @@ class TestBuildListParts:
         assert data["quantity"] == 3
         assert data["notes"] == "Updated notes"
 
-    def test_update_build_list_part_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_build_list_part_not_found(self, client: TestClient, test_user: User) -> None:
         """Test updating a build list part that doesn't exist."""
         # Login as test user
         login_user(client, test_user.username)
@@ -460,9 +446,7 @@ class TestBuildListParts:
             "quantity": 3,
             "notes": "Updated notes",
         }
-        response = client.put(
-            f"{settings.API_STR}/build-list-parts/99999", json=update_data
-        )
+        response = client.put(f"{settings.API_STR}/build-list-parts/99999", json=update_data)
         assert response.status_code == 404
 
     def test_update_build_list_part_unauthorized(self, client: TestClient) -> None:
@@ -472,9 +456,7 @@ class TestBuildListParts:
             "quantity": 3,
             "notes": "Updated notes",
         }
-        response = client.put(
-            f"{settings.API_STR}/build-list-parts/1", json=update_data
-        )
+        response = client.put(f"{settings.API_STR}/build-list-parts/1", json=update_data)
         assert response.status_code == 401
 
     def test_update_build_list_part_invalid_quantity(
@@ -590,9 +572,7 @@ class TestBuildListParts:
         build_list_part = response.json()
 
         # Remove the part
-        response = client.delete(
-            f"{settings.API_STR}/build-list-parts/{build_list_part['id']}"
-        )
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list_part['id']}")
         assert response.status_code == 200
 
         # Verify the part was removed
@@ -601,9 +581,7 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test removing a build list part that doesn't exist."""
         # Login as test user
         login_user(client, test_user.username)
@@ -1084,9 +1062,7 @@ class TestBuildListParts:
         assert response.status_code == 200
 
         # Get global parts with full details
-        response = client.get(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts"
-        )
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts")
         assert response.status_code == 200
 
         data = response.json()
@@ -1162,9 +1138,7 @@ class TestBuildListParts:
         assert data["quantity"] == 5
         assert data["notes"] == "Updated notes via global part endpoint"
 
-    def test_update_global_part_in_build_list_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_update_global_part_in_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test updating a non-existent global part in a build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -1261,9 +1235,7 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_global_part_from_build_list_not_found(
-        self, client: TestClient, test_user: User
-    ) -> None:
+    def test_remove_global_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
         """Test removing a non-existent global part from a build list."""
         # Login as test user
         login_user(client, test_user.username)
@@ -1289,7 +1261,5 @@ class TestBuildListParts:
         build_list = response.json()
 
         # Try to remove non-existent part
-        response = client.delete(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999"
-        )
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999")
         assert response.status_code == 404

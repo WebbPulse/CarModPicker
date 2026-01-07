@@ -144,9 +144,7 @@ class EndpointRegistry:
             tags: OpenAPI tags for grouping
             description: Description of the endpoint group
         """
-        tags_to_use: Sequence[str] = (
-            [f"{entity_name}_reports"] if tags is None else tags
-        )
+        tags_to_use: Sequence[str] = [f"{entity_name}_reports"] if tags is None else tags
 
         prefix = f"/{entity_name.replace('_', '-')}-reports"
 

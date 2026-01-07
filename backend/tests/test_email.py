@@ -57,9 +57,7 @@ class TestEmailService:
         mock_sendgrid_client.assert_called_once()
 
     @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_with_complex_template_data(
-        self, mock_sendgrid_client: Mock
-    ) -> None:
+    def test_send_email_with_complex_template_data(self, mock_sendgrid_client: Mock) -> None:
         """Test sending email with complex template data."""
         mock_response = MagicMock()
         mock_response.status_code = 202
@@ -115,9 +113,7 @@ class TestEmailService:
         assert result == 400
 
     @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_creates_proper_from_and_to(
-        self, mock_sendgrid_client: Mock
-    ) -> None:
+    def test_send_email_creates_proper_from_and_to(self, mock_sendgrid_client: Mock) -> None:
         """Test that email properly sets from and to addresses."""
         mock_response = MagicMock()
         mock_response.status_code = 202
@@ -134,9 +130,7 @@ class TestEmailService:
         mock_sg_instance.send.assert_called_once()
 
     @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_with_empty_dynamic_data(
-        self, mock_sendgrid_client: Mock
-    ) -> None:
+    def test_send_email_with_empty_dynamic_data(self, mock_sendgrid_client: Mock) -> None:
         """Test email sending with empty dynamic template data."""
         mock_response = MagicMock()
         mock_response.status_code = 202

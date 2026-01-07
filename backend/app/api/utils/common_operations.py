@@ -17,9 +17,7 @@ from app.api.protocols import HasId
 ModelType = TypeVar("ModelType", bound=HasId)
 
 
-def verify_entity_exists(
-    db: Session, model: Type[ModelType], entity_id: int, entity_name: str = "entity"
-) -> ModelType:
+def verify_entity_exists(db: Session, model: Type[ModelType], entity_id: int, entity_name: str = "entity") -> ModelType:
     """
     Verify that an entity exists in the database.
 
@@ -66,10 +64,7 @@ def verify_entity_ownership(
     """
     entity = verify_entity_exists(db, model, entity_id, entity_name)
 
-    if (
-        hasattr(entity, "user_id")
-        and getattr(entity, "user_id", None) != current_user.id
-    ):
+    if hasattr(entity, "user_id") and getattr(entity, "user_id", None) != current_user.id:
         raise HTTPException(
             status_code=403,
             detail=f"Not authorized to perform this action on this {entity_name}",
@@ -181,9 +176,7 @@ def build_filtered_query(base_query: Query[Any], filters: Dict[str, Any]) -> Que
     return base_query
 
 
-def build_search_query(
-    base_query: Query[Any], search_term: str, search_fields: List[str]
-) -> Query[Any]:
+def build_search_query(base_query: Query[Any], search_term: str, search_fields: List[str]) -> Query[Any]:
     """
     Build a search query with ILIKE filters on multiple fields.
 
@@ -291,14 +284,10 @@ def validate_pagination_params(skip: int, limit: int, max_limit: int = 1000) -> 
         raise HTTPException(status_code=400, detail="Limit value must be positive")
 
     if limit > max_limit:
-        raise HTTPException(
-            status_code=400, detail=f"Limit value cannot exceed {max_limit}"
-        )
+        raise HTTPException(status_code=400, detail=f"Limit value cannot exceed {max_limit}")
 
 
-def get_entity_details(
-    db: Session, entity: HasId, detail_fields: List[str]
-) -> Dict[str, Any]:
+def get_entity_details(db: Session, entity: HasId, detail_fields: List[str]) -> Dict[str, Any]:
     """
     Get additional details for an entity.
 
@@ -385,13 +374,9 @@ def create_entity(
                     detail=f"{entity_name.title()} with this email already exists",
                 )
             else:
-                raise HTTPException(
-                    status_code=400, detail=f"This {entity_name} already exists"
-                )
+                raise HTTPException(status_code=400, detail=f"This {entity_name} already exists")
         else:
-            raise HTTPException(
-                status_code=400, detail=f"Data validation failed for {entity_name}"
-            )
+            raise HTTPException(status_code=400, detail=f"Data validation failed for {entity_name}")
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create {entity_name}: {str(e)}")
@@ -459,13 +444,9 @@ def update_entity(
                     detail=f"{entity_name.title()} with this email already exists",
                 )
             else:
-                raise HTTPException(
-                    status_code=400, detail=f"This {entity_name} already exists"
-                )
+                raise HTTPException(status_code=400, detail=f"This {entity_name} already exists")
         else:
-            raise HTTPException(
-                status_code=400, detail=f"Data validation failed for {entity_name}"
-            )
+            raise HTTPException(status_code=400, detail=f"Data validation failed for {entity_name}")
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update {entity_name} {entity.id}: {str(e)}")
@@ -510,9 +491,7 @@ def delete_entity(
         return {"message": f"{entity_name.title()} deleted successfully"}
     except IntegrityError as e:
         db.rollback()
-        logger.error(
-            f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}"
-        )
+        logger.error(f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}")
 
         # Handle foreign key constraint errors
         error_detail_str = str(e).lower()
@@ -528,9 +507,7 @@ def delete_entity(
             )
     except Exception as e:
         db.rollback()
-        logger.error(
-            f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}"
-        )
+        logger.error(f"Failed to delete {entity_name} {getattr(entity, 'id')}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete {entity_name}")
 
 
@@ -611,9 +588,7 @@ def check_subscription_limits(
         limits = SubscriptionService.get_user_limits(current_user)
         usage = SubscriptionService.get_user_usage(db, current_user.id)
 
-        logger.warning(
-            f"Subscription limit reached for {entity_name} creation by user {current_user.id}"
-        )
+        logger.warning(f"Subscription limit reached for {entity_name} creation by user {current_user.id}")
 
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
