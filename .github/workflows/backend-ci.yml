@@ -30,7 +30,7 @@ jobs:
           cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-cov pytest-xdist black isort mypy bandit pip-audit
+          pip install pytest-cov pytest-xdist black isort pyright bandit pip-audit
 
       - name: Run linting
         run: |
@@ -45,7 +45,7 @@ jobs:
       - name: Run type checking
         run: |
           cd backend
-          mypy app/ --ignore-missing-imports
+          pyright
 
       - name: Run security scan
         run: |
