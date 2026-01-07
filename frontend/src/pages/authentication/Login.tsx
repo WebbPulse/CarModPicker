@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import Input from '../../components/common/Input';
-import Button from '../../components/buttons/Button';
-import apiClient from '../../services/Api';
-import type { UserRead } from '../../types/Api';
-import { useAuth } from '../../hooks/useAuth';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { FaUser, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
+import { Link, useNavigate } from 'react-router-dom';
+import Button from '../../components/buttons/Button';
+import Input from '../../components/common/Input';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
+import { authApi } from '../../services/Api';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -17,11 +16,7 @@ function Login() {
   const { login: authLogin } = useAuth();
 
   const loginRequestFn = (payload: URLSearchParams) =>
-    apiClient.post<UserRead>('/auth/token', payload, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
+    authApi.login(payload as unknown as { username: string; password: string });
 
   const {
     error: apiError,
