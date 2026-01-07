@@ -17,7 +17,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const checkAuthStatus = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await apiClient.get<UserRead>('/users/me'); 
+      const response = await apiClient.get<UserRead>('/users/me');
       if (response.data) {
         setUser(response.data);
         setIsAuthenticated(true);
@@ -41,13 +41,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const login = (userData: UserRead) => {
     setUser(userData);
     setIsAuthenticated(true);
-   
   };
 
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await apiClient.post('/auth/logout'); 
+      await apiClient.post('/auth/logout');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -58,20 +57,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [navigate]);
 
-  const contextValue = useMemo(() => ({
-    isAuthenticated,
-    user,
-    login,
-    logout,
-    checkAuthStatus,
-    isLoading,
-  }), [isAuthenticated, user, logout, checkAuthStatus, isLoading]);
+  const contextValue = useMemo(
+    () => ({
+      isAuthenticated,
+      user,
+      login,
+      logout,
+      checkAuthStatus,
+      isLoading,
+    }),
+    [isAuthenticated, user, logout, checkAuthStatus, isLoading]
+  );
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };
-
-

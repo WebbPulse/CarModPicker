@@ -13,9 +13,11 @@ interface TestProvidersProps {
   };
 }
 
-
-
-const defaultAuthState = { isAuthenticated: false, isLoading: false, user: null };
+const defaultAuthState = {
+  isAuthenticated: false,
+  isLoading: false,
+  user: null,
+};
 
 export const TestProviders: React.FC<TestProvidersProps> = ({
   children,
@@ -33,5 +35,3 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
 
   return <BrowserRouter>{children}</BrowserRouter>;
 };
-
-

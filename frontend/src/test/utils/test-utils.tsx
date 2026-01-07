@@ -39,8 +39,6 @@ vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-
-
 const customRender = (ui: ReactElement, options: CustomRenderOptions = {}) => {
   const { route = '/', initialAuthState, ...renderOptions } = options;
 

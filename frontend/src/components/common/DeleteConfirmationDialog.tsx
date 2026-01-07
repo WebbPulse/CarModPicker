@@ -29,7 +29,8 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
     <Dialog isOpen={isOpen} onClose={onClose} title={`Confirm Deletion`}>
       <div className="text-neutral-300">
         <p className="mb-6 text-lg leading-relaxed">
-          Are you sure you want to delete the {itemType} <span className="font-semibold text-white">"{itemName}"</span>? This
+          Are you sure you want to delete the {itemType}{' '}
+          <span className="font-semibold text-white">"{itemName}"</span>? This
           action cannot be undone.
         </p>
         {error && (

@@ -139,7 +139,7 @@
       "source.fixAll.eslint": "explicit",
       "source.organizeImports": "explicit"
     },
-    "editor.rulers": [100]
+    "editor.rulers": [80]
   },
 
   "[typescriptreact]": {
@@ -149,7 +149,7 @@
       "source.fixAll.eslint": "explicit",
       "source.organizeImports": "explicit"
     },
-    "editor.rulers": [100]
+    "editor.rulers": [80]
   },
 
   "[javascript]": {
