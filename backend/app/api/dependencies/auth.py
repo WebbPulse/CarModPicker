@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import bcrypt
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -15,7 +15,10 @@ from app.db.session import get_db
 ALGORITHM = settings.HASH_ALGORITHM
 
 
+# OAuth2 scheme for Bearer token extraction (FastAPI standard)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth/token")
+# auto_error=False for optional endpoints that can work without auth
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth/token", auto_error=False)
 
 # --- Password Utilities ---
 
@@ -57,22 +60,21 @@ def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta]
 
 
 async def get_current_user(
-    access_token: Optional[str] = Cookie(None),  # Read "access_token" cookie
+    token: str = Depends(oauth2_scheme),  # Bearer token from Authorization header (FastAPI standard)
     db: Session = Depends(get_db),
 ) -> DBUser:
     """
-    Decodes JWT token from cookie, validates credentials, and returns the user.
+    Decodes JWT Bearer token from Authorization header, validates credentials, and returns the user.
+    Uses standard OAuth2 Bearer token authentication.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if access_token is None:
-        raise credentials_exception
 
     try:
-        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -91,18 +93,19 @@ async def get_current_user(
 
 
 async def get_optional_current_user(
-    access_token: Optional[str] = Cookie(None),  # Read "access_token" cookie
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> Optional[DBUser]:
     """
-    Decodes JWT token from cookie and returns the user, or None if not authenticated.
+    Decodes JWT Bearer token and returns the user, or None if not authenticated.
     This is for endpoints that can work with or without authentication.
+    Uses standard OAuth2 Bearer token authentication.
     """
-    if access_token is None:
+    if token is None:
         return None
 
     try:
-        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             return None
@@ -118,17 +121,18 @@ async def get_optional_current_user(
 
 
 async def get_current_active_user_optional(
-    access_token: Optional[str] = Cookie(None),  # Read "access_token" cookie
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> Optional[DBUser]:
     """
-    Optionally returns the current active user if a valid token cookie is present.
+    Optionally returns the current active user if a valid Bearer token is present.
     Returns None if no token, token is invalid/expired, user not found, or user is inactive.
+    Uses standard OAuth2 Bearer token authentication.
     """
-    if access_token is None:
+    if token is None:
         return None
     try:
-        payload = jwt.decode(access_token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             return None  # Invalid token payload
