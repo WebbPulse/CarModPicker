@@ -42,8 +42,8 @@ const fetchGlobalPartsRequestFn = (params?: {
 function GlobalPartList({
   params,
   refreshKey = 0,
-  title = 'Global Parts Catalog',
-  emptyMessage = 'No global parts found.',
+  title = 'Parts Catalog',
+  emptyMessage = 'No parts found.',
   showVoteButtons = false,
   onVoteUpdate,
   onAddToBuildList,
@@ -96,7 +96,7 @@ function GlobalPartList({
   if (error) {
     return (
       <Card>
-        <ErrorAlert message={`Failed to load global parts: ${error}`} />
+        <ErrorAlert message={`Failed to load parts: ${error}`} />
       </Card>
     );
   }
@@ -114,78 +114,97 @@ function GlobalPartList({
           <p>{emptyMessage}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-2">
           {globalParts.map((globalPart) => (
             <div
               key={globalPart.id}
-              className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+              className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
             >
-              <Link
-                to={`/global-parts/${globalPart.id}`}
-                className="block group"
-              >
-                <div className="aspect-square mb-3">
-                  <ImageWithPlaceholder
-                    srcUrl={globalPart.image_url ?? null}
-                    altText={globalPart.name}
-                    imageClassName="w-full h-full object-cover rounded"
-                    containerClassName="w-full h-full flex justify-center items-center"
-                    fallbackText="No image"
-                  />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                  {globalPart.name}
-                </h3>
-                {globalPart.brand && (
-                  <p className="text-sm text-gray-400 mb-1">
-                    {globalPart.brand}
-                  </p>
-                )}
-                {globalPart.part_number && (
-                  <p className="text-sm text-gray-400 mb-1">
-                    #{globalPart.part_number}
-                  </p>
-                )}
-                {globalPart.price !== null &&
-                  globalPart.price !== undefined && (
-                    <p className="text-sm font-medium text-green-400">
-                      ${globalPart.price.toFixed(2)}
-                    </p>
-                  )}
-                {globalPart.description && (
-                  <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-                    {globalPart.description}
-                  </p>
-                )}
-              </Link>
+              <div className="flex flex-row items-center gap-4 p-3">
+                {/* Image */}
+                <Link
+                  to={`/global-parts/${globalPart.id}`}
+                  className="flex-shrink-0"
+                >
+                  <div className="w-20 h-20">
+                    <ImageWithPlaceholder
+                      srcUrl={globalPart.image_url ?? null}
+                      altText={globalPart.name}
+                      imageClassName="w-full h-full object-cover rounded"
+                      containerClassName="w-full h-full flex justify-center items-center"
+                      fallbackText="No image"
+                    />
+                  </div>
+                </Link>
 
-              {/* Vote Buttons */}
-              {showVoteButtons && onVoteUpdate && (
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <VoteButtons
-                    partId={globalPart.id}
-                    upvotes={globalPart.upvotes}
-                    downvotes={globalPart.downvotes}
-                    userVote={globalPart.user_vote ?? null}
-                    onVoteUpdate={onVoteUpdate}
-                  />
-                </div>
-              )}
-
-              {/* Add to Build List Button */}
-              {showAddToBuildListButton && onAddToBuildList && (
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <ActionButton
-                    onClick={() => onAddToBuildList(globalPart)}
-                    className="w-full"
+                {/* Main Content */}
+                <div className="flex-grow min-w-0">
+                  <Link
+                    to={`/global-parts/${globalPart.id}`}
+                    className="block hover:no-underline"
                   >
-                    📋 Add to Build List
-                  </ActionButton>
-                  <p className="text-xs text-gray-500 mt-1 text-center">
-                    Creates a personal copy
-                  </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-grow min-w-0">
+                        <h3 className="text-base font-semibold text-gray-200 mb-1 truncate">
+                          {globalPart.name}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                          {globalPart.brand && (
+                            <span className="text-gray-400">
+                              <span className="text-gray-500">Brand:</span>{' '}
+                              {globalPart.brand}
+                            </span>
+                          )}
+                          {globalPart.part_number && (
+                            <span className="text-gray-400">
+                              <span className="text-gray-500">P/N:</span>{' '}
+                              {globalPart.part_number}
+                            </span>
+                          )}
+                        </div>
+                        {globalPart.description && (
+                          <p className="text-sm text-gray-400 mt-1 line-clamp-1">
+                            {globalPart.description}
+                          </p>
+                        )}
+                      </div>
+                      {globalPart.price !== null &&
+                        globalPart.price !== undefined && (
+                          <div className="flex-shrink-0 text-right">
+                            <p className="text-base font-semibold text-green-400">
+                              ${globalPart.price.toFixed(2)}
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                  </Link>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-700">
+                    {/* Vote Buttons */}
+                    {showVoteButtons && onVoteUpdate && (
+                      <VoteButtons
+                        partId={globalPart.id}
+                        upvotes={globalPart.upvotes}
+                        downvotes={globalPart.downvotes}
+                        userVote={globalPart.user_vote ?? null}
+                        onVoteUpdate={onVoteUpdate}
+                      />
+                    )}
+                    {!showVoteButtons && <div />}
+
+                    {/* Add to Build List Button */}
+                    {showAddToBuildListButton && onAddToBuildList && (
+                      <ActionButton
+                        onClick={() => onAddToBuildList(globalPart)}
+                        className="text-xs px-3 py-1"
+                      >
+                        📋 Add to Build List
+                      </ActionButton>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

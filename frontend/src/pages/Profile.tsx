@@ -384,7 +384,7 @@ function Profile() {
             onClick={() => (window.location.href = '/my-global-parts')}
             className="bg-blue-600 hover:bg-blue-700 w-full"
           >
-            Manage My Global Parts
+            Manage My Parts
           </ActionButton>
         </div>
       </Card>
