@@ -471,6 +471,11 @@ export const buildListPartsApi = {
     apiClient.get<BuildListPartReadWithGlobalPart[]>(
       `/build-list-parts/${buildListId}/global-parts`
     ),
+  // Count build lists containing a specific global part
+  countBuildListsContainingGlobalPart: (globalPartId: number) =>
+    apiClient.get<{ count: number }>(
+      `/build-list-parts/global-parts/${globalPartId}/build-lists/count`
+    ),
 };
 
 // Subscriptions API

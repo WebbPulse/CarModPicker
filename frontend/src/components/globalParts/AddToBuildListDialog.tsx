@@ -124,17 +124,12 @@ function AddToBuildListDialog({
       >
         {error && <ErrorAlert message={error} />}
 
-        {/* Global Part Preview */}
+        {/* Part Preview */}
         <Card>
           <div className="mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs bg-gradient-to-r from-green-600 to-green-700 text-white px-3 py-1 rounded-full font-medium">
-                Global Part
-              </span>
-            </div>
             <p className="text-sm text-neutral-400">
-              This will create a personal copy in your build list that you can
-              customize.
+              This will add the part to your build list where you can add notes
+              and customize it.
             </p>
           </div>
           <div className="flex gap-4">

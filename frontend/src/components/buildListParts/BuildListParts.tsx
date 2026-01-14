@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { buildListPartsApi } from '../../services/Api';
+import React, { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
+import { buildListPartsApi, categoriesApi } from '../../services/Api';
 import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
 } from '../../types/Api';
-import { useAuth } from '../../hooks/useAuth';
+import ActionButton from '../buttons/ActionButton';
+import { ErrorAlert } from '../common/Alerts';
+import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
+import SectionHeader from '../layout/SectionHeader';
 import BuildListPartList from './BuildListPartList';
 import EditBuildListPartForm from './EditBuildListPartForm';
-import SectionHeader from '../layout/SectionHeader';
-import { ErrorAlert } from '../common/Alerts';
-import ActionButton from '../buttons/ActionButton';
 
 interface BuildListPartsProps {
   buildListId: number;
@@ -23,6 +24,8 @@ interface BuildListPartsProps {
 
 const fetchBuildListPartsRequestFn = (buildListId: number) =>
   buildListPartsApi.getBuildListParts(buildListId);
+
+const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const BuildListParts: React.FC<BuildListPartsProps> = ({
   buildListId,
@@ -37,6 +40,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     useState<BuildListPartReadWithGlobalPart | null>(null);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     data: buildListParts,
@@ -45,9 +51,16 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     executeRequest: fetchBuildListParts,
   } = useApiRequest(fetchBuildListPartsRequestFn);
 
+  const {
+    data: categories,
+    isLoading: isLoadingCategories,
+    executeRequest: fetchCategories,
+  } = useApiRequest(fetchCategoriesRequestFn);
+
   useEffect(() => {
     void fetchBuildListParts(buildListId);
-  }, [buildListId, refreshKey, fetchBuildListParts]);
+    void fetchCategories();
+  }, [buildListId, refreshKey, fetchBuildListParts, fetchCategories]);
 
   // Helper function to check if user can edit a specific build list part
   const canEditBuildListPart = (
@@ -111,12 +124,48 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       return;
     }
 
-    void buildListPartsApi
-      .removeBuildListPart(buildListId, buildListPart.global_part_id)
-      .then(() => fetchBuildListParts(buildListId))
-      .catch((error: unknown) => {
-        console.error('Failed to remove part from build list:', error);
-      });
+    // Open confirmation dialog instead of directly deleting
+    setDeleteError(null);
+    setDeletingPartId(buildListPartId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deletingPartId === null) return;
+
+    // Find the build list part to get the global_part_id
+    const buildListPart = buildListParts?.find(
+      (part) => part.id === deletingPartId
+    );
+    if (!buildListPart) {
+      setDeletingPartId(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await buildListPartsApi.removeBuildListPart(
+        buildListId,
+        buildListPart.global_part_id
+      );
+      await fetchBuildListParts(buildListId);
+      setDeletingPartId(null);
+    } catch (error: unknown) {
+      console.error('Failed to remove part from build list:', error);
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to remove part from build list'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeletingPartId(null);
+    setDeleteError(null);
   };
 
   const handleCloseEditForm = () => {
@@ -135,7 +184,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
             </ActionButton>
           )}
         </div>
-        <ErrorAlert message="Failed to load build list parts. Please try again." />
+        <ErrorAlert message="Failed to load parts. Please try again." />
       </div>
     );
   }
@@ -153,7 +202,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
       <BuildListPartList
         buildListParts={buildListParts || []}
-        loading={isLoading}
+        categories={categories || []}
+        loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
         onDelete={handleDelete}
         canEdit={canManageParts}
@@ -173,6 +223,20 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
           loading={isUpdating}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deletingPartId !== null}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={() => void handleConfirmDelete()}
+        itemName={
+          buildListParts?.find((p) => p.id === deletingPartId)?.global_part
+            .name || ''
+        }
+        itemType="part"
+        isProcessing={isDeleting}
+        error={deleteError}
+      />
     </div>
   );
 };

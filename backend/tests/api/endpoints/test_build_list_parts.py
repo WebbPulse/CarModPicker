@@ -1336,3 +1336,169 @@ class TestBuildListParts:
             f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999", headers=headers
         )
         assert response.status_code == 404
+
+    def test_count_build_lists_containing_global_part_success(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test counting build lists containing a global part when it exists in multiple build lists."""
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first
+        car_data = {
+            "make": "Toyota",
+            "model": "Camry",
+            "year": 2020,
+        }
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
+        assert response.status_code == 200
+        car = response.json()
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Create first build list and add the part
+        build_list_data_1 = {
+            "name": get_unique_name("test_build_list_1"),
+            "description": "First test build list",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data_1, headers=headers)
+        assert response.status_code == 200
+        build_list_1 = response.json()
+
+        build_list_part_data = {
+            "quantity": 1,
+            "notes": "Test notes",
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list_1['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        # Create second build list and add the same part
+        build_list_data_2 = {
+            "name": get_unique_name("test_build_list_2"),
+            "description": "Second test build list",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data_2, headers=headers)
+        assert response.status_code == 200
+        build_list_2 = response.json()
+
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list_2['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        # Count build lists containing the global part (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/{global_part['id']}/build-lists/count")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "count" in data
+        assert data["count"] == 2
+
+    def test_count_build_lists_containing_global_part_zero(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test counting build lists containing a global part when it exists but is not in any build lists."""
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Count build lists containing the global part (should be 0)
+        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/{global_part['id']}/build-lists/count")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "count" in data
+        assert data["count"] == 0
+
+    def test_count_build_lists_containing_global_part_not_found(self, client: TestClient) -> None:
+        """Test counting build lists containing a non-existent global part."""
+        # Try to count build lists for non-existent global part (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/99999/build-lists/count")
+        assert response.status_code == 404
+
+    def test_count_build_lists_containing_global_part_public_endpoint(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test that counting build lists containing a global part works without authentication."""
+        # Login as test user and get token to create data
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first
+        car_data = {
+            "make": "Toyota",
+            "model": "Camry",
+            "year": 2020,
+        }
+        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
+        assert response.status_code == 200
+        car = response.json()
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Create a build list and add the part
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        build_list_part_data = {
+            "quantity": 1,
+            "notes": "Test notes",
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        # Count build lists containing the global part WITHOUT authentication (public endpoint)
+        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/{global_part['id']}/build-lists/count")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "count" in data
+        assert data["count"] == 1

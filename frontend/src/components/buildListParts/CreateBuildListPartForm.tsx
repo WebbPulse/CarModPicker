@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
-import { buildListPartsApi, globalPartsApi } from '../../services/Api';
+import { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { buildListPartsApi, globalPartsApi } from '../../services/Api';
 import type {
+  BuildListPartCreate,
   GlobalPartCreate,
   GlobalPartRead,
-  BuildListPartCreate,
 } from '../../types/Api';
 
-import Input from '../common/Input';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
-import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
+import Input from '../common/Input';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface CreateBuildListPartFormProps {
   buildListId: number;
@@ -69,7 +69,7 @@ function CreateBuildListPartForm({
 
     if (mode === 'create') {
       if (!formData.name.trim()) {
-        setValidationError('Global part name is required');
+        setValidationError('Part name is required');
         return;
       }
 
@@ -166,7 +166,7 @@ function CreateBuildListPartForm({
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
-          Create New Global Part
+          Create New Part
         </button>
         <button
           type="button"
@@ -177,25 +177,25 @@ function CreateBuildListPartForm({
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
-          Select Existing Global Part
+          Select Existing Part
         </button>
       </div>
 
       {mode === 'create' ? (
-        /* Create New Global Part Form */
+        /* Create New Part Form */
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            Create New Global Part
+            Create New Part
           </h3>
 
           <Input
-            label="Global Part Name *"
+            label="Part Name *"
             id="global-part-name"
             name="name"
             type="text"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Enter global part name"
+            placeholder="Enter part name"
             required
           />
 
@@ -226,7 +226,7 @@ function CreateBuildListPartForm({
             type="text"
             value={formData.description}
             onChange={handleInputChange}
-            placeholder="Enter global part description"
+            placeholder="Enter part description"
           />
 
           <Input
@@ -252,16 +252,16 @@ function CreateBuildListPartForm({
           />
         </div>
       ) : (
-        /* Select Existing Global Part */
+        /* Select Existing Part */
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            Select Existing Global Part
+            Select Existing Part
           </h3>
 
           {isLoadingGlobalParts ? (
             <LoadingSpinner />
           ) : globalPartsError ? (
-            <ErrorAlert message="Failed to load global parts" />
+            <ErrorAlert message="Failed to load parts" />
           ) : (
             <div className="max-h-64 overflow-y-auto space-y-2">
               {globalParts?.map((part: GlobalPartRead) => (

@@ -417,3 +417,34 @@ async def remove_global_part_from_build_list(
         f"Build list part {db_build_list_part.id} removed from build list " f"{build_list_id} by user {current_user.id}"
     )
     return deleted_data
+
+
+@router.get(
+    "/global-parts/{global_part_id}/build-lists/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(
+        success_description="Count of build lists containing the global part",
+        not_found=True,
+    ),
+)
+async def count_build_lists_containing_global_part(
+    global_part_id: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Count the number of build lists that contain a specific global part."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    # Verify global part exists
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+
+    # Count distinct build lists that contain this global part
+    count = (
+        db.query(DBBuildListPart.build_list_id)
+        .filter(DBBuildListPart.global_part_id == global_part_id)
+        .distinct()
+        .count()
+    )
+
+    logger.info(f"Global part {global_part_id} is contained in {count} build list(s)")
+    return {"count": count}

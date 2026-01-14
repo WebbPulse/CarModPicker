@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
+  buildListPartsApi,
   categoriesApi,
   globalPartsApi,
   globalPartVotesApi,
@@ -57,6 +58,7 @@ function ViewGlobalPart() {
   const [partWithVotes, setPartWithVotes] =
     useState<GlobalPartReadWithVotes | null>(null);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [buildListCount, setBuildListCount] = useState<number | null>(null);
 
   const {
     data: part,
@@ -181,9 +183,21 @@ function ViewGlobalPart() {
   const openEditGlobalPartDialog = () => setIsEditGlobalPartFormOpen(true);
   const closeEditGlobalPartDialog = () => setIsEditGlobalPartFormOpen(false);
 
-  const openDeleteConfirmDialog = () => {
+  const openDeleteConfirmDialog = async () => {
     setDeletePartError(null);
     setIsDeleteConfirmOpen(true);
+
+    // Fetch build list count when opening the dialog
+    if (part?.id) {
+      try {
+        const response =
+          await buildListPartsApi.countBuildListsContainingGlobalPart(part.id);
+        setBuildListCount(response.data.count);
+      } catch (error) {
+        console.error('Failed to fetch build list count:', error);
+        setBuildListCount(null);
+      }
+    }
   };
   const closeDeleteConfirmDialog = () => setIsDeleteConfirmOpen(false);
 
@@ -262,17 +276,6 @@ function ViewGlobalPart() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader title={part.name} />
       <Card>
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full">
-              Global Part
-            </span>
-          </div>
-          <p className="text-sm text-gray-400">
-            This is a shared part in the global catalog. You can add it to your
-            build lists to create personal copies.
-          </p>
-        </div>
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Part Information" />
           <div className="flex space-x-2">
@@ -299,7 +302,9 @@ function ViewGlobalPart() {
             )}
             {canDelete && (
               <ActionButton
-                onClick={openDeleteConfirmDialog}
+                onClick={() => {
+                  void openDeleteConfirmDialog();
+                }}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Delete Part
@@ -447,6 +452,7 @@ function ViewGlobalPart() {
           itemType="part"
           isProcessing={isDeletingPart}
           error={deletePartError}
+          buildListCount={buildListCount !== null ? buildListCount : undefined}
         />
       )}
 

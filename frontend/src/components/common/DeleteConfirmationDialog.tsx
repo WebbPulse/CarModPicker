@@ -1,6 +1,6 @@
 import React from 'react';
-import Dialog from './Dialog';
 import { ErrorAlert } from './Alerts';
+import Dialog from './Dialog';
 
 interface DeleteConfirmationDialogProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface DeleteConfirmationDialogProps {
   itemType?: string; // Optional: to specify "car", "build list", etc.
   isProcessing: boolean;
   error: string | null;
+  buildListCount?: number | undefined; // Optional: number of build lists containing this part
 }
 
 const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
@@ -20,6 +21,7 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
   itemType = 'item',
   isProcessing,
   error,
+  buildListCount,
 }) => {
   if (!isOpen) {
     return null;
@@ -33,6 +35,19 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           <span className="font-semibold text-white">"{itemName}"</span>? This
           action cannot be undone.
         </p>
+        {buildListCount !== undefined && buildListCount > 0 && (
+          <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+            <p className="text-yellow-300 font-semibold mb-2">
+              ⚠️ Warning: This part is currently in {buildListCount} build list
+              {buildListCount !== 1 ? 's' : ''}
+            </p>
+            <p className="text-yellow-200 text-sm">
+              Deleting this part will remove it from all {buildListCount} build
+              list
+              {buildListCount !== 1 ? 's' : ''}. This action cannot be undone.
+            </p>
+          </div>
+        )}
         {error && (
           <ErrorAlert message={`Failed to delete ${itemType}: ${error}`} />
         )}

@@ -30,6 +30,7 @@ import UserManagement from './pages/admin/UserManagement.tsx';
 import BuildListsCatalog from './pages/buildLists/BuildListsCatalog.tsx';
 import ViewBuildList from './pages/builder/ViewBuildlist.tsx';
 import ViewGlobalPart from './pages/builder/ViewGlobalPart.tsx';
+import EditGlobalPart from './pages/globalParts/EditGlobalPart.tsx';
 import GlobalPartsCatalog from './pages/globalParts/GlobalPartsCatalog.tsx';
 import UserGlobalParts from './pages/globalParts/UserGlobalParts.tsx';
 import SubscriptionManagement from './pages/subscription/SubscriptionManagement.tsx';
@@ -92,6 +93,10 @@ function App() {
           />
           <Route path="/cars/:carId" element={<ViewCar />} />
           <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
+          <Route
+            path="/global-parts/:partId/edit"
+            element={<EditGlobalPart />}
+          />
           <Route path="/global-parts/:partId" element={<ViewGlobalPart />} />
           <Route path="/global-parts" element={<GlobalPartsCatalog />} />
 

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
+import apiClient from '../../services/Api';
 import type { GlobalPartCreate } from '../../types/Api';
 
-import Input from '../common/Input';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
+import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 interface CreateGlobalPartFormProps {
@@ -46,7 +46,7 @@ function CreateGlobalPartForm({
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      setValidationError('Global part name is required');
+      setValidationError('Part name is required');
       return;
     }
 
@@ -78,13 +78,13 @@ function CreateGlobalPartForm({
       )}
 
       <Input
-        label="Global Part Name *"
+        label="Part Name *"
         id="global-part-name"
         name="name"
         type="text"
         value={formData.name}
         onChange={handleInputChange}
-        placeholder="Enter global part name"
+        placeholder="Enter part name"
         required
       />
 
@@ -115,7 +115,7 @@ function CreateGlobalPartForm({
         type="text"
         value={formData.description}
         onChange={handleInputChange}
-        placeholder="Enter global part description"
+        placeholder="Enter part description"
       />
 
       <Input
@@ -149,7 +149,7 @@ function CreateGlobalPartForm({
           Cancel
         </SecondaryButton>
         <ActionButton type="submit" disabled={isLoading}>
-          {isLoading ? <LoadingSpinner /> : 'Create Global Part'}
+          {isLoading ? <LoadingSpinner /> : 'Create Part'}
         </ActionButton>
       </div>
     </form>
