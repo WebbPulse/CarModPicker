@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import SecondaryButton from '../../components/buttons/SecondaryButton';
 import Card from '../../components/common/Card';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
-import CategoryFilter from '../../components/globalParts/CategoryFilter';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
 import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 import { useAuth } from '../../hooks/useAuth';
 import { categoriesApi } from '../../services/Api';
 import type {
@@ -23,6 +24,8 @@ const GlobalPartsCatalog: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategoryData, setSelectedCategoryData] =
+    useState<CategoryResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [selectedGlobalPart, setSelectedGlobalPart] =
@@ -65,9 +68,18 @@ const GlobalPartsCatalog: React.FC = () => {
     console.log('Part added to build list');
   };
 
-  const clearFilters = () => {
+  const handleCategorySelect = (category: CategoryResponse) => {
+    setSelectedCategory(category.id);
+    setSelectedCategoryData(category);
     setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  const handleBackToCategories = () => {
     setSelectedCategory(null);
+    setSelectedCategoryData(null);
+    setSearchTerm('');
+    setCurrentPage(1);
   };
 
   // Memoize params to prevent infinite re-render loop
@@ -88,6 +100,13 @@ const GlobalPartsCatalog: React.FC = () => {
     },
     []
   );
+
+  // Filter active categories and sort by sort_order
+  const activeCategories = useMemo(() => {
+    return categories
+      .filter((category) => category.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [categories]);
 
   if (loading) {
     return (
@@ -132,112 +151,154 @@ const GlobalPartsCatalog: React.FC = () => {
         </div>
       )}
 
-      {/* Information Panel */}
-      <Card className="mb-6">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold text-gray-200 mb-3">
-            Understanding Global Parts vs Build List Parts
-          </h3>
-          <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-400">
-            <div>
-              <h4 className="font-medium text-gray-300 mb-2">
-                🌐 Global Parts (Shared Catalog)
-              </h4>
-              <ul className="space-y-1">
-                <li>
-                  • <strong>Shared</strong> parts available to all users
-                </li>
-                <li>
-                  • Can be added to <strong>multiple build lists</strong>
-                </li>
-                <li>
-                  • Only <strong>creators or admins</strong> can edit/delete
-                </li>
-                <li>
-                  • <strong>Deleting removes from all build lists</strong>
-                </li>
-                <li>• Think of these as the "master catalog"</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-300 mb-2">
-                📋 Build List Parts (Your Collections)
-              </h4>
-              <ul className="space-y-1">
-                <li>
-                  • <strong>Personal copies</strong> of global parts
-                </li>
-                <li>
-                  • Can add <strong>notes and customization</strong>
-                </li>
-                <li>
-                  • Only <strong>you can edit/delete</strong> your copies
-                </li>
-                <li>
-                  • <strong>Removing doesn't affect other users</strong>
-                </li>
-                <li>• Think of these as "your personal collection"</li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
-            <p className="text-sm text-blue-300">
-              <strong>💡 How it works:</strong> When you add a global part to
-              your build list, we create a personal copy (build list part) that
-              you can customize. This way, your changes don't affect other
-              users' build lists.
+      {/* Category View (default) */}
+      {!selectedCategory && (
+        <>
+          <div className="mb-6">
+            <SectionHeader title="Browse by Category" />
+            <p className="text-gray-400 text-sm mt-2">
+              Select a category to browse parts, or use search to find specific
+              parts.
             </p>
           </div>
-        </div>
-      </Card>
 
-      {/* Filters */}
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label
-              htmlFor="search-parts"
-              className="block text-sm font-medium text-gray-300 mb-2"
-            >
-              Search
-            </label>
-            <Input
-              type="text"
-              placeholder="Search parts..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
+          {/* Search Bar */}
+          <div className="mb-8">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label
+                  htmlFor="search-parts"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Search All Parts
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Search parts..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            {searchTerm && (
+              <div className="mt-4">
+                <SecondaryButton onClick={() => setSearchTerm('')}>
+                  Clear Search
+                </SecondaryButton>
+              </div>
+            )}
           </div>
-          <CategoryFilter
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
+
+          {/* Show parts if searching, otherwise show categories */}
+          {searchTerm ? (
+            <GlobalPartList
+              params={params}
+              title="Search Results"
+              emptyMessage="No parts found. Try adjusting your search."
+              showVoteButtons={true}
+              onVoteUpdate={handleVoteUpdate}
+              showAddToBuildListButton={true}
+              onAddToBuildList={handleAddToBuildList}
+              onPaginationChange={handlePaginationChange}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {activeCategories.map((category: CategoryResponse) => (
+                <Card
+                  key={category.id}
+                  className="cursor-pointer hover:bg-gray-800 transition-colors border-2 border-gray-700 hover:border-blue-500"
+                  onClick={() => handleCategorySelect(category)}
+                >
+                  <div className="p-6 text-center">
+                    <div className="text-4xl mb-3">{category.icon || '📦'}</div>
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      {category.display_name || category.name}
+                    </h3>
+                    {category.description && (
+                      <p className="text-sm text-gray-400 line-clamp-2">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Category Parts View */}
+      {selectedCategory && selectedCategoryData && (
+        <>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">
+                  {selectedCategoryData.icon || '📦'}
+                </span>
+                <SectionHeader
+                  title={
+                    selectedCategoryData.display_name ||
+                    selectedCategoryData.name
+                  }
+                />
+              </div>
+              {selectedCategoryData.description && (
+                <p className="text-gray-400 text-sm">
+                  {selectedCategoryData.description}
+                </p>
+              )}
+            </div>
+            <SecondaryButton onClick={handleBackToCategories}>
+              ← Back to Categories
+            </SecondaryButton>
+          </div>
+
+          {/* Search within category */}
+          <div className="mb-8">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label
+                  htmlFor="search-parts"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Search in Category
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Search parts in this category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              {searchTerm && (
+                <div className="flex items-end">
+                  <SecondaryButton onClick={() => setSearchTerm('')}>
+                    Clear
+                  </SecondaryButton>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Parts List */}
+          <GlobalPartList
+            params={params}
+            title=""
+            emptyMessage="No parts found in this category. Try adjusting your search."
+            showVoteButtons={true}
+            onVoteUpdate={handleVoteUpdate}
+            showAddToBuildListButton={true}
+            onAddToBuildList={handleAddToBuildList}
+            onPaginationChange={handlePaginationChange}
           />
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-          >
-            Clear Filters
-          </button>
-        </div>
-      </div>
+        </>
+      )}
 
-      {/* Global Parts List */}
-      <GlobalPartList
-        params={params}
-        title="Global Parts Catalog"
-        emptyMessage="No parts found. Try adjusting your search or filters."
-        showVoteButtons={true}
-        onVoteUpdate={handleVoteUpdate}
-        showAddToBuildListButton={true}
-        onAddToBuildList={handleAddToBuildList}
-        onPaginationChange={handlePaginationChange}
-      />
-
-      {/* Pagination */}
-      {paginationInfo && (
+      {/* Pagination - Only show when viewing parts (category selected or searching) */}
+      {paginationInfo && (selectedCategory || searchTerm) && (
         <Pagination
           currentPage={paginationInfo.current_page}
           totalPages={paginationInfo.total_pages}

@@ -248,14 +248,14 @@ function Search() {
               )}
             </Card>
 
-            {/* Global Parts Results */}
+            {/* Parts Results */}
             <Card className="mb-6">
               <SectionHeader
-                title={`Global Parts (${pagination?.global_parts ? searchResults?.global_parts.total || globalParts.length : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total || 0}` : ''})`}
+                title={`Parts (${pagination?.global_parts ? searchResults?.global_parts.total || globalParts.length : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total || 0}` : ''})`}
               />
               {globalParts.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  <p>No global parts found.</p>
+                  <p>No parts found.</p>
                 </div>
               ) : (
                 <>
@@ -312,7 +312,7 @@ function Search() {
                         onClick={() => loadMore('global_parts')}
                         disabled={isLoading}
                       >
-                        {isLoading ? 'Loading...' : 'Load More Global Parts'}
+                        {isLoading ? 'Loading...' : 'Load More Parts'}
                       </ActionButton>
                     </div>
                   )}

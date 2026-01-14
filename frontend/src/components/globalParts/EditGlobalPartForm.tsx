@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import apiClient from '../../services/Api';
+import { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
+import apiClient from '../../services/Api';
 import type { GlobalPartRead, GlobalPartUpdate } from '../../types/Api';
 
-import Input from '../common/Input';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
+import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 interface EditGlobalPartFormProps {
@@ -69,7 +69,7 @@ function EditGlobalPartForm({
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      setValidationError('Global part name is required');
+      setValidationError('Part name is required');
       return;
     }
 
@@ -103,13 +103,13 @@ function EditGlobalPartForm({
       )}
 
       <Input
-        label="Global Part Name *"
+        label="Part Name *"
         id="global-part-name"
         name="name"
         type="text"
         value={formData.name}
         onChange={handleInputChange}
-        placeholder="Enter global part name"
+        placeholder="Enter part name"
         required
       />
 
@@ -140,7 +140,7 @@ function EditGlobalPartForm({
         type="text"
         value={formData.description}
         onChange={handleInputChange}
-        placeholder="Enter global part description"
+        placeholder="Enter part description"
       />
 
       <Input
@@ -174,7 +174,7 @@ function EditGlobalPartForm({
           Cancel
         </SecondaryButton>
         <ActionButton type="submit" disabled={isLoading}>
-          {isLoading ? <LoadingSpinner /> : 'Update Global Part'}
+          {isLoading ? <LoadingSpinner /> : 'Update Part'}
         </ActionButton>
       </div>
     </form>
