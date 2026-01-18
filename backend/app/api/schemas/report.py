@@ -21,7 +21,6 @@ class ReportStatus(str, Enum):
 
 
 class EntityType(str, Enum):
-    CAR = "car"
     BUILD_LIST = "build_list"
     GLOBAL_PART = "global_part"
 

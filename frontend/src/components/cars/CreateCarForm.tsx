@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import apiClient from '../../services/Api';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { carsApi } from '../../services/Api';
 import type { CarCreate, CarRead } from '../../types/Api';
-import Input from '../common/Input';
 import ButtonStretch from '../buttons/StretchButton';
-import { ErrorAlert, ConfirmationAlert } from '../common/Alerts';
+import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
+import Input from '../common/Input';
 
 interface CreateCarFormProps {
   onCarCreated: (newCar: CarRead) => void;
 }
 
-const createCarRequestFn = (payload: CarCreate) =>
-  apiClient.post<CarRead>('/cars/', payload);
+const createCarRequestFn = (payload: CarCreate) => carsApi.createCar(payload);
 
 const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
   const [make, setMake] = useState('');

@@ -1,59 +1,77 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import type { CarRead } from '../../types/Api';
-import CarListItem from './CarListItem';
-import SectionHeader from '../layout/SectionHeader';
-import { ErrorAlert } from '../common/Alerts';
-import apiClient from '../../services/Api';
+import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { carsApi } from '../../services/Api';
+import type { CarRead } from '../../types/Api';
 import AddItemTile from '../common/AddItemTile';
+import { ErrorAlert } from '../common/Alerts';
+import LoadingSpinner from '../common/LoadingSpinner';
+import SectionHeader from '../layout/SectionHeader';
+import CarListItem from './CarListItem';
 
 interface CarListProps {
-  userId?: number;
+  searchQuery?: string;
+  make?: string;
+  year?: number;
+  generationId?: number;
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
   onAddCarClick?: () => void;
   showAddCarTile?: boolean;
+  limit?: number;
+  skip?: number;
 }
 
 const CarList: React.FC<CarListProps> = ({
-  userId,
+  searchQuery,
+  make,
+  year,
+  generationId,
   refreshKey,
   title = 'Cars',
   emptyMessage = 'No cars found.',
   onAddCarClick,
   showAddCarTile = false,
+  limit = 100,
+  skip = 0,
 }) => {
   const [internalCars, setInternalCars] = useState<CarRead[] | null>(null);
 
-  const fetchCarsByUserIdRequestFn = useCallback(
-    (id: number) => apiClient.get<CarRead[]>(`/cars/user/${id}`),
-    []
-  );
+  const fetchCarsRequestFn = useCallback(() => {
+    if (searchQuery) {
+      return carsApi.searchCars(searchQuery, { skip, limit });
+    } else if (generationId) {
+      return carsApi.getCarsByGeneration(generationId, { skip, limit });
+    } else if (make && year) {
+      // If both make and year, we'll use search
+      return carsApi.searchCars(`${make} ${year}`, { skip, limit });
+    } else if (make) {
+      return carsApi.getCarsByMake(make, { skip, limit });
+    } else if (year) {
+      return carsApi.getCarsByYear(year, { skip, limit });
+    } else {
+      return carsApi.listCars({ skip, limit });
+    }
+  }, [searchQuery, make, year, generationId, skip, limit]);
 
   const {
     data: fetchedApiCars,
     isLoading,
     error,
-    executeRequest: fetchUserCars,
-  } = useApiRequest(fetchCarsByUserIdRequestFn);
+    executeRequest: fetchCars,
+  } = useApiRequest(fetchCarsRequestFn);
 
   useEffect(() => {
-    if (userId) {
-      void fetchUserCars(userId);
-    } else {
-      setInternalCars([]);
-    }
-  }, [userId, fetchUserCars, refreshKey]); // Depend on userId, fetchUserCars, and refreshKey
+    void fetchCars();
+  }, [fetchCars, refreshKey]);
 
   useEffect(() => {
     if (fetchedApiCars) {
       setInternalCars(fetchedApiCars);
-    } else if (!isLoading && userId && !error) {
+    } else if (!isLoading && !error) {
       setInternalCars([]);
     }
-  }, [fetchedApiCars, isLoading, userId, error]);
+  }, [fetchedApiCars, isLoading, error]);
 
   if (isLoading) {
     return (
@@ -64,7 +82,7 @@ const CarList: React.FC<CarListProps> = ({
     );
   }
 
-  if (userId && error) {
+  if (error) {
     return (
       <>
         <SectionHeader title={title} />
@@ -82,7 +100,7 @@ const CarList: React.FC<CarListProps> = ({
         {showAddCarTile && onAddCarClick && (
           <AddItemTile
             title="Add a New Car"
-            description="Click here to add a vehicle to your garage."
+            description="Click here to add a vehicle (Admin only)."
             onClick={onAddCarClick}
           />
         )}
@@ -94,7 +112,7 @@ const CarList: React.FC<CarListProps> = ({
       )}
       {noCarsToShow && showAddCarTile && (
         <p className="text-gray-400 mt-4">
-          You have no cars yet. Click the tile above to add your first one!
+          No cars found. Click the tile above to add one (Admin only)!
         </p>
       )}
     </div>

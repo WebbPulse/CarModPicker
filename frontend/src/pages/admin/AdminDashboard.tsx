@@ -49,6 +49,12 @@ function AdminDashboard() {
       path: '/admin/categories',
     },
     {
+      title: 'Car Generation Management',
+      description: 'Create and manage car generations (e.g., 5th Gen Civic)',
+      icon: '🚗',
+      path: '/admin/car-generations',
+    },
+    {
       title: 'User Management',
       description: 'View and manage user accounts',
       icon: '👥',

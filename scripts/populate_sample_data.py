@@ -12,6 +12,7 @@ import random
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 # Add backend directory to path so we can import app modules
 backend_dir = Path(__file__).parent.parent / "backend"
@@ -290,114 +291,157 @@ def create_sample_categories(db: Session) -> list[Category]:
     return categories
 
 
-def create_sample_cars(db: Session, users: list[User]) -> list[Car]:
-    """Create sample cars for users."""
-    print("Creating sample cars...")
+def create_sample_cars(db: Session) -> list[Car]:
+    """Create sample centrally managed car generations."""
+    print("Creating sample car generations...")
 
-    # Initial cars
+    # Initial car generations (centrally managed, no user_id)
     initial_cars = [
         {
             "make": "Honda",
             "model": "Civic",
-            "year": 2020,
-            "trim": "Si",
-            "user_id": users[1].id,  # john_doe
+            "generation_name": "10th Gen",
+            "start_year": 2016,
+            "end_year": 2021,
+            "description": "Popular compact car generation",
+        },
+        {
+            "make": "Honda",
+            "model": "Civic",
+            "generation_name": "11th Gen",
+            "start_year": 2022,
+            "end_year": 2024,
+            "description": "Latest generation Civic",
         },
         {
             "make": "Toyota",
             "model": "Supra",
-            "year": 2023,
-            "trim": "3.0 Premium",
-            "user_id": users[1].id,  # john_doe
+            "generation_name": "Mk5 (A90/A91)",
+            "start_year": 2019,
+            "end_year": 2024,
+            "description": "Fifth generation Supra",
         },
         {
             "make": "Subaru",
             "model": "WRX",
-            "year": 2022,
-            "trim": "STI",
-            "user_id": users[2].id,  # jane_smith
+            "generation_name": "VA",
+            "start_year": 2015,
+            "end_year": 2021,
+            "description": "Fourth generation WRX",
+        },
+        {
+            "make": "Subaru",
+            "model": "WRX",
+            "generation_name": "VB",
+            "start_year": 2022,
+            "end_year": 2024,
+            "description": "Fifth generation WRX",
         },
         {
             "make": "Nissan",
             "model": "GT-R",
-            "year": 2021,
-            "trim": "Nismo",
-            "user_id": users[3].id,  # car_enthusiast
+            "generation_name": "R35",
+            "start_year": 2007,
+            "end_year": 2024,
+            "description": "R35 generation GT-R",
         },
         {
             "make": "Mazda",
             "model": "Miata",
-            "year": 2023,
-            "trim": "RF Club",
-            "user_id": users[3].id,  # car_enthusiast
+            "generation_name": "ND",
+            "start_year": 2015,
+            "end_year": 2024,
+            "description": "Fourth generation MX-5 Miata",
         },
         {
             "make": "Ford",
             "model": "Mustang",
-            "year": 2022,
-            "trim": "GT Premium",
-            "user_id": users[4].id,  # modder_pro
+            "generation_name": "S550",
+            "start_year": 2015,
+            "end_year": 2023,
+            "description": "Sixth generation Mustang",
+        },
+        {
+            "make": "Ford",
+            "model": "Mustang",
+            "generation_name": "S650",
+            "start_year": 2024,
+            "end_year": 2024,
+            "description": "Seventh generation Mustang",
+        },
+        {
+            "make": "BMW",
+            "model": "M3",
+            "generation_name": "F80",
+            "start_year": 2014,
+            "end_year": 2018,
+            "description": "Fifth generation M3",
+        },
+        {
+            "make": "BMW",
+            "model": "M3",
+            "generation_name": "G80",
+            "start_year": 2021,
+            "end_year": 2024,
+            "description": "Sixth generation M3",
         },
     ]
 
-    # Car makes and models for generation
-    car_models = {
-        "Honda": ["Civic", "Accord", "Prelude", "Integra", "S2000", "NSX", "CRX"],
-        "Toyota": ["Supra", "86", "Corolla", "Camry", "Celica", "MR2"],
-        "Subaru": ["WRX", "STI", "BRZ", "Impreza", "Forester", "Legacy"],
-        "Nissan": ["GT-R", "350Z", "370Z", "Silvia", "Skyline", "240SX"],
-        "Mazda": ["Miata", "RX-7", "RX-8", "3", "6", "CX-5"],
-        "Ford": ["Mustang", "Focus", "Fiesta", "GT", "Shelby"],
-        "Chevrolet": ["Camaro", "Corvette", "Cruze", "Malibu"],
-        "BMW": ["M3", "M4", "M5", "330i", "335i", "Z4"],
-        "Audi": ["A4", "S4", "RS4", "TT", "R8", "A3"],
-        "Mercedes": ["C-Class", "E-Class", "S-Class", "AMG", "SLK"],
-    }
-
-    trims = [
-        "Base",
-        "Premium",
-        "Sport",
-        "Limited",
-        "GT",
-        "STI",
-        "Type R",
-        "S",
-        "SE",
-        "Si",
+    # Additional popular car generations to add variety
+    additional_generations = [
+        ("Honda", "Accord", "10th Gen", 2018, 2022),
+        ("Honda", "Accord", "11th Gen", 2023, 2024),
+        ("Toyota", "86", "ZN6", 2012, 2020),
+        ("Toyota", "86", "ZN8", 2021, 2024),
+        ("Nissan", "370Z", "Z34", 2009, 2020),
+        ("Nissan", "Z", "Z34", 2022, 2024),
+        ("Chevrolet", "Camaro", "6th Gen", 2016, 2023),
+        ("Chevrolet", "Corvette", "C8", 2020, 2024),
+        ("Audi", "A4", "B9", 2016, 2023),
+        ("Audi", "TT", "3rd Gen", 2014, 2023),
     ]
 
     cars_data = initial_cars.copy()
 
-    # Generate additional cars to reach 50 total
-    for i in range(44):  # 44 more to reach 50 total
-        make = random.choice(list(car_models.keys()))
-        model = random.choice(car_models[make])
-        year = random.randint(2015, 2024)
-        trim = random.choice(trims)
-        user = random.choice(users)  # Distribute cars among all users
-
+    # Add additional generations
+    for make, model, gen_name, start_year, end_year in additional_generations:
         cars_data.append(
             {
                 "make": make,
                 "model": model,
-                "year": year,
-                "trim": trim,
-                "user_id": user.id,
+                "generation_name": gen_name,
+                "start_year": start_year,
+                "end_year": end_year,
+                "description": None,  # Optional
             }
         )
 
     cars = []
+    created_count = 0
     for car_data in cars_data:
-        car = Car(**car_data)
-        db.add(car)
-        cars.append(car)
+        # Check if car generation already exists
+        existing = (
+            db.query(Car)
+            .filter(
+                Car.make == car_data["make"],
+                Car.model == car_data["model"],
+                Car.generation_name == car_data["generation_name"],
+            )
+            .first()
+        )
+        if existing:
+            cars.append(existing)
+        else:
+            car = Car(**car_data)
+            db.add(car)
+            cars.append(car)
+            created_count += 1
 
     db.commit()
     for car in cars:
         db.refresh(car)
 
-    print(f"Created {len(cars)} cars")
+    print(f"Created {created_count} new car generations, {len(cars)} total")
     return cars
 
 
@@ -773,42 +817,61 @@ def create_sample_build_lists(
     """Create sample build lists."""
     print("Creating sample build lists...")
 
-    # Initial build lists
+    # Initial build lists - find cars by make/model to ensure correct references
+    # Helper to find a car by make and model
+    def find_car(
+        make: str, model: str, generation_name: str | None = None
+    ) -> Car | None:
+        for car in cars:
+            if car.make == make and car.model == model:
+                if generation_name is None or car.generation_name == generation_name:
+                    return car
+        return cars[0] if cars else None  # Fallback to first car
+
+    civic = find_car("Honda", "Civic", "10th Gen") or cars[0]
+    supra = find_car("Toyota", "Supra") or cars[2] if len(cars) > 2 else cars[0]
+    wrx = find_car("Subaru", "WRX", "VA") or cars[3] if len(cars) > 3 else cars[0]
+    gtr = find_car("Nissan", "GT-R") or cars[5] if len(cars) > 5 else cars[0]
+    miata = find_car("Mazda", "Miata") or cars[6] if len(cars) > 6 else cars[0]
+    mustang = (
+        find_car("Ford", "Mustang", "S550") or cars[7] if len(cars) > 7 else cars[0]
+    )
+
     initial_build_lists = [
         {
             "name": "My Daily Driver Build",
             "description": "Comfortable daily driver with some performance upgrades",
-            "car_id": cars[0].id,  # Honda Civic
+            "car_id": civic.id,
             "user_id": users[1].id,  # john_doe
         },
         {
             "name": "Track Day Monster",
             "description": "Full track build for maximum performance",
-            "car_id": cars[1].id,  # Toyota Supra
+            "car_id": supra.id,
             "user_id": users[1].id,  # john_doe
         },
         {
             "name": "Rally Build",
             "description": "Rally-inspired build for the WRX",
-            "car_id": cars[2].id,  # Subaru WRX
+            "car_id": wrx.id,
             "user_id": users[2].id,  # jane_smith
         },
         {
             "name": "GT-R Dream Build",
             "description": "Ultimate performance build for the GT-R",
-            "car_id": cars[3].id,  # Nissan GT-R
+            "car_id": gtr.id,
             "user_id": users[3].id,  # car_enthusiast
         },
         {
             "name": "Miata Weekend Warrior",
             "description": "Lightweight mods for the perfect weekend car",
-            "car_id": cars[4].id,  # Mazda Miata
+            "car_id": miata.id,
             "user_id": users[3].id,  # car_enthusiast
         },
         {
             "name": "Mustang Drag Build",
             "description": "Straight-line speed focused build",
-            "car_id": cars[5].id,  # Ford Mustang
+            "car_id": mustang.id,
             "user_id": users[4].id,  # modder_pro
         },
     ]
@@ -1058,103 +1121,105 @@ def create_sample_build_list_parts(
 def create_sample_votes(
     db: Session,
     users: list[User],
-    cars: list[Car],
-    build_lists: list[BuildList],
+    cars: Optional[list[Car]],
+    build_lists: Optional[list[BuildList]],
     global_parts: list[GlobalPart],
 ) -> list[Vote]:
     """Create sample votes."""
     print("Creating sample votes...")
 
-    # Initial votes
+    # Only vote on global parts if cars/build_lists are not available
+    if cars is None or build_lists is None:
+        print("  Skipping votes on cars and build lists (not available)")
+        entity_types = ["global_part"]
+    else:
+        entity_types = ["car", "build_list", "global_part"]
+
+    # Initial votes - only on global parts if cars/build_lists unavailable
     initial_votes = [
-        # Votes on cars
-        {
-            "user_id": users[1].id,
-            "vote_type": "upvote",
-            "entity_type": "car",
-            "entity_id": cars[3].id,
-        },  # GT-R
-        {
-            "user_id": users[2].id,
-            "vote_type": "upvote",
-            "entity_type": "car",
-            "entity_id": cars[3].id,
-        },
-        {
-            "user_id": users[3].id,
-            "vote_type": "upvote",
-            "entity_type": "car",
-            "entity_id": cars[3].id,
-        },
-        {
-            "user_id": users[4].id,
-            "vote_type": "upvote",
-            "entity_type": "car",
-            "entity_id": cars[1].id,
-        },  # Supra
-        {
-            "user_id": users[1].id,
-            "vote_type": "upvote",
-            "entity_type": "car",
-            "entity_id": cars[4].id,
-        },  # Miata
-        # Votes on build lists
-        {
-            "user_id": users[2].id,
-            "vote_type": "upvote",
-            "entity_type": "build_list",
-            "entity_id": build_lists[1].id,
-        },  # Track Day Monster
-        {
-            "user_id": users[3].id,
-            "vote_type": "upvote",
-            "entity_type": "build_list",
-            "entity_id": build_lists[1].id,
-        },
-        {
-            "user_id": users[4].id,
-            "vote_type": "upvote",
-            "entity_type": "build_list",
-            "entity_id": build_lists[3].id,
-        },  # GT-R Dream Build
-        {
-            "user_id": users[1].id,
-            "vote_type": "upvote",
-            "entity_type": "build_list",
-            "entity_id": build_lists[4].id,
-        },  # Miata Weekend Warrior
         # Votes on global parts
         {
             "user_id": users[1].id,
             "vote_type": "upvote",
             "entity_type": "global_part",
-            "entity_id": global_parts[2].id,
-        },  # Garrett Turbo
+            "entity_id": (
+                global_parts[2].id if len(global_parts) > 2 else global_parts[0].id
+            ),
+        },  # Garrett Turbo or first part
         {
             "user_id": users[2].id,
             "vote_type": "upvote",
             "entity_type": "global_part",
-            "entity_id": global_parts[2].id,
+            "entity_id": (
+                global_parts[2].id if len(global_parts) > 2 else global_parts[0].id
+            ),
         },
         {
             "user_id": users[3].id,
             "vote_type": "upvote",
             "entity_type": "global_part",
-            "entity_id": global_parts[3].id,
-        },  # Volk TE37
+            "entity_id": (
+                global_parts[3].id if len(global_parts) > 3 else global_parts[0].id
+            ),
+        },  # Volk TE37 or first part
         {
-            "user_id": users[4].id,
+            "user_id": users[4].id if len(users) > 4 else users[0].id,
             "vote_type": "upvote",
             "entity_type": "global_part",
-            "entity_id": global_parts[6].id,
-        },  # Brembo Brakes
+            "entity_id": (
+                global_parts[6].id if len(global_parts) > 6 else global_parts[0].id
+            ),
+        },  # Brembo Brakes or first part
         {
             "user_id": users[1].id,
             "vote_type": "downvote",
             "entity_type": "global_part",
-            "entity_id": global_parts[4].id,
-        },  # APR Wing (downvote)
+            "entity_id": (
+                global_parts[4].id if len(global_parts) > 4 else global_parts[0].id
+            ),
+        },  # APR Wing (downvote) or first part
     ]
+
+    # Add car and build_list votes only if available
+    if cars is not None and len(cars) > 0:
+        initial_votes.extend(
+            [
+                {
+                    "user_id": users[1].id,
+                    "vote_type": "upvote",
+                    "entity_type": "car",
+                    "entity_id": cars[3].id if len(cars) > 3 else cars[0].id,
+                },
+                {
+                    "user_id": users[2].id,
+                    "vote_type": "upvote",
+                    "entity_type": "car",
+                    "entity_id": cars[3].id if len(cars) > 3 else cars[0].id,
+                },
+            ]
+        )
+
+    if build_lists is not None and len(build_lists) > 0:
+        initial_votes.extend(
+            [
+                {
+                    "user_id": users[2].id,
+                    "vote_type": "upvote",
+                    "entity_type": "build_list",
+                    "entity_id": (
+                        build_lists[1].id if len(build_lists) > 1 else build_lists[0].id
+                    ),
+                },
+                {
+                    "user_id": users[3].id,
+                    "vote_type": "upvote",
+                    "entity_type": "build_list",
+                    "entity_id": (
+                        build_lists[1].id if len(build_lists) > 1 else build_lists[0].id
+                    ),
+                },
+            ]
+        )
 
     votes_data = initial_votes.copy()
     used_combinations = set()
@@ -1165,7 +1230,6 @@ def create_sample_votes(
         used_combinations.add(key)
 
     # Generate additional votes - target 150 total
-    entity_types = ["car", "build_list", "global_part"]
     vote_types = ["upvote", "upvote", "upvote", "downvote"]  # Mostly upvotes
 
     for i in range(136):  # 136 more to reach 150 total
@@ -1174,12 +1238,19 @@ def create_sample_votes(
         vote_type = random.choice(vote_types)
 
         # Choose entity based on type
-        if entity_type == "car":
+        if entity_type == "car" and cars is not None and len(cars) > 0:
             entity_id = random.choice(cars).id
-        elif entity_type == "build_list":
+        elif (
+            entity_type == "build_list"
+            and build_lists is not None
+            and len(build_lists) > 0
+        ):
             entity_id = random.choice(build_lists).id
-        else:  # global_part
+        elif entity_type == "global_part":
             entity_id = random.choice(global_parts).id
+        else:
+            # Skip if entity type not available
+            continue
 
         # Check if this combination already exists
         key = (user.id, entity_type, entity_id)
@@ -1394,8 +1465,10 @@ def main() -> None:
         # Create all sample data
         users = create_sample_users(db)
         categories = create_sample_categories(db)
-        cars = create_sample_cars(db, users)
+        # Cars are now centrally managed (car generations, not user-owned)
+        cars = create_sample_cars(db)
         global_parts = create_sample_global_parts(db, users, categories)
+        # Build lists require a car_id (now mandatory)
         build_lists = create_sample_build_lists(db, users, cars)
         build_list_parts = create_sample_build_list_parts(
             db, build_lists, global_parts, users
@@ -1410,7 +1483,7 @@ def main() -> None:
         print("\nSummary:")
         print(f"  Users: {len(users)}")
         print(f"  Categories: {len(categories)}")
-        print(f"  Cars: {len(cars)}")
+        print(f"  Car Generations: {len(cars)}")
         print(f"  Global Parts: {len(global_parts)}")
         print(f"  Build Lists: {len(build_lists)}")
         print(f"  Build List Parts: {len(build_list_parts)}")

@@ -1,27 +1,110 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
 import Card from '../../components/common/Card';
 import Input from '../../components/common/Input';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { carsApi } from '../../services/Api';
+import type { CarRead } from '../../types/Api';
 
 const BuildListsCatalog: React.FC = () => {
+  const [selectedMake, setSelectedMake] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(null);
+  const [availableMakes, setAvailableMakes] = useState<string[]>([]);
+  const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Memoize request functions to prevent infinite re-renders
+  const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
+
+  // Fetch available manufacturers
+  const {
+    data: makeStats,
+    isLoading: isLoadingMakes,
+    executeRequest: fetchMakes,
+  } = useApiRequest(fetchMakeStatsFn);
+
+  // Memoize cars by make request function
+  const fetchCarsByMakeFn = useCallback(
+    (make: string) => carsApi.getCarsByMake(make, { limit: 1000 }),
+    []
+  );
+
+  // Fetch cars by make when make is selected
+  const {
+    data: carsByMake,
+    isLoading: isLoadingCars,
+    executeRequest: fetchCarsByMake,
+  } = useApiRequest(fetchCarsByMakeFn);
+
+  useEffect(() => {
+    void fetchMakes();
+  }, [fetchMakes]);
+
+  useEffect(() => {
+    if (makeStats) {
+      const makes = Object.keys(makeStats).sort();
+      setAvailableMakes(makes);
+    }
+  }, [makeStats]);
+
+  useEffect(() => {
+    if (selectedMake) {
+      void fetchCarsByMake(selectedMake);
+      setSelectedModel(''); // Reset model when make changes
+      setSelectedGeneration(null); // Reset generation when make changes
+    } else {
+      setAvailableCars([]);
+      setSelectedModel('');
+      setSelectedGeneration(null);
+    }
+  }, [selectedMake, fetchCarsByMake]);
+
+  useEffect(() => {
+    if (carsByMake) {
+      setAvailableCars(carsByMake);
+    }
+  }, [carsByMake]);
+
+  useEffect(() => {
+    // Reset generation when model changes
+    if (selectedModel) {
+      setSelectedGeneration(null);
+    }
+  }, [selectedModel]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
-
-  const params = {
-    skip: (currentPage - 1) * itemsPerPage,
-    limit: itemsPerPage,
-    ...(searchTerm && { search: searchTerm }),
-  };
+  }, [searchTerm, selectedMake, selectedModel]);
 
   const clearFilters = () => {
     setSearchTerm('');
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedGeneration(null);
   };
+
+  // Get unique models for selected make
+  const uniqueModels = Array.from(
+    new Set(availableCars.map((car) => car.model))
+  ).sort();
+
+  // Get generations (cars) for selected make and model
+  const generations = availableCars.filter(
+    (car) => car.make === selectedMake && car.model === selectedModel
+  ).sort((a, b) => {
+    // Sort by start_year, then generation_name
+    if (a.start_year !== b.start_year) {
+      return a.start_year - b.start_year;
+    }
+    return a.generation_name.localeCompare(b.generation_name);
+  });
+
+  const showBuildLists = selectedGeneration !== null;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -35,8 +118,8 @@ const BuildListsCatalog: React.FC = () => {
           </h3>
           <div className="text-sm text-gray-400">
             <p className="mb-2">
-              Browse through build lists created by the community. Each build
-              list represents a collection of parts for a specific car project.
+              Select a manufacturer and car model to browse build lists for that
+              specific vehicle.
             </p>
             <p>
               Click on any build list to view its details and see what parts are
@@ -46,42 +129,187 @@ const BuildListsCatalog: React.FC = () => {
         </div>
       </Card>
 
-      {/* Search Filter */}
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label
-              htmlFor="search-build-lists"
-              className="block text-sm font-medium text-gray-300 mb-2"
-            >
-              Search Build Lists
-            </label>
-            <Input
-              type="text"
-              placeholder="Search by name or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-            >
-              Clear Filters
-            </button>
-          </div>
+      {/* Car Selection Tiles - 3 Layer Selection */}
+      <div className="space-y-6 mb-6">
+        {/* Layer 1: Make Selection */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-200 mb-4">
+            {selectedMake ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMake('');
+                  setSelectedModel('');
+                  setSelectedGeneration(null);
+                }}
+                className="text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                ← Back to Manufacturers
+              </button>
+            ) : (
+              'Select Manufacturer'
+            )}
+          </h3>
+          {!selectedMake && (
+            <>
+              {isLoadingMakes ? (
+                <Card>
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {availableMakes.map((make) => (
+                    <Card
+                      key={make}
+                      onClick={() => setSelectedMake(make)}
+                      interactive
+                      className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                    >
+                      <h4 className="text-lg font-semibold text-gray-200">
+                        {make}
+                      </h4>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Layer 2: Model Selection */}
+          {selectedMake && !selectedModel && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
+                Select Model
+              </h3>
+              {isLoadingCars ? (
+                <Card>
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {uniqueModels.map((model) => (
+                    <Card
+                      key={model}
+                      onClick={() => setSelectedModel(model)}
+                      interactive
+                      className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                    >
+                      <h4 className="text-lg font-semibold text-gray-200">
+                        {model}
+                      </h4>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Layer 3: Generation Selection */}
+          {selectedMake && selectedModel && !selectedGeneration && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
+                Select Generation
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {generations.map((car) => (
+                  <Card
+                    key={car.id}
+                    onClick={() => setSelectedGeneration(car)}
+                    interactive
+                    className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                  >
+                    {car.image_url && (
+                      <img
+                        src={car.image_url}
+                        alt={`${car.make} ${car.model} ${car.generation_name}`}
+                        className="w-full h-32 object-cover rounded-md mb-3"
+                      />
+                    )}
+                    <h4 className="text-lg font-semibold text-indigo-400 mb-1">
+                      {car.generation_name}
+                    </h4>
+                    <p className="text-sm text-gray-400">
+                      {car.start_year} - {car.end_year}
+                    </p>
+                    {car.description && (
+                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                        {car.description}
+                      </p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Selected Generation Info */}
+          {selectedGeneration && (
+            <Card className="mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-200">
+                    Selected: {selectedGeneration.make} {selectedGeneration.model}{' '}
+                    {selectedGeneration.generation_name}
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    {selectedGeneration.start_year} - {selectedGeneration.end_year}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
+                >
+                  Change Selection
+                </button>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
       {/* Build Lists List */}
-      <BuildListCatalogList
-        params={params}
-        title="All Build Lists"
-        emptyMessage="No build lists found. Try adjusting your search."
-      />
+      {showBuildLists && selectedGeneration ? (
+        <>
+          {/* Search Filter */}
+          <div className="mb-8 space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label
+                  htmlFor="search-build-lists"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Search Build Lists
+                </label>
+                <Input
+                  id="search-build-lists"
+                  type="text"
+                  placeholder="Search by name or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <BuildListCatalogList
+            carIds={[selectedGeneration.id]}
+            params={{
+              skip: (currentPage - 1) * itemsPerPage,
+              limit: itemsPerPage,
+              ...(searchTerm && { search: searchTerm }),
+            }}
+            title={`${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`}
+            emptyMessage="No build lists found for this car. Try adjusting your search or select a different vehicle."
+            showVoteButtons={false}
+          />
+        </>
+      ) : null}
     </div>
   );
 };

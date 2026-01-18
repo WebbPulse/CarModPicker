@@ -22,12 +22,13 @@ class TestBuildListService:
 
     def test_get_build_lists_by_car(self, db_session: Session, test_user: User) -> None:
         """Test getting build lists by car ID."""
-        # Create a car
+        # Create a car (centrally managed, no user_id)
         car = Car(
             make="Honda",
             model="Civic",
-            year=2020,
-            user_id=test_user.id,
+            generation_name="10th Gen",
+            start_year=2016,
+            end_year=2021,
         )
         db_session.add(car)
         db_session.commit()
@@ -58,12 +59,13 @@ class TestBuildListService:
 
     def test_get_build_lists_by_user(self, db_session: Session, test_user: User) -> None:
         """Test getting build lists by user ID."""
-        # Create a car
+        # Create a car (centrally managed, no user_id)
         car = Car(
             make="Toyota",
             model="Camry",
-            year=2019,
-            user_id=test_user.id,
+            generation_name="8th Gen",
+            start_year=2018,
+            end_year=2024,
         )
         db_session.add(car)
         db_session.commit()
@@ -87,12 +89,13 @@ class TestBuildListService:
 
     def test_count_by_user(self, db_session: Session, test_user: User) -> None:
         """Test counting build lists by user."""
-        # Create a car
+        # Create a car (centrally managed, no user_id)
         car = Car(
             make="Ford",
             model="Mustang",
-            year=2022,
-            user_id=test_user.id,
+            generation_name="S650",
+            start_year=2024,
+            end_year=2024,
         )
         db_session.add(car)
         db_session.commit()

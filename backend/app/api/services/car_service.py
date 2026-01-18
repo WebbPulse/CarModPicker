@@ -11,6 +11,7 @@ from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
 from app.api.schemas.car import CarCreate, CarRead, CarUpdate
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.utils.common_operations import delete_entity
 
 
 class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
@@ -23,28 +24,29 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
 
     def __init__(self) -> None:
         """Initialize the car service."""
+        # Cars are now centrally managed, so no subscription check needed
         super().__init__(
             model=DBCar,
             entity_name="car",
-            subscription_check_method="can_create_car",
+            subscription_check_method=None,  # Cars are admin-managed, no subscription check
         )
 
-    def get_cars_by_make_and_year(
+    def get_cars_by_make_model(
         self,
         db: Session,
         make: Optional[str] = None,
-        year: Optional[int] = None,
+        model: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
-        Get cars filtered by make and/or year.
+        Get cars filtered by make and/or model.
 
         Args:
             db: Database session
             make: Car make to filter by
-            year: Car year to filter by
+            model: Car model to filter by
             skip: Number of records to skip
             limit: Maximum number of records to return
             logger: Logger instance (optional)
@@ -55,8 +57,8 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         filters: Dict[str, Any] = {}
         if make:
             filters["make"] = make
-        if year:
-            filters["year"] = year
+        if model:
+            filters["model"] = model
 
         return self.list_all(
             db=db,
@@ -75,7 +77,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
-        Search cars by make, model, or year.
+        Search cars by make, model, or generation name.
 
         Args:
             db: Database session
@@ -92,64 +94,48 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
             skip=skip,
             limit=limit,
             search=search_term,
-            search_fields=["make", "model"],
+            search_fields=["make", "model", "generation_name"],
             logger=logger,
         )
 
-    def get_cars_with_owner_details(
+    def delete(
         self,
         db: Session,
-        skip: int = 0,
-        limit: int = 100,
-        logger: Optional[logging.Logger] = None,
-    ) -> List[DBCar]:
-        """
-        Get cars with owner details loaded.
-
-        Args:
-            db: Database session
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-            logger: Logger instance (optional)
-
-        Returns:
-            List of cars with owner details
-        """
-        # This would need to be implemented based on your model relationships
-        # For now, we'll use the base method
-        return self.list_all(
-            db=db,
-            skip=skip,
-            limit=limit,
-            logger=logger,
-        )
-
-    def verify_car_ownership(
-        self,
-        db: Session,
-        car_id: int,
+        entity_id: int,
         current_user: DBUser,
         logger: Optional[logging.Logger] = None,
     ) -> DBCar:
         """
-        Verify that a car exists and belongs to the current user.
+        Delete a car (admin only, no ownership check since cars are centrally managed).
 
         Args:
             db: Database session
-            car_id: ID of the car to verify
-            current_user: Current authenticated user
-            logger: Logger instance (optional)
+            entity_id: ID of the car to delete
+            current_user: Current authenticated user (must be admin)
+            logger: Logger instance
 
         Returns:
-            The found car
+            The deleted car entity
 
         Raises:
-            HTTPException: If car not found or not owned by user
+            HTTPException: If car not found or deletion fails
         """
-        return self.get_by_id(
+        # Get the car first (no ownership check since cars are centrally managed)
+        car = self.get_by_id(
             db=db,
-            entity_id=car_id,
-            current_user=current_user,
-            allow_public=False,
+            entity_id=entity_id,
+            allow_public=True,  # Public read, but delete requires admin (checked by endpoint)
             logger=logger,
         )
+
+        # Delete the entity (returns a message dict, but we return the car object)
+        delete_entity(
+            db=db,
+            entity=car,
+            user_id=current_user.id,
+            logger=logger,
+            entity_name=self.entity_name,
+        )
+
+        # Return the car that was deleted
+        return car

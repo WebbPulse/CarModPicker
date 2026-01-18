@@ -108,17 +108,6 @@ const GlobalPartsCatalog: React.FC = () => {
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [categories]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white">
-        <PageHeader title="Parts Catalog" />
-        <div className="flex justify-center items-center h-64">
-          <LoadingSpinner />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title="Parts Catalog" />
@@ -202,6 +191,12 @@ const GlobalPartsCatalog: React.FC = () => {
               onAddToBuildList={handleAddToBuildList}
               onPaginationChange={handlePaginationChange}
             />
+          ) : loading ? (
+            <Card>
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {activeCategories.map((category: CategoryResponse) => (

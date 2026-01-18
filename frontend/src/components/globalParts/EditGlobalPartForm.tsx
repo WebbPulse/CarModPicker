@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient from '../../services/Api';
-import type { GlobalPartRead, GlobalPartUpdate } from '../../types/Api';
+import apiClient, { categoriesApi } from '../../services/Api';
+import type {
+  CategoryResponse,
+  GlobalPartRead,
+  GlobalPartUpdate,
+} from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
@@ -24,6 +28,8 @@ const updateGlobalPartRequestFn = (payload: {
     payload.globalPartData
   );
 
+const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
+
 function EditGlobalPartForm({
   globalPart,
   onGlobalPartUpdated,
@@ -36,14 +42,31 @@ function EditGlobalPartForm({
     description: '',
     price: '',
     image_url: '',
+    category_id: 1,
   });
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const {
     isLoading,
     error,
     executeRequest: updateGlobalPart,
   } = useApiRequest(updateGlobalPartRequestFn);
+
+  const { data: categoriesData, executeRequest: fetchCategories } =
+    useApiRequest(fetchCategoriesRequestFn);
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    if (categoriesData && Array.isArray(categoriesData)) {
+      setCategories(categoriesData);
+      setIsLoadingCategories(false);
+    }
+  }, [categoriesData]);
 
   useEffect(() => {
     setFormData({
@@ -56,12 +79,22 @@ function EditGlobalPartForm({
           ? globalPart.price.toString()
           : '',
       image_url: globalPart.image_url ?? '',
+      category_id: globalPart.category_id ?? 1,
     });
   }, [globalPart]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (validationError) setValidationError(null);
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const categoryId = e.target.value ? Number(e.target.value) : null;
+    setFormData((prev) => ({
+      ...prev,
+      category_id: categoryId ?? 1,
+    }));
     if (validationError) setValidationError(null);
   };
 
@@ -80,6 +113,7 @@ function EditGlobalPartForm({
       description: formData.description.trim() || null,
       price: formData.price ? parseFloat(formData.price) : null,
       image_url: formData.image_url.trim() || null,
+      category_id: formData.category_id,
     };
 
     const result = await updateGlobalPart({
@@ -112,6 +146,37 @@ function EditGlobalPartForm({
         placeholder="Enter part name"
         required
       />
+
+      <div className="relative">
+        <label
+          htmlFor="global-part-category"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
+          Category *
+        </label>
+        <select
+          id="global-part-category"
+          name="category_id"
+          value={formData.category_id}
+          onChange={handleCategoryChange}
+          disabled={isLoadingCategories}
+          required
+          className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-300 ease-out input-modern min-h-[44px] [&>option]:bg-gray-800 [&>option]:text-white"
+        >
+          {isLoadingCategories ? (
+            <option>Loading categories...</option>
+          ) : (
+            categories
+              .filter((category) => category.is_active)
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.display_name}
+                </option>
+              ))
+          )}
+        </select>
+      </div>
 
       <Input
         label="Part Number"
