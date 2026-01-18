@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class BuildListCreate(BaseModel):
     name: str = Field(..., min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
-    car_id: Optional[int] = None
+    car_id: int = Field(..., description="Car ID is required - build lists must be associated with a car")
     image_url: Optional[str] = None
 
 
@@ -32,3 +32,11 @@ class BuildListRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Schema for response body when reading a build list with vote summary
+class BuildListReadWithVotes(BuildListRead):
+    upvotes: int = 0
+    downvotes: int = 0
+    total_votes: int = 0
+    user_vote: Optional[str] = None  # 'upvote', 'downvote', or None

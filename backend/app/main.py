@@ -193,9 +193,6 @@ endpoint_registry.register_endpoint(
     description="Unified reporting operations for all entity types",
 )
 
-# Print registration summary
-endpoint_registry.print_registration_summary()
-
 
 @app.get("/")
 def read_root() -> dict[str, str]:

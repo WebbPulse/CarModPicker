@@ -54,9 +54,10 @@ export interface AdminUserUpdate {
 export interface CarCreate {
   make: string;
   model: string;
-  year: number;
-  trim?: string | null;
-  vin?: string | null;
+  generation_name: string;
+  start_year: number;
+  end_year: number;
+  description?: string | null;
   image_url?: string | null;
 }
 
@@ -64,26 +65,56 @@ export interface CarRead {
   id: number;
   make: string;
   model: string;
-  year: number;
-  trim?: string | null;
-  vin?: string | null;
+  generation_name: string;
+  start_year: number;
+  end_year: number;
+  description?: string | null;
   image_url?: string | null;
-  user_id: number;
 }
 
 export interface CarUpdate {
   make?: string | null;
   model?: string | null;
-  year?: number | null;
-  trim?: string | null;
-  vin?: string | null;
+  generation_name?: string | null;
+  start_year?: number | null;
+  end_year?: number | null;
+  description?: string | null;
   image_url?: string | null;
+}
+
+// Car Generation interfaces
+export interface CarGenerationCreate {
+  make: string;
+  model: string;
+  generation_name: string;
+  start_year: number;
+  end_year: number;
+  description?: string | null;
+}
+
+export interface CarGenerationRead {
+  id: number;
+  make: string;
+  model: string;
+  generation_name: string;
+  start_year: number;
+  end_year: number;
+  description?: string | null;
+}
+
+export interface CarGenerationUpdate {
+  make?: string | null;
+  model?: string | null;
+  generation_name?: string | null;
+  start_year?: number | null;
+  end_year?: number | null;
+  description?: string | null;
 }
 
 export interface BuildListCreate {
   name: string;
   description?: string | null;
-  car_id?: number | null;
+  car_id: number; // Required - build lists must be associated with a car
   image_url?: string | null;
 }
 
@@ -96,6 +127,13 @@ export interface BuildListRead {
   image_url?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface BuildListReadWithVotes extends BuildListRead {
+  upvotes: number;
+  downvotes: number;
+  total_votes: number;
+  user_vote?: 'upvote' | 'downvote' | null;
 }
 
 export interface BuildListUpdate {
@@ -250,8 +288,6 @@ export interface ReportCreate {
     | 'duplicate'
     | 'other';
   description?: string | null;
-  entity_type: 'car' | 'build_list' | 'global_part';
-  entity_id: number;
 }
 
 export interface ReportRead {

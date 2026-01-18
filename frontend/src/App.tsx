@@ -24,6 +24,7 @@ import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import Search from './pages/Search.tsx';
 import AdminDashboard from './pages/admin/AdminDashboard.tsx';
+import CarGenerationManagement from './pages/admin/CarGenerationManagement.tsx';
 import CategoryManagement from './pages/admin/CategoryManagement.tsx';
 import ReportReview from './pages/admin/ReportReview.tsx';
 import UserManagement from './pages/admin/UserManagement.tsx';
@@ -118,6 +119,10 @@ function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/categories" element={<CategoryManagement />} />
+          <Route
+            path="/admin/car-generations"
+            element={<CarGenerationManagement />}
+          />
           <Route path="/admin/reports" element={<ReportReview />} />
           <Route path="/admin/users" element={<UserManagement />} />
         </Routes>

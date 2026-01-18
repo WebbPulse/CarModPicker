@@ -70,9 +70,6 @@ class EndpointRegistry:
             "include_in_openapi": include_in_openapi,
         }
 
-        # Log registration
-        print(f"Registered endpoint: {full_prefix} ({', '.join(tags_list)})")
-
     def register_crud_endpoint(
         self,
         router: APIRouter,
@@ -158,19 +155,3 @@ class EndpointRegistry:
     def get_registered_endpoints(self) -> Dict[str, EndpointInfo]:
         """Get all registered endpoints."""
         return self.registered_endpoints
-
-    def print_registration_summary(self) -> None:
-        """Print a summary of all registered endpoints."""
-        print("\n" + "=" * 60)
-        print("ENDPOINT REGISTRATION SUMMARY")
-        print("=" * 60)
-
-        for info in self.registered_endpoints.values():
-            print(f"✓ {info['prefix']}")
-            print(f"  Tags: {', '.join(info['tags'])}")
-            if info["description"]:
-                print(f"  Description: {info['description']}")
-            print()
-
-        print(f"Total endpoints registered: {len(self.registered_endpoints)}")
-        print("=" * 60)

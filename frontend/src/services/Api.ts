@@ -10,8 +10,12 @@ import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
   BuildListRead,
+  BuildListReadWithVotes,
   BuildListUpdate,
   CarCreate,
+  CarGenerationCreate,
+  CarGenerationRead,
+  CarGenerationUpdate,
   CarRead,
   CarUpdate,
   CategoryCreate,
@@ -154,30 +158,65 @@ export const usersApi = {
 
 // Car API
 export const carsApi = {
-  createCar: (data: CarCreate) => apiClient.post<CarRead>('/cars/', data),
-  getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
+  // Admin-only create/update/delete
+  createCar: (data: CarCreate) =>
+    apiClient.post<CarRead>('/cars/admin/cars', data),
   updateCar: (carId: number, data: CarUpdate) =>
-    apiClient.put<CarRead>(`/cars/${carId}`, data),
-  deleteCar: (carId: number) => apiClient.delete<CarRead>(`/cars/${carId}`),
+    apiClient.put<CarRead>(`/cars/admin/cars/${carId}`, data),
+  deleteCar: (carId: number) =>
+    apiClient.delete<CarRead>(`/cars/admin/cars/${carId}`),
 
-  // List and search endpoints
+  // Public read endpoints
+  getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
   listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
     apiClient.get<CarRead[]>('/cars/', { params }),
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>('/cars/search', { params: { q, ...params } }),
   getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>(`/cars/make/${make}`, { params }),
-  getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
-  getCarsByUser: (userId: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/user/${userId}`, { params }),
-
+  getCarsByMakeModel: (
+    make: string,
+    model: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarRead[]>(`/cars/make/${make}/model/${model}`, { params }),
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
-  getCarYearStats: () =>
-    apiClient.get<Record<string, number>>('/cars/stats/years'),
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
+};
+
+// Car Generation API (Admin only) - now uses /cars endpoints
+export const carGenerationsApi = {
+  createCarGeneration: (data: CarGenerationCreate) =>
+    apiClient.post<CarGenerationRead>('/cars/admin/cars', data),
+  getCarGeneration: (generationId: number) =>
+    apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
+  updateCarGeneration: (generationId: number, data: CarGenerationUpdate) =>
+    apiClient.put<CarGenerationRead>(`/cars/admin/cars/${generationId}`, data),
+  deleteCarGeneration: (generationId: number) =>
+    apiClient.delete<CarGenerationRead>(`/cars/admin/cars/${generationId}`),
+  listCarGenerations: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+  }) => apiClient.get<CarGenerationRead[]>('/cars/', { params }),
+  getCarGenerationsByMake: (
+    make: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}`, {
+      params,
+    }),
+  getCarGenerationsByMakeModel: (
+    make: string,
+    model: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}/model/${model}`, {
+      params,
+    }),
+  countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
 // Build List API
@@ -197,6 +236,18 @@ export const buildListsApi = {
     limit?: number;
     search?: string;
   }) => apiClient.get<BuildListRead[]>('/build-lists/', { params }),
+  getBuildListsWithVotes: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    car_id?: number;
+  }) =>
+    apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
+      '/build-lists/with-votes',
+      {
+        params,
+      }
+    ),
   getBuildListsByCar: (
     carId: number,
     params?: { skip?: number; limit?: number }
@@ -325,12 +376,12 @@ export const votesApi = {
 // Unified Reports API
 export const reportsApi = {
   reportEntity: (
-    entityType: 'car' | 'build_list' | 'global_part',
+    entityType: 'build_list' | 'global_part',
     entityId: number,
     data: ReportCreate
   ) => apiClient.post<ReportRead>(`/reports/${entityType}/${entityId}`, data),
   getReports: (params?: {
-    entity_type?: 'car' | 'build_list' | 'global_part';
+    entity_type?: 'build_list' | 'global_part';
     status?: string;
     skip?: number;
     limit?: number;
@@ -339,7 +390,7 @@ export const reportsApi = {
       params,
     }),
   getReportsWithDetails: (params?: {
-    entity_type?: 'car' | 'build_list' | 'global_part';
+    entity_type?: 'build_list' | 'global_part';
     status?: string;
     skip?: number;
     limit?: number;
@@ -375,6 +426,24 @@ export const globalPartVotesApi = {
     votesApi.getFlaggedEntities('global_part', params?.limit),
 };
 
+export const buildListVotesApi = {
+  voteOnBuildList: (
+    buildListId: number,
+    data: { vote_type: 'upvote' | 'downvote' }
+  ) =>
+    votesApi.voteOnEntity('build_list', buildListId, {
+      vote_type: data.vote_type,
+      entity_type: 'build_list',
+      entity_id: buildListId,
+    }),
+  removeVote: (buildListId: number) =>
+    votesApi.removeVote('build_list', buildListId),
+  getVoteSummary: (buildListId: number) =>
+    votesApi.getVoteSummary('build_list', buildListId),
+  getFlaggedBuildLists: (params?: { limit?: number }) =>
+    votesApi.getFlaggedEntities('build_list', params?.limit),
+};
+
 export const globalPartReportsApi = {
   reportGlobalPart: (
     partId: number,
@@ -388,8 +457,6 @@ export const globalPartReportsApi = {
         | 'duplicate'
         | 'other',
       description: data.description ?? null,
-      entity_type: 'global_part',
-      entity_id: partId,
     }),
   getReports: (params?: { status?: string; skip?: number; limit?: number }) =>
     reportsApi.getReports({ ...params, entity_type: 'global_part' }),

@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,13 @@ from app.api.models.category import Category
 from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import get_default_category_id
+
+
+def get_unique_name(base_name: str) -> str:
+    """Generate a unique name for parallel testing."""
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    pid = os.getpid()
+    return f"{base_name}_{worker_id}_{pid}"
 
 
 # Helper function to create and login an admin user
@@ -83,26 +91,63 @@ def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[int
     return user_id, token
 
 
-# Helper function to create a car for the currently logged-in user
+# Helper function to create a car via admin (cars are now centrally managed)
+def create_car_via_admin_for_categories(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    car_make: str = "TestMakeCategory",
+    car_model: str = "TestModelCategory",
+    generation_name: str = "Test Gen",
+    start_year: int = 2020,
+    end_year: int = 2024,
+) -> int:
+    """Create a car via admin endpoint and return the car ID."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    car_data = {
+        "make": car_make,
+        "model": car_model,
+        "generation_name": generation_name,
+        "start_year": start_year,
+        "end_year": end_year,
+    }
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
+    assert response.status_code == 200, f"Failed to create car for category tests: {response.text}"
+    return int(response.json()["id"])
+
+
+# Legacy function name for backward compatibility - now requires admin token
 def create_car_for_user_cookie_auth(
     client: TestClient,
     token: str,
     car_make: str = "TestMakeCategory",
     car_model: str = "TestModelCategory",
+    db_session: Session | None = None,
 ) -> int:
+    """Create a car via admin (cars are now centrally managed).
+
+    Note: This function signature is kept for backward compatibility but now requires
+    an admin token since cars are centrally managed.
+    """
+    if db_session is None:
+        raise ValueError("db_session is required for admin car creation")
+
+    # Create admin user if token is not from admin, or use existing admin token
+    # For simplicity, assume token is from admin
     headers = {"Authorization": f"Bearer {token}"}
     car_data = {
         "make": car_make,
         "model": car_model,
-        "year": 2024,
-        "trim": "TestTrimCategory",
+        "generation_name": "Test Gen",
+        "start_year": 2020,
+        "end_year": 2024,
     }
-    response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
     assert response.status_code == 200, f"Failed to create car for category tests: {response.text}"
     return int(response.json()["id"])
 
 
-# Helper function to create a build list for a car owned by the currently logged-in user
+# Helper function to create a build list for a car (cars are centrally managed, not owned by users)
 def create_build_list_for_car_cookie_auth(
     client: TestClient, token: str, car_id: int, bl_name: str = "TestBLCategory"
 ) -> int:
@@ -186,8 +231,9 @@ class TestCategories:
         _, token = create_and_login_user(client, "parts_by_category")
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create a car for the user
-        car_id = create_car_for_user_cookie_auth(client, token)
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car_id = create_car_via_admin_for_categories(client, db_session, admin_token)
 
         # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, token, car_id)
@@ -370,8 +416,9 @@ class TestCategories:
         _, user_token = create_and_login_user(client, "delete_with_parts")
         user_headers = {"Authorization": f"Bearer {user_token}"}
 
-        # Create a car for the user
-        car_id = create_car_for_user_cookie_auth(client, user_token)
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car_id = create_car_via_admin_for_categories(client, db_session, admin_token)
 
         # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../services/Api';
+import React, { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import type { CarUpdate, CarRead } from '../../types/Api';
-import Input from '../common/Input';
-import ButtonStretch from '../buttons/StretchButton';
-import { ErrorAlert, ConfirmationAlert } from '../common/Alerts';
+import { carsApi } from '../../services/Api';
+import type { CarRead, CarUpdate } from '../../types/Api';
 import SecondaryButton from '../buttons/SecondaryButton';
+import ButtonStretch from '../buttons/StretchButton';
+import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
+import Input from '../common/Input';
 
 interface EditCarFormProps {
   car: CarRead;
@@ -14,7 +14,7 @@ interface EditCarFormProps {
 }
 
 const updateCarRequestFn = (payload: { carId: number; data: CarUpdate }) =>
-  apiClient.put<CarRead>(`/cars/${payload.carId}`, payload.data);
+  carsApi.updateCar(payload.carId, payload.data);
 
 const EditCarForm: React.FC<EditCarFormProps> = ({
   car,
@@ -23,9 +23,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
 }) => {
   const [make, setMake] = useState(car.make);
   const [model, setModel] = useState(car.model);
-  const [year, setYear] = useState<number | ''>(car.year);
-  const [trim, setTrim] = useState(car.trim || '');
-  const [vin, setVin] = useState(car.vin || '');
+  const [generationName, setGenerationName] = useState(car.generation_name);
+  const [startYear, setStartYear] = useState<number | ''>(car.start_year);
+  const [endYear, setEndYear] = useState<number | ''>(car.end_year);
+  const [description, setDescription] = useState(car.description || '');
   const [imageUrl, setImageUrl] = useState(car.image_url || '');
   const [formMessage, setFormMessage] = useState<{
     type: 'success' | 'error';
@@ -42,9 +43,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
   useEffect(() => {
     setMake(car.make);
     setModel(car.model);
-    setYear(car.year);
-    setTrim(car.trim || '');
-    setVin(car.vin || '');
+    setGenerationName(car.generation_name);
+    setStartYear(car.start_year);
+    setEndYear(car.end_year);
+    setDescription(car.description || '');
     setImageUrl(car.image_url || '');
     setApiError(null);
     setFormMessage(null);
@@ -55,28 +57,53 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
     setApiError(null);
     setFormMessage(null);
 
-    if (!make.trim() || !model.trim() || year === '') {
+    if (
+      !make.trim() ||
+      !model.trim() ||
+      !generationName.trim() ||
+      startYear === '' ||
+      endYear === ''
+    ) {
       setFormMessage({
         type: 'error',
-        text: 'Make, Model, and Year are required.',
+        text: 'Make, Model, Generation Name, Start Year, and End Year are required.',
       });
       return;
     }
     if (
-      isNaN(Number(year)) ||
-      Number(year) < 1886 ||
-      Number(year) > new Date().getFullYear() + 1
+      isNaN(Number(startYear)) ||
+      Number(startYear) < 1886 ||
+      Number(startYear) > new Date().getFullYear() + 1
     ) {
-      setFormMessage({ type: 'error', text: 'Please enter a valid year.' });
+      setFormMessage({
+        type: 'error',
+        text: 'Please enter a valid start year.',
+      });
+      return;
+    }
+    if (
+      isNaN(Number(endYear)) ||
+      Number(endYear) < 1886 ||
+      Number(endYear) > new Date().getFullYear() + 1
+    ) {
+      setFormMessage({ type: 'error', text: 'Please enter a valid end year.' });
+      return;
+    }
+    if (Number(startYear) > Number(endYear)) {
+      setFormMessage({
+        type: 'error',
+        text: 'Start year must be less than or equal to end year.',
+      });
       return;
     }
 
     const payload: CarUpdate = {
       make: make.trim(),
       model: model.trim(),
-      year: Number(year),
-      trim: trim.trim() || null,
-      vin: vin.trim() || null,
+      generation_name: generationName.trim(),
+      start_year: Number(startYear),
+      end_year: Number(endYear),
+      description: description.trim() || null,
       image_url: imageUrl.trim() || null,
     };
 
@@ -126,16 +153,34 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
         </div>
         <div>
           <label
-            htmlFor="edit-year"
+            htmlFor="edit-generation-name"
             className="block text-sm font-medium text-neutral-300 mb-2"
           >
-            Year
+            Generation Name
+          </label>
+          <Input
+            type="text"
+            value={generationName}
+            onChange={(e) => setGenerationName(e.target.value)}
+            required
+            disabled={isLoading}
+            placeholder="e.g., 5th Gen, MK7, F30"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="edit-start-year"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
+            Start Year
           </label>
           <Input
             type="number"
-            value={year.toString()}
+            value={startYear.toString()}
             onChange={(e) =>
-              setYear(e.target.value === '' ? '' : parseInt(e.target.value, 10))
+              setStartYear(
+                e.target.value === '' ? '' : parseInt(e.target.value, 10)
+              )
             }
             required
             disabled={isLoading}
@@ -143,30 +188,36 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
         </div>
         <div>
           <label
-            htmlFor="edit-trim"
+            htmlFor="edit-end-year"
             className="block text-sm font-medium text-neutral-300 mb-2"
           >
-            Trim (Optional)
+            End Year
           </label>
           <Input
-            type="text"
-            value={trim}
-            onChange={(e) => setTrim(e.target.value)}
+            type="number"
+            value={endYear.toString()}
+            onChange={(e) =>
+              setEndYear(
+                e.target.value === '' ? '' : parseInt(e.target.value, 10)
+              )
+            }
+            required
             disabled={isLoading}
           />
         </div>
         <div>
           <label
-            htmlFor="edit-vin"
+            htmlFor="edit-description"
             className="block text-sm font-medium text-neutral-300 mb-2"
           >
-            VIN (Optional)
+            Description (Optional)
           </label>
           <Input
             type="text"
-            value={vin}
-            onChange={(e) => setVin(e.target.value)}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             disabled={isLoading}
+            placeholder="Optional description of this car generation"
           />
         </div>
         <div>

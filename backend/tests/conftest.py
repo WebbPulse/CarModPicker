@@ -324,9 +324,23 @@ def create_and_login_user(
 
 
 def create_car_for_user_cookie_auth(client: TestClient) -> int:
-    """Create a car for the currently logged-in user."""
-    from app.core.config import settings
+    """DEPRECATED: Create a car for the currently logged-in user.
 
+    This function is deprecated since cars are now centrally managed by admins.
+    Use admin car creation endpoints instead. This function will fail since
+    regular users cannot create cars.
+    """
+    from app.core.config import settings
+    import warnings
+
+    warnings.warn(
+        "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
+        "Use admin car creation endpoints instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    # This will fail since cars are centrally managed
     car_data = {
         "make": "Toyota",
         "model": "Camry",

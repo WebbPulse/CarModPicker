@@ -51,7 +51,7 @@ async def report_entity(
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> ReportRead:
-    """Report an entity (car, build list, or global part) for admin review."""
+    """Report an entity (build list or global part) for admin review."""
     report = report_service.create_report(
         db=db,
         entity_type=entity_type,

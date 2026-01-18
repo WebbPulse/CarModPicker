@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -14,77 +15,66 @@ def get_unique_name(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
+def create_and_login_admin_user(
+    client: TestClient, db_session: Session, username_suffix: str = "admin"
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
+    from app.api.dependencies.auth import get_password_hash
+    from app.api.models.user import User as DBUser
+
+    username = f"admin_test_{username_suffix}"
+    email = f"admin_test_{username_suffix}@example.com"
+    password = "testpassword"
+
+    # Create admin user directly in database
+    admin_user = DBUser(
+        username=username,
+        email=email,
+        hashed_password=get_password_hash(password),
+        is_admin=True,
+        is_superuser=False,
+        email_verified=True,
+        disabled=False,
+    )
+    db_session.add(admin_user)
+    db_session.commit()
+    db_session.refresh(admin_user)
+
+    # Log in and get token
+    login_data = {"username": username, "password": password}
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
+
+    return admin_user.__dict__, token
+
+
+def create_car_via_admin(
+    client: TestClient,
+    admin_token: str,
+    make: str = "Honda",
+    model: str = "Civic",
+    generation_name: str = "10th Gen",
+    start_year: int = 2016,
+    end_year: int = 2021,
+) -> dict[str, Any]:
+    """Create a car via admin endpoint and return the created car data."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    car_data = {
+        "make": make,
+        "model": model,
+        "generation_name": generation_name,
+        "start_year": start_year,
+        "end_year": end_year,
+    }
+
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
+    assert response.status_code == 200, f"Failed to create car: {response.text}"
+    return response.json()
+
+
 class TestUnifiedReports:
     """Test cases for unified reports endpoints."""
-
-    def test_create_car_report_success(
-        self,
-        client: TestClient,
-        test_user: User,
-        db_session: Session,
-    ) -> None:
-        """Test successfully creating a report for a car."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Honda"),
-            "model": "Civic",
-            "year": 2022,
-            "trim": "Sport",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
-
-        # Login as test user and create a report
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {test_user_token}"}
-
-        # Create a report
-        report_data = {
-            "reason": "inappropriate_content",
-            "description": "This car contains inappropriate content",
-        }
-        response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
-            json=report_data,
-            headers=headers,
-        )
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["entity_id"] == car["id"]
-        assert data["entity_type"] == "car"
-        assert data["user_id"] == test_user.id
-        assert data["reason"] == "inappropriate_content"
-        assert data["description"] == "This car contains inappropriate content"
-        assert data["status"] == "pending"
 
     def test_create_build_list_report_success(
         self,
@@ -117,10 +107,15 @@ class TestUnifiedReports:
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -239,7 +234,7 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/1", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/build_list/1", json=report_data)
         assert response.status_code == 401
 
     def test_create_report_entity_not_found(self, client: TestClient, test_user: User) -> None:
@@ -256,74 +251,87 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/99999", json=report_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/reports/build_list/99999", json=report_data, headers=headers)
         assert response.status_code == 404
 
     def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test that users cannot report their own entities."""
-        # Login as test user
+        # Login as test user and create a build list
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create a car owned by the test user
-        car_data = {
-            "make": get_unique_name("Toyota"),
-            "model": "Camry",
-            "year": 2021,
-            "trim": "SE",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
-        # Try to report own car
+        # Create a build list owned by test user
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Try to report own build list (should fail)
         report_data = {
             "reason": "inappropriate_content",
-            "description": "This car contains inappropriate content",
+            "description": "This build list contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}", json=report_data, headers=headers
+        )
         assert response.status_code == 400
-        assert "cannot report your own" in response.json()["message"]
+        response_data = response.json()
+        # Handle both "detail" and "message" response formats
+        error_text = response_data.get("detail", response_data.get("message", "")).lower()
+        assert "cannot report your own" in error_text or "report your own" in error_text
 
     def test_create_report_already_reported(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test that users cannot report the same entity twice."""
-        # Create a second user to own the car
+        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.user import User as DBUser
 
-        car_owner = DBUser(
-            username=f"car_owner2_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner2_{os.getpid()}_{id(db_session)}@example.com",
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
             hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
             is_admin=False,
             is_superuser=False,
         )
-        db_session.add(car_owner)
+        db_session.add(build_list_owner)
         db_session.commit()
-        db_session.refresh(car_owner)
+        db_session.refresh(build_list_owner)
 
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Ford"),
-            "model": "Mustang",
-            "year": 2023,
-            "trim": "GT",
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
-        car = response.json()
+        build_list = response.json()
 
         # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -335,10 +343,10 @@ class TestUnifiedReports:
         # Create first report
         report_data = {
             "reason": "inappropriate_content",
-            "description": "This car contains inappropriate content",
+            "description": "This build list contains inappropriate content",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -347,10 +355,10 @@ class TestUnifiedReports:
         # Try to create second report
         report_data = {
             "reason": "spam",
-            "description": "This car is spam",
+            "description": "This build list is spam",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -400,42 +408,47 @@ class TestUnifiedReports:
 
     def test_get_report_by_id_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully getting a specific report by ID."""
-        # Create a second user to own the car
+        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.user import User as DBUser
 
-        car_owner = DBUser(
-            username=f"car_owner3_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner3_{os.getpid()}_{id(db_session)}@example.com",
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
             hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
             is_admin=False,
             is_superuser=False,
         )
-        db_session.add(car_owner)
+        db_session.add(build_list_owner)
         db_session.commit()
-        db_session.refresh(car_owner)
+        db_session.refresh(build_list_owner)
 
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Chevrolet"),
-            "model": "Camaro",
-            "year": 2022,
-            "trim": "SS",
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
-        car = response.json()
+        build_list = response.json()
 
-        # Login as test user and create a report
+        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
@@ -445,10 +458,10 @@ class TestUnifiedReports:
         # Create a report
         report_data = {
             "reason": "spam",
-            "description": "This car is spam",
+            "description": "This build list is spam",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -460,7 +473,7 @@ class TestUnifiedReports:
         assert response.status_code == 200
         retrieved_report = response.json()
         assert retrieved_report["id"] == report["id"]
-        assert retrieved_report["entity_id"] == car["id"]
+        assert retrieved_report["entity_id"] == build_list["id"]
 
     def test_get_report_by_id_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting a report that doesn't exist."""
@@ -491,40 +504,45 @@ class TestUnifiedReports:
 
     def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
         """Test successfully updating report status as admin."""
-        # Create a car owner
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.user import User as DBUser
 
-        car_owner = DBUser(
-            username=f"car_owner5_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner5_{os.getpid()}_{id(db_session)}@example.com",
+        # Create a test user to own the build list
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
             hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
             is_admin=False,
             is_superuser=False,
         )
-        db_session.add(car_owner)
+        db_session.add(build_list_owner)
         db_session.commit()
-        db_session.refresh(car_owner)
+        db_session.refresh(build_list_owner)
 
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Audi"),
-            "model": "A4",
-            "year": 2023,
-            "trim": "Premium",
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
-        car = response.json()
+        build_list = response.json()
 
         # Create a test user to make the report
         test_user = DBUser(
@@ -550,10 +568,10 @@ class TestUnifiedReports:
         # Create a report
         report_data = {
             "reason": "duplicate",
-            "description": "This car is a duplicate",
+            "description": "This build list is a duplicate",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -589,40 +607,45 @@ class TestUnifiedReports:
 
     def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
         """Test successfully deleting a report as admin."""
-        # Create a car owner
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.user import User as DBUser
 
-        car_owner = DBUser(
-            username=f"car_owner6_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner6_{os.getpid()}_{id(db_session)}@example.com",
+        # Create a test user to own the build list
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
             hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
             is_admin=False,
             is_superuser=False,
         )
-        db_session.add(car_owner)
+        db_session.add(build_list_owner)
         db_session.commit()
-        db_session.refresh(car_owner)
+        db_session.refresh(build_list_owner)
 
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Mercedes"),
-            "model": "C-Class",
-            "year": 2022,
-            "trim": "AMG",
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
         assert response.status_code == 200
-        car = response.json()
+        build_list = response.json()
 
         # Create a test user to make the report
         test_user = DBUser(
@@ -648,10 +671,10 @@ class TestUnifiedReports:
         # Create a report
         report_data = {
             "reason": "other",
-            "description": "Other issue with this car",
+            "description": "Other issue with this build list",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/car/{car['id']}",
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -688,6 +711,46 @@ class TestUnifiedReports:
 
     def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test reporting with invalid reason."""
+        # Create a second user to own the build list
+        from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User as DBUser
+
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(build_list_owner)
+        db_session.commit()
+        db_session.refresh(build_list_owner)
+
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
+        assert response.status_code == 200
+        build_list = response.json()
+
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -695,21 +758,12 @@ class TestUnifiedReports:
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Tesla"),
-            "model": "Model 3",
-            "year": 2023,
-            "trim": "Performance",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
-
         # Try to report with invalid reason
         report_data = {
             "reason": "invalid_reason",
-            "description": "This car has an invalid reason",
+            "description": "This build list has an invalid reason",
         }
-        response = client.post(f"{settings.API_STR}/reports/car/{car['id']}", json=report_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}", json=report_data, headers=headers
+        )
         assert response.status_code == 422  # Validation error

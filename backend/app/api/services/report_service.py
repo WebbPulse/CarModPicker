@@ -11,7 +11,6 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
@@ -28,7 +27,7 @@ class ReportService:
     """
     Unified report service for all entity types.
 
-    This service handles reporting operations for cars, build lists, and global parts
+    This service handles reporting operations for build lists and global parts
     using the unified Report model.
     """
 
@@ -384,11 +383,9 @@ class ReportService:
             reviewer_username=reviewer_username,
         )
 
-    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
+    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBBuildList, DBGlobalPart]]:
         """Get the SQLAlchemy model for the entity type."""
-        if entity_type == EntityType.CAR:
-            return DBCar
-        elif entity_type == EntityType.BUILD_LIST:
+        if entity_type == EntityType.BUILD_LIST:
             return DBBuildList
         elif entity_type == EntityType.GLOBAL_PART:
             return DBGlobalPart
@@ -397,14 +394,7 @@ class ReportService:
 
     def _get_entity_details(self, db: Session, entity_type: str, entity_id: int) -> Dict[str, Any]:
         """Get entity details for report display."""
-        if entity_type == "car":
-            entity = db.query(DBCar).filter(DBCar.id == entity_id).first()
-            if entity:
-                return {
-                    "name": f"{entity.make} {entity.model} {entity.year}",
-                    "description": f"{entity.make} {entity.model}",
-                }
-        elif entity_type == "build_list":
+        if entity_type == "build_list":
             entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
             if entity:
                 return {"name": entity.name, "description": entity.description}

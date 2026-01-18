@@ -5,20 +5,28 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining build list-specific functionality.
 """
 
-from typing import List
+from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
-from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
+from app.api.models.vote import Vote as DBVote
+from app.api.schemas.build_list import (
+    BuildListCreate,
+    BuildListRead,
+    BuildListReadWithVotes,
+    BuildListUpdate,
+)
 from app.api.services.build_list_service import BuildListService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_operations import verify_entity_exists
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
+    apply_standard_filters,
     get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
@@ -27,6 +35,7 @@ from app.api.utils.common_patterns import (
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
 )
+from app.api.utils.pagination_utils import create_paginated_response
 
 # Create router
 router = APIRouter()
@@ -48,6 +57,181 @@ base_router = BaseEndpointRouter(
     search_fields=["name", "description"],
     disable_endpoints=["get"],  # Disable base GET endpoint, use custom one below
 )
+
+
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper route precedence
+# (More specific routes like /with-votes must be registered before generic routes like /{entity_id})
+
+
+@router.get(
+    "/with-votes",
+    response_model=Dict[str, Any],
+    responses=pagination_responses("build list", allow_public_read=False),
+)
+async def read_build_lists_with_votes(
+    skip: int = Query(0, ge=0, description="Number of build lists to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
+    search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> Dict[str, Any]:
+    """Get all build lists with vote data and optional filtering and search."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Create subquery for upvote counts
+    upvote_counts = (
+        db.query(
+            DBVote.entity_id,
+            func.count(DBVote.id).label("upvote_count"),
+        )
+        .filter(
+            DBVote.entity_type == "build_list",
+            DBVote.vote_type == "upvote",
+        )
+        .group_by(DBVote.entity_id)
+        .subquery()
+    )
+
+    # Create subquery for downvote counts
+    downvote_counts = (
+        db.query(
+            DBVote.entity_id,
+            func.count(DBVote.id).label("downvote_count"),
+        )
+        .filter(
+            DBVote.entity_type == "build_list",
+            DBVote.vote_type == "downvote",
+        )
+        .group_by(DBVote.entity_id)
+        .subquery()
+    )
+
+    # Build base query for counting (without joins to avoid JSON DISTINCT issues)
+    base_query = db.query(DBBuildList)
+    base_query = apply_standard_filters(
+        query=base_query,
+        search=search,
+        category_id=None,  # Build lists don't have categories
+        search_fields=["name", "description"],
+    )
+    if car_id:
+        base_query = base_query.filter(DBBuildList.car_id == car_id)
+
+    # Get total count from base query
+    total = base_query.count()
+
+    # Build main query with LEFT JOINs to vote count subqueries for sorting and retrieval
+    query = (
+        db.query(DBBuildList)
+        .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
+        .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
+    )
+
+    # Apply the same filters
+    query = apply_standard_filters(
+        query=query,
+        search=search,
+        category_id=None,
+        search_fields=["name", "description"],
+    )
+    if car_id:
+        query = query.filter(DBBuildList.car_id == car_id)
+
+    # Sort by net votes (upvotes - downvotes) descending, then by id for consistent ordering
+    query = query.order_by(
+        (func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)).desc(),
+        DBBuildList.id.desc(),
+    )
+
+    # Get paginated results
+    ordered_ids = [row[0] for row in query.with_entities(DBBuildList.id).offset(skip).limit(limit).all()]
+
+    if not ordered_ids:
+        build_lists = []
+    else:
+        # Fetch full objects in the same order
+        build_lists_query = (
+            db.query(DBBuildList)
+            .filter(DBBuildList.id.in_(ordered_ids))
+            .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
+            .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
+            .order_by(
+                (
+                    func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
+                ).desc(),
+                DBBuildList.id.desc(),
+            )
+        )
+        build_lists = build_lists_query.all()
+        # Reorder to match the original order (in case the second query changes it)
+        build_lists_dict = {bl.id: bl for bl in build_lists}
+        build_lists = [build_lists_dict[bl_id] for bl_id in ordered_ids if bl_id in build_lists_dict]
+    logger.info(f"Retrieved {len(build_lists)} build lists (skip: {skip}, limit: {limit})")
+
+    if not build_lists:
+        # Return empty response
+        return create_paginated_response(data=[], total=total, skip=skip, limit=limit, entity_name="build lists")
+
+    # Get build list IDs
+    build_list_ids = [bl.id for bl in build_lists]
+
+    # Build vote count dictionaries
+    vote_counts = (
+        db.query(
+            DBVote.entity_id,
+            DBVote.vote_type,
+            func.count(DBVote.id).label("count"),
+        )
+        .filter(
+            DBVote.entity_type == "build_list",
+            DBVote.entity_id.in_(build_list_ids),
+        )
+        .group_by(DBVote.entity_id, DBVote.vote_type)
+        .all()
+    )
+
+    # Build vote count dictionaries
+    upvotes_dict: Dict[int, int] = {}
+    downvotes_dict: Dict[int, int] = {}
+    for entity_id, vote_type, count in vote_counts:
+        if vote_type == "upvote":
+            upvotes_dict[entity_id] = count
+        elif vote_type == "downvote":
+            downvotes_dict[entity_id] = count
+
+    # Bulk fetch user votes if user is authenticated
+    user_votes_dict: Dict[int, str] = {}
+    if current_user:
+        user_votes = (
+            db.query(DBVote.entity_id, DBVote.vote_type)
+            .filter(
+                DBVote.entity_type == "build_list",
+                DBVote.entity_id.in_(build_list_ids),
+                DBVote.user_id == current_user.id,
+            )
+            .all()
+        )
+        user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
+
+    # Convert build lists to schema with vote data
+    build_lists_data: List[BuildListReadWithVotes] = []
+    for build_list in build_lists:
+        build_list_dict = BuildListRead.model_validate(build_list).model_dump()
+        build_list_dict["upvotes"] = upvotes_dict.get(build_list.id, 0)
+        build_list_dict["downvotes"] = downvotes_dict.get(build_list.id, 0)
+        build_list_dict["total_votes"] = build_list_dict["upvotes"] + build_list_dict["downvotes"]
+        build_list_dict["user_vote"] = user_votes_dict.get(build_list.id, None)
+        build_list_with_votes = BuildListReadWithVotes(**build_list_dict)
+        build_lists_data.append(build_list_with_votes)
+
+    # Return paginated response
+    return create_paginated_response(
+        data=cast(List[Any], build_lists_data), total=total, skip=skip, limit=limit, entity_name="build lists"
+    )
 
 
 # Override the GET endpoint to allow read access for all authenticated users
@@ -96,18 +280,15 @@ async def read_build_lists_by_car(
 ) -> List[BuildListRead]:
     """
     Retrieve all build lists associated with a specific car with pagination.
-    Users can only access build lists for cars they own, or admins can access any car's build lists.
+    Since cars are now centrally managed, any authenticated user can view build lists for any car.
     """
     db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # First check if the car exists and get its owner
-    db_car = get_entity_or_404(db, DBCar, car_id, "car")
-
-    # Check authorization - users can only access build lists for cars they own, or admins can access any
-    verify_user_access_or_admin(current_user, db_car.user_id, "access this car's build lists", logger)
+    # Verify the car exists (cars are now centrally managed, no ownership check needed)
+    get_entity_or_404(db, DBCar, car_id, "car")
 
     build_lists = db.query(DBBuildList).filter(DBBuildList.car_id == car_id).offset(skip).limit(limit).all()
     if not build_lists:

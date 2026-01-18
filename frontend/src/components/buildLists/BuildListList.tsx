@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import type { BuildListRead } from '../../types/Api';
-import BuildListItem from './BuildListItem';
-import SectionHeader from '../layout/SectionHeader';
-import { ErrorAlert } from '../common/Alerts';
-import apiClient from '../../services/Api';
+import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import LoadingSpinner from '../common/LoadingSpinner';
+import apiClient from '../../services/Api';
+import type { BuildListRead } from '../../types/Api';
 import AddItemTile from '../common/AddItemTile';
+import { ErrorAlert } from '../common/Alerts';
+import LoadingSpinner from '../common/LoadingSpinner';
+import SectionHeader from '../layout/SectionHeader';
+import BuildListItem from './BuildListItem';
 interface BuildListListProps {
   carId: number;
-  carOwnerId?: number; // To determine if current user can add build lists
-  currentUserId?: number; // Logged-in user's ID
+  currentUserId?: number; // Logged-in user's ID (optional, for display purposes)
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
@@ -19,7 +18,6 @@ interface BuildListListProps {
 
 const BuildListList: React.FC<BuildListListProps> = ({
   carId,
-  carOwnerId,
   currentUserId,
   refreshKey,
   title = 'Build Lists',
@@ -54,11 +52,7 @@ const BuildListList: React.FC<BuildListListProps> = ({
     }
   }, [fetchedApiBuildLists, isLoading, error]);
 
-  const canAddBuildList =
-    carOwnerId !== undefined &&
-    currentUserId !== undefined &&
-    carOwnerId === currentUserId &&
-    onAddBuildListClick !== undefined;
+  const canAddBuildList = onAddBuildListClick !== undefined;
 
   if (isLoading) {
     return (
@@ -97,12 +91,11 @@ const BuildListList: React.FC<BuildListListProps> = ({
             <BuildListItem key={buildList.id} buildList={buildList} />
           ))}
       </div>
-      {noBuildListsToShow && !canAddBuildList && (
-        <p className="text-gray-400 mt-4">{emptyMessage}</p>
-      )}
-      {noBuildListsToShow && canAddBuildList && (
+      {noBuildListsToShow && (
         <p className="text-gray-400 mt-4">
-          This car has no build lists yet. Click the tile above to create one!
+          {canAddBuildList
+            ? 'This car has no build lists yet. Click the tile above to create one!'
+            : emptyMessage}
         </p>
       )}
     </div>

@@ -321,11 +321,16 @@ function ViewGlobalPart() {
                 Community Rating
               </h3>
               <VoteButtons
-                partId={part.id}
+                entityId={part.id}
                 upvotes={partWithVotes.upvotes}
                 downvotes={partWithVotes.downvotes}
                 userVote={partWithVotes.user_vote ?? null}
                 onVoteUpdate={handleVoteUpdate}
+                voteApi={{
+                  voteOnEntity: (id, data) =>
+                    globalPartVotesApi.voteOnGlobalPart(id, data),
+                  removeVote: (id) => globalPartVotesApi.removeVote(id),
+                }}
                 size="lg"
               />
             </div>
