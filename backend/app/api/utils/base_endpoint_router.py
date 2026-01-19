@@ -114,7 +114,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 },
             )
             async def create_entity(  # pyright: ignore[reportUnusedFunction]
-                data: Any = Body(...),  # type: ignore[valid-type]  # Use Body() to explicitly mark as request body
+                data: _create_schema,  # type: ignore[valid-type]  # Use the actual schema type for FastAPI validation
                 db: Session = Depends(get_db),
                 logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
