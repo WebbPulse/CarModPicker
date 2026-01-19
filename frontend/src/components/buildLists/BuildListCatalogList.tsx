@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi } from '../../services/Api';
-import type {
-  BuildListRead,
-  BuildListReadWithVotes
-} from '../../types/Api';
+import type { BuildListRead, BuildListReadWithVotes } from '../../types/Api';
 
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
@@ -77,7 +74,9 @@ function BuildListCatalogList({
     try {
       // Fetch build lists for all selected cars in parallel
       const promises = carIds.map((carId) =>
-        buildListsApi.getBuildListsByCar(carId, { limit: 1000 }).then((response) => response.data)
+        buildListsApi
+          .getBuildListsByCar(carId, { limit: 1000 })
+          .then((response) => response.data)
       );
 
       const results = await Promise.all(promises);
@@ -89,7 +88,9 @@ function BuildListCatalogList({
 
       setAllBuildLists(uniqueBuildLists);
     } catch (err) {
-      setErrorMultiple(err instanceof Error ? err.message : 'Failed to fetch build lists');
+      setErrorMultiple(
+        err instanceof Error ? err.message : 'Failed to fetch build lists'
+      );
     } finally {
       setIsLoadingMultiple(false);
     }
@@ -147,7 +148,13 @@ function BuildListCatalogList({
     } else {
       void fetchBuildLists(params);
     }
-  }, [fetchBuildLists, fetchBuildListsForCars, params, carIds, showVoteButtons]);
+  }, [
+    fetchBuildLists,
+    fetchBuildListsForCars,
+    params,
+    carIds,
+    showVoteButtons,
+  ]);
 
   useEffect(() => {
     memoizedFetchBuildLists();

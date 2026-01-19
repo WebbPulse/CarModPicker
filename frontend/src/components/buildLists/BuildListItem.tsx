@@ -26,14 +26,12 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
   onVoteUpdate,
 }) => {
   const hasVoteData = 'upvotes' in buildList && 'downvotes' in buildList;
-  const buildListWithVotes = hasVoteData
-    ? (buildList)
-    : null;
+  const buildListWithVotes = hasVoteData ? buildList : null;
 
   // Fetch vote summary if vote data is not available
   const [voteSummary, setVoteSummary] = useState<VoteSummary | null>(null);
   const [isLoadingVotes, setIsLoadingVotes] = useState(false);
-  
+
   // Fetch car information if car_id is available
   const [carInfo, setCarInfo] = useState<CarRead | null>(null);
   const [isLoadingCar, setIsLoadingCar] = useState(false);
@@ -79,7 +77,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
     voteSummary?.downvotes ?? buildListWithVotes?.downvotes ?? 0;
   const userVote =
     voteSummary?.user_vote ?? buildListWithVotes?.user_vote ?? null;
-  
+
   // Calculate net vote score (upvotes - downvotes), matching VoteButtons display
   const netVoteScore = upvotes - downvotes;
 
@@ -149,23 +147,25 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
           </div>
         </Card>
       </Link>
-      {showVoteButtons && (buildListWithVotes || voteSummary) && onVoteUpdate && (
-        <div className="mt-2 pt-2 border-t border-gray-700">
-          <VoteButtons
-            entityId={buildList.id}
-            upvotes={upvotes}
-            downvotes={downvotes}
-            userVote={userVote}
-            onVoteUpdate={onVoteUpdate}
-            voteApi={{
-              voteOnEntity: (id, data) =>
-                buildListVotesApi.voteOnBuildList(id, data),
-              removeVote: (id) => buildListVotesApi.removeVote(id),
-            }}
-            size="sm"
-          />
-        </div>
-      )}
+      {showVoteButtons &&
+        (buildListWithVotes || voteSummary) &&
+        onVoteUpdate && (
+          <div className="mt-2 pt-2 border-t border-gray-700">
+            <VoteButtons
+              entityId={buildList.id}
+              upvotes={upvotes}
+              downvotes={downvotes}
+              userVote={userVote}
+              onVoteUpdate={onVoteUpdate}
+              voteApi={{
+                voteOnEntity: (id, data) =>
+                  buildListVotesApi.voteOnBuildList(id, data),
+                removeVote: (id) => buildListVotesApi.removeVote(id),
+              }}
+              size="sm"
+            />
+          </div>
+        )}
     </div>
   );
 };

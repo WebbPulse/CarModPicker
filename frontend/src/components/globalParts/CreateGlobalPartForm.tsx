@@ -63,10 +63,8 @@ function CreateGlobalPartForm({
     executeRequest: createGlobalPart,
   } = useApiRequest(createGlobalPartRequestFn);
 
-  const {
-    data: carsData,
-    executeRequest: fetchCars,
-  } = useApiRequest(fetchCarsRequestFn);
+  const { data: carsData, executeRequest: fetchCars } =
+    useApiRequest(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchCars();

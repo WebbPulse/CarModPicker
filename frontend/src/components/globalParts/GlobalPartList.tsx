@@ -35,14 +35,14 @@ function getCacheKey(params?: {
 function getCachedData(cacheKey: string): CachedData | null {
   const cached = globalPartsCache.get(cacheKey);
   if (!cached) return null;
-  
+
   // Check if cache is still valid
   const now = Date.now();
   if (now - cached.timestamp > CACHE_DURATION) {
     globalPartsCache.delete(cacheKey);
     return null;
   }
-  
+
   return cached;
 }
 
@@ -105,16 +105,19 @@ function GlobalPartList({
 
   // Initialize with cached data if available (for instant display)
   const cacheKey = getCacheKey(params);
-  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(() => {
-    if (providedData) return providedData;
-    const cached = getCachedData(cacheKey);
-    return cached?.data ?? [];
-  });
-  const [displayPagination, setDisplayPagination] = useState<PaginationInfo | null>(() => {
-    if (providedPagination) return providedPagination;
-    const cached = getCachedData(cacheKey);
-    return cached?.pagination ?? null;
-  });
+  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
+    () => {
+      if (providedData) return providedData;
+      const cached = getCachedData(cacheKey);
+      return cached?.data ?? [];
+    }
+  );
+  const [displayPagination, setDisplayPagination] =
+    useState<PaginationInfo | null>(() => {
+      if (providedPagination) return providedPagination;
+      const cached = getCachedData(cacheKey);
+      return cached?.pagination ?? null;
+    });
 
   const memoizedFetchGlobalParts = useCallback(() => {
     void fetchGlobalParts(params);
@@ -167,7 +170,9 @@ function GlobalPartList({
   }, [displayPagination, providedPagination, onPaginationChange]);
 
   // Use provided data if available, otherwise use display data (from cache or fresh fetch)
-  const isLoadingState = providedData ? false : (isLoading && displayData.length === 0);
+  const isLoadingState = providedData
+    ? false
+    : isLoading && displayData.length === 0;
   const errorState = providedData ? null : error;
   const globalParts = providedData ?? displayData;
 
@@ -279,7 +284,8 @@ function GlobalPartList({
                           voteApi={{
                             voteOnEntity: (id, data) =>
                               globalPartVotesApi.voteOnGlobalPart(id, data),
-                            removeVote: (id) => globalPartVotesApi.removeVote(id),
+                            removeVote: (id) =>
+                              globalPartVotesApi.removeVote(id),
                           }}
                         />
                       )}
@@ -296,7 +302,7 @@ function GlobalPartList({
                           📋 Add to Build List
                         </ActionButton>
                       )}
-                      
+
                       {/* Edit Button */}
                       {onEdit && (!canEdit || canEdit(globalPart)) && (
                         <SecondaryButton
@@ -306,7 +312,7 @@ function GlobalPartList({
                           Edit
                         </SecondaryButton>
                       )}
-                      
+
                       {/* Delete Button */}
                       {onDelete && (!canDelete || canDelete(globalPart)) && (
                         <ActionButton

@@ -8,13 +8,13 @@ function Support() {
     {
       id: 'coffee',
       title: 'Buy Me a Coffee',
-      description: 'Support the project with a one-time donation. Every contribution helps keep CarModPicker running!',
+      description:
+        'Support the project with a one-time donation. Every contribution helps keep CarModPicker running!',
       icon: <FaCoffee className="text-3xl" />,
       color: 'from-amber-500 to-orange-500',
       link: 'https://buymeacoffee.com/webbpulse', // Replace with actual link
       buttonText: 'Buy Me a Coffee',
     },
-    
   ];
 
   return (
@@ -54,9 +54,11 @@ function Support() {
               </p>
 
               <p className="text-lg text-neutral-400 mb-12 max-w-4xl mx-auto leading-relaxed">
-                CarModPicker is built with passion and dedication to serve the car enthusiast community. 
-                Your support helps us maintain servers, develop new features, and keep the platform free 
-                for everyone. Every contribution, no matter how small, makes a difference!
+                CarModPicker is built with passion and dedication to serve the
+                car enthusiast community. Your support helps us maintain
+                servers, develop new features, and keep the platform free for
+                everyone. Every contribution, no matter how small, makes a
+                difference!
               </p>
             </div>
           </div>
@@ -129,8 +131,9 @@ function Support() {
                     Keep It Free
                   </h3>
                   <p className="text-neutral-400 leading-relaxed">
-                    Your donations help us keep CarModPicker free and accessible to all car enthusiasts, 
-                    without requiring subscriptions or paywalls for core features.
+                    Your donations help us keep CarModPicker free and accessible
+                    to all car enthusiasts, without requiring subscriptions or
+                    paywalls for core features.
                   </p>
                 </div>
                 <div>
@@ -139,8 +142,9 @@ function Support() {
                     Better Features
                   </h3>
                   <p className="text-neutral-400 leading-relaxed">
-                    Support enables us to develop new features, improve performance, and enhance the 
-                    overall user experience for the entire community.
+                    Support enables us to develop new features, improve
+                    performance, and enhance the overall user experience for the
+                    entire community.
                   </p>
                 </div>
                 <div>
@@ -149,8 +153,9 @@ function Support() {
                     Reliable Service
                   </h3>
                   <p className="text-neutral-400 leading-relaxed">
-                    Contributions help maintain servers, ensure uptime, and provide reliable access 
-                    to your build lists and parts catalog.
+                    Contributions help maintain servers, ensure uptime, and
+                    provide reliable access to your build lists and parts
+                    catalog.
                   </p>
                 </div>
                 <div>
@@ -159,8 +164,9 @@ function Support() {
                     Community Growth
                   </h3>
                   <p className="text-neutral-400 leading-relaxed">
-                    Your support helps us grow the community, add more cars and parts, and create 
-                    a better platform for car enthusiasts worldwide.
+                    Your support helps us grow the community, add more cars and
+                    parts, and create a better platform for car enthusiasts
+                    worldwide.
                   </p>
                 </div>
               </div>
@@ -178,9 +184,10 @@ function Support() {
                 <span className="text-gradient">Thank You!</span>
               </h2>
               <p className="text-xl text-neutral-300 leading-relaxed">
-                Whether you choose to support us financially or by being an active member of our 
-                community, we appreciate you being part of CarModPicker. Together, we're building 
-                something amazing for car enthusiasts everywhere.
+                Whether you choose to support us financially or by being an
+                active member of our community, we appreciate you being part of
+                CarModPicker. Together, we're building something amazing for car
+                enthusiasts everywhere.
               </p>
             </div>
           </div>

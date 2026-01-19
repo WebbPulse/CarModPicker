@@ -62,10 +62,8 @@ function CreateBuildListPartForm({
     executeRequest: fetchGlobalParts,
   } = useApiRequest(fetchGlobalPartsRequestFn);
 
-  const {
-    data: carsData,
-    executeRequest: fetchCars,
-  } = useApiRequest(fetchCarsRequestFn);
+  const { data: carsData, executeRequest: fetchCars } =
+    useApiRequest(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchGlobalParts();

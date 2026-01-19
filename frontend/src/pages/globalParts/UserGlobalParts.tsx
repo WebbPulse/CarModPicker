@@ -38,18 +38,29 @@ function UserGlobalParts() {
   } = useApiRequest(fetchUserGlobalPartsRequestFn);
 
   // Initialize with cached data if available
-  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(() => {
-    if (user && cachedUserParts && Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION) {
-      return cachedUserParts.filter((part) => part.user_id === user.id);
+  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
+    () => {
+      if (
+        user &&
+        cachedUserParts &&
+        Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION
+      ) {
+        return cachedUserParts.filter((part) => part.user_id === user.id);
+      }
+      return [];
     }
-    return [];
-  });
+  );
 
   useEffect(() => {
     if (user) {
       // Check cache first
-      if (cachedUserParts && Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION) {
-        setDisplayData(cachedUserParts.filter((part) => part.user_id === user.id));
+      if (
+        cachedUserParts &&
+        Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION
+      ) {
+        setDisplayData(
+          cachedUserParts.filter((part) => part.user_id === user.id)
+        );
       }
       // Always fetch fresh data in background
       void fetchUserGlobalParts();
@@ -64,7 +75,9 @@ function UserGlobalParts() {
       cachedUserPartsTimestamp = Date.now();
       // Update display
       if (user) {
-        setDisplayData(globalPartsResponse.data.filter((part) => part.user_id === user.id));
+        setDisplayData(
+          globalPartsResponse.data.filter((part) => part.user_id === user.id)
+        );
       }
     }
   }, [globalPartsResponse?.data, user]);
@@ -74,7 +87,9 @@ function UserGlobalParts() {
     if (!user) return [];
     // If we have fresh response data, use that, otherwise use cached displayData
     if (globalPartsResponse?.data) {
-      return globalPartsResponse.data.filter((part) => part.user_id === user.id);
+      return globalPartsResponse.data.filter(
+        (part) => part.user_id === user.id
+      );
     }
     return displayData;
   }, [globalPartsResponse?.data, user, displayData]);
@@ -199,7 +214,9 @@ function UserGlobalParts() {
             }
           }
         }}
-        itemName={userGlobalParts.find((p) => p.id === deletingPartId)?.name || ''}
+        itemName={
+          userGlobalParts.find((p) => p.id === deletingPartId)?.name || ''
+        }
         itemType="part"
         isProcessing={isDeleting}
         error={null}

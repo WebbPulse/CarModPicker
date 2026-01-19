@@ -166,7 +166,9 @@ export const carsApi = {
   deleteCar: (carId: number) =>
     apiClient.delete<CarRead>(`/cars/admin/cars/${carId}`),
   deleteAllCars: () =>
-    apiClient.delete<{ message: string; deleted_count: number }>('/cars/admin/cars'),
+    apiClient.delete<{ message: string; deleted_count: number }>(
+      '/cars/admin/cars'
+    ),
 
   // Public read endpoints
   getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
@@ -185,8 +187,7 @@ export const carsApi = {
   getCarsByGeneration: (
     generationId: number,
     params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
+  ) => apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
   getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
   // Stats and count endpoints
@@ -701,17 +702,21 @@ export const imageApi = {
       .then((response) => response.data);
   },
 
-  deleteImage: (fileKey: string): Promise<{ message: string; file_key: string }> => {
+  deleteImage: (
+    fileKey: string
+  ): Promise<{ message: string; file_key: string }> => {
     const params = new URLSearchParams();
     params.append('file_key', fileKey);
     return apiClient
-      .delete<{ message: string; file_key: string }>(
-        `/images/delete?${params.toString()}`
-      )
+      .delete<{
+        message: string;
+        file_key: string;
+      }>(`/images/delete?${params.toString()}`)
       .then((response) => response.data);
   },
 
-  countBucketObjects: () => apiClient.get<{ count: number }>('/images/admin/count'),
+  countBucketObjects: () =>
+    apiClient.get<{ count: number }>('/images/admin/count'),
 };
 
 export default apiClient;

@@ -149,9 +149,7 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
           type="number"
           value={startYear}
           onChange={(e) =>
-            setStartYear(
-              e.target.value === '' ? '' : Number(e.target.value)
-            )
+            setStartYear(e.target.value === '' ? '' : Number(e.target.value))
           }
           required
           disabled={isLoading}
@@ -163,9 +161,7 @@ const CreateCarForm: React.FC<CreateCarFormProps> = ({ onCarCreated }) => {
           type="number"
           value={endYear}
           onChange={(e) =>
-            setEndYear(
-              e.target.value === '' ? '' : Number(e.target.value)
-            )
+            setEndYear(e.target.value === '' ? '' : Number(e.target.value))
           }
           required
           disabled={isLoading}

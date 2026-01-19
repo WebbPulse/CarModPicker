@@ -125,7 +125,9 @@ function AdminDashboard() {
       }
     } catch (error) {
       console.error('Unexpected error while fetching entity counts:', error);
-      setCountsError('An unexpected error occurred. Please try refreshing the page.');
+      setCountsError(
+        'An unexpected error occurred. Please try refreshing the page.'
+      );
     } finally {
       setIsLoadingCounts(false);
     }
@@ -148,9 +150,7 @@ function AdminDashboard() {
     } catch (error) {
       console.error('Failed to delete all cars:', error);
       setDeleteAllError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to delete all cars.'
+        error instanceof Error ? error.message : 'Failed to delete all cars.'
       );
     } finally {
       setIsDeletingAllCars(false);
@@ -182,7 +182,8 @@ function AdminDashboard() {
   const adminFeatures = [
     {
       title: 'Car Management',
-      description: 'Edit and manage car generations (primarily for editing existing cars)',
+      description:
+        'Edit and manage car generations (primarily for editing existing cars)',
       icon: '🚗',
       path: '/admin/cars',
     },
@@ -244,7 +245,10 @@ function AdminDashboard() {
           <div className="flex items-center justify-between mb-4">
             <SectionHeader title="System Statistics" />
             {!isLoadingCounts && (
-              <ActionButton onClick={() => void fetchCounts()} className="text-sm">
+              <ActionButton
+                onClick={() => void fetchCounts()}
+                className="text-sm"
+              >
                 Refresh
               </ActionButton>
             )}
@@ -306,13 +310,19 @@ function AdminDashboard() {
           <SectionHeader title="Dangerous Actions" />
           <div className="p-6 bg-red-900/20 border-2 border-red-700 rounded-xl">
             <div className="mb-4">
-              <h3 className="text-xl font-bold text-red-400 mb-2">Delete All Cars</h3>
+              <h3 className="text-xl font-bold text-red-400 mb-2">
+                Delete All Cars
+              </h3>
               <p className="text-neutral-300 mb-4">
-                This will permanently delete all cars from the system. This action cannot be undone.
-                Cars with associated build lists cannot be deleted.
+                This will permanently delete all cars from the system. This
+                action cannot be undone. Cars with associated build lists cannot
+                be deleted.
               </p>
               <p className="text-sm text-neutral-400 mb-4">
-                Current car count: <span className="font-semibold text-white">{counts.cars?.toLocaleString() ?? '—'}</span>
+                Current car count:{' '}
+                <span className="font-semibold text-white">
+                  {counts.cars?.toLocaleString() ?? '—'}
+                </span>
               </p>
             </div>
             <ActionButton

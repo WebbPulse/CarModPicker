@@ -91,7 +91,7 @@ function Search() {
       // Check if we have more results already fetched that we haven't displayed
       const currentDisplayed = displayedCounts[category];
       let allResults: BuildListRead[] | UserRead[] | GlobalPartRead[] = [];
-      
+
       if (category === 'build_lists') {
         allResults = buildLists;
       } else if (category === 'users') {
@@ -105,10 +105,7 @@ function Search() {
         const increment = category === 'global_parts' ? 4 : 8;
         setDisplayedCounts((prev) => ({
           ...prev,
-          [category]: Math.min(
-            currentDisplayed + increment,
-            allResults.length
-          ),
+          [category]: Math.min(currentDisplayed + increment, allResults.length),
         }));
       } else if (pagination[category].has_next) {
         // Otherwise, fetch more from the backend
@@ -117,7 +114,15 @@ function Search() {
         void performSearch({ q: currentQuery, skip: currentSkip, limit });
       }
     },
-    [pagination, currentQuery, performSearch, displayedCounts, buildLists, users, globalParts]
+    [
+      pagination,
+      currentQuery,
+      performSearch,
+      displayedCounts,
+      buildLists,
+      users,
+      globalParts,
+    ]
   );
 
   // Update accumulated results when new search results arrive
@@ -220,7 +225,12 @@ function Search() {
         },
       });
     }
-  }, [searchResults, INITIAL_LIMITS.build_lists, INITIAL_LIMITS.users, INITIAL_LIMITS.global_parts]);
+  }, [
+    searchResults,
+    INITIAL_LIMITS.build_lists,
+    INITIAL_LIMITS.users,
+    INITIAL_LIMITS.global_parts,
+  ]);
 
   // Perform search when query param changes (e.g., from URL)
   useEffect(() => {
@@ -305,11 +315,24 @@ function Search() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {buildLists.slice(0, displayedCounts.build_lists || Math.min(INITIAL_LIMITS.build_lists, buildLists.length)).map((buildList) => (
-                      <BuildListItem key={buildList.id} buildList={buildList} />
-                    ))}
+                    {buildLists
+                      .slice(
+                        0,
+                        displayedCounts.build_lists ||
+                          Math.min(
+                            INITIAL_LIMITS.build_lists,
+                            buildLists.length
+                          )
+                      )
+                      .map((buildList) => (
+                        <BuildListItem
+                          key={buildList.id}
+                          buildList={buildList}
+                        />
+                      ))}
                   </div>
-                  {(pagination?.build_lists.has_next || (displayedCounts.build_lists < buildLists.length)) && (
+                  {(pagination?.build_lists.has_next ||
+                    displayedCounts.build_lists < buildLists.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('build_lists')}
@@ -335,11 +358,18 @@ function Search() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {users.slice(0, displayedCounts.users || Math.min(INITIAL_LIMITS.users, users.length)).map((user) => (
-                      <UserCard key={user.id} user={user} />
-                    ))}
+                    {users
+                      .slice(
+                        0,
+                        displayedCounts.users ||
+                          Math.min(INITIAL_LIMITS.users, users.length)
+                      )
+                      .map((user) => (
+                        <UserCard key={user.id} user={user} />
+                      ))}
                   </div>
-                  {(pagination?.users.has_next || (displayedCounts.users < users.length)) && (
+                  {(pagination?.users.has_next ||
+                    displayedCounts.users < users.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('users')}
@@ -365,75 +395,89 @@ function Search() {
               ) : (
                 <>
                   <div className="space-y-2">
-                    {globalParts.slice(0, displayedCounts.global_parts || Math.min(INITIAL_LIMITS.global_parts, globalParts.length)).map((globalPart: GlobalPartRead) => (
-                      <div
-                        key={globalPart.id}
-                        className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
-                      >
-                        <div className="flex flex-row items-center gap-4 p-3">
-                          {/* Image */}
-                          <Link
-                            to={`/global-parts/${globalPart.id}`}
-                            className="flex-shrink-0"
-                          >
-                            <div className="w-20 h-20">
-                              <ImageWithPlaceholder
-                                srcUrl={globalPart.image_url ?? null}
-                                altText={globalPart.name}
-                                imageClassName="w-full h-full object-cover rounded"
-                                containerClassName="w-full h-full flex justify-center items-center"
-                                fallbackText="No image"
-                              />
-                            </div>
-                          </Link>
-
-                          {/* Main Content */}
-                          <div className="flex-grow min-w-0">
+                    {globalParts
+                      .slice(
+                        0,
+                        displayedCounts.global_parts ||
+                          Math.min(
+                            INITIAL_LIMITS.global_parts,
+                            globalParts.length
+                          )
+                      )
+                      .map((globalPart: GlobalPartRead) => (
+                        <div
+                          key={globalPart.id}
+                          className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
+                        >
+                          <div className="flex flex-row items-center gap-4 p-3">
+                            {/* Image */}
                             <Link
                               to={`/global-parts/${globalPart.id}`}
-                              className="block hover:no-underline"
+                              className="flex-shrink-0"
                             >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-grow min-w-0">
-                                  <h3 className="text-base font-semibold text-gray-200 mb-1 truncate">
-                                    {globalPart.name}
-                                  </h3>
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                    {globalPart.brand && (
-                                      <span className="text-gray-400">
-                                        <span className="text-gray-500">Brand:</span>{' '}
-                                        {globalPart.brand}
-                                      </span>
-                                    )}
-                                    {globalPart.part_number && (
-                                      <span className="text-gray-400">
-                                        <span className="text-gray-500">P/N:</span>{' '}
-                                        {globalPart.part_number}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {globalPart.description && (
-                                    <p className="text-sm text-gray-400 mt-1 line-clamp-1">
-                                      {globalPart.description}
-                                    </p>
-                                  )}
-                                </div>
-                                {globalPart.price !== null &&
-                                  globalPart.price !== undefined && (
-                                    <div className="flex-shrink-0 text-right">
-                                      <p className="text-base font-semibold text-green-400">
-                                        ${globalPart.price.toFixed(2)}
-                                      </p>
-                                    </div>
-                                  )}
+                              <div className="w-20 h-20">
+                                <ImageWithPlaceholder
+                                  srcUrl={globalPart.image_url ?? null}
+                                  altText={globalPart.name}
+                                  imageClassName="w-full h-full object-cover rounded"
+                                  containerClassName="w-full h-full flex justify-center items-center"
+                                  fallbackText="No image"
+                                />
                               </div>
                             </Link>
+
+                            {/* Main Content */}
+                            <div className="flex-grow min-w-0">
+                              <Link
+                                to={`/global-parts/${globalPart.id}`}
+                                className="block hover:no-underline"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-grow min-w-0">
+                                    <h3 className="text-base font-semibold text-gray-200 mb-1 truncate">
+                                      {globalPart.name}
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                      {globalPart.brand && (
+                                        <span className="text-gray-400">
+                                          <span className="text-gray-500">
+                                            Brand:
+                                          </span>{' '}
+                                          {globalPart.brand}
+                                        </span>
+                                      )}
+                                      {globalPart.part_number && (
+                                        <span className="text-gray-400">
+                                          <span className="text-gray-500">
+                                            P/N:
+                                          </span>{' '}
+                                          {globalPart.part_number}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {globalPart.description && (
+                                      <p className="text-sm text-gray-400 mt-1 line-clamp-1">
+                                        {globalPart.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {globalPart.price !== null &&
+                                    globalPart.price !== undefined && (
+                                      <div className="flex-shrink-0 text-right">
+                                        <p className="text-base font-semibold text-green-400">
+                                          ${globalPart.price.toFixed(2)}
+                                        </p>
+                                      </div>
+                                    )}
+                                </div>
+                              </Link>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
-                  {(pagination?.global_parts.has_next || (displayedCounts.global_parts < globalParts.length)) && (
+                  {(pagination?.global_parts.has_next ||
+                    displayedCounts.global_parts < globalParts.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('global_parts')}
