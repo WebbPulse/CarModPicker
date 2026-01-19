@@ -10,6 +10,7 @@ import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
+import ImageUpload from '../../components/common/ImageUpload';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
@@ -42,6 +43,8 @@ function CarManagement() {
     description: '',
     image_url: '',
   });
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMake, setSelectedMake] = useState<string>('');
 
@@ -210,13 +213,27 @@ function CarManagement() {
         return;
       }
     }
+    const updateData: CarUpdate = {
+      make: formData.make.trim(),
+      model: formData.model.trim(),
+      generation_name: formData.generation_name.trim(),
+      start_year: formData.start_year,
+      end_year: formData.end_year,
+      description: (formData.description || '').trim() || null,
+    };
+    // Only include image_url if it was changed (new file key uploaded)
+    if (imageChanged) {
+      updateData.image_url = imageFileKey || null;
+    }
     const result = await executeUpdate({
       carId: selectedCar.id,
-      data: formData,
+      data: updateData,
     });
     if (result) {
       setIsEditDialogOpen(false);
       setSelectedCar(null);
+      setImageFileKey(null);
+      setImageChanged(false);
       refreshCars();
     }
   };
@@ -248,6 +265,8 @@ function CarManagement() {
       description: car.description || '',
       image_url: car.image_url || '',
     });
+    setImageFileKey(null);
+    setImageChanged(false);
     setIsEditDialogOpen(true);
   };
 
@@ -645,15 +664,23 @@ function CarManagement() {
             }
             placeholder="Description of this car generation"
           />
-          <Input
-            id="edit-image-url"
-            label="Image URL (Optional)"
-            value={formData.image_url || ''}
-            onChange={(e) =>
-              setFormData({ ...formData, image_url: e.target.value })
-            }
-            placeholder="https://example.com/image.jpg"
-          />
+          {selectedCar ? (
+            <ImageUpload
+              currentImageUrl={selectedCar.image_url ?? null}
+              entityType="car"
+              entityId={selectedCar.id}
+              onImageUploaded={(fileKey) => {
+                setImageFileKey(fileKey);
+                setImageChanged(true);
+              }}
+              onImageRemoved={() => {
+                setImageFileKey(null);
+                setImageChanged(true);
+              }}
+              label="Car Image (Optional)"
+              maxSizeMB={10}
+            />
+          ) : null}
           {updateError && <ErrorAlert message={updateError} />}
           <div className="flex justify-end space-x-2">
             <ActionButton onClick={closeEditDialog} className="bg-gray-600">

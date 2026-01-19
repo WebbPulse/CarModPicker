@@ -49,6 +49,9 @@ from app.api.models.subscription import (  # pyright: ignore[reportMissingImport
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.user import User  # pyright: ignore[reportMissingImports]
 from app.api.models.vote import Vote  # pyright: ignore[reportMissingImports]
+from app.core.car_generations_data import (  # pyright: ignore[reportMissingImports]
+    get_all_car_generations,
+)
 from app.db.base import (  # pyright: ignore[reportMissingImports]
     Base,
 )  # Import Base to ensure all models are registered  # pyright: ignore[reportMissingImports]
@@ -292,132 +295,17 @@ def create_sample_categories(db: Session) -> list[Category]:
 
 
 def create_sample_cars(db: Session) -> list[Car]:
-    """Create sample centrally managed car generations."""
+    """Create sample centrally managed car generations using the canonical data source."""
     print("Creating sample car generations...")
 
-    # Initial car generations (centrally managed, no user_id)
-    initial_cars = [
-        {
-            "make": "Honda",
-            "model": "Civic",
-            "generation_name": "10th Gen",
-            "start_year": 2016,
-            "end_year": 2021,
-            "description": "Popular compact car generation",
-        },
-        {
-            "make": "Honda",
-            "model": "Civic",
-            "generation_name": "11th Gen",
-            "start_year": 2022,
-            "end_year": 2024,
-            "description": "Latest generation Civic",
-        },
-        {
-            "make": "Toyota",
-            "model": "Supra",
-            "generation_name": "Mk5 (A90/A91)",
-            "start_year": 2019,
-            "end_year": 2024,
-            "description": "Fifth generation Supra",
-        },
-        {
-            "make": "Subaru",
-            "model": "WRX",
-            "generation_name": "VA",
-            "start_year": 2015,
-            "end_year": 2021,
-            "description": "Fourth generation WRX",
-        },
-        {
-            "make": "Subaru",
-            "model": "WRX",
-            "generation_name": "VB",
-            "start_year": 2022,
-            "end_year": 2024,
-            "description": "Fifth generation WRX",
-        },
-        {
-            "make": "Nissan",
-            "model": "GT-R",
-            "generation_name": "R35",
-            "start_year": 2007,
-            "end_year": 2024,
-            "description": "R35 generation GT-R",
-        },
-        {
-            "make": "Mazda",
-            "model": "Miata",
-            "generation_name": "ND",
-            "start_year": 2015,
-            "end_year": 2024,
-            "description": "Fourth generation MX-5 Miata",
-        },
-        {
-            "make": "Ford",
-            "model": "Mustang",
-            "generation_name": "S550",
-            "start_year": 2015,
-            "end_year": 2023,
-            "description": "Sixth generation Mustang",
-        },
-        {
-            "make": "Ford",
-            "model": "Mustang",
-            "generation_name": "S650",
-            "start_year": 2024,
-            "end_year": 2024,
-            "description": "Seventh generation Mustang",
-        },
-        {
-            "make": "BMW",
-            "model": "M3",
-            "generation_name": "F80",
-            "start_year": 2014,
-            "end_year": 2018,
-            "description": "Fifth generation M3",
-        },
-        {
-            "make": "BMW",
-            "model": "M3",
-            "generation_name": "G80",
-            "start_year": 2021,
-            "end_year": 2024,
-            "description": "Sixth generation M3",
-        },
-    ]
-
-    # Additional popular car generations to add variety
-    additional_generations = [
-        ("Honda", "Accord", "10th Gen", 2018, 2022),
-        ("Honda", "Accord", "11th Gen", 2023, 2024),
-        ("Toyota", "86", "ZN6", 2012, 2020),
-        ("Toyota", "86", "ZN8", 2021, 2024),
-        ("Nissan", "370Z", "Z34", 2009, 2020),
-        ("Nissan", "Z", "Z34", 2022, 2024),
-        ("Chevrolet", "Camaro", "6th Gen", 2016, 2023),
-        ("Chevrolet", "Corvette", "C8", 2020, 2024),
-        ("Audi", "A4", "B9", 2016, 2023),
-        ("Audi", "TT", "3rd Gen", 2014, 2023),
-    ]
-
-    cars_data = initial_cars.copy()
-
-    # Add additional generations
-    for make, model, gen_name, start_year, end_year in additional_generations:
-        cars_data.append(
-            {
-                "make": make,
-                "model": model,
-                "generation_name": gen_name,
-                "start_year": start_year,
-                "end_year": end_year,
-                "description": None,  # Optional
-            }
-        )
+    # Use the same method as the application initialization
+    # This ensures consistency with the canonical car_generations_data.py
+    cars_data = get_all_car_generations()
 
     cars = []
     created_count = 0
+    skipped_count = 0
+
     for car_data in cars_data:
         # Check if car generation already exists
         existing = (
@@ -430,7 +318,9 @@ def create_sample_cars(db: Session) -> list[Car]:
             .first()
         )
         if existing:
+            # Skip existing cars to preserve manual edits (same behavior as init_car_generations)
             cars.append(existing)
+            skipped_count += 1
         else:
             car = Car(**car_data)
             db.add(car)
@@ -441,7 +331,9 @@ def create_sample_cars(db: Session) -> list[Car]:
     for car in cars:
         db.refresh(car)
 
-    print(f"Created {created_count} new car generations, {len(cars)} total")
+    print(
+        f"Created {created_count} new car generations, skipped {skipped_count} existing, {len(cars)} total"
+    )
     return cars
 
 

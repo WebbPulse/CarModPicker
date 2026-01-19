@@ -57,10 +57,27 @@ def handle_http_exception(exc: HTTPException) -> JSONResponse:
     Returns:
         Standardized JSONResponse
     """
+    # For 5xx server errors, always return a generic message to prevent exposing
+    # stack traces or internal error details to the frontend
+    if exc.status_code >= 500:
+        # Log the actual error detail for debugging purposes (server-side only)
+        logger.error(f"Server error ({exc.status_code}): {str(exc.detail)}", exc_info=False)
+        # Return generic message based on status code
+        if exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+            error_message = "Internal server error"
+        elif exc.status_code == status.HTTP_502_BAD_GATEWAY:
+            error_message = "Bad gateway"
+        elif exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            error_message = "Service unavailable"
+        else:
+            error_message = "Server error"
+    else:
+        error_message = str(exc.detail)
+
     # Convert to standardized format
     error_data: Dict[str, str | bool] = {
         "success": False,
-        "message": str(exc.detail),
+        "message": error_message,
         "error_code": get_error_code(exc.status_code),
     }
 
