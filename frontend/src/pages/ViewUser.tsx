@@ -1,16 +1,14 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import apiClient from '../services/Api';
-import useApiRequest from '../hooks/UseApiRequest';
-import type { UserRead } from '../types/Api';
-import PageHeader from '../components/layout/PageHeader';
+import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
-import SectionHeader from '../components/layout/SectionHeader';
 import CardInfoItem from '../components/common/CardInfoItem';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { ErrorAlert } from '../components/common/Alerts';
-import CarList from '../components/cars/CarList';
-import Divider from '../components/layout/Divider';
+import PageHeader from '../components/layout/PageHeader';
+import SectionHeader from '../components/layout/SectionHeader';
+import useApiRequest from '../hooks/UseApiRequest';
+import apiClient from '../services/Api';
+import type { UserRead } from '../types/Api';
 
 const fetchUserRequestFn = (
   userId: string // userId will be a string from URL params
@@ -96,15 +94,6 @@ function ViewUser() {
           information is not displayed.
         </p>
       </Card>
-
-      <Divider />
-
-      <CarList
-        userId={user.id}
-        title="Their Cars"
-        emptyMessage="This user hasn't added any cars yet."
-        // No onAddCarClick or showAddCarTile for the public view
-      />
     </div>
   );
 }

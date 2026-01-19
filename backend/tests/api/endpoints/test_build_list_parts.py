@@ -1,10 +1,13 @@
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_password_hash
 from app.api.models.category import Category
 from app.api.models.user import User
+from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import login_user
 
@@ -21,26 +24,75 @@ def get_auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def create_and_login_admin_user(
+    client: TestClient, db_session: Session, username_suffix: str = "admin"
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
+    username = f"admin_test_{username_suffix}"
+    email = f"admin_test_{username_suffix}@example.com"
+    password = "testpassword"
+
+    # Create admin user directly in database
+    admin_user = DBUser(
+        username=username,
+        email=email,
+        hashed_password=get_password_hash(password),
+        is_admin=True,
+        is_superuser=False,
+        email_verified=True,
+        disabled=False,
+    )
+    db_session.add(admin_user)
+    db_session.commit()
+    db_session.refresh(admin_user)
+
+    # Log in and get token
+    login_data = {"username": username, "password": password}
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
+
+    return admin_user.__dict__, token
+
+
+def create_car_via_admin(
+    client: TestClient,
+    admin_token: str,
+    make: str = "Toyota",
+    model: str = "Camry",
+    generation_name: str = "8th Gen",
+    start_year: int = 2018,
+    end_year: int = 2024,
+) -> dict[str, Any]:
+    """Create a car via admin endpoint and return the created car data."""
+    headers = get_auth_headers(admin_token)
+    car_data = {
+        "make": make,
+        "model": model,
+        "generation_name": generation_name,
+        "start_year": start_year,
+        "end_year": end_year,
+    }
+
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
+    assert response.status_code == 200, f"Failed to create car: {response.text}"
+    return response.json()
+
+
 class TestBuildListParts:
     """Test cases for build list parts endpoints."""
 
-    def test_add_part_to_build_list_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
+    def test_add_part_to_build_list_success(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
         """Test successfully adding a part to a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        if response.status_code != 200:
-            print(f"Car creation failed: {response.status_code} - {response.json()}")
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create a build list
         build_list_data = {
@@ -92,7 +144,7 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_add_part_to_build_list_not_found(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a non-existent build list."""
         # Login as test user and get token
@@ -121,21 +173,17 @@ class TestBuildListParts:
         )
         assert response.status_code == 404
 
-    def test_add_part_to_build_list_part_not_found(self, client: TestClient, test_user: User) -> None:
+    def test_add_part_to_build_list_part_not_found(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test adding a non-existent part to a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -159,22 +207,16 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_add_part_to_build_list_missing_quantity(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a build list without providing quantity."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -209,22 +251,16 @@ class TestBuildListParts:
         assert response.status_code == 200
 
     def test_add_part_to_build_list_invalid_quantity(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a build list with invalid quantity."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -259,22 +295,16 @@ class TestBuildListParts:
         assert response.status_code == 200
 
     def test_add_part_to_build_list_duplicate(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a duplicate part to a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -316,21 +346,17 @@ class TestBuildListParts:
         )
         assert response.status_code == 409
 
-    def test_get_build_list_parts_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
+    def test_get_build_list_parts_success(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
         """Test getting parts from a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -377,7 +403,7 @@ class TestBuildListParts:
         assert part["quantity"] == 2
         assert part["notes"] == "Test notes"
 
-    def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User) -> None:
+    def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test getting parts from a non-existent build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -393,21 +419,17 @@ class TestBuildListParts:
         response = client.get(f"{settings.API_STR}/build-list-parts/1")
         assert response.status_code == 401
 
-    def test_update_build_list_part_success(self, client: TestClient, test_user: User, test_category: Category) -> None:
+    def test_update_build_list_part_success(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
         """Test updating a build list part."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -485,22 +507,16 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_update_build_list_part_invalid_quantity(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test updating a build list part with invalid quantity."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -550,22 +566,16 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_remove_part_from_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test removing a part from a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -611,7 +621,9 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
+    def test_remove_part_from_build_list_not_found(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test removing a build list part that doesn't exist."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -628,22 +640,16 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_add_part_to_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a build list with extra fields in the request."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -685,17 +691,22 @@ class TestBuildListParts:
         assert data["notes"] == "Test notes"
 
     def test_add_part_to_build_list_with_malformed_json(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a build list with malformed JSON."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -723,22 +734,16 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_add_part_to_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test adding a part to a build list with wrong content type."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -776,22 +781,16 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_update_build_list_part_with_extra_fields(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test updating a build list part with extra fields in the request."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -845,22 +844,16 @@ class TestBuildListParts:
         assert data["notes"] == "Updated notes"
 
     def test_update_build_list_part_with_malformed_json(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test updating a build list part with malformed JSON."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -907,22 +900,16 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_update_build_list_part_with_wrong_content_type(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test updating a build list part with wrong content type."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -1012,34 +999,32 @@ class TestBuildListParts:
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
+        # Create a car first (requires admin) - but this will fail due to unverified email
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+
+        # Try to create a build list - should fail due to unverified email
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
         }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 401  # Should fail due to unverified email
 
         # The test demonstrates that unverified email users cannot access protected endpoints
 
     def test_create_and_add_part_to_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test creating a global part and adding it to a build list in one operation."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1073,22 +1058,16 @@ class TestBuildListParts:
         assert data["global_part"]["name"] == part_data["name"]
 
     def test_get_global_parts_in_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test getting global parts from a build list with full part details."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1137,22 +1116,16 @@ class TestBuildListParts:
         assert part["global_part"]["name"] == global_part["name"]
 
     def test_update_global_part_in_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test updating a global part in a build list by build_list_id and global_part_id."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1203,21 +1176,17 @@ class TestBuildListParts:
         assert data["quantity"] == 5
         assert data["notes"] == "Updated notes via global part endpoint"
 
-    def test_update_global_part_in_build_list_not_found(self, client: TestClient, test_user: User) -> None:
+    def test_update_global_part_in_build_list_not_found(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test updating a non-existent global part in a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1242,22 +1211,16 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_remove_global_part_from_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test removing a global part from a build list by build_list_id and global_part_id."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1305,21 +1268,17 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_global_part_from_build_list_not_found(self, client: TestClient, test_user: User) -> None:
+    def test_remove_global_part_from_build_list_not_found(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test removing a non-existent global part from a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Honda",
-            "model": "Accord",
-            "year": 2021,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1338,22 +1297,16 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test counting build lists containing a global part when it exists in multiple build lists."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a global part
         part_data = {
@@ -1413,7 +1366,7 @@ class TestBuildListParts:
         assert data["count"] == 2
 
     def test_count_build_lists_containing_global_part_zero(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test counting build lists containing a global part when it exists but is not in any build lists."""
         # Login as test user and get token
@@ -1446,22 +1399,16 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_public_endpoint(
-        self, client: TestClient, test_user: User, test_category: Category
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
     ) -> None:
         """Test that counting build lists containing a global part works without authentication."""
         # Login as test user and get token to create data
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a global part
         part_data = {

@@ -4,7 +4,9 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User
+from app.api.models.user import User as DBUser
 from app.core.config import settings
 
 
@@ -30,19 +32,79 @@ def get_auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def create_and_login_admin_user(
+    client: TestClient, db_session: Session, username_suffix: str = "admin"
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
+    username = f"admin_test_{username_suffix}"
+    email = f"admin_test_{username_suffix}@example.com"
+    password = "testpassword"
+
+    # Create admin user directly in database
+    admin_user = DBUser(
+        username=username,
+        email=email,
+        hashed_password=get_password_hash(password),
+        is_admin=True,
+        is_superuser=False,
+        email_verified=True,
+        disabled=False,
+    )
+    db_session.add(admin_user)
+    db_session.commit()
+    db_session.refresh(admin_user)
+
+    # Log in and get token
+    login_data = {"username": username, "password": password}
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
+
+    return admin_user.__dict__, token
+
+
+def create_car_via_admin(
+    client: TestClient,
+    admin_token: str,
+    make: str = "Toyota",
+    model: str = "Camry",
+    generation_name: str = "8th Gen",
+    start_year: int = 2018,
+    end_year: int = 2024,
+) -> dict[str, Any]:
+    """Create a car via admin endpoint and return the created car data."""
+    headers = get_auth_headers(admin_token)
+    car_data = {
+        "make": make,
+        "model": model,
+        "generation_name": generation_name,
+        "start_year": start_year,
+        "end_year": end_year,
+    }
+
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
+    assert response.status_code == 200, f"Failed to create car: {response.text}"
+    return response.json()
+
+
 class TestBuildLists:
     """Test cases for build lists endpoints."""
 
-    def test_create_build_list_success(self, client: TestClient, test_user: User) -> None:
+    def test_create_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully creating a build list."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -51,6 +113,7 @@ class TestBuildLists:
         assert data["name"] == build_list_data["name"]
         assert data["description"] == build_list_data["description"]
         assert data["user_id"] == test_user.id
+        assert data["car_id"] == car["id"]
 
     def test_create_build_list_unauthorized(self, client: TestClient) -> None:
         """Test creating a build list without authentication."""
@@ -62,46 +125,49 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
         assert response.status_code == 401
 
-    def test_create_build_list_missing_name(self, client: TestClient, test_user: User) -> None:
+    def test_create_build_list_missing_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test creating a build list without providing a name."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Try to create a build list without name
-        build_list_data = {"description": "A test build list description"}
+        build_list_data = {"description": "A test build list description", "car_id": car["id"]}
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
-    def test_create_build_list_empty_name(self, client: TestClient, test_user: User) -> None:
+    def test_create_build_list_empty_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test creating a build list with an empty name."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Try to create a build list with empty name
         build_list_data = {
             "name": "",
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
-    def test_get_build_list_by_id(self, client: TestClient, test_user: User) -> None:
+    def test_get_build_list_by_id(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving a specific build list by ID."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create build list
         build_list_data = {
@@ -136,21 +202,15 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/1")
         assert response.status_code == 401
 
-    def test_get_user_build_lists(self, client: TestClient, test_user: User) -> None:
+    def test_get_user_build_lists(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving build lists for the current user."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create build list
         build_list_data = {
@@ -173,21 +233,15 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/user/me")
         assert response.status_code == 401
 
-    def test_update_build_list_success(self, client: TestClient, test_user: User) -> None:
+    def test_update_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test updating a build list."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create build list
         build_list_data = {
@@ -221,21 +275,15 @@ class TestBuildLists:
         response = client.put(f"{settings.API_STR}/build-lists/1", json=update_data)
         assert response.status_code == 401
 
-    def test_delete_build_list_success(self, client: TestClient, test_user: User) -> None:
+    def test_delete_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test deleting a build list."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create build list
         build_list_data = {
@@ -261,21 +309,15 @@ class TestBuildLists:
         response = client.delete(f"{settings.API_STR}/build-lists/1")
         assert response.status_code == 401
 
-    def test_get_build_lists_by_car(self, client: TestClient, test_user: User) -> None:
+    def test_get_build_lists_by_car(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving build lists for a specific car."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
         # Create build list
         build_list_data = {
@@ -296,35 +338,35 @@ class TestBuildLists:
         for build_list in data:
             assert build_list["car_id"] == car["id"]
 
-    def test_get_build_lists_by_car_unauthorized(self, client: TestClient, test_user: User) -> None:
-        """Test retrieving build lists for a car owned by another user."""
-        # Create a car as test_user
-        token = get_auth_token(client, test_user.username)
-        headers = get_auth_headers(token)
+    def test_get_build_lists_by_car_unauthorized(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test retrieving build lists for a car requires authentication."""
+        # Create a car (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
 
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
-
-        # Try to get build lists for another user's car without authentication
+        # Try to get build lists for a car without authentication
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
         assert response.status_code == 401
 
-    def test_create_build_list_with_extra_fields(self, client: TestClient, test_user: User) -> None:
+    def test_create_build_list_with_extra_fields(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test creating a build list with extra fields in the request."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a build list with extra fields
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list with extra fields (car_id is now required)
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
             "extra_field": "should_be_ignored",
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
@@ -349,17 +391,24 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_create_build_list_with_wrong_content_type(self, client: TestClient, test_user: User) -> None:
+    def test_create_build_list_with_wrong_content_type(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test creating a build list with wrong content type."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         headers["Content-Type"] = "text/plain"
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Try to create a build list with wrong content type
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/",
@@ -368,16 +417,23 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_update_build_list_with_extra_fields(self, client: TestClient, test_user: User) -> None:
+    def test_update_build_list_with_extra_fields(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test updating a build list with extra fields in the request."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -396,16 +452,23 @@ class TestBuildLists:
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_build_list_with_malformed_json(self, client: TestClient, test_user: User) -> None:
+    def test_update_build_list_with_malformed_json(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test updating a build list with malformed JSON."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -421,16 +484,23 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_update_build_list_with_wrong_content_type(self, client: TestClient, test_user: User) -> None:
+    def test_update_build_list_with_wrong_content_type(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
         """Test updating a build list with wrong content type."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -476,6 +546,10 @@ class TestBuildLists:
         db_session.commit()
         db_session.refresh(test_user)
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Login as test user (this should work since email verification is checked in get_current_user)
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -492,6 +566,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 401  # Should fail due to unverified email

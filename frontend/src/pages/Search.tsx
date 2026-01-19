@@ -28,12 +28,28 @@ function Search() {
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
   const [users, setUsers] = useState<UserRead[]>([]);
   const [globalParts, setGlobalParts] = useState<GlobalPartRead[]>([]);
+  const [displayedCounts, setDisplayedCounts] = useState<{
+    build_lists: number;
+    users: number;
+    global_parts: number;
+  }>({
+    build_lists: 0,
+    users: 0,
+    global_parts: 0,
+  });
   const [pagination, setPagination] = useState<{
     build_lists: { has_next: boolean; skip: number };
     users: { has_next: boolean; skip: number };
     global_parts: { has_next: boolean; skip: number };
   } | null>(null);
   const [currentQuery, setCurrentQuery] = useState<string>('');
+
+  // Initial display limits
+  const INITIAL_LIMITS = {
+    build_lists: 8,
+    users: 8,
+    global_parts: 4,
+  };
 
   const {
     data: searchResults,
@@ -51,6 +67,11 @@ function Search() {
       setBuildLists([]);
       setUsers([]);
       setGlobalParts([]);
+      setDisplayedCounts({
+        build_lists: 0,
+        users: 0,
+        global_parts: 0,
+      });
       setPagination(null);
       void performSearch({ q: query, skip: 0, limit: 20 });
     }
@@ -63,18 +84,45 @@ function Search() {
   };
 
   // Load more results for a specific category
-  // Note: Backend uses same skip/limit for all categories, so we'll load next page for all
   const loadMore = useCallback(
     (category: 'build_lists' | 'users' | 'global_parts') => {
       if (!pagination || !currentQuery) return;
 
-      // Use the skip value from the category we're loading more for
-      const currentSkip = pagination[category].skip;
-      const limit = 20;
+      // Check if we have more results already fetched that we haven't displayed
+      const currentDisplayed = displayedCounts[category];
+      let allResults: BuildListRead[] | UserRead[] | GlobalPartRead[] = [];
 
-      void performSearch({ q: currentQuery, skip: currentSkip, limit });
+      if (category === 'build_lists') {
+        allResults = buildLists;
+      } else if (category === 'users') {
+        allResults = users;
+      } else {
+        allResults = globalParts;
+      }
+
+      // If we have more results already fetched, just increase the displayed count
+      if (currentDisplayed < allResults.length) {
+        const increment = category === 'global_parts' ? 4 : 8;
+        setDisplayedCounts((prev) => ({
+          ...prev,
+          [category]: Math.min(currentDisplayed + increment, allResults.length),
+        }));
+      } else if (pagination[category].has_next) {
+        // Otherwise, fetch more from the backend
+        const currentSkip = pagination[category].skip;
+        const limit = 20;
+        void performSearch({ q: currentQuery, skip: currentSkip, limit });
+      }
     },
-    [pagination, currentQuery, performSearch]
+    [
+      pagination,
+      currentQuery,
+      performSearch,
+      displayedCounts,
+      buildLists,
+      users,
+      globalParts,
+    ]
   );
 
   // Update accumulated results when new search results arrive
@@ -85,20 +133,77 @@ function Search() {
       // If skip is 0, replace results (new search), otherwise append (load more)
       if (searchResults.build_lists.skip === 0) {
         setBuildLists(searchResults.build_lists.data);
+        // Set initial displayed count to the limit or actual count, whichever is smaller
+        setDisplayedCounts((prev) => ({
+          ...prev,
+          build_lists: Math.min(
+            INITIAL_LIMITS.build_lists,
+            searchResults.build_lists.data.length
+          ),
+        }));
       } else {
-        setBuildLists((prev) => [...prev, ...searchResults.build_lists.data]);
+        setBuildLists((prev) => {
+          const newList = [...prev, ...searchResults.build_lists.data];
+          // When loading more, increase displayed count by the increment
+          setDisplayedCounts((prevCounts) => ({
+            ...prevCounts,
+            build_lists: Math.min(
+              prevCounts.build_lists + INITIAL_LIMITS.build_lists,
+              newList.length
+            ),
+          }));
+          return newList;
+        });
       }
 
       if (searchResults.users.skip === 0) {
         setUsers(searchResults.users.data);
+        // Set initial displayed count to the limit or actual count, whichever is smaller
+        setDisplayedCounts((prev) => ({
+          ...prev,
+          users: Math.min(
+            INITIAL_LIMITS.users,
+            searchResults.users.data.length
+          ),
+        }));
       } else {
-        setUsers((prev) => [...prev, ...searchResults.users.data]);
+        setUsers((prev) => {
+          const newList = [...prev, ...searchResults.users.data];
+          // When loading more, increase displayed count by the increment
+          setDisplayedCounts((prevCounts) => ({
+            ...prevCounts,
+            users: Math.min(
+              prevCounts.users + INITIAL_LIMITS.users,
+              newList.length
+            ),
+          }));
+          return newList;
+        });
       }
 
       if (searchResults.global_parts.skip === 0) {
         setGlobalParts(searchResults.global_parts.data);
+        // Set initial displayed count to the limit or actual count, whichever is smaller
+        setDisplayedCounts((prev) => ({
+          ...prev,
+          global_parts: Math.min(
+            INITIAL_LIMITS.global_parts,
+            searchResults.global_parts.data.length
+          ),
+        }));
       } else {
-        setGlobalParts((prev) => [...prev, ...searchResults.global_parts.data]);
+        setGlobalParts((prev) => {
+          const newList = [...prev, ...searchResults.global_parts.data];
+          // When loading more, increase displayed count by the increment
+          setDisplayedCounts((prevCounts) => ({
+            ...prevCounts,
+            global_parts: Math.min(
+              prevCounts.global_parts + INITIAL_LIMITS.global_parts,
+              newList.length
+            ),
+          }));
+          return newList;
+        });
       }
 
       setPagination({
@@ -120,7 +225,12 @@ function Search() {
         },
       });
     }
-  }, [searchResults]);
+  }, [
+    searchResults,
+    INITIAL_LIMITS.build_lists,
+    INITIAL_LIMITS.users,
+    INITIAL_LIMITS.global_parts,
+  ]);
 
   // Perform search when query param changes (e.g., from URL)
   useEffect(() => {
@@ -132,6 +242,11 @@ function Search() {
       setBuildLists([]);
       setUsers([]);
       setGlobalParts([]);
+      setDisplayedCounts({
+        build_lists: 0,
+        users: 0,
+        global_parts: 0,
+      });
       setPagination(null);
       void performSearch({ q: query.trim(), skip: 0, limit: 20 });
     }
@@ -200,11 +315,24 @@ function Search() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {buildLists.map((buildList) => (
-                      <BuildListItem key={buildList.id} buildList={buildList} />
-                    ))}
+                    {buildLists
+                      .slice(
+                        0,
+                        displayedCounts.build_lists ||
+                          Math.min(
+                            INITIAL_LIMITS.build_lists,
+                            buildLists.length
+                          )
+                      )
+                      .map((buildList) => (
+                        <BuildListItem
+                          key={buildList.id}
+                          buildList={buildList}
+                        />
+                      ))}
                   </div>
-                  {pagination?.build_lists.has_next && (
+                  {(pagination?.build_lists.has_next ||
+                    displayedCounts.build_lists < buildLists.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('build_lists')}
@@ -230,11 +358,18 @@ function Search() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {users.map((user) => (
-                      <UserCard key={user.id} user={user} />
-                    ))}
+                    {users
+                      .slice(
+                        0,
+                        displayedCounts.users ||
+                          Math.min(INITIAL_LIMITS.users, users.length)
+                      )
+                      .map((user) => (
+                        <UserCard key={user.id} user={user} />
+                      ))}
                   </div>
-                  {pagination?.users.has_next && (
+                  {(pagination?.users.has_next ||
+                    displayedCounts.users < users.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('users')}
@@ -259,54 +394,90 @@ function Search() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {globalParts.map((globalPart: GlobalPartRead) => (
-                      <div
-                        key={globalPart.id}
-                        className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-indigo-500 transition-colors"
-                      >
-                        <Link
-                          to={`/global-parts/${globalPart.id}`}
-                          className="block group"
+                  <div className="space-y-2">
+                    {globalParts
+                      .slice(
+                        0,
+                        displayedCounts.global_parts ||
+                          Math.min(
+                            INITIAL_LIMITS.global_parts,
+                            globalParts.length
+                          )
+                      )
+                      .map((globalPart: GlobalPartRead) => (
+                        <div
+                          key={globalPart.id}
+                          className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
                         >
-                          <div className="aspect-square mb-3">
-                            <ImageWithPlaceholder
-                              srcUrl={globalPart.image_url ?? null}
-                              altText={globalPart.name}
-                              imageClassName="w-full h-full object-cover rounded"
-                              containerClassName="w-full h-full flex justify-center items-center"
-                              fallbackText="No image"
-                            />
+                          <div className="flex flex-row items-center gap-4 p-3">
+                            {/* Image */}
+                            <Link
+                              to={`/global-parts/${globalPart.id}`}
+                              className="flex-shrink-0"
+                            >
+                              <div className="w-20 h-20">
+                                <ImageWithPlaceholder
+                                  srcUrl={globalPart.image_url ?? null}
+                                  altText={globalPart.name}
+                                  imageClassName="w-full h-full object-cover rounded"
+                                  containerClassName="w-full h-full flex justify-center items-center"
+                                  fallbackText="No image"
+                                />
+                              </div>
+                            </Link>
+
+                            {/* Main Content */}
+                            <div className="flex-grow min-w-0">
+                              <Link
+                                to={`/global-parts/${globalPart.id}`}
+                                className="block hover:no-underline"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-grow min-w-0">
+                                    <h3 className="text-base font-semibold text-gray-200 mb-1 truncate">
+                                      {globalPart.name}
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                      {globalPart.brand && (
+                                        <span className="text-gray-400">
+                                          <span className="text-gray-500">
+                                            Brand:
+                                          </span>{' '}
+                                          {globalPart.brand}
+                                        </span>
+                                      )}
+                                      {globalPart.part_number && (
+                                        <span className="text-gray-400">
+                                          <span className="text-gray-500">
+                                            P/N:
+                                          </span>{' '}
+                                          {globalPart.part_number}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {globalPart.description && (
+                                      <p className="text-sm text-gray-400 mt-1 line-clamp-1">
+                                        {globalPart.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {globalPart.price !== null &&
+                                    globalPart.price !== undefined && (
+                                      <div className="flex-shrink-0 text-right">
+                                        <p className="text-base font-semibold text-green-400">
+                                          ${globalPart.price.toFixed(2)}
+                                        </p>
+                                      </div>
+                                    )}
+                                </div>
+                              </Link>
+                            </div>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                            {globalPart.name}
-                          </h3>
-                          {globalPart.brand && (
-                            <p className="text-sm text-gray-400 mb-1">
-                              Brand: {globalPart.brand}
-                            </p>
-                          )}
-                          {globalPart.part_number && (
-                            <p className="text-sm text-gray-400 mb-1">
-                              Part #: {globalPart.part_number}
-                            </p>
-                          )}
-                          {globalPart.price !== null &&
-                            globalPart.price !== undefined && (
-                              <p className="text-sm font-medium text-green-400">
-                                ${globalPart.price.toFixed(2)}
-                              </p>
-                            )}
-                          {globalPart.description && (
-                            <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-                              {globalPart.description}
-                            </p>
-                          )}
-                        </Link>
-                      </div>
-                    ))}
+                        </div>
+                      ))}
                   </div>
-                  {pagination?.global_parts.has_next && (
+                  {(pagination?.global_parts.has_next ||
+                    displayedCounts.global_parts < globalParts.length) && (
                     <div className="mt-6 flex justify-center">
                       <ActionButton
                         onClick={() => loadMore('global_parts')}

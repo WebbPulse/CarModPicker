@@ -16,27 +16,22 @@ const CarListItem: React.FC<CarListItemProps> = ({ car }) => {
         {car.image_url && (
           <img
             src={car.image_url}
-            alt={`${car.year} ${car.make} ${car.model}`}
+            alt={`${car.make} ${car.model} ${car.generation_name}`}
             className="w-full h-40 object-cover rounded-md mb-4"
           />
         )}
         <div className="flex-grow flex flex-col">
           <h3 className="text-lg font-semibold text-indigo-400 mb-2">
-            {car.year} {car.make} {car.model}
+            {car.make} {car.model} {car.generation_name}
           </h3>
           <div className="grid grid-cols-1 gap-1 text-xs flex-grow">
-            {car.trim && (
-              <CardInfoItem label="Trim">
-                <p>{car.trim}</p>
-              </CardInfoItem>
-            )}
-            {car.vin && (
-              <CardInfoItem label="VIN">
-                <p>{car.vin}</p>
-              </CardInfoItem>
-            )}
-            <CardInfoItem label="Car ID">
-              <p>{car.id}</p>
+            <CardInfoItem label="Generation">
+              <p>{car.generation_name}</p>
+            </CardInfoItem>
+            <CardInfoItem label="Year Range">
+              <p>
+                {car.start_year}-{car.end_year}
+              </p>
             </CardInfoItem>
           </div>
         </div>

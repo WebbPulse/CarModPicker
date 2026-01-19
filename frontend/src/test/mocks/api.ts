@@ -28,11 +28,11 @@ export const mockCar: CarRead = {
   id: 1,
   make: 'Toyota',
   model: 'Camry',
-  year: 2020,
-  trim: 'SE',
-  vin: '1HGBH41JXMN109186',
+  generation_name: 'XV70',
+  start_year: 2018,
+  end_year: 2023,
+  description: 'Test car description',
   image_url: 'https://example.com/car.jpg',
-  user_id: 1,
 };
 
 // Mock build list data

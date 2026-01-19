@@ -10,8 +10,12 @@ import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
   BuildListRead,
+  BuildListReadWithVotes,
   BuildListUpdate,
   CarCreate,
+  CarGenerationCreate,
+  CarGenerationRead,
+  CarGenerationUpdate,
   CarRead,
   CarUpdate,
   CategoryCreate,
@@ -154,30 +158,75 @@ export const usersApi = {
 
 // Car API
 export const carsApi = {
-  createCar: (data: CarCreate) => apiClient.post<CarRead>('/cars/', data),
-  getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
+  // Admin-only create/update/delete
+  createCar: (data: CarCreate) =>
+    apiClient.post<CarRead>('/cars/admin/cars', data),
   updateCar: (carId: number, data: CarUpdate) =>
-    apiClient.put<CarRead>(`/cars/${carId}`, data),
-  deleteCar: (carId: number) => apiClient.delete<CarRead>(`/cars/${carId}`),
+    apiClient.put<CarRead>(`/cars/admin/cars/${carId}`, data),
+  deleteCar: (carId: number) =>
+    apiClient.delete<CarRead>(`/cars/admin/cars/${carId}`),
+  deleteAllCars: () =>
+    apiClient.delete<{ message: string; deleted_count: number }>(
+      '/cars/admin/cars'
+    ),
 
-  // List and search endpoints
+  // Public read endpoints
+  getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
   listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
     apiClient.get<CarRead[]>('/cars/', { params }),
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>('/cars/search', { params: { q, ...params } }),
   getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>(`/cars/make/${make}`, { params }),
+  getCarsByMakeModel: (
+    make: string,
+    model: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarRead[]>(`/cars/make/${make}/model/${model}`, { params }),
+  getCarsByGeneration: (
+    generationId: number,
+    params?: { skip?: number; limit?: number }
+  ) => apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
   getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
-  getCarsByUser: (userId: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/user/${userId}`, { params }),
-
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
-  getCarYearStats: () =>
-    apiClient.get<Record<string, number>>('/cars/stats/years'),
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
+};
+
+// Car Generation API (Admin only) - now uses /cars endpoints
+export const carGenerationsApi = {
+  createCarGeneration: (data: CarGenerationCreate) =>
+    apiClient.post<CarGenerationRead>('/cars/admin/cars', data),
+  getCarGeneration: (generationId: number) =>
+    apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
+  updateCarGeneration: (generationId: number, data: CarGenerationUpdate) =>
+    apiClient.put<CarGenerationRead>(`/cars/admin/cars/${generationId}`, data),
+  deleteCarGeneration: (generationId: number) =>
+    apiClient.delete<CarGenerationRead>(`/cars/admin/cars/${generationId}`),
+  listCarGenerations: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+  }) => apiClient.get<CarGenerationRead[]>('/cars/', { params }),
+  getCarGenerationsByMake: (
+    make: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}`, {
+      params,
+    }),
+  getCarGenerationsByMakeModel: (
+    make: string,
+    model: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}/model/${model}`, {
+      params,
+    }),
+  countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
 // Build List API
@@ -197,6 +246,18 @@ export const buildListsApi = {
     limit?: number;
     search?: string;
   }) => apiClient.get<BuildListRead[]>('/build-lists/', { params }),
+  getBuildListsWithVotes: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    car_id?: number;
+  }) =>
+    apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
+      '/build-lists/with-votes',
+      {
+        params,
+      }
+    ),
   getBuildListsByCar: (
     carId: number,
     params?: { skip?: number; limit?: number }
@@ -211,6 +272,12 @@ export const buildListsApi = {
 
   // Count endpoint
   countBuildLists: () => apiClient.get<{ count: number }>('/build-lists/count'),
+
+  // Copy build list
+  copyBuildList: (buildListId: number, newName?: string) =>
+    apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
+      new_name: newName || null,
+    }),
 };
 
 // Global Parts API (Global shared parts in the catalog)
@@ -325,12 +392,12 @@ export const votesApi = {
 // Unified Reports API
 export const reportsApi = {
   reportEntity: (
-    entityType: 'car' | 'build_list' | 'global_part',
+    entityType: 'build_list' | 'global_part',
     entityId: number,
     data: ReportCreate
   ) => apiClient.post<ReportRead>(`/reports/${entityType}/${entityId}`, data),
   getReports: (params?: {
-    entity_type?: 'car' | 'build_list' | 'global_part';
+    entity_type?: 'build_list' | 'global_part';
     status?: string;
     skip?: number;
     limit?: number;
@@ -339,7 +406,7 @@ export const reportsApi = {
       params,
     }),
   getReportsWithDetails: (params?: {
-    entity_type?: 'car' | 'build_list' | 'global_part';
+    entity_type?: 'build_list' | 'global_part';
     status?: string;
     skip?: number;
     limit?: number;
@@ -375,6 +442,24 @@ export const globalPartVotesApi = {
     votesApi.getFlaggedEntities('global_part', params?.limit),
 };
 
+export const buildListVotesApi = {
+  voteOnBuildList: (
+    buildListId: number,
+    data: { vote_type: 'upvote' | 'downvote' }
+  ) =>
+    votesApi.voteOnEntity('build_list', buildListId, {
+      vote_type: data.vote_type,
+      entity_type: 'build_list',
+      entity_id: buildListId,
+    }),
+  removeVote: (buildListId: number) =>
+    votesApi.removeVote('build_list', buildListId),
+  getVoteSummary: (buildListId: number) =>
+    votesApi.getVoteSummary('build_list', buildListId),
+  getFlaggedBuildLists: (params?: { limit?: number }) =>
+    votesApi.getFlaggedEntities('build_list', params?.limit),
+};
+
 export const globalPartReportsApi = {
   reportGlobalPart: (
     partId: number,
@@ -388,8 +473,6 @@ export const globalPartReportsApi = {
         | 'duplicate'
         | 'other',
       description: data.description ?? null,
-      entity_type: 'global_part',
-      entity_id: partId,
     }),
   getReports: (params?: { status?: string; skip?: number; limit?: number }) =>
     reportsApi.getReports({ ...params, entity_type: 'global_part' }),
@@ -420,6 +503,7 @@ export const buildListPartsApi = {
         price: globalPartData.price,
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
+        car_id: globalPartData.car_id,
         brand: globalPartData.brand,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
@@ -563,6 +647,76 @@ export const searchApi = {
 export const utilityApi = {
   getRoot: () => apiClient.get<Record<string, string>>('/'),
   healthCheck: () => apiClient.get<Record<string, unknown>>('/health'),
+};
+
+// Image upload API
+export interface ImageUploadResponse {
+  file_key: string;
+  presigned_url: string;
+  message: string;
+}
+
+export interface PresignedUrlResponse {
+  presigned_url: string;
+  file_key: string;
+}
+
+export const imageApi = {
+  uploadImage: async (
+    file: File,
+    entityType: string,
+    entityId?: number
+  ): Promise<ImageUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams();
+    params.append('entity_type', entityType);
+    if (entityId !== undefined) {
+      params.append('entity_id', entityId.toString());
+    }
+
+    const response = await apiClient.post<ImageUploadResponse>(
+      `/images/upload?${params.toString()}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  },
+
+  getPresignedUrl: (
+    fileKey: string,
+    expiration?: number
+  ): Promise<PresignedUrlResponse> => {
+    const params = new URLSearchParams();
+    params.append('file_key', fileKey);
+    if (expiration !== undefined) {
+      params.append('expiration', expiration.toString());
+    }
+    return apiClient
+      .get<PresignedUrlResponse>(`/images/presigned-url?${params.toString()}`)
+      .then((response) => response.data);
+  },
+
+  deleteImage: (
+    fileKey: string
+  ): Promise<{ message: string; file_key: string }> => {
+    const params = new URLSearchParams();
+    params.append('file_key', fileKey);
+    return apiClient
+      .delete<{
+        message: string;
+        file_key: string;
+      }>(`/images/delete?${params.toString()}`)
+      .then((response) => response.data);
+  },
+
+  countBucketObjects: () =>
+    apiClient.get<{ count: number }>('/images/admin/count'),
 };
 
 export default apiClient;

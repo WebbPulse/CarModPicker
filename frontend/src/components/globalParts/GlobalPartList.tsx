@@ -1,16 +1,50 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { globalPartsApi } from '../../services/Api';
+import { globalPartVotesApi, globalPartsApi } from '../../services/Api';
 import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
+import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
 import VoteButtons from './VoteButtons';
+
+// Simple cache for global parts data to improve UX when switching between pages
+interface CachedData {
+  data: GlobalPartReadWithVotes[];
+  pagination: PaginationInfo | null;
+  timestamp: number;
+}
+
+const CACHE_DURATION = 30000; // 30 seconds
+const globalPartsCache = new Map<string, CachedData>();
+
+function getCacheKey(params?: {
+  skip?: number;
+  limit?: number;
+  category_id?: number;
+  search?: string;
+}): string {
+  return JSON.stringify(params || {});
+}
+
+function getCachedData(cacheKey: string): CachedData | null {
+  const cached = globalPartsCache.get(cacheKey);
+  if (!cached) return null;
+
+  // Check if cache is still valid
+  const now = Date.now();
+  if (now - cached.timestamp > CACHE_DURATION) {
+    globalPartsCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached;
+}
 
 interface GlobalPartListProps {
   params?: {
@@ -19,6 +53,8 @@ interface GlobalPartListProps {
     category_id?: number;
     search?: string;
   };
+  data?: GlobalPartReadWithVotes[]; // Optional: pass pre-fetched data instead of fetching
+  pagination?: PaginationInfo | null; // Optional: pass pagination info when using pre-fetched data
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
@@ -29,6 +65,10 @@ interface GlobalPartListProps {
   ) => void;
   onAddToBuildList?: (globalPart: GlobalPartReadWithVotes) => void;
   showAddToBuildListButton?: boolean;
+  onEdit?: (globalPart: GlobalPartReadWithVotes) => void;
+  onDelete?: (globalPart: GlobalPartReadWithVotes) => void;
+  canEdit?: (globalPart: GlobalPartReadWithVotes) => boolean;
+  canDelete?: (globalPart: GlobalPartReadWithVotes) => boolean;
   onPaginationChange?: (pagination: PaginationInfo | null) => void;
 }
 
@@ -41,6 +81,8 @@ const fetchGlobalPartsRequestFn = (params?: {
 
 function GlobalPartList({
   params,
+  data: providedData,
+  pagination: providedPagination,
   refreshKey = 0,
   title = 'Parts Catalog',
   emptyMessage = 'No parts found.',
@@ -48,6 +90,10 @@ function GlobalPartList({
   onVoteUpdate,
   onAddToBuildList,
   showAddToBuildListButton = false,
+  onEdit,
+  onDelete,
+  canEdit,
+  canDelete,
   onPaginationChange,
 }: GlobalPartListProps) {
   const {
@@ -57,20 +103,60 @@ function GlobalPartList({
     executeRequest: fetchGlobalParts,
   } = useApiRequest(fetchGlobalPartsRequestFn);
 
+  // Initialize with cached data if available (for instant display)
+  const cacheKey = getCacheKey(params);
+  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
+    () => {
+      if (providedData) return providedData;
+      const cached = getCachedData(cacheKey);
+      return cached?.data ?? [];
+    }
+  );
+  const [displayPagination, setDisplayPagination] =
+    useState<PaginationInfo | null>(() => {
+      if (providedPagination) return providedPagination;
+      const cached = getCachedData(cacheKey);
+      return cached?.pagination ?? null;
+    });
+
   const memoizedFetchGlobalParts = useCallback(() => {
     void fetchGlobalParts(params);
   }, [fetchGlobalParts, params]);
 
+  // Only fetch if data is not provided
   useEffect(() => {
-    memoizedFetchGlobalParts();
-  }, [memoizedFetchGlobalParts, refreshKey]);
+    if (!providedData) {
+      // Check cache first - if we have cached data, show it immediately and fetch in background
+      const cached = getCachedData(cacheKey);
+      if (cached) {
+        setDisplayData(cached.data);
+        setDisplayPagination(cached.pagination);
+      }
+      // Always fetch fresh data in background
+      memoizedFetchGlobalParts();
+    }
+  }, [memoizedFetchGlobalParts, refreshKey, providedData, cacheKey]);
+
+  // Update display data when fresh data arrives
+  useEffect(() => {
+    if (paginatedResponse?.data) {
+      setDisplayData(paginatedResponse.data);
+      setDisplayPagination(paginatedResponse.pagination ?? null);
+      // Update cache
+      globalPartsCache.set(cacheKey, {
+        data: paginatedResponse.data,
+        pagination: paginatedResponse.pagination ?? null,
+        timestamp: Date.now(),
+      });
+    }
+  }, [paginatedResponse, cacheKey]);
 
   // Track previous pagination to prevent unnecessary updates
   const prevPaginationRef = useRef<PaginationInfo | null>(null);
 
   // Notify parent of pagination info when data changes
   useEffect(() => {
-    const currentPagination = paginatedResponse?.pagination ?? null;
+    const currentPagination = providedPagination ?? displayPagination;
 
     // Only notify if pagination actually changed
     if (
@@ -81,9 +167,16 @@ function GlobalPartList({
       prevPaginationRef.current = currentPagination;
       onPaginationChange(currentPagination);
     }
-  }, [paginatedResponse, onPaginationChange]);
+  }, [displayPagination, providedPagination, onPaginationChange]);
 
-  if (isLoading) {
+  // Use provided data if available, otherwise use display data (from cache or fresh fetch)
+  const isLoadingState = providedData
+    ? false
+    : isLoading && displayData.length === 0;
+  const errorState = providedData ? null : error;
+  const globalParts = providedData ?? displayData;
+
+  if (isLoadingState) {
     return (
       <Card>
         <div className="flex justify-center py-8">
@@ -93,15 +186,13 @@ function GlobalPartList({
     );
   }
 
-  if (error) {
+  if (errorState) {
     return (
       <Card>
-        <ErrorAlert message={`Failed to load parts: ${error}`} />
+        <ErrorAlert message={`Failed to load parts: ${errorState}`} />
       </Card>
     );
   }
-
-  const globalParts = paginatedResponse?.data ?? [];
 
   return (
     <Card>
@@ -181,27 +272,57 @@ function GlobalPartList({
 
                   {/* Actions Row */}
                   <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-700">
-                    {/* Vote Buttons */}
-                    {showVoteButtons && onVoteUpdate && (
-                      <VoteButtons
-                        partId={globalPart.id}
-                        upvotes={globalPart.upvotes}
-                        downvotes={globalPart.downvotes}
-                        userVote={globalPart.user_vote ?? null}
-                        onVoteUpdate={onVoteUpdate}
-                      />
-                    )}
-                    {!showVoteButtons && <div />}
+                    {/* Left side: Vote Buttons */}
+                    <div className="flex items-center gap-2">
+                      {showVoteButtons && onVoteUpdate && (
+                        <VoteButtons
+                          entityId={globalPart.id}
+                          upvotes={globalPart.upvotes}
+                          downvotes={globalPart.downvotes}
+                          userVote={globalPart.user_vote ?? null}
+                          onVoteUpdate={onVoteUpdate}
+                          voteApi={{
+                            voteOnEntity: (id, data) =>
+                              globalPartVotesApi.voteOnGlobalPart(id, data),
+                            removeVote: (id) =>
+                              globalPartVotesApi.removeVote(id),
+                          }}
+                        />
+                      )}
+                    </div>
 
-                    {/* Add to Build List Button */}
-                    {showAddToBuildListButton && onAddToBuildList && (
-                      <ActionButton
-                        onClick={() => onAddToBuildList(globalPart)}
-                        className="text-xs px-3 py-1"
-                      >
-                        📋 Add to Build List
-                      </ActionButton>
-                    )}
+                    {/* Right side: Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      {/* Add to Build List Button */}
+                      {showAddToBuildListButton && onAddToBuildList && (
+                        <ActionButton
+                          onClick={() => onAddToBuildList(globalPart)}
+                          className="text-xs px-3 py-1"
+                        >
+                          📋 Add to Build List
+                        </ActionButton>
+                      )}
+
+                      {/* Edit Button */}
+                      {onEdit && (!canEdit || canEdit(globalPart)) && (
+                        <SecondaryButton
+                          onClick={() => onEdit(globalPart)}
+                          className="text-xs px-3 py-1"
+                        >
+                          Edit
+                        </SecondaryButton>
+                      )}
+
+                      {/* Delete Button */}
+                      {onDelete && (!canDelete || canDelete(globalPart)) && (
+                        <ActionButton
+                          onClick={() => onDelete(globalPart)}
+                          className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700"
+                        >
+                          Delete
+                        </ActionButton>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

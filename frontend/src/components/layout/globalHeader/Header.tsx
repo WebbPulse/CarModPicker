@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BsTools } from 'react-icons/bs';
 import {
   FaBars,
+  FaCoffee,
   FaCogs,
   FaSearch,
   FaSignOutAlt,
@@ -108,24 +109,31 @@ function Header() {
         {/* Bottom Tier - Navigation */}
         <nav className="border-t border-white/10">
           <div className="container mx-auto px-4">
-            <div className="hidden md:flex items-center space-x-1 py-2">
-              <NavLink to="/builder" icon={<BsTools />}>
-                Builder
-              </NavLink>
-              <NavLink to="/build-lists" icon={<GiRaceCar />}>
-                Build Lists
-              </NavLink>
-              <NavLink to="/global-parts" icon={<FaCogs />}>
-                Parts Catalog
-              </NavLink>
-              <NavLink to="/search" icon={<FaSearch />}>
-                Search
-              </NavLink>
-              {user?.is_admin && (
-                <NavLink to="/admin" icon={<FaCogs />}>
-                  Admin
+            <div className="hidden md:flex items-center justify-between py-2">
+              <div className="flex items-center space-x-1">
+                <NavLink to="/builder" icon={<BsTools />}>
+                  Builder
                 </NavLink>
-              )}
+                <NavLink to="/build-lists" icon={<GiRaceCar />}>
+                  Build Lists
+                </NavLink>
+                <NavLink to="/global-parts" icon={<FaCogs />}>
+                  Parts Catalog
+                </NavLink>
+                <NavLink to="/search" icon={<FaSearch />}>
+                  Search
+                </NavLink>
+              </div>
+              <div className="flex items-center space-x-1">
+                <NavLink to="/support" icon={<FaCoffee />}>
+                  Support Us
+                </NavLink>
+                {user?.is_admin && (
+                  <NavLink to="/admin" icon={<FaCogs />}>
+                    Admin
+                  </NavLink>
+                )}
+              </div>
             </div>
           </div>
         </nav>
@@ -202,6 +210,13 @@ function Header() {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Search
+                  </MobileNavLink>
+                  <MobileNavLink
+                    to="/support"
+                    icon={<FaCoffee />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Support Us
                   </MobileNavLink>
                   {user?.is_admin && (
                     <MobileNavLink

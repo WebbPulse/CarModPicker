@@ -8,7 +8,6 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_part import BuildListPart
-    from .car import Car
     from .global_part import GlobalPart
     from .report import Report
     from .subscription import Subscription
@@ -40,7 +39,6 @@ class User(Base):
     )  # 'active', 'cancelled', 'expired'
 
     # Relationships
-    cars: Mapped[List["Car"]] = relationship("Car", back_populates="user", cascade="all, delete-orphan")
     build_lists: Mapped[List["BuildList"]] = relationship(
         "BuildList", back_populates="owner", cascade="all, delete-orphan"
     )

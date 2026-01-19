@@ -408,6 +408,25 @@ def update_entity(
     from sqlalchemy.exc import IntegrityError
 
     try:
+        # Handle image deletion if image_url is being updated
+        if "image_url" in update_data and hasattr(entity, "image_url"):
+            old_image_url = getattr(entity, "image_url", None)
+            new_image_url = update_data["image_url"]
+
+            # If the old image exists and is different from the new one, delete it
+            if old_image_url and old_image_url != new_image_url:
+                from app.api.services.storage_service import storage_service
+                from app.api.utils.image_utils import is_file_key
+
+                # Only delete if it's a file key (not a regular URL)
+                if is_file_key(old_image_url):
+                    try:
+                        storage_service.delete_image(old_image_url)
+                        logger.info(f"Deleted old image for {entity_name} {entity.id}: {old_image_url}")
+                    except Exception as e:
+                        # Log but don't fail the update if image deletion fails
+                        logger.warning(f"Failed to delete old image for {entity_name} {entity.id}: {str(e)}")
+
         # Update model fields
         for key, value in update_data.items():
             if hasattr(entity, key):
@@ -477,6 +496,23 @@ def delete_entity(
 
     try:
         entity_id = getattr(entity, "id")
+
+        # Delete associated image if it exists
+        if hasattr(entity, "image_url"):
+            image_url = getattr(entity, "image_url", None)
+            if image_url:
+                from app.api.services.storage_service import storage_service
+                from app.api.utils.image_utils import is_file_key
+
+                # Only delete if it's a file key (not a regular URL)
+                if is_file_key(image_url):
+                    try:
+                        storage_service.delete_image(image_url)
+                        logger.info(f"Deleted image for {entity_name} {entity_id}: {image_url}")
+                    except Exception as e:
+                        # Log but don't fail the deletion if image deletion fails
+                        logger.warning(f"Failed to delete image for {entity_name} {entity_id}: {str(e)}")
+
         db.delete(entity)
         db.commit()
 

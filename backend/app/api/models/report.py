@@ -8,7 +8,6 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .car import Car
     from .global_part import GlobalPart
     from .user import User
 
@@ -25,7 +24,7 @@ class Report(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     # Polymorphic entity reference
-    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'car', 'build_list', 'global_part'
+    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'build_list', 'global_part'
     entity_id: Mapped[int] = mapped_column(nullable=False)
 
     reason: Mapped[str] = mapped_column(nullable=False)  # 'inappropriate', 'spam', 'inaccurate', 'duplicate', 'other'
@@ -44,12 +43,6 @@ class Report(Base):
     reviewer: Mapped[Optional["User"]] = relationship("User", foreign_keys=[reviewed_by])
 
     # Polymorphic relationships (these will be handled by the entity models)
-    car: Mapped[Optional["Car"]] = relationship(
-        "Car",
-        foreign_keys="[Report.entity_id]",
-        primaryjoin="and_(Report.entity_id == Car.id, Report.entity_type == 'car')",
-        viewonly=True,
-    )
     build_list: Mapped[Optional["BuildList"]] = relationship(
         "BuildList",
         foreign_keys="[Report.entity_id]",

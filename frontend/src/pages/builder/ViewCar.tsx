@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import apiClient from '../../services/Api';
-import type { CarRead, UserRead } from '../../types/Api';
+import { carsApi } from '../../services/Api';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
@@ -16,19 +15,13 @@ import DeleteConfirmationDialog from '../../components/common/DeleteConfirmation
 import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchCarRequestFn = (carId: string) =>
-  apiClient.get<CarRead>(`/cars/${carId}`);
+const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
 
-const fetchUserRequestFn = (userId: number) =>
-  apiClient.get<UserRead>(`/users/${userId}`);
-
-const deleteCarRequestFn = (carId: string) =>
-  apiClient.delete(`/cars/${carId}`);
+const deleteCarRequestFn = (carId: string) => carsApi.deleteCar(Number(carId));
 
 function ViewCar() {
   const { carId } = useParams<{ carId: string }>();
@@ -38,7 +31,6 @@ function ViewCar() {
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
   const [isEditCarFormOpen, setIsEditCarFormOpen] = useState(false);
-  const [carOwner, setCarOwner] = useState<UserRead | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const {
@@ -48,35 +40,18 @@ function ViewCar() {
     executeRequest: fetchCar,
   } = useApiRequest(fetchCarRequestFn);
 
-  const { data: userData, executeRequest: fetchUser } =
-    useApiRequest(fetchUserRequestFn);
-
   const {
     isLoading: isDeletingCar,
     error: deleteCarError,
     executeRequest: executeDeleteCar,
     setError: setDeleteCarError,
-  } = useApiRequest<void, string>(deleteCarRequestFn);
+  } = useApiRequest(deleteCarRequestFn);
 
   useEffect(() => {
     if (carId) {
       void fetchCar(carId);
     }
   }, [carId, fetchCar]);
-
-  // useEffect to fetch user data when car data is available
-  useEffect(() => {
-    if (car?.user_id) {
-      void fetchUser(car.user_id);
-    }
-  }, [car?.user_id, fetchUser]);
-
-  // Update carOwner state when userData changes
-  useEffect(() => {
-    if (userData) {
-      setCarOwner(userData);
-    }
-  }, [userData]);
 
   const handleBuildListCreated = () => {
     setBuildListRefreshTrigger((prev) => prev + 1);
@@ -160,39 +135,35 @@ function ViewCar() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader title={`${car.year} ${car.make} ${car.model}`} />
+      <PageHeader
+        title={`${car.make} ${car.model} ${car.generation_name} (${car.start_year}-${car.end_year})`}
+      />
       <Card>
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Car Information" />
-          {currentUser && currentUser.id === car.user_id && (
-            <div className="flex space-x-2">
-              <ActionButton onClick={openEditCarDialog}>Edit Car</ActionButton>
-              <ActionButton
-                onClick={openDeleteConfirmDialog}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Delete Car
-              </ActionButton>
-            </div>
-          )}
+          {currentUser &&
+            (currentUser.is_admin || currentUser.is_superuser) && (
+              <div className="flex space-x-2">
+                <ActionButton onClick={openEditCarDialog}>
+                  Edit Car
+                </ActionButton>
+                <ActionButton
+                  onClick={openDeleteConfirmDialog}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete Car
+                </ActionButton>
+              </div>
+            )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="">
             <ImageWithPlaceholder
               srcUrl={car.image_url ?? null}
-              altText={`${car.year} ${car.make} ${car.model}`}
+              altText={`${car.make} ${car.model} ${car.generation_name}`}
               imageClassName="h-48 w-auto object-contain rounded"
               containerClassName="h-48 flex justify-left items-center"
               fallbackText="No image available."
-            />
-          </CardInfoItem>
-          <div className="hidden md:block"></div> {/* Spacer */}
-          <CardInfoItem label="User:">
-            <ParentNavigationLink
-              linkTo={`/user/${car.user_id}`}
-              linkText={
-                carOwner ? `${carOwner.username}` : `User ${car.user_id}`
-              }
             />
           </CardInfoItem>
           <div className="hidden md:block"></div> {/* Spacer */}
@@ -202,17 +173,17 @@ function ViewCar() {
           <CardInfoItem label="Model:">
             <p>{car.model}</p>
           </CardInfoItem>
-          <CardInfoItem label="Year:">
-            <p>{car.year}</p>
+          <CardInfoItem label="Generation:">
+            <p>{car.generation_name}</p>
           </CardInfoItem>
-          {car.trim && (
-            <CardInfoItem label="Trim:">
-              <p>{car.trim}</p>
-            </CardInfoItem>
-          )}
-          {car.vin && (
-            <CardInfoItem label="VIN:">
-              <p>{car.vin}</p>
+          <CardInfoItem label="Year Range:">
+            <p>
+              {car.start_year}-{car.end_year}
+            </p>
+          </CardInfoItem>
+          {car.description && (
+            <CardInfoItem label="Description:">
+              <p>{car.description}</p>
             </CardInfoItem>
           )}
         </div>
@@ -241,7 +212,7 @@ function ViewCar() {
           isOpen={isDeleteConfirmOpen}
           onClose={closeDeleteConfirmDialog}
           onConfirm={() => void handleConfirmDelete()}
-          itemName={`${car.year} ${car.make} ${car.model}`}
+          itemName={`${car.make} ${car.model} ${car.generation_name}`}
           itemType="car"
           isProcessing={isDeletingCar}
           error={deleteCarError}
@@ -254,24 +225,17 @@ function ViewCar() {
         onClose={closeCreateBuildListDialog}
         title={`Create Build List for ${car.make} ${car.model}`}
       >
-        <CreateBuildListForm
-          carId={car.id}
-          onBuildListCreated={handleBuildListCreated}
-        />
+        <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
       </Dialog>
 
       {/* Build Lists Section */}
       {currentUser && (
         <BuildListList
           carId={car.id}
-          carOwnerId={car.user_id}
-          currentUserId={currentUser.id}
           refreshKey={buildListRefreshTrigger}
           title={`Build Lists for ${car.make} ${car.model}`}
           emptyMessage="This car doesn't have any build lists yet."
-          {...(currentUser.id === car.user_id && {
-            onAddBuildListClick: openCreateBuildListDialog,
-          })}
+          onAddBuildListClick={openCreateBuildListDialog}
         />
       )}
     </div>

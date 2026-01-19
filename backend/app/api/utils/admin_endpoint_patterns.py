@@ -68,7 +68,7 @@ def admin_list_endpoint(
         ) -> List[ModelType]:
             """Get all entities (admin only)."""
             skip, limit = validate_pagination_params(skip=skip, limit=limit)
-            entities = db.query(model).offset(skip).limit(limit).all()  # type: ignore[arg-type]
+            entities = db.query(model).offset(skip).limit(limit).all()
             logger.info(f"Admin {current_user.id} retrieved {len(entities)} {entity_name}s")
             return func(entities, db, logger, current_user) if func != admin_list_endpoint else entities
 
