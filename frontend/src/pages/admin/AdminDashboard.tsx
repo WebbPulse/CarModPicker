@@ -67,8 +67,7 @@ function AdminDashboard() {
       try {
         const response = await apiCall();
         return response.data.count;
-      } catch (error) {
-        console.error(`Failed to fetch ${entityName} count:`, error);
+      } catch {
         failedEndpoints.push(entityName);
         return null;
       }
@@ -123,8 +122,7 @@ function AdminDashboard() {
         // All succeeded, clear any previous errors
         setCountsError(null);
       }
-    } catch (error) {
-      console.error('Unexpected error while fetching entity counts:', error);
+    } catch {
       setCountsError(
         'An unexpected error occurred. Please try refreshing the page.'
       );
@@ -148,7 +146,6 @@ function AdminDashboard() {
       // Refresh counts after deletion
       await fetchCounts();
     } catch (error) {
-      console.error('Failed to delete all cars:', error);
       setDeleteAllError(
         error instanceof Error ? error.message : 'Failed to delete all cars.'
       );

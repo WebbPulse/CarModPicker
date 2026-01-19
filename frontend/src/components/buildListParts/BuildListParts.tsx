@@ -96,7 +96,6 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
   const handleEdit = (buildListPart: BuildListPartReadWithGlobalPart) => {
     if (!canEditBuildListPart(buildListPart)) {
-      console.error('User not authorized to edit this build list part');
       return;
     }
     setEditingPart(buildListPart);
@@ -117,7 +116,6 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       // Refresh the build list parts
       await fetchBuildListParts(buildListId);
     } catch (error) {
-      console.error('Failed to update build list part:', error);
       throw error;
     } finally {
       setIsUpdating(false);
@@ -132,7 +130,6 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     if (!buildListPart) return;
 
     if (!canDeleteBuildListPart(buildListPart)) {
-      console.error('User not authorized to delete this build list part');
       return;
     }
 
@@ -164,7 +161,6 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       await fetchBuildListParts(buildListId);
       setDeletingPartId(null);
     } catch (error: unknown) {
-      console.error('Failed to remove part from build list:', error);
       setDeleteError(
         error instanceof Error
           ? error.message
@@ -209,8 +205,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         );
         // Optionally sync with server, but don't refetch to avoid full re-render
         // The optimistic update is already applied
-      } catch (error) {
-        console.error('Failed to update purchased status:', error);
+      } catch {
         // Revert optimistic update on error
         setLocalBuildListParts((prevParts) => {
           if (!prevParts) return prevParts;

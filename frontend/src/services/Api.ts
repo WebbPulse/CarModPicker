@@ -123,7 +123,6 @@ apiClient.interceptors.response.use(
     const axiosError = error as AxiosError;
     if (axiosError.response?.status === 401) {
       // Handle unauthorized access, e.g., redirect to login
-      console.error('Unauthorized, please login again...');
       //window.location.href = '/login';
     }
     return Promise.reject(

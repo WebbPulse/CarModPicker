@@ -32,27 +32,6 @@ function EditGlobalPart() {
     }
   }, [partId, fetchPart]);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('EditGlobalPart state:', {
-      part,
-      partApiError,
-      isLoadingPart,
-      partId,
-    });
-    if (part) {
-      console.log('Part loaded:', part);
-      console.log(
-        'Part has product_url:',
-        'product_url' in part,
-        (part as any).product_url
-      );
-    }
-    if (partApiError) {
-      console.error('Part API Error:', partApiError);
-    }
-  }, [part, partApiError, isLoadingPart, partId]);
-
   const handlePartUpdated = async () => {
     if (partId) {
       await fetchPart(partId);

@@ -48,8 +48,7 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
       // Close dialog and notify parent
       onClose();
       onReportSubmitted?.();
-    } catch (error) {
-      console.error('Failed to submit report:', error);
+    } catch {
       // You might want to show an error message here
     } finally {
       setIsSubmitting(false);

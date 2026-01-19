@@ -34,7 +34,6 @@ function ForgotPassword() {
     const result = await sendPasswordResetLink({ email: email });
     if (result) {
       // Successfully sent the link
-      console.log('Password reset link sent:', result);
       setIsSubmitted(true);
     }
   };

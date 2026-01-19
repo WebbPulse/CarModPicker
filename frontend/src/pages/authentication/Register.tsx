@@ -55,11 +55,10 @@ function Register() {
     try {
       const result = await performRegistration(payload);
       if (result) {
-        console.log('Registration successful:', result);
         void navigate('/login');
       }
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch {
+      // Registration failed
     }
   };
 

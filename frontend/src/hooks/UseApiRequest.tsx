@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
 import { AxiosError, type AxiosResponse } from 'axios';
+import { useCallback, useState } from 'react';
 import type { HTTPValidationError, ValidationError } from '../types/Api';
 
 interface UseApiRequestReturn<TData, TPayload> {
@@ -56,7 +56,6 @@ function useApiRequest<TData, TPayload = unknown>(
         return response.data;
       } catch (err) {
         const parsedError = parseApiError(err);
-        console.error('API Request Failed:', err);
         setErrorState(parsedError);
         setIsLoading(false);
         return null;

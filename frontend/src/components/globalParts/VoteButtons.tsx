@@ -81,8 +81,7 @@ const VoteButtons: React.FC<VoteButtonsProps> = ({
         });
         onVoteUpdate(entityId, voteType);
       }
-    } catch (error) {
-      console.error('Failed to vote:', error);
+    } catch {
       // Revert optimistic update on error
       setLocalUpvotes(upvotes);
       setLocalDownvotes(downvotes);

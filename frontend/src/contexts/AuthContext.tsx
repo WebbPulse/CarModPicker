@@ -26,7 +26,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.info('User not authenticated or failed to fetch status:', error);
       setUser(null);
       setIsAuthenticated(false);
       // Clear invalid token on 401
@@ -53,8 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(true);
     try {
       await authApi.logout();
-    } catch (error) {
-      console.error('Logout failed:', error);
+    } catch {
       // Clear token even if logout API call fails
       removeStoredToken();
     } finally {

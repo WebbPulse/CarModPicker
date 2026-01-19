@@ -41,12 +41,11 @@ function Login() {
     try {
       const result = await performLogin(formData);
       if (result) {
-        console.log('Login successful:', result);
         authLogin(result);
         void navigate('/');
       }
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch {
+      // Login failed
     }
   };
 
