@@ -225,9 +225,7 @@ function ViewCar() {
         onClose={closeCreateBuildListDialog}
         title={`Create Build List for ${car.make} ${car.model}`}
       >
-        <CreateBuildListForm
-          onBuildListCreated={handleBuildListCreated}
-        />
+        <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
       </Dialog>
 
       {/* Build Lists Section */}
