@@ -11,7 +11,9 @@ import type { CarRead } from '../../types/Api';
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(null);
+  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
+    null
+  );
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,15 +96,15 @@ const BuildListsCatalog: React.FC = () => {
   ).sort();
 
   // Get generations (cars) for selected make and model
-  const generations = availableCars.filter(
-    (car) => car.make === selectedMake && car.model === selectedModel
-  ).sort((a, b) => {
-    // Sort by start_year, then generation_name
-    if (a.start_year !== b.start_year) {
-      return a.start_year - b.start_year;
-    }
-    return a.generation_name.localeCompare(b.generation_name);
-  });
+  const generations = availableCars
+    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .sort((a, b) => {
+      // Sort by start_year, then generation_name
+      if (a.start_year !== b.start_year) {
+        return a.start_year - b.start_year;
+      }
+      return a.generation_name.localeCompare(b.generation_name);
+    });
 
   const showBuildLists = selectedGeneration !== null;
 
@@ -151,7 +153,9 @@ const BuildListsCatalog: React.FC = () => {
                 }}
                 className="text-indigo-400 hover:text-indigo-300 transition-colors"
               >
-                {selectedModel ? '← Back to Car Models' : '← Back to Manufacturers'}
+                {selectedModel
+                  ? '← Back to Car Models'
+                  : '← Back to Manufacturers'}
               </button>
             ) : (
               'Select Manufacturer'
@@ -189,7 +193,9 @@ const BuildListsCatalog: React.FC = () => {
             <>
               <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
                 <div className="p-4">
-                  <p className="text-sm text-gray-400 mb-1">Selected Manufacturer</p>
+                  <p className="text-sm text-gray-400 mb-1">
+                    Selected Manufacturer
+                  </p>
                   <h3 className="text-xl font-semibold text-indigo-400">
                     {selectedMake}
                   </h3>
@@ -275,11 +281,13 @@ const BuildListsCatalog: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-200">
-                    Selected: {selectedGeneration.make} {selectedGeneration.model}{' '}
+                    Selected: {selectedGeneration.make}{' '}
+                    {selectedGeneration.model}{' '}
                     {selectedGeneration.generation_name}
                   </h3>
                   <p className="text-sm text-gray-400">
-                    {selectedGeneration.start_year} - {selectedGeneration.end_year}
+                    {selectedGeneration.start_year} -{' '}
+                    {selectedGeneration.end_year}
                   </p>
                 </div>
                 <button

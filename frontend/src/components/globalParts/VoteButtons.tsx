@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 
 interface VoteApi {
-  voteOnEntity: (entityId: number, data: { vote_type: 'upvote' | 'downvote' }) => Promise<unknown>;
+  voteOnEntity: (
+    entityId: number,
+    data: { vote_type: 'upvote' | 'downvote' }
+  ) => Promise<unknown>;
   removeVote: (entityId: number) => Promise<unknown>;
 }
 
@@ -10,7 +13,10 @@ interface VoteButtonsProps {
   upvotes: number;
   downvotes: number;
   userVote?: 'upvote' | 'downvote' | null;
-  onVoteUpdate: (entityId: number, newVote: 'upvote' | 'downvote' | null) => void;
+  onVoteUpdate: (
+    entityId: number,
+    newVote: 'upvote' | 'downvote' | null
+  ) => void;
   voteApi: VoteApi;
   size?: 'sm' | 'md' | 'lg';
 }

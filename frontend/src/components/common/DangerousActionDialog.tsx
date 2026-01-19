@@ -42,22 +42,36 @@ const DangerousActionDialog: React.FC<DangerousActionDialogProps> = ({
   }
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title={`⚠️ Dangerous Action: ${actionName}`} maxWidth="2xl">
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={`⚠️ Dangerous Action: ${actionName}`}
+      maxWidth="2xl"
+    >
       <div className="text-neutral-300">
         <div className="mb-6 p-6 bg-red-900/30 border-2 border-red-700 rounded-xl">
-          <p className="text-red-300 font-bold text-xl mb-3">⚠️ WARNING: This action is irreversible!</p>
-          <p className="text-red-200 text-lg leading-relaxed">{warningMessage}</p>
+          <p className="text-red-300 font-bold text-xl mb-3">
+            ⚠️ WARNING: This action is irreversible!
+          </p>
+          <p className="text-red-200 text-lg leading-relaxed">
+            {warningMessage}
+          </p>
         </div>
 
         <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
-          <p className="text-yellow-300 font-semibold mb-2">To confirm this action, please type:</p>
+          <p className="text-yellow-300 font-semibold mb-2">
+            To confirm this action, please type:
+          </p>
           <p className="text-yellow-200 font-mono text-lg bg-neutral-800 px-4 py-2 rounded border border-yellow-600">
             {confirmationPhrase}
           </p>
         </div>
 
         <div className="mb-6">
-          <label htmlFor="confirmation-input" className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="confirmation-input"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             Confirmation:
           </label>
           <input

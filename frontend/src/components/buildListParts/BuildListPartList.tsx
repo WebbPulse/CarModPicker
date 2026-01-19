@@ -150,8 +150,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     );
   }
 
-  const purchasedCount = buildListParts.filter(p => p.purchased).length;
-  const remainingCount = buildListParts.filter(p => !p.purchased).length;
+  const purchasedCount = buildListParts.filter((p) => p.purchased).length;
+  const remainingCount = buildListParts.filter((p) => !p.purchased).length;
 
   return (
     <div className="space-y-3">
@@ -165,9 +165,13 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                 Total Build Cost
               </h3>
               <p className="text-xs text-gray-400 mt-1">
-                {buildListParts.length} part{buildListParts.length !== 1 ? 's' : ''} total
+                {buildListParts.length} part
+                {buildListParts.length !== 1 ? 's' : ''} total
                 {purchasedCount > 0 || remainingCount > 0 ? (
-                  <> • {purchasedCount} purchased • {remainingCount} remaining</>
+                  <>
+                    {' '}
+                    • {purchasedCount} purchased • {remainingCount} remaining
+                  </>
                 ) : null}
               </p>
             </div>
@@ -183,7 +187,9 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             <div className="pt-2 border-t border-gray-700">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs text-gray-400">Purchase Progress</span>
-                <span className="text-xs font-semibold text-gray-300">{purchaseProgress}%</span>
+                <span className="text-xs font-semibold text-gray-300">
+                  {purchaseProgress}%
+                </span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2.5">
                 <div
@@ -205,7 +211,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                       Remaining
                     </h4>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {remainingCount} part{remainingCount !== 1 ? 's' : ''} to purchase
+                      {remainingCount} part{remainingCount !== 1 ? 's' : ''} to
+                      purchase
                     </p>
                   </div>
                 </div>
@@ -222,7 +229,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                       Purchased
                     </h4>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {purchasedCount} part{purchasedCount !== 1 ? 's' : ''} acquired
+                      {purchasedCount} part{purchasedCount !== 1 ? 's' : ''}{' '}
+                      acquired
                     </p>
                   </div>
                 </div>

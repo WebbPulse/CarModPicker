@@ -15,8 +15,11 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchCarsRequestFn = (params?: { skip?: number; limit?: number; search?: string }) =>
-  carsApi.listCars(params);
+const fetchCarsRequestFn = (params?: {
+  skip?: number;
+  limit?: number;
+  search?: string;
+}) => carsApi.listCars(params);
 const updateCarRequestFn = (payload: { carId: number; data: CarUpdate }) =>
   carsApi.updateCar(payload.carId, payload.data);
 const deleteCarRequestFn = (carId: number) => carsApi.deleteCar(carId);
@@ -103,19 +106,22 @@ function CarManagement() {
     // Sort makes alphabetically and sort cars within each make
     return Object.keys(grouped)
       .sort()
-      .reduce((acc, make) => {
-        const makeCars = grouped[make];
-        if (makeCars) {
-          acc[make] = makeCars.sort((a, b) => {
-            // Sort by model, then by generation name
-            if (a.model !== b.model) {
-              return a.model.localeCompare(b.model);
-            }
-            return a.generation_name.localeCompare(b.generation_name);
-          });
-        }
-        return acc;
-      }, {} as Record<string, CarRead[]>);
+      .reduce(
+        (acc, make) => {
+          const makeCars = grouped[make];
+          if (makeCars) {
+            acc[make] = makeCars.sort((a, b) => {
+              // Sort by model, then by generation name
+              if (a.model !== b.model) {
+                return a.model.localeCompare(b.model);
+              }
+              return a.generation_name.localeCompare(b.generation_name);
+            });
+          }
+          return acc;
+        },
+        {} as Record<string, CarRead[]>
+      );
   }, [cars]);
 
   // Get unique makes for the filter dropdown
@@ -386,69 +392,82 @@ function CarManagement() {
                   {searchTerm && ` matching "${searchTerm}"`}
                 </div>
               ) : (
-            <div className="space-y-6">
-              {filteredMakes.map((make) => {
-                const makeCars = filteredCarsByMake[make];
-                if (!makeCars) return null;
-                return (
-                  <div key={make} className="border border-gray-700 rounded-lg overflow-hidden">
-                    <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
-                      <h3 className="text-lg font-semibold text-gray-200">
-                        {make}
-                        <span className="ml-2 text-sm font-normal text-gray-400">
-                          ({makeCars.length} {makeCars.length === 1 ? 'car' : 'cars'})
-                        </span>
-                      </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead className="border-b border-gray-700 bg-gray-800/50">
-                          <tr>
-                            <th className="p-2 text-gray-300">Model</th>
-                            <th className="p-2 text-gray-300">Generation Name</th>
-                            <th className="p-2 text-gray-300">Years</th>
-                            <th className="p-2 text-gray-300">Description</th>
-                            <th className="p-2 text-gray-300">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {makeCars.map((car) => (
-                          <tr key={car.id} className="border-b border-gray-800 hover:bg-gray-800/30">
-                            <td className="p-2 text-gray-200">{car.model}</td>
-                            <td className="p-2 text-gray-200">
-                              {car.generation_name}
-                            </td>
-                            <td className="p-2 text-gray-200">
-                              {car.start_year} - {car.end_year}
-                            </td>
-                            <td className="p-2 text-gray-400 max-w-xs truncate">
-                              {car.description || 'No description'}
-                            </td>
-                            <td className="p-2">
-                              <div className="flex space-x-2">
-                                <ActionButton
-                                  onClick={() => openEditDialog(car)}
-                                  className="text-sm px-2 py-1"
+                <div className="space-y-6">
+                  {filteredMakes.map((make) => {
+                    const makeCars = filteredCarsByMake[make];
+                    if (!makeCars) return null;
+                    return (
+                      <div
+                        key={make}
+                        className="border border-gray-700 rounded-lg overflow-hidden"
+                      >
+                        <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+                          <h3 className="text-lg font-semibold text-gray-200">
+                            {make}
+                            <span className="ml-2 text-sm font-normal text-gray-400">
+                              ({makeCars.length}{' '}
+                              {makeCars.length === 1 ? 'car' : 'cars'})
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="border-b border-gray-700 bg-gray-800/50">
+                              <tr>
+                                <th className="p-2 text-gray-300">Model</th>
+                                <th className="p-2 text-gray-300">
+                                  Generation Name
+                                </th>
+                                <th className="p-2 text-gray-300">Years</th>
+                                <th className="p-2 text-gray-300">
+                                  Description
+                                </th>
+                                <th className="p-2 text-gray-300">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {makeCars.map((car) => (
+                                <tr
+                                  key={car.id}
+                                  className="border-b border-gray-800 hover:bg-gray-800/30"
                                 >
-                                  Edit
-                                </ActionButton>
-                                <ActionButton
-                                  onClick={() => openDeleteDialog(car)}
-                                  className="text-sm px-2 py-1 bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </ActionButton>
-                              </div>
-                            </td>
-                          </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                                  <td className="p-2 text-gray-200">
+                                    {car.model}
+                                  </td>
+                                  <td className="p-2 text-gray-200">
+                                    {car.generation_name}
+                                  </td>
+                                  <td className="p-2 text-gray-200">
+                                    {car.start_year} - {car.end_year}
+                                  </td>
+                                  <td className="p-2 text-gray-400 max-w-xs truncate">
+                                    {car.description || 'No description'}
+                                  </td>
+                                  <td className="p-2">
+                                    <div className="flex space-x-2">
+                                      <ActionButton
+                                        onClick={() => openEditDialog(car)}
+                                        className="text-sm px-2 py-1"
+                                      >
+                                        Edit
+                                      </ActionButton>
+                                      <ActionButton
+                                        onClick={() => openDeleteDialog(car)}
+                                        className="text-sm px-2 py-1 bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete
+                                      </ActionButton>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </>
           )}

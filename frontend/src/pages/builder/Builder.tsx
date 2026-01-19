@@ -15,7 +15,8 @@ import type { BuildListRead } from '../../types/Api';
 function Builder() {
   const { user } = useAuth();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] = useState(false);
+  const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] =
+    useState(false);
   const [formKey, setFormKey] = useState(0);
 
   // Fetch user's build lists
@@ -107,7 +108,8 @@ function Builder() {
             ) : (
               <div className="col-span-full text-center py-8 text-gray-400">
                 <p className="mb-4">
-                  You don't have any build lists yet. Click the tile above to create your first one!
+                  You don't have any build lists yet. Click the tile above to
+                  create your first one!
                 </p>
               </div>
             )}

@@ -173,9 +173,11 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     setEditingPart(null);
   };
 
-  const handleTogglePurchased = async (buildListPart: BuildListPartReadWithGlobalPart) => {
+  const handleTogglePurchased = async (
+    buildListPart: BuildListPartReadWithGlobalPart
+  ) => {
     if (!canManageParts) return;
-    
+
     try {
       await buildListPartsApi.updateBuildListPart(
         buildListId,

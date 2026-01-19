@@ -7,7 +7,7 @@ import type {
   BuildListRead,
   CarRead,
   UserRead,
-  VoteSummary
+  VoteSummary,
 } from '../../types/Api';
 
 import BuildListParts from '../../components/buildListParts/BuildListParts';
@@ -76,10 +76,8 @@ function ViewBuildList() {
     executeRequest: fetchUser,
   } = useApiRequest(fetchUserRequestFn);
 
-  const {
-    data: voteSummaryData,
-    executeRequest: fetchVoteSummary,
-  } = useApiRequest(fetchVoteSummaryRequestFn);
+  const { data: voteSummaryData, executeRequest: fetchVoteSummary } =
+    useApiRequest(fetchVoteSummaryRequestFn);
 
   const {
     isLoading: isDeletingBuildList,
@@ -251,7 +249,7 @@ function ViewBuildList() {
         title={buildList.name}
         subtitle={`For car: ${associatedCar ? `${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
       />
-      
+
       {/* Warning when build list has no car assigned */}
       {!buildList.car_id && (
         <Card className="mb-6 border-2 border-yellow-600 bg-yellow-900/20">
@@ -263,7 +261,10 @@ function ViewBuildList() {
                   Car Assignment Required
                 </h3>
                 <p className="text-yellow-200 mb-4">
-                  This build list doesn't have a car assigned.{canManage ? ' Please assign a car to help organize your build list and make it easier for others to find.' : ' The owner should assign a car to help organize this build list.'}
+                  This build list doesn't have a car assigned.
+                  {canManage
+                    ? ' Please assign a car to help organize your build list and make it easier for others to find.'
+                    : ' The owner should assign a car to help organize this build list.'}
                 </p>
                 {canManage && (
                   <ActionButton
@@ -347,8 +348,10 @@ function ViewBuildList() {
                 userVote={voteSummary.user_vote ?? null}
                 onVoteUpdate={handleVoteUpdate}
                 voteApi={{
-                  voteOnEntity: (id: number, data: { vote_type: 'upvote' | 'downvote' }) =>
-                    buildListVotesApi.voteOnBuildList(id, data),
+                  voteOnEntity: (
+                    id: number,
+                    data: { vote_type: 'upvote' | 'downvote' }
+                  ) => buildListVotesApi.voteOnBuildList(id, data),
                   removeVote: (id: number) => buildListVotesApi.removeVote(id),
                 }}
                 size="md"

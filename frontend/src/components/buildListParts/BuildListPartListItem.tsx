@@ -34,9 +34,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
   // Prices are stored in cents, so we keep them in cents for calculations
   const partPriceInCents = global_part.price;
   const qty = quantity || 1;
-  const totalPriceInCents = partPriceInCents !== null && partPriceInCents !== undefined 
-    ? partPriceInCents * qty 
-    : null;
+  const totalPriceInCents =
+    partPriceInCents !== null && partPriceInCents !== undefined
+      ? partPriceInCents * qty
+      : null;
 
   const formatPriceDisplay = (priceInCents: number) => {
     // Convert cents to dollars for display
@@ -45,8 +46,8 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
   };
 
   const showCheckbox = canMarkPurchased && onTogglePurchased;
-  const gridCols = showCheckbox 
-    ? 'grid-cols-[auto_1fr_auto_auto]' 
+  const gridCols = showCheckbox
+    ? 'grid-cols-[auto_1fr_auto_auto]'
     : 'grid-cols-[1fr_auto_auto]';
 
   return (
@@ -55,13 +56,18 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
         {/* Purchased checkbox */}
         {showCheckbox && (
           <div className="flex items-center justify-center min-w-[28px]">
-            <label className="relative flex items-center cursor-pointer" title={purchased ? 'Mark as not purchased' : 'Mark as purchased'}>
+            <label
+              className="relative flex items-center cursor-pointer"
+              title={purchased ? 'Mark as not purchased' : 'Mark as purchased'}
+            >
               <input
                 type="checkbox"
                 checked={purchased}
                 onChange={() => onTogglePurchased?.(buildListPart)}
                 className="sr-only peer"
-                aria-label={purchased ? 'Mark as not purchased' : 'Mark as purchased'}
+                aria-label={
+                  purchased ? 'Mark as not purchased' : 'Mark as purchased'
+                }
               />
               <div className="w-6 h-6 bg-gray-700 border-2 border-gray-500 rounded peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
                 {purchased && (
@@ -84,7 +90,9 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
         {/* Left side: Part name, category, brand, notes */}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className={`text-sm font-semibold ${purchased ? 'text-gray-400 line-through' : 'text-white'}`}>
+            <h3
+              className={`text-sm font-semibold ${purchased ? 'text-gray-400 line-through' : 'text-white'}`}
+            >
               <Link
                 to={`/global-parts/${global_part.id}`}
                 className="hover:text-blue-400 transition-colors"
@@ -134,7 +142,9 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
             qty > 1 && totalPriceInCents !== null ? (
               <div>
                 {/* Total price is prominent when multiple quantities */}
-                <div className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                <div
+                  className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}
+                >
                   {formatPriceDisplay(totalPriceInCents)}
                 </div>
                 <div className="text-xs text-gray-400">
@@ -142,7 +152,9 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
                 </div>
               </div>
             ) : (
-              <div className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+              <div
+                className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}
+              >
                 {formatPriceDisplay(partPriceInCents)}
               </div>
             )

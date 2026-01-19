@@ -67,10 +67,8 @@ function EditGlobalPartForm({
   const { data: categoriesData, executeRequest: fetchCategories } =
     useApiRequest(fetchCategoriesRequestFn);
 
-  const {
-    data: carsData,
-    executeRequest: fetchCars,
-  } = useApiRequest(fetchCarsRequestFn);
+  const { data: carsData, executeRequest: fetchCars } =
+    useApiRequest(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchCategories();

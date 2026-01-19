@@ -36,7 +36,9 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   const [imageChanged, setImageChanged] = useState(false);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(null);
+  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
+    null
+  );
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [formMessage, setFormMessage] = useState<{
@@ -80,10 +82,8 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
     []
   );
 
-  const {
-    data: currentCarData,
-    executeRequest: fetchCurrentCar,
-  } = useApiRequest(fetchCurrentCarFn);
+  const { data: currentCarData, executeRequest: fetchCurrentCar } =
+    useApiRequest(fetchCurrentCarFn);
 
   useEffect(() => {
     void fetchMakes();
@@ -197,15 +197,15 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   ).sort();
 
   // Get generations (cars) for selected make and model
-  const generations = availableCars.filter(
-    (car) => car.make === selectedMake && car.model === selectedModel
-  ).sort((a, b) => {
-    // Sort by start_year, then generation_name
-    if (a.start_year !== b.start_year) {
-      return a.start_year - b.start_year;
-    }
-    return a.generation_name.localeCompare(b.generation_name);
-  });
+  const generations = availableCars
+    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .sort((a, b) => {
+      // Sort by start_year, then generation_name
+      if (a.start_year !== b.start_year) {
+        return a.start_year - b.start_year;
+      }
+      return a.generation_name.localeCompare(b.generation_name);
+    });
 
   return (
     <div className="p-4">
@@ -236,7 +236,9 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                   }}
                   className="text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
-                  {selectedModel ? '← Back to Car Models' : '← Back to Manufacturers'}
+                  {selectedModel
+                    ? '← Back to Car Models'
+                    : '← Back to Manufacturers'}
                 </button>
               ) : (
                 'Manufacturer'
@@ -339,11 +341,13 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                 <div className="flex items-center justify-between p-3">
                   <div>
                     <h4 className="text-base font-semibold text-gray-200">
-                      Selected: {selectedGeneration.make} {selectedGeneration.model}{' '}
+                      Selected: {selectedGeneration.make}{' '}
+                      {selectedGeneration.model}{' '}
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">
-                      {selectedGeneration.start_year} - {selectedGeneration.end_year}
+                      {selectedGeneration.start_year} -{' '}
+                      {selectedGeneration.end_year}
                     </p>
                   </div>
                   <button

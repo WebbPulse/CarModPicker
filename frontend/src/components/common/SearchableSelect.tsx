@@ -17,7 +17,10 @@ interface SearchableSelectProps {
   disabled?: boolean;
   isLoading?: boolean;
   emptyMessage?: string;
-  filterOptions?: (options: SearchableSelectOption[], searchText: string) => SearchableSelectOption[];
+  filterOptions?: (
+    options: SearchableSelectOption[],
+    searchText: string
+  ) => SearchableSelectOption[];
 }
 
 function SearchableSelect({
@@ -59,19 +62,22 @@ function SearchableSelect({
   const filteredOptions = filterOptionsFn(options, searchText);
 
   // Handle selection
-  const handleSelect = useCallback((selectedValue: number | string | null) => {
-    onChange(selectedValue);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-    // Update search text to show selected option
-    const option = options.find((opt) => opt.value === selectedValue);
-    if (option) {
-      setSearchText(option.label);
-    } else {
-      setSearchText('');
-    }
-    inputRef.current?.blur();
-  }, [onChange, options]);
+  const handleSelect = useCallback(
+    (selectedValue: number | string | null) => {
+      onChange(selectedValue);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      // Update search text to show selected option
+      const option = options.find((opt) => opt.value === selectedValue);
+      if (option) {
+        setSearchText(option.label);
+      } else {
+        setSearchText('');
+      }
+      inputRef.current?.blur();
+    },
+    [onChange, options]
+  );
 
   // Update search text when value changes externally
   useEffect(() => {
@@ -124,7 +130,11 @@ function SearchableSelect({
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-      } else if (e.key === 'Enter' && highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+      } else if (
+        e.key === 'Enter' &&
+        highlightedIndex >= 0 &&
+        filteredOptions[highlightedIndex]
+      ) {
         e.preventDefault();
         handleSelect(filteredOptions[highlightedIndex].value);
       } else if (e.key === 'Escape') {
@@ -141,7 +151,11 @@ function SearchableSelect({
 
   // Scroll highlighted option into view
   useEffect(() => {
-    if (highlightedIndex >= 0 && dropdownRef.current && dropdownRef.current.children[highlightedIndex]) {
+    if (
+      highlightedIndex >= 0 &&
+      dropdownRef.current &&
+      dropdownRef.current.children[highlightedIndex]
+    ) {
       const optionElement = dropdownRef.current.children[
         highlightedIndex
       ] as HTMLElement;
@@ -275,9 +289,7 @@ function SearchableSelect({
                   option.value === value
                     ? 'bg-primary-500/20 text-primary-400'
                     : 'text-white'
-                } ${
-                  index === highlightedIndex ? 'bg-gray-700' : ''
-                }`}
+                } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 {option.label}
