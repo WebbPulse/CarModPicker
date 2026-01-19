@@ -39,8 +39,8 @@ const GlobalPartsCatalog: React.FC = () => {
     try {
       const response = await categoriesApi.getCategories();
       setCategories(response.data);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
+    } catch {
+      // Failed to load categories
     }
   }, []);
 
@@ -65,7 +65,6 @@ const GlobalPartsCatalog: React.FC = () => {
 
   const handlePartAdded = () => {
     // Refresh the global parts list if needed
-    console.log('Part added to build list');
   };
 
   const handleCategorySelect = (category: CategoryResponse) => {

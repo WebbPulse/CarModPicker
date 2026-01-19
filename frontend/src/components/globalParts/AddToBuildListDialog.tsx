@@ -48,7 +48,6 @@ function AddToBuildListDialog({
           const response = await buildListsApi.getBuildListsByUser(user.id);
           setBuildLists(response.data);
         } catch (error) {
-          console.error('Failed to load build lists:', error);
           setBuildListsError(
             error instanceof Error
               ? error.message

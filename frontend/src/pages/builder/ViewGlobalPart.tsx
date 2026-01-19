@@ -193,8 +193,7 @@ function ViewGlobalPart() {
         const response =
           await buildListPartsApi.countBuildListsContainingGlobalPart(part.id);
         setBuildListCount(response.data.count);
-      } catch (error) {
-        console.error('Failed to fetch build list count:', error);
+      } catch {
         setBuildListCount(null);
       }
     }
@@ -208,7 +207,7 @@ function ViewGlobalPart() {
   const closeAddToBuildListDialog = () => setIsAddToBuildListDialogOpen(false);
 
   const handlePartAddedToBuildList = () => {
-    console.log('Part added to build list');
+    // Part added to build list
   };
 
   const handleConfirmDelete = async (): Promise<void> => {

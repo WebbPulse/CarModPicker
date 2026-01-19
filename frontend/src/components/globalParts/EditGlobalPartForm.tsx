@@ -109,8 +109,7 @@ function EditGlobalPartForm({
       // Note: globalPart.image_url is now a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
-    } catch (error) {
-      console.error('Error setting form data:', error);
+    } catch {
       setValidationError('Failed to load part data. Please refresh the page.');
     }
   }, [globalPart]);

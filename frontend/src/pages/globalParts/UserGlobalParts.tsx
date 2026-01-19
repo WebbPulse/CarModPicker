@@ -105,8 +105,8 @@ function UserGlobalParts() {
         await fetchUserGlobalParts();
       }
       setDeletingPartId(null);
-    } catch (error) {
-      console.error('Failed to delete global part:', error);
+    } catch {
+      // Failed to delete global part
     } finally {
       setIsDeleting(false);
     }
@@ -120,8 +120,7 @@ function UserGlobalParts() {
         const response =
           await buildListPartsApi.countBuildListsContainingGlobalPart(part.id);
         setBuildListCount(response.data.count);
-      } catch (error) {
-        console.error('Failed to fetch build list count:', error);
+      } catch {
         setBuildListCount(null);
       }
     })();

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import AuthCard from '../../components/auth/AuthCard';
-import { ErrorAlert, ConfirmationAlert } from '../../components/common/Alerts';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import apiClient from '../../services/Api';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
+import ButtonStretch from '../../components/buttons/StretchButton';
+import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import apiClient from '../../services/Api';
 
 function VerifyEmail() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -33,7 +33,6 @@ function VerifyEmail() {
     const result = await sendEmailVerificationLink({ email: user.email });
     if (result) {
       // Successfully sent the link
-      console.log('Email verification link sent:', result);
       setIsSubmitted(true);
     }
   };

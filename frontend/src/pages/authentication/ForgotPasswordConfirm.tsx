@@ -63,7 +63,6 @@ function ForgotPasswordConfirm() {
     });
 
     if (result) {
-      console.log('Password reset successful:', result);
       setIsSubmitted(true);
     }
   };
