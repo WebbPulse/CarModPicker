@@ -11,6 +11,7 @@ To add a new car generation:
 """
 
 from typing import TypedDict
+
 from typing_extensions import NotRequired
 
 

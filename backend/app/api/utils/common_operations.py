@@ -415,8 +415,8 @@ def update_entity(
 
             # If the old image exists and is different from the new one, delete it
             if old_image_url and old_image_url != new_image_url:
-                from app.api.utils.image_utils import is_file_key
                 from app.api.services.storage_service import storage_service
+                from app.api.utils.image_utils import is_file_key
 
                 # Only delete if it's a file key (not a regular URL)
                 if is_file_key(old_image_url):
@@ -501,8 +501,8 @@ def delete_entity(
         if hasattr(entity, "image_url"):
             image_url = getattr(entity, "image_url", None)
             if image_url:
-                from app.api.utils.image_utils import is_file_key
                 from app.api.services.storage_service import storage_service
+                from app.api.utils.image_utils import is_file_key
 
                 # Only delete if it's a file key (not a regular URL)
                 if is_file_key(image_url):

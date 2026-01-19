@@ -128,8 +128,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         Raises:
             HTTPException: If build list not found, access denied, or deletion fails
         """
-        from app.api.utils.common_operations import verify_entity_ownership
-        from app.api.utils.common_operations import delete_entity
+        from app.api.utils.common_operations import delete_entity, verify_entity_ownership
 
         # Verify ownership
         build_list = verify_entity_ownership(db, DBBuildList, entity_id, current_user, self.entity_name)

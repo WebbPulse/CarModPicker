@@ -280,8 +280,9 @@ async def admin_delete_all_cars(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, str | int]:
     """Delete all cars (admin only). This is a dangerous operation. Build lists associated with deleted cars will have their car_id set to null."""
-    from app.api.models.build_list import BuildList
     from sqlalchemy import func
+
+    from app.api.models.build_list import BuildList
 
     # Count build lists that will be unlinked
     build_lists_to_unlink = (db.query(func.count(BuildList.id)).filter(BuildList.car_id.isnot(None)).scalar()) or 0
