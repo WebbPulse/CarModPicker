@@ -226,7 +226,6 @@ function ViewCar() {
         title={`Create Build List for ${car.make} ${car.model}`}
       >
         <CreateBuildListForm
-          carId={car.id}
           onBuildListCreated={handleBuildListCreated}
         />
       </Dialog>
@@ -235,7 +234,6 @@ function ViewCar() {
       {currentUser && (
         <BuildListList
           carId={car.id}
-          currentUserId={currentUser.id}
           refreshKey={buildListRefreshTrigger}
           title={`Build Lists for ${car.make} ${car.model}`}
           emptyMessage="This car doesn't have any build lists yet."
