@@ -465,7 +465,7 @@ function Search() {
                                     globalPart.price !== undefined && (
                                       <div className="flex-shrink-0 text-right">
                                         <p className="text-base font-semibold text-green-400">
-                                          ${globalPart.price.toFixed(2)}
+                                          ${(globalPart.price / 100).toFixed(2)}
                                         </p>
                                       </div>
                                     )}

@@ -28,6 +28,7 @@ class GlobalPart(Base):
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     price: Mapped[Optional[int]] = mapped_column(nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    product_url: Mapped[Optional[str]] = mapped_column(nullable=True)
 
     # New fields for shared architecture
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)

@@ -149,6 +149,7 @@ export interface GlobalPartCreate {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
+  product_url?: string | null;
   category_id: number;
   car_id?: number | null; // Optional car association
   brand?: string | null;
@@ -162,6 +163,7 @@ export interface GlobalPartRead {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
+  product_url?: string | null;
   category_id: number;
   user_id: number;
   car_id?: number | null; // Optional car association
@@ -201,6 +203,7 @@ export interface GlobalPartUpdate {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
+  product_url?: string | null;
   category_id?: number | null;
   car_id?: number | null; // Optional car association
   brand?: string | null;

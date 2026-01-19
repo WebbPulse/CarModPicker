@@ -147,33 +147,6 @@ const BuildListsCatalog: React.FC = () => {
         </div>
       </Card>
 
-      {/* Featured Build Lists Section - Only show when no make is selected */}
-      {!selectedMake && (
-        <Card className="mb-6">
-          <SectionHeader title="Featured Build Lists" />
-          {isLoadingFeatured ? (
-            <div className="flex items-center justify-center py-8">
-              <LoadingSpinner />
-            </div>
-          ) : featuredBuildListsData?.data &&
-            featuredBuildListsData.data.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-              {featuredBuildListsData.data.map((buildList) => (
-                <BuildListItem
-                  key={buildList.id}
-                  buildList={buildList}
-                  showVoteButtons={false}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-400">
-              <p>No featured build lists available.</p>
-            </div>
-          )}
-        </Card>
-      )}
-
       {/* Car Selection Tiles - 3 Layer Selection */}
       <div className="space-y-6 mb-6">
         {/* Layer 1: Make Selection */}
@@ -228,6 +201,31 @@ const BuildListsCatalog: React.FC = () => {
                   ))}
                 </div>
               )}
+
+              {/* Featured Build Lists Section - Only show when no make is selected */}
+              <Card className="mb-6 mt-6">
+                <SectionHeader title="Featured Build Lists" />
+                {isLoadingFeatured ? (
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                ) : featuredBuildListsData?.data &&
+                  featuredBuildListsData.data.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+                    {featuredBuildListsData.data.map((buildList) => (
+                      <BuildListItem
+                        key={buildList.id}
+                        buildList={buildList}
+                        showVoteButtons={false}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <p>No featured build lists available.</p>
+                  </div>
+                )}
+              </Card>
             </>
           )}
 

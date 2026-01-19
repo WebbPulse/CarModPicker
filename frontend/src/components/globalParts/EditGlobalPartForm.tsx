@@ -47,6 +47,7 @@ function EditGlobalPartForm({
     brand: '',
     description: '',
     price: '',
+    product_url: '',
     category_id: 1,
     car_id: null as number | null,
   });
@@ -91,27 +92,64 @@ function EditGlobalPartForm({
   }, [carsData]);
 
   useEffect(() => {
-    setFormData({
-      name: globalPart.name ?? '',
-      part_number: globalPart.part_number ?? '',
-      brand: globalPart.brand ?? '',
-      description: globalPart.description ?? '',
-      price:
-        globalPart.price !== null && globalPart.price !== undefined
-          ? globalPart.price.toString()
-          : '',
-      category_id: globalPart.category_id ?? 1,
-      car_id: globalPart.car_id ?? null,
-    });
-    // Note: globalPart.image_url is now a presigned URL from the API
-    setImageFileKey(null);
-    setImageChanged(false);
+    try {
+      setFormData({
+        name: globalPart.name ?? '',
+        part_number: globalPart.part_number ?? '',
+        brand: globalPart.brand ?? '',
+        description: globalPart.description ?? '',
+        price:
+          globalPart.price !== null && globalPart.price !== undefined
+            ? (globalPart.price / 100).toFixed(2)
+            : '',
+        product_url: globalPart.product_url ?? '',
+        category_id: globalPart.category_id ?? 1,
+        car_id: globalPart.car_id ?? null,
+      });
+      // Note: globalPart.image_url is now a presigned URL from the API
+      setImageFileKey(null);
+      setImageChanged(false);
+    } catch (error) {
+      console.error('Error setting form data:', error);
+      setValidationError('Failed to load part data. Please refresh the page.');
+    }
   }, [globalPart]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (validationError) setValidationError(null);
+  };
+
+  const handlePriceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value.trim();
+    if (value === '') {
+      setFormData((prev) => ({ ...prev, price: '' }));
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      const formatted = numValue.toFixed(2);
+      setFormData((prev) => ({ ...prev, price: formatted }));
+    }
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    // Allow empty value
+    if (value === '') {
+      setFormData((prev) => ({ ...prev, price: '' }));
+      if (validationError) setValidationError(null);
+      return;
+    }
+
+    // Allow only numbers and one decimal point
+    if (/^\d*\.?\d*$/.test(value)) {
+      // Store the raw value while typing - don't format until blur
+      setFormData((prev) => ({ ...prev, price: value }));
+      if (validationError) setValidationError(null);
+    }
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -144,7 +182,7 @@ function EditGlobalPartForm({
     .map((car) => ({
       id: car.id,
       value: car.id,
-      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
+      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ''})`,
     }));
 
   // Custom filter function that searches across make, model, generation, and years
@@ -162,7 +200,8 @@ function EditGlobalPartForm({
         car.model.toLowerCase().includes(lowerText) ||
         car.generation_name.toLowerCase().includes(lowerText) ||
         car.start_year.toString().includes(lowerText) ||
-        car.end_year.toString().includes(lowerText) ||
+        (car.end_year !== null &&
+          car.end_year.toString().includes(lowerText)) ||
         option.label.toLowerCase().includes(lowerText)
       );
     });
@@ -181,7 +220,10 @@ function EditGlobalPartForm({
       part_number: formData.part_number.trim() || null,
       brand: formData.brand.trim() || null,
       description: formData.description.trim() || null,
-      price: formData.price ? parseFloat(formData.price) : null,
+      price: formData.price
+        ? Math.round(parseFloat(formData.price) * 100)
+        : null,
+      product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
       car_id: formData.car_id,
     };
@@ -287,12 +329,22 @@ function EditGlobalPartForm({
         label="Price"
         id="global-part-price"
         name="price"
-        type="number"
+        type="text"
         value={formData.price}
-        onChange={handleInputChange}
+        onChange={handlePriceChange}
+        onBlur={handlePriceBlur}
         placeholder="0.00"
-        step="0.01"
-        min="0"
+        leftIcon={<span className="text-white/80 font-medium">$</span>}
+      />
+
+      <Input
+        label="Product URL"
+        id="global-part-product-url"
+        name="product_url"
+        type="url"
+        value={formData.product_url}
+        onChange={handleInputChange}
+        placeholder="https://example.com/product"
       />
 
       <SearchableSelect

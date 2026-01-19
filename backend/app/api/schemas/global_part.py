@@ -12,6 +12,7 @@ class GlobalPartCreate(BaseModel):
     description: Optional[str] = None
     price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
+    product_url: Optional[str] = None
     category_id: int
     car_id: Optional[int] = None  # Optional car association
     brand: Optional[str] = None
@@ -32,6 +33,7 @@ class GlobalPartUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
+    product_url: Optional[str] = None
     category_id: Optional[int] = None
     car_id: Optional[int] = None  # Optional car association
     brand: Optional[str] = None
@@ -53,6 +55,7 @@ class GlobalPartRead(BaseModel):
     description: Optional[str] = None
     price: Optional[int] = None
     image_url: Optional[str] = None
+    product_url: Optional[str] = None
     category_id: int
     user_id: int  # Creator
     car_id: Optional[int] = None  # Optional car association
