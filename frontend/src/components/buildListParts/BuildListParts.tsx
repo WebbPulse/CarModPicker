@@ -185,44 +185,45 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     setEditingPart(null);
   };
 
-  const handleTogglePurchased = useCallback(async (
-    buildListPart: BuildListPartReadWithGlobalPart
-  ) => {
-    if (!canManageParts || !localBuildListParts) return;
+  const handleTogglePurchased = useCallback(
+    async (buildListPart: BuildListPartReadWithGlobalPart) => {
+      if (!canManageParts || !localBuildListParts) return;
 
-    const newPurchasedStatus = !buildListPart.purchased;
+      const newPurchasedStatus = !buildListPart.purchased;
 
-    // Optimistic update: update local state immediately
-    setLocalBuildListParts((prevParts) => {
-      if (!prevParts) return prevParts;
-      return prevParts.map((part) =>
-        part.id === buildListPart.id
-          ? { ...part, purchased: newPurchasedStatus }
-          : part
-      );
-    });
-
-    try {
-      await buildListPartsApi.updateBuildListPart(
-        buildListId,
-        buildListPart.global_part_id,
-        { purchased: newPurchasedStatus }
-      );
-      // Optionally sync with server, but don't refetch to avoid full re-render
-      // The optimistic update is already applied
-    } catch (error) {
-      console.error('Failed to update purchased status:', error);
-      // Revert optimistic update on error
+      // Optimistic update: update local state immediately
       setLocalBuildListParts((prevParts) => {
         if (!prevParts) return prevParts;
         return prevParts.map((part) =>
           part.id === buildListPart.id
-            ? { ...part, purchased: buildListPart.purchased }
+            ? { ...part, purchased: newPurchasedStatus }
             : part
         );
       });
-    }
-  }, [canManageParts, localBuildListParts, buildListId]);
+
+      try {
+        await buildListPartsApi.updateBuildListPart(
+          buildListId,
+          buildListPart.global_part_id,
+          { purchased: newPurchasedStatus }
+        );
+        // Optionally sync with server, but don't refetch to avoid full re-render
+        // The optimistic update is already applied
+      } catch (error) {
+        console.error('Failed to update purchased status:', error);
+        // Revert optimistic update on error
+        setLocalBuildListParts((prevParts) => {
+          if (!prevParts) return prevParts;
+          return prevParts.map((part) =>
+            part.id === buildListPart.id
+              ? { ...part, purchased: buildListPart.purchased }
+              : part
+          );
+        });
+      }
+    },
+    [canManageParts, localBuildListParts, buildListId]
+  );
 
   // Wrapper to match the expected void return type
   const handleTogglePurchasedWrapper = useCallback(
