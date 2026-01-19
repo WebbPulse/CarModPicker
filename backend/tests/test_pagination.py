@@ -37,12 +37,14 @@ def test_db_session() -> Generator[Session, None, None]:
     session = SessionLocal()
 
     # Add test data
+    # Cars are now centrally managed (no user_id) and use generation_name, start_year, end_year
     for i in range(20):
         car = Car(
             make=f"Make{i % 5}",  # 5 different makes
             model=f"Model{i}",
-            year=2000 + i,
-            user_id=1,
+            generation_name=f"Gen{i}",
+            start_year=2000 + i,
+            end_year=2000 + i + 1,
         )
         session.add(car)
     session.commit()
@@ -235,19 +237,19 @@ class TestSorting:
     def test_apply_sorting_ascending(self, test_db_session: Session) -> None:
         """Test applying ascending sort."""
         query = test_db_session.query(Car)
-        sorted_query = apply_sorting(query, sort_by="year", sort_order="asc", allowed_sort_fields=["year"])
+        sorted_query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
         results = sorted_query.all()
-        years = [car.year for car in results]
+        years = [car.start_year for car in results]
         assert years == sorted(years)
 
     def test_apply_sorting_descending(self, test_db_session: Session) -> None:
         """Test applying descending sort."""
         query = test_db_session.query(Car)
-        sorted_query = apply_sorting(query, sort_by="year", sort_order="desc", allowed_sort_fields=["year"])
+        sorted_query = apply_sorting(query, sort_by="start_year", sort_order="desc", allowed_sort_fields=["start_year"])
 
         results = sorted_query.all()
-        years = [car.year for car in results]
+        years = [car.start_year for car in results]
         assert years == sorted(years, reverse=True)
 
     def test_apply_sorting_no_sort_field(self, test_db_session: Session) -> None:
@@ -265,7 +267,7 @@ class TestSorting:
             query,
             sort_by="invalid_field",
             sort_order="asc",
-            allowed_sort_fields=["year"],
+            allowed_sort_fields=["start_year"],
         )
 
         # Should return unsorted results
@@ -294,7 +296,7 @@ class TestIntegration:
         query = apply_search_filter(query, search="Make1", search_fields=["make"])
 
         # Apply sorting
-        query = apply_sorting(query, sort_by="year", sort_order="asc")
+        query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
         # Get total count before pagination
         total = get_total_count(query)
@@ -311,4 +313,4 @@ class TestIntegration:
 
         # Verify sorting
         if len(results) > 1:
-            assert results[0].year <= results[1].year
+            assert results[0].start_year <= results[1].start_year

@@ -1,5 +1,6 @@
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
+import requests
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import From, Mail, To
 
@@ -26,9 +27,10 @@ def send_email(to_email: str, template_id: str, dynamic_template_data: dict[str,
 
     try:
         sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
-        response = sg.send(message)  # type: ignore[no-untyped-call]
+        # SendGrid's send() returns a requests.Response, but type stubs are incomplete
+        response = cast(requests.Response, sg.send(message))  # type: ignore[arg-type]
         # SendGrid response object has status_code attribute
-        return int(response.status_code)  # type: ignore[attr-defined]
+        return int(response.status_code)
     except Exception as e:
         # Log or handle error as needed
         logger.error(f"Failed to send email: {e}")

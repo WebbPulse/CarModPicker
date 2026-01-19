@@ -1,9 +1,12 @@
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User
+from app.api.models.user import User as DBUser
 from app.core.config import settings
 
 
@@ -19,45 +22,69 @@ def get_auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def create_and_login_admin_user(
+    client: TestClient, db_session: Session, username_suffix: str = "admin"
+) -> tuple[dict[str, Any], str]:
+    """Create an admin user and log them in. Returns (user_dict, token)."""
+    username = f"admin_vote_test_{username_suffix}"
+    email = f"admin_vote_test_{username_suffix}@example.com"
+    password = "testpassword"
+
+    # Create admin user directly in database
+    admin_user = DBUser(
+        username=username,
+        email=email,
+        hashed_password=get_password_hash(password),
+        is_admin=True,
+        is_superuser=False,
+        email_verified=True,
+        disabled=False,
+    )
+    db_session.add(admin_user)
+    db_session.commit()
+    db_session.refresh(admin_user)
+
+    # Log in and get token
+    login_data = {"username": username, "password": password}
+    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
+    token = token_response.json()["access_token"]
+
+    return admin_user.__dict__, token
+
+
+def create_car_via_admin(
+    client: TestClient,
+    admin_token: str,
+    make: str = "Honda",
+    model: str = "Civic",
+    generation_name: str = "10th Gen",
+    start_year: int = 2016,
+    end_year: int = 2021,
+) -> dict[str, Any]:
+    """Create a car via admin endpoint and return the created car data."""
+    headers = get_auth_headers(admin_token)
+    car_data = {
+        "make": make,
+        "model": model,
+        "generation_name": generation_name,
+        "start_year": start_year,
+        "end_year": end_year,
+    }
+
+    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
+    assert response.status_code == 200, f"Failed to create car: {response.text}"
+    return response.json()
+
+
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
 
     def test_upvote_car_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully upvoting a car."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Honda"),
-            "model": "Civic",
-            "year": 2022,
-            "trim": "Sport",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
 
         # Login as test user and upvote the car
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -107,10 +134,15 @@ class TestUnifiedVotes:
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
         # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
+            "car_id": car["id"],
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -230,40 +262,9 @@ class TestUnifiedVotes:
 
     def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test updating an existing vote."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_update_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_update_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Ford"),
-            "model": "Mustang",
-            "year": 2023,
-            "trim": "GT",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Ford"), "Mustang", "S550", 2015, 2023)
 
         # Login as test user and vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -297,40 +298,9 @@ class TestUnifiedVotes:
 
     def test_remove_vote_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully removing a vote."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_remove_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_remove_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Chevrolet"),
-            "model": "Camaro",
-            "year": 2022,
-            "trim": "SS",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Chevrolet"), "Camaro", "6th Gen", 2016, 2023)
 
         # Login as test user and create a vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -354,40 +324,9 @@ class TestUnifiedVotes:
 
     def test_remove_vote_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test removing a vote that doesn't exist."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_not_found_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_not_found_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("BMW"),
-            "model": "3 Series",
-            "year": 2021,
-            "trim": "330i",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("BMW"), "3 Series", "G20", 2019, 2023)
 
         # Login as test user and try to remove non-existent vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -401,40 +340,9 @@ class TestUnifiedVotes:
 
     def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully getting vote summary for an entity."""
-        # Create a second user to own the car
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
-
-        car_owner = DBUser(
-            username=f"car_owner_summary_{os.getpid()}_{id(db_session)}",
-            email=f"car_owner_summary_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
-        )
-        db_session.add(car_owner)
-        db_session.commit()
-        db_session.refresh(car_owner)
-
-        # Login as car owner and create a car
-        login_data = {"username": car_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        car_owner_token = response.json()["access_token"]
-        car_owner_headers = {"Authorization": f"Bearer {car_owner_token}"}
-
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Audi"),
-            "model": "A4",
-            "year": 2023,
-            "trim": "Premium",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=car_owner_headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Audi"), "A4", "B9", 2016, 2023)
 
         # Login as test user and create an upvote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -527,16 +435,9 @@ class TestUnifiedVotes:
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create a car
-        car_data = {
-            "make": get_unique_name("Tesla"),
-            "model": "Model 3",
-            "year": 2023,
-            "trim": "Performance",
-        }
-        response = client.post(f"{settings.API_STR}/cars/", json=car_data, headers=headers)
-        assert response.status_code == 200
-        car = response.json()
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Tesla"), "Model 3", "1st Gen", 2017, 2023)
 
         # Try to vote with invalid vote type
         vote_data = {"vote_type": "invalid_vote"}

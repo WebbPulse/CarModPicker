@@ -1,21 +1,33 @@
 import React, { useState } from 'react';
-import { globalPartVotesApi } from '../../services/Api';
+
+interface VoteApi {
+  voteOnEntity: (
+    entityId: number,
+    data: { vote_type: 'upvote' | 'downvote' }
+  ) => Promise<unknown>;
+  removeVote: (entityId: number) => Promise<unknown>;
+}
 
 interface VoteButtonsProps {
-  partId: number;
+  entityId: number;
   upvotes: number;
   downvotes: number;
   userVote?: 'upvote' | 'downvote' | null;
-  onVoteUpdate: (partId: number, newVote: 'upvote' | 'downvote' | null) => void;
+  onVoteUpdate: (
+    entityId: number,
+    newVote: 'upvote' | 'downvote' | null
+  ) => void;
+  voteApi: VoteApi;
   size?: 'sm' | 'md' | 'lg';
 }
 
 const VoteButtons: React.FC<VoteButtonsProps> = ({
-  partId,
+  entityId,
   upvotes,
   downvotes,
   userVote,
   onVoteUpdate,
+  voteApi,
   size = 'md',
 }) => {
   const [isVoting, setIsVoting] = useState(false);
@@ -61,13 +73,13 @@ const VoteButtons: React.FC<VoteButtonsProps> = ({
 
       // Make the API call
       if (localUserVote === voteType) {
-        await globalPartVotesApi.removeVote(partId);
-        onVoteUpdate(partId, null);
+        await voteApi.removeVote(entityId);
+        onVoteUpdate(entityId, null);
       } else {
-        await globalPartVotesApi.voteOnGlobalPart(partId, {
+        await voteApi.voteOnEntity(entityId, {
           vote_type: voteType,
         });
-        onVoteUpdate(partId, voteType);
+        onVoteUpdate(entityId, voteType);
       }
     } catch (error) {
       console.error('Failed to vote:', error);

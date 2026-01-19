@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import apiClient from '../../services/Api';
-import type { BuildListRead, CarRead, UserRead } from '../../types/Api';
+import apiClient, { buildListVotesApi } from '../../services/Api';
+import type {
+  BuildListRead,
+  CarRead,
+  UserRead,
+  VoteSummary,
+} from '../../types/Api';
 
 import BuildListParts from '../../components/buildListParts/BuildListParts';
 import CreateBuildListPartForm from '../../components/buildListParts/CreateBuildListPartForm';
@@ -17,6 +22,7 @@ import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import VoteButtons from '../../components/globalParts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -24,12 +30,14 @@ import SectionHeader from '../../components/layout/SectionHeader';
 const fetchBuildListRequestFn = (buildListId: string) =>
   apiClient.get<BuildListRead>(`/build-lists/${buildListId}`);
 
-const fetchCarRequestFn = (
-  carId: number // carId is number
-) => apiClient.get<CarRead>(`/cars/${carId}`);
+const fetchCarRequestFn = (carId: number) =>
+  apiClient.get<CarRead>(`/cars/${carId}`);
 
 const fetchUserRequestFn = (userId: number) =>
   apiClient.get<UserRead>(`/users/${userId}`);
+
+const fetchVoteSummaryRequestFn = (buildListId: string) =>
+  buildListVotesApi.getVoteSummary(Number(buildListId));
 
 const deleteBuildListRequestFn = (buildListId: string) =>
   apiClient.delete<Record<string, string>>(`/build-lists/${buildListId}`);
@@ -43,9 +51,10 @@ function ViewBuildList() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] =
     useState<boolean>(false);
   const [associatedCar, setAssociatedCar] = useState<CarRead | null>(null);
-  const [carOwner, setCarOwner] = useState<UserRead | null>(null);
+  const [buildListOwner, setBuildListOwner] = useState<UserRead | null>(null);
   const [partsRefreshTrigger, setPartsRefreshTrigger] = useState<number>(0);
   const [isCreatePartFormOpen, setIsCreatePartFormOpen] = useState(false);
+  const [voteSummary, setVoteSummary] = useState<VoteSummary | null>(null);
 
   const {
     data: buildList,
@@ -63,10 +72,12 @@ function ViewBuildList() {
 
   const {
     data: userData,
-    isLoading: isLoadingOwner,
     error: ownerApiError,
     executeRequest: fetchUser,
   } = useApiRequest(fetchUserRequestFn);
+
+  const { data: voteSummaryData, executeRequest: fetchVoteSummary } =
+    useApiRequest(fetchVoteSummaryRequestFn);
 
   const {
     isLoading: isDeletingBuildList,
@@ -74,6 +85,18 @@ function ViewBuildList() {
     executeRequest: executeDeleteBuildList,
     setError: setDeleteBuildListError,
   } = useApiRequest(deleteBuildListRequestFn);
+
+  const copyBuildListRequestFn = (buildListId: string) =>
+    apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
+      new_name: null,
+    });
+
+  const {
+    isLoading: isCopyingBuildList,
+    error: copyBuildListError,
+    executeRequest: executeCopyBuildList,
+    setError: setCopyBuildListError,
+  } = useApiRequest(copyBuildListRequestFn);
 
   useEffect(() => {
     if (buildListId) {
@@ -88,20 +111,44 @@ function ViewBuildList() {
   }, [buildList?.car_id, fetchCar]);
 
   useEffect(() => {
-    if (carData?.user_id) {
-      void fetchUser(carData.user_id);
-    }
-  }, [carData?.user_id, fetchUser]);
-
-  useEffect(() => {
     if (carData) {
       setAssociatedCar(carData);
     }
   }, [carData]);
 
   useEffect(() => {
+    if (buildList?.user_id) {
+      void fetchUser(buildList.user_id);
+    }
+  }, [buildList?.user_id, fetchUser]);
+
+  useEffect(() => {
+    if (buildListId) {
+      void fetchVoteSummary(buildListId);
+    }
+  }, [buildListId, fetchVoteSummary]);
+
+  useEffect(() => {
+    if (voteSummaryData) {
+      setVoteSummary(voteSummaryData);
+    }
+  }, [voteSummaryData]);
+
+  const handleVoteUpdate = (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _entityId: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _newVote: 'upvote' | 'downvote' | null
+  ) => {
+    // Refresh vote summary after voting
+    if (buildListId) {
+      void fetchVoteSummary(buildListId);
+    }
+  };
+
+  useEffect(() => {
     if (userData) {
-      setCarOwner(userData);
+      setBuildListOwner(userData);
     }
   }, [userData]);
 
@@ -135,6 +182,17 @@ function ViewBuildList() {
     }
   };
 
+  const handleCopyBuildList = async () => {
+    if (!buildList || !buildListId) return;
+
+    setCopyBuildListError(null);
+    const result = await executeCopyBuildList(buildListId);
+    if (result !== null) {
+      // Navigate to the newly copied build list
+      void navigate(`/build-lists/${result.id}`);
+    }
+  };
+
   // Handlers for Part creation
   const handlePartAdded = () => {
     setPartsRefreshTrigger(partsRefreshTrigger + 1); // Trigger BuildListParts refresh
@@ -144,7 +202,7 @@ function ViewBuildList() {
   const openCreatePartDialog = () => setIsCreatePartFormOpen(true);
   const closeCreatePartDialog = () => setIsCreatePartFormOpen(false);
 
-  const isLoading = isLoadingBuildList || isLoadingCar || isLoadingOwner;
+  const isLoading = isLoadingBuildList || isLoadingCar;
 
   if (isLoading && !buildList) {
     return (
@@ -189,24 +247,66 @@ function ViewBuildList() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title={buildList.name}
-        subtitle={`For car: ${associatedCar ? `${associatedCar.year} ${associatedCar.make} ${associatedCar.model}` : 'Loading...'}`}
+        subtitle={`For car: ${associatedCar ? `${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
       />
+
+      {/* Warning when build list has no car assigned */}
+      {!buildList.car_id && (
+        <Card className="mb-6 border-2 border-yellow-600 bg-yellow-900/20">
+          <div className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="text-4xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-yellow-300 mb-2">
+                  Car Assignment Required
+                </h3>
+                <p className="text-yellow-200 mb-4">
+                  This build list doesn't have a car assigned.
+                  {canManage
+                    ? ' Please assign a car to help organize your build list and make it easier for others to find.'
+                    : ' The owner should assign a car to help organize this build list.'}
+                </p>
+                {canManage && (
+                  <ActionButton
+                    onClick={openEditBuildListDialog}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  >
+                    Assign Car Now
+                  </ActionButton>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Build List Information" />
-          {canManage && (
-            <div className="flex space-x-2">
-              <ActionButton onClick={openEditBuildListDialog}>
-                Edit Build List
-              </ActionButton>
+          <div className="flex space-x-2">
+            {currentUser && (
               <ActionButton
-                onClick={openDeleteConfirmDialog}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => void handleCopyBuildList()}
+                disabled={isCopyingBuildList}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                Delete Build List
+                {isCopyingBuildList ? 'Copying...' : 'Copy Build List'}
               </ActionButton>
-            </div>
-          )}
+            )}
+            {canManage && (
+              <>
+                <ActionButton onClick={openEditBuildListDialog}>
+                  Edit Build List
+                </ActionButton>
+                <ActionButton
+                  onClick={openDeleteConfirmDialog}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete Build List
+                </ActionButton>
+              </>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="">
@@ -227,21 +327,37 @@ function ViewBuildList() {
             <CardInfoItem label="Associated Car:">
               <ParentNavigationLink
                 linkTo={`/cars/${associatedCar.id}`}
-                linkText={`${associatedCar.year} ${associatedCar.make} ${associatedCar.model}`}
+                linkText={`${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})`}
               />
             </CardInfoItem>
           )}
-          {carOwner && (
-            <CardInfoItem label="Owner:">
+          {buildListOwner && (
+            <CardInfoItem label="Build List Owner:">
               <ParentNavigationLink
-                linkTo={`/user/${carOwner.id}`}
-                linkText={carOwner.username}
+                linkTo={`/user/${buildListOwner.id}`}
+                linkText={buildListOwner.username}
               />
             </CardInfoItem>
           )}
-          <CardInfoItem label="Build List ID:">
-            <p>{buildList.id}</p>
-          </CardInfoItem>
+          {voteSummary && (
+            <CardInfoItem label="Community Rating:">
+              <VoteButtons
+                entityId={buildList.id}
+                upvotes={voteSummary.upvotes}
+                downvotes={voteSummary.downvotes}
+                userVote={voteSummary.user_vote ?? null}
+                onVoteUpdate={handleVoteUpdate}
+                voteApi={{
+                  voteOnEntity: (
+                    id: number,
+                    data: { vote_type: 'upvote' | 'downvote' }
+                  ) => buildListVotesApi.voteOnBuildList(id, data),
+                  removeVote: (id: number) => buildListVotesApi.removeVote(id),
+                }}
+                size="md"
+              />
+            </CardInfoItem>
+          )}
         </div>
         {carApiError && (
           <ErrorAlert
@@ -250,7 +366,12 @@ function ViewBuildList() {
         )}
         {ownerApiError && (
           <ErrorAlert
-            message={`Error loading owner details: ${ownerApiError}`}
+            message={`Error loading build list owner details: ${ownerApiError}`}
+          />
+        )}
+        {copyBuildListError && (
+          <ErrorAlert
+            message={`Error copying build list: ${copyBuildListError}`}
           />
         )}
       </Card>

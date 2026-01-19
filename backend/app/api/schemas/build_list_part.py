@@ -17,6 +17,7 @@ class BuildListPartCreate(BaseModel):
 class BuildListPartUpdate(BaseModel):
     quantity: Optional[int] = Field(None, ge=1, description="Quantity of the part")
     notes: Optional[str] = None
+    purchased: Optional[bool] = None
 
 
 # Schema for response body when reading a build list part
@@ -27,6 +28,7 @@ class BuildListPartRead(BaseModel):
     added_by: int
     quantity: int
     notes: Optional[str] = None
+    purchased: bool
     added_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -40,6 +42,7 @@ class BuildListPartReadWithGlobalPart(BaseModel):
     added_by: int
     quantity: int
     notes: Optional[str] = None
+    purchased: bool
     added_at: datetime
     global_part: GlobalPartRead
 
@@ -55,6 +58,7 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     price: int | None = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: str | None = None
     category_id: int
+    car_id: int | None = None  # Optional car association
     brand: str | None = None
     part_number: str | None = None
     specifications: dict[str, Any] | None = None

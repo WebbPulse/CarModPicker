@@ -30,7 +30,11 @@ class BuildList(Base):
     # Relationships
     car: Mapped[Optional["Car"]] = relationship("Car", back_populates="build_lists")
     owner: Mapped["User"] = relationship("User", back_populates="build_lists")
-    build_list_parts: Mapped[List["BuildListPart"]] = relationship("BuildListPart", back_populates="build_list")
+    build_list_parts: Mapped[List["BuildListPart"]] = relationship(
+        "BuildListPart",
+        back_populates="build_list",
+        cascade="all, delete-orphan",
+    )
     # votes and reports
     votes: Mapped[List["Vote"]] = relationship(
         "Vote",

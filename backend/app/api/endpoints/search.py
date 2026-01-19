@@ -2,7 +2,7 @@
 Search endpoint that searches across multiple entity types.
 
 This endpoint provides unified search functionality across:
-- Build lists (name, description, and associated car make/model/year/trim)
+- Build lists (name, description, and associated car make/model/generation/year range)
 - User profiles (username, email)
 - Global parts (name, description, brand, part_number)
 """
@@ -63,7 +63,7 @@ async def search_all(
 
     search_term = q.strip()
 
-    # Search build lists (name, description, and associated car make/model/year/trim)
+    # Search build lists (name, description, and associated car make/model/generation/year range)
     build_list_query = (
         db.query(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
@@ -73,9 +73,10 @@ async def search_all(
                 DBBuildList.description.ilike(f"%{search_term}%"),
                 DBCar.make.ilike(f"%{search_term}%"),
                 DBCar.model.ilike(f"%{search_term}%"),
-                DBCar.trim.ilike(f"%{search_term}%"),
-                # Search year as string to match partial year searches
-                cast(DBCar.year, String).ilike(f"%{search_term}%"),
+                DBCar.generation_name.ilike(f"%{search_term}%"),
+                # Search years as strings to match partial year searches
+                cast(DBCar.start_year, String).ilike(f"%{search_term}%"),
+                cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
             )
         )
         .options(joinedload(DBBuildList.car))

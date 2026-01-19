@@ -177,8 +177,9 @@ class VoteService:
             .all()
         )
 
-        upvotes = sum(int(count[1]) for count in vote_counts if count.vote_type == "upvote")
-        downvotes = sum(int(count[1]) for count in vote_counts if count.vote_type == "downvote")
+        # vote_counts is a list of tuples: (vote_type, count)
+        upvotes = sum(int(count[1]) for count in vote_counts if count[0] == "upvote")
+        downvotes = sum(int(count[1]) for count in vote_counts if count[0] == "downvote")
         total_votes = upvotes + downvotes
         vote_score = upvotes - downvotes
 
@@ -352,7 +353,7 @@ class VoteService:
     def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBGlobalPart], entity_type: EntityType) -> str:
         """Get the display name for an entity."""
         if entity_type == EntityType.CAR:
-            return str(f"{entity.make} {entity.model} {entity.year}")
+            return str(f"{entity.make} {entity.model} {entity.generation_name} ({entity.start_year}-{entity.end_year})")
         elif entity_type == EntityType.BUILD_LIST:
             return str(entity.name)
         else:  # EntityType.GLOBAL_PART

@@ -97,7 +97,7 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
             # Extract vote_type from vote_data using getattr for type safety
             vote_type_value = getattr(vote_data, "vote_type", None)
             if vote_type_value is not None:
-                existing_vote.vote_type = getattr(vote_type_value, "value", vote_type_value)  # type: ignore[attr-defined]
+                existing_vote.vote_type = getattr(vote_type_value, "value", vote_type_value)
             db.commit()
             db.refresh(existing_vote)
             logger.info(f"Vote updated: {existing_vote.id} by user {user_id} " f"on {self.entity_name} {entity_id}")
@@ -198,8 +198,8 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         upvotes = (
             db.query(func.count(self.vote_model.id))  # type: ignore[arg-type]
             .filter(
-                and_(  # type: ignore[arg-type]
-                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,  # type: ignore[arg-type]
+                and_(
+                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                     self.vote_model.vote_type == "upvote",  # type: ignore[arg-type]
                 )
             )
@@ -209,8 +209,8 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         downvotes = (
             db.query(func.count(self.vote_model.id))  # type: ignore[arg-type]
             .filter(
-                and_(  # type: ignore[arg-type]
-                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,  # type: ignore[arg-type]
+                and_(
+                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                     self.vote_model.vote_type == "downvote",  # type: ignore[arg-type]
                 )
             )

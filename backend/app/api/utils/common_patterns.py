@@ -248,14 +248,14 @@ def apply_standard_filters(
     entity_class = query.column_descriptions[0]["entity"]
 
     if category_id:
-        query = query.filter(getattr(entity_class, "category_id") == category_id)  # type: ignore[arg-type]
+        query = query.filter(getattr(entity_class, "category_id") == category_id)
 
     if search and search_fields:
         search_term = f"%{search}%"
         search_filters: List[ColumnElement[bool]] = []
         for field in search_fields:
-            if hasattr(entity_class, field):  # type: ignore[arg-type]
-                search_filters.append(getattr(entity_class, field).ilike(search_term))  # type: ignore[arg-type]
+            if hasattr(entity_class, field):
+                search_filters.append(getattr(entity_class, field).ilike(search_term))
 
         if search_filters:
             from sqlalchemy import or_

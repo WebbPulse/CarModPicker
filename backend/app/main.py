@@ -14,6 +14,7 @@ from .api.endpoints import (
     cars,
     categories,
     global_parts,
+    images,
     reports,
     search,
     subscriptions,
@@ -24,6 +25,8 @@ from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.init_cars import init_car_generations
+from .db.session import SessionLocal
 
 # Configure logging for the entire application
 logging.basicConfig(
@@ -56,6 +59,11 @@ def run_migrations() -> None:
                 check=True,
             )
             logger.info(f"Migrations completed successfully: {result.stdout}")
+            # Invalidate connection pool to pick up schema changes
+            from app.db.session import engine
+
+            engine.dispose(close=False)  # Close all connections to force reconnection with new schema
+            logger.info("Connection pool invalidated to pick up schema changes")
             return  # Success, exit the function
         except subprocess.CalledProcessError as e:
             error_output = e.stderr or e.stdout or str(e)
@@ -92,6 +100,22 @@ def run_migrations() -> None:
 
 # Run migrations on startup
 run_migrations()
+
+
+# Initialize car generations after migrations
+def init_data() -> None:
+    """Initialize application data (car generations) after migrations."""
+    try:
+        db = SessionLocal()
+        try:
+            init_car_generations(db)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Failed to initialize car generations: {e}. App will continue to start.")
+
+
+init_data()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -193,8 +217,13 @@ endpoint_registry.register_endpoint(
     description="Unified reporting operations for all entity types",
 )
 
-# Print registration summary
-endpoint_registry.print_registration_summary()
+# Image upload endpoint
+endpoint_registry.register_endpoint(
+    images.router,
+    prefix="/images",
+    tags=["images"],
+    description="Image upload and management operations using Railway Storage Buckets",
+)
 
 
 @app.get("/")

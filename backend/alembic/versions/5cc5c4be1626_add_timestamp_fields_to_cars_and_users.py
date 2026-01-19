@@ -22,28 +22,46 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Add timestamp fields to cars table
-    op.add_column("cars", sa.Column("created_at", sa.DateTime(), nullable=True))
-    op.add_column("cars", sa.Column("updated_at", sa.DateTime(), nullable=True))
+    # Get connection and inspector to check existing columns
+    connection = op.get_bind()
+    inspector = sa.inspect(connection)
 
-    # Set default values for existing records
+    # Check existing columns in cars table
+    cars_columns = [col["name"] for col in inspector.get_columns("cars")]
+
+    # Add timestamp fields to cars table if they don't exist
+    if "created_at" not in cars_columns:
+        op.add_column("cars", sa.Column("created_at", sa.DateTime(), nullable=True))
+    if "updated_at" not in cars_columns:
+        op.add_column("cars", sa.Column("updated_at", sa.DateTime(), nullable=True))
+
+    # Set default values for existing records that have NULL values
     current_time = datetime.now(UTC)
-    op.execute(f"UPDATE cars SET created_at = '{current_time}', updated_at = '{current_time}'")
+    op.execute(f"UPDATE cars SET created_at = '{current_time}' WHERE created_at IS NULL")
+    op.execute(f"UPDATE cars SET updated_at = '{current_time}' WHERE updated_at IS NULL")
 
     # Make columns non-nullable after setting defaults
-    op.alter_column("cars", "created_at", nullable=False)
-    op.alter_column("cars", "updated_at", nullable=False)
+    # This is safe to run even if columns already exist - it will only change if needed
+    op.alter_column("cars", "created_at", nullable=False, existing_type=sa.DateTime())
+    op.alter_column("cars", "updated_at", nullable=False, existing_type=sa.DateTime())
 
-    # Add timestamp fields to users table
-    op.add_column("users", sa.Column("created_at", sa.DateTime(), nullable=True))
-    op.add_column("users", sa.Column("updated_at", sa.DateTime(), nullable=True))
+    # Check existing columns in users table
+    users_columns = [col["name"] for col in inspector.get_columns("users")]
 
-    # Set default values for existing records
-    op.execute(f"UPDATE users SET created_at = '{current_time}', updated_at = '{current_time}'")
+    # Add timestamp fields to users table if they don't exist
+    if "created_at" not in users_columns:
+        op.add_column("users", sa.Column("created_at", sa.DateTime(), nullable=True))
+    if "updated_at" not in users_columns:
+        op.add_column("users", sa.Column("updated_at", sa.DateTime(), nullable=True))
+
+    # Set default values for existing records that have NULL values
+    op.execute(f"UPDATE users SET created_at = '{current_time}' WHERE created_at IS NULL")
+    op.execute(f"UPDATE users SET updated_at = '{current_time}' WHERE updated_at IS NULL")
 
     # Make columns non-nullable after setting defaults
-    op.alter_column("users", "created_at", nullable=False)
-    op.alter_column("users", "updated_at", nullable=False)
+    # This is safe to run even if columns already exist - it will only change if needed
+    op.alter_column("users", "created_at", nullable=False, existing_type=sa.DateTime())
+    op.alter_column("users", "updated_at", nullable=False, existing_type=sa.DateTime())
 
 
 def downgrade() -> None:

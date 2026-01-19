@@ -1,12 +1,12 @@
-import { type ReactElement } from 'react';
 import {
   render,
   type RenderOptions,
   type Screen,
 } from '@testing-library/react';
-import { setupApiMocks } from '../mocks/api';
+import { type ReactElement } from 'react';
 import { expect, vi } from 'vitest';
 import type { UserRead } from '../../types/Api';
+import { setupApiMocks } from '../mocks/api';
 import { mockUseAuth } from './test-mocks';
 import { AllTheProviders } from './TestWrapper';
 
@@ -61,6 +61,7 @@ const customRender = (ui: ReactElement, options: CustomRenderOptions = {}) => {
 };
 
 // Re-export everything
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react';
 
 // Override render method

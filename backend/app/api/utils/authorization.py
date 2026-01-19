@@ -1,5 +1,9 @@
-from fastapi import HTTPException
+from typing import Optional
 
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
@@ -29,12 +33,31 @@ def can_edit_global_part(user: DBUser, global_part: DBGlobalPart) -> bool:
     return global_part.user_id == user.id or user.is_admin or user.is_superuser
 
 
-def can_edit_build_list_part(user: DBUser, build_list_part: DBBuildListPart) -> bool:
+def can_edit_build_list_part(
+    user: DBUser,
+    build_list_part: DBBuildListPart,
+    db: Optional[Session] = None,
+    build_list: Optional[DBBuildList] = None,
+) -> bool:
     """
     Check if a user can edit a build list part.
-    Only the user who added it or admin/superuser can edit build list parts.
+    Only the user who added it, the build list owner, or admin/superuser can edit build list parts.
     """
-    return build_list_part.added_by == user.id or user.is_admin or user.is_superuser
+    # Check if user added the part or is admin
+    if build_list_part.added_by == user.id or user.is_admin or user.is_superuser:
+        return True
+
+    # Check if user owns the build list
+    if build_list:
+        return build_list.user_id == user.id
+
+    # If build_list not provided but db is, fetch it
+    if db:
+        build_list = db.query(DBBuildList).filter(DBBuildList.id == build_list_part.build_list_id).first()
+        if build_list and build_list.user_id == user.id:
+            return True
+
+    return False
 
 
 def require_global_part_delete_permission(user: DBUser, global_part: DBGlobalPart) -> None:
@@ -73,15 +96,20 @@ def require_global_part_edit_permission(user: DBUser, global_part: DBGlobalPart)
         )
 
 
-def require_build_list_part_edit_permission(user: DBUser, build_list_part: DBBuildListPart) -> None:
+def require_build_list_part_edit_permission(
+    user: DBUser,
+    build_list_part: DBBuildListPart,
+    db: Optional[Session] = None,
+    build_list: Optional[DBBuildList] = None,
+) -> None:
     """
     Raise HTTPException if user cannot edit the build list part.
     """
-    if not can_edit_build_list_part(user, build_list_part):
+    if not can_edit_build_list_part(user, build_list_part, db, build_list):
         raise HTTPException(
             status_code=403,
             detail=(
                 "Not authorized to edit this build list part. "
-                "Only the user who added it or admin can edit build list parts."
+                "Only the user who added it, the build list owner, or admin can edit build list parts."
             ),
         )

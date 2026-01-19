@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
+import { FaGithub, FaLinkedin, FaTwitter } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
-import { FaGithub, FaTwitter, FaLinkedin } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 function Footer() {
   return (
@@ -58,6 +58,14 @@ function Footer() {
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/support"
+                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                  >
+                    Support Us
                   </Link>
                 </li>
                 <li>

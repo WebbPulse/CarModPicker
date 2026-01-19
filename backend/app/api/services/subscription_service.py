@@ -5,7 +5,6 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.car import Car
 from app.api.models.subscription import Subscription
 from app.api.models.user import User
 from app.api.schemas.subscription import SubscriptionStatus
@@ -35,7 +34,8 @@ class SubscriptionService:
     @staticmethod
     def get_user_usage(db: Session, user_id: int) -> Dict[str, int]:
         """Get current usage statistics for a user"""
-        cars_count = db.query(Car).filter(Car.user_id == user_id).count()
+        # Cars are now centrally managed by admins, so users don't own cars
+        cars_count = 0
         build_lists_count = db.query(BuildList).filter(BuildList.user_id == user_id).count()
 
         return {
@@ -45,13 +45,13 @@ class SubscriptionService:
 
     @staticmethod
     def can_create_car(db: Session, user: User) -> bool:
-        """Check if user can create a new car"""
-        limits = SubscriptionService.get_user_limits(user)
-        if limits["cars"] is None:  # Unlimited
-            return True
+        """Check if user can create a new car.
 
-        current_usage = SubscriptionService.get_user_usage(db, user.id)
-        return current_usage["cars"] < limits["cars"]
+        Note: Cars are now centrally managed by admins, so regular users cannot create cars.
+        This method is kept for backward compatibility but always returns False.
+        """
+        # Cars are centrally managed by admins, regular users cannot create cars
+        return False
 
     @staticmethod
     def can_create_build_list(db: Session, user: User) -> bool:
