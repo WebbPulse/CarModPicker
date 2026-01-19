@@ -366,24 +366,24 @@ function CreateBuildListPartForm({
     setValidationError(null);
     setCreateError(null);
     setAddExistingError(null);
-      if (newMode === 'select') {
-        // Clear create form data when switching to select mode
-        setFormData({
-          name: '',
-          part_number: '',
-          brand: '',
-          description: '',
-          price: '',
-          product_url: '',
-          category_id: null,
-          car_id: null,
-          notes: '',
-        });
-        setImageFileKey(null);
-      } else {
-        // Clear selection when switching to create mode
-        setSelectedGlobalPartId(null);
-      }
+    if (newMode === 'select') {
+      // Clear create form data when switching to select mode
+      setFormData({
+        name: '',
+        part_number: '',
+        brand: '',
+        description: '',
+        price: '',
+        product_url: '',
+        category_id: null,
+        car_id: null,
+        notes: '',
+      });
+      setImageFileKey(null);
+    } else {
+      // Clear selection when switching to create mode
+      setSelectedGlobalPartId(null);
+    }
   };
 
   return (
