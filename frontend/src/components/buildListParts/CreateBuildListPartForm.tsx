@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListPartsApi, carsApi, globalPartsApi } from '../../services/Api';
+import {
+  buildListPartsApi,
+  carsApi,
+  categoriesApi,
+  globalPartsApi,
+} from '../../services/Api';
 import type {
   BuildListPartCreate,
   CarRead,
+  CategoryResponse,
   GlobalPartCreate,
 } from '../../types/Api';
 
@@ -43,7 +49,7 @@ function CreateBuildListPartForm({
     description: '',
     price: '',
     product_url: '',
-    category_id: 1, // Default category
+    category_id: null as number | null,
     car_id: null as number | null,
     notes: '',
   });
@@ -55,6 +61,8 @@ function CreateBuildListPartForm({
   const [addExistingError, setAddExistingError] = useState<string | null>(null);
   const [cars, setCars] = useState<CarRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const {
     data: globalParts,
@@ -65,10 +73,14 @@ function CreateBuildListPartForm({
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
+  const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
+  const { data: categoriesData, executeRequest: fetchCategories } =
+    useApiRequest(fetchCategoriesRequestFn);
 
   useEffect(() => {
     void fetchGlobalParts();
     void fetchCars();
+    void fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch once on mount - request functions are stable
 
@@ -78,6 +90,13 @@ function CreateBuildListPartForm({
       setIsLoadingCars(false);
     }
   }, [carsData]);
+
+  useEffect(() => {
+    if (categoriesData && Array.isArray(categoriesData)) {
+      setCategories(categoriesData);
+      setIsLoadingCategories(false);
+    }
+  }, [categoriesData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -201,6 +220,50 @@ function CreateBuildListPartForm({
     [globalParts]
   );
 
+  // Convert categories to SearchableSelect options (only active categories)
+  const categoryOptions: SearchableSelectOption[] = useMemo(() => {
+    return categories
+      .filter((category) => category.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((category) => ({
+        id: category.id,
+        label: category.display_name || category.name,
+        value: category.id,
+      }));
+  }, [categories]);
+
+  // Filter function for categories
+  const filterCategories = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((opt) => {
+        const category = categories.find((c) => c.id === opt.value);
+        if (!category) return false;
+        return (
+          opt.label.toLowerCase().includes(lowerText) ||
+          category.name.toLowerCase().includes(lowerText) ||
+          (category.description &&
+            category.description.toLowerCase().includes(lowerText))
+        );
+      });
+    },
+    [categories]
+  );
+
+  const handleCategoryChange = useCallback(
+    (categoryId: number | string | null) => {
+      const numericCategoryId =
+        categoryId !== null && categoryId !== '' ? Number(categoryId) : null;
+      setFormData((prev) => ({ ...prev, category_id: numericCategoryId }));
+      if (validationError) setValidationError(null);
+    },
+    [validationError]
+  );
+
   const handlePartSelect = useCallback(
     (partId: number | string | null) => {
       const numericPartId = partId ? Number(partId) : null;
@@ -216,6 +279,11 @@ function CreateBuildListPartForm({
     if (mode === 'create') {
       if (!formData.name.trim()) {
         setValidationError('Part name is required');
+        return;
+      }
+
+      if (!formData.category_id) {
+        setValidationError('Category is required');
         return;
       }
 
@@ -298,24 +366,24 @@ function CreateBuildListPartForm({
     setValidationError(null);
     setCreateError(null);
     setAddExistingError(null);
-    if (newMode === 'select') {
-      // Clear create form data when switching to select mode
-      setFormData({
-        name: '',
-        part_number: '',
-        brand: '',
-        description: '',
-        price: '',
-        product_url: '',
-        category_id: 1,
-        car_id: null,
-        notes: '',
-      });
-      setImageFileKey(null);
-    } else {
-      // Clear selection when switching to create mode
-      setSelectedGlobalPartId(null);
-    }
+      if (newMode === 'select') {
+        // Clear create form data when switching to select mode
+        setFormData({
+          name: '',
+          part_number: '',
+          brand: '',
+          description: '',
+          price: '',
+          product_url: '',
+          category_id: null,
+          car_id: null,
+          notes: '',
+        });
+        setImageFileKey(null);
+      } else {
+        // Clear selection when switching to create mode
+        setSelectedGlobalPartId(null);
+      }
   };
 
   return (
@@ -444,6 +512,20 @@ function CreateBuildListPartForm({
             value={formData.product_url}
             onChange={handleInputChange}
             placeholder="https://example.com/product"
+          />
+
+          <SearchableSelect
+            id="global-part-category"
+            name="category_id"
+            label="Category *"
+            placeholder="Type to search for a category..."
+            value={formData.category_id}
+            onChange={handleCategoryChange}
+            options={categoryOptions}
+            disabled={isLoadingCategories}
+            isLoading={isLoadingCategories}
+            emptyMessage="No categories found. Try a different search term."
+            filterOptions={filterCategories}
           />
 
           <ImageUpload

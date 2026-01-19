@@ -13,6 +13,7 @@ from sqlalchemy.orm import joinedload
 from app.api.dependencies.auth import get_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_part import (
@@ -232,6 +233,9 @@ async def create_global_part_and_add_to_build_list(
     # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
     verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+
+    # Verify category exists
+    _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
     # Create the global part with the current user as creator
     global_part_dict: Dict[str, Any] = {

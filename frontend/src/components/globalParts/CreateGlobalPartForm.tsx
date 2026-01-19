@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { carsApi } from '../../services/Api';
-import type { CarRead, GlobalPartCreate } from '../../types/Api';
+import apiClient, { carsApi, categoriesApi } from '../../services/Api';
+import type {
+  CarRead,
+  CategoryResponse,
+  GlobalPartCreate,
+} from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
@@ -31,13 +35,15 @@ function CreateGlobalPartForm({
     description: '',
     price: '',
     product_url: '',
-    category_id: 1, // Default category
+    category_id: null as number | null,
     car_id: null as number | null,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [cars, setCars] = useState<CarRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   // Convert cars to SearchableSelect options
   const carOptions: SearchableSelectOption[] = cars.map((car) => ({
@@ -58,6 +64,46 @@ function CreateGlobalPartForm({
     return options.filter((opt) => opt.label.toLowerCase().includes(lowerText));
   };
 
+  // Convert categories to SearchableSelect options (only active categories)
+  const categoryOptions: SearchableSelectOption[] = useMemo(() => {
+    return categories
+      .filter((category) => category.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((category) => ({
+        id: category.id,
+        label: category.display_name || category.name,
+        value: category.id,
+      }));
+  }, [categories]);
+
+  // Filter function for categories
+  const filterCategories = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((opt) => {
+        const category = categories.find((c) => c.id === opt.value);
+        if (!category) return false;
+        return (
+          opt.label.toLowerCase().includes(lowerText) ||
+          category.name.toLowerCase().includes(lowerText) ||
+          (category.description &&
+            category.description.toLowerCase().includes(lowerText))
+        );
+      });
+    },
+    [categories]
+  );
+
+  const handleCategoryChange = (value: number | string | null) => {
+    const categoryId = value !== null && value !== '' ? Number(value) : null;
+    setFormData((prev) => ({ ...prev, category_id: categoryId }));
+    if (validationError) setValidationError(null);
+  };
+
   const {
     isLoading,
     error,
@@ -66,11 +112,15 @@ function CreateGlobalPartForm({
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
+  const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
+  const { data: categoriesData, executeRequest: fetchCategories } =
+    useApiRequest(fetchCategoriesRequestFn);
 
   useEffect(() => {
     void fetchCars();
+    void fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only fetch once on mount - request function is stable
+  }, []); // Only fetch once on mount - request functions are stable
 
   useEffect(() => {
     if (carsData && Array.isArray(carsData)) {
@@ -78,6 +128,13 @@ function CreateGlobalPartForm({
       setIsLoadingCars(false);
     }
   }, [carsData]);
+
+  useEffect(() => {
+    if (categoriesData && Array.isArray(categoriesData)) {
+      setCategories(categoriesData);
+      setIsLoadingCategories(false);
+    }
+  }, [categoriesData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -127,6 +184,11 @@ function CreateGlobalPartForm({
 
     if (!formData.name.trim()) {
       setValidationError('Part name is required');
+      return;
+    }
+
+    if (!formData.category_id) {
+      setValidationError('Category is required');
       return;
     }
 
@@ -222,6 +284,20 @@ function CreateGlobalPartForm({
         value={formData.product_url}
         onChange={handleInputChange}
         placeholder="https://example.com/product"
+      />
+
+      <SearchableSelect
+        id="global-part-category"
+        name="category_id"
+        label="Category *"
+        placeholder="Type to search for a category..."
+        value={formData.category_id}
+        onChange={handleCategoryChange}
+        options={categoryOptions}
+        disabled={isLoadingCategories}
+        isLoading={isLoadingCategories}
+        emptyMessage="No categories found. Try a different search term."
+        filterOptions={filterCategories}
       />
 
       <SearchableSelect
