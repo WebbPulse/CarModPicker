@@ -4,7 +4,7 @@ import { buildListPartsApi, carsApi, globalPartsApi } from '../../services/Api';
 import type {
   BuildListPartCreate,
   CarRead,
-  GlobalPartCreate
+  GlobalPartCreate,
 } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
@@ -84,11 +84,14 @@ function CreateBuildListPartForm({
     if (validationError) setValidationError(null);
   };
 
-  const handleCarChange = useCallback((carId: number | string | null) => {
-    const numericCarId = carId ? Number(carId) : null;
-    setFormData((prev) => ({ ...prev, car_id: numericCarId }));
-    if (validationError) setValidationError(null);
-  }, [validationError]);
+  const handleCarChange = useCallback(
+    (carId: number | string | null) => {
+      const numericCarId = carId ? Number(carId) : null;
+      setFormData((prev) => ({ ...prev, car_id: numericCarId }));
+      if (validationError) setValidationError(null);
+    },
+    [validationError]
+  );
 
   // Memoize car options to prevent unnecessary re-renders
   const carOptions: SearchableSelectOption[] = useMemo(() => {
@@ -111,17 +114,20 @@ function CreateBuildListPartForm({
   }, [cars]);
 
   // Memoize filter function to prevent SearchableSelect from breaking
-  const filterCars = useCallback((
-    options: SearchableSelectOption[],
-    searchText: string
-  ): SearchableSelectOption[] => {
-    if (!searchText.trim()) return options;
-    const lowerText = searchText.toLowerCase();
-    return options.filter((option) => {
-      // Search in the label directly (which contains all car info)
-      return option.label.toLowerCase().includes(lowerText);
-    });
-  }, []);
+  const filterCars = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((option) => {
+        // Search in the label directly (which contains all car info)
+        return option.label.toLowerCase().includes(lowerText);
+      });
+    },
+    []
+  );
 
   // Convert global parts to SearchableSelectOption format
   const globalPartOptions: SearchableSelectOption[] = useMemo(() => {
@@ -139,30 +145,38 @@ function CreateBuildListPartForm({
   }, [globalParts]);
 
   // Filter function for global parts
-  const filterGlobalParts = useCallback((
-    options: SearchableSelectOption[],
-    searchText: string
-  ): SearchableSelectOption[] => {
-    if (!searchText.trim()) return options;
-    const lowerText = searchText.toLowerCase();
-    return options.filter((option) => {
-      const part = globalParts?.find((p) => p.id === option.value);
-      if (!part) return false;
-      return (
-        part.name.toLowerCase().includes(lowerText) ||
-        (part.brand && part.brand.toLowerCase().includes(lowerText)) ||
-        (part.description && part.description.toLowerCase().includes(lowerText)) ||
-        (part.part_number && part.part_number.toLowerCase().includes(lowerText)) ||
-        option.label.toLowerCase().includes(lowerText)
-      );
-    });
-  }, [globalParts]);
+  const filterGlobalParts = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((option) => {
+        const part = globalParts?.find((p) => p.id === option.value);
+        if (!part) return false;
+        return (
+          part.name.toLowerCase().includes(lowerText) ||
+          (part.brand && part.brand.toLowerCase().includes(lowerText)) ||
+          (part.description &&
+            part.description.toLowerCase().includes(lowerText)) ||
+          (part.part_number &&
+            part.part_number.toLowerCase().includes(lowerText)) ||
+          option.label.toLowerCase().includes(lowerText)
+        );
+      });
+    },
+    [globalParts]
+  );
 
-  const handlePartSelect = useCallback((partId: number | string | null) => {
-    const numericPartId = partId ? Number(partId) : null;
-    setSelectedGlobalPartId(numericPartId);
-    if (validationError) setValidationError(null);
-  }, [validationError]);
+  const handlePartSelect = useCallback(
+    (partId: number | string | null) => {
+      const numericPartId = partId ? Number(partId) : null;
+      setSelectedGlobalPartId(numericPartId);
+      if (validationError) setValidationError(null);
+    },
+    [validationError]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,7 +300,11 @@ function CreateBuildListPartForm({
         <label className="block text-sm font-medium text-gray-300 mb-3">
           Choose an option:
         </label>
-        <div className="inline-flex rounded-lg border border-gray-600 bg-gray-800 p-1" role="group" aria-label="Part selection mode">
+        <div
+          className="inline-flex rounded-lg border border-gray-600 bg-gray-800 p-1"
+          role="group"
+          aria-label="Part selection mode"
+        >
           <button
             type="button"
             onClick={() => handleModeChange('select')}
@@ -417,7 +435,9 @@ function CreateBuildListPartForm({
               Select Existing Part
             </h3>
             <p className="text-sm text-gray-400 mt-1">
-              Search for an existing part from the catalog to add to this build list. This helps prevent duplicates and keeps the catalog organized.
+              Search for an existing part from the catalog to add to this build
+              list. This helps prevent duplicates and keeps the catalog
+              organized.
             </p>
           </div>
 
