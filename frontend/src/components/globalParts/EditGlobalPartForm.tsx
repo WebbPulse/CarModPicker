@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { categoriesApi } from '../../services/Api';
+import apiClient, { carsApi, categoriesApi } from '../../services/Api';
 import type {
+  CarRead,
   CategoryResponse,
   GlobalPartRead,
   GlobalPartUpdate,
@@ -10,8 +11,12 @@ import type {
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
+import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import SearchableSelect, {
+  type SearchableSelectOption,
+} from '../common/SearchableSelect';
 
 interface EditGlobalPartFormProps {
   globalPart: GlobalPartRead;
@@ -29,6 +34,7 @@ const updateGlobalPartRequestFn = (payload: {
   );
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
+const fetchCarsRequestFn = () => carsApi.listCars({ limit: 1000 });
 
 function EditGlobalPartForm({
   globalPart,
@@ -41,12 +47,16 @@ function EditGlobalPartForm({
     brand: '',
     description: '',
     price: '',
-    image_url: '',
     category_id: 1,
+    car_id: null as number | null,
   });
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [cars, setCars] = useState<CarRead[]>([]);
+  const [isLoadingCars, setIsLoadingCars] = useState(true);
 
   const {
     isLoading,
@@ -57,9 +67,16 @@ function EditGlobalPartForm({
   const { data: categoriesData, executeRequest: fetchCategories } =
     useApiRequest(fetchCategoriesRequestFn);
 
+  const {
+    data: carsData,
+    executeRequest: fetchCars,
+  } = useApiRequest(fetchCarsRequestFn);
+
   useEffect(() => {
     void fetchCategories();
-  }, [fetchCategories]);
+    void fetchCars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only fetch once on mount - request functions are stable
 
   useEffect(() => {
     if (categoriesData && Array.isArray(categoriesData)) {
@@ -67,6 +84,13 @@ function EditGlobalPartForm({
       setIsLoadingCategories(false);
     }
   }, [categoriesData]);
+
+  useEffect(() => {
+    if (carsData && Array.isArray(carsData)) {
+      setCars(carsData);
+      setIsLoadingCars(false);
+    }
+  }, [carsData]);
 
   useEffect(() => {
     setFormData({
@@ -78,9 +102,12 @@ function EditGlobalPartForm({
         globalPart.price !== null && globalPart.price !== undefined
           ? globalPart.price.toString()
           : '',
-      image_url: globalPart.image_url ?? '',
       category_id: globalPart.category_id ?? 1,
+      car_id: globalPart.car_id ?? null,
     });
+    // Note: globalPart.image_url is now a presigned URL from the API
+    setImageFileKey(null);
+    setImageChanged(false);
   }, [globalPart]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,6 +125,51 @@ function EditGlobalPartForm({
     if (validationError) setValidationError(null);
   };
 
+  const handleCarChange = (carId: number | string | null) => {
+    const numericCarId = carId ? Number(carId) : null;
+    setFormData((prev) => ({ ...prev, car_id: numericCarId }));
+    if (validationError) setValidationError(null);
+  };
+
+  // Convert cars to SearchableSelectOption format
+  const carOptions: SearchableSelectOption[] = cars
+    .sort((a, b) => {
+      // Sort by make, then model, then generation
+      if (a.make !== b.make) {
+        return a.make.localeCompare(b.make);
+      }
+      if (a.model !== b.model) {
+        return a.model.localeCompare(b.model);
+      }
+      return a.generation_name.localeCompare(b.generation_name);
+    })
+    .map((car) => ({
+      id: car.id,
+      value: car.id,
+      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
+    }));
+
+  // Custom filter function that searches across make, model, generation, and years
+  const filterCars = (
+    options: SearchableSelectOption[],
+    searchText: string
+  ): SearchableSelectOption[] => {
+    if (!searchText.trim()) return options;
+    const lowerText = searchText.toLowerCase();
+    return options.filter((option) => {
+      const car = cars.find((c) => c.id === option.value);
+      if (!car) return false;
+      return (
+        car.make.toLowerCase().includes(lowerText) ||
+        car.model.toLowerCase().includes(lowerText) ||
+        car.generation_name.toLowerCase().includes(lowerText) ||
+        car.start_year.toString().includes(lowerText) ||
+        car.end_year.toString().includes(lowerText) ||
+        option.label.toLowerCase().includes(lowerText)
+      );
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -112,9 +184,14 @@ function EditGlobalPartForm({
       brand: formData.brand.trim() || null,
       description: formData.description.trim() || null,
       price: formData.price ? parseFloat(formData.price) : null,
-      image_url: formData.image_url.trim() || null,
       category_id: formData.category_id,
+      car_id: formData.car_id,
     };
+
+    // Only include image_url if it was changed (new file key uploaded)
+    if (imageChanged) {
+      globalPartData.image_url = imageFileKey || null;
+    }
 
     const result = await updateGlobalPart({
       globalPartId: globalPart.id,
@@ -220,14 +297,34 @@ function EditGlobalPartForm({
         min="0"
       />
 
-      <Input
-        label="Image URL"
-        id="global-part-image-url"
-        name="image_url"
-        type="url"
-        value={formData.image_url}
-        onChange={handleInputChange}
-        placeholder="https://example.com/image.jpg"
+      <SearchableSelect
+        id="global-part-car"
+        name="car_id"
+        label="Car Model (Optional)"
+        placeholder="Type to search for a car model..."
+        value={formData.car_id}
+        onChange={handleCarChange}
+        options={carOptions}
+        disabled={isLoadingCars}
+        isLoading={isLoadingCars}
+        emptyMessage="No cars found. Try a different search term."
+        filterOptions={filterCars}
+      />
+
+      <ImageUpload
+        currentImageUrl={globalPart.image_url ?? null}
+        entityType="global_part"
+        entityId={globalPart.id}
+        onImageUploaded={(fileKey) => {
+          setImageFileKey(fileKey);
+          setImageChanged(true);
+        }}
+        onImageRemoved={() => {
+          setImageFileKey(null);
+          setImageChanged(true);
+        }}
+        label="Part Image (Optional)"
+        maxSizeMB={10}
       />
 
       <div className="flex justify-end space-x-3 pt-4">

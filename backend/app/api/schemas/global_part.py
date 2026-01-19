@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+
+from app.api.utils.image_utils import get_presigned_url_from_file_key
 
 
 # Schema for request body when creating a part
@@ -11,6 +13,7 @@ class GlobalPartCreate(BaseModel):
     price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
     category_id: int
+    car_id: Optional[int] = None  # Optional car association
     brand: Optional[str] = None
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
@@ -30,6 +33,7 @@ class GlobalPartUpdate(BaseModel):
     price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
     category_id: Optional[int] = None
+    car_id: Optional[int] = None  # Optional car association
     brand: Optional[str] = None
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
@@ -51,6 +55,7 @@ class GlobalPartRead(BaseModel):
     image_url: Optional[str] = None
     category_id: int
     user_id: int  # Creator
+    car_id: Optional[int] = None  # Optional car association
     brand: Optional[str] = None
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
@@ -61,6 +66,11 @@ class GlobalPartRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("image_url")
+    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
+        """Convert file key to presigned URL when serializing response."""
+        return get_presigned_url_from_file_key(value)
 
 
 # Schema for response body when reading a part with vote summary

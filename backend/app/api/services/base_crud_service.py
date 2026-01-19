@@ -299,6 +299,24 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             entity_name=self.entity_name,
         )
 
+    def count_all(self, db: Session, logger: Optional[logging.Logger] = None) -> int:
+        """
+        Count all entities.
+
+        Args:
+            db: Database session
+            logger: Logger instance (optional)
+
+        Returns:
+            Total count of entities
+        """
+        count = db.query(self.model).count()
+
+        if logger:
+            logger.info(f"Total {self.entity_name} count: {count}")
+
+        return count
+
     def count_by_user(self, db: Session, user_id: int, logger: Optional[logging.Logger] = None) -> int:
         """
         Count entities owned by a specific user.

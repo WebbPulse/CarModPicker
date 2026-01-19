@@ -165,6 +165,8 @@ export const carsApi = {
     apiClient.put<CarRead>(`/cars/admin/cars/${carId}`, data),
   deleteCar: (carId: number) =>
     apiClient.delete<CarRead>(`/cars/admin/cars/${carId}`),
+  deleteAllCars: () =>
+    apiClient.delete<{ message: string; deleted_count: number }>('/cars/admin/cars'),
 
   // Public read endpoints
   getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
@@ -180,6 +182,13 @@ export const carsApi = {
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<CarRead[]>(`/cars/make/${make}/model/${model}`, { params }),
+  getCarsByGeneration: (
+    generationId: number,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
+  getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
+    apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
@@ -262,6 +271,12 @@ export const buildListsApi = {
 
   // Count endpoint
   countBuildLists: () => apiClient.get<{ count: number }>('/build-lists/count'),
+
+  // Copy build list
+  copyBuildList: (buildListId: number, newName?: string) =>
+    apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
+      new_name: newName || null,
+    }),
 };
 
 // Global Parts API (Global shared parts in the catalog)
@@ -487,6 +502,7 @@ export const buildListPartsApi = {
         price: globalPartData.price,
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
+        car_id: globalPartData.car_id,
         brand: globalPartData.brand,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
@@ -630,6 +646,72 @@ export const searchApi = {
 export const utilityApi = {
   getRoot: () => apiClient.get<Record<string, string>>('/'),
   healthCheck: () => apiClient.get<Record<string, unknown>>('/health'),
+};
+
+// Image upload API
+export interface ImageUploadResponse {
+  file_key: string;
+  presigned_url: string;
+  message: string;
+}
+
+export interface PresignedUrlResponse {
+  presigned_url: string;
+  file_key: string;
+}
+
+export const imageApi = {
+  uploadImage: async (
+    file: File,
+    entityType: string,
+    entityId?: number
+  ): Promise<ImageUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams();
+    params.append('entity_type', entityType);
+    if (entityId !== undefined) {
+      params.append('entity_id', entityId.toString());
+    }
+
+    const response = await apiClient.post<ImageUploadResponse>(
+      `/images/upload?${params.toString()}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  },
+
+  getPresignedUrl: (
+    fileKey: string,
+    expiration?: number
+  ): Promise<PresignedUrlResponse> => {
+    const params = new URLSearchParams();
+    params.append('file_key', fileKey);
+    if (expiration !== undefined) {
+      params.append('expiration', expiration.toString());
+    }
+    return apiClient
+      .get<PresignedUrlResponse>(`/images/presigned-url?${params.toString()}`)
+      .then((response) => response.data);
+  },
+
+  deleteImage: (fileKey: string): Promise<{ message: string; file_key: string }> => {
+    const params = new URLSearchParams();
+    params.append('file_key', fileKey);
+    return apiClient
+      .delete<{ message: string; file_key: string }>(
+        `/images/delete?${params.toString()}`
+      )
+      .then((response) => response.data);
+  },
+
+  countBucketObjects: () => apiClient.get<{ count: number }>('/images/admin/count'),
 };
 
 export default apiClient;

@@ -173,6 +173,22 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     setEditingPart(null);
   };
 
+  const handleTogglePurchased = async (buildListPart: BuildListPartReadWithGlobalPart) => {
+    if (!canManageParts) return;
+    
+    try {
+      await buildListPartsApi.updateBuildListPart(
+        buildListId,
+        buildListPart.global_part_id,
+        { purchased: !buildListPart.purchased }
+      );
+      // Refresh the build list parts
+      await fetchBuildListParts(buildListId);
+    } catch (error) {
+      console.error('Failed to update purchased status:', error);
+    }
+  };
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -206,8 +222,12 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        {...(canManageParts && {
+          onTogglePurchased: (part) => void handleTogglePurchased(part),
+        })}
         canEdit={canManageParts}
         canDelete={canManageParts}
+        canMarkPurchased={canManageParts}
         emptyMessage={emptyMessage}
         // Pass individual permission check functions
         canEditPart={canEditBuildListPart}

@@ -9,7 +9,6 @@ import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
 interface BuildListListProps {
   carId: number;
-  currentUserId?: number; // Logged-in user's ID (optional, for display purposes)
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
@@ -18,7 +17,6 @@ interface BuildListListProps {
 
 const BuildListList: React.FC<BuildListListProps> = ({
   carId,
-  currentUserId,
   refreshKey,
   title = 'Build Lists',
   emptyMessage = 'No build lists found for this car.',

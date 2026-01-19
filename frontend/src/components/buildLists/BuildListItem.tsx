@@ -8,6 +8,7 @@ import type {
   VoteSummary,
 } from '../../types/Api';
 import Card from '../common/Card';
+import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import VoteButtons from '../globalParts/VoteButtons';
 
 interface BuildListItemProps {
@@ -89,13 +90,13 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
         className="block hover:no-underline flex-grow"
       >
         <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
-          {buildList.image_url && (
-            <img
-              src={buildList.image_url}
-              alt={buildList.name}
-              className="w-full h-40 object-cover rounded-md mb-4"
-            />
-          )}
+          <ImageWithPlaceholder
+            srcUrl={buildList.image_url ?? null}
+            altText={buildList.name}
+            imageClassName="w-full h-40 object-cover rounded-md"
+            containerClassName="w-full h-40 mb-4"
+            fallbackText="No image"
+          />
           <div className="flex-grow flex flex-col">
             <div className="flex items-start justify-between mb-2">
               <h3 className="text-lg font-semibold text-indigo-400 flex-grow">

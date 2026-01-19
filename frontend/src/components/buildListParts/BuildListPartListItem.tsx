@@ -13,8 +13,10 @@ interface BuildListPartListItemProps {
   category?: CategoryResponse | null;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: number) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  canMarkPurchased?: boolean;
 }
 
 const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
@@ -22,31 +24,67 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
   category,
   onEdit,
   onDelete,
+  onTogglePurchased,
   canEdit = false,
   canDelete = false,
+  canMarkPurchased = false,
 }) => {
-  const { global_part, notes, quantity } = buildListPart;
+  const { global_part, notes, quantity, purchased } = buildListPart;
 
-  const formatPrice = (price: number | null | undefined) => {
-    if (price === null || price === undefined) return null;
-    return price;
-  };
-
-  const partPrice = formatPrice(global_part.price);
+  // Prices are stored in cents, so we keep them in cents for calculations
+  const partPriceInCents = global_part.price;
   const qty = quantity || 1;
-  const totalPrice = partPrice !== null ? partPrice * qty : null;
+  const totalPriceInCents = partPriceInCents !== null && partPriceInCents !== undefined 
+    ? partPriceInCents * qty 
+    : null;
 
-  const formatPriceDisplay = (price: number) => {
-    return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatPriceDisplay = (priceInCents: number) => {
+    // Convert cents to dollars for display
+    const priceInDollars = priceInCents / 100;
+    return `$${priceInDollars.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  const showCheckbox = canMarkPurchased && onTogglePurchased;
+  const gridCols = showCheckbox 
+    ? 'grid-cols-[auto_1fr_auto_auto]' 
+    : 'grid-cols-[1fr_auto_auto]';
 
   return (
-    <Card className="py-1 px-2">
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
+    <Card className={`py-1 px-2 ${purchased ? 'opacity-60' : ''}`}>
+      <div className={`grid ${gridCols} items-center gap-3`}>
+        {/* Purchased checkbox */}
+        {showCheckbox && (
+          <div className="flex items-center justify-center min-w-[28px]">
+            <label className="relative flex items-center cursor-pointer" title={purchased ? 'Mark as not purchased' : 'Mark as purchased'}>
+              <input
+                type="checkbox"
+                checked={purchased}
+                onChange={() => onTogglePurchased?.(buildListPart)}
+                className="sr-only peer"
+                aria-label={purchased ? 'Mark as not purchased' : 'Mark as purchased'}
+              />
+              <div className="w-6 h-6 bg-gray-700 border-2 border-gray-500 rounded peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
+                {purchased && (
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="3"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </label>
+          </div>
+        )}
         {/* Left side: Part name, category, brand, notes */}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className={`text-sm font-semibold ${purchased ? 'text-gray-400 line-through' : 'text-white'}`}>
               <Link
                 to={`/global-parts/${global_part.id}`}
                 className="hover:text-blue-400 transition-colors"
@@ -92,20 +130,20 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
 
         {/* Price column: Fixed width, rightmost element */}
         <div className="text-right w-24 flex-shrink-0">
-          {partPrice !== null ? (
-            qty > 1 && totalPrice !== null ? (
+          {partPriceInCents !== null && partPriceInCents !== undefined ? (
+            qty > 1 && totalPriceInCents !== null ? (
               <div>
                 {/* Total price is prominent when multiple quantities */}
-                <div className="text-sm font-semibold text-gray-300">
-                  {formatPriceDisplay(totalPrice)}
+                <div className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                  {formatPriceDisplay(totalPriceInCents)}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {formatPriceDisplay(partPrice)} × {qty}
+                  {formatPriceDisplay(partPriceInCents)} × {qty}
                 </div>
               </div>
             ) : (
-              <div className="text-sm font-semibold text-gray-300">
-                {formatPriceDisplay(partPrice)}
+              <div className={`text-sm font-semibold ${purchased ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                {formatPriceDisplay(partPriceInCents)}
               </div>
             )
           ) : (

@@ -13,8 +13,10 @@ interface BuildListPartListProps {
   loading?: boolean;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: number) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  canMarkPurchased?: boolean;
   canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
   canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
   emptyMessage?: string;
@@ -26,8 +28,10 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   loading = false,
   onEdit,
   onDelete,
+  onTogglePurchased,
   canEdit = false,
   canDelete = false,
+  canMarkPurchased = false,
   canEditPart,
   canDeletePart,
   emptyMessage = 'No parts added to this build list yet.',
@@ -90,8 +94,42 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     }, 0);
   }, [buildListParts]);
 
-  const formatPrice = (price: number) => {
-    return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Calculate remaining price (unpurchased parts)
+  const remainingPrice = useMemo(() => {
+    return buildListParts.reduce((sum, part) => {
+      if (part.purchased) return sum; // Skip purchased parts
+      const price = part.global_part.price;
+      const quantity = part.quantity || 1;
+      if (price !== null && price !== undefined) {
+        return sum + price * quantity;
+      }
+      return sum;
+    }, 0);
+  }, [buildListParts]);
+
+  // Calculate purchased price (purchased parts)
+  const purchasedPrice = useMemo(() => {
+    return buildListParts.reduce((sum, part) => {
+      if (!part.purchased) return sum; // Skip unpurchased parts
+      const price = part.global_part.price;
+      const quantity = part.quantity || 1;
+      if (price !== null && price !== undefined) {
+        return sum + price * quantity;
+      }
+      return sum;
+    }, 0);
+  }, [buildListParts]);
+
+  // Calculate purchase progress percentage
+  const purchaseProgress = useMemo(() => {
+    if (totalPrice === 0) return 0;
+    return Math.round((purchasedPrice / totalPrice) * 100);
+  }, [totalPrice, purchasedPrice]);
+
+  const formatPrice = (priceInCents: number) => {
+    // Convert cents to dollars
+    const priceInDollars = priceInCents / 100;
+    return `$${priceInDollars.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   if (loading) {
@@ -112,25 +150,88 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     );
   }
 
+  const purchasedCount = buildListParts.filter(p => p.purchased).length;
+  const remainingCount = buildListParts.filter(p => !p.purchased).length;
+
   return (
     <div className="space-y-3">
-      {/* Total Price Display */}
+      {/* Cost Summary Card */}
       <Card className="bg-gray-800 border-2 border-blue-600">
-        <div className="flex justify-between items-center p-3">
-          <div>
-            <h3 className="text-base font-semibold text-gray-300">
-              Total Build Cost
-            </h3>
-            <p className="text-xs text-gray-400">
-              {buildListParts.length} part
-              {buildListParts.length !== 1 ? 's' : ''}
-            </p>
+        <div className="space-y-3 p-4">
+          {/* Total Build Cost - Always shown */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-200">
+                Total Build Cost
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">
+                {buildListParts.length} part{buildListParts.length !== 1 ? 's' : ''} total
+                {purchasedCount > 0 || remainingCount > 0 ? (
+                  <> • {purchasedCount} purchased • {remainingCount} remaining</>
+                ) : null}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-blue-400">
+                {formatPrice(totalPrice)}
+              </p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-blue-400">
-              {formatPrice(totalPrice)}
-            </p>
-          </div>
+
+          {/* Purchase Progress Bar - Shown when there are purchased parts */}
+          {totalPrice > 0 && (purchasedCount > 0 || remainingCount > 0) && (
+            <div className="pt-2 border-t border-gray-700">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-gray-400">Purchase Progress</span>
+                <span className="text-xs font-semibold text-gray-300">{purchaseProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2.5">
+                <div
+                  className="bg-green-500 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${purchaseProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Remaining and Purchased Costs - Shown when there are purchased parts */}
+          {(purchasedCount > 0 || remainingCount > 0) && (
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-700">
+              {/* Remaining Cost */}
+              <div className="bg-gray-900/50 rounded-lg p-3">
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-300">
+                      Remaining
+                    </h4>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {remainingCount} part{remainingCount !== 1 ? 's' : ''} to purchase
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xl font-bold text-green-400 mt-2">
+                  {formatPrice(remainingPrice)}
+                </p>
+              </div>
+
+              {/* Purchased Cost */}
+              <div className="bg-gray-900/50 rounded-lg p-3">
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-300">
+                      Purchased
+                    </h4>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {purchasedCount} part{purchasedCount !== 1 ? 's' : ''} acquired
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xl font-bold text-emerald-400 mt-2">
+                  {formatPrice(purchasedPrice)}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -169,6 +270,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                   category={group.category}
                   {...(onEdit && { onEdit })}
                   {...(onDelete && { onDelete })}
+                  {...(onTogglePurchased && { onTogglePurchased })}
                   canEdit={
                     canEdit && (!canEditPart || canEditPart(buildListPart))
                   }
@@ -176,6 +278,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                     canDelete &&
                     (!canDeletePart || canDeletePart(buildListPart))
                   }
+                  canMarkPurchased={canMarkPurchased}
                 />
               ))}
             </div>

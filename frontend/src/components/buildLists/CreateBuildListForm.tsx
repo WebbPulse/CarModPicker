@@ -5,6 +5,7 @@ import type { BuildListCreate, BuildListRead, CarRead } from '../../types/Api';
 import ButtonStretch from '../buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
+import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -20,7 +21,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(null);
@@ -122,7 +123,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
       name: name.trim(),
       description: description.trim() || null,
       car_id: selectedGeneration.id,
-      image_url: imageUrl.trim() || null,
+      image_url: imageFileKey || null,
     };
 
     const result = await executeCreateBuildList(payload);
@@ -136,7 +137,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
       // Reset form
       setName('');
       setDescription('');
-      setImageUrl('');
+      setImageFileKey(null);
       setSelectedMake('');
       setSelectedModel('');
       setSelectedGeneration(null);
@@ -175,13 +176,20 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedMake('');
-                    setSelectedModel('');
-                    setSelectedGeneration(null);
+                    if (selectedModel) {
+                      // On generation page, go back to models
+                      setSelectedModel('');
+                      setSelectedGeneration(null);
+                    } else {
+                      // On model page, go back to manufacturers
+                      setSelectedMake('');
+                      setSelectedModel('');
+                      setSelectedGeneration(null);
+                    }
                   }}
                   className="text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
-                  ← Back to Manufacturers
+                  {selectedModel ? '← Back to Car Models' : '← Back to Manufacturers'}
                 </button>
               ) : (
                 'Manufacturer'
@@ -333,15 +341,17 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               disabled={isLoading}
             />
-            <Input
-              label="Image URL (Optional)"
-              id="buildlist-image_url"
-              name="buildlist-image_url"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              disabled={isLoading}
-              placeholder="https://example.com/buildlist-image.png"
+            <ImageUpload
+              currentImageUrl={imageFileKey}
+              entityType="build_list"
+              onImageUploaded={(fileKey) => {
+                setImageFileKey(fileKey);
+              }}
+              onImageRemoved={() => {
+                setImageFileKey(null);
+              }}
+              label="Build List Image (Optional)"
+              maxSizeMB={10}
             />
           </div>
         )}

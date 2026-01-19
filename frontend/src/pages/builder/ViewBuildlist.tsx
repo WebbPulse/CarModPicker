@@ -88,6 +88,18 @@ function ViewBuildList() {
     setError: setDeleteBuildListError,
   } = useApiRequest(deleteBuildListRequestFn);
 
+  const copyBuildListRequestFn = (buildListId: string) =>
+    apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
+      new_name: null,
+    });
+
+  const {
+    isLoading: isCopyingBuildList,
+    error: copyBuildListError,
+    executeRequest: executeCopyBuildList,
+    setError: setCopyBuildListError,
+  } = useApiRequest(copyBuildListRequestFn);
+
   useEffect(() => {
     if (buildListId) {
       void fetchBuildList(buildListId);
@@ -172,6 +184,17 @@ function ViewBuildList() {
     }
   };
 
+  const handleCopyBuildList = async () => {
+    if (!buildList || !buildListId) return;
+
+    setCopyBuildListError(null);
+    const result = await executeCopyBuildList(buildListId);
+    if (result !== null) {
+      // Navigate to the newly copied build list
+      void navigate(`/build-lists/${result.id}`);
+    }
+  };
+
   // Handlers for Part creation
   const handlePartAdded = () => {
     setPartsRefreshTrigger(partsRefreshTrigger + 1); // Trigger BuildListParts refresh
@@ -226,24 +249,63 @@ function ViewBuildList() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title={buildList.name}
-        subtitle={`For car: ${associatedCar ? `${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})` : 'Loading...'}`}
+        subtitle={`For car: ${associatedCar ? `${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
       />
+      
+      {/* Warning when build list has no car assigned */}
+      {!buildList.car_id && (
+        <Card className="mb-6 border-2 border-yellow-600 bg-yellow-900/20">
+          <div className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="text-4xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-yellow-300 mb-2">
+                  Car Assignment Required
+                </h3>
+                <p className="text-yellow-200 mb-4">
+                  This build list doesn't have a car assigned.{canManage ? ' Please assign a car to help organize your build list and make it easier for others to find.' : ' The owner should assign a car to help organize this build list.'}
+                </p>
+                {canManage && (
+                  <ActionButton
+                    onClick={openEditBuildListDialog}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  >
+                    Assign Car Now
+                  </ActionButton>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Build List Information" />
-          {canManage && (
-            <div className="flex space-x-2">
-              <ActionButton onClick={openEditBuildListDialog}>
-                Edit Build List
-              </ActionButton>
+          <div className="flex space-x-2">
+            {currentUser && (
               <ActionButton
-                onClick={openDeleteConfirmDialog}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => void handleCopyBuildList()}
+                disabled={isCopyingBuildList}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                Delete Build List
+                {isCopyingBuildList ? 'Copying...' : 'Copy Build List'}
               </ActionButton>
-            </div>
-          )}
+            )}
+            {canManage && (
+              <>
+                <ActionButton onClick={openEditBuildListDialog}>
+                  Edit Build List
+                </ActionButton>
+                <ActionButton
+                  onClick={openDeleteConfirmDialog}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete Build List
+                </ActionButton>
+              </>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="">
@@ -302,6 +364,11 @@ function ViewBuildList() {
         {ownerApiError && (
           <ErrorAlert
             message={`Error loading build list owner details: ${ownerApiError}`}
+          />
+        )}
+        {copyBuildListError && (
+          <ErrorAlert
+            message={`Error copying build list: ${copyBuildListError}`}
           />
         )}
       </Card>

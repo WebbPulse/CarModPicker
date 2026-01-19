@@ -120,6 +120,10 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         Raises:
             HTTPException: If car not found or deletion fails
         """
+        # Use default logger if none provided
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
         # Get the car first (no ownership check since cars are centrally managed)
         car = self.get_by_id(
             db=db,

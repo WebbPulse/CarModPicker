@@ -3,9 +3,9 @@ Base endpoint router with common patterns to reduce redundancy.
 """
 
 import logging
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -76,11 +76,33 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
 
     def _register_common_endpoints(self) -> None:
         """Register common CRUD endpoints."""
+        # Define schema types once for reuse
+        # Use object as fallback since Any is not a type class
+        # Cast to Type[Any] to satisfy type checkers
+        _read_schema: Type[Any] = cast(Type[Any], self.read_schema if self.read_schema else object)
+
+        # Count endpoint - register FIRST before /{entity_id} to avoid route conflicts
+        # This is registered here so it's always available, but can be overridden if needed
+        @self.router.get(
+            "/count",
+            response_model=Dict[str, int],
+            responses={
+                200: {"description": f"Count of {self.entity_name}s"},
+            },
+        )
+        async def count_entities(  # pyright: ignore[reportUnusedFunction]
+            db: Session = Depends(get_db),
+            logger: logging.Logger = Depends(get_logger),
+        ) -> Dict[str, int]:
+            """Get total count of entities."""
+            count = self.service.count_all(db=db, logger=logger)
+            return {"count": count}
 
         # Create endpoint
         if "create" not in self.disable_endpoints:
-            _create_schema = self.create_schema if self.create_schema else CreateSchema  # type: ignore[assignment]
-            _read_schema = self.read_schema if self.read_schema else ReadSchema  # type: ignore[assignment]
+            # Use object as fallback since Any is not a type class
+            # Cast to Type[Any] to satisfy type checkers
+            _create_schema: Type[Any] = cast(Type[Any], self.create_schema if self.create_schema else object)
 
             @self.router.post(
                 "/",
@@ -92,24 +114,23 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 },
             )
             async def create_entity(  # pyright: ignore[reportUnusedFunction]
-                *,
-                data: _create_schema,  # type: ignore[valid-type]
+                data: Any = Body(...),  # type: ignore[valid-type]  # Use Body() to explicitly mark as request body
                 db: Session = Depends(get_db),
                 logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Create a new entity."""
+                # At runtime, data is validated by FastAPI as the correct CreateSchema type
+                # We cast to Any to satisfy the type checker since CreateSchema is a TypeVar
                 return self.service.create(
                     db=db,
-                    data=data,  # type: ignore[arg-type]
+                    data=cast(Any, data),  # type: ignore[arg-type]
                     current_user=current_user,
                     logger=logger,
                     additional_data=self.additional_create_data,
                 )
 
         # Get by ID endpoint
-        _read_schema = self.read_schema if self.read_schema else ReadSchema  # type: ignore[assignment]
-
         if "get" not in self.disable_endpoints:
             if self.allow_public_read:
 
@@ -196,7 +217,9 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
 
         # Update endpoint
         if "update" not in self.disable_endpoints:
-            _update_schema = self.update_schema if self.update_schema else UpdateSchema  # type: ignore[assignment]
+            # Use object as fallback since Any is not a type class
+            # Cast to Type[Any] to satisfy type checkers
+            _update_schema: Type[Any] = cast(Type[Any], self.update_schema if self.update_schema else object)
 
             @self.router.put(
                 "/{entity_id}",
@@ -208,17 +231,18 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             )
             async def update_entity(  # pyright: ignore[reportUnusedFunction]
                 entity_id: int,
-                *,
                 data: _update_schema,  # type: ignore[valid-type]
                 db: Session = Depends(get_db),
                 logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Update an existing entity."""
+                # At runtime, data is validated by FastAPI as the correct UpdateSchema type
+                # We cast to Any to satisfy the type checker since UpdateSchema is a TypeVar
                 return self.service.update(
                     db=db,
                     entity_id=entity_id,
-                    data=data,  # type: ignore[arg-type]
+                    data=cast(Any, data),  # type: ignore[arg-type]
                     current_user=current_user,
                     logger=logger,
                 )
@@ -304,19 +328,13 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             )
 
     def add_count_endpoint(self) -> None:
-        """Add a count endpoint for the entity."""
+        """
+        Add a count endpoint for the entity.
 
-        @self.router.get(
-            "/count",
-            response_model=Dict[str, int],
-            responses={
-                200: {"description": f"Count of {self.entity_name}s"},
-            },
-        )
-        async def count_entities(  # pyright: ignore[reportUnusedFunction]
-            db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
-        ) -> Dict[str, int]:
-            """Get total count of entities."""
-            count = self.service.count_all(db=db, logger=logger)  # type: ignore[attr-defined]
-            return {"count": count}
+        Note: The count endpoint is now automatically registered in _register_common_endpoints()
+        to ensure it's registered before /{entity_id} routes. This method is kept for
+        backward compatibility but is now a no-op.
+        """
+        # Count endpoint is now registered in _register_common_endpoints() to ensure
+        # proper route ordering (before /{entity_id} routes)
+        pass

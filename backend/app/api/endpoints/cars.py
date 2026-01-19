@@ -6,7 +6,7 @@ and response documentation while maintaining car-specific functionality.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -162,8 +162,8 @@ async def admin_create_car(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CarRead:
     """Create a new car (admin only)."""
-    # Validate year range
-    if car_data.start_year > car_data.end_year:
+    # Validate year range (skip if end_year is None for ongoing generations)
+    if car_data.end_year is not None and car_data.start_year > car_data.end_year:
         ResponsePatterns.raise_bad_request("start_year must be less than or equal to end_year")
 
     car = car_service.create(
@@ -196,12 +196,12 @@ async def admin_update_car(
         logger=logger,
     )
 
-    # Validate year range if both are being updated
+    # Validate year range if both are being updated (skip if end_year is None for ongoing generations)
     update_dict = car_data.model_dump(exclude_unset=True)
     start_year = update_dict.get("start_year", car.start_year)
     end_year = update_dict.get("end_year", car.end_year)
 
-    if start_year > end_year:
+    if end_year is not None and start_year > end_year:
         ResponsePatterns.raise_bad_request("start_year must be less than or equal to end_year")
 
     updated_car = car_service.update(
@@ -226,7 +226,9 @@ async def admin_delete_car(
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CarRead:
-    """Delete a car (admin only)."""
+    """Delete a car (admin only). Build lists associated with this car will have their car_id set to null."""
+    from app.api.models.build_list import BuildList
+
     car = car_service.get_by_id(
         db=db,
         entity_id=car_id,
@@ -234,11 +236,14 @@ async def admin_delete_car(
         logger=logger,
     )
 
-    # Check if car has build lists
+    # Set car_id to null for all associated build lists
     if car.build_lists:
-        ResponsePatterns.raise_bad_request(
-            f"Cannot delete car {car_id}: it has {len(car.build_lists)} build list(s) associated with it"
+        build_list_count = len(car.build_lists)
+        db.query(BuildList).filter(BuildList.car_id == car_id).update(
+            {BuildList.car_id: None}, synchronize_session=False
         )
+        db.commit()
+        logger.info(f"Admin {current_user.id} deleted car {car_id} and unlinked {build_list_count} build list(s)")
 
     deleted_car = car_service.delete(
         db=db,
@@ -248,3 +253,55 @@ async def admin_delete_car(
     )
     logger.info(f"Admin {current_user.id} deleted car {car_id}")
     return CarRead.model_validate(deleted_car)
+
+
+@router.delete(
+    "/admin/cars",
+    response_model=dict[str, str | int],
+    responses={
+        **crud_responses("car", "delete"),
+        200: {
+            "description": "All cars deleted successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "All cars deleted successfully",
+                        "deleted_count": 42,
+                        "unlinked_build_lists": 15,
+                    }
+                }
+            },
+        },
+    },
+)
+async def admin_delete_all_cars(
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> dict[str, str | int]:
+    """Delete all cars (admin only). This is a dangerous operation. Build lists associated with deleted cars will have their car_id set to null."""
+    from app.api.models.build_list import BuildList
+    from sqlalchemy import func
+
+    # Count build lists that will be unlinked
+    build_lists_to_unlink = (db.query(func.count(BuildList.id)).filter(BuildList.car_id.isnot(None)).scalar()) or 0
+
+    # Set car_id to null for all build lists
+    if build_lists_to_unlink > 0:
+        db.query(BuildList).filter(BuildList.car_id.isnot(None)).update(
+            {BuildList.car_id: None}, synchronize_session=False
+        )
+        db.commit()
+
+    # Delete all cars
+    deleted_count = db.query(DBCar).delete()
+    db.commit()
+
+    logger.warning(
+        f"Admin {current_user.id} deleted ALL {deleted_count} cars and unlinked {build_lists_to_unlink} build list(s)"
+    )
+    return {
+        "message": "All cars deleted successfully",
+        "deleted_count": deleted_count,
+        "unlinked_build_lists": build_lists_to_unlink,
+    }

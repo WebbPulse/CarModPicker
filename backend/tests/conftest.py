@@ -8,7 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Disable rate limiting for tests
+# Set test environment variables BEFORE importing any app code
+# This ensures storage service and other services can detect test environment
+os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
 # Import after environment setup - environment variables must be set before importing app code
@@ -327,32 +329,23 @@ def create_car_for_user_cookie_auth(client: TestClient) -> int:
     """DEPRECATED: Create a car for the currently logged-in user.
 
     This function is deprecated since cars are now centrally managed by admins.
-    Use admin car creation endpoints instead. This function will fail since
-    regular users cannot create cars.
+    Use admin car creation endpoints instead. This function will raise an error
+    since regular users cannot create cars.
     """
-    from app.core.config import settings
     import warnings
 
     warnings.warn(
         "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
-        "Use admin car creation endpoints instead.",
+        "Use admin car creation endpoints instead. This function will raise an error.",
         DeprecationWarning,
         stacklevel=2,
     )
 
-    # This will fail since cars are centrally managed
-    car_data = {
-        "make": "Toyota",
-        "model": "Camry",
-        "year": 2020,
-    }
-    response = client.post(f"{settings.API_STR}/cars/", json=car_data)
-    assert response.status_code == 200
-    car_data_response: Dict[str, Any] = response.json()
-    assert isinstance(car_data_response, dict)
-    car_id: int = car_data_response["id"]
-    assert isinstance(car_id, int)
-    return car_id
+    raise NotImplementedError(
+        "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed by admins. "
+        "Use admin car creation endpoints (e.g., /cars/admin/cars) with an admin token instead. "
+        "See test_cars.py for examples of create_car_via_admin() helper function."
+    )
 
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:

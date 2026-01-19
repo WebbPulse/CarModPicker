@@ -153,8 +153,11 @@ async def update_build_list_part(
     # Find the build list part
     db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
 
-    # Check authorization - only the user who added the part or admin can edit it
-    require_build_list_part_edit_permission(current_user, db_build_list_part)
+    # Get the build list for authorization check
+    db_build_list = get_entity_or_404(db, DBBuildList, db_build_list_part.build_list_id, "build list")
+
+    # Check authorization - user who added the part, build list owner, or admin can edit it
+    require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
 
     # Update the fields
     update_data = build_list_part.model_dump(exclude_unset=True)
@@ -237,6 +240,7 @@ async def create_global_part_and_add_to_build_list(
         "price": request.price,
         "image_url": request.image_url,
         "category_id": request.category_id,
+        "car_id": request.car_id,  # Optional car association
         "brand": request.brand,
         "part_number": request.part_number,
         "specifications": request.specifications,
@@ -275,6 +279,7 @@ async def create_global_part_and_add_to_build_list(
         added_by=db_build_list_part.added_by,
         quantity=db_build_list_part.quantity,
         notes=db_build_list_part.notes,
+        purchased=db_build_list_part.purchased,
         added_at=db_build_list_part.added_at,
         global_part=db_global_part,
     )
@@ -338,7 +343,7 @@ async def update_global_part_in_build_list(
     logger = deps["logger"]
 
     # Verify build list exists
-    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     # Find the relationship
     db_build_list_part = (
@@ -352,8 +357,8 @@ async def update_global_part_in_build_list(
     if not db_build_list_part:
         ResponsePatterns.raise_not_found("Build list part not found in build list")
 
-    # Check authorization - only the user who added the part or admin can edit it
-    require_build_list_part_edit_permission(current_user, db_build_list_part)
+    # Check authorization - user who added the part, build list owner, or admin can edit it
+    require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
 
     # Update the notes
     update_data = build_list_part.model_dump(exclude_unset=True)

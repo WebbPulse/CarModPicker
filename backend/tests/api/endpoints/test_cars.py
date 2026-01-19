@@ -250,9 +250,8 @@ def test_admin_delete_car_success(client: TestClient, db_session: Session) -> No
     assert get_response.status_code == 404
 
 
-def test_admin_delete_car_with_build_lists_fails(client: TestClient, db_session: Session) -> None:
-    """Test that deleting a car with build lists fails."""
-    from app.api.models.build_list import BuildList
+def test_admin_delete_car_with_build_lists_unlinks(client: TestClient, db_session: Session) -> None:
+    """Test that deleting a car with build lists unlinks them (sets car_id to null) instead of failing."""
 
     _, admin_token = create_and_login_admin_user(client, db_session, "deleter_with_bl")
     headers = get_auth_headers(admin_token)
@@ -272,14 +271,18 @@ def test_admin_delete_car_with_build_lists_fails(client: TestClient, db_session:
     }
     response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=user_headers)
     assert response.status_code == 200
+    build_list_id = response.json()["id"]
 
-    # Try to delete the car - should fail because it has build lists
+    # Delete the car - should succeed and unlink the build list
     response = client.delete(f"{settings.API_STR}/cars/admin/cars/{car_id}", headers=headers)
-    assert response.status_code == 400
-    response_data = response.json()
-    # Error response might be in "detail" field or as a message
-    error_text = response_data.get("detail", response_data.get("message", "")).lower()
-    assert "build list" in error_text
+    assert response.status_code == 200
+
+    # Verify the build list still exists but car_id is now null
+    response = client.get(f"{settings.API_STR}/build-lists/{build_list_id}", headers=user_headers)
+    assert response.status_code == 200
+    build_list = response.json()
+    assert build_list["id"] == build_list_id
+    assert build_list["car_id"] is None, "Build list car_id should be null after car deletion"
 
 
 def test_get_cars_by_make_success(client: TestClient, db_session: Session) -> None:
@@ -370,7 +373,7 @@ def test_search_cars_by_model(client: TestClient, db_session: Session) -> None:
 
     # Create cars with specific models
     create_car_via_admin(client, admin_token, "BMW", "M3", "G80", 2021, 2024)
-    car_id = create_car_via_admin(client, admin_token, "BMW", "M4", "G82", 2021, 2024)["id"]
+    _ = create_car_via_admin(client, admin_token, "BMW", "M4", "G82", 2021, 2024)["id"]
 
     client.cookies.clear()
 

@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+- when generating alembic migrations, always use the --autogenerate flag of the cli tool
