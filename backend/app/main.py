@@ -24,8 +24,8 @@ from .api.endpoints import (
 from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
-from .core.init_cars import init_car_generations
 from .core.config import settings
+from .core.init_cars import init_car_generations
 from .db.session import SessionLocal
 
 # Configure logging for the entire application
