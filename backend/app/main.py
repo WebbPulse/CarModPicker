@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 def run_migrations() -> None:
     """Run database migrations on startup with retry logic for Railway deployments."""
-    max_retries = 5
-    retry_delay = 2  # Start with 2 seconds
+    max_retries = 25
+    retry_delay = 0.2  # Quick retry delay for serverless (0.5 seconds)
 
     # Determine the correct working directory for alembic
     cwd = "/app" if os.path.exists("/app/alembic") else os.path.dirname(os.path.dirname(__file__))
@@ -76,10 +76,9 @@ def run_migrations() -> None:
             )
 
             if attempt < max_retries and is_connection_error:
-                # Exponential backoff: 2s, 4s, 8s, 16s, 32s
-                wait_time = retry_delay * (2 ** (attempt - 1))
-                logger.info(f"Database not ready. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
+                # Quick retry with constant delay for serverless (0.5s per attempt)
+                logger.info(f"Database not ready. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
             else:
                 # Last attempt or non-connection error
                 if attempt == max_retries:
