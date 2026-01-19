@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListPartsApi, carsApi, globalPartsApi } from '../../services/Api';
 import type {
   BuildListPartCreate,
   CarRead,
-  GlobalPartCreate,
-  GlobalPartRead,
+  GlobalPartCreate
 } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
+import ImageUpload from '../common/ImageUpload';
+import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SearchableSelect, {
@@ -32,7 +32,7 @@ function CreateBuildListPartForm({
   onPartAdded,
   onCancel,
 }: CreateBuildListPartFormProps) {
-  const [mode, setMode] = useState<'create' | 'select'>('create');
+  const [mode, setMode] = useState<'create' | 'select'>('select');
   const [selectedGlobalPartId, setSelectedGlobalPartId] = useState<
     number | null
   >(null);
@@ -42,11 +42,11 @@ function CreateBuildListPartForm({
     brand: '',
     description: '',
     price: '',
-    image_url: '',
     category_id: 1, // Default category
     car_id: null as number | null,
     notes: '',
   });
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isAddingExisting, setIsAddingExisting] = useState(false);
@@ -84,50 +84,85 @@ function CreateBuildListPartForm({
     if (validationError) setValidationError(null);
   };
 
-  const handleCarChange = (carId: number | string | null) => {
+  const handleCarChange = useCallback((carId: number | string | null) => {
     const numericCarId = carId ? Number(carId) : null;
     setFormData((prev) => ({ ...prev, car_id: numericCarId }));
     if (validationError) setValidationError(null);
-  };
+  }, [validationError]);
 
-  // Convert cars to SearchableSelectOption format
-  const carOptions: SearchableSelectOption[] = cars
-    .sort((a, b) => {
-      // Sort by make, then model, then generation
-      if (a.make !== b.make) {
-        return a.make.localeCompare(b.make);
-      }
-      if (a.model !== b.model) {
-        return a.model.localeCompare(b.model);
-      }
-      return a.generation_name.localeCompare(b.generation_name);
-    })
-    .map((car) => ({
-      id: car.id,
-      value: car.id,
-      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
-    }));
+  // Memoize car options to prevent unnecessary re-renders
+  const carOptions: SearchableSelectOption[] = useMemo(() => {
+    return cars
+      .sort((a, b) => {
+        // Sort by make, then model, then generation
+        if (a.make !== b.make) {
+          return a.make.localeCompare(b.make);
+        }
+        if (a.model !== b.model) {
+          return a.model.localeCompare(b.model);
+        }
+        return a.generation_name.localeCompare(b.generation_name);
+      })
+      .map((car) => ({
+        id: car.id,
+        value: car.id,
+        label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
+      }));
+  }, [cars]);
 
-  // Custom filter function that searches across make, model, generation, and years
-  const filterCars = (
+  // Memoize filter function to prevent SearchableSelect from breaking
+  const filterCars = useCallback((
     options: SearchableSelectOption[],
     searchText: string
   ): SearchableSelectOption[] => {
     if (!searchText.trim()) return options;
     const lowerText = searchText.toLowerCase();
     return options.filter((option) => {
-      const car = cars.find((c) => c.id === option.value);
-      if (!car) return false;
+      // Search in the label directly (which contains all car info)
+      return option.label.toLowerCase().includes(lowerText);
+    });
+  }, []);
+
+  // Convert global parts to SearchableSelectOption format
+  const globalPartOptions: SearchableSelectOption[] = useMemo(() => {
+    if (!globalParts) return [];
+    return globalParts
+      .sort((a, b) => {
+        // Sort by name first
+        return a.name.localeCompare(b.name);
+      })
+      .map((part) => ({
+        id: part.id,
+        value: part.id,
+        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}${part.price ? ` - $${part.price.toFixed(2)}` : ''}`,
+      }));
+  }, [globalParts]);
+
+  // Filter function for global parts
+  const filterGlobalParts = useCallback((
+    options: SearchableSelectOption[],
+    searchText: string
+  ): SearchableSelectOption[] => {
+    if (!searchText.trim()) return options;
+    const lowerText = searchText.toLowerCase();
+    return options.filter((option) => {
+      const part = globalParts?.find((p) => p.id === option.value);
+      if (!part) return false;
       return (
-        car.make.toLowerCase().includes(lowerText) ||
-        car.model.toLowerCase().includes(lowerText) ||
-        car.generation_name.toLowerCase().includes(lowerText) ||
-        car.start_year.toString().includes(lowerText) ||
-        car.end_year.toString().includes(lowerText) ||
+        part.name.toLowerCase().includes(lowerText) ||
+        (part.brand && part.brand.toLowerCase().includes(lowerText)) ||
+        (part.description && part.description.toLowerCase().includes(lowerText)) ||
+        (part.part_number && part.part_number.toLowerCase().includes(lowerText)) ||
         option.label.toLowerCase().includes(lowerText)
       );
     });
-  };
+  }, [globalParts]);
+
+  const handlePartSelect = useCallback((partId: number | string | null) => {
+    const numericPartId = partId ? Number(partId) : null;
+    setSelectedGlobalPartId(numericPartId);
+    if (validationError) setValidationError(null);
+  }, [validationError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +181,7 @@ function CreateBuildListPartForm({
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           price: formData.price ? parseFloat(formData.price) : null,
-          image_url: formData.image_url.trim() || null,
+          image_url: imageFileKey || null,
           category_id: formData.category_id,
           car_id: formData.car_id,
           brand: formData.brand.trim() || null,
@@ -208,6 +243,31 @@ function CreateBuildListPartForm({
 
   const isLoading = isCreating || isAddingExisting;
 
+  // Reset form when mode changes
+  const handleModeChange = (newMode: 'create' | 'select') => {
+    setMode(newMode);
+    setValidationError(null);
+    setCreateError(null);
+    setAddExistingError(null);
+    if (newMode === 'select') {
+      // Clear create form data when switching to select mode
+      setFormData({
+        name: '',
+        part_number: '',
+        brand: '',
+        description: '',
+        price: '',
+        category_id: 1,
+        car_id: null,
+        notes: '',
+      });
+      setImageFileKey(null);
+    } else {
+      // Clear selection when switching to create mode
+      setSelectedGlobalPartId(null);
+    }
+  };
+
   return (
     <form
       onSubmit={(e) => {
@@ -221,38 +281,53 @@ function CreateBuildListPartForm({
         />
       )}
 
-      {/* Mode Selection */}
-      <div className="flex space-x-4 mb-6">
-        <button
-          type="button"
-          onClick={() => setMode('create')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            mode === 'create'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          Create New Part
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('select')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            mode === 'select'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          Select Existing Part
-        </button>
+      {/* Mode Selection - Either-Or Toggle */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-300 mb-3">
+          Choose an option:
+        </label>
+        <div className="inline-flex rounded-lg border border-gray-600 bg-gray-800 p-1" role="group" aria-label="Part selection mode">
+          <button
+            type="button"
+            onClick={() => handleModeChange('select')}
+            className={`px-6 py-2.5 rounded-md font-medium transition-all ${
+              mode === 'select'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+            aria-pressed={mode === 'select'}
+          >
+            Select Existing Part
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('create')}
+            className={`px-6 py-2.5 rounded-md font-medium transition-all ${
+              mode === 'create'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+            aria-pressed={mode === 'create'}
+          >
+            Create New Part
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Select one option above. You can switch between them at any time.
+        </p>
       </div>
 
       {mode === 'create' ? (
         /* Create New Part Form */
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            Create New Part
-          </h3>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-200">
+              Create New Part
+            </h3>
+            <p className="text-sm text-gray-400 mt-1">
+              Create a new part and add it to this build list
+            </p>
+          </div>
 
           <Input
             label="Part Name *"
@@ -307,14 +382,17 @@ function CreateBuildListPartForm({
             min="0"
           />
 
-          <Input
-            label="Image URL"
-            id="global-part-image-url"
-            name="image_url"
-            type="url"
-            value={formData.image_url}
-            onChange={handleInputChange}
-            placeholder="https://example.com/image.jpg"
+          <ImageUpload
+            currentImageUrl={imageFileKey}
+            entityType="global_part"
+            onImageUploaded={(fileKey) => {
+              setImageFileKey(fileKey);
+            }}
+            onImageRemoved={() => {
+              setImageFileKey(null);
+            }}
+            label="Part Image (Optional)"
+            maxSizeMB={10}
           />
 
           <SearchableSelect
@@ -334,58 +412,147 @@ function CreateBuildListPartForm({
       ) : (
         /* Select Existing Part */
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            Select Existing Part
-          </h3>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-200">
+              Select Existing Part
+            </h3>
+            <p className="text-sm text-gray-400 mt-1">
+              Search for an existing part from the catalog to add to this build list. This helps prevent duplicates and keeps the catalog organized.
+            </p>
+          </div>
 
           {isLoadingGlobalParts ? (
-            <LoadingSpinner />
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
           ) : globalPartsError ? (
             <ErrorAlert message="Failed to load parts" />
+          ) : globalParts && globalParts.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p>No parts found in the catalog.</p>
+              <p className="text-sm mt-2">
+                Switch to "Create New Part" to add a new part.
+              </p>
+            </div>
           ) : (
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {globalParts?.map((part: GlobalPartRead) => (
-                <Card
-                  key={part.id}
-                  className={`cursor-pointer transition-colors ${
-                    selectedGlobalPartId === part.id
-                      ? 'border-blue-500 bg-blue-900/20'
-                      : 'hover:bg-gray-800'
-                  }`}
-                  onClick={() => setSelectedGlobalPartId(part.id)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium text-gray-200">{part.name}</h4>
-                      {part.brand && (
-                        <p className="text-sm text-gray-400">
-                          Brand: {part.brand}
-                        </p>
-                      )}
-                      {part.description && (
-                        <p className="text-sm text-gray-400 mt-1">
-                          {part.description}
-                        </p>
-                      )}
-                    </div>
-                    {part.price && (
-                      <span className="text-sm font-medium text-green-400">
-                        ${part.price}
-                      </span>
-                    )}
-                  </div>
-                </Card>
-              ))}
+            <div className="space-y-4">
+              <SearchableSelect
+                id="select-global-part"
+                name="global_part_id"
+                label="Search for Part"
+                placeholder="Type to search for a part (name, brand, part number, description)..."
+                value={selectedGlobalPartId}
+                onChange={handlePartSelect}
+                options={globalPartOptions}
+                disabled={isLoadingGlobalParts}
+                isLoading={isLoadingGlobalParts}
+                emptyMessage="No parts found. Try a different search term or create a new part."
+                filterOptions={filterGlobalParts}
+              />
+
+              {/* Show selected part details */}
+              {selectedGlobalPartId && (
+                <div className="mt-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                  {(() => {
+                    const selectedPart = globalParts?.find(
+                      (p) => p.id === selectedGlobalPartId
+                    );
+                    if (!selectedPart) return null;
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-4">
+                          {/* Part Image */}
+                          <div className="flex-shrink-0">
+                            <div className="w-32 h-32">
+                              <ImageWithPlaceholder
+                                srcUrl={selectedPart.image_url ?? null}
+                                altText={selectedPart.name}
+                                imageClassName="w-full h-full object-cover rounded-lg"
+                                containerClassName="w-full h-full flex justify-center items-center bg-gray-700 rounded-lg"
+                                fallbackText="No image"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Part Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-semibold text-white text-lg truncate">
+                                    {selectedPart.name}
+                                  </h4>
+                                  <a
+                                    href={`/global-parts/${selectedPart.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0 text-blue-400 hover:text-blue-300 transition-colors"
+                                    title="Open part in new tab"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <svg
+                                      className="w-5 h-5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                      />
+                                    </svg>
+                                  </a>
+                                </div>
+                                {selectedPart.brand && (
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    <span className="font-medium">Brand:</span>{' '}
+                                    {selectedPart.brand}
+                                  </p>
+                                )}
+                                {selectedPart.part_number && (
+                                  <p className="text-sm text-gray-400">
+                                    <span className="font-medium">Part #:</span>{' '}
+                                    {selectedPart.part_number}
+                                  </p>
+                                )}
+                                {selectedPart.description && (
+                                  <p className="text-sm text-gray-300 mt-2 line-clamp-3">
+                                    {selectedPart.description}
+                                  </p>
+                                )}
+                              </div>
+                              {selectedPart.price && (
+                                <div className="ml-4 text-right flex-shrink-0">
+                                  <span className="text-lg font-semibold text-green-400">
+                                    ${selectedPart.price.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
       {/* Notes Field (Common to both modes) */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-200">
-          Build List Notes
-        </h3>
+      <div className="space-y-4 pt-4 border-t border-gray-700">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-200 mb-1">
+            Build List Notes
+          </h3>
+          <p className="text-sm text-gray-400 mb-3">
+            Add personal notes about this part in your build list (optional)
+          </p>
+        </div>
         <Input
           label="Notes (Optional)"
           id="build-list-part-notes"

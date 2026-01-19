@@ -19,7 +19,7 @@ interface BuildListPartListItemProps {
   canMarkPurchased?: boolean;
 }
 
-const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
+const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(({
   buildListPart,
   category,
   onEdit,
@@ -165,6 +165,22 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = ({
       </div>
     </Card>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  // Only re-render if the part data, purchased status, or permissions change
+  return (
+    prevProps.buildListPart.id === nextProps.buildListPart.id &&
+    prevProps.buildListPart.purchased === nextProps.buildListPart.purchased &&
+    prevProps.buildListPart.quantity === nextProps.buildListPart.quantity &&
+    prevProps.buildListPart.notes === nextProps.buildListPart.notes &&
+    prevProps.buildListPart.global_part.price === nextProps.buildListPart.global_part.price &&
+    prevProps.canEdit === nextProps.canEdit &&
+    prevProps.canDelete === nextProps.canDelete &&
+    prevProps.canMarkPurchased === nextProps.canMarkPurchased &&
+    prevProps.category?.id === nextProps.category?.id
+  );
+});
+
+BuildListPartListItem.displayName = 'BuildListPartListItem';
 
 export default BuildListPartListItem;

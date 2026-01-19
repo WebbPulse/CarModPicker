@@ -30,10 +30,10 @@ const Dialog: React.FC<DialogProps> = ({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300 ease-in-out">
       <div
-        className={`bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full ${maxWidthClasses[maxWidth]} transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-fadeInScale`}
+        className={`bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full ${maxWidthClasses[maxWidth]} transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-fadeInScale flex flex-col max-h-[90vh]`}
       >
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
+        <div className="flex-shrink-0 p-6 border-b border-white/10">
+          <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
               {title}
             </h2>
@@ -46,6 +46,8 @@ const Dialog: React.FC<DialogProps> = ({
               &times;
             </button>
           </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">{children}</div>
         </div>
       </div>

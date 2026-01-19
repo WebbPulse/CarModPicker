@@ -412,6 +412,7 @@ function ViewBuildList() {
           isOpen={isCreatePartFormOpen}
           onClose={closeCreatePartDialog}
           title="Add Part to Build List"
+          maxWidth="4xl"
         >
           <CreateBuildListPartForm
             buildListId={buildList.id}

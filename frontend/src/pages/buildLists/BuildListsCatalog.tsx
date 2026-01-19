@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
+import BuildListItem from '../../components/buildLists/BuildListItem';
 import Card from '../../components/common/Card';
+import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
+import SectionHeader from '../../components/layout/SectionHeader';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { carsApi } from '../../services/Api';
+import { buildListsApi, carsApi } from '../../services/Api';
 import type { CarRead } from '../../types/Api';
 
 const BuildListsCatalog: React.FC = () => {
@@ -19,6 +22,18 @@ const BuildListsCatalog: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  // Fetch featured build lists (top 4 voted)
+  const fetchFeaturedBuildListsFn = useCallback(
+    () => buildListsApi.getBuildListsWithVotes({ limit: 4, skip: 0 }),
+    []
+  );
+
+  const {
+    data: featuredBuildListsData,
+    isLoading: isLoadingFeatured,
+    executeRequest: fetchFeaturedBuildLists,
+  } = useApiRequest(fetchFeaturedBuildListsFn);
 
   // Memoize request functions to prevent infinite re-renders
   const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
@@ -45,7 +60,8 @@ const BuildListsCatalog: React.FC = () => {
 
   useEffect(() => {
     void fetchMakes();
-  }, [fetchMakes]);
+    void fetchFeaturedBuildLists();
+  }, [fetchMakes, fetchFeaturedBuildLists]);
 
   useEffect(() => {
     if (makeStats) {
@@ -130,6 +146,33 @@ const BuildListsCatalog: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      {/* Featured Build Lists Section - Only show when no make is selected */}
+      {!selectedMake && (
+        <Card className="mb-6">
+          <SectionHeader title="Featured Build Lists" />
+          {isLoadingFeatured ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : featuredBuildListsData?.data &&
+            featuredBuildListsData.data.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+              {featuredBuildListsData.data.map((buildList) => (
+                <BuildListItem
+                  key={buildList.id}
+                  buildList={buildList}
+                  showVoteButtons={false}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <p>No featured build lists available.</p>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Car Selection Tiles - 3 Layer Selection */}
       <div className="space-y-6 mb-6">
@@ -278,25 +321,37 @@ const BuildListsCatalog: React.FC = () => {
           {/* Selected Generation Info */}
           {selectedGeneration && (
             <Card className="mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-200">
-                    Selected: {selectedGeneration.make}{' '}
-                    {selectedGeneration.model}{' '}
-                    {selectedGeneration.generation_name}
-                  </h3>
-                  <p className="text-sm text-gray-400">
-                    {selectedGeneration.start_year} -{' '}
-                    {selectedGeneration.end_year}
-                  </p>
+              <div className="flex items-center gap-6">
+                <div className="flex-shrink-0">
+                  <ImageWithPlaceholder
+                    srcUrl={selectedGeneration.image_url ?? null}
+                    altText={`${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name}`}
+                    containerClassName="w-32 h-32 rounded-lg overflow-hidden"
+                    imageClassName="w-full h-full object-cover"
+                    fallbackText="No image"
+                    fallbackTextClassName="text-gray-500 text-xs"
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-                >
-                  Change Selection
-                </button>
+                <div className="flex-1 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-200">
+                      Selected: {selectedGeneration.make}{' '}
+                      {selectedGeneration.model}{' '}
+                      {selectedGeneration.generation_name}
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      {selectedGeneration.start_year} -{' '}
+                      {selectedGeneration.end_year}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
+                  >
+                    Change Selection
+                  </button>
+                </div>
               </div>
             </Card>
           )}

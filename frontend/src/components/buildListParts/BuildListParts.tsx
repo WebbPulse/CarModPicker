@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { buildListPartsApi, categoriesApi } from '../../services/Api';
@@ -56,6 +56,18 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     isLoading: isLoadingCategories,
     executeRequest: fetchCategories,
   } = useApiRequest(fetchCategoriesRequestFn);
+
+  // Local state for optimistic updates - sync with API data
+  const [localBuildListParts, setLocalBuildListParts] = useState<
+    BuildListPartReadWithGlobalPart[] | null
+  >(null);
+
+  // Sync local state with API data when it changes
+  useEffect(() => {
+    if (buildListParts) {
+      setLocalBuildListParts(buildListParts);
+    }
+  }, [buildListParts]);
 
   useEffect(() => {
     void fetchBuildListParts(buildListId);
@@ -173,23 +185,52 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     setEditingPart(null);
   };
 
-  const handleTogglePurchased = async (
+  const handleTogglePurchased = useCallback(async (
     buildListPart: BuildListPartReadWithGlobalPart
   ) => {
-    if (!canManageParts) return;
+    if (!canManageParts || !localBuildListParts) return;
+
+    const newPurchasedStatus = !buildListPart.purchased;
+
+    // Optimistic update: update local state immediately
+    setLocalBuildListParts((prevParts) => {
+      if (!prevParts) return prevParts;
+      return prevParts.map((part) =>
+        part.id === buildListPart.id
+          ? { ...part, purchased: newPurchasedStatus }
+          : part
+      );
+    });
 
     try {
       await buildListPartsApi.updateBuildListPart(
         buildListId,
         buildListPart.global_part_id,
-        { purchased: !buildListPart.purchased }
+        { purchased: newPurchasedStatus }
       );
-      // Refresh the build list parts
-      await fetchBuildListParts(buildListId);
+      // Optionally sync with server, but don't refetch to avoid full re-render
+      // The optimistic update is already applied
     } catch (error) {
       console.error('Failed to update purchased status:', error);
+      // Revert optimistic update on error
+      setLocalBuildListParts((prevParts) => {
+        if (!prevParts) return prevParts;
+        return prevParts.map((part) =>
+          part.id === buildListPart.id
+            ? { ...part, purchased: buildListPart.purchased }
+            : part
+        );
+      });
     }
-  };
+  }, [canManageParts, localBuildListParts, buildListId]);
+
+  // Wrapper to match the expected void return type
+  const handleTogglePurchasedWrapper = useCallback(
+    (part: BuildListPartReadWithGlobalPart) => {
+      void handleTogglePurchased(part);
+    },
+    [handleTogglePurchased]
+  );
 
   if (error) {
     return (
@@ -219,13 +260,13 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       </div>
 
       <BuildListPartList
-        buildListParts={buildListParts || []}
+        buildListParts={localBuildListParts || buildListParts || []}
         categories={categories || []}
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
         onDelete={handleDelete}
         {...(canManageParts && {
-          onTogglePurchased: (part) => void handleTogglePurchased(part),
+          onTogglePurchased: handleTogglePurchasedWrapper,
         })}
         canEdit={canManageParts}
         canDelete={canManageParts}
