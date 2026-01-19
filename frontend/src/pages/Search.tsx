@@ -220,7 +220,7 @@ function Search() {
         },
       });
     }
-  }, [searchResults]);
+  }, [searchResults, INITIAL_LIMITS.build_lists, INITIAL_LIMITS.users, INITIAL_LIMITS.global_parts]);
 
   // Perform search when query param changes (e.g., from URL)
   useEffect(() => {

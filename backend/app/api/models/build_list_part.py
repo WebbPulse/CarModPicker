@@ -27,6 +27,7 @@ class BuildListPart(Base):
     added_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
+    purchased: Mapped[bool] = mapped_column(default=False, nullable=False)
     added_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     # Relationships

@@ -16,6 +16,7 @@ import ViewUser from './pages/ViewUser.tsx';
 import About from './pages/About.tsx';
 import ContactUs from './pages/ContactUs.tsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.tsx';
+import Support from './pages/Support.tsx';
 
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
@@ -24,7 +25,7 @@ import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import Search from './pages/Search.tsx';
 import AdminDashboard from './pages/admin/AdminDashboard.tsx';
-import CarGenerationManagement from './pages/admin/CarGenerationManagement.tsx';
+import CarManagement from './pages/admin/CarManagement.tsx';
 import CategoryManagement from './pages/admin/CategoryManagement.tsx';
 import ReportReview from './pages/admin/ReportReview.tsx';
 import UserManagement from './pages/admin/UserManagement.tsx';
@@ -82,6 +83,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/contact-us" element={<ContactUs />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/search" element={<Search />} />
           <Route path="/user/:userId" element={<ViewUser />} />
           <Route
@@ -118,11 +120,8 @@ function App() {
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/cars" element={<CarManagement />} />
           <Route path="/admin/categories" element={<CategoryManagement />} />
-          <Route
-            path="/admin/car-generations"
-            element={<CarGenerationManagement />}
-          />
           <Route path="/admin/reports" element={<ReportReview />} />
           <Route path="/admin/users" element={<UserManagement />} />
         </Routes>

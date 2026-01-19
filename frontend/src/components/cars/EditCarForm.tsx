@@ -5,6 +5,7 @@ import type { CarRead, CarUpdate } from '../../types/Api';
 import SecondaryButton from '../buttons/SecondaryButton';
 import ButtonStretch from '../buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
+import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 
 interface EditCarFormProps {
@@ -27,7 +28,8 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
   const [startYear, setStartYear] = useState<number | ''>(car.start_year);
   const [endYear, setEndYear] = useState<number | ''>(car.end_year);
   const [description, setDescription] = useState(car.description || '');
-  const [imageUrl, setImageUrl] = useState(car.image_url || '');
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [formMessage, setFormMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -47,7 +49,10 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
     setStartYear(car.start_year);
     setEndYear(car.end_year);
     setDescription(car.description || '');
-    setImageUrl(car.image_url || '');
+    // Note: car.image_url is now a presigned URL from the API
+    // We'll use it for display, but track file key separately
+    setImageFileKey(null);
+    setImageChanged(false);
     setApiError(null);
     setFormMessage(null);
   }, [car, setApiError]);
@@ -104,8 +109,12 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
       start_year: Number(startYear),
       end_year: Number(endYear),
       description: description.trim() || null,
-      image_url: imageUrl.trim() || null,
     };
+
+    // Only include image_url if it was changed (new file key uploaded)
+    if (imageChanged) {
+      payload.image_url = imageFileKey || null;
+    }
 
     // Always submit the data, even if no changes detected
     // This provides better UX and allows users to "save" without making changes
@@ -220,21 +229,21 @@ const EditCarForm: React.FC<EditCarFormProps> = ({
             placeholder="Optional description of this car generation"
           />
         </div>
-        <div>
-          <label
-            htmlFor="edit-image_url"
-            className="block text-sm font-medium text-neutral-300 mb-2"
-          >
-            Image URL (Optional)
-          </label>
-          <Input
-            type="url"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            disabled={isLoading}
-            placeholder="https://example.com/car-image.png"
-          />
-        </div>
+        <ImageUpload
+          currentImageUrl={car.image_url ?? null}
+          entityType="car"
+          entityId={car.id}
+          onImageUploaded={(fileKey) => {
+            setImageFileKey(fileKey);
+            setImageChanged(true);
+          }}
+          onImageRemoved={() => {
+            setImageFileKey(null);
+            setImageChanged(true);
+          }}
+          label="Car Image (Optional)"
+          maxSizeMB={10}
+        />
         {formMessage?.type === 'success' && (
           <ConfirmationAlert message={formMessage.text} />
         )}

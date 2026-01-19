@@ -32,6 +32,11 @@ python-multipart==0.0.20
 # Email service
 sendgrid==6.11.0
 
+# Image storage and processing (for Railway Storage Buckets)
+boto3==1.35.0
+boto3-stubs[s3]==1.35.0  # Type stubs for boto3 S3 client
+Pillow==10.4.0
+
 # Testing dependencies
 pytest==8.4.1
 pytest-asyncio==1.1.0

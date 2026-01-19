@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+from app.api.utils.image_utils import get_presigned_url_from_file_key
 
 
 # Schema for request body when creating/updating a build list
@@ -32,6 +34,11 @@ class BuildListRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("image_url")
+    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
+        """Convert file key to presigned URL when serializing response."""
+        return get_presigned_url_from_file_key(value)
 
 
 # Schema for response body when reading a build list with vote summary

@@ -33,7 +33,6 @@ function UserGlobalParts() {
 
   const {
     data: globalPartsResponse,
-    isLoading,
     error,
     executeRequest: fetchUserGlobalParts,
   } = useApiRequest(fetchUserGlobalPartsRequestFn);

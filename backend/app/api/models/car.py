@@ -7,6 +7,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
+    from .global_part import GlobalPart
     from .vote import Vote
 
 
@@ -25,7 +26,7 @@ class Car(Base):
     model: Mapped[str] = mapped_column(index=True, nullable=False)
     generation_name: Mapped[str] = mapped_column(nullable=False)  # e.g., "5th Gen", "MK7", "F30"
     start_year: Mapped[int] = mapped_column(nullable=False)
-    end_year: Mapped[int] = mapped_column(nullable=False)
+    end_year: Mapped[Optional[int]] = mapped_column(nullable=True)  # None for current/ongoing generations
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
 
@@ -34,6 +35,7 @@ class Car(Base):
 
     # Relationships
     build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car")
+    global_parts: Mapped[List["GlobalPart"]] = relationship("GlobalPart", back_populates="car")
     # votes
     votes: Mapped[List["Vote"]] = relationship(
         "Vote",

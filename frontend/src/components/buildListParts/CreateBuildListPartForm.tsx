@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListPartsApi, globalPartsApi } from '../../services/Api';
+import { buildListPartsApi, carsApi, globalPartsApi } from '../../services/Api';
 import type {
   BuildListPartCreate,
+  CarRead,
   GlobalPartCreate,
   GlobalPartRead,
 } from '../../types/Api';
@@ -13,6 +14,9 @@ import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import SearchableSelect, {
+  type SearchableSelectOption,
+} from '../common/SearchableSelect';
 
 interface CreateBuildListPartFormProps {
   buildListId: number;
@@ -21,6 +25,7 @@ interface CreateBuildListPartFormProps {
 }
 
 const fetchGlobalPartsRequestFn = () => globalPartsApi.getGlobalParts();
+const fetchCarsRequestFn = () => carsApi.listCars({ limit: 1000 });
 
 function CreateBuildListPartForm({
   buildListId,
@@ -39,6 +44,7 @@ function CreateBuildListPartForm({
     price: '',
     image_url: '',
     category_id: 1, // Default category
+    car_id: null as number | null,
     notes: '',
   });
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -46,6 +52,8 @@ function CreateBuildListPartForm({
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [addExistingError, setAddExistingError] = useState<string | null>(null);
+  const [cars, setCars] = useState<CarRead[]>([]);
+  const [isLoadingCars, setIsLoadingCars] = useState(true);
 
   const {
     data: globalParts,
@@ -54,14 +62,73 @@ function CreateBuildListPartForm({
     executeRequest: fetchGlobalParts,
   } = useApiRequest(fetchGlobalPartsRequestFn);
 
+  const {
+    data: carsData,
+    executeRequest: fetchCars,
+  } = useApiRequest(fetchCarsRequestFn);
+
   useEffect(() => {
     void fetchGlobalParts();
-  }, [fetchGlobalParts]);
+    void fetchCars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only fetch once on mount - request functions are stable
+
+  useEffect(() => {
+    if (carsData && Array.isArray(carsData)) {
+      setCars(carsData);
+      setIsLoadingCars(false);
+    }
+  }, [carsData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (validationError) setValidationError(null);
+  };
+
+  const handleCarChange = (carId: number | string | null) => {
+    const numericCarId = carId ? Number(carId) : null;
+    setFormData((prev) => ({ ...prev, car_id: numericCarId }));
+    if (validationError) setValidationError(null);
+  };
+
+  // Convert cars to SearchableSelectOption format
+  const carOptions: SearchableSelectOption[] = cars
+    .sort((a, b) => {
+      // Sort by make, then model, then generation
+      if (a.make !== b.make) {
+        return a.make.localeCompare(b.make);
+      }
+      if (a.model !== b.model) {
+        return a.model.localeCompare(b.model);
+      }
+      return a.generation_name.localeCompare(b.generation_name);
+    })
+    .map((car) => ({
+      id: car.id,
+      value: car.id,
+      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
+    }));
+
+  // Custom filter function that searches across make, model, generation, and years
+  const filterCars = (
+    options: SearchableSelectOption[],
+    searchText: string
+  ): SearchableSelectOption[] => {
+    if (!searchText.trim()) return options;
+    const lowerText = searchText.toLowerCase();
+    return options.filter((option) => {
+      const car = cars.find((c) => c.id === option.value);
+      if (!car) return false;
+      return (
+        car.make.toLowerCase().includes(lowerText) ||
+        car.model.toLowerCase().includes(lowerText) ||
+        car.generation_name.toLowerCase().includes(lowerText) ||
+        car.start_year.toString().includes(lowerText) ||
+        car.end_year.toString().includes(lowerText) ||
+        option.label.toLowerCase().includes(lowerText)
+      );
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,6 +150,7 @@ function CreateBuildListPartForm({
           price: formData.price ? parseFloat(formData.price) : null,
           image_url: formData.image_url.trim() || null,
           category_id: formData.category_id,
+          car_id: formData.car_id,
           brand: formData.brand.trim() || null,
           part_number: formData.part_number.trim() || null,
         };
@@ -249,6 +317,20 @@ function CreateBuildListPartForm({
             value={formData.image_url}
             onChange={handleInputChange}
             placeholder="https://example.com/image.jpg"
+          />
+
+          <SearchableSelect
+            id="global-part-car"
+            name="car_id"
+            label="Car Model (Optional)"
+            placeholder="Type to search for a car model..."
+            value={formData.car_id}
+            onChange={handleCarChange}
+            options={carOptions}
+            disabled={isLoadingCars}
+            isLoading={isLoadingCars}
+            emptyMessage="No cars found. Try a different search term."
+            filterOptions={filterCars}
           />
         </div>
       ) : (

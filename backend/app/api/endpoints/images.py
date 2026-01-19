@@ -1,0 +1,270 @@
+"""
+Image upload endpoint for Railway Storage Buckets.
+Handles secure image uploads with validation and authentication.
+"""
+
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
+
+from app.api.dependencies.auth import (
+    get_current_admin_user,
+    get_current_user,
+    get_optional_current_user,
+)
+from app.api.models.user import User as DBUser
+from app.api.services.storage_service import storage_service
+from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+@router.post("/upload")
+async def upload_image(
+    entity_type: str,
+    entity_id: Optional[int] = None,
+    file: UploadFile = File(...),
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """
+    Upload an image file to Railway Storage Bucket.
+
+    The file is validated for security (type, size, content) and stored
+    in Railway Storage Bucket. Returns the file key which should be stored
+    in your database. Use the /presigned-url endpoint to get a URL for displaying.
+
+    Args:
+        entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
+        entity_id: Optional ID of the entity (for updates)
+        file: Image file to upload
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+
+    Returns:
+        dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)
+
+    Raises:
+        HTTPException: If upload fails, validation fails, or user is not authenticated
+    """
+    # Validate entity_type
+    allowed_entity_types = ["build_list", "global_part", "user", "car"]
+    if entity_type not in allowed_entity_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid entity_type. Allowed types: {', '.join(allowed_entity_types)}",
+        )
+
+    # If entity_id is provided, verify the user owns the entity
+    if entity_id:
+        from app.api.models.build_list import BuildList as DBBuildList
+        from app.api.models.global_part import GlobalPart as DBGlobalPart
+
+        entity_owned = False
+        if entity_type == "build_list":
+            entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
+            if entity and entity.user_id == current_user.id:
+                entity_owned = True
+        elif entity_type == "global_part":
+            entity = db.query(DBGlobalPart).filter(DBGlobalPart.id == entity_id).first()
+            if entity and entity.user_id == current_user.id:
+                entity_owned = True
+        elif entity_type == "user":
+            # Users can only upload images for themselves
+            if entity_id == current_user.id:
+                entity_owned = True
+        elif entity_type == "car":
+            # Cars are centrally managed - only admins can upload images
+            if not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only admins can upload images for cars",
+                )
+            entity_owned = True
+
+        if not entity_owned:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Not authorized to upload images for this {entity_type}",
+            )
+
+    try:
+        # Upload image to Railway Storage Bucket
+        file_key = storage_service.upload_image(
+            file=file,
+            entity_type=entity_type,
+            user_id=current_user.id,
+            entity_id=entity_id,
+        )
+
+        # Generate presigned URL for immediate use
+        presigned_url = storage_service.get_presigned_url(file_key)
+
+        logger.info(f"User {current_user.id} uploaded image: {file_key}")
+
+        return {
+            "file_key": file_key,
+            "presigned_url": presigned_url,
+            "message": "Image uploaded successfully",
+        }
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors, etc.)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during image upload: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during image upload",
+        )
+
+
+@router.get("/presigned-url")
+async def get_presigned_url(
+    file_key: str,
+    expiration: Optional[int] = None,
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """
+    Generate a presigned URL for accessing an image in Railway Storage Bucket.
+
+    Since Railway buckets are private, presigned URLs are required to access images.
+    These URLs are temporary and expire after the specified time (default: 24 hours).
+
+    For security, if a user is authenticated, we verify they own the image.
+    Public access is allowed for images that may be shared (e.g., public build lists).
+
+    Args:
+        file_key: The file key stored in your database (from upload endpoint)
+        expiration: Optional expiration time in seconds (default: 24 hours, max: 90 days)
+        current_user: Optional authenticated user (for private images)
+        db: Database session
+
+    Returns:
+        dict: Contains 'presigned_url' for accessing the image
+
+    Raises:
+        HTTPException: If URL generation fails or user doesn't own the image
+    """
+    # Validate file key format and security
+    storage_service.validate_file_key(file_key)
+
+    # If user is authenticated, verify ownership
+    if current_user:
+        if not storage_service.verify_file_key_ownership(file_key, current_user.id):
+            logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this image",
+            )
+
+    try:
+        presigned_url = storage_service.get_presigned_url(file_key, expiration=expiration)
+
+        return {
+            "presigned_url": presigned_url,
+            "file_key": file_key,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate presigned URL: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate image URL",
+        )
+
+
+@router.delete("/delete")
+async def delete_image(
+    file_key: str,
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """
+    Delete an image from Railway Storage Bucket.
+
+    Only the owner of the image can delete it. Ownership is verified by checking
+    the user_hash embedded in the file_key.
+
+    Args:
+        file_key: The file key to delete
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: If deletion fails, user is not authenticated, or user doesn't own the image
+    """
+    # Validate file key format and security
+    storage_service.validate_file_key(file_key)
+
+    # Verify ownership before allowing deletion
+    if not storage_service.verify_file_key_ownership(file_key, current_user.id):
+        logger.warning(f"User {current_user.id} attempted to delete file_key they don't own: {file_key}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this image",
+        )
+
+    try:
+        success = storage_service.delete_image(file_key)
+
+        if success:
+            logger.info(f"User {current_user.id} deleted image: {file_key}")
+            return {"message": "Image deleted successfully", "file_key": file_key}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete image",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during image deletion",
+        )
+
+
+@router.get("/admin/count")
+async def get_bucket_object_count(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """
+    Get the total count of objects in the Railway Storage Bucket (admin only).
+
+    Args:
+        current_user: Authenticated admin user (from JWT token)
+        db: Database session
+
+    Returns:
+        dict: Contains 'count' with the total number of bucket objects
+
+    Raises:
+        HTTPException: If counting fails or user is not an admin
+    """
+    try:
+        count = storage_service.count_bucket_objects()
+        logger.info(f"Admin {current_user.id} retrieved bucket object count: {count}")
+        return {"count": count}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get bucket object count: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while counting bucket objects",
+        )

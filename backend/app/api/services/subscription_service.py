@@ -5,7 +5,6 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.car import Car
 from app.api.models.subscription import Subscription
 from app.api.models.user import User
 from app.api.schemas.subscription import SubscriptionStatus

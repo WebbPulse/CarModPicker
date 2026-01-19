@@ -8,6 +8,7 @@ import ButtonStretch from '../components/buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import CardInfoItem from '../components/common/CardInfoItem';
+import ImageUpload from '../components/common/ImageUpload';
 import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Divider from '../components/layout/Divider';
@@ -33,8 +34,9 @@ function Profile() {
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
-    image_url: '',
   });
+  const [imageFileKey, setImageFileKey] = useState<string | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
@@ -48,8 +50,10 @@ function Profile() {
         currentPassword: '',
         newPassword: '',
         confirmNewPassword: '',
-        image_url: user.image_url || '',
       });
+      // Note: user.image_url is now a presigned URL from the API
+      setImageFileKey(null);
+      setImageChanged(false);
     }
   }, [user]);
 
@@ -81,8 +85,9 @@ function Profile() {
         currentPassword: '',
         newPassword: '',
         confirmNewPassword: '',
-        image_url: user.image_url || '',
       });
+      setImageFileKey(null);
+      setImageChanged(false);
     }
   };
 
@@ -133,9 +138,9 @@ function Profile() {
       return;
     }
 
-    // Image URL
-    if (formData.image_url.trim() !== (user.image_url || '')) {
-      payload.image_url = formData.image_url.trim() || null; // Set to null if empty
+    // Image URL - only include if changed
+    if (imageChanged) {
+      payload.image_url = imageFileKey || null; // Set to null if removed
       hasChanges = true;
     }
 
@@ -294,16 +299,20 @@ function Profile() {
               required
               autoComplete="email"
             />
-            <Input
-              label="Profile Image URL (Optional)"
-              id="image_url"
-              name="image_url"
-              type="url"
-              value={formData.image_url}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              placeholder="https://example.com/your-image.png"
-              autoComplete="photo"
+            <ImageUpload
+              currentImageUrl={user.image_url ?? null}
+              entityType="user"
+              entityId={user.id}
+              onImageUploaded={(fileKey) => {
+                setImageFileKey(fileKey);
+                setImageChanged(true);
+              }}
+              onImageRemoved={() => {
+                setImageFileKey(null);
+                setImageChanged(true);
+              }}
+              label="Profile Image (Optional)"
+              maxSizeMB={10}
             />
             <Input
               label="New Password (leave blank to keep current)"

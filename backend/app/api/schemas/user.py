@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer
+
+from app.api.utils.image_utils import get_presigned_url_from_file_key
 
 
 # Schema for request body when creating a user
@@ -51,3 +53,8 @@ class UserRead(BaseModel):
     subscription_expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("image_url")
+    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
+        """Convert file key to presigned URL when serializing response."""
+        return get_presigned_url_from_file_key(value)

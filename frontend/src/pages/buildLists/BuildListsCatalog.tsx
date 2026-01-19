@@ -138,13 +138,20 @@ const BuildListsCatalog: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedMake('');
-                  setSelectedModel('');
-                  setSelectedGeneration(null);
+                  if (selectedModel) {
+                    // On generation page, go back to models
+                    setSelectedModel('');
+                    setSelectedGeneration(null);
+                  } else {
+                    // On model page, go back to manufacturers
+                    setSelectedMake('');
+                    setSelectedModel('');
+                    setSelectedGeneration(null);
+                  }
                 }}
                 className="text-indigo-400 hover:text-indigo-300 transition-colors"
               >
-                ← Back to Manufacturers
+                {selectedModel ? '← Back to Car Models' : '← Back to Manufacturers'}
               </button>
             ) : (
               'Select Manufacturer'
@@ -180,6 +187,14 @@ const BuildListsCatalog: React.FC = () => {
           {/* Layer 2: Model Selection */}
           {selectedMake && !selectedModel && (
             <>
+              <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
+                <div className="p-4">
+                  <p className="text-sm text-gray-400 mb-1">Selected Manufacturer</p>
+                  <h3 className="text-xl font-semibold text-indigo-400">
+                    {selectedMake}
+                  </h3>
+                </div>
+              </Card>
               <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
                 Select Model
               </h3>
@@ -211,6 +226,14 @@ const BuildListsCatalog: React.FC = () => {
           {/* Layer 3: Generation Selection */}
           {selectedMake && selectedModel && !selectedGeneration && (
             <>
+              <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
+                <div className="p-4">
+                  <p className="text-sm text-gray-400 mb-1">Selected Vehicle</p>
+                  <h3 className="text-xl font-semibold text-indigo-400">
+                    {selectedMake} {selectedModel}
+                  </h3>
+                </div>
+              </Card>
               <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
                 Select Generation
               </h3>

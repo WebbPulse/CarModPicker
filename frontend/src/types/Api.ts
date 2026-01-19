@@ -150,6 +150,7 @@ export interface GlobalPartCreate {
   price?: number | null;
   image_url?: string | null;
   category_id: number;
+  car_id?: number | null; // Optional car association
   brand?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -163,6 +164,7 @@ export interface GlobalPartRead {
   image_url?: string | null;
   category_id: number;
   user_id: number;
+  car_id?: number | null; // Optional car association
   brand?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -200,6 +202,7 @@ export interface GlobalPartUpdate {
   price?: number | null;
   image_url?: string | null;
   category_id?: number | null;
+  car_id?: number | null; // Optional car association
   brand?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -355,6 +358,7 @@ export interface BuildListPartRead {
   added_by: number;
   quantity: number;
   notes?: string | null;
+  purchased: boolean;
   added_at: string;
 }
 
@@ -365,6 +369,7 @@ export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
 export interface BuildListPartUpdate {
   quantity?: number | null;
   notes?: string | null;
+  purchased?: boolean | null;
 }
 
 // Auth interfaces
