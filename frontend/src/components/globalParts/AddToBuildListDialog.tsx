@@ -151,7 +151,7 @@ function AddToBuildListDialog({
               )}
               {globalPart.price !== null && globalPart.price !== undefined && (
                 <p className="text-sm font-medium text-green-400">
-                  ${globalPart.price.toFixed(2)}
+                  ${(globalPart.price / 100).toFixed(2)}
                 </p>
               )}
               {globalPart.description && (

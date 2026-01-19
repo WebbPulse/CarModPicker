@@ -373,6 +373,18 @@ function ViewGlobalPart() {
               <p>${part.price.toLocaleString()}</p>
             </CardInfoItem>
           )}
+          {part.product_url && (
+            <CardInfoItem label="Product URL:">
+              <a
+                href={part.product_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 underline break-all"
+              >
+                {part.product_url}
+              </a>
+            </CardInfoItem>
+          )}
           {part.specifications &&
             Object.keys(part.specifications).length > 0 && (
               <CardInfoItem label="Specifications:">

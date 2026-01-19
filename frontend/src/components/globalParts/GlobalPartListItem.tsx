@@ -40,7 +40,7 @@ const GlobalPartListItem: React.FC<GlobalPartListItemProps> = ({ part }) => {
               <div>
                 {/* Optional: you can remove the "Price: " label if it's implied */}
                 <span className="text-gray-300 font-semibold text-lg">
-                  ${part.price.toFixed(2)}
+                  ${(part.price / 100).toFixed(2)}
                 </span>
               </div>
             )}

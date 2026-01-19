@@ -73,13 +73,23 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     # Use NullPool for migrations to avoid connection pool issues
     # Add connect_args for better Railway compatibility
+    # Only use PostgreSQL-specific args if using PostgreSQL
+    from urllib.parse import urlparse
+
+    parsed = urlparse(str(DATABASE_URL))
+    is_postgres = parsed.scheme in ("postgresql", "postgresql+psycopg2", "postgresql+asyncpg")
+
+    connect_args = {}
+    if is_postgres:
+        connect_args = {
+            "connect_timeout": 10,  # 10 second connection timeout
+            "options": "-c statement_timeout=30000",  # 30 second statement timeout
+        }
+
     connectable = create_engine(
         str(DATABASE_URL),
         poolclass=pool.NullPool,
-        connect_args={
-            "connect_timeout": 10,  # 10 second connection timeout
-            "options": "-c statement_timeout=30000",  # 30 second statement timeout
-        },
+        connect_args=connect_args,
     )
 
     with connectable.connect() as connection:

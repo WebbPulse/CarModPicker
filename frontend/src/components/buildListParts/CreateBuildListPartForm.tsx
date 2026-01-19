@@ -42,6 +42,7 @@ function CreateBuildListPartForm({
     brand: '',
     description: '',
     price: '',
+    product_url: '',
     category_id: 1, // Default category
     car_id: null as number | null,
     notes: '',
@@ -82,6 +83,37 @@ function CreateBuildListPartForm({
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (validationError) setValidationError(null);
+  };
+
+  const handlePriceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value.trim();
+    if (value === '') {
+      setFormData((prev) => ({ ...prev, price: '' }));
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      const formatted = numValue.toFixed(2);
+      setFormData((prev) => ({ ...prev, price: formatted }));
+    }
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    // Allow empty value
+    if (value === '') {
+      setFormData((prev) => ({ ...prev, price: '' }));
+      if (validationError) setValidationError(null);
+      return;
+    }
+
+    // Allow only numbers and one decimal point
+    if (/^\d*\.?\d*$/.test(value)) {
+      // Store the raw value while typing - don't format until blur
+      setFormData((prev) => ({ ...prev, price: value }));
+      if (validationError) setValidationError(null);
+    }
   };
 
   const handleCarChange = useCallback(
@@ -140,7 +172,7 @@ function CreateBuildListPartForm({
       .map((part) => ({
         id: part.id,
         value: part.id,
-        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}${part.price ? ` - $${part.price.toFixed(2)}` : ''}`,
+        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}${part.price ? ` - $${(part.price / 100).toFixed(2)}` : ''}`,
       }));
   }, [globalParts]);
 
@@ -194,8 +226,11 @@ function CreateBuildListPartForm({
         const globalPartData: GlobalPartCreate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          price: formData.price ? parseFloat(formData.price) : null,
+          price: formData.price
+            ? Math.round(parseFloat(formData.price) * 100)
+            : null,
           image_url: imageFileKey || null,
+          product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
           car_id: formData.car_id,
           brand: formData.brand.trim() || null,
@@ -271,6 +306,7 @@ function CreateBuildListPartForm({
         brand: '',
         description: '',
         price: '',
+        product_url: '',
         category_id: 1,
         car_id: null,
         notes: '',
@@ -392,12 +428,22 @@ function CreateBuildListPartForm({
             label="Price"
             id="global-part-price"
             name="price"
-            type="number"
+            type="text"
             value={formData.price}
-            onChange={handleInputChange}
+            onChange={handlePriceChange}
+            onBlur={handlePriceBlur}
             placeholder="0.00"
-            step="0.01"
-            min="0"
+            leftIcon={<span className="text-white/80 font-medium">$</span>}
+          />
+
+          <Input
+            label="Product URL"
+            id="global-part-product-url"
+            name="product_url"
+            type="url"
+            value={formData.product_url}
+            onChange={handleInputChange}
+            placeholder="https://example.com/product"
           />
 
           <ImageUpload
@@ -546,7 +592,7 @@ function CreateBuildListPartForm({
                               {selectedPart.price && (
                                 <div className="ml-4 text-right flex-shrink-0">
                                   <span className="text-lg font-semibold text-green-400">
-                                    ${selectedPart.price.toFixed(2)}
+                                    ${(selectedPart.price / 100).toFixed(2)}
                                   </span>
                                 </div>
                               )}

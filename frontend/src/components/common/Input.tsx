@@ -5,6 +5,7 @@ interface InputProps {
   placeholder?: string;
   value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   className?: string;
   error?: string;
   success?: boolean;
@@ -38,6 +39,7 @@ const Input: React.FC<InputProps> = ({
   placeholder,
   value,
   onChange,
+  onBlur,
   className = '',
   error,
   success = false,
@@ -139,6 +141,7 @@ const Input: React.FC<InputProps> = ({
           placeholder={placeholder}
           value={value?.toString() ?? ''}
           onChange={onChange}
+          onBlur={onBlur}
           disabled={disabled}
           required={required}
           autoComplete={autoComplete}

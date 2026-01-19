@@ -32,6 +32,27 @@ function EditGlobalPart() {
     }
   }, [partId, fetchPart]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('EditGlobalPart state:', {
+      part,
+      partApiError,
+      isLoadingPart,
+      partId,
+    });
+    if (part) {
+      console.log('Part loaded:', part);
+      console.log(
+        'Part has product_url:',
+        'product_url' in part,
+        (part as any).product_url
+      );
+    }
+    if (partApiError) {
+      console.error('Part API Error:', partApiError);
+    }
+  }, [part, partApiError, isLoadingPart, partId]);
+
   const handlePartUpdated = async () => {
     if (partId) {
       await fetchPart(partId);
@@ -102,6 +123,21 @@ function EditGlobalPart() {
         <PageHeader title="Edit Part" />
         <Card>
           <ErrorAlert message="You don't have permission to edit this part." />
+          <div className="mt-4">
+            <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Safety check - ensure part has required fields
+  if (!part || !part.id || !part.name) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <PageHeader title="Edit Part" />
+        <Card>
+          <ErrorAlert message="Invalid part data received. Please try again." />
           <div className="mt-4">
             <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
           </div>
