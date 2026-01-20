@@ -183,7 +183,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
   const handleTogglePurchased = useCallback(
     async (buildListPart: BuildListPartReadWithGlobalPart) => {
-      if (!canManageParts || !localBuildListParts) return;
+      if (!canManageParts) return;
 
       const newPurchasedStatus = !buildListPart.purchased;
 
@@ -217,7 +217,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         });
       }
     },
-    [canManageParts, localBuildListParts, buildListId]
+    [canManageParts, buildListId]
   );
 
   // Wrapper to match the expected void return type
