@@ -68,7 +68,7 @@ base_router = BaseEndpointRouter(
 @router.get(
     "/with-votes",
     response_model=Dict[str, Any],
-    responses=pagination_responses("build list", allow_public_read=False),
+    responses=pagination_responses("build list", allow_public_read=True),
 )
 async def read_build_lists_with_votes(
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
@@ -236,34 +236,34 @@ async def read_build_lists_with_votes(
     )
 
 
-# Override the GET endpoint to allow read access for all authenticated users
+# Override the GET endpoint to allow public read access
 # (but keep update/delete restricted to owners)
 @router.get(
     "/{build_list_id}",
     response_model=BuildListRead,
     responses={
         200: {"description": "Build list retrieved successfully"},
-        401: {"description": "Authentication required"},
         404: {"description": "Build list not found"},
     },
 )
 async def read_build_list(
     build_list_id: int,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BuildListRead:
     """
     Retrieve a build list by ID.
-    All authenticated users can view any build list (read-only).
+    Public read access - anyone can view build lists.
     Only owners can edit or delete.
     """
     db = deps["db"]
     logger = deps["logger"]
 
-    # Allow read access for all authenticated users - just verify it exists
+    # Allow public read access - just verify it exists
     build_list = verify_entity_exists(db, DBBuildList, build_list_id, "build list")
 
-    logger.info(f"User {current_user.id} retrieved build list {build_list_id}")
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info} retrieved build list {build_list_id}")
     return BuildListRead.model_validate(build_list)
 
 
@@ -271,18 +271,18 @@ async def read_build_list(
 @router.get(
     "/car/{car_id}",
     response_model=List[BuildListRead],
-    responses=pagination_responses("build list", allow_public_read=False),
+    responses=pagination_responses("build list", allow_public_read=True),
 )
 async def read_build_lists_by_car(
     car_id: int,
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListRead]:
     """
     Retrieve all build lists associated with a specific car with pagination.
-    Since cars are now centrally managed, any authenticated user can view build lists for any car.
+    Public read access - anyone can view build lists for any car.
     """
     db = deps["db"]
     logger = deps["logger"]
@@ -293,10 +293,11 @@ async def read_build_lists_by_car(
     get_entity_or_404(db, DBCar, car_id, "car")
 
     build_lists = db.query(DBBuildList).filter(DBBuildList.car_id == car_id).offset(skip).limit(limit).all()
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     if not build_lists:
-        logger.info(f"No Build Lists found for car with id {car_id}")
+        logger.info(f"{user_info}: No Build Lists found for car with id {car_id}")
     else:
-        logger.info(msg=f"Build Lists retrieved for car {car_id}: {build_lists}")
+        logger.info(msg=f"{user_info}: Build Lists retrieved for car {car_id}: {build_lists}")
     return [BuildListRead.model_validate(build_list) for build_list in build_lists]
 
 

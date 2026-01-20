@@ -96,6 +96,7 @@ function App() {
           />
           <Route path="/cars/:carId" element={<ViewCar />} />
           <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
+          <Route path="/build-lists" element={<BuildListsCatalog />} />
           <Route
             path="/global-parts/:partId/edit"
             element={<EditGlobalPart />}
@@ -114,7 +115,6 @@ function App() {
                 element={<SubscriptionManagement />}
               />
               <Route path="/my-global-parts" element={<UserGlobalParts />} />
-              <Route path="/build-lists" element={<BuildListsCatalog />} />
             </Route>
           </Route>
 

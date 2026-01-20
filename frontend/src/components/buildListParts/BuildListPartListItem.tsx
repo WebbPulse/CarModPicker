@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type {
   BuildListPartReadWithGlobalPart,
   CategoryResponse,
@@ -30,6 +30,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
     canDelete = false,
     canMarkPurchased = false,
   }) => {
+    const navigate = useNavigate();
     const { global_part, notes, quantity, purchased } = buildListPart;
 
     // Prices are stored in cents, so we keep them in cents for calculations
@@ -51,8 +52,33 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
       ? 'grid-cols-[auto_1fr_auto_auto]'
       : 'grid-cols-[1fr_auto_auto]';
 
+    const handleCardClick = () => {
+      navigate(`/global-parts/${global_part.id}`);
+    };
+
+    const handleCardClickWithCheck = (e: React.MouseEvent<HTMLDivElement>) => {
+      // Only navigate if the click wasn't on an interactive element
+      const target = e.target as HTMLElement;
+      const isInteractiveElement =
+        target.closest('button') ||
+        target.closest('a') ||
+        target.closest('input') ||
+        target.closest('label');
+      
+      if (!isInteractiveElement) {
+        handleCardClick();
+      }
+    };
+
+    const handleInteractiveClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+    };
+
     return (
-      <Card className={`py-1 px-2 ${purchased ? 'opacity-60' : ''}`}>
+      <div onClick={handleCardClickWithCheck}>
+        <Card
+          className={`py-1 px-2 ${purchased ? 'opacity-60' : ''} cursor-pointer hover:border-blue-500 transition-colors`}
+        >
         <div className={`grid ${gridCols} items-center gap-3`}>
           {/* Purchased checkbox */}
           {showCheckbox && (
@@ -62,11 +88,15 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                 title={
                   purchased ? 'Mark as not purchased' : 'Mark as purchased'
                 }
+                onClick={handleInteractiveClick}
               >
                 <input
                   type="checkbox"
                   checked={purchased}
-                  onChange={() => onTogglePurchased?.(buildListPart)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onTogglePurchased?.(buildListPart);
+                  }}
                   className="sr-only peer"
                   aria-label={
                     purchased ? 'Mark as not purchased' : 'Mark as purchased'
@@ -99,6 +129,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                 <Link
                   to={`/global-parts/${global_part.id}`}
                   className="hover:text-blue-400 transition-colors"
+                  onClick={handleInteractiveClick}
                 >
                   {global_part.name}
                 </Link>
@@ -125,7 +156,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
           <div className="flex items-center gap-1.5 flex-shrink-0 w-32 justify-end">
             {canEdit && onEdit && (
               <SecondaryButton
-                onClick={() => onEdit(buildListPart)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(buildListPart);
+                }}
                 className="text-xs px-1.5 py-0.5"
               >
                 Edit
@@ -133,7 +167,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
             )}
             {canDelete && onDelete && (
               <ActionButton
-                onClick={() => onDelete(buildListPart.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(buildListPart.id);
+                }}
                 className="text-xs px-1.5 py-0.5 bg-red-600 hover:bg-red-700"
               >
                 Remove
@@ -169,6 +206,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
           </div>
         </div>
       </Card>
+      </div>
     );
   },
   (prevProps, nextProps) => {
