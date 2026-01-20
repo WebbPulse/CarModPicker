@@ -1,4 +1,10 @@
-from .auth import NewPassword
+from .auth import (
+    NewPassword,
+    TOTPLoginRequest,
+    TOTPSetupResponse,
+    TOTPVerifyRequest,
+    TOTPVerifyResponse,
+)
 from .build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from .build_list_part import BuildListPartCreate, BuildListPartRead, BuildListPartUpdate
 from .car import CarCreate, CarRead, CarUpdate
@@ -44,6 +50,10 @@ __all__ = [
     "Token",
     "TokenData",
     "NewPassword",
+    "TOTPSetupResponse",
+    "TOTPVerifyRequest",
+    "TOTPVerifyResponse",
+    "TOTPLoginRequest",
     "CarRead",
     "CarCreate",
     "CarUpdate",

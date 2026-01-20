@@ -9,11 +9,12 @@ import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import CardInfoItem from '../components/common/CardInfoItem';
 import ImageUpload from '../components/common/ImageUpload';
-import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Divider from '../components/layout/Divider';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
+import ChangePasswordDialog from '../components/profile/ChangePasswordDialog';
+import TwoFactorAuthDialog from '../components/profile/TwoFactorAuthDialog';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../services/Api';
@@ -28,13 +29,8 @@ function Profile() {
   } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmNewPassword: '',
-  });
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
@@ -44,13 +40,6 @@ function Profile() {
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        username: user.username,
-        email: user.email,
-        currentPassword: '',
-        newPassword: '',
-        confirmNewPassword: '',
-      });
       // Note: user.image_url is now a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
@@ -67,25 +56,11 @@ function Profile() {
     setError: setUpdateApiError,
   } = useApiRequest(updateUserRequestFn);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setUpdateApiError(null);
-    setStatusMessage(null);
-  };
-
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
     setUpdateApiError(null);
     setStatusMessage(null);
     if (user) {
-      setFormData({
-        username: user.username,
-        email: user.email,
-        currentPassword: '',
-        newPassword: '',
-        confirmNewPassword: '',
-      });
       setImageFileKey(null);
       setImageChanged(false);
     }
@@ -97,46 +72,8 @@ function Profile() {
     setUpdateApiError(null);
     setStatusMessage(null);
 
-    if (!formData.currentPassword.trim()) {
-      setUpdateApiError('Current password is required to save changes.');
-      return;
-    }
-
-    const payload: UserUpdate = {
-      current_password: formData.currentPassword,
-    };
+    const payload: UserUpdate = {};
     let hasChanges = false;
-
-    // Username
-    if (formData.username && formData.username.trim() !== user.username) {
-      if (!formData.username.trim()) {
-        setUpdateApiError('Username cannot be empty.');
-        return;
-      }
-      payload.username = formData.username.trim();
-      hasChanges = true;
-    } else if (formData.username === '' && user.username !== '') {
-      // If user explicitly clears username, and it was not empty before
-      setUpdateApiError('Username cannot be empty.');
-      return;
-    }
-
-    // Email
-    if (formData.email && formData.email.trim() !== user.email) {
-      if (!formData.email.trim()) {
-        setUpdateApiError('Email cannot be empty.');
-        return;
-      }
-      if (!/\S+@\S+\.\S+/.test(formData.email.trim())) {
-        setUpdateApiError('Please enter a valid email address.');
-        return;
-      }
-      payload.email = formData.email.trim();
-      hasChanges = true;
-    } else if (formData.email === '' && user.email !== '') {
-      setUpdateApiError('Email cannot be empty.');
-      return;
-    }
 
     // Image URL - only include if changed
     if (imageChanged) {
@@ -144,32 +81,12 @@ function Profile() {
       hasChanges = true;
     }
 
-    // New Password
-    if (formData.newPassword) {
-      if (!formData.newPassword.trim()) {
-        setUpdateApiError('New password cannot be empty.');
-        return;
-      }
-      if (formData.newPassword !== formData.confirmNewPassword) {
-        setUpdateApiError("New passwords don't match.");
-        return;
-      }
-      payload.password = formData.newPassword; // API expects 'password' for the new password
-      hasChanges = true;
-    } else if (formData.confirmNewPassword) {
-      // If confirmNewPassword is set but newPassword is not
-      setUpdateApiError(
-        'New password is required if confirm new password is provided.'
-      );
-      return;
-    }
-
     if (!hasChanges) {
       setStatusMessage({
         type: 'info',
         message:
           'No changes were detected in your profile information. ' +
-          'To save, please modify the fields you wish to change and provide your current password.',
+          'To save, please modify the fields you wish to change.',
       });
       return;
     }
@@ -235,7 +152,7 @@ function Profile() {
                   <img
                     src={user.image_url}
                     alt={`${user.username}'s profile`}
-                    className="h-48 w-48 object-cover"
+                    className="h-48 w-48 rounded-lg object-cover"
                   />
                 ) : (
                   <p className="text-gray-400">No image set.</p>
@@ -267,38 +184,47 @@ function Profile() {
               <CardInfoItem label="Account Status">
                 <p>{user.disabled ? 'Disabled' : 'Active'}</p>
               </CardInfoItem>
+              <CardInfoItem label="Two-Factor Authentication">
+                {user.totp_enabled ? (
+                  <ConfirmationAlert message="Enabled" />
+                ) : (
+                  <ErrorAlert message="Disabled" />
+                )}
+              </CardInfoItem>
             </div>
-            <ActionButton onClick={handleEditToggle} className="mr-2">
-              Edit Profile
-            </ActionButton>
+            <div className="flex space-x-2">
+              <ActionButton onClick={handleEditToggle} className="mr-2">
+                Edit Profile
+              </ActionButton>
+              <ActionButton
+                onClick={() => setIsPasswordDialogOpen(true)}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Change Password
+              </ActionButton>
+              <ActionButton
+                onClick={() => setIs2FADialogOpen(true)}
+                className={user.totp_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'}
+              >
+                {user.totp_enabled ? 'Manage 2FA' : 'Enable 2FA'}
+              </ActionButton>
+            </div>
           </>
         ) : (
           <form
             onSubmit={(e) => void handleSubmit(e)}
             className="space-y-6 mb-6"
           >
-            <Input
-              label="Username"
-              id="username"
-              name="username"
-              type="text"
-              value={formData.username}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              required
-              autoComplete="username"
-            />
-            <Input
-              label="Email"
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              required
-              autoComplete="email"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
+              <CardInfoItem label="Username:">
+                <p className="text-gray-400">{user.username}</p>
+                <p className="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+              </CardInfoItem>
+              <CardInfoItem label="Email:">
+                <p className="text-gray-400">{user.email}</p>
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+              </CardInfoItem>
+            </div>
             <ImageUpload
               currentImageUrl={user.image_url ?? null}
               entityType="user"
@@ -313,38 +239,6 @@ function Profile() {
               }}
               label="Profile Image (Optional)"
               maxSizeMB={10}
-            />
-            <Input
-              label="New Password (leave blank to keep current)"
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              value={formData.newPassword}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              autoComplete="new-password"
-            />
-            <Input
-              label="Confirm New Password"
-              id="confirmNewPassword"
-              name="confirmNewPassword"
-              type="password"
-              value={formData.confirmNewPassword}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              autoComplete="new-password"
-            />
-            <Divider />
-            <Input
-              label="Current Password (required to save any changes)"
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              value={formData.currentPassword}
-              onChange={handleInputChange}
-              disabled={isUpdating}
-              required
-              autoComplete="current-password"
             />
             <div className="flex space-x-2 pt-2">
               <ButtonStretch type="submit" disabled={isUpdating}>
@@ -397,6 +291,42 @@ function Profile() {
           </ActionButton>
         </div>
       </Card>
+
+      {user && (
+        <>
+          <ChangePasswordDialog
+            isOpen={isPasswordDialogOpen}
+            onClose={() => setIsPasswordDialogOpen(false)}
+            onPasswordChanged={() => {
+              setStatusMessage({
+                type: 'success',
+                message: 'Password changed successfully!',
+              });
+              void checkAuthStatus();
+            }}
+            userId={user.id}
+          />
+          <TwoFactorAuthDialog
+            isOpen={is2FADialogOpen}
+            onClose={() => setIs2FADialogOpen(false)}
+            onEnabled={() => {
+              setStatusMessage({
+                type: 'success',
+                message: '2FA enabled successfully!',
+              });
+              void checkAuthStatus();
+            }}
+            onDisabled={() => {
+              setStatusMessage({
+                type: 'success',
+                message: '2FA disabled successfully!',
+              });
+              void checkAuthStatus();
+            }}
+            isEnabled={user.totp_enabled}
+          />
+        </>
+      )}
     </div>
   );
 }

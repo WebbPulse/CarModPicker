@@ -30,6 +30,7 @@ import CategoryManagement from './pages/admin/CategoryManagement.tsx';
 import ReportReview from './pages/admin/ReportReview.tsx';
 import UserManagement from './pages/admin/UserManagement.tsx';
 import BuildListsCatalog from './pages/buildLists/BuildListsCatalog.tsx';
+import ViewBuildLog from './pages/buildLists/ViewBuildLog.tsx';
 import ViewBuildList from './pages/builder/ViewBuildlist.tsx';
 import ViewGlobalPart from './pages/builder/ViewGlobalPart.tsx';
 import EditGlobalPart from './pages/globalParts/EditGlobalPart.tsx';
@@ -96,6 +97,7 @@ function App() {
           />
           <Route path="/cars/:carId" element={<ViewCar />} />
           <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
+          <Route path="/build-lists/:buildListId/build-log" element={<ViewBuildLog />} />
           <Route path="/build-lists" element={<BuildListsCatalog />} />
           <Route
             path="/global-parts/:partId/edit"

@@ -20,6 +20,7 @@ export interface UserRead {
   subscription_tier: string;
   subscription_status: string;
   subscription_expires_at?: string | null;
+  totp_enabled: boolean;
 }
 
 export interface UserCreate {
@@ -34,7 +35,7 @@ export interface UserUpdate {
   disabled?: boolean | null;
   password?: string | null;
   image_url?: string | null;
-  current_password: string;
+  current_password?: string | null;
 }
 
 export interface AdminUserUpdate {
@@ -141,6 +142,34 @@ export interface BuildListUpdate {
   description?: string | null;
   car_id?: number | null;
   image_url?: string | null;
+}
+
+// Build Log interfaces
+export interface BuildLogPostCreate {
+  content: string;
+}
+
+export interface BuildLogPostUpdate {
+  content?: string | null;
+}
+
+export interface BuildLogPostRead {
+  id: number;
+  build_log_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  author_username?: string | null;
+}
+
+export interface BuildLogRead {
+  id: number;
+  build_list_id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  posts: BuildLogPostRead[];
 }
 
 // Updated Part interfaces to match new backend schema
@@ -395,4 +424,34 @@ export interface BodyVerifyEmail {
 
 export interface BodyResetPassword {
   email: string;
+}
+
+// 2FA types
+export interface TOTPSetupResponse {
+  secret: string;
+  qr_code_data: string;
+  manual_entry_key: string;
+}
+
+export interface TOTPVerifyRequest {
+  otp: string;
+}
+
+export interface TOTPVerifyResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface TOTPLoginRequest {
+  username: string;
+  password: string;
+  otp: string;
+}
+
+export interface LoginResponse {
+  access_token?: string;
+  token_type?: string;
+  user?: UserRead;
+  requires_2fa?: boolean;
+  message?: string;
 }

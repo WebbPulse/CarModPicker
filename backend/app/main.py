@@ -11,6 +11,7 @@ from .api.endpoints import (
     auth,
     build_list_parts,
     build_lists,
+    build_logs,
     cars,
     categories,
     global_parts,
@@ -222,6 +223,14 @@ endpoint_registry.register_endpoint(
     prefix="/images",
     tags=["images"],
     description="Image upload and management operations using Railway Storage Buckets",
+)
+
+# Build logs endpoint
+endpoint_registry.register_endpoint(
+    build_logs.router,
+    prefix="/build-logs",
+    tags=["build-logs"],
+    description="Forum-style build log threads for build lists",
 )
 
 

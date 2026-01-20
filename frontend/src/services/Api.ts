@@ -12,6 +12,10 @@ import type {
   BuildListRead,
   BuildListReadWithVotes,
   BuildListUpdate,
+  BuildLogPostCreate,
+  BuildLogPostRead,
+  BuildLogPostUpdate,
+  BuildLogRead,
   CarCreate,
   CarGenerationCreate,
   CarGenerationRead,
@@ -26,6 +30,7 @@ import type {
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
+  LoginResponse,
   NewPassword,
   PaginatedResponse,
   ReportCreate,
@@ -34,6 +39,10 @@ import type {
   ReportWithDetails,
   SubscriptionResponse,
   SubscriptionStatus,
+  TOTPLoginRequest,
+  TOTPSetupResponse,
+  TOTPVerifyRequest,
+  TOTPVerifyResponse,
   UpgradeRequest,
   UserCreate,
   UserRead,
@@ -140,6 +149,18 @@ export const usersApi = {
     apiClient.put<UserRead>(`/users/${userId}`, data),
   deleteUser: (userId: number) =>
     apiClient.delete<UserRead>(`/users/${userId}`),
+
+  // Profile picture endpoints
+  uploadProfilePicture: (file: File): Promise<{ data: UserRead }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<UserRead>('/users/me/profile-picture', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  deleteProfilePicture: () => apiClient.delete<UserRead>('/users/me/profile-picture'),
 
   // List and count endpoints
   listUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
@@ -583,14 +604,32 @@ export const subscriptionsApi = {
 export const authApi = {
   login: async (
     data: BodyLoginForAccessToken
+  ): Promise<AxiosResponse<UserRead | LoginResponse>> => {
+    const response = await apiClient.post<LoginResponse>('/auth/token', data, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    // If 2FA is required, return the response as-is
+    if (response.data.requires_2fa) {
+      return response;
+    }
+    // Store the token
+    if (response.data.access_token) {
+      setStoredToken(response.data.access_token);
+    }
+    // Return response with user data as the main data field
+    return {
+      ...response,
+      data: response.data.user!,
+    } as AxiosResponse<UserRead>;
+  },
+  loginWith2FA: async (
+    data: TOTPLoginRequest
   ): Promise<AxiosResponse<UserRead>> => {
     const response = await apiClient.post<{
       access_token: string;
       token_type: string;
       user: UserRead;
-    }>('/auth/token', data, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    }>('/auth/token/2fa', data);
     // Store the token
     if (response.data.access_token) {
       setStoredToken(response.data.access_token);
@@ -601,6 +640,12 @@ export const authApi = {
       data: response.data.user,
     } as AxiosResponse<UserRead>;
   },
+  setup2FA: () =>
+    apiClient.post<TOTPSetupResponse>('/auth/2fa/setup'),
+  verify2FA: (data: TOTPVerifyRequest) =>
+    apiClient.post<TOTPVerifyResponse>('/auth/2fa/verify', data),
+  disable2FA: () =>
+    apiClient.post<Record<string, string>>('/auth/2fa/disable'),
   verifyEmail: (data: BodyVerifyEmail) =>
     apiClient.post<Record<string, string>>('/auth/verify-email', data),
   verifyEmailConfirm: (token: string) =>
@@ -718,6 +763,18 @@ export const imageApi = {
 
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
+};
+
+// Build Logs API
+export const buildLogsApi = {
+  getBuildLogByBuildList: (buildListId: number) =>
+    apiClient.get<BuildLogRead>(`/build-logs/build-list/${buildListId}`),
+  createBuildLogPost: (buildListId: number, data: BuildLogPostCreate) =>
+    apiClient.post<BuildLogPostRead>(`/build-logs/build-list/${buildListId}/posts`, data),
+  updateBuildLogPost: (postId: number, data: BuildLogPostUpdate) =>
+    apiClient.put<BuildLogPostRead>(`/build-logs/posts/${postId}`, data),
+  deleteBuildLogPost: (postId: number) =>
+    apiClient.delete<{ message: string }>(`/build-logs/posts/${postId}`),
 };
 
 export default apiClient;

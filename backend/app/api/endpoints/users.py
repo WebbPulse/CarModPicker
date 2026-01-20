@@ -9,7 +9,7 @@ hashing and admin management.
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,7 @@ from app.api.schemas.user import (
     UserRead,
     UserUpdate,
 )
+from app.api.services.storage_service import storage_service
 from app.api.services.user_service import UserService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
@@ -53,6 +54,127 @@ async def read_users_me_route(
     Fetch the current logged in user.
     """
     return current_user
+
+
+@router.post("/me/profile-picture", response_model=UserRead)
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> UserRead:
+    """
+    Upload a profile picture for the current user.
+
+    This endpoint uploads the image to storage and automatically updates
+    the user's image_url field. If the user already has a profile picture,
+    the old one will be deleted from storage.
+
+    Args:
+        file: Image file to upload
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+        logger: Logger instance
+
+    Returns:
+        UserRead: Updated user object with new profile picture URL
+
+    Raises:
+        HTTPException: If upload fails or validation fails
+    """
+    try:
+        # Upload image to storage with square aspect ratio enforcement
+        file_key = storage_service.upload_image(
+            file=file,
+            entity_type="user",
+            user_id=current_user.id,
+            entity_id=current_user.id,
+            force_square=True,  # Enforce square aspect ratio for profile pictures
+        )
+
+        # Delete old profile picture if it exists
+        if current_user.image_url:
+            try:
+                storage_service.delete_image(current_user.image_url)
+                logger.info(f"Deleted old profile picture for user {current_user.id}: {current_user.image_url}")
+            except Exception as e:
+                # Log but don't fail if old image deletion fails
+                logger.warning(f"Failed to delete old profile picture for user {current_user.id}: {str(e)}")
+
+        # Update user's image_url
+        current_user.image_url = file_key
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"User {current_user.id} uploaded new profile picture: {file_key}")
+        return UserRead.model_validate(current_user)
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors, etc.)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during profile picture upload: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during profile picture upload",
+        )
+
+
+@router.delete("/me/profile-picture", response_model=UserRead)
+async def delete_profile_picture(
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> UserRead:
+    """
+    Delete the current user's profile picture.
+
+    This endpoint removes the profile picture from storage and clears
+    the user's image_url field.
+
+    Args:
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+        logger: Logger instance
+
+    Returns:
+        UserRead: Updated user object with profile picture removed
+
+    Raises:
+        HTTPException: If deletion fails
+    """
+    if not current_user.image_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile picture found to delete",
+        )
+
+    try:
+        # Delete image from storage
+        storage_service.delete_image(current_user.image_url)
+
+        # Clear user's image_url
+        old_file_key = current_user.image_url
+        current_user.image_url = None
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"User {current_user.id} deleted profile picture: {old_file_key}")
+        return UserRead.model_validate(current_user)
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during profile picture deletion: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during profile picture deletion",
+        )
 
 
 # Create base endpoint router AFTER /me to avoid route collision
@@ -144,9 +266,13 @@ async def update_user(
         logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    if user.current_password and not verify_password(user.current_password, db_user.hashed_password):
-        logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-        ResponsePatterns.raise_unauthorized("Incorrect current password")
+    # Only require current_password if password is being changed
+    if "password" in user.model_dump(exclude_unset=True) and user.model_dump(exclude_unset=True)["password"]:
+        if not user.current_password:
+            ResponsePatterns.raise_bad_request("Current password is required to change your password")
+        if not verify_password(user.current_password, db_user.hashed_password):
+            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
+            ResponsePatterns.raise_unauthorized("Incorrect current password")
 
     update_data = user.model_dump(
         exclude_unset=True, exclude={"current_password"}

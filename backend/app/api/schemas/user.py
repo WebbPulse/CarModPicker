@@ -20,7 +20,7 @@ class UserUpdate(BaseModel):
     disabled: Optional[bool] = None
     password: Optional[str] = None
     image_url: Optional[str] = None
-    current_password: str
+    current_password: Optional[str] = None
 
 
 # Schema for admin operations when updating a user
@@ -51,6 +51,7 @@ class UserRead(BaseModel):
     subscription_tier: str
     subscription_status: str
     subscription_expires_at: Optional[datetime] = None
+    totp_enabled: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
