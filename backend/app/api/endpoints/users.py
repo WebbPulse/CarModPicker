@@ -402,11 +402,15 @@ async def update_user(
     if password_is_being_changed:
         if not current_password_provided:
             ResponsePatterns.raise_bad_request("Current password is required to change your password")
+        # Type guard: current_password is guaranteed to be not None here
+        assert user.current_password is not None
         if not verify_password(user.current_password, db_user.hashed_password):
             logger.warning(f"User {current_user.id} provided incorrect current password for update.")
             ResponsePatterns.raise_unauthorized("Incorrect current password")
     elif current_password_provided:
         # If current_password is provided but password isn't being changed, still validate it
+        # Type guard: current_password is guaranteed to be not None here
+        assert user.current_password is not None
         if not verify_password(user.current_password, db_user.hashed_password):
             logger.warning(f"User {current_user.id} provided incorrect current password for update.")
             ResponsePatterns.raise_unauthorized("Incorrect current password")

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi } from '../../services/Api';
-import type { BuildListRead, BuildListReadWithVotes } from '../../types/Api';
+import type {
+  BuildListRead,
+  BuildListReadWithVotes,
+  PaginatedResponse,
+} from '../../types/Api';
 
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
@@ -29,6 +33,19 @@ const fetchBuildListsRequestFn = (params?: {
   car_id?: number;
 }) => buildListsApi.getBuildListsWithVotes(params);
 
+// Type predicate to check if response is a PaginatedResponse
+function isPaginatedResponse<T>(
+  response: unknown
+): response is PaginatedResponse<T> {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'data' in response &&
+    Array.isArray((response as { data: unknown }).data) &&
+    'pagination' in response
+  );
+}
+
 function BuildListCatalogList({
   params,
   carIds,
@@ -50,15 +67,19 @@ function BuildListCatalogList({
     isLoading,
     error,
     executeRequest: fetchBuildLists,
-  } = useApiRequest(fetchBuildListsRequestFn);
+  } = useApiRequest<
+    PaginatedResponse<BuildListReadWithVotes>,
+    { skip?: number; limit?: number; search?: string; car_id?: number }
+  >(fetchBuildListsRequestFn);
 
   // Update buildListsWithVotes when response changes
   useEffect(() => {
-    if (buildListsResponse?.data) {
+    if (isPaginatedResponse<BuildListReadWithVotes>(buildListsResponse)) {
       // Extract the array from PaginatedResponse
-      setBuildListsWithVotes(buildListsResponse.data.data);
-    } else if (buildListsResponse && !buildListsResponse.data) {
-      // If response exists but no data, clear the votes list
+
+      setBuildListsWithVotes(buildListsResponse.data);
+    } else if (buildListsResponse === null) {
+      // If response is null, clear the votes list
       setBuildListsWithVotes([]);
     }
   }, [buildListsResponse]);
@@ -181,7 +202,11 @@ function BuildListCatalogList({
       filteredBuildLists = buildListsWithVotes;
     } else {
       // Extract the array from PaginatedResponse
-      filteredBuildLists = buildListsResponse?.data?.data || [];
+      if (isPaginatedResponse<BuildListReadWithVotes>(buildListsResponse)) {
+        filteredBuildLists = buildListsResponse.data;
+      } else {
+        filteredBuildLists = [];
+      }
     }
   }
   const searchTerm = params?.search?.toLowerCase() || '';
