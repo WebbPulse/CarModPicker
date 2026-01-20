@@ -5,9 +5,14 @@ This endpoint uses standardized patterns for error handling and response formatt
 while maintaining authentication-specific functionality.
 """
 
+import base64
+import binascii
+import io
 import logging
 from datetime import timedelta
 
+import pyotp
+import qrcode
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -16,11 +21,19 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
+    get_current_user,
     get_password_hash,
     verify_password,
 )
 from app.api.models.user import User as DBUser
-from app.api.schemas.auth import NewPassword
+from app.api.schemas.auth import (
+    NewPassword,
+    TOTPDisableRequest,
+    TOTPLoginRequest,
+    TOTPSetupResponse,
+    TOTPVerifyRequest,
+    TOTPVerifyResponse,
+)
 from app.api.schemas.user import UserRead
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
@@ -36,10 +49,11 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
-) -> dict[str, str | UserRead]:
+) -> dict[str, str | UserRead | bool]:
     """
     Authenticate user and return access token and user details.
     Takes form data: username and password.
+    If 2FA is enabled, returns requires_2fa: true and user must call /token/2fa to complete login.
     Returns Bearer token in response body for standard OAuth2 flow.
     """
     user = db.query(DBUser).filter(DBUser.username == form_data.username).first()
@@ -50,10 +64,71 @@ async def login_for_access_token(
         logger.warning(f"Login attempt for disabled user: {user.username}")
         ResponsePatterns.raise_bad_request("Inactive user")
 
+    # Check if 2FA is enabled
+    if user.totp_enabled:
+        logger.info(f"2FA enabled for user: {user.username}, requiring OTP verification")
+        return {
+            "requires_2fa": True,
+            "message": "2FA is enabled. Please provide OTP code.",
+        }
+
     access_token_data = {"sub": user.username}
     access_token = create_access_token(data=access_token_data)
 
     logger.info(f"User logged in successfully: {user.username}")
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserRead.model_validate(user),
+    }
+
+
+@router.post("/token/2fa")
+async def login_with_2fa(
+    request: TOTPLoginRequest,
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> dict[str, str | UserRead]:
+    """
+    Complete login with 2FA OTP code.
+    User must have called /token first to verify username/password.
+    """
+    user = db.query(DBUser).filter(DBUser.username == request.username).first()
+    if not user:
+        logger.warning(f"2FA login attempt for non-existent user: {request.username}")
+        ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
+
+    if user.disabled:
+        logger.warning(f"2FA login attempt for disabled user: {user.username}")
+        ResponsePatterns.raise_bad_request("Inactive user")
+
+    if not user.totp_enabled:
+        ResponsePatterns.raise_bad_request("2FA is not enabled for this user")
+
+    if not user.totp_secret:
+        logger.error(f"2FA enabled but no secret found for user: {user.username}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    # Verify password again for security
+    if not verify_password(request.password, user.hashed_password):
+        logger.warning(f"Invalid password in 2FA login for user: {user.username}")
+        ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
+
+    # Verify OTP
+    try:
+        totp = pyotp.TOTP(user.totp_secret)
+    except Exception as e:
+        logger.error(f"Invalid TOTP secret format for user: {user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    if not totp.verify(request.otp, valid_window=1):  # Allow 1 time step window for clock skew
+        logger.warning(f"Invalid OTP provided for user: {user.username}")
+        ResponsePatterns.raise_unauthorized("Invalid OTP code", headers={"WWW-Authenticate": "Bearer"})
+
+    access_token_data = {"sub": user.username}
+    access_token = create_access_token(data=access_token_data)
+
+    logger.info(f"User logged in successfully with 2FA: {user.username}")
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -229,3 +304,141 @@ async def logout(
     """
     logger.info("User logged out successfully")
     return {"message": "Logged out successfully"}
+
+
+# --- 2FA Endpoints ---
+
+
+@router.post("/2fa/setup", response_model=TOTPSetupResponse)
+async def setup_2fa(
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> TOTPSetupResponse:
+    """
+    Generate a new 2FA secret and QR code for the current user.
+    This does not enable 2FA - the user must verify the OTP first.
+    """
+    # Generate a new secret
+    secret = pyotp.random_base32()
+
+    # Store the secret temporarily (will be saved when verified)
+    current_user.totp_secret = secret
+    db.commit()
+
+    # Create TOTP object
+    totp = pyotp.TOTP(secret)
+
+    # Generate provisioning URI
+    provisioning_uri = totp.provisioning_uri(
+        name=current_user.email,
+        issuer_name=settings.PROJECT_NAME,
+    )
+
+    # Generate QR code
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Convert to base64
+    buffer = io.BytesIO()
+    img.save(buffer, "PNG")  # Save as PNG format
+    qr_code_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    # Format secret for manual entry (add spaces every 4 characters)
+    manual_entry_key = " ".join(secret[i : i + 4] for i in range(0, len(secret), 4))
+
+    logger.info(f"2FA setup initiated for user: {current_user.username}")
+    return TOTPSetupResponse(
+        secret=secret,
+        qr_code_data=f"data:image/png;base64,{qr_code_data}",
+        manual_entry_key=manual_entry_key,
+    )
+
+
+@router.post("/2fa/verify", response_model=TOTPVerifyResponse)
+async def verify_2fa(
+    request: TOTPVerifyRequest,
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> TOTPVerifyResponse:
+    """
+    Verify the OTP code and enable 2FA for the current user.
+    The user must have called /2fa/setup first to generate a secret.
+    """
+    if not current_user.totp_secret:
+        ResponsePatterns.raise_bad_request("2FA setup not initiated. Please call /2fa/setup first.")
+
+    # Verify OTP - handle invalid secret format gracefully
+    try:
+        totp = pyotp.TOTP(current_user.totp_secret)
+    except (ValueError, TypeError, binascii.Error) as e:
+        logger.error(f"Invalid TOTP secret format for user: {current_user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    # Verify OTP - exception can also be raised here if secret is invalid during verification
+    try:
+        if not totp.verify(request.otp, valid_window=1):
+            logger.warning(f"Invalid OTP during 2FA verification for user: {current_user.username}")
+            ResponsePatterns.raise_unauthorized("Invalid OTP code")
+    except (ValueError, TypeError, binascii.Error) as e:
+        logger.error(
+            f"Invalid TOTP secret format during verification for user: {current_user.username}, error: {str(e)}"
+        )
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    # Enable 2FA
+    current_user.totp_enabled = True
+    db.commit()
+
+    logger.info(f"2FA enabled successfully for user: {current_user.username}")
+    return TOTPVerifyResponse(
+        success=True,
+        message="2FA has been enabled successfully",
+    )
+
+
+@router.post("/2fa/disable")
+async def disable_2fa(
+    request: TOTPDisableRequest,
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> dict[str, str]:
+    """
+    Disable 2FA for the current user.
+    Requires both password and OTP code for security.
+    """
+    if not current_user.totp_enabled:
+        ResponsePatterns.raise_bad_request("2FA is not enabled for this user")
+
+    # Verify password
+    if not verify_password(request.password, current_user.hashed_password):
+        logger.warning(f"Invalid password provided during 2FA disable for user: {current_user.username}")
+        ResponsePatterns.raise_unauthorized("Incorrect password")
+
+    # Verify OTP
+    if not current_user.totp_secret:
+        logger.error(f"2FA enabled but no secret found for user: {current_user.username}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    try:
+        totp = pyotp.TOTP(current_user.totp_secret)
+    except Exception as e:
+        logger.error(f"Invalid TOTP secret format for user: {current_user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    if not totp.verify(request.otp, valid_window=1):
+        logger.warning(f"Invalid OTP provided during 2FA disable for user: {current_user.username}")
+        ResponsePatterns.raise_unauthorized("Invalid OTP code")
+
+    # Disable 2FA
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    db.commit()
+
+    logger.info(f"2FA disabled for user: {current_user.username}")
+    return {"message": "2FA has been disabled successfully"}

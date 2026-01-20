@@ -1,15 +1,32 @@
 #!/usr/bin/env python3
 """
-Script to populate all database tables with sample data for localhost testing.
+Script to populate all database tables with copious amounts of sample data for testing pagination.
+
+This script generates large amounts of entities to push pagination limits and expose
+where pagination might be missing or improper:
+- Users: 2500+ (tests pagination with limit=1000)
+- Global Parts: 2500+ (tests pagination with limit=1000)
+- Build Lists: 2500+ (tests pagination with limit=1000)
+- Build List Parts: 5000+ (tests pagination)
+- Votes: 5000+ (tests pagination)
+- Subscriptions: 2500+ (one per user)
+- Reports: 2500+ (tests pagination)
+- Build Logs: One per build list
+- Build Log Posts: 200-300 per build log (tests pagination with limit=100)
+
+Note: Categories and Cars are NOT modified by this script.
 
 Usage:
     cd backend
     python ../scripts/populate_sample_data.py
 """
 
+import argparse
 import os
 import random
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -38,6 +55,10 @@ from app.api.models.build_list import BuildList  # pyright: ignore[reportMissing
 from app.api.models.build_list_part import (  # pyright: ignore[reportMissingImports]
     BuildListPart,
 )  # pyright: ignore[reportMissingImports]
+from app.api.models.build_log import (  # pyright: ignore[reportMissingImports]
+    BuildLog,
+    BuildLogPost,
+)  # pyright: ignore[reportMissingImports]
 from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
@@ -58,9 +79,31 @@ from app.db.base import (  # pyright: ignore[reportMissingImports]
 from app.db.session import SessionLocal, engine  # pyright: ignore[reportMissingImports]
 
 
+# Logging utilities
+def log_info(message: str) -> None:
+    """Log an info message with timestamp."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[{timestamp}] {message}")
+
+
+def log_progress(current: int, total: int, entity_name: str) -> None:
+    """Log progress for entity creation."""
+    percentage = (current / total * 100) if total > 0 else 0
+    log_info(f"  {entity_name}: {current:,}/{total:,} ({percentage:.1f}%)")
+
+
+def log_section(message: str) -> None:
+    """Log a section header."""
+    print()
+    log_info("=" * 60)
+    log_info(message)
+    log_info("=" * 60)
+
+
 def create_sample_users(db: Session) -> list[User]:
     """Create sample users including admin and superuser."""
-    print("Creating sample users...")
+    start_time = time.time()
+    log_section("Creating sample users...")
 
     # Initial special users
     users_data = [
@@ -158,7 +201,10 @@ def create_sample_users(db: Session) -> list[User]:
         "ace",
     ]
 
-    for i in range(45):  # 45 more to reach 50 total
+    # Generate additional users to reach 2500 total (to test pagination with limit=1000)
+    log_info("Generating user data...")
+    user_data_list = []
+    for i in range(2495):  # 2495 more to reach 2500 total
         if i < 20:
             # Use first_name_last_name format
             first = random.choice(first_names).lower()
@@ -172,11 +218,10 @@ def create_sample_users(db: Session) -> list[User]:
             username = f"{prefix}_{suffix}_{i}"
             email = f"{prefix}{suffix}{i}@example.com"
 
-        users_data.append(
+        user_data_list.append(
             {
                 "username": username,
                 "email": email,
-                "hashed_password": get_password_hash("password123"),
                 "email_verified": random.choice(
                     [True, True, True, False]
                 ),  # 75% verified
@@ -189,9 +234,47 @@ def create_sample_users(db: Session) -> list[User]:
             }
         )
 
+    # Hash passwords in parallel (CPU-intensive operation)
+    log_info(f"Hashing passwords for {len(user_data_list):,} users in parallel...")
+    password_hash_start = time.time()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Submit all password hashing tasks
+        future_to_index = {
+            executor.submit(get_password_hash, "password123"): i
+            for i in range(len(user_data_list))
+        }
+        # Collect results as they complete
+        password_hashes = {}
+        completed = 0
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            try:
+                password_hashes[index] = future.result()
+                completed += 1
+                if completed % 500 == 0:
+                    log_progress(completed, len(user_data_list), "Password Hashing")
+            except Exception as e:
+                log_info(f"  Error hashing password for user {index}: {e}")
+                password_hashes[index] = get_password_hash("password123")  # Fallback
+
+    password_hash_elapsed = time.time() - password_hash_start
+    log_info(
+        f"✓ Hashed {len(password_hashes):,} passwords in {password_hash_elapsed:.1f}s"
+    )
+
+    # Combine user data with hashed passwords
+    for i, user_data in enumerate(user_data_list):
+        user_data["hashed_password"] = password_hashes[i]
+        users_data.append(user_data)
+
     users = []
     created_count = 0
-    for user_data in users_data:
+    batch_size = 500
+    total = len(users_data)
+
+    log_info(f"Processing {total:,} users in batches of {batch_size}...")
+
+    for i, user_data in enumerate(users_data):
         # Check if user already exists
         existing = (
             db.query(User)
@@ -209,66 +292,77 @@ def create_sample_users(db: Session) -> list[User]:
             users.append(user)
             created_count += 1
 
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Users")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} users)...")
+
     db.commit()
     for user in users:
         db.refresh(user)
 
-    print(f"Created {created_count} new users, {len(users)} total")
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {created_count:,} new users, {len(users):,} total (took {elapsed:.1f}s)"
+    )
     return users
 
 
 def create_sample_categories(db: Session) -> list[Category]:
     """Create sample categories."""
-    print("Creating sample categories...")
+    start_time = time.time()
+    log_section("Creating sample categories...")
 
     categories_data = [
         {
             "name": "exhaust",
             "display_name": "Exhaust Systems",
             "description": "Exhaust systems, mufflers, headers, and related components",
-            "icon": "🔧",
+            "icon": "??",
             "sort_order": 1,
         },
         {
             "name": "suspension",
             "display_name": "Suspension",
             "description": "Coilovers, springs, struts, and suspension components",
-            "icon": "⚙️",
+            "icon": "??",
             "sort_order": 2,
         },
         {
             "name": "engine",
             "display_name": "Engine Performance",
             "description": "Turbochargers, superchargers, intakes, and engine mods",
-            "icon": "🚗",
+            "icon": "??",
             "sort_order": 3,
         },
         {
             "name": "wheels",
             "display_name": "Wheels & Tires",
             "description": "Wheels, rims, tires, and wheel accessories",
-            "icon": "⭕",
+            "icon": "?",
             "sort_order": 4,
         },
         {
             "name": "body",
             "display_name": "Body & Aero",
             "description": "Body kits, spoilers, splitters, and aerodynamic components",
-            "icon": "🏎️",
+            "icon": "???",
             "sort_order": 5,
         },
         {
             "name": "interior",
             "display_name": "Interior",
             "description": "Seats, steering wheels, shift knobs, and interior mods",
-            "icon": "🪑",
+            "icon": "??",
             "sort_order": 6,
         },
         {
             "name": "brakes",
             "display_name": "Brakes",
             "description": "Brake pads, rotors, calipers, and brake systems",
-            "icon": "🛑",
+            "icon": "??",
             "sort_order": 7,
         },
     ]
@@ -290,13 +384,17 @@ def create_sample_categories(db: Session) -> list[Category]:
     for category in categories:
         db.refresh(category)
 
-    print(f"Created {created_count} new categories, {len(categories)} total")
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {created_count:,} new categories, {len(categories):,} total (took {elapsed:.1f}s)"
+    )
     return categories
 
 
 def create_sample_cars(db: Session) -> list[Car]:
     """Create sample centrally managed car generations using the canonical data source."""
-    print("Creating sample car generations...")
+    start_time = time.time()
+    log_section("Creating sample car generations...")
 
     # Use the same method as the application initialization
     # This ensures consistency with the canonical car_generations_data.py
@@ -331,8 +429,9 @@ def create_sample_cars(db: Session) -> list[Car]:
     for car in cars:
         db.refresh(car)
 
-    print(
-        f"Created {created_count} new car generations, skipped {skipped_count} existing, {len(cars)} total"
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {created_count:,} new car generations, skipped {skipped_count:,} existing, {len(cars):,} total (took {elapsed:.1f}s)"
     )
     return cars
 
@@ -341,7 +440,8 @@ def create_sample_global_parts(
     db: Session, users: list[User], categories: list[Category]
 ) -> list[GlobalPart]:
     """Create sample global parts."""
-    print("Creating sample global parts...")
+    start_time = time.time()
+    log_section("Creating sample global parts...")
 
     # Initial parts
     initial_parts = [
@@ -615,8 +715,8 @@ def create_sample_global_parts(
 
     parts_data = initial_parts.copy()
 
-    # Generate additional parts to reach 50 total
-    for i in range(40):  # 40 more to reach 50 total
+    # Generate additional parts to reach 2500 total (to test pagination with limit=1000)
+    for i in range(2490):  # 2490 more to reach 2500 total
         category = random.choice(categories)
         category_name = category.name
         template = part_templates.get(category_name, part_templates["exhaust"])
@@ -690,16 +790,29 @@ def create_sample_global_parts(
         )
 
     parts = []
-    for part_data in parts_data:
+    batch_size = 500
+    total = len(parts_data)
+
+    log_info(f"Processing {total:,} global parts in batches of {batch_size}...")
+
+    for i, part_data in enumerate(parts_data):
         part = GlobalPart(**part_data)
         db.add(part)
         parts.append(part)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Global Parts")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} parts)...")
 
     db.commit()
     for part in parts:
         db.refresh(part)
 
-    print(f"Created {len(parts)} global parts")
+    elapsed = time.time() - start_time
+    log_info(f"✓ Created {len(parts):,} global parts (took {elapsed:.1f}s)")
     return parts
 
 
@@ -707,7 +820,8 @@ def create_sample_build_lists(
     db: Session, users: list[User], cars: list[Car]
 ) -> list[BuildList]:
     """Create sample build lists."""
-    print("Creating sample build lists...")
+    start_time = time.time()
+    log_section("Creating sample build lists...")
 
     # Initial build lists - find cars by make/model to ensure correct references
     # Helper to find a car by make and model
@@ -806,8 +920,8 @@ def create_sample_build_lists(
 
     build_lists_data = initial_build_lists.copy()
 
-    # Generate additional build lists to reach 50 total
-    for i in range(44):  # 44 more to reach 50 total
+    # Generate additional build lists to reach 2500 total (to test pagination with limit=1000)
+    for i in range(2494):  # 2494 more to reach 2500 total
         car = random.choice(cars)
         user = random.choice(users)
         build_type = random.choice(build_types)
@@ -828,16 +942,29 @@ def create_sample_build_lists(
         )
 
     build_lists = []
-    for bl_data in build_lists_data:
+    batch_size = 500
+    total = len(build_lists_data)
+
+    log_info(f"Processing {total:,} build lists in batches of {batch_size}...")
+
+    for i, bl_data in enumerate(build_lists_data):
         build_list = BuildList(**bl_data)
         db.add(build_list)
         build_lists.append(build_list)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Build Lists")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} build lists)...")
 
     db.commit()
     for build_list in build_lists:
         db.refresh(build_list)
 
-    print(f"Created {len(build_lists)} build lists")
+    elapsed = time.time() - start_time
+    log_info(f"✓ Created {len(build_lists):,} build lists (took {elapsed:.1f}s)")
     return build_lists
 
 
@@ -848,7 +975,8 @@ def create_sample_build_list_parts(
     users: list[User],
 ) -> list[BuildListPart]:
     """Create sample build list parts."""
-    print("Creating sample build list parts...")
+    start_time = time.time()
+    log_section("Creating sample build list parts...")
 
     # Initial build list parts (for the first few build lists)
     initial_parts = [
@@ -972,8 +1100,8 @@ def create_sample_build_list_parts(
         key = (part["build_list_id"], part["global_part_id"])
         used_combinations.add(key)
 
-    # Generate additional build list parts - target 150 total
-    for i in range(137):  # 137 more to reach 150 total
+    # Generate additional build list parts - target 5000 total (to test pagination)
+    for i in range(4987):  # 4987 more to reach 5000 total
         build_list = random.choice(build_lists)
         part = random.choice(global_parts)
         user = random.choice(users)
@@ -997,17 +1125,407 @@ def create_sample_build_list_parts(
             used_combinations.add(key)
 
     build_list_parts = []
-    for blp_data in build_list_parts_data:
+    batch_size = 500
+    total = len(build_list_parts_data)
+
+    log_info(f"Processing {total:,} build list parts in batches of {batch_size}...")
+
+    for i, blp_data in enumerate(build_list_parts_data):
         build_list_part = BuildListPart(**blp_data)
         db.add(build_list_part)
         build_list_parts.append(build_list_part)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Build List Parts")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} parts)...")
 
     db.commit()
     for build_list_part in build_list_parts:
         db.refresh(build_list_part)
 
-    print(f"Created {len(build_list_parts)} build list parts")
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {len(build_list_parts):,} build list parts (took {elapsed:.1f}s)"
+    )
     return build_list_parts
+
+
+def create_admin_build_lists(
+    db: Session,
+    users: list[User],
+    cars: list[Car],
+    global_parts: list[GlobalPart],
+    num_build_lists: int = 100,
+    parts_per_regular_list: int = 5,
+    parts_per_large_list: int = 200,
+    num_build_lists_for_car: int = 50,
+    target_car_make: str | None = None,
+    target_car_model: str | None = None,
+    target_car_generation: str | None = None,
+) -> tuple[list[BuildList], BuildList, Car | None]:
+    """
+    Create many build lists for the admin user, with one build list having many parts.
+    Also creates many build lists for a specific car generation.
+
+    Args:
+        db: Database session
+        users: List of users (will find admin user)
+        cars: List of cars to assign to build lists
+        global_parts: List of global parts to add to build lists
+        num_build_lists: Number of build lists to create (default: 100)
+        parts_per_regular_list: Number of parts per regular build list (default: 5)
+        parts_per_large_list: Number of parts for the large build list (default: 200)
+        num_build_lists_for_car: Number of build lists to create for the target car (default: 50)
+        target_car_make: Make of the target car generation (optional, will auto-select if not provided)
+        target_car_model: Model of the target car generation (optional)
+        target_car_generation: Generation name of the target car (optional)
+
+    Returns:
+        Tuple of (list of all created build lists, the build list with many parts, target car or None)
+    """
+    start_time = time.time()
+    log_section("Creating admin build lists...")
+
+    # Find admin user
+    admin_user = next((u for u in users if u.username == "admin"), None)
+    if not admin_user:
+        # Try to find by is_admin flag
+        admin_user = next((u for u in users if u.is_admin), None)
+
+    if not admin_user:
+        raise ValueError("Admin user not found. Please ensure admin user exists.")
+
+    log_info(f"Found admin user: {admin_user.username} (ID: {admin_user.id})")
+
+    if not cars:
+        raise ValueError("No cars available. Please ensure cars exist in database.")
+
+    if not global_parts:
+        raise ValueError(
+            "No global parts available. Please ensure global parts exist in database."
+        )
+
+    # Find or select target car generation
+    target_car = None
+    if num_build_lists_for_car > 0:
+        if target_car_make and target_car_model:
+            # Try to find the specific car
+            for car in cars:
+                if (
+                    car.make.lower() == target_car_make.lower()
+                    and car.model.lower() == target_car_model.lower()
+                ):
+                    if target_car_generation:
+                        if (
+                            car.generation_name
+                            and car.generation_name.lower()
+                            == target_car_generation.lower()
+                        ):
+                            target_car = car
+                            break
+                    else:
+                        target_car = car
+                        break
+
+        # If not found or not specified, auto-select a popular car
+        if not target_car:
+            # Try to find common cars first
+            popular_cars = ["Honda", "Toyota", "Subaru", "Nissan", "Mazda", "Ford"]
+            for make in popular_cars:
+                for car in cars:
+                    if car.make == make:
+                        target_car = car
+                        break
+                if target_car:
+                    break
+
+            # Fallback to first car
+            if not target_car:
+                target_car = cars[0]
+
+        log_info(f"\n{'='*60}")
+        log_info(f"TARGET CAR GENERATION FOR MULTIPLE BUILD LISTS:")
+        log_info(f"  Make: {target_car.make}")
+        log_info(f"  Model: {target_car.model}")
+        log_info(f"  Generation: {target_car.generation_name or 'N/A'}")
+        log_info(f"  Car ID: {target_car.id}")
+        log_info(f"  Will create {num_build_lists_for_car:,} build lists for this car")
+        log_info(f"{'='*60}\n")
+
+    # Build list name templates
+    build_types = [
+        "Daily Driver",
+        "Track Build",
+        "Street Build",
+        "Show Build",
+        "Drag Build",
+        "Drift Build",
+        "Rally Build",
+        "Weekend Warrior",
+        "Project Car",
+        "Dream Build",
+        "Race Build",
+        "Time Attack",
+        "Street Fighter",
+        "Sleeper Build",
+        "Stance Build",
+        "Restoration",
+        "Restomod",
+        "Classic Build",
+        "Modern Classic",
+        "Budget Build",
+    ]
+    descriptions = [
+        "Full build for maximum performance",
+        "Comfortable daily driver with upgrades",
+        "Track-focused modifications",
+        "Show car with aesthetic mods",
+        "Straight-line speed build",
+        "Lightweight performance mods",
+        "Balanced street/track setup",
+        "Aggressive performance build",
+        "Budget-friendly modifications",
+        "Ultimate performance build",
+    ]
+
+    notes_templates = [
+        "Great addition to the build",
+        "Essential component",
+        "High-quality part",
+        "Perfect for this application",
+        "Easy installation",
+        "Recommended by many builders",
+        "Excellent value",
+        "Performance tested",
+        "Looks great",
+        "Worth the money",
+    ]
+
+    # Create build lists
+    build_lists_data = []
+    build_lists = []
+
+    # The first build list will be the one with many parts
+    large_build_list_car = target_car if target_car else random.choice(cars)
+    large_build_list_name = f"Admin's Ultimate {large_build_list_car.make} {large_build_list_car.model} Build"
+
+    total_build_lists_to_create = num_build_lists + num_build_lists_for_car
+    log_info(f"Creating {total_build_lists_to_create:,} build lists for admin user...")
+    log_info(f"  - {num_build_lists:,} general build lists")
+    if num_build_lists_for_car > 0:
+        log_info(
+            f"  - {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}"
+        )
+
+    build_list_counter = 0
+
+    # First, create the build list with many parts (always first)
+    build_lists_data.append(
+        {
+            "name": large_build_list_name,
+            "description": "Ultimate performance build with extensive modifications",
+            "car_id": large_build_list_car.id,
+            "user_id": admin_user.id,
+        }
+    )
+    build_list_counter += 1
+
+    # Create build lists for the target car generation
+    if num_build_lists_for_car > 0 and target_car:
+        log_info(
+            f"Creating {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}..."
+        )
+        for i in range(num_build_lists_for_car):
+            build_type = random.choice(build_types)
+            description = random.choice(descriptions)
+            build_name = (
+                f"Admin's {target_car.make} {target_car.model} {build_type} #{i+1}"
+            )
+
+            build_lists_data.append(
+                {
+                    "name": build_name,
+                    "description": description,
+                    "car_id": target_car.id,
+                    "user_id": admin_user.id,
+                }
+            )
+            build_list_counter += 1
+
+    # Create remaining general build lists
+    remaining_lists = (
+        num_build_lists - 1
+    )  # Subtract 1 because we already created the large one
+    for i in range(remaining_lists):
+        car = random.choice(cars)
+        build_type = random.choice(build_types)
+        description = random.choice(descriptions)
+        build_name = f"Admin's {car.make} {car.model} {build_type}"
+
+        build_lists_data.append(
+            {
+                "name": build_name,
+                "description": description,
+                "car_id": car.id,
+                "user_id": admin_user.id,
+            }
+        )
+        build_list_counter += 1
+
+    # Create build lists in database
+    batch_size = 50
+    total = len(build_lists_data)
+
+    log_info(f"Processing {total:,} build lists in batches of {batch_size}...")
+
+    for i, bl_data in enumerate(build_lists_data):
+        build_list = BuildList(**bl_data)
+        db.add(build_list)
+        build_lists.append(build_list)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Build Lists")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} build lists)...")
+
+    db.commit()
+    for build_list in build_lists:
+        db.refresh(build_list)
+
+    # Identify the large build list (first one)
+    large_build_list = build_lists[0]
+
+    log_info(
+        f"✓ Created {len(build_lists):,} build lists (took {time.time() - start_time:.1f}s)"
+    )
+    log_info(f"\n{'='*60}")
+    log_info(f"LARGE BUILD LIST IDENTIFIED:")
+    log_info(f"  Name: {large_build_list.name}")
+    log_info(f"  ID: {large_build_list.id}")
+    log_info(f"  Car: {large_build_list_car.make} {large_build_list_car.model}")
+    log_info(f"{'='*60}\n")
+
+    # Now create build list parts
+    log_section("Adding parts to admin build lists...")
+    parts_start_time = time.time()
+
+    build_list_parts = []
+    used_combinations = set()
+
+    # First, add many parts to the large build list
+    log_info(
+        f"Adding {parts_per_large_list:,} parts to large build list (ID: {large_build_list.id})..."
+    )
+
+    # Shuffle global parts to get variety
+    available_parts = global_parts.copy()
+    random.shuffle(available_parts)
+
+    parts_added_to_large = 0
+    for i, part in enumerate(available_parts):
+        if parts_added_to_large >= parts_per_large_list:
+            break
+
+        key = (large_build_list.id, part.id)
+        if key not in used_combinations:
+            quantity = random.choice([1, 1, 1, 2, 4])  # Mostly 1, sometimes 2 or 4
+            notes = random.choice(notes_templates)
+
+            build_list_part = BuildListPart(
+                build_list_id=large_build_list.id,
+                global_part_id=part.id,
+                added_by=admin_user.id,
+                quantity=quantity,
+                notes=notes,
+            )
+            db.add(build_list_part)
+            build_list_parts.append(build_list_part)
+            used_combinations.add(key)
+            parts_added_to_large += 1
+
+    log_info(f"✓ Added {parts_added_to_large:,} parts to large build list")
+
+    # Now add parts to regular build lists
+    log_info(
+        f"Adding {parts_per_regular_list:,} parts to each of the remaining {num_build_lists - 1:,} build lists..."
+    )
+
+    total_parts_added = parts_added_to_large
+    for build_list in build_lists[1:]:  # Skip the first (large) one
+        parts_added = 0
+        random.shuffle(available_parts)
+
+        for part in available_parts:
+            if parts_added >= parts_per_regular_list:
+                break
+
+            key = (build_list.id, part.id)
+            if key not in used_combinations:
+                quantity = random.choice([1, 1, 1, 2, 4])
+                notes = random.choice(notes_templates)
+
+                build_list_part = BuildListPart(
+                    build_list_id=build_list.id,
+                    global_part_id=part.id,
+                    added_by=admin_user.id,
+                    quantity=quantity,
+                    notes=notes,
+                )
+                db.add(build_list_part)
+                build_list_parts.append(build_list_part)
+                used_combinations.add(key)
+                parts_added += 1
+                total_parts_added += 1
+
+        if (total_parts_added - parts_added_to_large) % 500 == 0:
+            db.commit()
+            log_progress(
+                total_parts_added - parts_added_to_large,
+                (num_build_lists - 1) * parts_per_regular_list,
+                "Build List Parts",
+            )
+
+    db.commit()
+    for build_list_part in build_list_parts:
+        db.refresh(build_list_part)
+
+    parts_elapsed = time.time() - parts_start_time
+    log_info(
+        f"✓ Added {len(build_list_parts):,} total build list parts (took {parts_elapsed:.1f}s)"
+    )
+
+    # Final summary
+    log_info(f"\n{'='*60}")
+    log_info("ADMIN BUILD LISTS SUMMARY:")
+    log_info(f"  Total build lists created: {len(build_lists):,}")
+    log_info(f"  Total build list parts created: {len(build_list_parts):,}")
+    log_info(f"\n  LARGE BUILD LIST:")
+    log_info(f"    Name: {large_build_list.name}")
+    log_info(f"    ID: {large_build_list.id}")
+    log_info(f"    Parts count: {parts_added_to_large:,}")
+    if target_car and num_build_lists_for_car > 0:
+        # Count build lists for target car
+        target_car_build_lists = [
+            bl for bl in build_lists if bl.car_id == target_car.id
+        ]
+        log_info(f"\n  TARGET CAR GENERATION ({target_car.make} {target_car.model}):")
+        log_info(f"    Car ID: {target_car.id}")
+        log_info(f"    Generation: {target_car.generation_name or 'N/A'}")
+        log_info(f"    Build lists count: {len(target_car_build_lists):,}")
+        log_info(
+            f"    Build list IDs: {[bl.id for bl in target_car_build_lists[:10]]}{'...' if len(target_car_build_lists) > 10 else ''}"
+        )
+    log_info(f"{'='*60}\n")
+
+    elapsed = time.time() - start_time
+    log_info(f"✓ Completed admin build lists creation (took {elapsed:.1f}s)")
+
+    return build_lists, large_build_list, target_car
 
 
 def create_sample_votes(
@@ -1018,7 +1536,16 @@ def create_sample_votes(
     global_parts: list[GlobalPart],
 ) -> list[Vote]:
     """Create sample votes."""
-    print("Creating sample votes...")
+    start_time = time.time()
+    log_section("Creating sample votes...")
+
+    # Query existing votes from database to avoid duplicates
+    log_info("Checking for existing votes in database...")
+    existing_votes = db.query(Vote).all()
+    existing_vote_keys = {
+        (vote.user_id, vote.entity_type, vote.entity_id) for vote in existing_votes
+    }
+    log_info(f"Found {len(existing_vote_keys):,} existing votes in database")
 
     # Only vote on global parts if cars/build_lists are not available
     if cars is None or build_lists is None:
@@ -1113,18 +1640,23 @@ def create_sample_votes(
             ]
         )
 
-    votes_data = initial_votes.copy()
+    votes_data = []
     used_combinations = set()
 
-    # Track used combinations to avoid duplicate votes (same user voting on same entity)
+    # Start with existing vote keys to avoid duplicates
+    used_combinations.update(existing_vote_keys)
+
+    # Filter initial votes to only include new ones
     for vote in initial_votes:
         key = (vote["user_id"], vote["entity_type"], vote["entity_id"])
-        used_combinations.add(key)
+        if key not in used_combinations:
+            votes_data.append(vote)
+            used_combinations.add(key)
 
-    # Generate additional votes - target 150 total
+    # Generate additional votes - target 5000 total (to test pagination)
     vote_types = ["upvote", "upvote", "upvote", "downvote"]  # Mostly upvotes
 
-    for i in range(136):  # 136 more to reach 150 total
+    for i in range(4986):  # 4986 more to reach 5000 total
         user = random.choice(users)
         entity_type = random.choice(entity_types)
         vote_type = random.choice(vote_types)
@@ -1144,7 +1676,7 @@ def create_sample_votes(
             # Skip if entity type not available
             continue
 
-        # Check if this combination already exists
+        # Check if this combination already exists (in memory or database)
         key = (user.id, entity_type, entity_id)
         if key not in used_combinations:
             votes_data.append(
@@ -1157,23 +1689,47 @@ def create_sample_votes(
             )
             used_combinations.add(key)
 
+    # If no new votes to create, return existing votes
+    if not votes_data:
+        log_info("No new votes to create, all votes already exist")
+        return existing_votes
+
     votes = []
-    for vote_data in votes_data:
+    batch_size = 500
+    total = len(votes_data)
+
+    log_info(f"Processing {total:,} new votes in batches of {batch_size}...")
+
+    for i, vote_data in enumerate(votes_data):
         vote = Vote(**vote_data)
         db.add(vote)
         votes.append(vote)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Votes")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} votes)...")
 
     db.commit()
     for vote in votes:
         db.refresh(vote)
 
-    print(f"Created {len(votes)} votes")
-    return votes
+    # Combine new votes with existing ones for return
+    all_votes = list(existing_votes) + votes
+
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {len(votes):,} new votes, {len(all_votes):,} total (took {elapsed:.1f}s)"
+    )
+    return all_votes
 
 
 def create_sample_subscriptions(db: Session, users: list[User]) -> list[Subscription]:
     """Create sample subscriptions."""
-    print("Creating sample subscriptions...")
+    start_time = time.time()
+    log_section("Creating sample subscriptions...")
 
     # Initial subscriptions
     subscriptions_data = [
@@ -1199,11 +1755,11 @@ def create_sample_subscriptions(db: Session, users: list[User]) -> list[Subscrip
 
     used_user_ids = {sub["user_id"] for sub in subscriptions_data}
 
-    # Generate additional subscriptions for more users - target 50 total
+    # Generate additional subscriptions for more users - target 2500 total (one per user)
     tiers = ["free", "free", "free", "premium"]  # More free than premium
     statuses = ["active", "active", "active", "inactive", "expired"]
 
-    for i in range(47):  # 47 more to reach 50 total
+    for i in range(2497):  # 2497 more to reach 2500 total
         # Choose a user that doesn't already have a subscription
         available_users = [u for u in users if u.id not in used_user_ids]
         if not available_users:
@@ -1234,16 +1790,29 @@ def create_sample_subscriptions(db: Session, users: list[User]) -> list[Subscrip
         used_user_ids.add(user.id)
 
     subscriptions = []
-    for sub_data in subscriptions_data:
+    batch_size = 500
+    total = len(subscriptions_data)
+
+    log_info(f"Processing {total:,} subscriptions in batches of {batch_size}...")
+
+    for i, sub_data in enumerate(subscriptions_data):
         subscription = Subscription(**sub_data)
         db.add(subscription)
         subscriptions.append(subscription)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Subscriptions")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} subscriptions)...")
 
     db.commit()
     for subscription in subscriptions:
         db.refresh(subscription)
 
-    print(f"Created {len(subscriptions)} subscriptions")
+    elapsed = time.time() - start_time
+    log_info(f"✓ Created {len(subscriptions):,} subscriptions (took {elapsed:.1f}s)")
     return subscriptions
 
 
@@ -1251,7 +1820,8 @@ def create_sample_reports(
     db: Session, users: list[User], global_parts: list[GlobalPart]
 ) -> list[Report]:
     """Create sample reports."""
-    print("Creating sample reports...")
+    start_time = time.time()
+    log_section("Creating sample reports...")
 
     # Get admin user
     admin_user = next((u for u in users if u.is_admin), users[0])
@@ -1299,8 +1869,8 @@ def create_sample_reports(
         "User contacted for clarification",
     ]
 
-    # Generate additional reports - target 50 total
-    for i in range(48):  # 48 more to reach 50 total
+    # Generate additional reports - target 2500 total (to test pagination)
+    for i in range(2498):  # 2498 more to reach 2500 total
         user = random.choice(users)
         part = random.choice(global_parts)
         reason = random.choice(reasons)
@@ -1327,24 +1897,280 @@ def create_sample_reports(
         reports_data.append(report_data)
 
     reports = []
-    for report_data in reports_data:
+    batch_size = 500
+    total = len(reports_data)
+
+    log_info(f"Processing {total:,} reports in batches of {batch_size}...")
+
+    for i, report_data in enumerate(reports_data):
         report = Report(**report_data)
         db.add(report)
         reports.append(report)
+
+        # Commit in batches for better performance
+        if (i + 1) % batch_size == 0:
+            db.commit()
+            batch_num = i // batch_size + 1
+            log_progress(min(i + 1, total), total, "Reports")
+            log_info(f"  Committed batch {batch_num} ({batch_size:,} reports)...")
 
     db.commit()
     for report in reports:
         db.refresh(report)
 
-    print(f"Created {len(reports)} reports")
+    elapsed = time.time() - start_time
+    log_info(f"✓ Created {len(reports):,} reports (took {elapsed:.1f}s)")
     return reports
+
+
+def create_sample_build_logs(
+    db: Session, build_lists: list[BuildList], users: list[User]
+) -> tuple[list[BuildLog], list[BuildLogPost]]:
+    """Create sample build logs and build log posts."""
+    start_time = time.time()
+    log_section("Creating sample build logs and posts...")
+
+    build_logs = []
+    build_log_posts = []
+
+    # Post content templates
+    post_templates = [
+        "Just installed this part today! Initial impressions are great.",
+        "Update: After 1000 miles, this part is holding up well.",
+        "Had some issues with installation, but got it sorted out.",
+        "This mod completely transformed the car's performance!",
+        "Worth every penny. Highly recommend to others.",
+        "Took it to the track this weekend and it performed flawlessly.",
+        "Minor issue with fitment, but nothing a little adjustment couldn't fix.",
+        "The sound improvement alone makes this worth it.",
+        "Great quality build, very impressed with the craftsmanship.",
+        "Update: Still going strong after 6 months of daily driving.",
+        "This is exactly what I was looking for. Perfect fit!",
+        "Had to make some custom modifications, but it works great now.",
+        "The performance gains are noticeable, especially on the highway.",
+        "Installation was straightforward, took about 2 hours.",
+        "Love the look and feel of this upgrade.",
+        "Wish I had done this mod sooner!",
+        "Great value for the money.",
+        "No complaints so far, everything working as expected.",
+        "This part exceeded my expectations.",
+        "Would definitely buy again if I had another car.",
+        "The difference is night and day compared to stock.",
+        "Perfect for my build goals.",
+        "Quality is top-notch, no regrets here.",
+        "This mod really completes the build.",
+        "Highly satisfied with this purchase.",
+    ]
+
+    # Create a build log for each build list
+    build_logs_to_create = []
+    for build_list in build_lists:
+        # Check if build log already exists
+        existing_log = (
+            db.query(BuildLog).filter(BuildLog.build_list_id == build_list.id).first()
+        )
+        if existing_log:
+            build_logs.append(existing_log)
+            continue
+
+        # Create build log with a title based on the build list
+        build_log = BuildLog(
+            build_list_id=build_list.id,
+            title=f"{build_list.name} - Build Log",
+        )
+        db.add(build_log)
+        build_logs_to_create.append((build_log, build_list))
+
+    # Commit all build logs first
+    db.commit()
+    log_info(f"✓ Created {len(build_logs_to_create):,} build logs")
+
+    # Refresh build logs to get IDs
+    for build_log, _ in build_logs_to_create:
+        db.refresh(build_log)
+        build_logs.append(build_log)
+
+    # Create posts for each build log
+    total_posts_created = 0
+    batch_size = 500
+    total_build_logs = len(build_logs_to_create)
+
+    # Estimate total posts (200-300 per build log)
+    estimated_posts = total_build_logs * 250
+    log_info(
+        f"Creating posts for {total_build_logs:,} build logs (estimated {estimated_posts:,} posts)..."
+    )
+
+    for log_idx, (build_log, build_list) in enumerate(build_logs_to_create):
+        # Create 200+ posts per build log to test pagination (limit=100)
+        # This ensures we need at least 2 pages
+        num_posts = random.randint(200, 300)  # 200-300 posts per build log
+
+        for i in range(num_posts):
+            user = random.choice(users)
+            content = random.choice(post_templates)
+            # Add some variation to posts
+            if i > 0 and random.random() < 0.3:  # 30% chance to reference previous post
+                content = f"Following up on the previous discussion: {content}"
+
+            # Create posts with varying timestamps to test ordering
+            post_time = datetime.now(UTC) - timedelta(
+                days=random.randint(0, 365), hours=random.randint(0, 23)
+            )
+
+            post = BuildLogPost(
+                build_log_id=build_log.id,
+                user_id=user.id,
+                content=content,
+                created_at=post_time,
+                updated_at=post_time,
+            )
+            db.add(post)
+            build_log_posts.append(post)
+            total_posts_created += 1
+
+            # Commit in batches to avoid memory issues
+            if total_posts_created % batch_size == 0:
+                db.commit()
+                batch_num = total_posts_created // batch_size
+                log_progress(total_posts_created, estimated_posts, "Build Log Posts")
+                log_info(
+                    f"  Committed batch {batch_num} ({batch_size:,} posts, {total_posts_created:,} total)..."
+                )
+
+        # Log progress every 100 build logs
+        if (log_idx + 1) % 100 == 0:
+            log_info(
+                f"  Processed {log_idx + 1:,}/{total_build_logs:,} build logs ({total_posts_created:,} posts created so far)..."
+            )
+
+    # Final commit for any remaining posts
+    db.commit()
+
+    # Refresh all build logs
+    for build_log in build_logs:
+        db.refresh(build_log)
+
+    elapsed = time.time() - start_time
+    log_info(
+        f"✓ Created {len(build_logs):,} build logs with {len(build_log_posts):,} total posts (took {elapsed:.1f}s)"
+    )
+    return build_logs, build_log_posts
+
+
+def check_section_complete(db: Session, section_name: str, min_count: int) -> bool:
+    """Check if a section has already been populated with sufficient data."""
+    try:
+        if section_name == "users":
+            count = db.query(User).count()
+            return count >= min_count
+        elif section_name == "categories":
+            count = db.query(Category).count()
+            return count >= min_count
+        elif section_name == "cars":
+            count = db.query(Car).count()
+            return count >= min_count
+        elif section_name == "global_parts":
+            count = db.query(GlobalPart).count()
+            return count >= min_count
+        elif section_name == "build_lists":
+            count = db.query(BuildList).count()
+            return count >= min_count
+        elif section_name == "build_list_parts":
+            count = db.query(BuildListPart).count()
+            return count >= min_count
+        elif section_name == "votes":
+            count = db.query(Vote).count()
+            return count >= min_count
+        elif section_name == "subscriptions":
+            count = db.query(Subscription).count()
+            return count >= min_count
+        elif section_name == "reports":
+            count = db.query(Report).count()
+            return count >= min_count
+        elif section_name == "build_logs":
+            count = db.query(BuildLog).count()
+            return count >= min_count
+        return False
+    except Exception:
+        return False
 
 
 def main() -> None:
     """Main function to populate all tables."""
-    print("=" * 60)
-    print("Populating database with sample data...")
-    print("=" * 60)
+    parser = argparse.ArgumentParser(
+        description="Populate database with sample data for testing pagination"
+    )
+    parser.add_argument(
+        "--skip-complete",
+        action="store_true",
+        help="Skip sections that are already complete (have sufficient data)",
+    )
+    parser.add_argument(
+        "--skip",
+        nargs="+",
+        choices=[
+            "users",
+            "categories",
+            "cars",
+            "global_parts",
+            "build_lists",
+            "build_list_parts",
+            "votes",
+            "subscriptions",
+            "reports",
+            "build_logs",
+        ],
+        help="Skip specific sections",
+    )
+    parser.add_argument(
+        "--admin-build-lists",
+        action="store_true",
+        help="Create many build lists for admin user with one having many parts (runs separately)",
+    )
+    parser.add_argument(
+        "--num-admin-build-lists",
+        type=int,
+        default=100,
+        help="Number of admin build lists to create (default: 100)",
+    )
+    parser.add_argument(
+        "--parts-per-large-list",
+        type=int,
+        default=200,
+        help="Number of parts for the large build list (default: 200)",
+    )
+    parser.add_argument(
+        "--parts-per-regular-list",
+        type=int,
+        default=5,
+        help="Number of parts per regular build list (default: 5)",
+    )
+    parser.add_argument(
+        "--num-build-lists-for-car",
+        type=int,
+        default=50,
+        help="Number of build lists to create for a specific car generation (default: 50)",
+    )
+    parser.add_argument(
+        "--target-car-make",
+        type=str,
+        default=None,
+        help="Make of the target car generation (e.g., 'Honda')",
+    )
+    parser.add_argument(
+        "--target-car-model",
+        type=str,
+        default=None,
+        help="Model of the target car generation (e.g., 'Civic')",
+    )
+    parser.add_argument(
+        "--target-car-generation",
+        type=str,
+        default=None,
+        help="Generation name of the target car (e.g., '10th Gen')",
+    )
+    args = parser.parse_args()
 
     # Create all tables if they don't exist
     print("Creating database tables if they don't exist...")
@@ -1352,45 +2178,222 @@ def main() -> None:
     print("Database tables ready.")
 
     db: Session = SessionLocal()
+    script_start_time = time.time()
 
     try:
-        # Create all sample data
-        users = create_sample_users(db)
-        categories = create_sample_categories(db)
-        # Cars are now centrally managed (car generations, not user-owned)
-        cars = create_sample_cars(db)
-        global_parts = create_sample_global_parts(db, users, categories)
-        # Build lists require a car_id (now mandatory)
-        build_lists = create_sample_build_lists(db, users, cars)
-        build_list_parts = create_sample_build_list_parts(
-            db, build_lists, global_parts, users
-        )
-        votes = create_sample_votes(db, users, cars, build_lists, global_parts)
-        subscriptions = create_sample_subscriptions(db, users)
-        reports = create_sample_reports(db, users, global_parts)
+        # Handle admin build lists separately
+        if args.admin_build_lists:
+            print("=" * 60)
+            print("Creating admin build lists...")
+            print("=" * 60)
+
+            # Load required data
+            users = db.query(User).all()
+            if not users:
+                raise ValueError(
+                    "No users found. Please run the main script first to create users."
+                )
+
+            cars = db.query(Car).all()
+            if not cars:
+                raise ValueError(
+                    "No cars found. Please run the main script first to create cars."
+                )
+
+            global_parts = db.query(GlobalPart).all()
+            if not global_parts:
+                raise ValueError(
+                    "No global parts found. Please run the main script first to create global parts."
+                )
+
+            # Create admin build lists
+            build_lists, large_build_list, target_car = create_admin_build_lists(
+                db=db,
+                users=users,
+                cars=cars,
+                global_parts=global_parts,
+                num_build_lists=args.num_admin_build_lists,
+                parts_per_regular_list=args.parts_per_regular_list,
+                parts_per_large_list=args.parts_per_large_list,
+                num_build_lists_for_car=args.num_build_lists_for_car,
+                target_car_make=args.target_car_make,
+                target_car_model=args.target_car_model,
+                target_car_generation=args.target_car_generation,
+            )
+
+            total_elapsed = time.time() - script_start_time
+            log_section("Admin build lists creation complete!")
+            log_info(
+                f"\nTotal time: {total_elapsed:.1f}s ({total_elapsed/60:.1f} minutes)"
+            )
+            log_info(f"\n{'='*60}")
+            log_info("IMPORTANT: Large build list for testing")
+            log_info(f"{'='*60}")
+            log_info(f"  Build List ID: {large_build_list.id}")
+            log_info(f"  Build List Name: {large_build_list.name}")
+            log_info(f"  User: admin")
+            log_info(f"{'='*60}\n")
+            if target_car and args.num_build_lists_for_car > 0:
+                target_car_build_lists = [
+                    bl for bl in build_lists if bl.car_id == target_car.id
+                ]
+                log_info(f"\n{'='*60}")
+                log_info("IMPORTANT: Target car generation with many build lists")
+                log_info(f"{'='*60}")
+                log_info(f"  Car Make: {target_car.make}")
+                log_info(f"  Car Model: {target_car.model}")
+                log_info(f"  Car Generation: {target_car.generation_name or 'N/A'}")
+                log_info(f"  Car ID: {target_car.id}")
+                log_info(f"  Build Lists Count: {len(target_car_build_lists):,}")
+                log_info(f"  User: admin")
+                log_info(f"{'='*60}\n")
+            return
 
         print("=" * 60)
-        print("Sample data population complete!")
+        print("Populating database with sample data...")
         print("=" * 60)
-        print("\nSummary:")
-        print(f"  Users: {len(users)}")
-        print(f"  Categories: {len(categories)}")
-        print(f"  Car Generations: {len(cars)}")
-        print(f"  Global Parts: {len(global_parts)}")
-        print(f"  Build Lists: {len(build_lists)}")
-        print(f"  Build List Parts: {len(build_list_parts)}")
-        print(f"  Votes: {len(votes)}")
-        print(f"  Subscriptions: {len(subscriptions)}")
-        print(f"  Reports: {len(reports)}")
-        print("\nTest credentials:")
-        print("  Admin: admin / admin123")
-        print("  User: john_doe / password123")
-        print("  User: jane_smith / password123")
-        print("=" * 60)
+        # Track what we've created
+        users = None
+        categories = None
+        cars = None
+        global_parts = None
+        build_lists = None
+        build_list_parts = None
+        votes = None
+        subscriptions = None
+        reports = None
+        build_logs = None
+        build_log_posts = None
+
+        # Create all sample data with skip logic
+        skip_list = set(args.skip or [])
+
+        # Users
+        if "users" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "users", 2500)
+        ):
+            users = create_sample_users(db)
+        else:
+            log_section("Skipping users (already complete or skipped)")
+            users = db.query(User).all()
+
+        # Categories
+        if "categories" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "categories", 7)
+        ):
+            categories = create_sample_categories(db)
+        else:
+            log_section("Skipping categories (already complete or skipped)")
+            categories = db.query(Category).all()
+
+        # Cars are now centrally managed (car generations, not user-owned)
+        if "cars" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "cars", 700)
+        ):
+            cars = create_sample_cars(db)
+        else:
+            log_section("Skipping cars (already complete or skipped)")
+            cars = db.query(Car).all()
+
+        # Global Parts
+        if "global_parts" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "global_parts", 2500)
+        ):
+            global_parts = create_sample_global_parts(db, users, categories)
+        else:
+            log_section("Skipping global_parts (already complete or skipped)")
+            global_parts = db.query(GlobalPart).all()
+
+        # Build lists require a car_id (now mandatory)
+        if "build_lists" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "build_lists", 2500)
+        ):
+            build_lists = create_sample_build_lists(db, users, cars)
+        else:
+            log_section("Skipping build_lists (already complete or skipped)")
+            build_lists = db.query(BuildList).all()
+
+        # Build List Parts
+        if "build_list_parts" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "build_list_parts", 4000)
+        ):
+            build_list_parts = create_sample_build_list_parts(
+                db, build_lists, global_parts, users
+            )
+        else:
+            log_section("Skipping build_list_parts (already complete or skipped)")
+            build_list_parts = db.query(BuildListPart).all()
+
+        # Votes
+        if "votes" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "votes", 4000)
+        ):
+            votes = create_sample_votes(db, users, cars, build_lists, global_parts)
+        else:
+            log_section("Skipping votes (already complete or skipped)")
+            votes = db.query(Vote).all()
+
+        # Subscriptions
+        if "subscriptions" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "subscriptions", 2000)
+        ):
+            subscriptions = create_sample_subscriptions(db, users)
+        else:
+            log_section("Skipping subscriptions (already complete or skipped)")
+            subscriptions = db.query(Subscription).all()
+
+        # Reports
+        if "reports" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "reports", 2000)
+        ):
+            reports = create_sample_reports(db, users, global_parts)
+        else:
+            log_section("Skipping reports (already complete or skipped)")
+            reports = db.query(Report).all()
+
+        # Build Logs
+        if "build_logs" not in skip_list and not (
+            args.skip_complete and check_section_complete(db, "build_logs", 2000)
+        ):
+            build_logs, build_log_posts = create_sample_build_logs(
+                db, build_lists, users
+            )
+        else:
+            log_section("Skipping build_logs (already complete or skipped)")
+            build_logs = db.query(BuildLog).all()
+            build_log_posts = []
+
+        total_elapsed = time.time() - script_start_time
+        log_section("Sample data population complete!")
+        log_info("\nSummary:")
+        log_info(f"  Users: {len(users) if users else 0:,}")
+        log_info(f"  Categories: {len(categories) if categories else 0:,}")
+        log_info(f"  Car Generations: {len(cars) if cars else 0:,}")
+        log_info(f"  Global Parts: {len(global_parts) if global_parts else 0:,}")
+        log_info(f"  Build Lists: {len(build_lists) if build_lists else 0:,}")
+        log_info(
+            f"  Build List Parts: {len(build_list_parts) if build_list_parts else 0:,}"
+        )
+        log_info(f"  Votes: {len(votes) if votes else 0:,}")
+        log_info(f"  Subscriptions: {len(subscriptions) if subscriptions else 0:,}")
+        log_info(f"  Reports: {len(reports) if reports else 0:,}")
+        log_info(f"  Build Logs: {len(build_logs) if build_logs else 0:,}")
+        log_info(
+            f"  Build Log Posts: {len(build_log_posts) if build_log_posts else 0:,}"
+        )
+        log_info(f"\nTotal time: {total_elapsed:.1f}s ({total_elapsed/60:.1f} minutes)")
+        log_info("\nTest credentials:")
+        log_info("  Admin: admin / admin123")
+        log_info("  User: john_doe / password123")
+        log_info("  User: jane_smith / password123")
+        log_section("Done!")
 
     except Exception as e:
         db.rollback()
-        print(f"Error populating database: {e}")
+        log_info(f"❌ Error populating database: {e}")
+        import traceback
+
+        traceback.print_exc()
         raise
     finally:
         db.close()

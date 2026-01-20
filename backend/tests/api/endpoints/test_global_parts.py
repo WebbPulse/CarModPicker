@@ -2,6 +2,7 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.api.models.category import Category
 from app.api.models.user import User
@@ -353,3 +354,195 @@ class TestGlobalParts:
         error_detail = response.json()["details"][0]
         assert error_detail["type"] == "less_than_equal"
         assert "price" in error_detail["field"]
+
+    def test_get_global_parts_by_category_success(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test retrieving global parts by category."""
+        # Login as test user and get token
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Create multiple global parts in the same category
+        part_names = [get_unique_name(f"test_part_{i}") for i in range(3)]
+        created_parts = []
+        for part_name in part_names:
+            part_data = {
+                "name": part_name,
+                "description": "A test part description",
+                "price": 9999,
+                "category_id": test_category.id,
+            }
+            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            assert response.status_code == 200
+            created_parts.append(response.json())
+
+        # Get global parts by category (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert isinstance(data, list)
+        # Should return at least the parts we created
+        assert len(data) >= len(created_parts)
+
+        # Verify all returned parts are in the correct category
+        for part in data:
+            assert part["category_id"] == test_category.id
+
+        # Verify our created parts are in the results
+        part_ids = {part["id"] for part in data}
+        created_part_ids = {part["id"] for part in created_parts}
+        assert created_part_ids.issubset(part_ids)
+
+    def test_get_global_parts_by_category_with_pagination(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test pagination for global parts by category."""
+        # Login as test user and get token
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Create multiple global parts in the same category
+        for i in range(5):
+            part_data = {
+                "name": get_unique_name(f"test_part_{i}"),
+                "description": "A test part description",
+                "price": 9999,
+                "category_id": test_category.id,
+            }
+            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            assert response.status_code == 200
+
+        # Get first page
+        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}?skip=0&limit=2")
+        assert response.status_code == 200
+        first_page = response.json()
+        assert isinstance(first_page, list)
+        assert len(first_page) <= 2
+
+        # Get second page
+        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}?skip=2&limit=2")
+        assert response.status_code == 200
+        second_page = response.json()
+        assert isinstance(second_page, list)
+        assert len(second_page) <= 2
+
+        # Verify no overlap
+        first_page_ids = {part["id"] for part in first_page}
+        second_page_ids = {part["id"] for part in second_page}
+        assert first_page_ids.isdisjoint(second_page_ids)
+
+    def test_get_global_parts_by_category_not_found(self, client: TestClient) -> None:
+        """Test retrieving global parts for a non-existent category."""
+        # Try to get parts for non-existent category (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/global-parts/category/99999")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_get_global_parts_by_category_public_endpoint(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test that getting global parts by category works without authentication."""
+        # Login as test user to create data
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+
+        # Get global parts by category without authentication (public endpoint)
+        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_count_global_parts_by_user_success(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test counting global parts created by a specific user."""
+        # Login as test user and get token
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+    def test_count_global_parts_by_user_zero(self, client: TestClient, db_session: Session) -> None:
+        """Test counting global parts for a user with no parts."""
+        # Create a new user with no parts
+        from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User as DBUser
+
+        new_user = DBUser(
+            username=f"new_user_{os.getpid()}_{id(db_session)}",
+            email=f"new_user_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(new_user)
+        db_session.commit()
+        db_session.refresh(new_user)
+
+        # Count global parts for this user (should be 0)
+        response = client.get(f"{settings.API_STR}/global-parts/user/{new_user.id}/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert data["count"] == 0
+
+    def test_count_global_parts_by_user_public_endpoint(
+        self, client: TestClient, test_user: User, test_category: Category
+    ) -> None:
+        """Test that counting global parts by user works without authentication."""
+        # Login as test user to create data
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+
+        # Count global parts by user without authentication (public endpoint)
+        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0

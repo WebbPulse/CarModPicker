@@ -443,3 +443,51 @@ class TestUnifiedVotes:
         vote_data = {"vote_type": "invalid_vote"}
         response = client.post(f"{settings.API_STR}/votes/car/{car['id']}", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error
+
+    def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test counting votes."""
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/votes/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
+
+        # Login as test user and vote
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+
+        # Upvote the car
+        vote_data = {"vote_type": "upvote"}
+        response = client.post(
+            f"{settings.API_STR}/votes/car/{car['id']}",
+            json=vote_data,
+            headers=test_user_headers,
+        )
+        assert response.status_code == 200
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/votes/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+    def test_count_votes_public_endpoint(self, client: TestClient) -> None:
+        """Test that counting votes works without authentication."""
+        # Count votes (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/votes/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0

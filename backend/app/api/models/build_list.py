@@ -8,6 +8,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list_part import BuildListPart
+    from .build_log import BuildLog
     from .car import Car
     from .report import Report
     from .user import User
@@ -49,4 +50,10 @@ class BuildList(Base):
         primaryjoin="and_(Report.entity_id == BuildList.id, Report.entity_type == 'build_list')",
         cascade="all, delete-orphan",
         overlaps="reports",
+    )
+    build_log: Mapped[Optional["BuildLog"]] = relationship(
+        "BuildLog",
+        back_populates="build_list",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

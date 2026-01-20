@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient from '../../services/Api';
-import type { BuildListRead } from '../../types/Api';
+import { buildListsApi } from '../../services/Api';
 import AddItemTile from '../common/AddItemTile';
 import { ErrorAlert } from '../common/Alerts';
 import LoadingSpinner from '../common/LoadingSpinner';
+import Pagination from '../common/Pagination';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
+
 interface BuildListListProps {
   carId: number;
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
   onAddBuildListClick?: () => void; // Callback to open create form
+  search?: string | undefined; // Optional search term
 }
 
 const BuildListList: React.FC<BuildListListProps> = ({
@@ -21,34 +23,55 @@ const BuildListList: React.FC<BuildListListProps> = ({
   title = 'Build Lists',
   emptyMessage = 'No build lists found for this car.',
   onAddBuildListClick,
+  search,
 }) => {
-  const [internalBuildLists, setInternalBuildLists] = useState<
-    BuildListRead[] | null
-  >(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState<number | null>(null);
+  const itemsPerPage = 8;
+  const isFirstPage = currentPage === 1;
+  // On first page: create button (1) + 7 build lists = 8 items
+  // On other pages: 8 build lists = 8 items
+  const buildListsPerPage = isFirstPage ? 7 : 8;
 
-  const fetchBuildListsByCarIdRequestFn = useCallback(
-    (id: number) => apiClient.get<BuildListRead[]>(`/build-lists/car/${id}`),
-    []
-  );
+  // Fetch build lists with pagination
+  const fetchBuildListsByCarIdRequestFn = useCallback(() => {
+    // Calculate skip: page 1 = 0, page 2 = 7, page 3 = 15, page 4 = 23, etc.
+    const skip = isFirstPage ? 0 : 7 + (currentPage - 2) * 8;
+    return buildListsApi.getBuildListsByCar(carId, {
+      skip,
+      limit: buildListsPerPage,
+      ...(search && { search }),
+    });
+  }, [carId, currentPage, isFirstPage, buildListsPerPage, search]);
 
   const {
-    data: fetchedApiBuildLists,
+    data: buildListsResponse,
     isLoading,
     error,
     executeRequest: fetchCarBuildLists,
   } = useApiRequest(fetchBuildListsByCarIdRequestFn);
 
+  // Extract build lists and total from paginated response
+  const buildLists = buildListsResponse?.data || [];
+  const totalBuildLists = buildListsResponse?.pagination?.total_items ?? 0;
+
+  // Calculate total items: build lists + 1 for the create button on page 1
   useEffect(() => {
-    void fetchCarBuildLists(carId);
-  }, [carId, fetchCarBuildLists, refreshKey]);
+    if (buildListsResponse) {
+      // Total items = total build lists + 1 (for the create button on page 1)
+      setTotalItems(totalBuildLists + 1);
+    }
+  }, [buildListsResponse, totalBuildLists]);
 
   useEffect(() => {
-    if (fetchedApiBuildLists) {
-      setInternalBuildLists(fetchedApiBuildLists);
-    } else if (!isLoading && !error) {
-      setInternalBuildLists([]);
-    }
-  }, [fetchedApiBuildLists, isLoading, error]);
+    void fetchCarBuildLists();
+  }, [fetchCarBuildLists, refreshKey]);
+
+  // Reset to page 1 when refresh key or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setTotalItems(null);
+  }, [refreshKey, search]);
 
   const canAddBuildList = onAddBuildListClick !== undefined;
 
@@ -70,31 +93,47 @@ const BuildListList: React.FC<BuildListListProps> = ({
     );
   }
 
-  const noBuildListsToShow =
-    !internalBuildLists || internalBuildLists.length === 0;
+  const noBuildListsToShow = buildLists.length === 0;
 
   return (
     <div>
       <SectionHeader title={title} />
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
-        {canAddBuildList && (
+        {canAddBuildList && isFirstPage && (
           <AddItemTile
             title="Create New Build List"
             description="Click here to start a new build list for this car."
             onClick={onAddBuildListClick}
           />
         )}
-        {internalBuildLists &&
-          internalBuildLists.map((buildList) => (
+        {buildLists.length > 0 ? (
+          buildLists.map((buildList) => (
             <BuildListItem key={buildList.id} buildList={buildList} />
-          ))}
+          ))
+        ) : isFirstPage && canAddBuildList ? (
+          <div className="col-span-full text-center py-8 text-gray-400">
+            <p className="mb-4">
+              This car has no build lists yet. Click the tile above to create
+              one!
+            </p>
+          </div>
+        ) : null}
       </div>
-      {noBuildListsToShow && (
-        <p className="text-gray-400 mt-4">
-          {canAddBuildList
-            ? 'This car has no build lists yet. Click the tile above to create one!'
-            : emptyMessage}
-        </p>
+      {noBuildListsToShow && !canAddBuildList && (
+        <p className="text-gray-400 mt-4">{emptyMessage}</p>
+      )}
+      {totalItems !== null && totalItems > itemsPerPage && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(totalItems / itemsPerPage)}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            // Scroll to top when page changes
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          itemsPerPage={itemsPerPage}
+          totalItems={totalItems}
+        />
       )}
     </div>
   );

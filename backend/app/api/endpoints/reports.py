@@ -3,12 +3,13 @@ Unified reports endpoint for all entity types.
 """
 
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
+from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
 from app.api.schemas.report import (
     EntityType,
@@ -20,6 +21,7 @@ from app.api.schemas.report import (
 from app.api.services.report_service import ReportService
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
+    create_paginated_response,
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import standard_responses
@@ -31,6 +33,29 @@ router = APIRouter()
 
 # Create service
 report_service = ReportService()
+
+
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(
+        success_description="Count of reports",
+    ),
+)
+async def count_reports(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Get total count of reports."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        count = db.query(DBReport).count()
+        logger.info(f"Retrieved reports count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting reports: {str(e)}")
+        raise
 
 
 @router.post(
@@ -122,7 +147,6 @@ async def get_my_reports(
 
 @router.get(
     "/admin/list-with-details",
-    response_model=List[ReportWithDetails],
     responses=standard_responses(
         success_description="Reports with details retrieved successfully",
         unauthorized=True,
@@ -136,18 +160,25 @@ async def list_reports_with_details(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> List[ReportWithDetails]:
+) -> Dict[str, Any]:
     """List reports with detailed information. Admin only."""
     db = deps["db"]
     logger = deps["logger"]
 
-    return report_service.get_reports_with_details(
+    reports, total_count = report_service.get_reports_with_details(
         db=db,
         entity_type=entity_type,
         status=status,
         skip=skip,
         limit=limit,
         logger=logger,
+    )
+
+    return create_paginated_response(
+        data=reports,
+        total=total_count,
+        skip=skip,
+        limit=limit,
     )
 
 

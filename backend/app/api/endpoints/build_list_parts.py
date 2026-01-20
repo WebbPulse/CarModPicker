@@ -5,12 +5,12 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining build list part-specific functionality.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import joinedload
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.category import Category as DBCategory
@@ -38,6 +38,29 @@ from app.api.utils.response_patterns import ResponsePatterns
 
 # Create router
 router = APIRouter()
+
+
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(
+        success_description="Count of build list parts",
+    ),
+)
+async def count_build_list_parts(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Get total count of build list parts."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        count = db.query(DBBuildListPart).count()
+        logger.info(f"Retrieved build list parts count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting build list parts: {str(e)}")
+        raise
 
 
 @router.post(
@@ -106,29 +129,29 @@ async def add_global_part_to_build_list(
     responses=standard_responses(
         success_description="Build list parts retrieved successfully",
         not_found=True,
-        forbidden=True,
     ),
 )
 async def get_build_list_parts(
     build_list_id: int,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPartRead]:
     """Get all build list parts in a build list.
-    All authenticated users can view build list parts (read-only).
+    Public read access - anyone can view build list parts.
     Only owners can modify them.
     """
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists - allow read access for all authenticated users
+    # Verify build list exists - allow public read access
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     db_build_list_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
 
     build_list_parts = [BuildListPartRead.model_validate(part) for part in db_build_list_parts]
 
-    logger.info(f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
     return build_list_parts
 
 
@@ -295,22 +318,21 @@ async def create_global_part_and_add_to_build_list(
     responses=standard_responses(
         success_description="Global parts in build list retrieved successfully",
         not_found=True,
-        forbidden=True,
     ),
 )
 async def get_global_parts_in_build_list(
     build_list_id: int,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPartReadWithGlobalPart]:
     """Get all build list parts in a build list.
-    All authenticated users can view build list parts (read-only).
+    Public read access - anyone can view build list parts.
     Only owners can modify them.
     """
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists - allow read access for all authenticated users
+    # Verify build list exists - allow public read access
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     db_build_list_parts = (
@@ -322,7 +344,8 @@ async def get_global_parts_in_build_list(
 
     build_list_parts = [BuildListPartReadWithGlobalPart.model_validate(part) for part in db_build_list_parts]
 
-    logger.info(f"Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
     return build_list_parts
 
 

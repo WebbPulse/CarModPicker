@@ -10,12 +10,17 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 import {
+  buildListPartsApi,
   buildListsApi,
+  buildLogsApi,
   carsApi,
   categoriesApi,
   globalPartsApi,
   imageApi,
+  reportsApi,
+  subscriptionsApi,
   usersApi,
+  votesApi,
 } from '../../services/Api';
 
 interface EntityCounts {
@@ -25,6 +30,11 @@ interface EntityCounts {
   globalParts: number | null;
   categories: number | null;
   bucketObjects: number | null;
+  buildLogPosts: number | null;
+  buildListParts: number | null;
+  votes: number | null;
+  subscriptions: number | null;
+  reports: number | null;
 }
 
 function AdminDashboard() {
@@ -37,6 +47,11 @@ function AdminDashboard() {
     globalParts: null,
     categories: null,
     bucketObjects: null,
+    buildLogPosts: null,
+    buildListParts: null,
+    votes: null,
+    subscriptions: null,
+    reports: null,
   });
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
@@ -82,6 +97,11 @@ function AdminDashboard() {
         globalPartsCount,
         categoriesCount,
         bucketObjectsCount,
+        buildLogPostsCount,
+        buildListPartsCount,
+        votesCount,
+        subscriptionsCount,
+        reportsCount,
       ] = await Promise.all([
         fetchCount(() => usersApi.countUsers(), 'users'),
         fetchCount(() => carsApi.countCars(), 'cars'),
@@ -89,6 +109,17 @@ function AdminDashboard() {
         fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
         fetchCount(() => imageApi.countBucketObjects(), 'bucket objects'),
+        fetchCount(() => buildLogsApi.countBuildLogPosts(), 'build log posts'),
+        fetchCount(
+          () => buildListPartsApi.countBuildListParts(),
+          'build list parts'
+        ),
+        fetchCount(() => votesApi.countVotes(), 'votes'),
+        fetchCount(
+          () => subscriptionsApi.countSubscriptions(),
+          'subscriptions'
+        ),
+        fetchCount(() => reportsApi.countReports(), 'reports'),
       ]);
 
       setCounts({
@@ -98,6 +129,11 @@ function AdminDashboard() {
         globalParts: globalPartsCount,
         categories: categoriesCount,
         bucketObjects: bucketObjectsCount,
+        buildLogPosts: buildLogPostsCount,
+        buildListParts: buildListPartsCount,
+        votes: votesCount,
+        subscriptions: subscriptionsCount,
+        reports: reportsCount,
       });
 
       // Show error only if all requests failed
@@ -107,7 +143,12 @@ function AdminDashboard() {
         buildListsCount === null &&
         globalPartsCount === null &&
         categoriesCount === null &&
-        bucketObjectsCount === null;
+        bucketObjectsCount === null &&
+        buildLogPostsCount === null &&
+        buildListPartsCount === null &&
+        votesCount === null &&
+        subscriptionsCount === null &&
+        reportsCount === null;
 
       if (allFailed) {
         setCountsError(
@@ -295,6 +336,40 @@ function AdminDashboard() {
                 <div className="text-sm text-gray-400 mb-1">Bucket Objects</div>
                 <div className="text-3xl font-bold text-cyan-400">
                   {counts.bucketObjects?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">
+                  Build Log Posts
+                </div>
+                <div className="text-3xl font-bold text-orange-400">
+                  {counts.buildLogPosts?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">
+                  Build List Parts
+                </div>
+                <div className="text-3xl font-bold text-indigo-400">
+                  {counts.buildListParts?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Votes</div>
+                <div className="text-3xl font-bold text-teal-400">
+                  {counts.votes?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Subscriptions</div>
+                <div className="text-3xl font-bold text-emerald-400">
+                  {counts.subscriptions?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Reports</div>
+                <div className="text-3xl font-bold text-red-400">
+                  {counts.reports?.toLocaleString() ?? '—'}
                 </div>
               </div>
             </div>

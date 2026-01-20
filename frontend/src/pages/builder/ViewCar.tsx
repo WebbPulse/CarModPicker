@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { carsApi } from '../../services/Api';
+import { carsApi, categoriesApi } from '../../services/Api';
+import type { CategoryResponse } from '../../types/Api';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
@@ -14,7 +15,9 @@ import CardInfoItem from '../../components/common/CardInfoItem';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import GlobalPartList from '../../components/globalParts/GlobalPartList';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -23,15 +26,20 @@ const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
 
 const deleteCarRequestFn = (carId: string) => carsApi.deleteCar(Number(carId));
 
-function ViewCar() {
+function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] =
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
+  const [partsRefreshTrigger, setPartsRefreshTrigger] = useState(0);
   const [isEditCarFormOpen, setIsEditCarFormOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [buildListSearchTerm, setBuildListSearchTerm] = useState('');
+  const [partsSearchTerm, setPartsSearchTerm] = useState('');
 
   const {
     data: car,
@@ -47,15 +55,54 @@ function ViewCar() {
     setError: setDeleteCarError,
   } = useApiRequest(deleteCarRequestFn);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const response = await categoriesApi.getCategories();
+      setCategories(response.data);
+    } catch {
+      // Failed to load categories
+    }
+  }, []);
+
   useEffect(() => {
     if (carId) {
       void fetchCar(carId);
     }
-  }, [carId, fetchCar]);
+    void loadCategories();
+  }, [carId, fetchCar, loadCategories]);
 
   const handleBuildListCreated = () => {
     setBuildListRefreshTrigger((prev) => prev + 1);
     setIsCreateBuildListFormOpen(false); // Close dialog
+  };
+
+  const handleVoteUpdate = (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _partId: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _newVote: 'upvote' | 'downvote' | null
+  ) => {
+    // Refresh parts list after voting
+    setPartsRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleCategoryChange = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
+    // Refresh parts list when category changes
+    setPartsRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleBuildListSearchChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setBuildListSearchTerm(e.target.value);
+    // Reset to page 1 when search changes (handled by BuildListList component)
+  };
+
+  const handlePartsSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPartsSearchTerm(e.target.value);
+    // Refresh parts list when search changes
+    setPartsRefreshTrigger((prev) => prev + 1);
   };
 
   const openCreateBuildListDialog = () => {
@@ -230,14 +277,113 @@ function ViewCar() {
 
       {/* Build Lists Section */}
       {currentUser && (
-        <BuildListList
-          carId={car.id}
-          refreshKey={buildListRefreshTrigger}
-          title={`Build Lists for ${car.make} ${car.model}`}
-          emptyMessage="This car doesn't have any build lists yet."
-          onAddBuildListClick={openCreateBuildListDialog}
-        />
+        <>
+          <div className="mb-4">
+            <SectionHeader
+              title={`Build Lists for ${car.make} ${car.model} ${car.generation_name}`}
+            />
+            <div className="mt-4">
+              <Input
+                id="search-build-lists"
+                type="text"
+                placeholder="Search build lists by name or description..."
+                value={buildListSearchTerm}
+                onChange={handleBuildListSearchChange}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <BuildListList
+            carId={car.id}
+            refreshKey={buildListRefreshTrigger}
+            title=""
+            emptyMessage="This car doesn't have any build lists yet."
+            onAddBuildListClick={openCreateBuildListDialog}
+            search={buildListSearchTerm.trim() || undefined}
+          />
+          <Divider />
+        </>
       )}
+
+      {/* Related Parts Section */}
+      <div className="mb-4">
+        <SectionHeader
+          title={`Parts for ${car.make} ${car.model} ${car.generation_name}`}
+        />
+        <div className="mt-4">
+          <Input
+            id="search-parts"
+            type="text"
+            placeholder="Search parts by name, description, brand, or part number..."
+            value={partsSearchTerm}
+            onChange={handlePartsSearchChange}
+            className="w-full"
+          />
+        </div>
+      </div>
+
+      {/* Category Switcher */}
+      {categories.length > 0 && (
+        <div className="mb-4 overflow-x-auto">
+          <div className="flex gap-2 pb-2">
+            <button
+              type="button"
+              onClick={() => handleCategoryChange(null)}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                selectedCategory === null
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              All
+            </button>
+            {categories
+              .filter((category) => category.is_active)
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => handleCategoryChange(category.id)}
+                  className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
+                    selectedCategory === category.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {category.icon && <span>{category.icon}</span>}
+                  <span>{category.display_name || category.name}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      <GlobalPartList
+        params={{
+          car_id: car.id,
+          limit: 5,
+          ...(selectedCategory && { category_id: selectedCategory }),
+          ...(partsSearchTerm && { search: partsSearchTerm }),
+        }}
+        refreshKey={partsRefreshTrigger}
+        title=""
+        emptyMessage="No parts found for this car."
+        showVoteButtons={true}
+        onVoteUpdate={handleVoteUpdate}
+      />
+      <div className="mt-4 flex justify-center">
+        <Card className="inline-block">
+          <div className="text-center">
+            <Link
+              to={`/global-parts?car_id=${car.id}`}
+              className="text-blue-400 hover:text-blue-300 underline font-medium"
+            >
+              See more parts →
+            </Link>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

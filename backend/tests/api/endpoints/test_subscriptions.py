@@ -288,3 +288,119 @@ class TestSubscriptions:
         updated_data = response.json()
         updated_usage = updated_data["usage"]["build_lists"]
         assert updated_usage == initial_usage + 1
+
+    def test_count_subscriptions_success(self, client: TestClient, test_user: User) -> None:
+        """Test counting subscriptions."""
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/subscriptions/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Upgrade to premium (creates a subscription)
+        upgrade_data = {
+            "tier": "premium",
+            "payment_method": "mock_payment",
+        }
+        response = client.post(f"{settings.API_STR}/subscriptions/upgrade", json=upgrade_data, headers=headers)
+        assert response.status_code == 200
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/subscriptions/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+    def test_count_subscriptions_public_endpoint(self, client: TestClient) -> None:
+        """Test that counting subscriptions works without authentication."""
+        # Count subscriptions (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/subscriptions/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0
+
+    def test_check_creation_limits_car(self, client: TestClient, test_user: User) -> None:
+        """Test checking creation limits for cars."""
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Check if user can create a car
+        response = client.get(f"{settings.API_STR}/subscriptions/limits/check?resource_type=car", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "can_create" in data
+        assert isinstance(data["can_create"], bool)
+
+    def test_check_creation_limits_build_list(self, client: TestClient, test_user: User) -> None:
+        """Test checking creation limits for build lists."""
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Check if user can create a build list
+        response = client.get(
+            f"{settings.API_STR}/subscriptions/limits/check?resource_type=build_list", headers=headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "can_create" in data
+        assert isinstance(data["can_create"], bool)
+
+    def test_check_creation_limits_invalid_resource_type(self, client: TestClient, test_user: User) -> None:
+        """Test checking creation limits with invalid resource type."""
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Check with invalid resource type
+        response = client.get(f"{settings.API_STR}/subscriptions/limits/check?resource_type=invalid", headers=headers)
+        assert response.status_code == 400
+
+    def test_check_creation_limits_unauthorized(self, client: TestClient) -> None:
+        """Test checking creation limits without authentication."""
+        response = client.get(f"{settings.API_STR}/subscriptions/limits/check?resource_type=car")
+        assert response.status_code == 401
+
+    def test_check_global_part_creation_limit_success(self, client: TestClient, test_user: User) -> None:
+        """Test checking global part creation limit."""
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Check if user can create a global part
+        response = client.get(f"{settings.API_STR}/subscriptions/limits/check/global-part", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "can_create" in data
+        assert isinstance(data["can_create"], bool)
+
+    def test_check_global_part_creation_limit_unauthorized(self, client: TestClient) -> None:
+        """Test checking global part creation limit without authentication."""
+        response = client.get(f"{settings.API_STR}/subscriptions/limits/check/global-part")
+        assert response.status_code == 401

@@ -52,7 +52,7 @@ async def upload_image(
         HTTPException: If upload fails, validation fails, or user is not authenticated
     """
     # Validate entity_type
-    allowed_entity_types = ["build_list", "global_part", "user", "car"]
+    allowed_entity_types = ["build_list", "global_part", "user", "car", "build_log_post"]
     if entity_type not in allowed_entity_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,6 +85,25 @@ async def upload_image(
                     detail="Only admins can upload images for cars",
                 )
             entity_owned = True
+        elif entity_type == "build_log_post":
+            # For build log posts, verify the user has access to the build list
+            # If entity_id is provided, it should be the build_list_id
+            if entity_id:
+                from app.api.models.build_list import BuildList as DBBuildList
+
+                build_list = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
+                if build_list:
+                    # Any authenticated user can upload images for build log posts
+                    # (build logs are public-readable, so images should be too)
+                    entity_owned = True
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Build list not found",
+                    )
+            else:
+                # If no entity_id provided, allow upload (for new posts)
+                entity_owned = True
 
         if not entity_owned:
             raise HTTPException(
@@ -94,11 +113,14 @@ async def upload_image(
 
     try:
         # Upload image to Railway Storage Bucket
+        # Force square aspect ratio for user profile pictures
+        force_square = entity_type == "user"
         file_key = storage_service.upload_image(
             file=file,
             entity_type=entity_type,
             user_id=current_user.id,
             entity_id=entity_id,
+            force_square=force_square,
         )
 
         # Generate presigned URL for immediate use

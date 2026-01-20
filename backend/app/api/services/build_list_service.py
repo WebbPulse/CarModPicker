@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
@@ -57,13 +58,25 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         verify_entity_exists(db, DBCar, data.car_id, "car")
 
         # Call parent create method
-        return super().create(
+        build_list = super().create(
             db=db,
             data=data,
             current_user=current_user,
             logger=logger,
             additional_data=additional_data,
         )
+
+        # Auto-create a build log thread for this build list
+        build_log = DBBuildLog(
+            build_list_id=build_list.id,
+            title=f"Build Log: {build_list.name}",
+        )
+        db.add(build_log)
+        db.flush()
+
+        logger.info(f"Auto-created build log thread {build_log.id} for build list {build_list.id}")
+
+        return build_list
 
     def update(
         self,
@@ -245,6 +258,14 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         )
         db.add(new_build_list)
         db.flush()  # Get the ID without committing yet
+
+        # Auto-create a build log thread for the copied build list
+        build_log = DBBuildLog(
+            build_list_id=new_build_list.id,
+            title=f"Build Log: {new_build_list.name}",
+        )
+        db.add(build_log)
+        db.flush()
 
         # Get all build list parts from the original build list
         original_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()

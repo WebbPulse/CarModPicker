@@ -18,6 +18,7 @@ import ContactUs from './pages/ContactUs.tsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.tsx';
 import Support from './pages/Support.tsx';
 
+import ErrorBoundary from './components/common/ErrorBoundary';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
@@ -30,6 +31,7 @@ import CategoryManagement from './pages/admin/CategoryManagement.tsx';
 import ReportReview from './pages/admin/ReportReview.tsx';
 import UserManagement from './pages/admin/UserManagement.tsx';
 import BuildListsCatalog from './pages/buildLists/BuildListsCatalog.tsx';
+import ViewBuildLog from './pages/buildLists/ViewBuildLog.tsx';
 import ViewBuildList from './pages/builder/ViewBuildlist.tsx';
 import ViewGlobalPart from './pages/builder/ViewGlobalPart.tsx';
 import EditGlobalPart from './pages/globalParts/EditGlobalPart.tsx';
@@ -39,96 +41,112 @@ import SubscriptionManagement from './pages/subscription/SubscriptionManagement.
 
 function App() {
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
-      {/* Background Pattern */}
-      <div className="fixed inset-0 opacity-5">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-                           radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)`,
-          }}
-        ></div>
-      </div>
+    <ErrorBoundary>
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
+        {/* Background Pattern */}
+        <div className="fixed inset-0 opacity-5">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                               radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)`,
+            }}
+          ></div>
+        </div>
 
-      <Header />
+        <Header />
 
-      <main className="flex-grow relative z-10">
-        <Routes>
-          {/* Public Routes */}
-          <Route
-            path="*"
-            element={
-              <div className="container mx-auto px-4 py-20 text-center">
-                <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
-                  <h1 className="text-4xl font-bold text-gradient mb-4">404</h1>
-                  <p className="text-neutral-400 mb-6">Page not found</p>
-                  <a href="/" className="btn-primary inline-flex items-center">
-                    Go Home
-                  </a>
-                </div>
-              </div>
-            }
-          />
-          <Route path="/" element={<Home />} />
+        <main className="flex-grow relative z-10">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
 
-          {/* Guest Routes (redirect if logged in) */}
-          <Route element={<GuestRoute />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-          </Route>
-
-          {/* Public Info Pages */}
-          <Route path="/about" element={<About />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/contact-us" element={<ContactUs />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/user/:userId" element={<ViewUser />} />
-          <Route
-            path="/verify-email/confirm"
-            element={<VerifyEmailConfirm />}
-          />
-          <Route
-            path="/forgot-password/confirm"
-            element={<ForgotPasswordConfirm />}
-          />
-          <Route path="/cars/:carId" element={<ViewCar />} />
-          <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
-          <Route
-            path="/global-parts/:partId/edit"
-            element={<EditGlobalPart />}
-          />
-          <Route path="/global-parts/:partId" element={<ViewGlobalPart />} />
-          <Route path="/global-parts" element={<GlobalPartsCatalog />} />
-
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route element={<EmailVerifiedRoute />}>
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/builder" element={<Builder />} />
-              <Route
-                path="/subscription"
-                element={<SubscriptionManagement />}
-              />
-              <Route path="/my-global-parts" element={<UserGlobalParts />} />
-              <Route path="/build-lists" element={<BuildListsCatalog />} />
+            {/* Guest Routes (redirect if logged in) */}
+            <Route element={<GuestRoute />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Route>
-          </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/cars" element={<CarManagement />} />
-          <Route path="/admin/categories" element={<CategoryManagement />} />
-          <Route path="/admin/reports" element={<ReportReview />} />
-          <Route path="/admin/users" element={<UserManagement />} />
-        </Routes>
-      </main>
+            {/* Public Info Pages */}
+            <Route path="/about" element={<About />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/user/:userId" element={<ViewUser />} />
+            <Route
+              path="/verify-email/confirm"
+              element={<VerifyEmailConfirm />}
+            />
+            <Route
+              path="/forgot-password/confirm"
+              element={<ForgotPasswordConfirm />}
+            />
+            <Route path="/cars/:carId" element={<ViewCar />} />
+            <Route
+              path="/build-lists/:buildListId"
+              element={<ViewBuildList />}
+            />
+            <Route
+              path="/build-lists/:buildListId/build-log"
+              element={<ViewBuildLog />}
+            />
+            <Route path="/build-lists" element={<BuildListsCatalog />} />
+            <Route
+              path="/global-parts/:partId/edit"
+              element={<EditGlobalPart />}
+            />
+            <Route path="/global-parts/:partId" element={<ViewGlobalPart />} />
+            <Route path="/global-parts" element={<GlobalPartsCatalog />} />
 
-      <Footer />
-    </div>
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route element={<EmailVerifiedRoute />}>
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/builder" element={<Builder />} />
+                <Route
+                  path="/subscription"
+                  element={<SubscriptionManagement />}
+                />
+                <Route path="/my-global-parts" element={<UserGlobalParts />} />
+              </Route>
+            </Route>
+
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/cars" element={<CarManagement />} />
+            <Route path="/admin/categories" element={<CategoryManagement />} />
+            <Route path="/admin/reports" element={<ReportReview />} />
+            <Route path="/admin/users" element={<UserManagement />} />
+
+            {/* 404 Catch-all - Must be last */}
+            <Route
+              path="*"
+              element={
+                <div className="container mx-auto px-4 py-20 text-center">
+                  <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
+                    <h1 className="text-4xl font-bold text-gradient mb-4">
+                      404
+                    </h1>
+                    <p className="text-neutral-400 mb-6">Page not found</p>
+                    <a
+                      href="/"
+                      className="btn-primary inline-flex items-center"
+                    >
+                      Go Home
+                    </a>
+                  </div>
+                </div>
+              }
+            />
+          </Routes>
+        </main>
+
+        <Footer />
+      </div>
+    </ErrorBoundary>
   );
 }
 

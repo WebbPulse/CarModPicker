@@ -1,11 +1,12 @@
 {
-  "include": ["app", "tests"],
+  "include": ["app"],
   "exclude": [
     "**/node_modules",
     "**/__pycache__",
     "**/venv",
     "alembic/versions",
-    "../scripts/**"
+    "../scripts/**",
+    "tests/**"
   ],
   "reportMissingImports": "error",
   "reportMissingTypeStubs": "none",

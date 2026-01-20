@@ -6,6 +6,7 @@ service layer usage consistent with other endpoints.
 """
 
 import logging
+from typing import Dict
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -29,6 +30,27 @@ from app.core.logging import get_logger
 from app.db.session import get_db
 
 router = APIRouter()
+
+
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(success_description="Count of subscriptions"),
+)
+async def count_subscriptions(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    logger: logging.Logger = Depends(get_logger),
+) -> Dict[str, int]:
+    """Get total count of subscriptions."""
+    db = deps["db"]
+
+    try:
+        count = db.query(Subscription).count()
+        logger.info(f"Retrieved subscriptions count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting subscriptions: {str(e)}")
+        raise
 
 
 @router.get(

@@ -1,8 +1,8 @@
-import { useAuth } from '../hooks/useAuth';
-import LinkButton from '../components/buttons/LinkButton';
-import { GiRaceCar, GiCarWheel } from 'react-icons/gi';
-import { FaCogs, FaUsers, FaChartLine, FaShieldAlt } from 'react-icons/fa';
 import { BsTools } from 'react-icons/bs';
+import { FaChartLine, FaCogs, FaShieldAlt, FaUsers } from 'react-icons/fa';
+import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
+import LinkButton from '../components/buttons/LinkButton';
+import { useAuth } from '../hooks/useAuth';
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();

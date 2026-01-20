@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { usersApi } from '../../services/Api';
-import type { AdminUserUpdate, UserRead } from '../../types/Api';
+import type {
+  AdminUserUpdate,
+  PaginatedResponse,
+  UserRead,
+} from '../../types/Api';
 
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
@@ -12,13 +16,17 @@ import DeleteConfirmationDialog from '../../components/common/DeleteConfirmation
 import Dialog from '../../components/common/Dialog';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
-const fetchUsersRequestFn = (params?: { skip?: number; limit?: number }) =>
-  usersApi.getAllUsers(params);
+const fetchUsersRequestFn = (params?: {
+  skip?: number;
+  limit?: number;
+  search?: string;
+}) => usersApi.getAllUsers(params);
 
 const updateUserRequestFn = (payload: {
   userId: number;
@@ -34,6 +42,8 @@ function UserManagement() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const wasFocusedRef = useRef(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRead | null>(null);
@@ -52,11 +62,14 @@ function UserManagement() {
   });
 
   const {
-    data: users,
+    data: usersData,
     isLoading: isLoadingUsers,
     error: usersError,
     executeRequest: fetchUsers,
-  } = useApiRequest(fetchUsersRequestFn);
+  } = useApiRequest<
+    PaginatedResponse<UserRead>,
+    { skip?: number; limit?: number; search?: string }
+  >(fetchUsersRequestFn);
 
   const {
     isLoading: isUpdating,
@@ -79,21 +92,55 @@ function UserManagement() {
     }
   }, [currentUser, navigate]);
 
+  // Debounce search term - update debouncedSearchTerm after user stops typing
   useEffect(() => {
-    void fetchUsers({
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms delay
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  // Reset to page 1 when debounced search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
+
+  useEffect(() => {
+    const params: { skip: number; limit: number; search?: string } = {
       skip: (currentPage - 1) * ITEMS_PER_PAGE,
       limit: ITEMS_PER_PAGE,
-    });
-  }, [fetchUsers, currentPage]);
+    };
+    if (debouncedSearchTerm) {
+      params.search = debouncedSearchTerm;
+    }
+    void fetchUsers(params);
+  }, [fetchUsers, currentPage, debouncedSearchTerm]);
 
-  // Filter users by search term on the frontend
-  const filteredUsers = users?.filter(
-    (u) =>
-      !searchTerm ||
-      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.id.toString().includes(searchTerm)
-  );
+  // Restore focus after data updates if input was previously focused
+  useEffect(() => {
+    if (wasFocusedRef.current) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        const input = document.getElementById(
+          'user-search'
+        ) as HTMLInputElement;
+        if (input && document.activeElement !== input) {
+          input.focus();
+          // Restore cursor position if possible
+          if (searchTerm.length > 0) {
+            input.setSelectionRange(searchTerm.length, searchTerm.length);
+          }
+        }
+      });
+    }
+  }, [usersData, searchTerm]);
+
+  // Extract users and pagination info from the response
+  const users = usersData?.data || [];
+  const pagination = usersData?.pagination;
 
   if (!currentUser) {
     return (
@@ -237,19 +284,6 @@ function UserManagement() {
     return user.id !== currentUser.id;
   };
 
-  if (isLoadingUsers && !users) {
-    return (
-      <>
-        <PageHeader title="User Management" />
-        <LoadingSpinner />
-      </>
-    );
-  }
-
-  // Determine if there are more pages (if we got a full page, there might be more)
-  const hasMorePages = users && users.length === ITEMS_PER_PAGE;
-  const displayUsers = filteredUsers || [];
-
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
@@ -265,13 +299,28 @@ function UserManagement() {
 
       {/* Search */}
       <Card className="mb-4">
-        <Input
-          id="user-search"
-          label="Search Users"
-          placeholder="Search by username, email, or ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div
+          onFocus={() => {
+            wasFocusedRef.current = true;
+          }}
+          onBlur={() => {
+            // Only mark as unfocused if focus is moving outside the component
+            // This prevents losing focus during internal re-renders
+            setTimeout(() => {
+              if (document.activeElement?.id !== 'user-search') {
+                wasFocusedRef.current = false;
+              }
+            }, 0);
+          }}
+        >
+          <Input
+            id="user-search"
+            label="Search Users"
+            placeholder="Search by username, email, or ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </Card>
 
       {usersError && (
@@ -280,8 +329,20 @@ function UserManagement() {
         </Card>
       )}
 
-      {displayUsers && displayUsers.length > 0 && (
+      {/* Results area with loading state */}
+      {isLoadingUsers && !usersData ? (
         <Card>
+          <div className="flex justify-center items-center py-16">
+            <LoadingSpinner />
+          </div>
+        </Card>
+      ) : users && users.length > 0 ? (
+        <Card className="relative">
+          {isLoadingUsers && (
+            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <LoadingSpinner />
+            </div>
+          )}
           <SectionHeader title="Users" />
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -292,6 +353,7 @@ function UserManagement() {
                   <th className="p-2 text-gray-300">Email</th>
                   <th className="p-2 text-gray-300">Status</th>
                   <th className="p-2 text-gray-300">Email Verified</th>
+                  <th className="p-2 text-gray-300">2FA</th>
                   <th className="p-2 text-gray-300">Subscription</th>
                   <th className="p-2 text-gray-300">Admin</th>
                   <th className="p-2 text-gray-300">Superuser</th>
@@ -299,7 +361,7 @@ function UserManagement() {
                 </tr>
               </thead>
               <tbody>
-                {displayUsers.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className="border-b border-gray-800">
                     <td className="p-2 text-gray-200">{user.id}</td>
                     <td className="p-2 text-gray-200">{user.username}</td>
@@ -324,6 +386,17 @@ function UserManagement() {
                         }`}
                       >
                         {user.email_verified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          user.totp_enabled
+                            ? 'bg-green-600 text-green-100'
+                            : 'bg-gray-600 text-gray-100'
+                        }`}
+                      >
+                        {user.totp_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
                     <td className="p-2">
@@ -395,32 +468,17 @@ function UserManagement() {
           </div>
 
           {/* Pagination */}
-          {!searchTerm && (
-            <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-700">
-              <ActionButton
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="text-sm"
-              >
-                Previous
-              </ActionButton>
-              <span className="text-gray-400">
-                Page {currentPage}
-                {hasMorePages && ' (more pages available)'}
-              </span>
-              <ActionButton
-                onClick={() => setCurrentPage((p) => p + 1)}
-                disabled={!hasMorePages}
-                className="text-sm"
-              >
-                Next
-              </ActionButton>
-            </div>
+          {pagination && (
+            <Pagination
+              currentPage={pagination.current_page}
+              totalPages={pagination.total_pages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={ITEMS_PER_PAGE}
+              totalItems={pagination.total_items}
+            />
           )}
         </Card>
-      )}
-
-      {displayUsers && displayUsers.length === 0 && (
+      ) : users && users.length === 0 && !isLoadingUsers ? (
         <Card>
           <SectionHeader title="Users" />
           <p className="text-gray-400 text-center py-8">
@@ -429,7 +487,7 @@ function UserManagement() {
               : 'No users found.'}
           </p>
         </Card>
-      )}
+      ) : null}
 
       {/* Edit User Dialog */}
       <Dialog

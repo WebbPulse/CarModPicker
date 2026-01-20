@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
   buildListPartsApi,
+  carsApi,
   categoriesApi,
   globalPartsApi,
   globalPartVotesApi,
   usersApi,
 } from '../../services/Api';
 import type {
+  CarRead,
   CategoryResponse,
   GlobalPartReadWithVotes,
 } from '../../types/Api';
@@ -41,6 +43,8 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const fetchUserRequestFn = (userId: number) => usersApi.getUser(userId);
 
+const fetchCarRequestFn = (carId: number) => carsApi.getCar(carId);
+
 const deletePartRequestFn = (partId: string) =>
   globalPartsApi.deleteGlobalPart(Number(partId));
 
@@ -59,6 +63,7 @@ function ViewGlobalPart() {
     useState<GlobalPartReadWithVotes | null>(null);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
+  const [car, setCar] = useState<CarRead | null>(null);
 
   const {
     data: part,
@@ -89,6 +94,13 @@ function ViewGlobalPart() {
   } = useApiRequest(fetchUserRequestFn);
 
   const {
+    data: carData,
+    isLoading: isLoadingCar,
+    error: carApiError,
+    executeRequest: fetchCar,
+  } = useApiRequest(fetchCarRequestFn);
+
+  const {
     isLoading: isDeletingPart,
     error: deletePartError,
     executeRequest: executeDeletePart,
@@ -117,6 +129,14 @@ function ViewGlobalPart() {
     }
   }, [fetchUser, part?.user_id]);
 
+  const memoizedFetchCar = useCallback(() => {
+    if (part?.car_id) {
+      void fetchCar(part.car_id);
+    } else {
+      setCar(null);
+    }
+  }, [fetchCar, part?.car_id]);
+
   useEffect(() => {
     memoizedFetchPart();
     memoizedFetchVoteSummary();
@@ -144,6 +164,16 @@ function ViewGlobalPart() {
   useEffect(() => {
     memoizedFetchUser();
   }, [memoizedFetchUser]);
+
+  useEffect(() => {
+    memoizedFetchCar();
+  }, [memoizedFetchCar]);
+
+  useEffect(() => {
+    if (carData) {
+      setCar(carData);
+    }
+  }, [carData]);
 
   const handleGlobalPartUpdated = async () => {
     if (partId) {
@@ -221,7 +251,11 @@ function ViewGlobalPart() {
   };
 
   const isLoading =
-    isLoadingPart || isLoadingVotes || isLoadingCategories || isLoadingOwner;
+    isLoadingPart ||
+    isLoadingVotes ||
+    isLoadingCategories ||
+    isLoadingOwner ||
+    isLoadingCar;
 
   if (isLoading && !part) {
     return (
@@ -310,6 +344,48 @@ function ViewGlobalPart() {
               </ActionButton>
             )}
           </div>
+        </div>
+
+        {/* Car Association / Universal Parts Badge */}
+        <div className="mb-6">
+          {part.car_id && car ? (
+            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🚗</span>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
+                    Car-Specific Part
+                  </h3>
+                  <p className="text-sm text-gray-300">
+                    This part is designed for:{' '}
+                    <Link
+                      to={`/cars/${car.id}`}
+                      className="font-semibold text-indigo-300 hover:text-indigo-200 underline transition-colors"
+                    >
+                      {car.make} {car.model} {car.generation_name} (
+                      {car.start_year}
+                      {car.end_year ? `-${car.end_year}` : '+'})
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🌐</span>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
+                    Universal Part
+                  </h3>
+                  <p className="text-sm text-gray-300">
+                    This part is not tied to a specific car and can be used with
+                    any vehicle (wheels, tools, accessories, etc.)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Voting Section */}
@@ -437,6 +513,11 @@ function ViewGlobalPart() {
         {ownerApiError && (
           <ErrorAlert
             message={`Error loading creator information: ${ownerApiError}`}
+          />
+        )}
+        {carApiError && (
+          <ErrorAlert
+            message={`Error loading car information: ${carApiError}`}
           />
         )}
       </Card>

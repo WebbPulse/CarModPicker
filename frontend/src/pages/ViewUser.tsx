@@ -74,7 +74,7 @@ function ViewUser() {
               <img
                 src={user.image_url}
                 alt={`${user.username}'s profile`}
-                className="h-48 w-48 object-cover"
+                className="h-48 w-48 rounded-lg object-cover"
               />
             ) : (
               <p className="text-gray-400">No image set.</p>

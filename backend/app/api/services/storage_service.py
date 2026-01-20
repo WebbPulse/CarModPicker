@@ -196,6 +196,55 @@ class StorageService:
 
         return file_extension, file_content
 
+    def _process_image_to_square(self, file_content: bytes, target_size: int = 512) -> bytes:
+        """
+        Process an image to a square aspect ratio by cropping and resizing.
+
+        The image is cropped to the center square of the original image,
+        then resized to the target size.
+
+        Args:
+            file_content: Original image bytes
+            target_size: Target size for the square image (default: 512px)
+
+        Returns:
+            bytes: Processed square image as JPEG bytes
+        """
+        try:
+            image = Image.open(BytesIO(file_content))
+
+            # Convert to RGB if necessary
+            if image.mode != "RGB":
+                image = image.convert("RGB")  # type: ignore[assignment]
+
+            # Get dimensions
+            width, height = image.size
+
+            # Calculate crop box for center square
+            size = min(width, height)
+            left = (width - size) // 2
+            top = (height - size) // 2
+            right = left + size
+            bottom = top + size
+
+            # Crop to square
+            image = image.crop((left, top, right, bottom))
+
+            # Resize to target size
+            image = image.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+            # Convert to bytes
+            output = BytesIO()
+            image.save(output, format="JPEG", quality=95, optimize=True)
+            return output.getvalue()
+
+        except Exception as e:
+            logger.error(f"Failed to process image to square: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to process image to square format",
+            )
+
     def _generate_file_key(self, entity_type: str, entity_id: Optional[int], user_id: int, file_extension: str) -> str:
         """
         Generate a unique, secure file key for Railway Storage Bucket.
@@ -288,6 +337,7 @@ class StorageService:
         entity_type: str,
         user_id: int,
         entity_id: Optional[int] = None,
+        force_square: bool = False,
     ) -> str:
         """
         Upload an image file to Railway Storage Bucket and return a presigned URL.
@@ -300,6 +350,7 @@ class StorageService:
             entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
             user_id: ID of the user uploading the image
             entity_id: Optional ID of the entity (for updates)
+            force_square: If True, crop and resize image to square aspect ratio (default: False)
 
         Returns:
             str: File key (stored in database, used to generate presigned URLs)
@@ -315,6 +366,11 @@ class StorageService:
 
         # Validate file
         file_extension, file_content = self._validate_file(file)
+
+        # Process to square if requested
+        if force_square:
+            file_content = self._process_image_to_square(file_content)
+            file_extension = "jpg"  # Square images are always saved as JPEG
 
         # Generate secure file key
         file_key = self._generate_file_key(entity_type, entity_id, user_id, file_extension)
