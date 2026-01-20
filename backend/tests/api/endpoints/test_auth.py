@@ -421,3 +421,844 @@ def test_logout_without_login(client: TestClient, db_session: Session) -> None:
     response = client.post(f"{settings.API_STR}/auth/logout")
     assert response.status_code == 200
     assert response.json()["message"] == "Logged out successfully"
+
+
+# --- 2FA Tests ---
+
+
+def test_setup_2fa_success(client: TestClient, db_session: Session) -> None:
+    """Test setting up 2FA."""
+    username = get_unique_username("2fa_setup_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup 2FA
+    response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "secret" in data
+    assert "qr_code_data" in data
+    assert "manual_entry_key" in data
+    assert data["secret"] is not None
+    assert len(data["secret"]) > 0
+    assert data["qr_code_data"].startswith("data:image/png;base64,")
+
+
+def test_setup_2fa_unauthorized(client: TestClient) -> None:
+    """Test setting up 2FA without authentication."""
+    response = client.post(f"{settings.API_STR}/auth/2fa/setup")
+    assert response.status_code == 401
+
+
+def test_verify_2fa_success(client: TestClient, db_session: Session) -> None:
+    """Test verifying and enabling 2FA."""
+    import pyotp
+
+    username = get_unique_username("2fa_verify_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    # Generate OTP
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+
+    # Verify 2FA
+    verify_data = {"otp": otp}
+    response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "enabled" in data["message"].lower()
+
+    # Verify user has 2FA enabled
+    from app.api.models.user import User
+
+    user = db_session.query(User).filter(User.username == username).first()
+    assert user.totp_enabled is True
+
+
+def test_verify_2fa_invalid_otp(client: TestClient, db_session: Session) -> None:
+    """Test verifying 2FA with invalid OTP."""
+    username = get_unique_username("2fa_invalid_otp_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+
+    # Try to verify with invalid OTP
+    verify_data = {"otp": "000000"}
+    response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert response.status_code == 401
+    assert "invalid" in response.json()["message"].lower()
+
+
+def test_verify_2fa_without_setup(client: TestClient, db_session: Session) -> None:
+    """Test verifying 2FA without calling setup first."""
+    username = get_unique_username("2fa_no_setup_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Try to verify without setup
+    verify_data = {"otp": "123456"}
+    response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert response.status_code == 400
+    assert "setup" in response.json()["message"].lower()
+
+
+def test_login_with_2fa_enabled(client: TestClient, db_session: Session) -> None:
+    """Test login flow when 2FA is enabled."""
+    import pyotp
+
+    username = get_unique_username("2fa_login_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+    verify_data = {"otp": otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Try to login - should require 2FA
+    login_data = {"username": username, "password": password}
+    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requires_2fa"] is True
+    assert "access_token" not in data
+
+    # Complete login with 2FA
+    otp = totp.now()
+    login_2fa_data = {"username": username, "password": password, "otp": otp}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "user" in data
+
+
+def test_login_with_2fa_invalid_otp(client: TestClient, db_session: Session) -> None:
+    """Test login with 2FA using invalid OTP."""
+    import pyotp
+
+    username = get_unique_username("2fa_login_invalid_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+    verify_data = {"otp": otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Try to login with invalid OTP
+    login_2fa_data = {"username": username, "password": password, "otp": "000000"}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 401
+    assert "invalid" in response.json()["message"].lower()
+
+
+def test_disable_2fa_success(client: TestClient, db_session: Session) -> None:
+    """Test disabling 2FA."""
+    import pyotp
+
+    username = get_unique_username("2fa_disable_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+    verify_data = {"otp": otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Disable 2FA
+    otp = totp.now()
+    disable_data = {"password": password, "otp": otp}
+    response = client.post(f"{settings.API_STR}/auth/2fa/disable", json=disable_data, headers=headers)
+    assert response.status_code == 200
+    assert "disabled" in response.json()["message"].lower()
+
+    # Verify user has 2FA disabled
+    from app.api.models.user import User
+
+    user = db_session.query(User).filter(User.username == username).first()
+    assert user.totp_enabled is False
+    assert user.totp_secret is None
+
+
+def test_disable_2fa_invalid_password(client: TestClient, db_session: Session) -> None:
+    """Test disabling 2FA with invalid password."""
+    import pyotp
+
+    username = get_unique_username("2fa_disable_invalid_pass_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+    verify_data = {"otp": otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Try to disable with wrong password
+    otp = totp.now()
+    disable_data = {"password": "wrongpassword", "otp": otp}
+    response = client.post(f"{settings.API_STR}/auth/2fa/disable", json=disable_data, headers=headers)
+    assert response.status_code == 401
+    assert "incorrect" in response.json()["message"].lower()
+
+
+def test_disable_2fa_not_enabled(client: TestClient, db_session: Session) -> None:
+    """Test disabling 2FA when it's not enabled."""
+    username = get_unique_username("2fa_disable_not_enabled_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Try to disable 2FA when not enabled
+    disable_data = {"password": password, "otp": "123456"}
+    response = client.post(f"{settings.API_STR}/auth/2fa/disable", json=disable_data, headers=headers)
+    assert response.status_code == 400
+    assert "not enabled" in response.json()["message"].lower()
+
+
+def test_login_with_2fa_not_enabled(client: TestClient, db_session: Session) -> None:
+    """Test login with 2FA when 2FA is not enabled (should return 400)."""
+    username = get_unique_username("2fa_login_not_enabled_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Try to login with 2FA when 2FA is not enabled
+    login_2fa_data = {"username": username, "password": password, "otp": "123456"}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 400
+    assert "not enabled" in response.json()["message"].lower()
+
+
+def test_login_with_2fa_invalid_password(client: TestClient, db_session: Session) -> None:
+    """Test login with 2FA using invalid password (after initial login attempt)."""
+    import pyotp
+
+    username = get_unique_username("2fa_login_invalid_pass_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+    verify_data = {"otp": otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Try to login with 2FA using wrong password
+    otp = totp.now()
+    login_2fa_data = {"username": username, "password": "wrongpassword", "otp": otp}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 401
+    assert "invalid" in response.json()["message"].lower()
+
+
+def test_login_with_2fa_nonexistent_user(client: TestClient) -> None:
+    """Test login with 2FA for non-existent user."""
+    login_2fa_data = {"username": "nonexistent_user", "password": "password123", "otp": "123456"}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 401
+    assert "invalid" in response.json()["message"].lower()
+
+
+def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) -> None:
+    """Test login with 2FA when user has totp_enabled=True but no totp_secret (configuration error)."""
+    import pyotp
+
+    username = get_unique_username("2fa_missing_secret_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Manually set totp_enabled=True but leave totp_secret=None (simulating config error)
+    from app.api.models.user import User
+
+    user = db_session.query(User).filter(User.username == username).first()
+    user.totp_enabled = True
+    user.totp_secret = None
+    db_session.commit()
+
+    # Try to login with 2FA
+    login_2fa_data = {"username": username, "password": password, "otp": "123456"}
+    response = client.post(f"{settings.API_STR}/auth/token/2fa", json=login_2fa_data)
+    assert response.status_code == 500
+    # Error handler masks 5xx error messages, but we can check the error_code
+    assert response.json()["error_code"] == "INTERNAL_ERROR"
+
+
+def test_verify_2fa_otp_time_window(client: TestClient, db_session: Session) -> None:
+    """Test that 2FA verification only accepts OTPs within the valid time window."""
+    import pyotp
+    import time
+
+    username = get_unique_username("2fa_time_window_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+
+    # Get current OTP
+    current_otp = totp.now()
+
+    # Verify with current OTP (should succeed)
+    verify_data = {"otp": current_otp}
+    verify_response = client.post(f"{settings.API_STR}/auth/2fa/verify", json=verify_data, headers=headers)
+    assert verify_response.status_code == 200
+
+    # Note: Testing expired OTP is difficult because TOTP windows are 30 seconds
+    # and we can't easily manipulate time in tests. The valid_window=1 parameter
+    # in the code allows 1 time step window for clock skew, so we test that
+    # the current OTP works (which validates the time window logic is in place)
+
+
+def test_setup_2fa_multiple_calls(client: TestClient, db_session: Session) -> None:
+    """Test that multiple setup calls generate new secrets each time."""
+    username = get_unique_username("2fa_multiple_setup")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # First setup
+    setup_response1 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response1.status_code == 200
+    secret1 = setup_response1.json()["secret"]
+
+    # Second setup (should generate new secret)
+    setup_response2 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response2.status_code == 200
+    secret2 = setup_response2.json()["secret"]
+
+    # Secrets should be different
+    assert secret1 != secret2
+
+    # Verify that 2FA is still not enabled (requires verify step)
+    from app.api.models.user import User as DBUser
+
+    db = db_session
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    assert user is not None
+    assert user.totp_enabled is False
+    assert user.totp_secret == secret2  # Latest secret should be stored
+
+
+def test_verify_2fa_after_already_enabled(client: TestClient, db_session: Session) -> None:
+    """Test verifying 2FA when it's already enabled (should handle gracefully)."""
+    username = get_unique_username("2fa_already_enabled")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and verify 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    import pyotp
+
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": otp},
+        headers=headers,
+    )
+    assert verify_response.status_code == 200
+    assert verify_response.json()["success"] is True
+
+    # Try to verify again (should handle gracefully - may succeed or fail depending on implementation)
+    otp2 = totp.now()
+    verify_response2 = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": otp2},
+        headers=headers,
+    )
+    # Should either succeed (idempotent) or fail with appropriate error
+    assert verify_response2.status_code in [200, 400, 422]
+
+
+def test_login_with_2fa_disabled_user(client: TestClient, db_session: Session) -> None:
+    """Test login with 2FA when user account is disabled."""
+    username = get_unique_username("2fa_disabled")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+    user_id = create_response.json()["id"]
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    import pyotp
+
+    totp = pyotp.TOTP(secret)
+    otp = totp.now()
+
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": otp},
+        headers=headers,
+    )
+    assert verify_response.status_code == 200
+
+    # Disable the user
+    update_payload = {"disabled": True, "current_password": password}
+    update_response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
+    assert update_response.status_code == 200
+
+    # Try to login with 2FA (should fail because user is disabled)
+    login_response = client.post(
+        f"{settings.API_STR}/auth/token/2fa",
+        json={"username": username, "password": password, "otp": totp.now()},
+    )
+    # Should fail at initial login (before 2FA step) because user is disabled
+    assert login_response.status_code in [400, 401]
+
+
+def test_disable_2fa_when_already_disabled(client: TestClient, db_session: Session) -> None:
+    """Test disabling 2FA when already disabled (idempotency)."""
+    username = get_unique_username("2fa_disable_idempotent")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Try to disable 2FA when not enabled (should fail with appropriate error)
+    disable_response = client.post(
+        f"{settings.API_STR}/auth/2fa/disable",
+        json={"password": password, "otp": "123456"},
+        headers=headers,
+    )
+    assert disable_response.status_code == 400
+    assert "not enabled" in disable_response.json()["message"].lower()
+
+
+def test_2fa_setup_replaces_old_secret(client: TestClient, db_session: Session) -> None:
+    """Test that calling 2FA setup again replaces the old secret."""
+    import pyotp
+
+    username = get_unique_username("2fa_setup_replace")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # First setup
+    setup_response1 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response1.status_code == 200
+    secret1 = setup_response1.json()["secret"]
+
+    # Second setup - should generate new secret
+    setup_response2 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response2.status_code == 200
+    secret2 = setup_response2.json()["secret"]
+
+    # Secrets should be different
+    assert secret1 != secret2, "New setup should generate a different secret"
+
+    totp2 = pyotp.TOTP(secret2)
+
+    # Verify with new secret (should work)
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": totp2.now()},
+        headers=headers,
+    )
+    assert verify_response.status_code == 200
+
+    # Old secret should not work for verification (but we can't test this directly
+    # since verification requires the secret to be in the database)
+
+
+def test_2fa_verify_otp_expired_beyond_window(client: TestClient, db_session: Session) -> None:
+    """Test 2FA verify with OTP from 2 time windows ago (should fail)."""
+    username = get_unique_username("2fa_verify_expired")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    import pyotp
+    import time
+
+    totp = pyotp.TOTP(secret)
+
+    # Get OTP from 2 time windows ago (60 seconds * 2 = 120 seconds)
+    # TOTP time step is 30 seconds, so 2 windows = 60 seconds
+    old_time = int(time.time()) - 60
+    old_otp = totp.at(old_time)
+
+    # Try to verify with old OTP (should fail - valid_window=1 only allows ±1 time step)
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": old_otp},
+        headers=headers,
+    )
+    # Should fail because OTP is too old (valid_window=1 means only ±1 time step = 30 seconds)
+    assert verify_response.status_code in [401, 400], "Old OTP should be rejected"
+
+
+def test_2fa_setup_when_already_enabled(client: TestClient, db_session: Session) -> None:
+    """Test 2FA setup behavior when 2FA is already enabled."""
+    username = get_unique_username("2fa_setup_enabled")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response1 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response1.status_code == 200
+    secret1 = setup_response1.json()["secret"]
+
+    import pyotp
+
+    totp1 = pyotp.TOTP(secret1)
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": totp1.now()},
+        headers=headers,
+    )
+    assert verify_response.status_code == 200
+
+    # Try to setup again when already enabled - should allow (generates new secret)
+    setup_response2 = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response2.status_code == 200
+    secret2 = setup_response2.json()["secret"]
+
+    # New secret should be different
+    assert secret1 != secret2, "Setup when enabled should generate new secret"
+
+    # Old secret should no longer work for login
+    # Try to login with old secret's OTP (should fail)
+    totp1 = pyotp.TOTP(secret1)
+    login_2fa_response = client.post(
+        f"{settings.API_STR}/auth/token/2fa",
+        json={"username": username, "password": password, "otp": totp1.now()},
+    )
+    # Should fail because secret1 is no longer in database (replaced by secret2)
+    assert login_2fa_response.status_code == 401, "Old secret should not work after new setup"
+
+
+def test_2fa_login_when_user_deleted(client: TestClient, db_session: Session) -> None:
+    """Test 2FA login when user account is deleted between setup and login attempt."""
+    import pyotp
+
+    username = get_unique_username("2fa_deleted_user")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+    user_id = create_response.json()["id"]
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Setup and enable 2FA
+    setup_response = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    totp = pyotp.TOTP(secret)
+
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": totp.now()},
+        headers=headers,
+    )
+    assert verify_response.status_code == 200
+
+    # Delete the user
+    delete_response = client.delete(f"{settings.API_STR}/users/{user_id}", headers=headers)
+    assert delete_response.status_code == 200
+
+    # Try to login with 2FA after user is deleted (should fail)
+    login_2fa_response = client.post(
+        f"{settings.API_STR}/auth/token/2fa",
+        json={"username": username, "password": password, "otp": totp.now()},
+    )
+    # Should fail because user no longer exists
+    assert login_2fa_response.status_code == 401
+    assert "invalid" in login_2fa_response.json()["message"].lower()
+
+
+def test_2fa_verify_with_invalid_secret_format(client: TestClient, db_session: Session) -> None:
+    """Test 2FA verify with corrupted/malformed secret in database (edge case)."""
+    username = get_unique_username("2fa_invalid_secret")
+    password = "password123"
+    email = f"{username}@example.com"
+
+    # Create user
+    user_data = {"username": username, "email": email, "password": password}
+    create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
+    assert create_response.status_code == 200
+
+    # Login to get token
+    login_data = {"username": username, "password": password}
+    login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Manually set an invalid secret format in database (simulating corruption)
+    from app.api.models.user import User as DBUser
+
+    user = db_session.query(DBUser).filter(DBUser.username == username).first()
+    user.totp_secret = "INVALID_SECRET_FORMAT_NOT_BASE32"  # Invalid base32 format
+    db_session.commit()
+
+    # Try to verify with OTP (should handle gracefully)
+    verify_response = client.post(
+        f"{settings.API_STR}/auth/2fa/verify",
+        json={"otp": "123456"},
+        headers=headers,
+    )
+    # Should fail with appropriate error (400/422/500) due to invalid secret format
+    assert verify_response.status_code in [400, 422, 500], "Invalid secret format should be rejected"

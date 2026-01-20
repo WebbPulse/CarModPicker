@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setIsAuthenticated(false);
       }
     } catch (error) {
+      // Silently handle auth errors - user might not be logged in
       setUser(null);
       setIsAuthenticated(false);
       // Clear invalid token on 401
@@ -33,6 +34,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         (error as { response?: { status?: number } }).response?.status === 401
       ) {
         removeStoredToken();
+      }
+      // Don't log network errors in console to avoid noise
+      // Only log unexpected errors
+      if (
+        (error as { response?: { status?: number } }).response?.status &&
+        (error as { response?: { status?: number } }).response?.status !== 401
+      ) {
+        console.error('Auth check failed:', error);
       }
     } finally {
       setIsLoading(false);

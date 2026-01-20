@@ -3,44 +3,75 @@ Build logs endpoint for forum-style build log threads.
 Each build list automatically gets a build log thread.
 """
 
-from typing import Optional
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_log import BuildLog as DBBuildLog, BuildLogPost as DBBuildLogPost
+from app.api.models.build_log import BuildLog as DBBuildLog
+from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_log import (
     BuildLogPostCreate,
     BuildLogPostRead,
     BuildLogPostUpdate,
     BuildLogRead,
+    BuildLogReadPaginated,
 )
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
+    create_paginated_response,
     get_entity_or_404,
     get_standard_public_endpoint_dependencies,
-    verify_user_access_or_admin,
+    validate_pagination_params,
 )
 from app.api.utils.endpoint_decorators import crud_responses
+from app.api.utils.image_utils import get_presigned_url_from_file_key
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
 
 # Create router
 router = APIRouter()
 
 
 @router.get(
+    "/posts/count",
+    response_model=Dict[str, int],
+    responses={
+        200: {"description": "Count of build log posts"},
+    },
+)
+async def count_build_log_posts(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """
+    Get total count of build log posts.
+    Public access - anyone can view the count.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        count = db.query(DBBuildLogPost).count()
+        logger.info(f"Retrieved build log posts count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting build log posts: {str(e)}")
+        raise
+
+
+@router.get(
     "/build-list/{build_list_id}",
-    response_model=BuildLogRead,
+    response_model=BuildLogReadPaginated,
     responses=crud_responses("build log", "read", allow_public_read=True),
 )
 async def get_build_log_by_build_list(
     build_list_id: int,
+    skip: int = Query(0, ge=0, description="Number of posts to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of posts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
-) -> BuildLogRead:
+) -> BuildLogReadPaginated:
     """
     Get the build log thread for a specific build list.
     Public read access - anyone can view build logs.
@@ -65,29 +96,73 @@ async def get_build_log_by_build_list(
         db.refresh(build_log)
         logger.info(f"Auto-created build log thread {build_log.id} for build list {build_list_id}")
 
-    # Load posts with author information
-    posts = (
+    # Validate pagination parameters
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Get total count of posts
+    total_posts = db.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).count()
+
+    # Load paginated posts with author information
+    posts_query = (
         db.query(DBBuildLogPost)
         .filter(DBBuildLogPost.build_log_id == build_log.id)
         .order_by(DBBuildLogPost.created_at)
-        .all()
+        .offset(skip)
+        .limit(limit)
     )
+    posts = posts_query.all()
 
-    # Create response with author usernames
-    posts_with_authors = []
+    # Create response with author usernames and profile pictures
+    posts_with_authors: List[BuildLogPostRead] = []
     for post in posts:
         author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
         post_data = BuildLogPostRead.model_validate(post)
         post_data.author_username = author.username if author else None
+        # Convert file key to presigned URL for profile picture
+        post_data.author_image_url = (
+            get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+        )
         posts_with_authors.append(post_data)
 
+    # Create paginated response
+    paginated_response = create_paginated_response(
+        data=posts_with_authors,
+        total=total_posts,
+        skip=skip,
+        limit=limit,
+        message="Build log retrieved successfully",
+    )
+
     build_log_data = BuildLogRead.model_validate(build_log)
-    build_log_data.posts = posts_with_authors
+
+    # Map pagination response to match frontend expectations
+    pagination_data = paginated_response["pagination"]
+    pagination_mapped = {
+        "current_page": pagination_data["current_page"],
+        "total_pages": pagination_data["total_pages"],
+        "total_items": pagination_data["total"],  # Map 'total' to 'total_items'
+        "items_per_page": pagination_data["limit"],  # Map 'limit' to 'items_per_page'
+        "has_next": pagination_data["has_next"],
+        "has_previous": pagination_data["has_previous"],
+    }
+
+    # Create paginated build log response
+    build_log_paginated = BuildLogReadPaginated(
+        id=build_log_data.id,
+        build_list_id=build_log_data.build_list_id,
+        title=build_log_data.title,
+        created_at=build_log_data.created_at,
+        updated_at=build_log_data.updated_at,
+        posts=paginated_response["data"],
+        pagination=pagination_mapped,
+    )
 
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
-    logger.info(f"{user_info}: Retrieved build log {build_log.id} for build list {build_list_id}")
+    logger.info(
+        f"{user_info}: Retrieved build log {build_log.id} for build list {build_list_id} (skip: {skip}, limit: {limit})"
+    )
 
-    return build_log_data
+    return build_log_paginated
 
 
 @router.post(
@@ -138,6 +213,10 @@ async def create_build_log_post(
     author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
     post_response = BuildLogPostRead.model_validate(post)
     post_response.author_username = author.username if author else None
+    # Convert file key to presigned URL for profile picture
+    post_response.author_image_url = (
+        get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+    )
 
     logger.info(f"User {current_user.id} created post {post.id} in build log {build_log.id}")
 
@@ -157,7 +236,8 @@ async def update_build_log_post(
 ) -> BuildLogPostRead:
     """
     Update a build log post.
-    Users can only update their own posts, or admins can update any post.
+    Users can update their own posts, build list owners can update any post in their build log,
+    or admins can update any post.
     """
     db = deps["db"]
     logger = deps["logger"]
@@ -165,8 +245,30 @@ async def update_build_log_post(
     # Get the post
     post = get_entity_or_404(db, DBBuildLogPost, post_id, "build log post")
 
-    # Check authorization - users can only update their own posts, or admins can update any
-    verify_user_access_or_admin(current_user, post.user_id, "update this build log post", logger)
+    # Get the build log and build list to check ownership
+    build_log = db.query(DBBuildLog).filter(DBBuildLog.id == post.build_log_id).first()
+    if not build_log:
+        ResponsePatterns.raise_not_found("build log", post.build_log_id)
+
+    build_list = db.query(DBBuildList).filter(DBBuildList.id == build_log.build_list_id).first()
+    if not build_list:
+        ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
+
+    # Check authorization:
+    # 1. User owns the post
+    # 2. User owns the build list
+    # 3. User is admin/superuser
+    can_update = (
+        post.user_id == current_user.id
+        or build_list.user_id == current_user.id
+        or current_user.is_admin
+        or current_user.is_superuser
+    )
+
+    if not can_update:
+        if logger:
+            logger.warning(f"Access denied: User {current_user.id} attempted to update build log post {post_id}")
+        ResponsePatterns.raise_forbidden("Not authorized to update this build log post")
 
     # Update the post
     if post_data.content is not None:
@@ -179,6 +281,10 @@ async def update_build_log_post(
     author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
     post_response = BuildLogPostRead.model_validate(post)
     post_response.author_username = author.username if author else None
+    # Convert file key to presigned URL for profile picture
+    post_response.author_image_url = (
+        get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+    )
 
     logger.info(f"User {current_user.id} updated post {post.id}")
 
@@ -193,7 +299,7 @@ async def delete_build_log_post(
     post_id: int,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
-) -> dict:
+) -> Dict[str, str]:
     """
     Delete a build log post.
     Users can delete their own posts, build list owners can delete any post in their build log,

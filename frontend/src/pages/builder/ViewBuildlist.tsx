@@ -285,7 +285,9 @@ function ViewBuildList() {
           <SectionHeader title="Build List Information" />
           <div className="flex space-x-2">
             <ActionButton
-              onClick={() => navigate(`/build-lists/${buildList.id}/build-log`)}
+              onClick={() =>
+                void navigate(`/build-lists/${buildList.id}/build-log`)
+              }
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               View Build Log

@@ -201,7 +201,6 @@ const BuildListsCatalog: React.FC = () => {
           )}
           {!selectedMake && (
             <>
-
               {/* Featured Build Lists Section - Only show when no make is selected */}
               <Card className="mb-6 mt-6">
                 <SectionHeader title="Featured Build Lists" />

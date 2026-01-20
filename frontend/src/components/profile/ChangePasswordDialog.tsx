@@ -85,16 +85,20 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
 
     try {
       const { usersApi } = await import('../../services/Api');
-      const updateData: { current_password: string; password: string; otp?: string } = {
+      const updateData: {
+        current_password: string;
+        password: string;
+        otp?: string;
+      } = {
         current_password: formData.currentPassword,
         password: formData.newPassword,
       };
-      
+
       // Include OTP if 2FA is enabled
       if (user?.totp_enabled) {
         updateData.otp = formData.otp;
       }
-      
+
       const response = await usersApi.updateUser(userId, updateData);
 
       if (response.data) {
@@ -106,7 +110,8 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       if (err instanceof Error) {
         errorMessage = err.message;
       } else if (typeof err === 'object' && err !== null && 'response' in err) {
-        const response = (err as { response?: { data?: { detail?: string } } }).response;
+        const response = (err as { response?: { data?: { detail?: string } } })
+          .response;
         if (response?.data?.detail) {
           errorMessage = response.data.detail;
         }
@@ -118,8 +123,13 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   };
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Change Password" maxWidth="md">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Change Password"
+      maxWidth="md"
+    >
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
         {error && <ErrorAlert message={error} />}
 
         <Input

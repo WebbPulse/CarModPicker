@@ -6,6 +6,7 @@ while maintaining authentication-specific functionality.
 """
 
 import base64
+import binascii
 import io
 import logging
 from datetime import timedelta
@@ -97,6 +98,10 @@ async def login_with_2fa(
         logger.warning(f"2FA login attempt for non-existent user: {request.username}")
         ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
 
+    if user.disabled:
+        logger.warning(f"2FA login attempt for disabled user: {user.username}")
+        ResponsePatterns.raise_bad_request("Inactive user")
+
     if not user.totp_enabled:
         ResponsePatterns.raise_bad_request("2FA is not enabled for this user")
 
@@ -110,7 +115,12 @@ async def login_with_2fa(
         ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
 
     # Verify OTP
-    totp = pyotp.TOTP(user.totp_secret)
+    try:
+        totp = pyotp.TOTP(user.totp_secret)
+    except Exception as e:
+        logger.error(f"Invalid TOTP secret format for user: {user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
     if not totp.verify(request.otp, valid_window=1):  # Allow 1 time step window for clock skew
         logger.warning(f"Invalid OTP provided for user: {user.username}")
         ResponsePatterns.raise_unauthorized("Invalid OTP code", headers={"WWW-Authenticate": "Bearer"})
@@ -362,11 +372,23 @@ async def verify_2fa(
     if not current_user.totp_secret:
         ResponsePatterns.raise_bad_request("2FA setup not initiated. Please call /2fa/setup first.")
 
-    # Verify OTP
-    totp = pyotp.TOTP(current_user.totp_secret)
-    if not totp.verify(request.otp, valid_window=1):
-        logger.warning(f"Invalid OTP during 2FA verification for user: {current_user.username}")
-        ResponsePatterns.raise_unauthorized("Invalid OTP code")
+    # Verify OTP - handle invalid secret format gracefully
+    try:
+        totp = pyotp.TOTP(current_user.totp_secret)
+    except (ValueError, TypeError, binascii.Error) as e:
+        logger.error(f"Invalid TOTP secret format for user: {current_user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+    # Verify OTP - exception can also be raised here if secret is invalid during verification
+    try:
+        if not totp.verify(request.otp, valid_window=1):
+            logger.warning(f"Invalid OTP during 2FA verification for user: {current_user.username}")
+            ResponsePatterns.raise_unauthorized("Invalid OTP code")
+    except (ValueError, TypeError, binascii.Error) as e:
+        logger.error(
+            f"Invalid TOTP secret format during verification for user: {current_user.username}, error: {str(e)}"
+        )
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
 
     # Enable 2FA
     current_user.totp_enabled = True
@@ -392,22 +414,27 @@ async def disable_2fa(
     """
     if not current_user.totp_enabled:
         ResponsePatterns.raise_bad_request("2FA is not enabled for this user")
-    
+
     # Verify password
     if not verify_password(request.password, current_user.hashed_password):
         logger.warning(f"Invalid password provided during 2FA disable for user: {current_user.username}")
         ResponsePatterns.raise_unauthorized("Incorrect password")
-    
+
     # Verify OTP
     if not current_user.totp_secret:
         logger.error(f"2FA enabled but no secret found for user: {current_user.username}")
         ResponsePatterns.raise_internal_server_error("2FA configuration error")
-    
-    totp = pyotp.TOTP(current_user.totp_secret)
+
+    try:
+        totp = pyotp.TOTP(current_user.totp_secret)
+    except Exception as e:
+        logger.error(f"Invalid TOTP secret format for user: {current_user.username}, error: {str(e)}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
     if not totp.verify(request.otp, valid_window=1):
         logger.warning(f"Invalid OTP provided during 2FA disable for user: {current_user.username}")
         ResponsePatterns.raise_unauthorized("Invalid OTP code")
-    
+
     # Disable 2FA
     current_user.totp_enabled = False
     current_user.totp_secret = None

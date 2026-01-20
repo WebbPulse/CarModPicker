@@ -7,7 +7,7 @@ hashing and admin management.
 """
 
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
@@ -393,10 +393,20 @@ async def update_user(
         logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    # Only require current_password if password is being changed
-    if "password" in user.model_dump(exclude_unset=True) and user.model_dump(exclude_unset=True)["password"]:
-        if not user.current_password:
+    # Require current_password if it's provided (for security, even if password isn't being changed)
+    # or if password is being changed
+    update_data_dict = user.model_dump(exclude_unset=True)
+    password_is_being_changed = "password" in update_data_dict and update_data_dict["password"]
+    current_password_provided = user.current_password is not None
+
+    if password_is_being_changed:
+        if not current_password_provided:
             ResponsePatterns.raise_bad_request("Current password is required to change your password")
+        if not verify_password(user.current_password, db_user.hashed_password):
+            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
+            ResponsePatterns.raise_unauthorized("Incorrect current password")
+    elif current_password_provided:
+        # If current_password is provided but password isn't being changed, still validate it
         if not verify_password(user.current_password, db_user.hashed_password):
             logger.warning(f"User {current_user.id} provided incorrect current password for update.")
             ResponsePatterns.raise_unauthorized("Incorrect current password")
@@ -501,23 +511,56 @@ async def delete_user(
 
 @router.get(
     "/admin/users",
-    response_model=List[UserRead],
     responses=crud_responses("user", "list", allow_public_read=False),
 )
 async def get_all_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
+    search: Optional[str] = Query(None, description="Search in usernames and emails"),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> List[UserRead]:
+) -> Dict[str, Any]:
     """
-    Get all users (admin only).
+    Get all users (admin only) with pagination and search.
     """
+    from sqlalchemy import or_
+
+    from app.api.utils.common_patterns import create_paginated_response
+
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
-    users = db.query(DBUser).offset(skip).limit(limit).all()
-    logger.info(f"Admin {current_user.id} retrieved {len(users)} users")
-    return [UserRead.model_validate(user) for user in users]
+
+    # Build query
+    query = db.query(DBUser)
+
+    # Apply search if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                DBUser.username.ilike(search_term),
+                DBUser.email.ilike(search_term),
+            )
+        )
+
+    # Get total count (after applying search filter)
+    total_count = query.count()
+
+    # Get paginated users
+    users = query.offset(skip).limit(limit).all()
+    user_reads = [UserRead.model_validate(user) for user in users]
+
+    logger.info(
+        f"Admin {current_user.id} retrieved {len(users)} users (total: {total_count})"
+        + (f" with search: '{search}'" if search else "")
+    )
+
+    return create_paginated_response(
+        data=user_reads,
+        total=total_count,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.put(

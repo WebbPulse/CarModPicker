@@ -451,3 +451,138 @@ def test_create_car_invalid_year_range(client: TestClient, db_session: Session) 
     # Error response might be in "detail" field or as a message
     error_text = response_data.get("detail", response_data.get("message", "")).lower()
     assert "start_year" in error_text
+
+
+def test_admin_delete_all_cars_success(client: TestClient, db_session: Session) -> None:
+    """Test admin successfully deleting all cars."""
+    _, admin_token = create_and_login_admin_user(client, db_session, "delete_all")
+    headers = get_auth_headers(admin_token)
+
+    # Create multiple cars
+    car1 = create_car_via_admin(client, admin_token, "Honda", "Civic", "10th Gen", 2016, 2021)
+    car2 = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+    car3 = create_car_via_admin(client, admin_token, "Mazda", "3", "4th Gen", 2019, 2023)
+
+    # Delete all cars
+    response = client.delete(f"{settings.API_STR}/cars/admin/cars", headers=headers)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert "message" in result
+    assert "deleted_count" in result
+    assert "unlinked_build_lists" in result
+    assert result["deleted_count"] >= 3
+    assert isinstance(result["unlinked_build_lists"], int)
+    assert result["unlinked_build_lists"] >= 0
+
+    # Verify all cars are deleted
+    for car_id in [car1["id"], car2["id"], car3["id"]]:
+        get_response = client.get(f"{settings.API_STR}/cars/{car_id}")
+        assert get_response.status_code == 404
+
+
+def test_admin_delete_all_cars_with_build_lists_unlinks(client: TestClient, db_session: Session) -> None:
+    """Test that deleting all cars with build lists unlinks them (sets car_id to null)."""
+    _, admin_token = create_and_login_admin_user(client, db_session, "delete_all_with_bl")
+    headers = get_auth_headers(admin_token)
+
+    # Create a car
+    car = create_car_via_admin(client, admin_token)
+    car_id = car["id"]
+
+    # Create build lists for this car
+    _, user_token = create_and_login_user(client, "builder_all", db_session)
+    user_headers = get_auth_headers(user_token)
+
+    build_list_data1 = {
+        "name": "Test Build List 1",
+        "description": "Test",
+        "car_id": car_id,
+    }
+    response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data1, headers=user_headers)
+    assert response.status_code == 200
+    build_list_id1 = response.json()["id"]
+
+    build_list_data2 = {
+        "name": "Test Build List 2",
+        "description": "Test",
+        "car_id": car_id,
+    }
+    response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data2, headers=user_headers)
+    assert response.status_code == 200
+    build_list_id2 = response.json()["id"]
+
+    # Delete all cars - should succeed and unlink the build lists
+    response = client.delete(f"{settings.API_STR}/cars/admin/cars", headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["unlinked_build_lists"] >= 2
+
+    # Verify the build lists still exist but car_id is now null
+    for build_list_id in [build_list_id1, build_list_id2]:
+        response = client.get(f"{settings.API_STR}/build-lists/{build_list_id}", headers=user_headers)
+        assert response.status_code == 200
+        build_list = response.json()
+        assert build_list["id"] == build_list_id
+        assert build_list["car_id"] is None, "Build list car_id should be null after deleting all cars"
+
+
+def test_admin_delete_all_cars_requires_admin(client: TestClient, db_session: Session) -> None:
+    """Test that regular users cannot delete all cars even when authenticated."""
+    _, token = create_and_login_user(client, "regular_user_delete_all", db_session)
+    headers = get_auth_headers(token)
+
+    response = client.delete(f"{settings.API_STR}/cars/admin/cars", headers=headers)
+    assert response.status_code == 403  # Expect forbidden (not admin)
+
+
+def test_admin_delete_all_cars_unauthenticated(client: TestClient, db_session: Session) -> None:
+    """Test that unauthenticated users cannot delete all cars."""
+    client.cookies.clear()
+    response = client.delete(f"{settings.API_STR}/cars/admin/cars")
+    assert response.status_code == 401  # Expect unauthorized
+
+
+def test_count_cars_success(client: TestClient, db_session: Session) -> None:
+    """Test counting cars."""
+    # Get initial count (public endpoint, no auth required)
+    response = client.get(f"{settings.API_STR}/cars/count")
+    assert response.status_code == 200
+    initial_data = response.json()
+    assert "count" in initial_data
+    initial_count = initial_data["count"]
+    assert isinstance(initial_count, int)
+    assert initial_count >= 0
+
+    # Create a car as admin
+    _, admin_token = create_and_login_admin_user(client, db_session, "count_creator")
+    car = create_car_via_admin(client, admin_token, "Tesla", "Model 3", "1st Gen", 2017, 2023)
+
+    # Count again (should be increased by 1)
+    response = client.get(f"{settings.API_STR}/cars/count")
+    assert response.status_code == 200
+    updated_data = response.json()
+    assert "count" in updated_data
+    assert updated_data["count"] == initial_count + 1
+
+    # Delete the car
+    headers = get_auth_headers(admin_token)
+    response = client.delete(f"{settings.API_STR}/cars/admin/cars/{car['id']}", headers=headers)
+    assert response.status_code == 200
+
+    # Count again (should be back to initial count)
+    response = client.get(f"{settings.API_STR}/cars/count")
+    assert response.status_code == 200
+    final_data = response.json()
+    assert final_data["count"] == initial_count
+
+
+def test_count_cars_public_endpoint(client: TestClient, db_session: Session) -> None:
+    """Test that counting cars works without authentication."""
+    # Count cars (public endpoint, no auth required)
+    client.cookies.clear()
+    response = client.get(f"{settings.API_STR}/cars/count")
+    assert response.status_code == 200
+    data = response.json()
+    assert "count" in data
+    assert isinstance(data["count"], int)
+    assert data["count"] >= 0

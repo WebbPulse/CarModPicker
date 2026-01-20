@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { FaChevronDown, FaChevronUp, FaLock, FaShieldAlt } from 'react-icons/fa';
+import {
+  FaChevronDown,
+  FaChevronUp,
+  FaLock,
+  FaShieldAlt,
+} from 'react-icons/fa';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, usersApi } from '../../services/Api';
@@ -103,7 +108,9 @@ function SecuritySettings({
     // If 2FA is enabled, require OTP
     if (user?.totp_enabled) {
       if (!passwordData.otp.trim() || passwordData.otp.length !== 6) {
-        setPasswordError('2FA is enabled. Please enter a valid 6-digit OTP code.');
+        setPasswordError(
+          '2FA is enabled. Please enter a valid 6-digit OTP code.'
+        );
         return;
       }
     }
@@ -287,7 +294,10 @@ function SecuritySettings({
 
           {/* Password Change Tab */}
           {activeTab === 'password' && (
-            <form onSubmit={handlePasswordChange} className="space-y-6">
+            <form
+              onSubmit={(e) => void handlePasswordChange(e)}
+              className="space-y-6"
+            >
               {passwordSuccess && (
                 <ConfirmationAlert message={passwordSuccess} />
               )}
@@ -419,8 +429,8 @@ function SecuritySettings({
                       </h3>
                       <p className="text-sm text-gray-400">
                         Add an extra layer of security to your account by
-                        requiring a code from your authenticator app when you log
-                        in.
+                        requiring a code from your authenticator app when you
+                        log in.
                       </p>
                     </div>
                   </div>
@@ -433,15 +443,15 @@ function SecuritySettings({
                         Authenticator, Authy, etc.)
                       </li>
                       <li>
-                        Enter the 6-digit code from your app to verify and enable
-                        2FA
+                        Enter the 6-digit code from your app to verify and
+                        enable 2FA
                       </li>
                       <li>You'll need this code every time you log in</li>
                     </ol>
                   </div>
 
                   <ActionButton
-                    onClick={handleSetup}
+                    onClick={() => void handleSetup()}
                     disabled={isSettingUp}
                     className="w-full"
                   >
@@ -478,7 +488,9 @@ function SecuritySettings({
                       type="text"
                       value={otp}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        const value = e.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 6);
                         setOtp(value);
                       }}
                       placeholder="000000"
@@ -489,7 +501,7 @@ function SecuritySettings({
 
                   <div className="flex space-x-2">
                     <ActionButton
-                      onClick={handleVerify}
+                      onClick={() => void handleVerify()}
                       disabled={isVerifying || otp.length !== 6}
                       className="flex-1"
                     >
@@ -516,7 +528,8 @@ function SecuritySettings({
                     <div>
                       <h3 className="text-lg font-semibold">2FA is Enabled</h3>
                       <p className="text-sm text-gray-400">
-                        Your account is protected with two-factor authentication.
+                        Your account is protected with two-factor
+                        authentication.
                       </p>
                     </div>
                   </div>
@@ -552,7 +565,9 @@ function SecuritySettings({
                       type="text"
                       value={disableOtp}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        const value = e.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 6);
                         setDisableOtp(value);
                         setTwoFAError(null);
                       }}
@@ -566,7 +581,7 @@ function SecuritySettings({
                   </div>
 
                   <ActionButton
-                    onClick={handleDisable}
+                    onClick={() => void handleDisable()}
                     disabled={
                       isDisabling ||
                       !disablePassword.trim() ||

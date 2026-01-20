@@ -3,7 +3,7 @@ Unified votes endpoint for all entity types.
 """
 
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.api.dependencies.auth import (
     get_optional_current_user,
 )
 from app.api.models.user import User as DBUser
+from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
     EntityType,
     FlaggedEntitySummary,
@@ -35,6 +36,29 @@ router = APIRouter()
 
 # Create service
 vote_service = VoteService()
+
+
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(
+        success_description="Count of votes",
+    ),
+)
+async def count_votes(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Get total count of votes."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        count = db.query(DBVote).count()
+        logger.info(f"Retrieved votes count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting votes: {str(e)}")
+        raise
 
 
 @router.post(

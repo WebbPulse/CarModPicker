@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,11 +18,12 @@ class BuildLogPostUpdate(BaseModel):
 class BuildLogPostRead(BaseModel):
     id: int
     build_log_id: int
-    user_id: int
+    user_id: Optional[int] = None
     content: str
     created_at: datetime
     updated_at: datetime
     author_username: Optional[str] = None
+    author_image_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,11 +40,24 @@ class BuildLogRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Schema for paginated build log response
+class BuildLogReadPaginated(BaseModel):
+    id: int
+    build_list_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    posts: List[BuildLogPostRead] = []
+    pagination: Dict[str, Any]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Schema for response body when reading a build log post with author details
 class BuildLogPostReadWithAuthor(BaseModel):
     id: int
     build_log_id: int
-    user_id: int
+    user_id: Optional[int] = None
     content: str
     created_at: datetime
     updated_at: datetime

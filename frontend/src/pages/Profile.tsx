@@ -210,11 +210,15 @@ function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
               <CardInfoItem label="Username:">
                 <p className="text-gray-400">{user.username}</p>
-                <p className="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Username cannot be changed
+                </p>
               </CardInfoItem>
               <CardInfoItem label="Email:">
                 <p className="text-gray-400">{user.email}</p>
-                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Email cannot be changed
+                </p>
               </CardInfoItem>
             </div>
             <ImageUpload

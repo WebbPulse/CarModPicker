@@ -55,10 +55,28 @@ async def search_all(
     if not q or not q.strip():
         logger.warning("Empty search query provided")
         return {
-            "build_lists": [],
-            "users": [],
-            "global_parts": [],
-            "query": q,
+            "build_lists": {
+                "data": [],
+                "total": 0,
+                "has_next": False,
+                "skip": skip,
+                "limit": limit,
+            },
+            "users": {
+                "data": [],
+                "total": 0,
+                "has_next": False,
+                "skip": skip,
+                "limit": limit,
+            },
+            "global_parts": {
+                "data": [],
+                "total": 0,
+                "has_next": False,
+                "skip": skip,
+                "limit": limit,
+            },
+            "query": q or "",
         }
 
     search_term = q.strip()

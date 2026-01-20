@@ -162,6 +162,7 @@ export interface BuildLogPostRead {
   created_at: string;
   updated_at: string;
   author_username?: string | null;
+  author_image_url?: string | null;
 }
 
 export interface BuildLogRead {
@@ -171,6 +172,16 @@ export interface BuildLogRead {
   created_at: string;
   updated_at: string;
   posts: BuildLogPostRead[];
+}
+
+export interface BuildLogReadPaginated {
+  id: number;
+  build_list_id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  posts: BuildLogPostRead[];
+  pagination: PaginationInfo;
 }
 
 // Updated Part interfaces to match new backend schema

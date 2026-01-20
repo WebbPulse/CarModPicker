@@ -111,7 +111,9 @@ function SecuritySettingsDialog({
     // If 2FA is enabled, require OTP
     if (user?.totp_enabled) {
       if (!passwordData.otp.trim() || passwordData.otp.length !== 6) {
-        setPasswordError('2FA is enabled. Please enter a valid 6-digit OTP code.');
+        setPasswordError(
+          '2FA is enabled. Please enter a valid 6-digit OTP code.'
+        );
         return;
       }
     }
@@ -249,7 +251,12 @@ function SecuritySettingsDialog({
   if (!isOpen) return null;
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Manage Security Settings" maxWidth="lg">
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Manage Security Settings"
+      maxWidth="lg"
+    >
       <div className="space-y-6">
         {/* Tabs */}
         <div className="flex border-b border-gray-700">
@@ -285,10 +292,11 @@ function SecuritySettingsDialog({
 
         {/* Password Change Tab */}
         {activeTab === 'password' && (
-          <form onSubmit={handlePasswordChange} className="space-y-6">
-            {passwordSuccess && (
-              <ConfirmationAlert message={passwordSuccess} />
-            )}
+          <form
+            onSubmit={(e) => void handlePasswordChange(e)}
+            className="space-y-6"
+          >
+            {passwordSuccess && <ConfirmationAlert message={passwordSuccess} />}
             {passwordError && <ErrorAlert message={passwordError} />}
 
             <Input
@@ -439,7 +447,7 @@ function SecuritySettingsDialog({
                 </div>
 
                 <ActionButton
-                  onClick={handleSetup}
+                  onClick={() => void handleSetup()}
                   disabled={isSettingUp}
                   className="w-full"
                 >
@@ -476,7 +484,9 @@ function SecuritySettingsDialog({
                     type="text"
                     value={otp}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 6);
                       setOtp(value);
                     }}
                     placeholder="000000"
@@ -487,7 +497,7 @@ function SecuritySettingsDialog({
 
                 <div className="flex space-x-2">
                   <ActionButton
-                    onClick={handleVerify}
+                    onClick={() => void handleVerify()}
                     disabled={isVerifying || otp.length !== 6}
                     className="flex-1"
                   >
@@ -550,7 +560,9 @@ function SecuritySettingsDialog({
                     type="text"
                     value={disableOtp}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 6);
                       setDisableOtp(value);
                       setTwoFAError(null);
                     }}
@@ -564,7 +576,7 @@ function SecuritySettingsDialog({
                 </div>
 
                 <ActionButton
-                  onClick={handleDisable}
+                  onClick={() => void handleDisable()}
                   disabled={
                     isDisabling ||
                     !disablePassword.trim() ||

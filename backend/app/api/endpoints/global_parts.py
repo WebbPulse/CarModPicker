@@ -23,7 +23,15 @@ from app.api.schemas.global_part import (
     GlobalPartUpdate,
 )
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.utils.authorization import (
+    require_global_part_edit_permission,
+)
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
+from app.api.utils.common_operations import (
+    delete_entity,
+    update_entity,
+    verify_entity_exists,
+)
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     apply_standard_filters,
@@ -36,14 +44,6 @@ from app.api.utils.endpoint_decorators import (
 )
 from app.api.utils.pagination_utils import (
     create_paginated_response,
-)
-from app.api.utils.authorization import (
-    require_global_part_edit_permission,
-)
-from app.api.utils.common_operations import (
-    delete_entity,
-    update_entity,
-    verify_entity_exists,
 )
 
 # Create router

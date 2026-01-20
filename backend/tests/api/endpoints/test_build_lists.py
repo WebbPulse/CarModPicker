@@ -1,10 +1,11 @@
 import os
-from typing import Any
+from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
+from app.api.models.category import Category as DBCategory
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
@@ -196,11 +197,27 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/99999", headers=headers)
         assert response.status_code == 404
 
-    def test_get_build_list_unauthorized(self, client: TestClient) -> None:
-        """Test retrieving a build list owned by another user."""
-        # Try to get a build list without authentication
-        response = client.get(f"{settings.API_STR}/build-lists/1")
-        assert response.status_code == 401
+    def test_get_build_list_unauthorized(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test retrieving a build list without authentication (public read is allowed)."""
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list as test_user
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list_id = response.json()["id"]
+
+        # Try to get the build list without authentication (public read is allowed)
+        response = client.get(f"{settings.API_STR}/build-lists/{build_list_id}")
+        assert response.status_code == 200  # Public read is allowed
 
     def test_get_user_build_lists(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving build lists for the current user."""
@@ -224,9 +241,11 @@ class TestBuildLists:
         # Get user's build lists
         response = client.get(f"{settings.API_STR}/build-lists/user/me", headers=headers)
         assert response.status_code == 200
-        data: list[Any] = response.json()
-        assert isinstance(data, list)
-        assert len(data) >= 1
+        data: Dict[str, Any] = response.json()
+        assert isinstance(data, dict)
+        assert "data" in data
+        assert isinstance(data["data"], list)
+        assert len(data["data"]) >= 1
 
     def test_get_user_build_lists_unauthorized(self, client: TestClient) -> None:
         """Test retrieving build lists without authentication."""
@@ -331,24 +350,26 @@ class TestBuildLists:
         # Get build lists for the car
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}", headers=headers)
         assert response.status_code == 200
-        data: list[Any] = response.json()
-        assert isinstance(data, list)
-        assert len(data) >= 1
+        data: Dict[str, Any] = response.json()
+        assert isinstance(data, dict)
+        assert "data" in data
+        assert isinstance(data["data"], list)
+        assert len(data["data"]) >= 1
         build_list: Any
-        for build_list in data:
+        for build_list in data["data"]:
             assert build_list["car_id"] == car["id"]
 
     def test_get_build_lists_by_car_unauthorized(
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
-        """Test retrieving build lists for a car requires authentication."""
+        """Test retrieving build lists for a car (public read is allowed)."""
         # Create a car (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_via_admin(client, admin_token)
 
-        # Try to get build lists for a car without authentication
+        # Try to get build lists for a car without authentication (public read is allowed)
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
-        assert response.status_code == 401
+        assert response.status_code == 200  # Public read is allowed
 
     def test_create_build_list_with_extra_fields(
         self, client: TestClient, test_user: User, db_session: Session
@@ -572,3 +593,555 @@ class TestBuildLists:
         assert response.status_code == 401  # Should fail due to unverified email
 
         # The test demonstrates that unverified email users cannot access protected endpoints
+
+    def test_copy_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test successfully copying a build list."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("original_build_list"),
+            "description": "Original build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        original_build_list = response.json()
+
+        # Create a category for global parts
+        category = DBCategory(name=get_unique_name("Test Category"))
+        db_session.add(category)
+        db_session.commit()
+        db_session.refresh(category)
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Add part to original build list
+        build_list_part_data = {"notes": "Original notes", "quantity": 2}
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{original_build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        # Copy the build list
+        response = client.post(
+            f"{settings.API_STR}/build-lists/{original_build_list['id']}/copy",
+            json={},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        copied_build_list = response.json()
+
+        # Verify copied build list
+        assert copied_build_list["id"] != original_build_list["id"]
+        assert copied_build_list["name"] == f"Copy of {original_build_list['name']}"
+        assert copied_build_list["description"] == original_build_list["description"]
+        assert copied_build_list["car_id"] == original_build_list["car_id"]
+        assert copied_build_list["user_id"] == test_user.id  # Should be owned by current user
+
+        # Verify parts were copied
+        response = client.get(
+            f"{settings.API_STR}/build-list-parts/{copied_build_list['id']}",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        parts = response.json()
+        assert len(parts) == 1
+        assert parts[0]["global_part_id"] == global_part["id"]
+        assert parts[0]["notes"] == "Original notes"
+        assert parts[0]["quantity"] == 2
+
+    def test_copy_build_list_with_custom_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test copying a build list with a custom name."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("original_build_list"),
+            "description": "Original build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        original_build_list = response.json()
+
+        # Copy the build list with custom name
+        custom_name = get_unique_name("copied_build_list")
+        response = client.post(
+            f"{settings.API_STR}/build-lists/{original_build_list['id']}/copy",
+            json={"new_name": custom_name},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        copied_build_list = response.json()
+
+        # Verify copied build list has custom name
+        assert copied_build_list["name"] == custom_name
+        assert copied_build_list["id"] != original_build_list["id"]
+
+    def test_copy_build_list_without_custom_name(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test copying a build list without custom name (uses default)."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("original_build_list"),
+            "description": "Original build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        original_build_list = response.json()
+
+        # Copy the build list without custom name
+        response = client.post(
+            f"{settings.API_STR}/build-lists/{original_build_list['id']}/copy",
+            json={},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        copied_build_list = response.json()
+
+        # Verify copied build list uses "Copy of {original_name}" (default behavior)
+        assert copied_build_list["name"] == f"Copy of {original_build_list['name']}"
+
+    def test_copy_build_list_not_found(self, client: TestClient, test_user: User) -> None:
+        """Test copying a non-existent build list."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Try to copy a non-existent build list
+        response = client.post(
+            f"{settings.API_STR}/build-lists/99999/copy",
+            json={},
+            headers=headers,
+        )
+        assert response.status_code == 404
+
+    def test_copy_build_list_unauthorized(self, client: TestClient) -> None:
+        """Test copying a build list without authentication."""
+        # Try to copy a build list without authentication
+        response = client.post(
+            f"{settings.API_STR}/build-lists/1/copy",
+            json={},
+        )
+        assert response.status_code == 401
+
+    def test_copy_build_list_ownership(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test that copied build list is owned by the current user."""
+        # Create a second user to own the original build list
+        original_owner = DBUser(
+            username=get_unique_name("original_owner"),
+            email=f"{get_unique_name('original_owner')}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(original_owner)
+        db_session.commit()
+        db_session.refresh(original_owner)
+
+        # Login as original owner and create a build list
+        original_token = get_auth_token(client, original_owner.username)
+        original_headers = get_auth_headers(original_token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("original_build_list"),
+            "description": "Original build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=original_headers)
+        assert response.status_code == 200
+        original_build_list = response.json()
+
+        # Login as test user and copy the build list
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        response = client.post(
+            f"{settings.API_STR}/build-lists/{original_build_list['id']}/copy",
+            json={},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        copied_build_list = response.json()
+
+        # Verify copied build list is owned by test_user, not original_owner
+        assert copied_build_list["user_id"] == test_user.id
+        assert copied_build_list["user_id"] != original_owner.id
+
+    def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test retrieving build lists with vote data."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create a second user to vote
+        voter = DBUser(
+            username=get_unique_name("voter"),
+            email=f"{get_unique_name('voter')}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(voter)
+        db_session.commit()
+        db_session.refresh(voter)
+
+        # Login as voter and upvote the build list
+        voter_token = get_auth_token(client, voter.username)
+        voter_headers = get_auth_headers(voter_token)
+
+        vote_data = {"vote_type": "upvote"}
+        response = client.post(
+            f"{settings.API_STR}/votes/build_list/{build_list['id']}",
+            json=vote_data,
+            headers=voter_headers,
+        )
+        assert response.status_code == 200
+
+        # Get build lists with votes
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes", headers=headers)
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+
+        # Verify response structure
+        assert isinstance(data, dict)
+        assert "data" in data
+        assert "total" in data
+        assert "skip" in data
+        assert "limit" in data
+
+        # Find our build list in the results
+        found_build_list = None
+        for bl in data["data"]:
+            if bl["id"] == build_list["id"]:
+                found_build_list = bl
+                break
+
+        assert found_build_list is not None
+        assert "upvotes" in found_build_list
+        assert "downvotes" in found_build_list
+        assert "total_votes" in found_build_list
+        assert found_build_list["upvotes"] == 1
+        assert found_build_list["downvotes"] == 0
+        assert found_build_list["total_votes"] == 1
+
+    def test_get_build_lists_with_votes_no_votes(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test retrieving build lists with no votes."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Get build lists with votes
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes", headers=headers)
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+
+        # Find our build list in the results
+        found_build_list = None
+        for bl in data["data"]:
+            if bl["id"] == build_list["id"]:
+                found_build_list = bl
+                break
+
+        assert found_build_list is not None
+        assert found_build_list["upvotes"] == 0
+        assert found_build_list["downvotes"] == 0
+        assert found_build_list["total_votes"] == 0
+
+    def test_get_build_lists_with_votes_public_access(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test that build lists with votes endpoint allows public access."""
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Login as test user and create a build list
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+
+        # Get build lists with votes without authentication (public access)
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes")
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+        assert "data" in data
+
+    def test_get_build_lists_with_votes_pagination(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test pagination with build lists with votes."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create multiple build lists
+        for i in range(5):
+            build_list_data = {
+                "name": get_unique_name(f"test_build_list_{i}"),
+                "description": f"Build list {i}",
+                "car_id": car["id"],
+            }
+            response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+            assert response.status_code == 200
+
+        # Get build lists with votes with pagination
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes?skip=0&limit=2", headers=headers)
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+        assert len(data["data"]) <= 2
+        assert "total" in data
+        assert "skip" in data
+        assert "limit" in data
+
+    def test_get_build_lists_with_votes_search(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test search functionality with build lists with votes."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list with unique name
+        unique_name = get_unique_name("searchable_build_list")
+        build_list_data = {
+            "name": unique_name,
+            "description": "A searchable build list",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+
+        # Search for the build list
+        search_term = unique_name.split("_")[0]  # Use part of the unique name
+        response = client.get(
+            f"{settings.API_STR}/build-lists/with-votes?search={search_term}",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+        assert len(data["data"]) >= 1
+        # Verify the build list is in the results
+        found = any(bl["name"] == unique_name for bl in data["data"])
+        assert found
+
+    def test_get_build_lists_with_votes_filter_by_car(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test filtering by car_id with build lists with votes."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create two cars (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car1 = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car2 = create_car_via_admin(client, admin_token, "Honda", "Civic", "10th Gen", 2016, 2021)
+
+        # Create build lists for each car
+        build_list_data1 = {
+            "name": get_unique_name("car1_build_list"),
+            "description": "Build list for car 1",
+            "car_id": car1["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data1, headers=headers)
+        assert response.status_code == 200
+        build_list1 = response.json()
+
+        build_list_data2 = {
+            "name": get_unique_name("car2_build_list"),
+            "description": "Build list for car 2",
+            "car_id": car2["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data2, headers=headers)
+        assert response.status_code == 200
+
+        # Filter by car1
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes?car_id={car1['id']}", headers=headers)
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+
+        # Verify all results are for car1
+        for bl in data["data"]:
+            assert bl["car_id"] == car1["id"]
+
+        # Verify build_list1 is in the results
+        found = any(bl["id"] == build_list1["id"] for bl in data["data"])
+        assert found
+
+    def test_get_build_lists_with_votes_multiple_votes(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test build lists with multiple votes."""
+        # Login as test user and get token
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create multiple users to vote
+        for i in range(3):
+            voter = DBUser(
+                username=get_unique_name(f"voter_{i}"),
+                email=f"{get_unique_name(f'voter_{i}')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
+            db_session.add(voter)
+            db_session.commit()
+            db_session.refresh(voter)
+
+            # Login as voter and upvote
+            voter_token = get_auth_token(client, voter.username)
+            voter_headers = get_auth_headers(voter_token)
+
+            vote_data = {"vote_type": "upvote"}
+            response = client.post(
+                f"{settings.API_STR}/votes/build_list/{build_list['id']}",
+                json=vote_data,
+                headers=voter_headers,
+            )
+            assert response.status_code == 200
+
+        # Create one downvote
+        downvoter = DBUser(
+            username=get_unique_name("downvoter"),
+            email=f"{get_unique_name('downvoter')}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(downvoter)
+        db_session.commit()
+        db_session.refresh(downvoter)
+
+        downvoter_token = get_auth_token(client, downvoter.username)
+        downvoter_headers = get_auth_headers(downvoter_token)
+
+        vote_data = {"vote_type": "downvote"}
+        response = client.post(
+            f"{settings.API_STR}/votes/build_list/{build_list['id']}",
+            json=vote_data,
+            headers=downvoter_headers,
+        )
+        assert response.status_code == 200
+
+        # Get build lists with votes
+        response = client.get(f"{settings.API_STR}/build-lists/with-votes", headers=headers)
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+
+        # Find our build list
+        found_build_list = None
+        for bl in data["data"]:
+            if bl["id"] == build_list["id"]:
+                found_build_list = bl
+                break
+
+        assert found_build_list is not None
+        assert found_build_list["upvotes"] == 3
+        assert found_build_list["downvotes"] == 1
+        assert found_build_list["total_votes"] == 4

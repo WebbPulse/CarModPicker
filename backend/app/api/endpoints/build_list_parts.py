@@ -40,6 +40,29 @@ from app.api.utils.response_patterns import ResponsePatterns
 router = APIRouter()
 
 
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses=standard_responses(
+        success_description="Count of build list parts",
+    ),
+)
+async def count_build_list_parts(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Get total count of build list parts."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        count = db.query(DBBuildListPart).count()
+        logger.info(f"Retrieved build list parts count: {count}")
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting build list parts: {str(e)}")
+        raise
+
+
 @router.post(
     "/{build_list_id}/global-parts/{global_part_id}",
     response_model=BuildListPartRead,

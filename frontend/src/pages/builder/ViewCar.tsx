@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
@@ -15,6 +15,7 @@ import CardInfoItem from '../../components/common/CardInfoItem';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
+import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
 import Divider from '../../components/layout/Divider';
@@ -25,7 +26,7 @@ const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
 
 const deleteCarRequestFn = (carId: string) => carsApi.deleteCar(Number(carId));
 
-function ViewCar() {
+function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -37,6 +38,8 @@ function ViewCar() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [buildListSearchTerm, setBuildListSearchTerm] = useState('');
+  const [partsSearchTerm, setPartsSearchTerm] = useState('');
 
   const {
     data: car,
@@ -86,6 +89,19 @@ function ViewCar() {
   const handleCategoryChange = (categoryId: number | null) => {
     setSelectedCategory(categoryId);
     // Refresh parts list when category changes
+    setPartsRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleBuildListSearchChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setBuildListSearchTerm(e.target.value);
+    // Reset to page 1 when search changes (handled by BuildListList component)
+  };
+
+  const handlePartsSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPartsSearchTerm(e.target.value);
+    // Refresh parts list when search changes
     setPartsRefreshTrigger((prev) => prev + 1);
   };
 
@@ -262,20 +278,50 @@ function ViewCar() {
       {/* Build Lists Section */}
       {currentUser && (
         <>
+          <div className="mb-4">
+            <SectionHeader
+              title={`Build Lists for ${car.make} ${car.model} ${car.generation_name}`}
+            />
+            <div className="mt-4">
+              <Input
+                id="search-build-lists"
+                type="text"
+                placeholder="Search build lists by name or description..."
+                value={buildListSearchTerm}
+                onChange={handleBuildListSearchChange}
+                className="w-full"
+              />
+            </div>
+          </div>
           <BuildListList
             carId={car.id}
             refreshKey={buildListRefreshTrigger}
-            title={`Build Lists for ${car.make} ${car.model} ${car.generation_name}`}
+            title=""
             emptyMessage="This car doesn't have any build lists yet."
             onAddBuildListClick={openCreateBuildListDialog}
+            search={buildListSearchTerm.trim() || undefined}
           />
           <Divider />
         </>
       )}
 
       {/* Related Parts Section */}
-      <SectionHeader title={`Parts for ${car.make} ${car.model} ${car.generation_name}`} />
-      
+      <div className="mb-4">
+        <SectionHeader
+          title={`Parts for ${car.make} ${car.model} ${car.generation_name}`}
+        />
+        <div className="mt-4">
+          <Input
+            id="search-parts"
+            type="text"
+            placeholder="Search parts by name, description, brand, or part number..."
+            value={partsSearchTerm}
+            onChange={handlePartsSearchChange}
+            className="w-full"
+          />
+        </div>
+      </div>
+
       {/* Category Switcher */}
       {categories.length > 0 && (
         <div className="mb-4 overflow-x-auto">
@@ -318,6 +364,7 @@ function ViewCar() {
           car_id: car.id,
           limit: 5,
           ...(selectedCategory && { category_id: selectedCategory }),
+          ...(partsSearchTerm && { search: partsSearchTerm }),
         }}
         refreshKey={partsRefreshTrigger}
         title=""

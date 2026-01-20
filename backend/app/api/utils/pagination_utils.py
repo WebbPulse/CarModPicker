@@ -114,6 +114,9 @@ def create_paginated_response(
 
     return {
         "data": data,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
         "pagination": {
             "current_page": current_page,
             "total_pages": total_pages,

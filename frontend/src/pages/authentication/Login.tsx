@@ -54,8 +54,13 @@ function Login() {
           void navigate('/');
         }
       } catch (error: unknown) {
-        const axiosError = error as { response?: { data?: { detail?: string } } };
-        setApiError(axiosError.response?.data?.detail || 'Invalid OTP code. Please try again.');
+        const axiosError = error as {
+          response?: { data?: { detail?: string } };
+        };
+        setApiError(
+          axiosError.response?.data?.detail ||
+            'Invalid OTP code. Please try again.'
+        );
       }
       return;
     }

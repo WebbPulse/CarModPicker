@@ -64,6 +64,4 @@ class User(Base):
         back_populates="reporter",
         cascade="all, delete-orphan",
     )
-    build_log_posts: Mapped[List["BuildLogPost"]] = relationship(
-        "BuildLogPost", back_populates="author", cascade="all, delete-orphan"
-    )
+    build_log_posts: Mapped[List["BuildLogPost"]] = relationship("BuildLogPost", back_populates="author")

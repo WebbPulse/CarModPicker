@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import SecondaryButton from '../../components/buttons/SecondaryButton';
 import Card from '../../components/common/Card';
@@ -39,7 +45,7 @@ const GlobalPartsCatalog: React.FC = () => {
   const [selectedCategoryData, setSelectedCategoryData] =
     useState<CategoryResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10;
   const [selectedGlobalPart, setSelectedGlobalPart] =
     useState<GlobalPartReadWithVotes | null>(null);
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
@@ -158,7 +164,12 @@ const GlobalPartsCatalog: React.FC = () => {
 
   // Update generation with matching car from loaded list (if available)
   useEffect(() => {
-    if (isInitializingFromUrl && carFromUrl && carsByMake && carsByMake.length > 0) {
+    if (
+      isInitializingFromUrl &&
+      carFromUrl &&
+      carsByMake &&
+      carsByMake.length > 0
+    ) {
       // Find the matching car in the loaded list (in case it has more complete data)
       const matchingCar = carsByMake.find((car) => car.id === carFromUrl.id);
       if (matchingCar) {
@@ -258,10 +269,18 @@ const GlobalPartsCatalog: React.FC = () => {
       limit: itemsPerPage,
       ...(selectedCategory && { category_id: selectedCategory }),
       // Only include car_id if a specific generation is selected (not for universal parts)
-      ...(selectedGeneration && !showUniversalParts && { car_id: selectedGeneration.id }),
+      ...(selectedGeneration &&
+        !showUniversalParts && { car_id: selectedGeneration.id }),
       ...(searchTerm && { search: searchTerm }),
     }),
-    [currentPage, itemsPerPage, selectedCategory, selectedGeneration, showUniversalParts, searchTerm]
+    [
+      currentPage,
+      itemsPerPage,
+      selectedCategory,
+      selectedGeneration,
+      showUniversalParts,
+      searchTerm,
+    ]
   );
 
   // Memoize the pagination change handler to prevent unnecessary re-renders
@@ -358,9 +377,7 @@ const GlobalPartsCatalog: React.FC = () => {
                 }}
                 className="text-indigo-400 hover:text-indigo-300 transition-colors"
               >
-                {selectedModel
-                  ? '← Back to Car Models'
-                  : '← Back to Selection'}
+                {selectedModel ? '← Back to Car Models' : '← Back to Selection'}
               </button>
             ) : (
               'Select Manufacturer or Universal Parts'
@@ -453,50 +470,55 @@ const GlobalPartsCatalog: React.FC = () => {
           )}
 
           {/* Layer 3: Generation Selection */}
-          {selectedMake && selectedModel && !selectedGeneration && !isLoadingCarFromUrl && (
-            <>
-              <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
-                <div className="p-4">
-                  <p className="text-sm text-gray-400 mb-1">Selected Vehicle</p>
-                  <h3 className="text-xl font-semibold text-indigo-400">
-                    {selectedMake} {selectedModel}
-                  </h3>
-                </div>
-              </Card>
-              <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
-                Select Generation
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {generations.map((car) => (
-                  <Card
-                    key={car.id}
-                    onClick={() => setSelectedGeneration(car)}
-                    interactive
-                    className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
-                  >
-                    {car.image_url && (
-                      <img
-                        src={car.image_url}
-                        alt={`${car.make} ${car.model} ${car.generation_name}`}
-                        className="w-full h-32 object-cover rounded-md mb-3"
-                      />
-                    )}
-                    <h4 className="text-lg font-semibold text-indigo-400 mb-1">
-                      {car.generation_name}
-                    </h4>
-                    <p className="text-sm text-gray-400">
-                      {car.start_year} - {car.end_year}
+          {selectedMake &&
+            selectedModel &&
+            !selectedGeneration &&
+            !isLoadingCarFromUrl && (
+              <>
+                <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
+                  <div className="p-4">
+                    <p className="text-sm text-gray-400 mb-1">
+                      Selected Vehicle
                     </p>
-                    {car.description && (
-                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                        {car.description}
+                    <h3 className="text-xl font-semibold text-indigo-400">
+                      {selectedMake} {selectedModel}
+                    </h3>
+                  </div>
+                </Card>
+                <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
+                  Select Generation
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {generations.map((car) => (
+                    <Card
+                      key={car.id}
+                      onClick={() => setSelectedGeneration(car)}
+                      interactive
+                      className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                    >
+                      {car.image_url && (
+                        <img
+                          src={car.image_url}
+                          alt={`${car.make} ${car.model} ${car.generation_name}`}
+                          className="w-full h-32 object-cover rounded-md mb-3"
+                        />
+                      )}
+                      <h4 className="text-lg font-semibold text-indigo-400 mb-1">
+                        {car.generation_name}
+                      </h4>
+                      <p className="text-sm text-gray-400">
+                        {car.start_year} - {car.end_year}
                       </p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
+                      {car.description && (
+                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                          {car.description}
+                        </p>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
 
           {/* Selected Generation Info */}
           {selectedGeneration && (
