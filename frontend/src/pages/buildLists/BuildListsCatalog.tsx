@@ -151,8 +151,8 @@ const BuildListsCatalog: React.FC = () => {
       <div className="space-y-6 mb-6">
         {/* Layer 1: Make Selection */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            {selectedMake ? (
+          {selectedMake ? (
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">
               <button
                 type="button"
                 onClick={() => {
@@ -173,20 +173,16 @@ const BuildListsCatalog: React.FC = () => {
                   ? '← Back to Car Models'
                   : '← Back to Manufacturers'}
               </button>
-            ) : (
-              'Select Manufacturer'
-            )}
-          </h3>
-          {!selectedMake && (
-            <>
+            </h3>
+          ) : (
+            <Card className="mb-6">
+              <SectionHeader title="Select Manufacturer" />
               {isLoadingMakes ? (
-                <Card>
-                  <div className="flex items-center justify-center py-8">
-                    <LoadingSpinner />
-                  </div>
-                </Card>
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                   {availableMakes.map((make) => (
                     <Card
                       key={make}
@@ -201,6 +197,10 @@ const BuildListsCatalog: React.FC = () => {
                   ))}
                 </div>
               )}
+            </Card>
+          )}
+          {!selectedMake && (
+            <>
 
               {/* Featured Build Lists Section - Only show when no make is selected */}
               <Card className="mb-6 mt-6">

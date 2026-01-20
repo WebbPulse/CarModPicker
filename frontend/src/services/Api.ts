@@ -286,6 +286,7 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    car_id?: number;
     search?: string;
   }) => apiClient.get<GlobalPartRead[]>('/global-parts/', { params }),
 
@@ -294,6 +295,7 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    car_id?: number;
     search?: string;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(

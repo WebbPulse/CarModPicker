@@ -27,6 +27,7 @@ function getCacheKey(params?: {
   skip?: number;
   limit?: number;
   category_id?: number;
+  car_id?: number;
   search?: string;
 }): string {
   return JSON.stringify(params || {});
@@ -51,6 +52,7 @@ interface GlobalPartListProps {
     skip?: number;
     limit?: number;
     category_id?: number;
+    car_id?: number;
     search?: string;
   };
   data?: GlobalPartReadWithVotes[]; // Optional: pass pre-fetched data instead of fetching
@@ -76,6 +78,7 @@ const fetchGlobalPartsRequestFn = (params?: {
   skip?: number;
   limit?: number;
   category_id?: number;
+  car_id?: number;
   search?: string;
 }) => globalPartsApi.getGlobalPartsWithVotes(params);
 
@@ -196,9 +199,11 @@ function GlobalPartList({
 
   return (
     <Card>
-      <div className="flex justify-between items-center mb-4">
-        <SectionHeader title={title} />
-      </div>
+      {title && (
+        <div className="flex justify-between items-center mb-4">
+          <SectionHeader title={title} />
+        </div>
+      )}
 
       {!globalParts || globalParts.length === 0 ? (
         <div className="text-center py-8 text-gray-400">

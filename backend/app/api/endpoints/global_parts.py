@@ -5,10 +5,12 @@ This endpoint now uses the BaseEndpointRouter to provide common CRUD operations
 while maintaining global part-specific functionality.
 """
 
+import logging
 from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_optional_current_user
 from app.api.models.global_part import GlobalPart as DBGlobalPart
@@ -35,6 +37,14 @@ from app.api.utils.endpoint_decorators import (
 from app.api.utils.pagination_utils import (
     create_paginated_response,
 )
+from app.api.utils.authorization import (
+    require_global_part_edit_permission,
+)
+from app.api.utils.common_operations import (
+    delete_entity,
+    update_entity,
+    verify_entity_exists,
+)
 
 # Create router
 router = APIRouter()
@@ -49,6 +59,71 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             model=DBGlobalPart,
             entity_name="global part",
             subscription_check_method="can_create_global_part",
+        )
+
+    def update(
+        self,
+        db: Session,
+        entity_id: int,
+        data: GlobalPartUpdate,
+        current_user: DBUser,
+        logger: logging.Logger,
+    ) -> DBGlobalPart:
+        """
+        Update an existing global part with proper authorization check.
+        Allows creator, admin, or superuser to update.
+        """
+        # Verify entity exists
+        entity = verify_entity_exists(db, self.model, entity_id, self.entity_name)
+
+        # Check authorization (allows creator, admin, or superuser)
+        require_global_part_edit_permission(current_user, entity)
+
+        # Update the entity
+        update_data = data.model_dump(exclude_unset=True)
+        return update_entity(
+            db=db,
+            entity=entity,
+            update_data=update_data,
+            user_id=current_user.id,
+            logger=logger,
+            entity_name=self.entity_name,
+        )
+
+    def delete(
+        self,
+        db: Session,
+        entity_id: int,
+        current_user: DBUser,
+        logger: logging.Logger,
+    ) -> Dict[str, str]:
+        """
+        Delete an existing global part with proper authorization check.
+        Allows creator, admin, or superuser to delete.
+        """
+        from app.api.utils.authorization import can_delete_global_part
+
+        # Verify entity exists
+        entity = verify_entity_exists(db, self.model, entity_id, self.entity_name)
+
+        # Check authorization (allows creator, admin, or superuser)
+        if not can_delete_global_part(current_user, entity):
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Not authorized to delete this global part. " "Only the creator or admin can delete global parts."
+                ),
+            )
+
+        # Delete the entity
+        return delete_entity(
+            db=db,
+            entity=entity,
+            user_id=current_user.id,
+            logger=logger,
+            entity_name=self.entity_name,
         )
 
 
@@ -67,6 +142,7 @@ async def read_global_parts_with_votes(
     skip: int = Query(0, ge=0, description="Number of global parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of global parts to return"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID"),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
@@ -113,6 +189,9 @@ async def read_global_parts_with_votes(
         category_id=category_id,
         search_fields=["name", "description"],
     )
+    if car_id:
+        # Include both parts specific to this car AND universal parts (car_id is null)
+        base_query = base_query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
 
     # Get total count from base query (joins don't affect which parts match filters)
     total = base_query.count()
@@ -131,6 +210,9 @@ async def read_global_parts_with_votes(
         category_id=category_id,
         search_fields=["name", "description"],
     )
+    if car_id:
+        # Include both parts specific to this car AND universal parts (car_id is null)
+        query = query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
 
     # Sort by net votes (upvotes - downvotes) descending, then by id for consistent ordering
     # This matches what users see in the UI (the +1, -2, etc. values)
