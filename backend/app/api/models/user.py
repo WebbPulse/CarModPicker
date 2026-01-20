@@ -8,6 +8,7 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_part import BuildListPart
+    from .build_log import BuildLogPost
     from .global_part import GlobalPart
     from .report import Report
     from .subscription import Subscription
@@ -38,6 +39,10 @@ class User(Base):
         default="active", nullable=False
     )  # 'active', 'cancelled', 'expired'
 
+    # 2FA fields
+    totp_secret: Mapped[Optional[str]] = mapped_column(nullable=True)  # TOTP secret key
+    totp_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)  # Whether 2FA is enabled
+
     # Relationships
     build_lists: Mapped[List["BuildList"]] = relationship(
         "BuildList", back_populates="owner", cascade="all, delete-orphan"
@@ -59,3 +64,4 @@ class User(Base):
         back_populates="reporter",
         cascade="all, delete-orphan",
     )
+    build_log_posts: Mapped[List["BuildLogPost"]] = relationship("BuildLogPost", back_populates="author")

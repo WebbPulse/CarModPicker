@@ -767,3 +767,180 @@ class TestUnifiedReports:
             f"{settings.API_STR}/reports/build_list/{build_list['id']}", json=report_data, headers=headers
         )
         assert response.status_code == 422  # Validation error
+
+    def test_count_reports_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+        """Test counting reports."""
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/reports/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Create a second user to own the build list
+        from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User as DBUser
+
+        build_list_owner = DBUser(
+            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(build_list_owner)
+        db_session.commit()
+        db_session.refresh(build_list_owner)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Login as build list owner and create a build list
+        login_data = {"username": build_list_owner.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        build_list_owner_token = response.json()["access_token"]
+        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("Test Build List"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
+        )
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Login as test user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        test_user_token = response.json()["access_token"]
+        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+
+        # Create a report
+        report_data = {
+            "reason": "spam",
+            "description": "This build list is spam",
+        }
+        response = client.post(
+            f"{settings.API_STR}/reports/build_list/{build_list['id']}",
+            json=report_data,
+            headers=test_user_headers,
+        )
+        assert response.status_code == 200
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/reports/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+    def test_count_reports_public_endpoint(self, client: TestClient) -> None:
+        """Test that counting reports works without authentication."""
+        # Count reports (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/reports/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0
+
+    def test_list_reports_with_details_admin_only(self, client: TestClient, test_user: User) -> None:
+        """Test that listing reports with details requires admin access."""
+        # Login as regular user
+        login_data = {"username": test_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Try to list reports with details
+        response = client.get(f"{settings.API_STR}/reports/admin/list-with-details", headers=headers)
+        assert response.status_code == 403
+
+    def test_list_reports_with_details_success(
+        self, client: TestClient, test_admin_user: User, db_session: Session
+    ) -> None:
+        """Test successfully listing reports with details as admin."""
+        # Login as admin user
+        login_data = {"username": test_admin_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # List reports with details
+        response = client.get(f"{settings.API_STR}/reports/admin/list-with-details", headers=headers)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "data" in data
+        assert "pagination" in data
+        assert "total_items" in data["pagination"]  # total is in pagination object
+        assert "items_per_page" in data["pagination"]  # limit is items_per_page in pagination
+        assert isinstance(data["data"], list)
+        # Check pagination object instead of top-level fields
+        assert isinstance(data["pagination"]["total"], int)
+        assert isinstance(data["pagination"]["skip"], int)
+        assert isinstance(data["pagination"]["limit"], int)
+
+    def test_list_reports_with_details_pagination(
+        self, client: TestClient, test_admin_user: User, db_session: Session
+    ) -> None:
+        """Test pagination for listing reports with details."""
+        # Login as admin user
+        login_data = {"username": test_admin_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Get first page
+        response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?skip=0&limit=10", headers=headers)
+        assert response.status_code == 200
+        first_page = response.json()
+        assert "data" in first_page
+        assert len(first_page["data"]) <= 10
+
+        # Get second page
+        response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?skip=10&limit=10", headers=headers)
+        assert response.status_code == 200
+        second_page = response.json()
+        assert "data" in second_page
+
+    def test_list_reports_with_details_filtering(
+        self, client: TestClient, test_admin_user: User, db_session: Session
+    ) -> None:
+        """Test filtering for listing reports with details."""
+        # Login as admin user
+        login_data = {"username": test_admin_user.username, "password": "testpassword"}
+        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # List reports with entity_type filter
+        response = client.get(
+            f"{settings.API_STR}/reports/admin/list-with-details?entity_type=build_list", headers=headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "data" in data
+        assert isinstance(data["data"], list)
+
+        # List reports with status filter
+        response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?status=pending", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "data" in data
+        assert isinstance(data["data"], list)

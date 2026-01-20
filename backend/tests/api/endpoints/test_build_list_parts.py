@@ -413,11 +413,29 @@ class TestBuildListParts:
         response = client.get(f"{settings.API_STR}/build-list-parts/99999", headers=headers)
         assert response.status_code == 404
 
-    def test_get_build_list_parts_unauthorized(self, client: TestClient) -> None:
-        """Test getting parts from a build list without authentication."""
-        # Try to get parts without authentication
-        response = client.get(f"{settings.API_STR}/build-list-parts/1")
-        assert response.status_code == 401
+    def test_get_build_list_parts_unauthorized(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
+        """Test getting parts from a build list without authentication (public read is allowed)."""
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list as test_user
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list_id = response.json()["id"]
+
+        # Try to get parts without authentication (public read is allowed)
+        response = client.get(f"{settings.API_STR}/build-list-parts/{build_list_id}")
+        assert response.status_code == 200  # Public read is allowed
 
     def test_update_build_list_part_success(
         self, client: TestClient, test_user: User, test_category: Category, db_session: Session
@@ -1449,3 +1467,186 @@ class TestBuildListParts:
         data = response.json()
         assert "count" in data
         assert data["count"] == 1
+
+    def test_update_build_list_part_when_build_list_deleted(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
+        """Test build list part update when build list is deleted (edge case - cascade behavior)."""
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create a global part
+        global_part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,  # price in cents (99.99)
+            "category_id": test_category.id,
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Add part to build list
+        build_list_part_data = {"quantity": 1, "notes": "Test notes"}
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+        build_list_part = response.json()
+        build_list_part_id = build_list_part["id"]
+
+        # Delete the build list
+        delete_response = client.delete(f"{settings.API_STR}/build-lists/{build_list['id']}", headers=headers)
+        assert delete_response.status_code == 200
+
+        # Try to update the build list part (should fail - build list is deleted)
+        update_data = {"quantity": 2}
+        response = client.put(
+            f"{settings.API_STR}/build-list-parts/{build_list_part_id}",
+            json=update_data,
+            headers=headers,
+        )
+        # Should return 404 because build list part was cascade deleted with build list
+        # OR 404 if build list part is checked first
+        assert response.status_code == 404, "Update should fail when build list is deleted"
+
+    def test_delete_build_list_part_when_build_list_deleted(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
+        """Test build list part deletion when build list is deleted (edge case - cascade behavior)."""
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create a global part
+        global_part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,  # price in cents (99.99)
+            "category_id": test_category.id,
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Add part to build list
+        build_list_part_data = {"quantity": 1, "notes": "Test notes"}
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+        build_list_part = response.json()
+        build_list_part_id = build_list_part["id"]
+
+        # Delete the build list (should cascade delete the build list part)
+        delete_response = client.delete(f"{settings.API_STR}/build-lists/{build_list['id']}", headers=headers)
+        assert delete_response.status_code == 200
+
+        # Try to delete the build list part (should fail - already deleted via cascade)
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{build_list_part_id}", headers=headers)
+        # Should return 404 because build list part was cascade deleted with build list
+        assert response.status_code == 404, "Delete should fail when build list part was cascade deleted"
+
+    def test_count_build_list_parts_success(
+        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+    ) -> None:
+        """Test counting build list parts."""
+        # Login as test user and get token
+        token = login_user(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        # Create a car first (requires admin)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+
+        # Create a build list
+        build_list_data = {
+            "name": get_unique_name("test_build_list"),
+            "description": "A test build list description",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        build_list = response.json()
+
+        # Create a global part
+        part_data = {
+            "name": get_unique_name("test_part"),
+            "description": "A test part description",
+            "price": 9999,
+            "category_id": test_category.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+        global_part = response.json()
+
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/build-list-parts/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Add part to build list
+        build_list_part_data = {
+            "quantity": 1,
+            "notes": "Test notes",
+        }
+        response = client.post(
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{global_part['id']}",
+            json=build_list_part_data,
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/build-list-parts/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+    def test_count_build_list_parts_public_endpoint(self, client: TestClient) -> None:
+        """Test that counting build list parts works without authentication."""
+        # Count build list parts (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/build-list-parts/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0

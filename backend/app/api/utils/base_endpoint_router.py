@@ -5,7 +5,7 @@ Base endpoint router with common patterns to reduce redundancy.
 import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, cast
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user

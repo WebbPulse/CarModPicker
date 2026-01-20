@@ -12,6 +12,10 @@ import type {
   BuildListRead,
   BuildListReadWithVotes,
   BuildListUpdate,
+  BuildLogPostCreate,
+  BuildLogPostRead,
+  BuildLogPostUpdate,
+  BuildLogReadPaginated,
   CarCreate,
   CarGenerationCreate,
   CarGenerationRead,
@@ -26,6 +30,7 @@ import type {
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
+  LoginResponse,
   NewPassword,
   PaginatedResponse,
   ReportCreate,
@@ -34,6 +39,11 @@ import type {
   ReportWithDetails,
   SubscriptionResponse,
   SubscriptionStatus,
+  TOTPDisableRequest,
+  TOTPLoginRequest,
+  TOTPSetupResponse,
+  TOTPVerifyRequest,
+  TOTPVerifyResponse,
   UpgradeRequest,
   UserCreate,
   UserRead,
@@ -141,14 +151,29 @@ export const usersApi = {
   deleteUser: (userId: number) =>
     apiClient.delete<UserRead>(`/users/${userId}`),
 
+  // Profile picture endpoints
+  uploadProfilePicture: (file: File): Promise<{ data: UserRead }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<UserRead>('/users/me/profile-picture', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  deleteProfilePicture: () =>
+    apiClient.delete<UserRead>('/users/me/profile-picture'),
+
   // List and count endpoints
   listUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
     apiClient.get<UserRead[]>('/users/', { params }),
   countUsers: () => apiClient.get<{ count: number }>('/users/count'),
 
   // Admin endpoints
-  getAllUsers: (params?: { skip?: number; limit?: number }) =>
-    apiClient.get<UserRead[]>('/users/admin/users', { params }),
+  getAllUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
+    apiClient.get<PaginatedResponse<UserRead>>('/users/admin/users', {
+      params,
+    }),
   adminUpdateUser: (userId: number, data: AdminUserUpdate) =>
     apiClient.put<UserRead>(`/users/admin/users/${userId}`, data),
   adminDeleteUser: (userId: number) =>
@@ -259,10 +284,16 @@ export const buildListsApi = {
     ),
   getBuildListsByCar: (
     carId: number,
-    params?: { skip?: number; limit?: number }
-  ) => apiClient.get<BuildListRead[]>(`/build-lists/car/${carId}`, { params }),
+    params?: { skip?: number; limit?: number; search?: string }
+  ) =>
+    apiClient.get<PaginatedResponse<BuildListRead>>(
+      `/build-lists/car/${carId}`,
+      { params }
+    ),
   getMyBuildLists: (params?: { skip?: number; limit?: number }) =>
-    apiClient.get<BuildListRead[]>('/build-lists/user/me', { params }),
+    apiClient.get<PaginatedResponse<BuildListRead>>('/build-lists/user/me', {
+      params,
+    }),
   getBuildListsByUser: (
     userId: number,
     params?: { skip?: number; limit?: number }
@@ -286,6 +317,7 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    car_id?: number;
     search?: string;
   }) => apiClient.get<GlobalPartRead[]>('/global-parts/', { params }),
 
@@ -294,6 +326,7 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    car_id?: number;
     search?: string;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
@@ -386,6 +419,7 @@ export const votesApi = {
       `/votes/admin/flagged/${entityType}`,
       { params: { limit } }
     ),
+  countVotes: () => apiClient.get<{ count: number }>('/votes/count'),
 };
 
 // Unified Reports API
@@ -410,9 +444,12 @@ export const reportsApi = {
     skip?: number;
     limit?: number;
   }) =>
-    apiClient.get<ReportWithDetails[]>('/reports/admin/list-with-details', {
-      params,
-    }),
+    apiClient.get<PaginatedResponse<ReportWithDetails>>(
+      '/reports/admin/list-with-details',
+      {
+        params,
+      }
+    ),
   getMyReports: (params?: { status?: string; skip?: number; limit?: number }) =>
     apiClient.get<ReportRead[]>('/reports/my-reports', { params }),
   getReport: (reportId: number) =>
@@ -421,6 +458,7 @@ export const reportsApi = {
     apiClient.put<ReportRead>(`/reports/${reportId}`, data),
   deleteReport: (reportId: number) =>
     apiClient.delete<Record<string, string>>(`/reports/${reportId}`),
+  countReports: () => apiClient.get<{ count: number }>('/reports/count'),
 };
 
 // Legacy APIs for backward compatibility (will be removed in future versions)
@@ -559,6 +597,9 @@ export const buildListPartsApi = {
     apiClient.get<{ count: number }>(
       `/build-list-parts/global-parts/${globalPartId}/build-lists/count`
     ),
+  // Count all build list parts
+  countBuildListParts: () =>
+    apiClient.get<{ count: number }>('/build-list-parts/count'),
 };
 
 // Subscriptions API
@@ -575,20 +616,40 @@ export const subscriptionsApi = {
     apiClient.get<Record<string, boolean>>(
       '/subscriptions/limits/check/global-part'
     ),
+  countSubscriptions: () =>
+    apiClient.get<{ count: number }>('/subscriptions/count'),
 };
 
 // Auth API
 export const authApi = {
   login: async (
     data: BodyLoginForAccessToken
+  ): Promise<AxiosResponse<UserRead | LoginResponse>> => {
+    const response = await apiClient.post<LoginResponse>('/auth/token', data, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    // If 2FA is required, return the response as-is
+    if (response.data.requires_2fa) {
+      return response;
+    }
+    // Store the token
+    if (response.data.access_token) {
+      setStoredToken(response.data.access_token);
+    }
+    // Return response with user data as the main data field
+    return {
+      ...response,
+      data: response.data.user!,
+    } as AxiosResponse<UserRead>;
+  },
+  loginWith2FA: async (
+    data: TOTPLoginRequest
   ): Promise<AxiosResponse<UserRead>> => {
     const response = await apiClient.post<{
       access_token: string;
       token_type: string;
       user: UserRead;
-    }>('/auth/token', data, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    }>('/auth/token/2fa', data);
     // Store the token
     if (response.data.access_token) {
       setStoredToken(response.data.access_token);
@@ -599,6 +660,11 @@ export const authApi = {
       data: response.data.user,
     } as AxiosResponse<UserRead>;
   },
+  setup2FA: () => apiClient.post<TOTPSetupResponse>('/auth/2fa/setup'),
+  verify2FA: (data: TOTPVerifyRequest) =>
+    apiClient.post<TOTPVerifyResponse>('/auth/2fa/verify', data),
+  disable2FA: (data: TOTPDisableRequest) =>
+    apiClient.post<Record<string, string>>('/auth/2fa/disable', data),
   verifyEmail: (data: BodyVerifyEmail) =>
     apiClient.post<Record<string, string>>('/auth/verify-email', data),
   verifyEmailConfirm: (token: string) =>
@@ -716,6 +782,34 @@ export const imageApi = {
 
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
+};
+
+// Build Logs API
+export const buildLogsApi = {
+  getBuildLogByBuildList: (
+    buildListId: number,
+    skip?: number,
+    limit?: number
+  ) => {
+    const params = new URLSearchParams();
+    if (skip !== undefined) params.append('skip', skip.toString());
+    if (limit !== undefined) params.append('limit', limit.toString());
+    const queryString = params.toString();
+    return apiClient.get<BuildLogReadPaginated>(
+      `/build-logs/build-list/${buildListId}${queryString ? `?${queryString}` : ''}`
+    );
+  },
+  createBuildLogPost: (buildListId: number, data: BuildLogPostCreate) =>
+    apiClient.post<BuildLogPostRead>(
+      `/build-logs/build-list/${buildListId}/posts`,
+      data
+    ),
+  updateBuildLogPost: (postId: number, data: BuildLogPostUpdate) =>
+    apiClient.put<BuildLogPostRead>(`/build-logs/posts/${postId}`, data),
+  deleteBuildLogPost: (postId: number) =>
+    apiClient.delete<{ message: string }>(`/build-logs/posts/${postId}`),
+  countBuildLogPosts: () =>
+    apiClient.get<{ count: number }>('/build-logs/posts/count'),
 };
 
 export default apiClient;

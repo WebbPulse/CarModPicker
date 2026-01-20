@@ -28,10 +28,13 @@ alembic==1.16.2
 python-jose[cryptography]==3.5.0
 bcrypt==4.3.0
 python-multipart==0.0.20
+pyotp==2.9.0
+qrcode[pil]==7.4.2
 
 # Email service
 sendgrid==6.11.0
 requests==2.32.4
+beautifulsoup4==4.12.3
 
 # Image storage and processing (for Railway Storage Buckets)
 boto3==1.35.0

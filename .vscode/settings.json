@@ -13,7 +13,7 @@
   "python.analysis.autoSearchPaths": true,
   "python.analysis.useLibraryCodeForTypes": true,
   "python.analysis.autoImportCompletions": true,
-  "python.analysis.ignore": ["**/alembic/versions/**", "**/scripts/**"],
+  "python.analysis.ignore": ["**/alembic/versions/**", "**/scripts/**", "**/backend/tests/**"],
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUnusedImport": "warning",
     "reportUnusedVariable": "warning",

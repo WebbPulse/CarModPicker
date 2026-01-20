@@ -15,6 +15,8 @@ interface ImageUploadProps {
   onImageUploaded: (fileKey: string, presignedUrl: string) => void;
   /** Callback when image is removed */
   onImageRemoved?: () => void;
+  /** Optional callback when file is selected (before upload). If provided, this bypasses the default upload behavior. */
+  onFileSelected?: (file: File) => void | Promise<void>;
   /** Label for the upload input */
   label?: string;
   /** Maximum file size in MB */
@@ -37,6 +39,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   entityId,
   onImageUploaded,
   onImageRemoved,
+  onFileSelected,
   label = 'Image',
   maxSizeMB = 10,
   allowedExtensions = DEFAULT_ALLOWED_EXTENSIONS,
@@ -76,6 +79,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     void (async () => {
       try {
+        // If onFileSelected is provided, use it instead of default upload
+        if (onFileSelected) {
+          await onFileSelected(file);
+          // Note: onFileSelected is responsible for updating preview and calling onImageUploaded if needed
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          setIsUploading(false);
+          return;
+        }
+
+        // Default upload behavior
         const response: ImageUploadResponse = await imageApi.uploadImage(
           file,
           entityType,

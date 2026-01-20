@@ -448,3 +448,124 @@ class TestCategories:
         # ResponsePatterns.raise_conflict uses "detail" key for HTTPException
         assert "Cannot delete category" in response_data.get("detail", response_data.get("message", ""))
         assert "associated parts" in response_data.get("detail", response_data.get("message", ""))
+
+    def test_get_category_parts_count_success(self, client: TestClient, db_session: Session) -> None:
+        """Test getting parts count for a category."""
+        # Get a category ID from the database
+        category_id = get_default_category_id(db_session)
+
+        # Get initial count
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "parts_count" in initial_data
+        initial_count = initial_data["parts_count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Create a user and log them in
+        _, user_token = create_and_login_user(client, "parts_count_user")
+        user_headers = {"Authorization": f"Bearer {user_token}"}
+
+        # Create a car via admin (cars are now centrally managed)
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
+        car_id = create_car_via_admin_for_categories(client, db_session, admin_token)
+
+        # Create a build list for the car
+        build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
+
+        # Create a part in that category
+        part_data = {
+            "name": "Test Part for Count",
+            "description": "Test part description",
+            "price": 100,
+            "build_list_id": build_list_id,
+            "category_id": category_id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
+        assert response.status_code == 200
+
+        # Get count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "parts_count" in updated_data
+        assert updated_data["parts_count"] == initial_count + 1
+
+    def test_get_category_parts_count_not_found(self, client: TestClient, db_session: Session) -> None:
+        """Test getting parts count for a non-existent category."""
+        response = client.get(f"{settings.API_STR}/categories/99999/parts-count")
+        assert response.status_code == 404
+        assert (
+            "category" in response.json().get("message", "").lower()
+            or "not found" in response.json().get("message", "").lower()
+        )
+
+    def test_get_category_parts_count_public_endpoint(self, client: TestClient, db_session: Session) -> None:
+        """Test that getting parts count works without authentication."""
+        # Get a category ID from the database
+        category_id = get_default_category_id(db_session)
+
+        # Get parts count (public endpoint, no auth required)
+        client.cookies.clear()
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "parts_count" in data
+        assert isinstance(data["parts_count"], int)
+        assert data["parts_count"] >= 0
+
+    def test_count_categories_success(self, client: TestClient, db_session: Session) -> None:
+        """Test counting categories."""
+        # Get initial count (public endpoint, no auth required)
+        response = client.get(f"{settings.API_STR}/categories/count")
+        assert response.status_code == 200
+        initial_data = response.json()
+        assert "count" in initial_data
+        initial_count = initial_data["count"]
+        assert isinstance(initial_count, int)
+        assert initial_count >= 0
+
+        # Create a category as admin
+        _, token = create_and_login_admin_user(client, db_session, "count_cat")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        category_data = {
+            "name": get_unique_name("count_test"),
+            "display_name": "Count Test Category",
+            "description": "A test category for counting",
+            "is_active": True,
+            "sort_order": 50,
+        }
+
+        response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
+        assert response.status_code == 200
+        category_id = response.json()["id"]
+
+        # Count again (should be increased by 1)
+        response = client.get(f"{settings.API_STR}/categories/count")
+        assert response.status_code == 200
+        updated_data = response.json()
+        assert "count" in updated_data
+        assert updated_data["count"] == initial_count + 1
+
+        # Delete the category
+        response = client.delete(f"{settings.API_STR}/categories/{category_id}", headers=headers)
+        assert response.status_code == 200
+
+        # Count again (should be back to initial count)
+        response = client.get(f"{settings.API_STR}/categories/count")
+        assert response.status_code == 200
+        final_data = response.json()
+        assert final_data["count"] == initial_count
+
+    def test_count_categories_public_endpoint(self, client: TestClient, db_session: Session) -> None:
+        """Test that counting categories works without authentication."""
+        # Count categories (public endpoint, no auth required)
+        client.cookies.clear()
+        response = client.get(f"{settings.API_STR}/categories/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0

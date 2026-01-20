@@ -1,42 +1,50 @@
+import type { AxiosResponse } from 'axios';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import apiClient from '../../services/Api';
-import type { ReportUpdate, ReportWithDetails } from '../../types/Api';
+import apiClient, { reportsApi } from '../../services/Api';
+import type {
+  PaginatedResponse,
+  ReportUpdate,
+  ReportWithDetails,
+} from '../../types/Api';
 
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import Dialog from '../../components/common/Dialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+
+const ITEMS_PER_PAGE = 10;
 
 const fetchReportsRequestFn = (params?: {
   status?: string;
   skip?: number;
   limit?: number;
-}) =>
-  apiClient.get<ReportWithDetails[]>('/reports/admin/list', {
-    params,
-  });
+}): Promise<AxiosResponse<PaginatedResponse<ReportWithDetails>>> =>
+  reportsApi.getReportsWithDetails(params);
 const updateReportRequestFn = (payload: {
   reportId: number;
   data: ReportUpdate;
-}) =>
+}): Promise<AxiosResponse<ReportWithDetails>> =>
   apiClient.put<ReportWithDetails>(
     `/reports/${payload.reportId}`,
     payload.data
   );
-const getPendingReportsCountRequestFn = () =>
-  apiClient.get<Record<string, number>>('/reports/admin/pending/count');
+const getPendingReportsCountRequestFn = (): Promise<
+  AxiosResponse<PaginatedResponse<ReportWithDetails>>
+> => reportsApi.getReportsWithDetails({ status: 'pending', skip: 0, limit: 1 });
 
 function ReportReview() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [selectedStatus, setSelectedStatus] = useState<string>('pending');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] =
     useState<ReportWithDetails | null>(null);
@@ -44,11 +52,18 @@ function ReportReview() {
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   const {
-    data: reports,
+    data: reportsData,
     isLoading: isLoadingReports,
     error: reportsError,
     executeRequest: fetchReports,
-  } = useApiRequest(fetchReportsRequestFn);
+  } = useApiRequest<
+    PaginatedResponse<ReportWithDetails>,
+    {
+      status?: string;
+      skip?: number;
+      limit?: number;
+    }
+  >(fetchReportsRequestFn);
 
   const {
     isLoading: isUpdating,
@@ -57,9 +72,10 @@ function ReportReview() {
     setError: setUpdateError,
   } = useApiRequest(updateReportRequestFn);
 
-  const { data: countData, executeRequest: fetchPendingCount } = useApiRequest(
-    getPendingReportsCountRequestFn
-  );
+  const { data: countData, executeRequest: fetchPendingCount } = useApiRequest<
+    PaginatedResponse<ReportWithDetails>,
+    never
+  >(getPendingReportsCountRequestFn);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -68,14 +84,31 @@ function ReportReview() {
     }
   }, [user, navigate]);
 
+  // Reset to page 1 when status changes
   useEffect(() => {
-    void fetchReports({ status: selectedStatus });
-    void fetchPendingCount();
-  }, [fetchReports, fetchPendingCount, selectedStatus]);
+    setCurrentPage(1);
+  }, [selectedStatus]);
 
   useEffect(() => {
-    if (countData) {
-      setPendingCount(countData['pending_count'] || 0);
+    void fetchReports({
+      status: selectedStatus,
+      skip: (currentPage - 1) * ITEMS_PER_PAGE,
+      limit: ITEMS_PER_PAGE,
+    });
+    void fetchPendingCount();
+  }, [fetchReports, fetchPendingCount, selectedStatus, currentPage]);
+
+  useEffect(() => {
+    if (
+      countData &&
+      typeof countData === 'object' &&
+      'pagination' in countData &&
+      countData.pagination &&
+      typeof countData.pagination === 'object' &&
+      'total_items' in countData.pagination &&
+      typeof countData.pagination.total_items === 'number'
+    ) {
+      setPendingCount(countData.pagination.total_items);
     }
   }, [countData]);
 
@@ -116,7 +149,11 @@ function ReportReview() {
       setIsReviewDialogOpen(false);
       setSelectedReport(null);
       setAdminNotes('');
-      void fetchReports({ status: selectedStatus });
+      void fetchReports({
+        status: selectedStatus,
+        skip: (currentPage - 1) * ITEMS_PER_PAGE,
+        limit: ITEMS_PER_PAGE,
+      });
       void fetchPendingCount();
     }
   };
@@ -150,7 +187,21 @@ function ReportReview() {
     );
   };
 
-  if (isLoadingReports && !reports) {
+  // Extract reports and pagination info from the response
+  const reports: ReportWithDetails[] =
+    reportsData && typeof reportsData === 'object' && 'data' in reportsData
+      ? Array.isArray(reportsData.data)
+        ? reportsData.data
+        : []
+      : [];
+  const pagination =
+    reportsData &&
+    typeof reportsData === 'object' &&
+    'pagination' in reportsData
+      ? reportsData.pagination
+      : undefined;
+
+  if (isLoadingReports && !reportsData) {
     return (
       <>
         <PageHeader title="Report Review" />
@@ -204,7 +255,7 @@ function ReportReview() {
         </Card>
       )}
 
-      {reports && (
+      {reportsData && (
         <Card>
           <SectionHeader
             title={`${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Reports`}
@@ -214,83 +265,112 @@ function ReportReview() {
               No {selectedStatus} reports found.
             </p>
           ) : (
-            <div className="space-y-4">
-              {reports.map((report) => (
-                <div
-                  key={report.id}
-                  className="border border-gray-700 rounded-lg p-4"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-200">
-                        Report #{report.id} - {report.entity_name}
-                      </h3>
-                      <p className="text-gray-400">
-                        Reported by {report.reporter_username} on{' '}
-                        {new Date(report.created_at).toLocaleDateString()}
-                      </p>
+            <>
+              <div className="space-y-4">
+                {reports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="border border-gray-700 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-200">
+                          Report #{report.id} - {report.entity_name}
+                        </h3>
+                        <p className="text-gray-400">
+                          Reported by {report.reporter_username} on{' '}
+                          {new Date(report.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {getStatusBadge(report.status)}
+                        {report.status === 'pending' && (
+                          <ActionButton
+                            onClick={() => openReviewDialog(report)}
+                            className="text-sm px-3 py-1"
+                          >
+                            Review
+                          </ActionButton>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {getStatusBadge(report.status)}
-                      {report.status === 'pending' && (
-                        <ActionButton
-                          onClick={() => openReviewDialog(report)}
-                          className="text-sm px-3 py-1"
-                        >
-                          Review
-                        </ActionButton>
-                      )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-300 mb-1">
+                          Reason
+                        </h4>
+                        <p className="text-gray-400">{report.reason}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-300 mb-1">
+                          Entity Details
+                        </h4>
+                        <p className="text-gray-400">
+                          {report.entity_name}
+                          {report.entity_description &&
+                            ` - ${report.entity_description}`}
+                        </p>
+                        <p className="text-gray-500 text-sm">
+                          Type: {report.entity_type}
+                        </p>
+                      </div>
                     </div>
+
+                    {report.description && (
+                      <div className="mb-3">
+                        <h4 className="font-medium text-gray-300 mb-1">
+                          Description
+                        </h4>
+                        <p className="text-gray-400">{report.description}</p>
+                      </div>
+                    )}
+
+                    {report.admin_notes && (
+                      <div className="mb-3">
+                        <h4 className="font-medium text-gray-300 mb-1">
+                          Admin Notes
+                        </h4>
+                        <p className="text-gray-400">{report.admin_notes}</p>
+                      </div>
+                    )}
+
+                    {report.reviewer_username && (
+                      <div className="text-sm text-gray-500">
+                        Reviewed by {report.reviewer_username} on{' '}
+                        {report.reviewed_at &&
+                          new Date(report.reviewed_at).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                    <div>
-                      <h4 className="font-medium text-gray-300 mb-1">Reason</h4>
-                      <p className="text-gray-400">{report.reason}</p>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-300 mb-1">
-                        Entity Details
-                      </h4>
-                      <p className="text-gray-400">
-                        {report.entity_name}
-                        {report.entity_description &&
-                          ` - ${report.entity_description}`}
-                      </p>
-                      <p className="text-gray-500 text-sm">
-                        Type: {report.entity_type}
-                      </p>
-                    </div>
-                  </div>
-
-                  {report.description && (
-                    <div className="mb-3">
-                      <h4 className="font-medium text-gray-300 mb-1">
-                        Description
-                      </h4>
-                      <p className="text-gray-400">{report.description}</p>
-                    </div>
-                  )}
-
-                  {report.admin_notes && (
-                    <div className="mb-3">
-                      <h4 className="font-medium text-gray-300 mb-1">
-                        Admin Notes
-                      </h4>
-                      <p className="text-gray-400">{report.admin_notes}</p>
-                    </div>
-                  )}
-
-                  {report.reviewer_username && (
-                    <div className="text-sm text-gray-500">
-                      Reviewed by {report.reviewer_username} on{' '}
-                      {report.reviewed_at &&
-                        new Date(report.reviewed_at).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {pagination &&
+                typeof pagination === 'object' &&
+                'current_page' in pagination &&
+                'total_pages' in pagination &&
+                'total_items' in pagination && (
+                  <Pagination
+                    currentPage={
+                      typeof pagination.current_page === 'number'
+                        ? pagination.current_page
+                        : 1
+                    }
+                    totalPages={
+                      typeof pagination.total_pages === 'number'
+                        ? pagination.total_pages
+                        : 1
+                    }
+                    onPageChange={setCurrentPage}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    totalItems={
+                      typeof pagination.total_items === 'number'
+                        ? pagination.total_items
+                        : 0
+                    }
+                  />
+                )}
+            </>
           )}
         </Card>
       )}

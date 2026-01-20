@@ -145,7 +145,7 @@ class ReportService:
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
-    ) -> List[ReportWithDetails]:
+    ) -> tuple[List[ReportWithDetails], int]:
         """
         Get reports with detailed information including reporter and entity details.
 
@@ -158,7 +158,7 @@ class ReportService:
             logger: Optional logger instance
 
         Returns:
-            List of reports with details
+            Tuple of (list of reports with details, total count)
         """
         query = db.query(
             DBReport,
@@ -171,6 +171,9 @@ class ReportService:
 
         if status:
             query = query.filter(DBReport.status == status)
+
+        # Get total count before pagination
+        total_count = query.count()
 
         # Get entity details based on type
         entity_details: List[ReportWithDetails] = []
@@ -204,7 +207,7 @@ class ReportService:
                 )
             )
 
-        return entity_details
+        return entity_details, total_count
 
     def update_report(
         self,

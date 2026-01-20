@@ -518,10 +518,12 @@ def create_paginated_response(
         "data": data,
         "pagination": {
             "total": total,
+            "total_items": total,
             "total_pages": total_pages,
             "current_page": current_page,
             "skip": skip,
             "limit": limit,
+            "items_per_page": limit,
             "has_next": current_page < total_pages,
             "has_previous": current_page > 1,
         },
