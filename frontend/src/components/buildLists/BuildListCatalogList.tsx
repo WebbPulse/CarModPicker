@@ -55,7 +55,8 @@ function BuildListCatalogList({
   // Update buildListsWithVotes when response changes
   useEffect(() => {
     if (buildListsResponse?.data) {
-      setBuildListsWithVotes(buildListsResponse.data);
+      // Extract the array from PaginatedResponse
+      setBuildListsWithVotes(buildListsResponse.data.data);
     } else if (buildListsResponse && !buildListsResponse.data) {
       // If response exists but no data, clear the votes list
       setBuildListsWithVotes([]);
@@ -73,10 +74,11 @@ function BuildListCatalogList({
 
     try {
       // Fetch build lists for all selected cars in parallel
-      const promises = carIds.map((carId) =>
-        buildListsApi
-          .getBuildListsByCar(carId, { limit: 1000 })
-          .then((response) => response.data)
+      const promises = carIds.map(
+        (carId) =>
+          buildListsApi
+            .getBuildListsByCar(carId, { limit: 1000 })
+            .then((response) => response.data.data) // Extract the array from PaginatedResponse
       );
 
       const results = await Promise.all(promises);
@@ -178,7 +180,8 @@ function BuildListCatalogList({
     if (showVoteButtons) {
       filteredBuildLists = buildListsWithVotes;
     } else {
-      filteredBuildLists = buildListsResponse?.data || [];
+      // Extract the array from PaginatedResponse
+      filteredBuildLists = buildListsResponse?.data?.data || [];
     }
   }
   const searchTerm = params?.search?.toLowerCase() || '';

@@ -529,6 +529,7 @@ def test_delete_profile_picture_idempotency(client: TestClient, db_session: Sess
 def test_upload_profile_picture_max_file_size(client: TestClient, db_session: Session) -> None:
     """Test profile picture upload with maximum file size (boundary testing)."""
     from PIL import Image
+
     from app.core.config import settings
 
     user_info, token = create_and_login_user(client, "profile_max_size")
@@ -598,8 +599,9 @@ def test_upload_profile_picture_non_square(client: TestClient, db_session: Sessi
 
 def test_upload_profile_picture_concurrent_requests(client: TestClient, db_session: Session) -> None:
     """Test race condition - uploading two profile pictures simultaneously (should handle gracefully)."""
-    from PIL import Image
     import threading
+
+    from PIL import Image
 
     user_info, token = create_and_login_user(client, "profile_concurrent")
     headers = get_auth_headers(token)
@@ -643,6 +645,7 @@ def test_upload_profile_picture_concurrent_requests(client: TestClient, db_sessi
 def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_session: Session) -> None:
     """Test rollback behavior if storage service fails after DB update (should rollback DB change)."""
     from PIL import Image
+
     from app.api.models.user import User as DBUser
 
     user_info, token = create_and_login_user(client, "profile_storage_fail")
@@ -676,6 +679,7 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
 def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Session) -> None:
     """Test graceful handling when storage deletion fails but DB update succeeds."""
     from PIL import Image
+
     from app.api.models.user import User as DBUser
 
     user_info, token = create_and_login_user(client, "profile_delete_storage_fail")

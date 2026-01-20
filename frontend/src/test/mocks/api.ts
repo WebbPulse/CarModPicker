@@ -21,6 +21,7 @@ export const mockUser: UserRead = {
   is_admin: false,
   subscription_tier: 'free',
   subscription_status: 'active',
+  totp_enabled: false,
 };
 
 // Mock car data

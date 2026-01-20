@@ -18,8 +18,8 @@ class TestPaginationUtils:
     def test_paginate_query(self, db_session) -> None:
         """Test paginating a query."""
         # Create some build lists
-        from app.api.models.user import User
         from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User
 
         user = User(
             username="test_user_pagination",
@@ -47,8 +47,8 @@ class TestPaginationUtils:
 
     def test_get_total_count(self, db_session) -> None:
         """Test getting total count of a query."""
-        from app.api.models.user import User
         from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User
 
         user = User(
             username="test_user_count",
@@ -89,8 +89,8 @@ class TestPaginationUtils:
 
     def test_apply_search_filter(self, db_session) -> None:
         """Test applying search filter to a query."""
-        from app.api.models.user import User
         from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User
 
         user = User(
             username="test_user_search",
@@ -124,8 +124,8 @@ class TestPaginationUtils:
 
     def test_apply_sorting(self, db_session) -> None:
         """Test applying sorting to a query."""
-        from app.api.models.user import User
         from app.api.dependencies.auth import get_password_hash
+        from app.api.models.user import User
 
         user = User(
             username="test_user_sort",

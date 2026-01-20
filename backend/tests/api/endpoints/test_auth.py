@@ -848,8 +848,9 @@ def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) 
 
 def test_verify_2fa_otp_time_window(client: TestClient, db_session: Session) -> None:
     """Test that 2FA verification only accepts OTPs within the valid time window."""
-    import pyotp
     import time
+
+    import pyotp
 
     username = get_unique_username("2fa_time_window_user")
     password = "password123"
@@ -1111,8 +1112,9 @@ def test_2fa_verify_otp_expired_beyond_window(client: TestClient, db_session: Se
     assert setup_response.status_code == 200
     secret = setup_response.json()["secret"]
 
-    import pyotp
     import time
+
+    import pyotp
 
     totp = pyotp.TOTP(secret)
 
