@@ -32,6 +32,7 @@ python-multipart==0.0.20
 # Email service
 sendgrid==6.11.0
 requests==2.32.4
+beautifulsoup4==4.12.3
 
 # Image storage and processing (for Railway Storage Buckets)
 boto3==1.35.0
