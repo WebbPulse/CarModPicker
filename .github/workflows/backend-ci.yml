@@ -45,7 +45,7 @@ jobs:
       - name: Run type checking
         run: |
           cd backend
-          pyright --exclude tests
+          pyright
 
       - name: Run security scan
         run: |
