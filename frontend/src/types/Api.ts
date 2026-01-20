@@ -36,6 +36,7 @@ export interface UserUpdate {
   password?: string | null;
   image_url?: string | null;
   current_password?: string | null;
+  otp?: string | null; // Required if 2FA is enabled and changing password
 }
 
 export interface AdminUserUpdate {
@@ -444,6 +445,11 @@ export interface TOTPVerifyResponse {
 
 export interface TOTPLoginRequest {
   username: string;
+  password: string;
+  otp: string;
+}
+
+export interface TOTPDisableRequest {
   password: string;
   otp: string;
 }

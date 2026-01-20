@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaShieldAlt } from 'react-icons/fa';
+import { FaLock, FaShieldAlt } from 'react-icons/fa';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { authApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
@@ -26,7 +26,10 @@ function TwoFactorAuthDialog({
 }: TwoFactorAuthDialogProps) {
   const [setupData, setSetupData] = useState<TOTPSetupResponse | null>(null);
   const [otp, setOtp] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableOtp, setDisableOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isDisabling, setIsDisabling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -81,22 +84,44 @@ function TwoFactorAuthDialog({
     setError(null);
     setSuccess(null);
 
+    // Validation
+    if (!disablePassword.trim()) {
+      setError('Password is required to disable 2FA.');
+      return;
+    }
+
+    if (!disableOtp.trim() || disableOtp.length !== 6) {
+      setError('Please enter a valid 6-digit OTP code.');
+      return;
+    }
+
+    setIsDisabling(true);
+
     try {
-      await authApi.disable2FA();
+      await authApi.disable2FA({
+        password: disablePassword,
+        otp: disableOtp,
+      });
       setSuccess('2FA has been disabled successfully!');
       setTimeout(() => {
+        setDisablePassword('');
+        setDisableOtp('');
         onDisabled();
         onClose();
       }, 1500);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { detail?: string } } };
       setError(axiosError.response?.data?.detail || 'Failed to disable 2FA. Please try again.');
+    } finally {
+      setIsDisabling(false);
     }
   };
 
   const handleClose = () => {
     setSetupData(null);
     setOtp('');
+    setDisablePassword('');
+    setDisableOtp('');
     setError(null);
     setSuccess(null);
     onClose();
@@ -222,11 +247,48 @@ function TwoFactorAuthDialog({
               </p>
             </div>
 
+            <div className="space-y-4">
+              <Input
+                label="Password"
+                name="disablePassword"
+                type="password"
+                value={disablePassword}
+                onChange={(e) => {
+                  setDisablePassword(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Enter your password"
+                disabled={isDisabling}
+                required
+                autoComplete="current-password"
+                leftIcon={<FaLock />}
+              />
+
+              <Input
+                label="2FA Code"
+                name="disableOtp"
+                type="text"
+                value={disableOtp}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setDisableOtp(value);
+                  setError(null);
+                }}
+                placeholder="000000"
+                disabled={isDisabling}
+                required
+                maxLength={6}
+                leftIcon={<FaShieldAlt />}
+                helperText="Enter the 6-digit code from your authenticator app"
+              />
+            </div>
+
             <ActionButton
               onClick={handleDisable}
+              disabled={isDisabling || !disablePassword.trim() || disableOtp.length !== 6}
               className="w-full bg-red-600 hover:bg-red-700"
             >
-              Disable 2FA
+              {isDisabling ? 'Disabling...' : 'Disable 2FA'}
             </ActionButton>
           </div>
         )}

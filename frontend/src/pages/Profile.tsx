@@ -13,8 +13,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Divider from '../components/layout/Divider';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
-import ChangePasswordDialog from '../components/profile/ChangePasswordDialog';
-import TwoFactorAuthDialog from '../components/profile/TwoFactorAuthDialog';
+import SecuritySettingsDialog from '../components/profile/SecuritySettingsDialog';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../services/Api';
@@ -29,8 +28,7 @@ function Profile() {
   } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
+  const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
@@ -197,16 +195,10 @@ function Profile() {
                 Edit Profile
               </ActionButton>
               <ActionButton
-                onClick={() => setIsPasswordDialogOpen(true)}
-                className="bg-yellow-600 hover:bg-yellow-700"
+                onClick={() => setIsSecurityDialogOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700"
               >
-                Change Password
-              </ActionButton>
-              <ActionButton
-                onClick={() => setIs2FADialogOpen(true)}
-                className={user.totp_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'}
-              >
-                {user.totp_enabled ? 'Manage 2FA' : 'Enable 2FA'}
+                Manage Security Settings
               </ActionButton>
             </div>
           </>
@@ -293,39 +285,31 @@ function Profile() {
       </Card>
 
       {user && (
-        <>
-          <ChangePasswordDialog
-            isOpen={isPasswordDialogOpen}
-            onClose={() => setIsPasswordDialogOpen(false)}
-            onPasswordChanged={() => {
-              setStatusMessage({
-                type: 'success',
-                message: 'Password changed successfully!',
-              });
-              void checkAuthStatus();
-            }}
-            userId={user.id}
-          />
-          <TwoFactorAuthDialog
-            isOpen={is2FADialogOpen}
-            onClose={() => setIs2FADialogOpen(false)}
-            onEnabled={() => {
-              setStatusMessage({
-                type: 'success',
-                message: '2FA enabled successfully!',
-              });
-              void checkAuthStatus();
-            }}
-            onDisabled={() => {
-              setStatusMessage({
-                type: 'success',
-                message: '2FA disabled successfully!',
-              });
-              void checkAuthStatus();
-            }}
-            isEnabled={user.totp_enabled}
-          />
-        </>
+        <SecuritySettingsDialog
+          isOpen={isSecurityDialogOpen}
+          onClose={() => setIsSecurityDialogOpen(false)}
+          onPasswordChanged={() => {
+            setStatusMessage({
+              type: 'success',
+              message: 'Password changed successfully!',
+            });
+            void checkAuthStatus();
+          }}
+          on2FAEnabled={() => {
+            setStatusMessage({
+              type: 'success',
+              message: '2FA enabled successfully!',
+            });
+            void checkAuthStatus();
+          }}
+          on2FADisabled={() => {
+            setStatusMessage({
+              type: 'success',
+              message: '2FA disabled successfully!',
+            });
+            void checkAuthStatus();
+          }}
+        />
       )}
     </div>
   );

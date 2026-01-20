@@ -39,6 +39,7 @@ import type {
   ReportWithDetails,
   SubscriptionResponse,
   SubscriptionStatus,
+  TOTPDisableRequest,
   TOTPLoginRequest,
   TOTPSetupResponse,
   TOTPVerifyRequest,
@@ -49,7 +50,7 @@ import type {
   UserUpdate,
   VoteCreate,
   VoteRead,
-  VoteSummary,
+  VoteSummary
 } from '../types/Api';
 
 // Determine the API base URL based on environment
@@ -644,8 +645,8 @@ export const authApi = {
     apiClient.post<TOTPSetupResponse>('/auth/2fa/setup'),
   verify2FA: (data: TOTPVerifyRequest) =>
     apiClient.post<TOTPVerifyResponse>('/auth/2fa/verify', data),
-  disable2FA: () =>
-    apiClient.post<Record<string, string>>('/auth/2fa/disable'),
+  disable2FA: (data: TOTPDisableRequest) =>
+    apiClient.post<Record<string, string>>('/auth/2fa/disable', data),
   verifyEmail: (data: BodyVerifyEmail) =>
     apiClient.post<Record<string, string>>('/auth/verify-email', data),
   verifyEmailConfirm: (token: string) =>

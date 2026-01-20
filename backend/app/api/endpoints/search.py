@@ -19,7 +19,7 @@ from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListRead
 from app.api.schemas.global_part import GlobalPartRead
-from app.api.schemas.user import UserRead
+from app.api.schemas.user import PublicUserRead
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     get_standard_public_endpoint_dependencies,
@@ -95,7 +95,8 @@ async def search_all(
     )
     user_total = get_total_count(user_query)
     users = user_query.offset(skip).limit(limit).all()
-    user_results = [UserRead.model_validate(u) for u in users]
+    # Use PublicUserRead to exclude sensitive fields (email_verified, totp_enabled)
+    user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
 
     # Search global parts (name, description, brand, part_number)

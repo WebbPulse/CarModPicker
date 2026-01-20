@@ -32,3 +32,10 @@ class TOTPLoginRequest(BaseModel):
     username: str
     password: str
     otp: str  # The 6-digit OTP code
+
+
+class TOTPDisableRequest(BaseModel):
+    """Request to disable 2FA - requires password and OTP."""
+
+    password: str  # Current password
+    otp: str  # The 6-digit OTP code

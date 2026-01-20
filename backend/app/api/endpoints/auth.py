@@ -27,6 +27,7 @@ from app.api.dependencies.auth import (
 from app.api.models.user import User as DBUser
 from app.api.schemas.auth import (
     NewPassword,
+    TOTPDisableRequest,
     TOTPLoginRequest,
     TOTPSetupResponse,
     TOTPVerifyRequest,
@@ -380,14 +381,34 @@ async def verify_2fa(
 
 @router.post("/2fa/disable")
 async def disable_2fa(
+    request: TOTPDisableRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """
     Disable 2FA for the current user.
-    This removes the secret and disables 2FA.
+    Requires both password and OTP code for security.
     """
+    if not current_user.totp_enabled:
+        ResponsePatterns.raise_bad_request("2FA is not enabled for this user")
+    
+    # Verify password
+    if not verify_password(request.password, current_user.hashed_password):
+        logger.warning(f"Invalid password provided during 2FA disable for user: {current_user.username}")
+        ResponsePatterns.raise_unauthorized("Incorrect password")
+    
+    # Verify OTP
+    if not current_user.totp_secret:
+        logger.error(f"2FA enabled but no secret found for user: {current_user.username}")
+        ResponsePatterns.raise_internal_server_error("2FA configuration error")
+    
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(request.otp, valid_window=1):
+        logger.warning(f"Invalid OTP provided during 2FA disable for user: {current_user.username}")
+        ResponsePatterns.raise_unauthorized("Invalid OTP code")
+    
+    # Disable 2FA
     current_user.totp_enabled = False
     current_user.totp_secret = None
     db.commit()

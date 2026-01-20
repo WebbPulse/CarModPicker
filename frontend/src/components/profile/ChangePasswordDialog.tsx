@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { FaShieldAlt } from 'react-icons/fa';
+import { useAuth } from '../../hooks/useAuth';
 import SecondaryButton from '../buttons/SecondaryButton';
 import ButtonStretch from '../buttons/StretchButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -19,10 +21,12 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   onPasswordChanged,
   userId,
 }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
+    otp: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,6 +42,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       currentPassword: '',
       newPassword: '',
       confirmNewPassword: '',
+      otp: '',
     });
     setError(null);
     onClose();
@@ -68,14 +73,29 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       return;
     }
 
+    // If 2FA is enabled, require OTP
+    if (user?.totp_enabled) {
+      if (!formData.otp.trim() || formData.otp.length !== 6) {
+        setError('2FA is enabled. Please enter a valid 6-digit OTP code.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
       const { usersApi } = await import('../../services/Api');
-      const response = await usersApi.updateUser(userId, {
+      const updateData: { current_password: string; password: string; otp?: string } = {
         current_password: formData.currentPassword,
         password: formData.newPassword,
-      });
+      };
+      
+      // Include OTP if 2FA is enabled
+      if (user?.totp_enabled) {
+        updateData.otp = formData.otp;
+      }
+      
+      const response = await usersApi.updateUser(userId, updateData);
 
       if (response.data) {
         handleClose();
@@ -138,6 +158,27 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
           required
           autoComplete="new-password"
         />
+
+        {user?.totp_enabled && (
+          <Input
+            label="2FA Code"
+            id="otp"
+            name="otp"
+            type="text"
+            value={formData.otp}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setFormData((prev) => ({ ...prev, otp: value }));
+              setError(null);
+            }}
+            placeholder="000000"
+            disabled={isSubmitting}
+            required
+            maxLength={6}
+            leftIcon={<FaShieldAlt />}
+            helperText="Enter the 6-digit code from your authenticator app"
+          />
+        )}
 
         <div className="flex space-x-3 pt-4">
           <ButtonStretch type="submit" disabled={isSubmitting}>

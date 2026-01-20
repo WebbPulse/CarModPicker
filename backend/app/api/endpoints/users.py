@@ -7,7 +7,7 @@ hashing and admin management.
 """
 
 import logging
-from typing import List
+from typing import Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
@@ -17,12 +17,14 @@ from app.api.dependencies.auth import (
     create_access_token,
     get_current_admin_user,
     get_current_user,
+    get_optional_current_user,
     get_password_hash,
     verify_password,
 )
 from app.api.models.user import User as DBUser
 from app.api.schemas.user import (
     AdminUserUpdate,
+    PublicUserRead,
     UserCreate,
     UserRead,
     UserUpdate,
@@ -54,6 +56,30 @@ async def read_users_me_route(
     Fetch the current logged in user.
     """
     return current_user
+
+
+# Count endpoint - register BEFORE /{user_id} to avoid route conflicts
+# FastAPI matches routes in order, so specific routes must come before parameterized routes
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses={
+        200: {"description": "Count of users"},
+    },
+)
+async def count_users(
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+) -> Dict[str, int]:
+    """
+    Get total count of users.
+    """
+    try:
+        count = user_service.count_all(db=db, logger=logger)
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error counting users: {str(e)}")
+        raise
 
 
 @router.post("/me/profile-picture", response_model=UserRead)
@@ -177,14 +203,115 @@ async def delete_profile_picture(
         )
 
 
-# Create base endpoint router AFTER /me to avoid route collision
+# Custom GET endpoint for users with permission checks for sensitive fields
+@router.get(
+    "/{user_id}",
+    response_model=Union[UserRead, PublicUserRead],
+    responses={
+        404: {"description": "User not found"},
+    },
+)
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+    current_user: Union[DBUser, None] = Depends(get_optional_current_user),
+) -> Union[UserRead, PublicUserRead]:
+    """
+    Get a user by ID.
+
+    Returns full UserRead (with email_verified and totp_enabled) if:
+    - The current user is viewing their own profile
+    - The current user is an admin
+    - The current user is a superuser
+
+    Otherwise returns PublicUserRead (without sensitive fields).
+    """
+    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if not db_user:
+        ResponsePatterns.raise_not_found("User", user_id)
+
+    # Check if current user has permission to see sensitive fields
+    # Only the user themselves, admins, or superusers can see email_verified and totp_enabled
+    if current_user is not None and (current_user.id == user_id or current_user.is_admin or current_user.is_superuser):
+        # current_user is guaranteed to be not None here due to the condition above
+        assert current_user is not None  # Type guard for type checker
+        logger.info(f"User {current_user.id} retrieved full user data for user {user_id}")
+        return UserRead.model_validate(db_user)
+    else:
+        user_id_str = "anonymous" if current_user is None else str(current_user.id)
+        logger.info(f"User {user_id_str} retrieved public user data for user {user_id}")
+        return PublicUserRead.model_validate(db_user)
+
+
+# Custom list endpoint for users with permission checks
+@router.get(
+    "/",
+    response_model=List[Union[UserRead, PublicUserRead]],
+    responses={
+        200: {"description": "List of users retrieved successfully"},
+    },
+)
+async def list_users(
+    skip: int = Query(0, ge=0, description="Number of users to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
+    search: Optional[str] = Query(None, description="Search in usernames and emails"),
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(get_logger),
+    current_user: Union[DBUser, None] = Depends(get_optional_current_user),
+) -> List[Union[UserRead, PublicUserRead]]:
+    """
+    List all users with pagination and search.
+
+    Returns full UserRead (with email_verified and totp_enabled) for each user if:
+    - The current user is an admin
+    - The current user is a superuser
+
+    Otherwise returns PublicUserRead (without sensitive fields) for each user.
+    """
+    from app.api.utils.endpoint_decorators import validate_pagination_params
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Build query
+    query = db.query(DBUser)
+
+    # Apply search if provided
+    if search:
+        from sqlalchemy import or_
+
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                DBUser.username.ilike(search_term),
+                DBUser.email.ilike(search_term),
+            )
+        )
+
+    # Get users
+    users = query.offset(skip).limit(limit).all()
+
+    # Check if current user has permission to see sensitive fields
+    can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
+
+    if can_see_sensitive_fields:
+        assert current_user is not None  # Type guard for type checker
+        logger.info(f"Admin/superuser {current_user.id} retrieved {len(users)} users with full data")
+        return [UserRead.model_validate(user) for user in users]
+    else:
+        user_id_str = "anonymous" if current_user is None else str(current_user.id)
+        logger.info(f"User {user_id_str} retrieved {len(users)} users with public data")
+        return [PublicUserRead.model_validate(user) for user in users]
+
+
+# Create base endpoint router AFTER /me, /count, /{user_id}, and / to avoid route collision
 base_router = BaseEndpointRouter(
     service=user_service,
     router=router,
     entity_name="user",
     allow_public_read=True,  # Allow public read access to user profiles (for viewing build list owners, etc.)
     additional_create_data={},  # No additional data needed
-    disable_endpoints=["create", "update", "delete"],  # Use custom endpoints instead
+    disable_endpoints=["create", "update", "delete", "get", "list"],  # Use custom endpoints instead
     create_schema=UserCreate,
     read_schema=UserRead,
     update_schema=UserUpdate,
@@ -275,8 +402,8 @@ async def update_user(
             ResponsePatterns.raise_unauthorized("Incorrect current password")
 
     update_data = user.model_dump(
-        exclude_unset=True, exclude={"current_password"}
-    )  # Exclude current_password from data to be saved
+        exclude_unset=True, exclude={"current_password", "otp"}
+    )  # Exclude current_password and otp from data to be saved
     username_changed = False
 
     if (
@@ -467,7 +594,3 @@ async def admin_delete_user(
     db.commit()
     logger.info(f"Admin {current_user.id} deleted user {user_id}")
     return deleted_user_data
-
-
-# Add count endpoint
-base_router.add_count_endpoint()

@@ -1,5 +1,6 @@
 from .auth import (
     NewPassword,
+    TOTPDisableRequest,
     TOTPLoginRequest,
     TOTPSetupResponse,
     TOTPVerifyRequest,
@@ -32,7 +33,7 @@ from .subscription import (
     UpgradeRequest,
 )
 from .token import Token, TokenData
-from .user import UserCreate, UserRead, UserUpdate
+from .user import PublicUserRead, UserCreate, UserRead, UserUpdate
 from .vote import (
     EntityType,
     FlaggedEntitySummary,
@@ -45,6 +46,7 @@ from .vote import (
 
 __all__ = [
     "UserRead",
+    "PublicUserRead",
     "UserCreate",
     "UserUpdate",
     "Token",
@@ -54,6 +56,7 @@ __all__ = [
     "TOTPVerifyRequest",
     "TOTPVerifyResponse",
     "TOTPLoginRequest",
+    "TOTPDisableRequest",
     "CarRead",
     "CarCreate",
     "CarUpdate",
