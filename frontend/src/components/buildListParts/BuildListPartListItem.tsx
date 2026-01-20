@@ -173,7 +173,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
   },
   (prevProps, nextProps) => {
     // Custom comparison function to prevent unnecessary re-renders
-    // Only re-render if the part data, purchased status, or permissions change
+    // Only re-render if the part data, purchased status, permissions, or callbacks change
     return (
       prevProps.buildListPart.id === nextProps.buildListPart.id &&
       prevProps.buildListPart.purchased === nextProps.buildListPart.purchased &&
@@ -184,7 +184,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
       prevProps.canEdit === nextProps.canEdit &&
       prevProps.canDelete === nextProps.canDelete &&
       prevProps.canMarkPurchased === nextProps.canMarkPurchased &&
-      prevProps.category?.id === nextProps.category?.id
+      prevProps.category?.id === nextProps.category?.id &&
+      prevProps.onTogglePurchased === nextProps.onTogglePurchased &&
+      prevProps.onEdit === nextProps.onEdit &&
+      prevProps.onDelete === nextProps.onDelete
     );
   }
 );
