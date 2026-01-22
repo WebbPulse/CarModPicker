@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { BsTools } from 'react-icons/bs';
-import { FaCogs, FaFire, FaArrowUp, FaUsers } from 'react-icons/fa';
+import { FaArrowUp, FaCogs, FaFire, FaUsers } from 'react-icons/fa';
 import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
 import { HiSparkles } from 'react-icons/hi';
+import { Link } from 'react-router-dom';
 import LinkButton from '../components/buttons/LinkButton';
+import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import ImageWithPlaceholder from '../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { useAuth } from '../hooks/useAuth';
 import useApiRequest from '../hooks/UseApiRequest';
+import { useAuth } from '../hooks/useAuth';
 import { buildListsApi, globalPartsApi } from '../services/Api';
 import type {
   BuildListReadWithVotes,
@@ -34,6 +35,7 @@ export default function HomePage() {
   const {
     data: featuredBuildListsData,
     isLoading: isLoadingBuildLists,
+    error: featuredBuildListsError,
     executeRequest: fetchFeaturedBuildLists,
   } = useApiRequest(fetchFeaturedBuildListsFn);
 
@@ -46,6 +48,7 @@ export default function HomePage() {
   const {
     data: popularPartsData,
     isLoading: isLoadingParts,
+    error: popularPartsError,
     executeRequest: fetchPopularParts,
   } = useApiRequest(fetchPopularPartsFn);
 
@@ -156,6 +159,12 @@ export default function HomePage() {
               <div className="flex justify-center py-12">
                 <LoadingSpinner />
               </div>
+            ) : featuredBuildListsError ? (
+              <Card>
+                <ErrorAlert
+                  message={`Failed to load featured builds: ${featuredBuildListsError}`}
+                />
+              </Card>
             ) : featuredBuildLists.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {featuredBuildLists.map((buildList) => (
@@ -216,6 +225,12 @@ export default function HomePage() {
                 <div className="flex justify-center py-8">
                   <LoadingSpinner size="sm" />
                 </div>
+              ) : popularPartsError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load popular parts: ${popularPartsError}`}
+                  />
+                </Card>
               ) : popularParts.length > 0 ? (
                 <div className="space-y-4">
                   {popularParts.slice(0, 4).map((part) => (
@@ -336,7 +351,10 @@ export default function HomePage() {
                 </div>
                 <div className="text-sm text-neutral-400">Build Lists</div>
               </div>
-              <div className="animate-slideInUp" style={{ animationDelay: '0.1s' }}>
+              <div
+                className="animate-slideInUp"
+                style={{ animationDelay: '0.1s' }}
+              >
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
                   {popularPartsData?.pagination?.total_items ?? '—'}
                 </div>

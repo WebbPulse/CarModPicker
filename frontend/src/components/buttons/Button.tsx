@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
@@ -51,7 +52,7 @@ const Button: React.FC<ButtonProps> = ({
     >
       {loading && (
         <div className="mr-2">
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <LoadingSpinner size="xs" color="white" inline />
         </div>
       )}
 

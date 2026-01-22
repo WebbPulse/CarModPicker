@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
 import BuildListItem from '../../components/buildLists/BuildListItem';
+import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
@@ -32,6 +33,7 @@ const BuildListsCatalog: React.FC = () => {
   const {
     data: featuredBuildListsData,
     isLoading: isLoadingFeatured,
+    error: featuredBuildListsError,
     executeRequest: fetchFeaturedBuildLists,
   } = useApiRequest(fetchFeaturedBuildListsFn);
 
@@ -42,6 +44,7 @@ const BuildListsCatalog: React.FC = () => {
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
+    error: makesError,
     executeRequest: fetchMakes,
   } = useApiRequest(fetchMakeStatsFn);
 
@@ -55,6 +58,7 @@ const BuildListsCatalog: React.FC = () => {
   const {
     data: carsByMake,
     isLoading: isLoadingCars,
+    error: carsError,
     executeRequest: fetchCarsByMake,
   } = useApiRequest(fetchCarsByMakeFn);
 
@@ -181,6 +185,12 @@ const BuildListsCatalog: React.FC = () => {
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner />
                 </div>
+              ) : makesError ? (
+                <div className="py-8">
+                  <ErrorAlert
+                    message={`Failed to load manufacturers: ${makesError}`}
+                  />
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                   {availableMakes.map((make) => (
@@ -207,6 +217,12 @@ const BuildListsCatalog: React.FC = () => {
                 {isLoadingFeatured ? (
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner />
+                  </div>
+                ) : featuredBuildListsError ? (
+                  <div className="py-8">
+                    <ErrorAlert
+                      message={`Failed to load featured build lists: ${featuredBuildListsError}`}
+                    />
                   </div>
                 ) : featuredBuildListsData?.data &&
                   featuredBuildListsData.data.length > 0 ? (
@@ -249,6 +265,12 @@ const BuildListsCatalog: React.FC = () => {
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner />
                   </div>
+                </Card>
+              ) : carsError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load car models: ${carsError}`}
+                  />
                 </Card>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">

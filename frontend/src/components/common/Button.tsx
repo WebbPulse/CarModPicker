@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from './LoadingSpinner';
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -48,7 +49,7 @@ const Button: React.FC<ButtonProps> = ({
       <a href={href} className={classes}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-xl">
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <LoadingSpinner size="base" color="white" inline />
           </div>
         )}
         <span className={loading ? 'opacity-0' : ''}>{children}</span>
@@ -65,7 +66,7 @@ const Button: React.FC<ButtonProps> = ({
     >
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-xl">
-          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <LoadingSpinner size="base" color="white" inline />
         </div>
       )}
       <span className={loading ? 'opacity-0' : ''}>{children}</span>

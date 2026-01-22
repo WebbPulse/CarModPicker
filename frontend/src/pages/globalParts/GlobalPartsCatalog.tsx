@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import SecondaryButton from '../../components/buttons/SecondaryButton';
+import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
@@ -59,6 +60,7 @@ const GlobalPartsCatalog: React.FC = () => {
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
+    error: makesError,
     executeRequest: fetchMakes,
   } = useApiRequest(fetchMakeStatsFn);
 
@@ -72,6 +74,7 @@ const GlobalPartsCatalog: React.FC = () => {
   const {
     data: carsByMake,
     isLoading: isLoadingCars,
+    error: carsError,
     executeRequest: fetchCarsByMake,
   } = useApiRequest(fetchCarsByMakeFn);
 
@@ -84,6 +87,7 @@ const GlobalPartsCatalog: React.FC = () => {
   const {
     data: carFromUrl,
     isLoading: isLoadingCarFromUrl,
+    error: carFromUrlError,
     executeRequest: fetchCarById,
   } = useApiRequest(fetchCarByIdFn);
 
@@ -391,6 +395,18 @@ const GlobalPartsCatalog: React.FC = () => {
                     <LoadingSpinner />
                   </div>
                 </Card>
+              ) : makesError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load manufacturers: ${makesError}`}
+                  />
+                </Card>
+              ) : carFromUrlError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load car from URL: ${carFromUrlError}`}
+                  />
+                </Card>
               ) : (
                 <>
                   {/* Universal Parts Option */}
@@ -449,6 +465,12 @@ const GlobalPartsCatalog: React.FC = () => {
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner />
                   </div>
+                </Card>
+              ) : carsError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load car models: ${carsError}`}
+                  />
                 </Card>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
