@@ -153,7 +153,10 @@ function CarManagement() {
   useEffect(() => {
     const timer = setTimeout(() => {
       // Before updating debounced term, check if input is focused
-      if (searchInputRef.current && document.activeElement === searchInputRef.current) {
+      if (
+        searchInputRef.current &&
+        document.activeElement === searchInputRef.current
+      ) {
         wasFocusedBeforeSearchRef.current = true;
       }
       setDebouncedSearchTerm(searchTerm);
@@ -177,9 +180,9 @@ function CarManagement() {
     // 4. The input is not currently focused (to avoid interrupting active typing)
     // 5. The input value matches the search term (user hasn't changed it)
     const userStoppedTyping = searchTerm === debouncedSearchTerm;
-    
+
     let timeoutId: number | null = null;
-    
+
     if (
       wasFocusedBeforeSearchRef.current &&
       !isLoadingCars &&
@@ -199,15 +202,15 @@ function CarManagement() {
         ) {
           const input = searchInputRef.current;
           const cursorPosition = input.value.length; // Place cursor at end
-          
+
           input.focus();
           input.setSelectionRange(cursorPosition, cursorPosition);
-          
+
           wasFocusedBeforeSearchRef.current = false;
         }
       }, 50); // Small delay to let any other focus changes settle
     }
-    
+
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);

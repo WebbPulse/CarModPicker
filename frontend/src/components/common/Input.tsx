@@ -31,9 +31,10 @@ interface InputProps {
   minLength?: number;
   multiple?: boolean;
   accept?: string;
+  ref?: React.Ref<HTMLInputElement>;
 }
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({
+const Input = ({
   type = 'text',
   placeholder,
   value,
@@ -65,7 +66,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   minLength,
   multiple,
   accept,
-}, ref) => {
+  ref,
+}: InputProps) => {
   const baseClasses =
     'w-full transition-all duration-300 ease-out focus:outline-none';
 
@@ -203,8 +205,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({
       <div className="absolute inset-0 rounded-xl border border-transparent pointer-events-none transition-all duration-300 group-hover:border-white/30"></div>
     </div>
   );
-});
-
-Input.displayName = 'Input';
+};
 
 export default Input;

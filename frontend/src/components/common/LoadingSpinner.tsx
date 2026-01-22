@@ -57,7 +57,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
             borderColor: 'rgba(102, 126, 234, 0.4)', // #667eea with opacity
             borderTopColor: 'rgba(118, 75, 162, 1)', // #764ba2 solid
             borderRightColor: 'rgba(102, 126, 234, 0.8)', // Brighter accent
-            boxShadow: '0 0 12px rgba(102, 126, 234, 0.6), inset 0 0 12px rgba(118, 75, 162, 0.3)',
+            boxShadow:
+              '0 0 12px rgba(102, 126, 234, 0.6), inset 0 0 12px rgba(118, 75, 162, 0.3)',
           }}
         />
       );
@@ -79,7 +80,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const spinnerElement = (
     <div className="relative">
       {getSpinnerContent()}
-      
+
       {/* Enhanced glow for primary on larger sizes */}
       {(size === 'lg' || size === 'xl') && color === 'primary' && (
         <div
