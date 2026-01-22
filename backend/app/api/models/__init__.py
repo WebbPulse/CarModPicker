@@ -1,6 +1,7 @@
 from .build_list import BuildList
 from .build_list_part import BuildListPart
 from .build_log import BuildLog, BuildLogPost
+from .bug_report import BugReport
 from .car import Car
 from .category import Category
 from .global_part import GlobalPart
@@ -19,6 +20,7 @@ __all__ = [
     "BuildListPart",
     "Vote",
     "Report",
+    "BugReport",
     "BuildLog",
     "BuildLogPost",
 ]

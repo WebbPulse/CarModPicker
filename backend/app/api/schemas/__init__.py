@@ -8,6 +8,14 @@ from .auth import (
 )
 from .build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from .build_list_part import BuildListPartCreate, BuildListPartRead, BuildListPartUpdate
+from .bug_report import (
+    BugReportCreate,
+    BugReportPriority,
+    BugReportRead,
+    BugReportStatus,
+    BugReportUpdate,
+    BugReportWithDetails,
+)
 from .car import CarCreate, CarRead, CarUpdate
 from .category import CategoryCreate, CategoryInDB, CategoryResponse, CategoryUpdate
 from .global_part import (
@@ -93,4 +101,10 @@ __all__ = [
     "ReportWithDetails",
     "ReportReason",
     "ReportStatus",
+    "BugReportCreate",
+    "BugReportUpdate",
+    "BugReportRead",
+    "BugReportWithDetails",
+    "BugReportStatus",
+    "BugReportPriority",
 ]

@@ -364,6 +364,50 @@ export interface ReportUpdate {
   admin_notes?: string | null;
 }
 
+// Bug Report interfaces
+export interface BugReportCreate {
+  title: string;
+  description: string;
+  steps_to_reproduce?: string | null;
+  expected_behavior?: string | null;
+  actual_behavior?: string | null;
+  browser_info?: string | null;
+  device_info?: string | null;
+  screenshot_url?: string | null;
+}
+
+export interface BugReportRead {
+  id: number;
+  user_id?: number | null;
+  title: string;
+  description: string;
+  steps_to_reproduce?: string | null;
+  expected_behavior?: string | null;
+  actual_behavior?: string | null;
+  browser_info?: string | null;
+  device_info?: string | null;
+  screenshot_url?: string | null;
+  status: 'pending' | 'in_progress' | 'resolved' | 'dismissed';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  admin_notes?: string | null;
+  assigned_to?: number | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BugReportWithDetails extends BugReportRead {
+  reporter_username?: string | null;
+  assignee_username?: string | null;
+}
+
+export interface BugReportUpdate {
+  status?: 'pending' | 'in_progress' | 'resolved' | 'dismissed' | null;
+  priority?: 'low' | 'medium' | 'high' | 'critical' | null;
+  admin_notes?: string | null;
+  assigned_to?: number | null;
+}
+
 // New interfaces for subscription system
 export interface SubscriptionStatus {
   tier: 'free' | 'premium';

@@ -40,6 +40,8 @@ const CategoryManagement = lazy(
   () => import('./pages/admin/CategoryManagement.tsx')
 );
 const ReportReview = lazy(() => import('./pages/admin/ReportReview.tsx'));
+const BugReportReview = lazy(() => import('./pages/admin/BugReportReview.tsx'));
+const BugReport = lazy(() => import('./pages/BugReport.tsx'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'));
 const BuildListsCatalog = lazy(
   () => import('./pages/buildLists/BuildListsCatalog.tsx')
@@ -101,6 +103,7 @@ function App() {
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/contact-us" element={<ContactUs />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/bug-report" element={<BugReport />} />
               <Route path="/search" element={<Search />} />
               <Route path="/user/:userId" element={<ViewUser />} />
               <Route
@@ -156,6 +159,7 @@ function App() {
                 element={<CategoryManagement />}
               />
               <Route path="/admin/reports" element={<ReportReview />} />
+              <Route path="/admin/bug-reports" element={<BugReportReview />} />
               <Route path="/admin/users" element={<UserManagement />} />
 
               {/* 404 Catch-all - Must be last */}
