@@ -4,6 +4,7 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { carsApi, categoriesApi } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
+import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
@@ -362,7 +363,7 @@ function ViewCar(): React.JSX.Element {
       <GlobalPartList
         params={{
           car_id: car.id,
-          limit: 5,
+          limit: CAR_VIEW_BUILD_LISTS_LIMIT,
           ...(selectedCategory && { category_id: selectedCategory }),
           ...(partsSearchTerm && { search: partsSearchTerm }),
         }}

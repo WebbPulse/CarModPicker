@@ -18,8 +18,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-
-const ITEMS_PER_PAGE = 10;
+import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchReportsRequestFn = (params?: {
   status?: string;
@@ -92,8 +91,8 @@ function ReportReview() {
   useEffect(() => {
     void fetchReports({
       status: selectedStatus,
-      skip: (currentPage - 1) * ITEMS_PER_PAGE,
-      limit: ITEMS_PER_PAGE,
+      skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+      limit: ADMIN_ITEMS_PER_PAGE,
     });
     void fetchPendingCount();
   }, [fetchReports, fetchPendingCount, selectedStatus, currentPage]);
@@ -151,8 +150,8 @@ function ReportReview() {
       setAdminNotes('');
       void fetchReports({
         status: selectedStatus,
-        skip: (currentPage - 1) * ITEMS_PER_PAGE,
-        limit: ITEMS_PER_PAGE,
+        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+        limit: ADMIN_ITEMS_PER_PAGE,
       });
       void fetchPendingCount();
     }
@@ -362,7 +361,7 @@ function ReportReview() {
                         : 1
                     }
                     onPageChange={setCurrentPage}
-                    itemsPerPage={ITEMS_PER_PAGE}
+                    itemsPerPage={ADMIN_ITEMS_PER_PAGE}
                     totalItems={
                       typeof pagination.total_items === 'number'
                         ? pagination.total_items

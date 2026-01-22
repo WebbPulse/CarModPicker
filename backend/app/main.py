@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
     auth,
+    bug_reports,
     build_list_parts,
     build_lists,
     build_logs,
@@ -215,6 +216,14 @@ endpoint_registry.register_endpoint(
     prefix="/reports",
     tags=["reports"],
     description="Unified reporting operations for all entity types",
+)
+
+# Bug reports endpoint
+endpoint_registry.register_endpoint(
+    bug_reports.router,
+    prefix="/bug-reports",
+    tags=["bug-reports"],
+    description="Bug report operations for users to report application issues",
 )
 
 # Image upload endpoint

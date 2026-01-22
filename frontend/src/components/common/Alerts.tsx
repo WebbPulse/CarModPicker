@@ -41,3 +41,23 @@ export const ConfirmationAlert: React.FC<ConfirmationAlertProps> = ({
     </div>
   );
 };
+
+interface SuccessAlertProps {
+  message: string | null;
+}
+
+export const SuccessAlert: React.FC<SuccessAlertProps> = ({ message }) => {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-md bg-green-900 bg-opacity-50 p-4">
+      <div className="flex">
+        <div className="ml-3">
+          <p className="text-sm font-medium text-green-300">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+};

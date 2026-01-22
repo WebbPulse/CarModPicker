@@ -1,3 +1,4 @@
+from .bug_report import BugReport
 from .build_list import BuildList
 from .build_list_part import BuildListPart
 from .build_log import BuildLog, BuildLogPost
@@ -19,6 +20,7 @@ __all__ = [
     "BuildListPart",
     "Vote",
     "Report",
+    "BugReport",
     "BuildLog",
     "BuildLogPost",
 ]

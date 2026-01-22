@@ -17,6 +17,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface EditGlobalPartFormProps {
   globalPart: GlobalPartRead;
@@ -34,7 +35,7 @@ const updateGlobalPartRequestFn = (payload: {
   );
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: 1000 });
+const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 function EditGlobalPartForm({
   globalPart,

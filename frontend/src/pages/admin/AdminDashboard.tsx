@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 import {
+  bugReportsApi,
   buildListPartsApi,
   buildListsApi,
   buildLogsApi,
@@ -35,6 +36,7 @@ interface EntityCounts {
   votes: number | null;
   subscriptions: number | null;
   reports: number | null;
+  bugReports: number | null;
 }
 
 function AdminDashboard() {
@@ -52,6 +54,7 @@ function AdminDashboard() {
     votes: null,
     subscriptions: null,
     reports: null,
+    bugReports: null,
   });
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
@@ -102,6 +105,7 @@ function AdminDashboard() {
         votesCount,
         subscriptionsCount,
         reportsCount,
+        bugReportsCount,
       ] = await Promise.all([
         fetchCount(() => usersApi.countUsers(), 'users'),
         fetchCount(() => carsApi.countCars(), 'cars'),
@@ -120,6 +124,7 @@ function AdminDashboard() {
           'subscriptions'
         ),
         fetchCount(() => reportsApi.countReports(), 'reports'),
+        fetchCount(() => bugReportsApi.countBugReports(), 'bug reports'),
       ]);
 
       setCounts({
@@ -134,6 +139,7 @@ function AdminDashboard() {
         votes: votesCount,
         subscriptions: subscriptionsCount,
         reports: reportsCount,
+        bugReports: bugReportsCount,
       });
 
       // Show error only if all requests failed
@@ -148,7 +154,8 @@ function AdminDashboard() {
         buildListPartsCount === null &&
         votesCount === null &&
         subscriptionsCount === null &&
-        reportsCount === null;
+        reportsCount === null &&
+        bugReportsCount === null;
 
       if (allFailed) {
         setCountsError(
@@ -242,6 +249,12 @@ function AdminDashboard() {
       description: 'Review and manage part reports',
       icon: '🚨',
       path: '/admin/reports',
+    },
+    {
+      title: 'Bug Reports',
+      description: 'Review and manage bug reports',
+      icon: '🐛',
+      path: '/admin/bug-reports',
     },
   ];
 
@@ -370,6 +383,12 @@ function AdminDashboard() {
                 <div className="text-sm text-gray-400 mb-1">Reports</div>
                 <div className="text-3xl font-bold text-red-400">
                   {counts.reports?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Bug Reports</div>
+                <div className="text-3xl font-bold text-amber-400">
+                  {counts.bugReports?.toLocaleString() ?? '—'}
                 </div>
               </div>
             </div>

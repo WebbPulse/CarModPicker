@@ -21,7 +21,6 @@ interface InputProps {
   variant?: string;
   helperText?: string;
   autoComplete?: string;
-  ref?: React.Ref<HTMLInputElement>;
   step?: string;
   min?: string;
   max?: string;
@@ -32,9 +31,10 @@ interface InputProps {
   minLength?: number;
   multiple?: boolean;
   accept?: string;
+  ref?: React.Ref<HTMLInputElement>;
 }
 
-const Input: React.FC<InputProps> = ({
+const Input = ({
   type = 'text',
   placeholder,
   value,
@@ -55,7 +55,6 @@ const Input: React.FC<InputProps> = ({
   variant,
   helperText,
   autoComplete,
-  ref,
   // Additional HTML input attributes
   step,
   min,
@@ -67,7 +66,8 @@ const Input: React.FC<InputProps> = ({
   minLength,
   multiple,
   accept,
-}) => {
+  ref,
+}: InputProps) => {
   const baseClasses =
     'w-full transition-all duration-300 ease-out focus:outline-none';
 

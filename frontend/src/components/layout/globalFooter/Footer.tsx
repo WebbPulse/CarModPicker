@@ -62,6 +62,14 @@ function Footer() {
                 </li>
                 <li>
                   <Link
+                    to="/bug-report"
+                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                  >
+                    Report a Bug
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     to="/support"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >

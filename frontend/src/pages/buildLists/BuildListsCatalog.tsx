@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
 import BuildListItem from '../../components/buildLists/BuildListItem';
+import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
@@ -10,6 +11,11 @@ import SectionHeader from '../../components/layout/SectionHeader';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi, carsApi } from '../../services/Api';
 import type { CarRead } from '../../types/Api';
+import {
+  BUILD_LISTS_CATALOG_ITEMS_PER_PAGE,
+  FEATURED_BUILD_LISTS_LIMIT,
+  LARGE_FETCH_LIMIT,
+} from '../../constants';
 
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -21,17 +27,22 @@ const BuildListsCatalog: React.FC = () => {
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = BUILD_LISTS_CATALOG_ITEMS_PER_PAGE;
 
   // Fetch featured build lists (top 4 voted)
   const fetchFeaturedBuildListsFn = useCallback(
-    () => buildListsApi.getBuildListsWithVotes({ limit: 4, skip: 0 }),
+    () =>
+      buildListsApi.getBuildListsWithVotes({
+        limit: FEATURED_BUILD_LISTS_LIMIT,
+        skip: 0,
+      }),
     []
   );
 
   const {
     data: featuredBuildListsData,
     isLoading: isLoadingFeatured,
+    error: featuredBuildListsError,
     executeRequest: fetchFeaturedBuildLists,
   } = useApiRequest(fetchFeaturedBuildListsFn);
 
@@ -42,12 +53,13 @@ const BuildListsCatalog: React.FC = () => {
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
+    error: makesError,
     executeRequest: fetchMakes,
   } = useApiRequest(fetchMakeStatsFn);
 
   // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: 1000 }),
+    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
 
@@ -55,6 +67,7 @@ const BuildListsCatalog: React.FC = () => {
   const {
     data: carsByMake,
     isLoading: isLoadingCars,
+    error: carsError,
     executeRequest: fetchCarsByMake,
   } = useApiRequest(fetchCarsByMakeFn);
 
@@ -181,6 +194,12 @@ const BuildListsCatalog: React.FC = () => {
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner />
                 </div>
+              ) : makesError ? (
+                <div className="py-8">
+                  <ErrorAlert
+                    message={`Failed to load manufacturers: ${makesError}`}
+                  />
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                   {availableMakes.map((make) => (
@@ -207,6 +226,12 @@ const BuildListsCatalog: React.FC = () => {
                 {isLoadingFeatured ? (
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner />
+                  </div>
+                ) : featuredBuildListsError ? (
+                  <div className="py-8">
+                    <ErrorAlert
+                      message={`Failed to load featured build lists: ${featuredBuildListsError}`}
+                    />
                   </div>
                 ) : featuredBuildListsData?.data &&
                   featuredBuildListsData.data.length > 0 ? (
@@ -249,6 +274,12 @@ const BuildListsCatalog: React.FC = () => {
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner />
                   </div>
+                </Card>
+              ) : carsError ? (
+                <Card>
+                  <ErrorAlert
+                    message={`Failed to load car models: ${carsError}`}
+                  />
                 </Card>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
