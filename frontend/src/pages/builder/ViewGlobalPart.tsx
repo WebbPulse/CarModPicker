@@ -445,7 +445,7 @@ function ViewGlobalPart() {
           )}
           {part.price !== null && part.price !== undefined && (
             <CardInfoItem label="Price:">
-              <p>${part.price.toLocaleString()}</p>
+              <p>${(part.price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </CardInfoItem>
           )}
           {part.product_url && (
