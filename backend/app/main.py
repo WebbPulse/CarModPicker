@@ -126,9 +126,16 @@ app = FastAPI(
 
 # Add CORS middleware
 # Restrict methods and headers for better security
+# Note: Chrome extensions send requests with null origin (service workers) or 
+# chrome-extension:// origin (popup/content scripts). We allow both via:
+# - allow_origins includes "null" for service workers
+# - allow_origin_regex allows chrome-extension:// origins
+# Note: When allow_credentials=True, we can still use allow_origin_regex,
+# but it must be used alongside allow_origins (not instead of)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origin_regex=r"chrome-extension://.*",  # Allow all Chrome extensions
+    allow_origins=settings.allowed_origins_list,  # Includes "null" for service workers + web origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],  # Restrict to needed methods
     allow_headers=[
@@ -138,6 +145,7 @@ app.add_middleware(
         "Origin",
         "X-Requested-With",
     ],  # Restrict to needed headers
+    expose_headers=["*"],  # Expose all headers for debugging
 )
 
 # Add rate limiting middleware

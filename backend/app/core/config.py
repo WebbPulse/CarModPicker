@@ -83,9 +83,15 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         """Get ALLOWED_ORIGINS as a list."""
-        if not self.ALLOWED_ORIGINS:
-            return []
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        origins = []
+        if self.ALLOWED_ORIGINS:
+            origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        
+        # Allow null origin for Chrome extensions (service workers send null origin)
+        # Also allow chrome-extension:// origins for extension popups/content scripts
+        origins.append("null")
+        
+        return origins
 
     # Railway deployment settings
     PORT: int = 8000

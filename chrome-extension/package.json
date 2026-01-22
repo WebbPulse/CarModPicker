@@ -1,0 +1,18 @@
+{
+  "name": "carmodpicker-chrome-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for CarModPicker part scraping",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node clean-build.js",
+    "watch": "tsc --watch",
+    "watch:build": "tsc --watch && node clean-build.js",
+    "dev": "npm run watch",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "sharp": "^0.34.5",
+    "typescript": "~5.8.3"
+  }
+}
