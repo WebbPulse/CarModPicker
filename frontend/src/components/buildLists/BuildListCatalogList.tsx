@@ -12,6 +12,7 @@ import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface BuildListCatalogListProps {
   params?: {
@@ -98,7 +99,7 @@ function BuildListCatalogList({
       const promises = carIds.map(
         (carId) =>
           buildListsApi
-            .getBuildListsByCar(carId, { limit: 1000 })
+            .getBuildListsByCar(carId, { limit: LARGE_FETCH_LIMIT })
             .then((response) => response.data.data) // Extract the array from PaginatedResponse
       );
 

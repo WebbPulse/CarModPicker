@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BsTools } from 'react-icons/bs';
 import {
   FaBars,
+  FaBug,
   FaCoffee,
   FaCogs,
   FaSearch,
@@ -125,6 +126,9 @@ function Header() {
                 </NavLink>
               </div>
               <div className="flex items-center space-x-1">
+                <NavLink to="/bug-report" icon={<FaBug />}>
+                  Report a Bug
+                </NavLink>
                 <NavLink to="/support" icon={<FaCoffee />}>
                   Support Us
                 </NavLink>
@@ -210,6 +214,13 @@ function Header() {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Search
+                  </MobileNavLink>
+                  <MobileNavLink
+                    to="/bug-report"
+                    icon={<FaBug />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Report a Bug
                   </MobileNavLink>
                   <MobileNavLink
                     to="/support"

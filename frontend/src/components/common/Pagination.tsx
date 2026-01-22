@@ -1,4 +1,5 @@
 import React from 'react';
+import { PAGINATION_MAX_VISIBLE_PAGES } from '../../constants';
 
 interface PaginationProps {
   currentPage: number;
@@ -18,7 +19,7 @@ const Pagination: React.FC<PaginationProps> = ({
   // Calculate which page numbers to show
   const getPageNumbers = (): (number | string)[] => {
     const pages: (number | string)[] = [];
-    const maxVisible = 10; // Maximum number of page buttons to show
+    const maxVisible = PAGINATION_MAX_VISIBLE_PAGES;
 
     if (totalPages <= maxVisible) {
       // Show all pages if total is less than max

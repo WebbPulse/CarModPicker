@@ -6,6 +6,14 @@ from .auth import (
     TOTPVerifyRequest,
     TOTPVerifyResponse,
 )
+from .bug_report import (
+    BugReportCreate,
+    BugReportPriority,
+    BugReportRead,
+    BugReportStatus,
+    BugReportUpdate,
+    BugReportWithDetails,
+)
 from .build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from .build_list_part import BuildListPartCreate, BuildListPartRead, BuildListPartUpdate
 from .car import CarCreate, CarRead, CarUpdate
@@ -93,4 +101,10 @@ __all__ = [
     "ReportWithDetails",
     "ReportReason",
     "ReportStatus",
+    "BugReportCreate",
+    "BugReportUpdate",
+    "BugReportRead",
+    "BugReportWithDetails",
+    "BugReportStatus",
+    "BugReportPriority",
 ]

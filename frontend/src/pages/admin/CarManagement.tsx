@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
@@ -15,6 +15,7 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 const fetchCarsRequestFn = (params?: {
   skip?: number;
@@ -46,7 +47,10 @@ function CarManagement() {
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedMake, setSelectedMake] = useState<string>('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const wasFocusedBeforeSearchRef = useRef<boolean>(false);
 
   const {
     data: cars,
@@ -85,13 +89,13 @@ function CarManagement() {
 
   const refreshCars = useCallback(() => {
     const params: { limit?: number; search?: string } = {
-      limit: 1000, // High limit to get all cars
+      limit: LARGE_FETCH_LIMIT, // High limit to get all cars
     };
-    if (searchTerm.trim()) {
-      params.search = searchTerm.trim();
+    if (debouncedSearchTerm.trim()) {
+      params.search = debouncedSearchTerm.trim();
     }
     void fetchCars(params);
-  }, [fetchCars, searchTerm]);
+  }, [fetchCars, debouncedSearchTerm]);
 
   // Group cars by make
   const carsByMake = useMemo(() => {
@@ -146,9 +150,74 @@ function CarManagement() {
     [filteredCarsByMake]
   );
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Before updating debounced term, check if input is focused
+      if (
+        searchInputRef.current &&
+        document.activeElement === searchInputRef.current
+      ) {
+        wasFocusedBeforeSearchRef.current = true;
+      }
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms debounce delay
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
   useEffect(() => {
     refreshCars();
   }, [refreshCars]);
+
+  // Restore focus only after search completes AND user has stopped typing
+  useEffect(() => {
+    // Only restore focus if:
+    // 1. Input was focused when search was triggered
+    // 2. Loading has finished (search completed)
+    // 3. User has stopped typing (searchTerm matches debouncedSearchTerm - debounce has settled)
+    // 4. The input is not currently focused (to avoid interrupting active typing)
+    // 5. The input value matches the search term (user hasn't changed it)
+    const userStoppedTyping = searchTerm === debouncedSearchTerm;
+
+    let timeoutId: number | null = null;
+
+    if (
+      wasFocusedBeforeSearchRef.current &&
+      !isLoadingCars &&
+      userStoppedTyping &&
+      searchInputRef.current &&
+      document.activeElement !== searchInputRef.current &&
+      searchInputRef.current.value === searchTerm
+    ) {
+      // Use a small delay to ensure DOM has fully updated and any other focus changes have settled
+      timeoutId = setTimeout(() => {
+        // Double-check conditions before restoring focus
+        if (
+          searchInputRef.current &&
+          document.activeElement !== searchInputRef.current &&
+          searchInputRef.current.value === searchTerm &&
+          !isLoadingCars
+        ) {
+          const input = searchInputRef.current;
+          const cursorPosition = input.value.length; // Place cursor at end
+
+          input.focus();
+          input.setSelectionRange(cursorPosition, cursorPosition);
+
+          wasFocusedBeforeSearchRef.current = false;
+        }
+      }, 50); // Small delay to let any other focus changes settle
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isLoadingCars, debouncedSearchTerm, searchTerm]);
 
   if (!user) {
     return (
@@ -321,6 +390,7 @@ function CarManagement() {
         </ActionButton>
         <div className="flex gap-2">
           <Input
+            ref={searchInputRef}
             id="search-cars"
             placeholder="Search by make, model, or generation..."
             value={searchTerm}
@@ -403,12 +473,12 @@ function CarManagement() {
                   ? 's'
                   : ''}{' '}
                 for {selectedMake}
-                {searchTerm && ` matching "${searchTerm}"`}
+                {debouncedSearchTerm && ` matching "${debouncedSearchTerm}"`}
               </div>
               {filteredMakes.length === 0 ? (
                 <div className="p-4 text-center text-gray-400">
                   No cars found for {selectedMake}
-                  {searchTerm && ` matching "${searchTerm}"`}
+                  {debouncedSearchTerm && ` matching "${debouncedSearchTerm}"`}
                 </div>
               ) : (
                 <div className="space-y-6">

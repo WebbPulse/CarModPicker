@@ -4,6 +4,10 @@ import type {
   BodyLoginForAccessToken,
   BodyResetPassword,
   BodyVerifyEmail,
+  BugReportCreate,
+  BugReportRead,
+  BugReportUpdate,
+  BugReportWithDetails,
   BuildListCreate,
   BuildListPartCreate,
   BuildListPartRead,
@@ -82,6 +86,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds timeout to prevent indefinite hangs on cold starts
 });
 
 // Token storage key
@@ -810,6 +815,40 @@ export const buildLogsApi = {
     apiClient.delete<{ message: string }>(`/build-logs/posts/${postId}`),
   countBuildLogPosts: () =>
     apiClient.get<{ count: number }>('/build-logs/posts/count'),
+};
+
+// Bug Reports API
+export const bugReportsApi = {
+  createBugReport: (data: BugReportCreate) =>
+    apiClient.post<BugReportRead>('/bug-reports/', data),
+  getBugReports: (params?: {
+    status?: string;
+    priority?: string;
+    skip?: number;
+    limit?: number;
+  }) =>
+    apiClient.get<BugReportRead[]>('/bug-reports/admin/list', {
+      params,
+    }),
+  getBugReportsWithDetails: (params?: {
+    status?: string;
+    priority?: string;
+    skip?: number;
+    limit?: number;
+  }) =>
+    apiClient.get<PaginatedResponse<BugReportWithDetails>>(
+      '/bug-reports/admin/list-with-details',
+      {
+        params,
+      }
+    ),
+  getBugReport: (bugReportId: number) =>
+    apiClient.get<BugReportWithDetails>(`/bug-reports/${bugReportId}`),
+  updateBugReport: (bugReportId: number, data: BugReportUpdate) =>
+    apiClient.put<BugReportRead>(`/bug-reports/${bugReportId}`, data),
+  deleteBugReport: (bugReportId: number) =>
+    apiClient.delete<Record<string, string>>(`/bug-reports/${bugReportId}`),
+  countBugReports: () => apiClient.get<{ count: number }>('/bug-reports/count'),
 };
 
 export default apiClient;
