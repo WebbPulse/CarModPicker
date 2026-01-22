@@ -15,6 +15,7 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 const fetchCarsRequestFn = (params?: {
   skip?: number;
@@ -88,7 +89,7 @@ function CarManagement() {
 
   const refreshCars = useCallback(() => {
     const params: { limit?: number; search?: string } = {
-      limit: 1000, // High limit to get all cars
+      limit: LARGE_FETCH_LIMIT, // High limit to get all cars
     };
     if (debouncedSearchTerm.trim()) {
       params.search = debouncedSearchTerm.trim();

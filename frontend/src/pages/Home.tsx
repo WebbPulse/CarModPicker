@@ -16,6 +16,7 @@ import type {
   BuildListReadWithVotes,
   GlobalPartReadWithVotes,
 } from '../types/Api';
+import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
@@ -28,7 +29,11 @@ export default function HomePage() {
 
   // Fetch featured build lists (top 6 by votes)
   const fetchFeaturedBuildListsFn = useCallback(
-    () => buildListsApi.getBuildListsWithVotes({ limit: 6, skip: 0 }),
+    () =>
+      buildListsApi.getBuildListsWithVotes({
+        limit: HOME_FEATURED_ITEMS_LIMIT,
+        skip: 0,
+      }),
     []
   );
 
@@ -41,7 +46,11 @@ export default function HomePage() {
 
   // Fetch popular parts (top 6 by votes)
   const fetchPopularPartsFn = useCallback(
-    () => globalPartsApi.getGlobalPartsWithVotes({ limit: 6, skip: 0 }),
+    () =>
+      globalPartsApi.getGlobalPartsWithVotes({
+        limit: HOME_FEATURED_ITEMS_LIMIT,
+        skip: 0,
+      }),
     []
   );
 

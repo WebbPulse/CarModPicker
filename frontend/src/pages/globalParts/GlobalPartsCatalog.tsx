@@ -26,6 +26,10 @@ import type {
   GlobalPartReadWithVotes,
   PaginationInfo,
 } from '../../types/Api';
+import {
+  GLOBAL_PARTS_ITEMS_PER_PAGE,
+  LARGE_FETCH_LIMIT,
+} from '../../constants';
 
 const GlobalPartsCatalog: React.FC = () => {
   const location = useLocation();
@@ -46,7 +50,7 @@ const GlobalPartsCatalog: React.FC = () => {
   const [selectedCategoryData, setSelectedCategoryData] =
     useState<CategoryResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = GLOBAL_PARTS_ITEMS_PER_PAGE;
   const [selectedGlobalPart, setSelectedGlobalPart] =
     useState<GlobalPartReadWithVotes | null>(null);
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
@@ -66,7 +70,7 @@ const GlobalPartsCatalog: React.FC = () => {
 
   // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: 1000 }),
+    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
 

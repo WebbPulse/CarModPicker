@@ -12,6 +12,11 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { buildListsApi } from '../../services/Api';
 import type { BuildListRead } from '../../types/Api';
+import {
+  BUILDER_FIRST_PAGE_BUILD_LISTS,
+  BUILDER_ITEMS_PER_PAGE,
+  BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS,
+} from '../../constants';
 
 function Builder() {
   const { user } = useAuth();
@@ -20,17 +25,22 @@ function Builder() {
     useState(false);
   const [formKey, setFormKey] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = BUILDER_ITEMS_PER_PAGE;
   const [totalItems, setTotalItems] = useState<number | null>(null);
   const isFirstPage = currentPage === 1;
   // On first page: create button (1) + 7 build lists = 8 items
   // On other pages: 8 build lists = 8 items
-  const buildListsPerPage = isFirstPage ? 7 : 8;
+  const buildListsPerPage = isFirstPage
+    ? BUILDER_FIRST_PAGE_BUILD_LISTS
+    : BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
 
   // Fetch user's build lists with pagination
   const fetchMyBuildListsFn = useCallback(() => {
     // Calculate skip: page 1 = 0, page 2 = 7, page 3 = 15, page 4 = 23, etc.
-    const skip = isFirstPage ? 0 : 7 + (currentPage - 2) * 8;
+    const skip = isFirstPage
+      ? 0
+      : BUILDER_FIRST_PAGE_BUILD_LISTS +
+        (currentPage - 2) * BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
     return buildListsApi.getMyBuildLists({
       skip,
       limit: buildListsPerPage,

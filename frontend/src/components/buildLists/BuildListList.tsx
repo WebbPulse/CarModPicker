@@ -7,6 +7,11 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Pagination from '../common/Pagination';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
+import {
+  BUILDER_FIRST_PAGE_BUILD_LISTS,
+  BUILDER_ITEMS_PER_PAGE,
+  BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS,
+} from '../../constants';
 
 interface BuildListListProps {
   carId: number;
@@ -27,16 +32,21 @@ const BuildListList: React.FC<BuildListListProps> = ({
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState<number | null>(null);
-  const itemsPerPage = 8;
+  const itemsPerPage = BUILDER_ITEMS_PER_PAGE;
   const isFirstPage = currentPage === 1;
   // On first page: create button (1) + 7 build lists = 8 items
   // On other pages: 8 build lists = 8 items
-  const buildListsPerPage = isFirstPage ? 7 : 8;
+  const buildListsPerPage = isFirstPage
+    ? BUILDER_FIRST_PAGE_BUILD_LISTS
+    : BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
 
   // Fetch build lists with pagination
   const fetchBuildListsByCarIdRequestFn = useCallback(() => {
     // Calculate skip: page 1 = 0, page 2 = 7, page 3 = 15, page 4 = 23, etc.
-    const skip = isFirstPage ? 0 : 7 + (currentPage - 2) * 8;
+    const skip = isFirstPage
+      ? 0
+      : BUILDER_FIRST_PAGE_BUILD_LISTS +
+        (currentPage - 2) * BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
     return buildListsApi.getBuildListsByCar(carId, {
       skip,
       limit: buildListsPerPage,

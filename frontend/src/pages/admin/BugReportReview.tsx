@@ -18,8 +18,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-
-const ITEMS_PER_PAGE = 10;
+import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchBugReportsRequestFn = (params?: {
   status?: string;
@@ -39,7 +38,11 @@ const updateBugReportRequestFn = (payload: {
 const getPendingBugReportsCountRequestFn = (): Promise<
   AxiosResponse<PaginatedResponse<BugReportWithDetails>>
 > =>
-  bugReportsApi.getBugReportsWithDetails({ status: 'pending', skip: 0, limit: 1 });
+  bugReportsApi.getBugReportsWithDetails({
+    status: 'pending',
+    skip: 0,
+    limit: 1,
+  });
 
 function BugReportReview() {
   const { user } = useAuth();
@@ -52,7 +55,6 @@ function BugReportReview() {
   const [selectedBugReport, setSelectedBugReport] =
     useState<BugReportWithDetails | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
-  const [status, setStatus] = useState<string>('pending');
   const [priority, setPriority] = useState<string>('medium');
   const [pendingCount, setPendingCount] = useState<number>(0);
 
@@ -97,13 +99,19 @@ function BugReportReview() {
 
   useEffect(() => {
     void fetchBugReports({
-      status: selectedStatus !== 'all' ? selectedStatus : undefined,
-      priority: selectedPriority !== 'all' ? selectedPriority : undefined,
-      skip: (currentPage - 1) * ITEMS_PER_PAGE,
-      limit: ITEMS_PER_PAGE,
+      ...(selectedStatus !== 'all' && { status: selectedStatus }),
+      ...(selectedPriority !== 'all' && { priority: selectedPriority }),
+      skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+      limit: ADMIN_ITEMS_PER_PAGE,
     });
     void fetchPendingCount();
-  }, [fetchBugReports, fetchPendingCount, selectedStatus, selectedPriority, currentPage]);
+  }, [
+    fetchBugReports,
+    fetchPendingCount,
+    selectedStatus,
+    selectedPriority,
+    currentPage,
+  ]);
 
   useEffect(() => {
     if (
@@ -160,10 +168,10 @@ function BugReportReview() {
       setSelectedBugReport(null);
       setAdminNotes('');
       void fetchBugReports({
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
-        priority: selectedPriority !== 'all' ? selectedPriority : undefined,
-        skip: (currentPage - 1) * ITEMS_PER_PAGE,
-        limit: ITEMS_PER_PAGE,
+        ...(selectedStatus !== 'all' && { status: selectedStatus }),
+        ...(selectedPriority !== 'all' && { priority: selectedPriority }),
+        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+        limit: ADMIN_ITEMS_PER_PAGE,
       });
       void fetchPendingCount();
     }
@@ -173,7 +181,6 @@ function BugReportReview() {
     setUpdateError(null);
     setSelectedBugReport(bugReport);
     setAdminNotes(bugReport.admin_notes || '');
-    setStatus(bugReport.status);
     setPriority(bugReport.priority);
     setIsReviewDialogOpen(true);
   };
@@ -221,7 +228,9 @@ function BugReportReview() {
 
   // Extract bug reports and pagination info from the response
   const bugReports: BugReportWithDetails[] =
-    bugReportsData && typeof bugReportsData === 'object' && 'data' in bugReportsData
+    bugReportsData &&
+    typeof bugReportsData === 'object' &&
+    'data' in bugReportsData
       ? Array.isArray(bugReportsData.data)
         ? bugReportsData.data
         : []
@@ -288,9 +297,7 @@ function BugReportReview() {
           </ActionButton>
           <ActionButton
             onClick={() => setSelectedStatus('all')}
-            className={
-              selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'
-            }
+            className={selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'}
           >
             All
           </ActionButton>
@@ -306,9 +313,7 @@ function BugReportReview() {
             <ActionButton
               key={p}
               onClick={() => setSelectedPriority(p)}
-              className={
-                selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'
-              }
+              className={selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'}
             >
               {p.charAt(0).toUpperCase() + p.slice(1)}
             </ActionButton>
@@ -318,7 +323,9 @@ function BugReportReview() {
 
       {bugReportsError && (
         <Card>
-          <ErrorAlert message={`Failed to load bug reports: ${bugReportsError}`} />
+          <ErrorAlert
+            message={`Failed to load bug reports: ${bugReportsError}`}
+          />
         </Card>
       )}
 
@@ -328,7 +335,8 @@ function BugReportReview() {
             title={`${
               selectedStatus === 'all'
                 ? 'All'
-                : selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)
+                : selectedStatus.charAt(0).toUpperCase() +
+                  selectedStatus.slice(1)
             } Bug Reports`}
           />
           {bugReports.length === 0 ? (
@@ -481,7 +489,7 @@ function BugReportReview() {
                         : 1
                     }
                     onPageChange={setCurrentPage}
-                    itemsPerPage={ITEMS_PER_PAGE}
+                    itemsPerPage={ADMIN_ITEMS_PER_PAGE}
                     totalItems={
                       typeof pagination.total_items === 'number'
                         ? pagination.total_items
@@ -502,7 +510,9 @@ function BugReportReview() {
       >
         <div className="space-y-4">
           <div>
-            <h4 className="font-medium text-gray-300 mb-2">Bug Report Details</h4>
+            <h4 className="font-medium text-gray-300 mb-2">
+              Bug Report Details
+            </h4>
             <div className="bg-gray-800 p-3 rounded">
               <p>
                 <strong>Title:</strong> {selectedBugReport?.title}

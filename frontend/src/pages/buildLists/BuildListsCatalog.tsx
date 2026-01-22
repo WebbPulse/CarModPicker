@@ -11,6 +11,11 @@ import SectionHeader from '../../components/layout/SectionHeader';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi, carsApi } from '../../services/Api';
 import type { CarRead } from '../../types/Api';
+import {
+  BUILD_LISTS_CATALOG_ITEMS_PER_PAGE,
+  FEATURED_BUILD_LISTS_LIMIT,
+  LARGE_FETCH_LIMIT,
+} from '../../constants';
 
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -22,11 +27,15 @@ const BuildListsCatalog: React.FC = () => {
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = BUILD_LISTS_CATALOG_ITEMS_PER_PAGE;
 
   // Fetch featured build lists (top 4 voted)
   const fetchFeaturedBuildListsFn = useCallback(
-    () => buildListsApi.getBuildListsWithVotes({ limit: 4, skip: 0 }),
+    () =>
+      buildListsApi.getBuildListsWithVotes({
+        limit: FEATURED_BUILD_LISTS_LIMIT,
+        skip: 0,
+      }),
     []
   );
 
@@ -50,7 +59,7 @@ const BuildListsCatalog: React.FC = () => {
 
   // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: 1000 }),
+    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
 

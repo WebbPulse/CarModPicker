@@ -21,15 +21,14 @@ import Pagination from '../../components/common/Pagination';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-
-const POSTS_PER_PAGE = 10;
+import { BUILD_LOG_POSTS_PER_PAGE } from '../../constants';
 
 const fetchBuildLogRequestFn = (buildListId: string, page: number = 1) => {
-  const skip = (page - 1) * POSTS_PER_PAGE;
+  const skip = (page - 1) * BUILD_LOG_POSTS_PER_PAGE;
   return buildLogsApi.getBuildLogByBuildList(
     Number(buildListId),
     skip,
-    POSTS_PER_PAGE
+    BUILD_LOG_POSTS_PER_PAGE
   );
 };
 

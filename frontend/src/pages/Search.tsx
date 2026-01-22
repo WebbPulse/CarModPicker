@@ -12,6 +12,11 @@ import UserCard from '../components/users/UserCard';
 import useApiRequest from '../hooks/UseApiRequest';
 import { searchApi } from '../services/Api';
 import type { BuildListRead, GlobalPartRead, UserRead } from '../types/Api';
+import {
+  SEARCH_INITIAL_LIMITS,
+  SEARCH_LOAD_MORE_INCREMENT,
+  SEARCH_RESULTS_LIMIT,
+} from '../constants';
 
 const fetchSearchResultsRequestFn = (params: {
   q: string;
@@ -44,13 +49,6 @@ function Search() {
   } | null>(null);
   const [currentQuery, setCurrentQuery] = useState<string>('');
 
-  // Initial display limits
-  const INITIAL_LIMITS = {
-    build_lists: 8,
-    users: 8,
-    global_parts: 4,
-  };
-
   const {
     data: searchResults,
     isLoading,
@@ -73,7 +71,7 @@ function Search() {
         global_parts: 0,
       });
       setPagination(null);
-      void performSearch({ q: query, skip: 0, limit: 20 });
+      void performSearch({ q: query, skip: 0, limit: SEARCH_RESULTS_LIMIT });
     }
   }, [searchTerm, setSearchParams, performSearch]);
 
@@ -102,7 +100,10 @@ function Search() {
 
       // If we have more results already fetched, just increase the displayed count
       if (currentDisplayed < allResults.length) {
-        const increment = category === 'global_parts' ? 4 : 8;
+        const increment =
+          category === 'global_parts'
+            ? SEARCH_LOAD_MORE_INCREMENT.global_parts
+            : SEARCH_LOAD_MORE_INCREMENT.build_lists;
         setDisplayedCounts((prev) => ({
           ...prev,
           [category]: Math.min(currentDisplayed + increment, allResults.length),
@@ -110,7 +111,7 @@ function Search() {
       } else if (pagination[category].has_next) {
         // Otherwise, fetch more from the backend
         const currentSkip = pagination[category].skip;
-        const limit = 20;
+        const limit = SEARCH_RESULTS_LIMIT;
         void performSearch({ q: currentQuery, skip: currentSkip, limit });
       }
     },
@@ -137,7 +138,7 @@ function Search() {
         setDisplayedCounts((prev) => ({
           ...prev,
           build_lists: Math.min(
-            INITIAL_LIMITS.build_lists,
+            SEARCH_INITIAL_LIMITS.build_lists,
             searchResults.build_lists.data.length
           ),
         }));
@@ -148,7 +149,7 @@ function Search() {
           setDisplayedCounts((prevCounts) => ({
             ...prevCounts,
             build_lists: Math.min(
-              prevCounts.build_lists + INITIAL_LIMITS.build_lists,
+              prevCounts.build_lists + SEARCH_INITIAL_LIMITS.build_lists,
               newList.length
             ),
           }));
@@ -162,7 +163,7 @@ function Search() {
         setDisplayedCounts((prev) => ({
           ...prev,
           users: Math.min(
-            INITIAL_LIMITS.users,
+            SEARCH_INITIAL_LIMITS.users,
             searchResults.users.data.length
           ),
         }));
@@ -173,7 +174,7 @@ function Search() {
           setDisplayedCounts((prevCounts) => ({
             ...prevCounts,
             users: Math.min(
-              prevCounts.users + INITIAL_LIMITS.users,
+              prevCounts.users + SEARCH_INITIAL_LIMITS.users,
               newList.length
             ),
           }));
@@ -187,7 +188,7 @@ function Search() {
         setDisplayedCounts((prev) => ({
           ...prev,
           global_parts: Math.min(
-            INITIAL_LIMITS.global_parts,
+            SEARCH_INITIAL_LIMITS.global_parts,
             searchResults.global_parts.data.length
           ),
         }));
@@ -198,7 +199,7 @@ function Search() {
           setDisplayedCounts((prevCounts) => ({
             ...prevCounts,
             global_parts: Math.min(
-              prevCounts.global_parts + INITIAL_LIMITS.global_parts,
+              prevCounts.global_parts + SEARCH_INITIAL_LIMITS.global_parts,
               newList.length
             ),
           }));
@@ -225,12 +226,7 @@ function Search() {
         },
       });
     }
-  }, [
-    searchResults,
-    INITIAL_LIMITS.build_lists,
-    INITIAL_LIMITS.users,
-    INITIAL_LIMITS.global_parts,
-  ]);
+  }, [searchResults]);
 
   // Perform search when query param changes (e.g., from URL)
   useEffect(() => {
@@ -248,7 +244,11 @@ function Search() {
         global_parts: 0,
       });
       setPagination(null);
-      void performSearch({ q: query.trim(), skip: 0, limit: 20 });
+      void performSearch({
+        q: query.trim(),
+        skip: 0,
+        limit: SEARCH_RESULTS_LIMIT,
+      });
     }
   }, [searchParams, performSearch]);
 
@@ -320,7 +320,7 @@ function Search() {
                         0,
                         displayedCounts.build_lists ||
                           Math.min(
-                            INITIAL_LIMITS.build_lists,
+                            SEARCH_INITIAL_LIMITS.build_lists,
                             buildLists.length
                           )
                       )
@@ -362,7 +362,7 @@ function Search() {
                       .slice(
                         0,
                         displayedCounts.users ||
-                          Math.min(INITIAL_LIMITS.users, users.length)
+                          Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
                       )
                       .map((user) => (
                         <UserCard key={user.id} user={user} />
@@ -400,7 +400,7 @@ function Search() {
                         0,
                         displayedCounts.global_parts ||
                           Math.min(
-                            INITIAL_LIMITS.global_parts,
+                            SEARCH_INITIAL_LIMITS.global_parts,
                             globalParts.length
                           )
                       )

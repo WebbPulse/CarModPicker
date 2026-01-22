@@ -12,6 +12,7 @@ import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
 import VoteButtons from './VoteButtons';
+import { CACHE_DURATION_MS } from '../../constants';
 
 // Simple cache for global parts data to improve UX when switching between pages
 interface CachedData {
@@ -19,8 +20,6 @@ interface CachedData {
   pagination: PaginationInfo | null;
   timestamp: number;
 }
-
-const CACHE_DURATION = 30000; // 30 seconds
 const globalPartsCache = new Map<string, CachedData>();
 
 function getCacheKey(params?: {
@@ -39,7 +38,7 @@ function getCachedData(cacheKey: string): CachedData | null {
 
   // Check if cache is still valid
   const now = Date.now();
-  if (now - cached.timestamp > CACHE_DURATION) {
+  if (now - cached.timestamp > CACHE_DURATION_MS) {
     globalPartsCache.delete(cacheKey);
     return null;
   }

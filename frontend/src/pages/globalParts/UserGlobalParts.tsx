@@ -11,11 +11,11 @@ import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
 import PageHeader from '../../components/layout/PageHeader';
+import { CACHE_DURATION_MS, LARGE_FETCH_LIMIT } from '../../constants';
 
 // Cache for user's global parts to improve UX when switching tabs
 let cachedUserParts: GlobalPartReadWithVotes[] | null = null;
 let cachedUserPartsTimestamp = 0;
-const USER_PARTS_CACHE_DURATION = 30000; // 30 seconds
 
 function UserGlobalParts() {
   const location = useLocation();
@@ -27,7 +27,7 @@ function UserGlobalParts() {
 
   // Fetch global parts with votes
   const fetchUserGlobalPartsRequestFn = useCallback(
-    () => globalPartsApi.getGlobalPartsWithVotes({ limit: 1000 }),
+    () => globalPartsApi.getGlobalPartsWithVotes({ limit: LARGE_FETCH_LIMIT }),
     []
   );
 
@@ -43,7 +43,7 @@ function UserGlobalParts() {
       if (
         user &&
         cachedUserParts &&
-        Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION
+        Date.now() - cachedUserPartsTimestamp < CACHE_DURATION_MS
       ) {
         return cachedUserParts.filter((part) => part.user_id === user.id);
       }
@@ -56,7 +56,7 @@ function UserGlobalParts() {
       // Check cache first
       if (
         cachedUserParts &&
-        Date.now() - cachedUserPartsTimestamp < USER_PARTS_CACHE_DURATION
+        Date.now() - cachedUserPartsTimestamp < CACHE_DURATION_MS
       ) {
         setDisplayData(
           cachedUserParts.filter((part) => part.user_id === user.id)

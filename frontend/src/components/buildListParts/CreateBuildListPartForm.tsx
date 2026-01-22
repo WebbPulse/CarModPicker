@@ -23,6 +23,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface CreateBuildListPartFormProps {
   buildListId: number;
@@ -31,7 +32,7 @@ interface CreateBuildListPartFormProps {
 }
 
 const fetchGlobalPartsRequestFn = () => globalPartsApi.getGlobalParts();
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: 1000 });
+const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 function CreateBuildListPartForm({
   buildListId,

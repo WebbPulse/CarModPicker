@@ -848,8 +848,7 @@ export const bugReportsApi = {
     apiClient.put<BugReportRead>(`/bug-reports/${bugReportId}`, data),
   deleteBugReport: (bugReportId: number) =>
     apiClient.delete<Record<string, string>>(`/bug-reports/${bugReportId}`),
-  countBugReports: () =>
-    apiClient.get<{ count: number }>('/bug-reports/count'),
+  countBugReports: () => apiClient.get<{ count: number }>('/bug-reports/count'),
 };
 
 export default apiClient;

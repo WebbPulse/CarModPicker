@@ -21,11 +21,17 @@ const detectBrowserInfo = (): string => {
     browserName = 'Firefox';
     const match = userAgent.match(/Firefox\/(\d+)/);
     browserVersion = match?.[1] ?? 'Unknown';
-  } else if (userAgent.indexOf('Chrome') > -1 && userAgent.indexOf('Edg') === -1) {
+  } else if (
+    userAgent.indexOf('Chrome') > -1 &&
+    userAgent.indexOf('Edg') === -1
+  ) {
     browserName = 'Chrome';
     const match = userAgent.match(/Chrome\/(\d+)/);
     browserVersion = match?.[1] ?? 'Unknown';
-  } else if (userAgent.indexOf('Safari') > -1 && userAgent.indexOf('Chrome') === -1) {
+  } else if (
+    userAgent.indexOf('Safari') > -1 &&
+    userAgent.indexOf('Chrome') === -1
+  ) {
     browserName = 'Safari';
     const match = userAgent.match(/Version\/(\d+)/);
     browserVersion = match?.[1] ?? 'Unknown';
@@ -66,7 +72,11 @@ const detectDeviceInfo = (): string => {
   } else if (userAgent.indexOf('Android') > -1) {
     const match = userAgent.match(/Android (\d+(?:\.\d+)?)/);
     os = match?.[1] ? `Android ${match[1]}` : 'Android';
-  } else if (userAgent.indexOf('iOS') > -1 || userAgent.indexOf('iPhone') > -1 || userAgent.indexOf('iPad') > -1) {
+  } else if (
+    userAgent.indexOf('iOS') > -1 ||
+    userAgent.indexOf('iPhone') > -1 ||
+    userAgent.indexOf('iPad') > -1
+  ) {
     const match = userAgent.match(/OS (\d+)[._](\d+)/);
     if (match) {
       os = `iOS ${match[1]}.${match[2]}`;
@@ -76,9 +86,16 @@ const detectDeviceInfo = (): string => {
   }
 
   // Detect device type
-  if (userAgent.indexOf('Mobile') > -1 || userAgent.indexOf('iPhone') > -1 || userAgent.indexOf('Android') > -1) {
+  if (
+    userAgent.indexOf('Mobile') > -1 ||
+    userAgent.indexOf('iPhone') > -1 ||
+    userAgent.indexOf('Android') > -1
+  ) {
     deviceType = 'Mobile';
-  } else if (userAgent.indexOf('Tablet') > -1 || userAgent.indexOf('iPad') > -1) {
+  } else if (
+    userAgent.indexOf('Tablet') > -1 ||
+    userAgent.indexOf('iPad') > -1
+  ) {
     deviceType = 'Tablet';
   } else {
     deviceType = 'Desktop';

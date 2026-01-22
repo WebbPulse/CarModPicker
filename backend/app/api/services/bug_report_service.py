@@ -64,9 +64,7 @@ class BugReportService:
         db.refresh(db_bug_report)
 
         if logger:
-            logger.info(
-                f"Bug report created: {db_bug_report.id} by user {user_id or 'anonymous'}"
-            )
+            logger.info(f"Bug report created: {db_bug_report.id} by user {user_id or 'anonymous'}")
         return db_bug_report
 
     def get_bug_reports(

@@ -9,6 +9,7 @@ import Card from '../common/Card';
 import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface EditBuildListFormProps {
   buildList: BuildListRead;
@@ -65,7 +66,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 
   // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: 1000 }),
+    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
 

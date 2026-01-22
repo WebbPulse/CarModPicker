@@ -19,8 +19,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-
-const ITEMS_PER_PAGE = 10;
+import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchUsersRequestFn = (params?: {
   skip?: number;
@@ -110,8 +109,8 @@ function UserManagement() {
 
   useEffect(() => {
     const params: { skip: number; limit: number; search?: string } = {
-      skip: (currentPage - 1) * ITEMS_PER_PAGE,
-      limit: ITEMS_PER_PAGE,
+      skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+      limit: ADMIN_ITEMS_PER_PAGE,
     };
     if (debouncedSearchTerm) {
       params.search = debouncedSearchTerm;
@@ -207,8 +206,8 @@ function UserManagement() {
         subscription_expires_at: null,
       });
       void fetchUsers({
-        skip: (currentPage - 1) * ITEMS_PER_PAGE,
-        limit: ITEMS_PER_PAGE,
+        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+        limit: ADMIN_ITEMS_PER_PAGE,
       });
     }
   };
@@ -220,8 +219,8 @@ function UserManagement() {
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
       void fetchUsers({
-        skip: (currentPage - 1) * ITEMS_PER_PAGE,
-        limit: ITEMS_PER_PAGE,
+        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
+        limit: ADMIN_ITEMS_PER_PAGE,
       });
     }
   };
@@ -473,7 +472,7 @@ function UserManagement() {
               currentPage={pagination.current_page}
               totalPages={pagination.total_pages}
               onPageChange={setCurrentPage}
-              itemsPerPage={ITEMS_PER_PAGE}
+              itemsPerPage={ADMIN_ITEMS_PER_PAGE}
               totalItems={pagination.total_items}
             />
           )}

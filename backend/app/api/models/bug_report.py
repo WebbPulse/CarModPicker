@@ -34,9 +34,7 @@ class BugReport(Base):
     status: Mapped[str] = mapped_column(
         default="pending", nullable=False
     )  # 'pending', 'in_progress', 'resolved', 'dismissed'
-    priority: Mapped[str] = mapped_column(
-        default="medium", nullable=False
-    )  # 'low', 'medium', 'high', 'critical'
+    priority: Mapped[str] = mapped_column(default="medium", nullable=False)  # 'low', 'medium', 'high', 'critical'
     admin_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
     assigned_to: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
