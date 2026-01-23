@@ -19,11 +19,12 @@ A Chrome extension that allows you to quickly scrape part information from web p
 
 ## Installation
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top right)
-3. Click "Load unpacked"
-4. Select the `chrome-extension` directory from this repository
-5. The extension icon should appear in your toolbar
+1. Build the extension first (see Development section below)
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable "Developer mode" (toggle in top right)
+4. Click "Load unpacked"
+5. Select the `chrome-extension/dist` directory (the built extension folder)
+6. The extension icon should appear in your toolbar
 
 ## Usage
 

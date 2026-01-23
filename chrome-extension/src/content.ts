@@ -88,11 +88,11 @@ function extractProductName(): string | null {
 
   // Strategy 3: Title tag
   const titleTag = document.querySelector("title");
-  if (titleTag && titleTag.textContent) {
+  if (titleTag?.textContent) {
     let title = titleTag.textContent.trim();
     // Remove site name suffixes
     if (title.includes(" | ")) {
-      title = title.split(" | ")[0].trim();
+      title = title.split(" | ")[0]?.trim() || title;
     }
     if (title.includes(" - ") && title.toLowerCase().includes("shop")) {
       const parts = title.split(" - ");
@@ -190,7 +190,7 @@ function extractPriceValue(priceText: string): number | null {
 
   // Extract number
   const match = cleaned.match(/(\d+\.?\d*)/);
-  if (match) {
+  if (match && match[1]) {
     const dollars = parseFloat(match[1]);
     if (!isNaN(dollars) && dollars >= 0) {
       return Math.round(dollars * 100); // Convert to cents
@@ -809,7 +809,7 @@ function extractBrand(): string | null {
 
     // Check first two words (for "AWE Tuning" -> "AWE")
     // Skip if first word is a car manufacturer
-    if (words.length >= 2 && !isCarManufacturer(words[0])) {
+    if (words.length >= 2 && words[0] && !isCarManufacturer(words[0])) {
       const firstTwo = words.slice(0, 2).join(" ");
       const known = isKnownBrand(firstTwo);
       if (known) {
@@ -822,7 +822,7 @@ function extractBrand(): string | null {
     }
 
     // Check second word if first is a car manufacturer (e.g., "Porsche 718 ADRO Diffuser")
-    if (words.length >= 2 && isCarManufacturer(words[0])) {
+    if (words.length >= 2 && words[0] && isCarManufacturer(words[0])) {
       if (words[1] && !isCarManufacturer(words[1])) {
         const known = isKnownBrand(words[1]);
         if (known) {
@@ -1010,7 +1010,9 @@ function extractBrand(): string | null {
     }
 
     // Otherwise, return the highest confidence match
-    return filteredCandidates[0].brand;
+    if (filteredCandidates.length > 0 && filteredCandidates[0]) {
+      return filteredCandidates[0].brand;
+    }
   }
 
   return null;
@@ -1106,13 +1108,16 @@ function cleanTitle(title: string): string | null {
 
   // Remove site name suffixes
   if (title.includes(" | ")) {
-    title = title.split(" | ")[0].trim();
+    const splitTitle = title.split(" | ")[0];
+    if (splitTitle) {
+      title = splitTitle.trim();
+    }
   }
   if (title.includes(" - ")) {
     const parts = title.split(" - ");
     if (
       parts.length > 1 &&
-      parts[parts.length - 1].toLowerCase().includes("shop")
+      parts[parts.length - 1]?.toLowerCase().includes("shop")
     ) {
       title = parts.slice(0, -1).join(" - ").trim();
     }

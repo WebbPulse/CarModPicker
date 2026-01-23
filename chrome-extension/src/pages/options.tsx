@@ -1,0 +1,103 @@
+import { useEffect, useState } from 'react';
+
+const API_URLS = {
+  prod: 'https://carmodpicker.com/api',
+  staging: 'https://carmodpicker.staging.webbpulse.com/api',
+  localhost: 'http://localhost:4000/api',
+} as const;
+
+type ApiEnvironment = keyof typeof API_URLS;
+
+function Options() {
+  const [environment, setEnvironment] = useState<ApiEnvironment>('prod');
+  const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    // Load saved settings
+    chrome.storage.sync.get(['apiUrl'], (result) => {
+      const apiUrl = result['apiUrl'];
+      if (apiUrl && typeof apiUrl === 'string') {
+        const env = getEnvironmentFromUrl(apiUrl);
+        setEnvironment(env);
+      }
+    });
+  }, []);
+
+  const getEnvironmentFromUrl = (apiUrl: string): ApiEnvironment => {
+    if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+      return 'localhost';
+    }
+    if (apiUrl.includes('staging')) {
+      return 'staging';
+    }
+    return 'prod';
+  };
+
+  const handleSave = async () => {
+    if (!environment || !API_URLS[environment]) {
+      setStatus({ message: 'Invalid environment selected', type: 'error' });
+      return;
+    }
+
+    const apiUrl = API_URLS[environment];
+    await chrome.storage.sync.set({ apiUrl });
+    setStatus({ message: 'Settings saved successfully!', type: 'success' });
+
+    setTimeout(() => {
+      setStatus(null);
+    }, 3000);
+  };
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 p-10">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold text-gradient mb-8">CarModPicker Extension Settings</h1>
+
+        <div className="glass-card rounded-2xl p-6 space-y-6">
+          <div>
+            <label
+              htmlFor="apiEnvironment"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              API Environment
+            </label>
+            <select
+              id="apiEnvironment"
+              value={environment}
+              onChange={(e) => setEnvironment(e.target.value as ApiEnvironment)}
+              className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="prod">Production</option>
+              <option value="staging">Staging</option>
+              <option value="localhost">Localhost</option>
+            </select>
+            <div className="mt-2 text-xs text-neutral-400">
+              Select which API environment to use. Default: Production
+            </div>
+          </div>
+
+          <button
+            onClick={handleSave}
+            className="px-6 py-3 rounded-xl font-semibold bg-linear-to-r from-[#667eea] to-[#764ba2] bg-size-[200%_200%] text-white border-none transition-all duration-300 hover:translate-y-[-3px] hover:shadow-[0_15px_35px_rgba(102,126,234,0.4)] hover:animate-[gradientShift_3s_ease_infinite] relative overflow-hidden cursor-pointer"
+          >
+            Save Settings
+          </button>
+
+          {status && (
+            <div
+              className={`p-3 rounded-xl text-sm ${
+                status.type === 'success'
+                  ? 'bg-green-500/20 border border-green-500/50 text-green-200'
+                  : 'bg-red-500/20 border border-red-500/50 text-red-200'
+              }`}
+            >
+              {status.message}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Options;

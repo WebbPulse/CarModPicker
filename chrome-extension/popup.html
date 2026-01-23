@@ -4,147 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CarModPicker Part Scraper</title>
-  <link rel="stylesheet" href="popup.css">
+  <style>
+    body {
+      width: 400px;
+      min-height: 500px;
+      margin: 0;
+      padding: 0;
+      background: #1e293b;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #root {
+      width: 100%;
+      min-height: 100%;
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Login Screen -->
-    <div id="loginScreen" class="screen">
-      <div class="header">
-        <h1>CarModPicker</h1>
-        <p class="subtitle">Part Scraper</p>
-      </div>
-      
-      <div id="loginError" class="error-message" style="display: none;"></div>
-      
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" required autocomplete="username">
-        </div>
-        
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" required autocomplete="current-password">
-        </div>
-        
-        <button type="submit" class="btn btn-primary" id="loginBtn">
-          Login
-        </button>
-      </form>
-      
-      <div class="footer">
-        <a href="#" id="settingsLink">Settings</a>
-      </div>
-    </div>
-
-    <!-- Main Screen (after login) -->
-    <div id="mainScreen" class="screen" style="display: none;">
-      <div class="header">
-        <div class="user-info">
-          <span id="userName"></span>
-          <button id="logoutBtn" class="btn-link">Logout</button>
-        </div>
-      </div>
-      
-      <button id="scrapeBtn" class="btn btn-primary btn-large">
-        <span class="icon">📦</span>
-        Scrape Current Page
-      </button>
-      
-      <div id="statusMessage" class="status-message" style="display: none;"></div>
-    </div>
-
-    <!-- Part Creation Dialog -->
-    <div id="partDialog" class="dialog" style="display: none;">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2>Create Part</h2>
-          <button id="closeDialog" class="btn-close">&times;</button>
-        </div>
-        
-        <div id="dialogError" class="error-message" style="display: none;"></div>
-        
-        <form id="partForm">
-          <div class="form-group">
-            <label for="partName">Part Name *</label>
-            <input type="text" id="partName" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="partBrand">Brand</label>
-            <input type="text" id="partBrand">
-          </div>
-          
-          <div class="form-group">
-            <label for="partNumber">Part Number</label>
-            <input type="text" id="partNumber">
-          </div>
-          
-          <div class="form-group">
-            <label for="partDescription">Description</label>
-            <textarea id="partDescription" rows="3"></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label for="partPrice">Price ($)</label>
-            <input type="number" id="partPrice" step="0.01" min="0">
-          </div>
-          
-          <div class="form-group">
-            <label for="partUrl">Product URL</label>
-            <input type="url" id="partUrl">
-          </div>
-          
-          <div class="form-group">
-            <label for="partCategory">Category *</label>
-            <select id="partCategory" required>
-              <option value="">Loading...</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="partCar">Car Model (Optional)</label>
-            <div class="searchable-select" id="partCarContainer">
-              <div class="searchable-select-trigger" id="partCarTrigger">
-                <span id="partCarDisplay">None</span>
-                <span class="searchable-select-arrow">▼</span>
-              </div>
-              <div class="searchable-select-dropdown" id="partCarDropdown" style="display: none;">
-                <input 
-                  type="text" 
-                  class="searchable-select-search" 
-                  id="partCarSearch" 
-                  placeholder="Search cars..."
-                  autocomplete="off"
-                >
-                <div class="searchable-select-options" id="partCarOptions">
-                  <div class="searchable-select-option" data-value="">None</div>
-                </div>
-              </div>
-              <input type="hidden" id="partCar" value="">
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="partImage">Image URL</label>
-            <input type="url" id="partImage">
-            <div id="imagePreview" class="image-preview" style="display: none;">
-              <img id="previewImg" src="" alt="Preview">
-            </div>
-          </div>
-          
-          <div class="dialog-actions">
-            <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
-            <button type="submit" id="createBtn" class="btn btn-primary">
-              Create Part
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-  
-  <script src="dist/popup.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main-popup.tsx"></script>
 </body>
 </html>

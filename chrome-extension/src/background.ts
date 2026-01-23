@@ -20,7 +20,7 @@ const DEFAULT_API_URL = 'https://carmodpicker.com/api';
  */
 async function getApiUrl(): Promise<string> {
   const result = await chrome.storage.sync.get(['apiUrl']);
-  const apiUrl = (result.apiUrl as string) || DEFAULT_API_URL;
+  const apiUrl = (result['apiUrl'] as string) || DEFAULT_API_URL;
   console.log('[Background] API URL:', apiUrl);
   return apiUrl;
 }
@@ -30,7 +30,7 @@ async function getApiUrl(): Promise<string> {
  */
 async function getToken(): Promise<string | null> {
   const result = await chrome.storage.local.get(['authToken']);
-  return (result.authToken as string) || null;
+  return (result['authToken'] as string) || null;
 }
 
 /**

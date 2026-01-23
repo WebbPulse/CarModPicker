@@ -4,15 +4,22 @@
   "description": "Chrome extension for CarModPicker part scraping",
   "type": "module",
   "scripts": {
-    "build": "tsc && node clean-build.js",
-    "watch": "tsc --watch",
-    "watch:build": "tsc --watch && node clean-build.js",
-    "dev": "npm run watch",
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "dev": "vite build --watch",
     "type-check": "tsc --noEmit"
   },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.7",
     "@types/chrome": "^0.0.268",
-    "sharp": "^0.34.5",
-    "typescript": "~5.8.3"
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react-swc": "^3.9.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
   }
 }
