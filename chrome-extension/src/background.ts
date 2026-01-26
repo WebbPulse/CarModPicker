@@ -21,7 +21,6 @@ const DEFAULT_API_URL = 'https://carmodpicker.com/api';
 async function getApiUrl(): Promise<string> {
   const result = await chrome.storage.sync.get(['apiUrl']);
   const apiUrl = (result['apiUrl'] as string) || DEFAULT_API_URL;
-  console.log('[Background] API URL:', apiUrl);
   return apiUrl;
 }
 
@@ -68,42 +67,22 @@ async function apiRequest<T>(
   }
 
   try {
-    console.log('[Background] API request:', { method: options.method || 'GET', url, hasToken: !!token });
     const response = await fetch(url, {
       ...options,
       headers: headers as HeadersInit,
     });
-
-    console.log('[Background] API response:', { status: response.status, statusText: response.statusText });
 
     const data = (await response.json().catch(() => ({}))) as unknown;
 
     if (!response.ok) {
       const errorData = data as { detail?: string };
       const errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-      
-      // Don't log 401/403 as errors - these are expected when not logged in
-      if (response.status === 401 || response.status === 403) {
-        console.log('[Background] API request requires authentication (user not logged in)');
-      } else {
-        console.error('[Background] API error:', errorMessage);
-      }
       throw new Error(errorMessage);
     }
 
     return { success: true, data: data as T };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Request failed';
-    
-    // Check if this is a network/CORS error vs authentication error
-    if (errorMessage === 'Failed to fetch') {
-      // This could be CORS, network issue, or user not logged in
-      // Only log as warning, not error, since it's often expected
-      console.warn('[Background] API request failed (network/CORS or not authenticated):', url);
-    } else {
-      console.error('[Background] API request failed:', errorMessage, error);
-    }
-    
     return {
       success: false,
       error: errorMessage,
@@ -121,18 +100,11 @@ async function login(
   const apiUrl = await getApiUrl();
   const loginUrl = `${apiUrl}/auth/token`;
 
-  console.log('[Background] Login attempt:', { apiUrl, loginUrl, username });
-
   const formData = new URLSearchParams();
   formData.append('username', username);
   formData.append('password', password);
 
   try {
-    console.log('[Background] Sending login request to:', loginUrl);
-    console.log('[Background] Request headers:', {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    });
-    
     const response = await fetch(loginUrl, {
       method: 'POST',
       headers: {
@@ -141,22 +113,12 @@ async function login(
       body: formData.toString(),
     });
 
-    console.log('[Background] Response status:', response.status, response.statusText);
-    console.log('[Background] Response headers:', {
-      'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
-      'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
-      'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
-    });
-
     let data: LoginResponse | { detail?: string };
     try {
       data = (await response.json()) as LoginResponse | { detail?: string };
-      console.log('[Background] Response data:', data);
-    } catch (parseError) {
+    } catch (_parseError) {
       const text = await response.text();
-      console.error('[Background] Failed to parse JSON response:', text);
-      console.error('[Background] Parse error:', parseError);
-      
+
       // Check for CORS errors
       if (response.status === 0 || !response.ok && response.statusText === '') {
         return {
@@ -174,7 +136,6 @@ async function login(
     if (!response.ok) {
       const errorData = data as { detail?: string };
       const errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-      console.error('[Background] Login failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -185,7 +146,6 @@ async function login(
 
     // Check for 2FA requirement
     if (loginData.requires_2fa) {
-      console.log('[Background] 2FA required for user');
       return {
         success: false,
         requires2FA: true,
@@ -195,15 +155,12 @@ async function login(
 
     if (loginData.access_token) {
       await setToken(loginData.access_token);
-      console.log('[Background] Login successful, token saved');
       return { success: true, data: loginData.user };
     }
 
-    console.error('[Background] No access token in response');
     return { success: false, error: 'No access token received' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Login failed';
-    console.error('[Background] Login error:', errorMessage, error);
     return {
       success: false,
       error: errorMessage,
@@ -315,14 +272,11 @@ chrome.runtime.onMessage.addListener(
     _sender,
     sendResponse: (response: unknown) => void
   ) => {
-    console.log('[Background] Received message:', request.action);
-
     if (request.action === 'login') {
       if (request.username && request.password) {
         login(request.username, request.password).then(sendResponse);
         return true; // Keep channel open for async
       } else {
-        console.error('[Background] Login request missing username or password');
         sendResponse({ success: false, error: 'Username and password required' });
         return false;
       }
@@ -330,7 +284,6 @@ chrome.runtime.onMessage.addListener(
 
     if (request.action === 'logout') {
       removeToken().then(() => {
-        console.log('[Background] Logged out');
         sendResponse({ success: true });
       });
       return true;
@@ -373,7 +326,6 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    console.warn('[Background] Unknown action:', request.action);
     return false;
   }
 );

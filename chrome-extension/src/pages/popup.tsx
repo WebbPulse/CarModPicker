@@ -41,8 +41,7 @@ function Popup() {
       } else {
         setUser(null);
       }
-    } catch (error) {
-      console.error("Auth check failed:", error);
+    } catch {
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -155,7 +154,7 @@ function Popup() {
   return (
     <div className={containerClasses}>
       {/* Header with CarModPicker title */}
-      <div className="w-full px-4 py-3 border-b border-white/10 bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 backdrop-blur-sm">
+      <div className="w-full px-4 py-3 border-b border-white/10 bg-linear-to-r from-neutral-900/50 to-neutral-800/50 backdrop-blur-sm">
         <h1 className="text-sm font-semibold text-white/90 tracking-wide">
           CarModPicker
         </h1>

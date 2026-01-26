@@ -32,16 +32,11 @@ function cleanFile(filePath) {
   content = content.replace(/\n{3,}$/, '\n');
   
   fs.writeFileSync(filePath, content, 'utf8');
-  console.log(`✓ Cleaned ${path.basename(filePath)}`);
 }
 
 filesToClean.forEach(file => {
   const filePath = path.join(distDir, file);
   if (fs.existsSync(filePath)) {
     cleanFile(filePath);
-  } else {
-    console.log(`⚠ File not found: ${file}`);
   }
 });
-
-console.log('\nBuild cleanup complete!');

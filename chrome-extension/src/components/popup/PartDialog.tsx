@@ -66,8 +66,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       if (response.success && Array.isArray(response.data)) {
         setCategories(response.data.filter((cat) => cat.is_active));
       }
-    } catch (error) {
-      console.error("Failed to load categories:", error);
+    } catch {
+      // Categories failed to load; form will show empty
     }
   };
 
@@ -81,8 +81,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       if (response.success && Array.isArray(response.data)) {
         setCars(response.data);
       }
-    } catch (error) {
-      console.error("Failed to load cars:", error);
+    } catch {
+      // Cars failed to load; form will show empty
     }
   };
 
@@ -100,8 +100,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       if (response.success && Array.isArray(response.data)) {
         return response.data;
       }
-    } catch (error) {
-      console.error("Failed to search cars:", error);
+    } catch {
+      // Search failed; return existing cars
     }
 
     return [];
@@ -148,9 +148,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
         if (imageResult.success && imageResult.data) {
           partData.image_url = imageResult.data.fileKey;
-        } else {
-          console.warn("Image upload failed:", imageResult.error);
         }
+        // If image upload failed, we continue without image
       }
 
       // Create part

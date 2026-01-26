@@ -20,7 +20,6 @@ const inlineVendorPlugin = () => {
       // Find vendor chunk
       const assetsDir = resolve(__dirname, "dist", "assets");
       if (!existsSync(assetsDir)) {
-        console.log("⚠ No assets directory found, skipping vendor inlining");
         return;
       }
       const vendorFiles = readdirSync(assetsDir).filter(
@@ -42,12 +41,9 @@ const inlineVendorPlugin = () => {
               return prefix + '\n' + vendorContent;
             });
             writeFileSync(popupJsPath, popupContent, "utf-8");
-            console.log("✓ Inlined vendor chunk into popup.js");
-          } else {
-            console.log("⚠ No vendor import found in popup.js to inline");
           }
         }
-        
+
         // Inline vendor into options.js
         if (existsSync(optionsJsPath)) {
           let optionsContent = readFileSync(optionsJsPath, "utf-8");
@@ -57,9 +53,6 @@ const inlineVendorPlugin = () => {
               return prefix + '\n' + vendorContent;
             });
             writeFileSync(optionsJsPath, optionsContent, "utf-8");
-            console.log("✓ Inlined vendor chunk into options.js");
-          } else {
-            console.log("⚠ No vendor import found in options.js to inline");
           }
         }
       }
@@ -81,19 +74,15 @@ const fixHtmlPlugin = () => {
         html = html.replace(/\s+crossorigin/g, "");
         // Keep type="module" - required for ES modules
         writeFileSync(popupHtmlPath, html, "utf-8");
-        console.log("✓ Fixed popup.html for Chrome extension");
       }
 
       // Fix options.html
       const optionsHtmlPath = resolve(__dirname, "dist", "options.html");
       if (existsSync(optionsHtmlPath)) {
         let html = readFileSync(optionsHtmlPath, "utf-8");
-        // Remove crossorigin attribute from script and link tags
         html = html.replace(/\s+crossorigin="[^"]*"/g, "");
         html = html.replace(/\s+crossorigin/g, "");
-        // Keep type="module" - required for ES modules
         writeFileSync(optionsHtmlPath, html, "utf-8");
-        console.log("✓ Fixed options.html for Chrome extension");
       }
     },
   };
@@ -119,7 +108,6 @@ const copyManifestPlugin = () => {
           );
         }
         writeFileSync(manifestDest, JSON.stringify(manifest, null, 2), "utf-8");
-        console.log("✓ Copied and fixed manifest.json to dist/");
       }
 
       // Copy icons directory
@@ -135,7 +123,6 @@ const copyManifestPlugin = () => {
             copyFileSync(srcPath, destPath);
           }
         });
-        console.log("✓ Copied icons to dist/icons/");
       }
     },
   };
