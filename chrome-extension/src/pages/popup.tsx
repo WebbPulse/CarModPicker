@@ -1,15 +1,20 @@
-import { useEffect, useState } from 'react';
-import LoginScreen from '../components/popup/LoginScreen';
-import MainScreen from '../components/popup/MainScreen';
-import PartDialog from '../components/popup/PartDialog';
-import type { User, ScrapedProductData } from '../types';
+import { useEffect, useState } from "react";
+import LoginScreen from "../components/popup/LoginScreen";
+import MainScreen from "../components/popup/MainScreen";
+import PartDialog from "../components/popup/PartDialog";
+import type { ScrapedProductData, User } from "../types";
 
 function Popup() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPartDialog, setShowPartDialog] = useState(false);
-  const [scrapedData, setScrapedData] = useState<ScrapedProductData | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
+  const [scrapedData, setScrapedData] = useState<ScrapedProductData | null>(
+    null,
+  );
+  const [statusMessage, setStatusMessage] = useState<{
+    message: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     checkAuthStatus();
@@ -19,25 +24,25 @@ function Popup() {
   useEffect(() => {
     const body = document.body;
     if (showPartDialog) {
-      body.style.width = '800px';
+      body.style.width = "800px";
     } else {
-      body.style.width = '400px';
+      body.style.width = "400px";
     }
   }, [showPartDialog]);
 
   const checkAuthStatus = async () => {
     try {
       const response = (await sendMessage({
-        action: 'getCurrentUser',
+        action: "getCurrentUser",
       })) as { success: boolean; data?: User };
-      
+
       if (response.success && response.data) {
         setUser(response.data);
       } else {
         setUser(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error("Auth check failed:", error);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -49,26 +54,31 @@ function Popup() {
   };
 
   const handleLogout = async () => {
-    await sendMessage({ action: 'logout' });
+    await sendMessage({ action: "logout" });
     setUser(null);
   };
 
   const handleScrape = async () => {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (!tab?.id) {
-        showStatus('No active tab found', 'error');
+        showStatus("No active tab found", "error");
         return;
       }
 
       chrome.tabs.sendMessage(
         tab.id,
-        { action: 'scrapePage' },
-        (response: { success: boolean; data: ScrapedProductData } | undefined) => {
+        { action: "scrapePage" },
+        (
+          response: { success: boolean; data: ScrapedProductData } | undefined,
+        ) => {
           if (chrome.runtime.lastError) {
             showStatus(
-              'Failed to scrape page data. Make sure you are on a product page and refresh if needed.',
-              'error'
+              "Failed to scrape page data. Make sure you are on a product page and refresh if needed.",
+              "error",
             );
             return;
           }
@@ -76,21 +86,25 @@ function Popup() {
             setScrapedData(response.data);
             setShowPartDialog(true);
           } else {
-            showStatus('Failed to scrape page data. Make sure you are on a product page.', 'error');
+            showStatus(
+              "Failed to scrape page data. Make sure you are on a product page.",
+              "error",
+            );
           }
-        }
+        },
       );
     } catch (error) {
       showStatus(
-        'Error scraping page: ' + (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
+        "Error scraping page: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        "error",
       );
     }
   };
 
-  const showStatus = (message: string, type: 'info' | 'success' | 'error') => {
+  const showStatus = (message: string, type: "info" | "success" | "error") => {
     setStatusMessage({ message, type });
-    if (type === 'success') {
+    if (type === "success") {
       setTimeout(() => {
         setStatusMessage(null);
       }, 3000);
@@ -100,7 +114,7 @@ function Popup() {
   const handlePartCreated = () => {
     setShowPartDialog(false);
     setScrapedData(null);
-    showStatus('Part created successfully!', 'success');
+    showStatus("Part created successfully!", "success");
   };
 
   type SendMessageParams = {
@@ -140,6 +154,13 @@ function Popup() {
 
   return (
     <div className={containerClasses}>
+      {/* Header with CarModPicker title */}
+      <div className="w-full px-4 py-3 border-b border-white/10 bg-gradient-to-r from-neutral-900/50 to-neutral-800/50 backdrop-blur-sm">
+        <h1 className="text-sm font-semibold text-white/90 tracking-wide">
+          CarModPicker
+        </h1>
+      </div>
+
       {!user ? (
         <LoginScreen onLogin={handleLogin} sendMessage={sendMessage} />
       ) : (
@@ -150,7 +171,7 @@ function Popup() {
           statusMessage={statusMessage}
         />
       )}
-      
+
       {showPartDialog && scrapedData && (
         <PartDialog
           scrapedData={scrapedData}
