@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
+  brandsApi,
   buildListPartsApi,
   carsApi,
   categoriesApi,
@@ -11,6 +12,7 @@ import {
   usersApi,
 } from '../../services/Api';
 import type {
+  BrandResponse,
   CarRead,
   CategoryResponse,
   GlobalPartReadWithVotes,
@@ -45,6 +47,8 @@ const fetchUserRequestFn = (userId: number) => usersApi.getUser(userId);
 
 const fetchCarRequestFn = (carId: number) => carsApi.getCar(carId);
 
+const fetchBrandRequestFn = (brandId: number) => brandsApi.getBrand(brandId);
+
 const deletePartRequestFn = (partId: string) =>
   globalPartsApi.deleteGlobalPart(Number(partId));
 
@@ -64,6 +68,7 @@ function ViewGlobalPart() {
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
   const [car, setCar] = useState<CarRead | null>(null);
+  const [brand, setBrand] = useState<BrandResponse | null>(null);
 
   const {
     data: part,
@@ -99,6 +104,13 @@ function ViewGlobalPart() {
     error: carApiError,
     executeRequest: fetchCar,
   } = useApiRequest(fetchCarRequestFn);
+
+  const {
+    data: brandData,
+    isLoading: isLoadingBrand,
+    error: brandApiError,
+    executeRequest: fetchBrand,
+  } = useApiRequest(fetchBrandRequestFn);
 
   const {
     isLoading: isDeletingPart,
@@ -137,6 +149,14 @@ function ViewGlobalPart() {
     }
   }, [fetchCar, part?.car_id]);
 
+  const memoizedFetchBrand = useCallback(() => {
+    if (part?.brand_id) {
+      void fetchBrand(part.brand_id);
+    } else {
+      setBrand(null);
+    }
+  }, [fetchBrand, part?.brand_id]);
+
   useEffect(() => {
     memoizedFetchPart();
     memoizedFetchVoteSummary();
@@ -170,10 +190,20 @@ function ViewGlobalPart() {
   }, [memoizedFetchCar]);
 
   useEffect(() => {
+    memoizedFetchBrand();
+  }, [memoizedFetchBrand]);
+
+  useEffect(() => {
     if (carData) {
       setCar(carData);
     }
   }, [carData]);
+
+  useEffect(() => {
+    if (brandData) {
+      setBrand(brandData);
+    }
+  }, [brandData]);
 
   const handleGlobalPartUpdated = async () => {
     if (partId) {
@@ -255,7 +285,8 @@ function ViewGlobalPart() {
     isLoadingVotes ||
     isLoadingCategories ||
     isLoadingOwner ||
-    isLoadingCar;
+    isLoadingCar ||
+    isLoadingBrand;
 
   if (isLoading && !part) {
     return (
@@ -430,12 +461,26 @@ function ViewGlobalPart() {
           )}
           {category && (
             <CardInfoItem label="Category:">
-              <p className="text-blue-400">{category.display_name}</p>
+              <Link
+                to={
+                  part.car_id
+                    ? `/global-parts?mode=category_car&category_id=${category.id}&car_id=${part.car_id}`
+                    : `/global-parts?mode=category_car&category_id=${category.id}`
+                }
+                className="text-blue-400 hover:text-blue-300 underline transition-colors"
+              >
+                {category.display_name}
+              </Link>
             </CardInfoItem>
           )}
-          {part.brand && (
+          {brand && (
             <CardInfoItem label="Brand:">
-              <p>{part.brand}</p>
+              <Link
+                to={`/global-parts?mode=brand&brand_id=${brand.id}`}
+                className="text-blue-400 hover:text-blue-300 underline transition-colors"
+              >
+                {brand.name}
+              </Link>
             </CardInfoItem>
           )}
           {part.part_number && (
@@ -524,6 +569,11 @@ function ViewGlobalPart() {
         {carApiError && (
           <ErrorAlert
             message={`Error loading car information: ${carApiError}`}
+          />
+        )}
+        {brandApiError && (
+          <ErrorAlert
+            message={`Error loading brand information: ${brandApiError}`}
           />
         )}
       </Card>

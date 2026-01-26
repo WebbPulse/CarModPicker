@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
     auth,
+    brands,
     bug_reports,
     build_list_parts,
     build_lists,
@@ -185,6 +186,12 @@ endpoint_registry.register_crud_endpoint(
     categories.router,
     entity_name="categories",
     description="Category management operations",
+)
+
+endpoint_registry.register_crud_endpoint(
+    brands.router,
+    entity_name="brands",
+    description="Brand management operations",
 )
 
 # Search endpoint

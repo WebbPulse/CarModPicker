@@ -59,7 +59,7 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     image_url: str | None = None
     category_id: int
     car_id: int | None = None  # Optional car association
-    brand: str | None = None
+    brand_id: int | None = None  # Optional brand association
     part_number: str | None = None
     specifications: dict[str, Any] | None = None
 

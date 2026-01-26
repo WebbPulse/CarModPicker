@@ -193,7 +193,7 @@ export interface GlobalPartCreate {
   product_url?: string | null;
   category_id: number;
   car_id?: number | null; // Optional car association
-  brand?: string | null;
+  brand_id?: number | null; // Optional brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
@@ -208,7 +208,7 @@ export interface GlobalPartRead {
   category_id: number;
   user_id: number;
   car_id?: number | null; // Optional car association
-  brand?: string | null;
+  brand_id?: number | null; // Optional brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   is_verified: boolean;
@@ -247,7 +247,7 @@ export interface GlobalPartUpdate {
   product_url?: string | null;
   category_id?: number | null;
   car_id?: number | null; // Optional car association
-  brand?: string | null;
+  brand_id?: number | null; // Optional brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
@@ -281,6 +281,28 @@ export interface CategoryUpdate {
   icon?: string | null;
   is_active?: boolean | null;
   sort_order?: number | null;
+}
+
+// Brand interfaces
+export interface BrandResponse {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BrandCreate {
+  name: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface BrandUpdate {
+  name?: string | null;
+  description?: string | null;
+  is_active?: boolean | null;
 }
 
 // Unified voting system interfaces

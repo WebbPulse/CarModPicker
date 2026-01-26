@@ -4,7 +4,7 @@ Search endpoint that searches across multiple entity types.
 This endpoint provides unified search functionality across:
 - Build lists (name, description, and associated car make/model/generation/year range)
 - User profiles (username, email)
-- Global parts (name, description, brand, part_number)
+- Global parts (name, description, brand name, part_number)
 """
 
 from typing import Any, Dict
@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
@@ -117,14 +118,20 @@ async def search_all(
     user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
 
-    # Search global parts (name, description, brand, part_number)
-    global_part_query = db.query(DBGlobalPart).filter(
-        or_(
-            DBGlobalPart.name.ilike(f"%{search_term}%"),
-            DBGlobalPart.description.ilike(f"%{search_term}%"),
-            DBGlobalPart.brand.ilike(f"%{search_term}%"),
-            DBGlobalPart.part_number.ilike(f"%{search_term}%"),
+    # Search global parts (name, description, brand name, part_number)
+    global_part_query = (
+        db.query(DBGlobalPart)
+        .outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id)
+        .filter(
+            or_(
+                DBGlobalPart.name.ilike(f"%{search_term}%"),
+                DBGlobalPart.description.ilike(f"%{search_term}%"),
+                DBBrand.name.ilike(f"%{search_term}%"),
+                DBBrand.description.ilike(f"%{search_term}%"),
+                DBGlobalPart.part_number.ilike(f"%{search_term}%"),
+            )
         )
+        .options(joinedload(DBGlobalPart.brand))
     )
     global_part_total = get_total_count(global_part_query)
     global_parts = global_part_query.offset(skip).limit(limit).all()

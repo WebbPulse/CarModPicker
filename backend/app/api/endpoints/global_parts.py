@@ -45,6 +45,7 @@ from app.api.utils.endpoint_decorators import (
 from app.api.utils.pagination_utils import (
     create_paginated_response,
 )
+from app.api.utils.response_patterns import ResponsePatterns
 
 # Create router
 router = APIRouter()
@@ -59,6 +60,56 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             model=DBGlobalPart,
             entity_name="global part",
             subscription_check_method="can_create_global_part",
+        )
+
+    def create(
+        self,
+        db: Session,
+        data: GlobalPartCreate,
+        current_user: DBUser,
+        logger: logging.Logger,
+        additional_data: Optional[Dict[str, Any]] = None,
+    ) -> DBGlobalPart:
+        """
+        Create a new global part with duplicate URL checking.
+
+        Args:
+            db: Database session
+            data: Global part creation data
+            current_user: Current authenticated user
+            logger: Logger instance
+            additional_data: Additional data to include (e.g., user_id)
+
+        Returns:
+            The created global part
+
+        Raises:
+            HTTPException: If creation fails, subscription limit reached, or duplicate URL found
+        """
+        # Check for duplicate product_url if provided
+        if data.product_url and data.product_url.strip():
+            existing_part = (
+                db.query(DBGlobalPart)
+                .filter(DBGlobalPart.product_url == data.product_url.strip())
+                .first()
+            )
+            if existing_part:
+                logger.info(
+                    f"User {current_user.id} attempted to create part with duplicate URL: {data.product_url}"
+                )
+                ResponsePatterns.raise_conflict(
+                    message=f"A part with this URL already exists (Part ID: {existing_part.id})",
+                    error_code="DUPLICATE_PRODUCT_URL",
+                    details={"existing_part_id": existing_part.id},
+                )
+
+        # Call parent create method if no duplicate found
+        return super().create(
+            db=db,
+            data=data,
+            current_user=current_user,
+            logger=logger,
+            additional_data=additional_data,
         )
 
     def update(
@@ -143,6 +194,7 @@ async def read_global_parts_with_votes(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of global parts to return"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
     car_id: Optional[int] = Query(None, description="Filter by car ID"),
+    brand_id: Optional[int] = Query(None, description="Filter by brand ID"),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
@@ -192,6 +244,8 @@ async def read_global_parts_with_votes(
     if car_id:
         # Include both parts specific to this car AND universal parts (car_id is null)
         base_query = base_query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
+    if brand_id:
+        base_query = base_query.filter(DBGlobalPart.brand_id == brand_id)
 
     # Get total count from base query (joins don't affect which parts match filters)
     total = base_query.count()
@@ -213,6 +267,8 @@ async def read_global_parts_with_votes(
     if car_id:
         # Include both parts specific to this car AND universal parts (car_id is null)
         query = query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
+    if brand_id:
+        query = query.filter(DBGlobalPart.brand_id == brand_id)
 
     # Sort by net votes (upvotes - downvotes) descending, then by id for consistent ordering
     # This matches what users see in the UI (the +1, -2, etc. values)
@@ -333,6 +389,50 @@ async def get_global_parts_by_category(
     parts = db.query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).offset(skip).limit(limit).all()
     logger.info(f"Retrieved {len(parts)} parts for category {category_id}")
     return [GlobalPartRead.model_validate(part) for part in parts]
+
+
+@router.get(
+    "/check-url",
+    response_model=Dict[str, Optional[int]],
+    responses=standard_responses(
+        success_description="URL check completed",
+    ),
+)
+async def check_product_url_exists(
+    product_url: Optional[str] = Query(None, description="Product URL to check"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, Optional[int]]:
+    """
+    Check if a product URL already exists in the global parts catalog.
+    Returns the part ID if found, null otherwise.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        # FastAPI will decode the URL automatically, but let's ensure we handle it properly
+        if not product_url or not product_url.strip():
+            return {"existing_part_id": None}
+        
+        # Normalize the URL by stripping whitespace
+        normalized_url = product_url.strip()
+
+        existing_part = (
+            db.query(DBGlobalPart)
+            .filter(DBGlobalPart.product_url == normalized_url)
+            .first()
+        )
+
+        if existing_part:
+            logger.info(f"URL check: Found existing part {existing_part.id} for URL: {normalized_url[:50]}...")
+            return {"existing_part_id": existing_part.id}
+        else:
+            logger.debug(f"URL check: No existing part found for URL: {normalized_url[:50]}...")
+            return {"existing_part_id": None}
+    except Exception as e:
+        logger.error(f"Error checking product URL: {str(e)}", exc_info=True)
+        # Return None on error to avoid blocking the user
+        return {"existing_part_id": None}
 
 
 # Create base endpoint router AFTER custom endpoints to avoid route collision

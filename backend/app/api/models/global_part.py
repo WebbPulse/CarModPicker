@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
+    from .brand import Brand
     from .build_list_part import BuildListPart
     from .car import Car
     from .category import Category
@@ -36,7 +37,9 @@ class GlobalPart(Base):
     car_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("cars.id"), nullable=True, index=True
     )  # Optional car association
-    brand: Mapped[Optional[str]] = mapped_column(nullable=True)
+    brand_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("brands.id"), nullable=True, index=True
+    )  # Optional brand association
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
     specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
@@ -52,6 +55,7 @@ class GlobalPart(Base):
     category: Mapped["Category"] = relationship("Category", back_populates="global_parts")
     creator: Mapped["User"] = relationship("User", back_populates="global_parts")
     car: Mapped[Optional["Car"]] = relationship("Car", back_populates="global_parts")
+    brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="global_parts")
     build_lists: Mapped[list["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="global_part", cascade="all, delete-orphan"
     )

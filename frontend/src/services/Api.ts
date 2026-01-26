@@ -26,6 +26,9 @@ import type {
   CarGenerationUpdate,
   CarRead,
   CarUpdate,
+  BrandCreate,
+  BrandResponse,
+  BrandUpdate,
   CategoryCreate,
   CategoryResponse,
   CategoryUpdate,
@@ -332,6 +335,7 @@ export const globalPartsApi = {
     limit?: number;
     category_id?: number;
     car_id?: number;
+    brand_id?: number;
     search?: string;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
@@ -371,6 +375,12 @@ export const globalPartsApi = {
     apiClient.get<{ count: number }>('/global-parts/count'),
   countGlobalPartsByUser: (userId: number) =>
     apiClient.get<{ count: number }>(`/global-parts/user/${userId}/count`),
+
+  // Check if product URL exists
+  checkProductUrl: (productUrl: string) =>
+    apiClient.get<{ existing_part_id: number | null }>('/global-parts/check-url', {
+      params: { product_url: productUrl },
+    }),
 };
 
 // Categories API
@@ -396,6 +406,25 @@ export const categoriesApi = {
   getCategoryPartsCount: (categoryId: number) =>
     apiClient.get<{ count: number }>(`/categories/${categoryId}/parts-count`),
   countCategories: () => apiClient.get<{ count: number }>('/categories/count'),
+};
+
+// Brands API
+export const brandsApi = {
+  getBrands: (activeOnly: boolean = true) =>
+    apiClient.get<BrandResponse[]>('/brands/', { params: { active_only: activeOnly } }),
+  searchBrands: (q: string, params?: { skip?: number; limit?: number }) =>
+    apiClient.get<BrandResponse[]>('/brands/search', { params: { q, ...params } }),
+  getBrand: (brandId: number) => apiClient.get<BrandResponse>(`/brands/${brandId}`),
+  createBrand: (data: BrandCreate) => apiClient.post<BrandResponse>('/brands/', data),
+  updateBrand: (brandId: number, data: BrandUpdate) =>
+    apiClient.put<BrandResponse>(`/brands/${brandId}`, data),
+  deleteBrand: (brandId: number) =>
+    apiClient.delete<Record<string, string>>(`/brands/${brandId}`),
+  getPartsByBrand: (brandId: number, params?: { skip?: number; limit?: number }) =>
+    apiClient.get<GlobalPartRead[]>(`/brands/${brandId}/global-parts`, { params }),
+  getBrandPartsCount: (brandId: number) =>
+    apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
+  countBrands: () => apiClient.get<{ count: number }>('/brands/count'),
 };
 
 // Unified Votes API
@@ -546,7 +575,7 @@ export const buildListPartsApi = {
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
         car_id: globalPartData.car_id,
-        brand: globalPartData.brand,
+        brand_id: globalPartData.brand_id,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
         notes: buildListPartData.notes,

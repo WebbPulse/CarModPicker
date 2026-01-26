@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import {
+  brandsApi,
   buildListPartsApi,
   carsApi,
   categoriesApi,
   globalPartsApi,
 } from '../../services/Api';
 import type {
+  BrandCreate,
+  BrandResponse,
   BuildListPartCreate,
   CarRead,
   CategoryResponse,
@@ -46,7 +50,7 @@ function CreateBuildListPartForm({
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand: '',
+    brand_id: null as number | null,
     description: '',
     price: '',
     product_url: '',
@@ -56,6 +60,8 @@ function CreateBuildListPartForm({
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [duplicatePartId, setDuplicatePartId] = useState<number | null>(null);
+  const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -64,6 +70,10 @@ function CreateBuildListPartForm({
   const [isLoadingCars, setIsLoadingCars] = useState(true);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [brands, setBrands] = useState<BrandResponse[]>([]);
+  const [isLoadingBrands, setIsLoadingBrands] = useState(true);
+  const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
+  const urlCheckTimeoutRef = useRef<number | null>(null);
 
   const {
     data: globalParts,
@@ -77,11 +87,15 @@ function CreateBuildListPartForm({
   const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
   const { data: categoriesData, executeRequest: fetchCategories } =
     useApiRequest(fetchCategoriesRequestFn);
+  const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
+  const { data: brandsData, executeRequest: fetchBrands } =
+    useApiRequest(fetchBrandsRequestFn);
 
   useEffect(() => {
     void fetchGlobalParts();
     void fetchCars();
     void fetchCategories();
+    void fetchBrands();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch once on mount - request functions are stable
 
@@ -99,10 +113,78 @@ function CreateBuildListPartForm({
     }
   }, [categoriesData]);
 
+  useEffect(() => {
+    if (brandsData && Array.isArray(brandsData)) {
+      setBrands(brandsData);
+      setIsLoadingBrands(false);
+    }
+  }, [brandsData]);
+
+  // Debounced URL checking effect (only when in create mode)
+  useEffect(() => {
+    // Only check URL when in create mode
+    if (mode !== 'create') {
+      setDuplicatePartId(null);
+      setIsCheckingUrl(false);
+      return;
+    }
+
+    // Clear any existing timeout
+    if (urlCheckTimeoutRef.current) {
+      clearTimeout(urlCheckTimeoutRef.current);
+    }
+
+    const url = formData.product_url.trim();
+    
+    // Don't check if URL is empty
+    if (!url) {
+      setDuplicatePartId(null);
+      setIsCheckingUrl(false);
+      return;
+    }
+
+    // Basic URL validation - only check if it looks like a URL
+    const urlPattern = /^https?:\/\/.+/;
+    if (!urlPattern.test(url)) {
+      setDuplicatePartId(null);
+      setIsCheckingUrl(false);
+      return;
+    }
+
+    // Set checking state
+    setIsCheckingUrl(true);
+    setDuplicatePartId(null);
+
+    // Debounce the check - wait 500ms after user stops typing
+    urlCheckTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const response = await globalPartsApi.checkProductUrl(url);
+        if (response.data.existing_part_id) {
+          setDuplicatePartId(response.data.existing_part_id);
+        } else {
+          setDuplicatePartId(null);
+        }
+      } catch {
+        // Silently fail - don't show error for URL checks
+        setDuplicatePartId(null);
+      } finally {
+        setIsCheckingUrl(false);
+      }
+    }, 500);
+
+    // Cleanup function
+    return () => {
+      if (urlCheckTimeoutRef.current) {
+        clearTimeout(urlCheckTimeoutRef.current);
+      }
+    };
+  }, [formData.product_url, mode]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (validationError) setValidationError(null);
+    // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
   const handlePriceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -189,12 +271,17 @@ function CreateBuildListPartForm({
         // Sort by name first
         return a.name.localeCompare(b.name);
       })
-      .map((part) => ({
-        id: part.id,
-        value: part.id,
-        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}${part.price ? ` - $${(part.price / 100).toFixed(2)}` : ''}`,
-      }));
-  }, [globalParts]);
+      .map((part) => {
+        const brandName = part.brand_id
+          ? brands.find((b) => b.id === part.brand_id)?.name
+          : null;
+        return {
+          id: part.id,
+          value: part.id,
+          label: `${part.name}${brandName ? ` - ${brandName}` : ''}${part.price ? ` - $${(part.price / 100).toFixed(2)}` : ''}`,
+        };
+      });
+  }, [globalParts, brands]);
 
   // Filter function for global parts
   const filterGlobalParts = useCallback(
@@ -207,9 +294,12 @@ function CreateBuildListPartForm({
       return options.filter((option) => {
         const part = globalParts?.find((p) => p.id === option.value);
         if (!part) return false;
+        const brandName = part.brand_id
+          ? brands.find((b) => b.id === part.brand_id)?.name
+          : null;
         return (
           part.name.toLowerCase().includes(lowerText) ||
-          (part.brand && part.brand.toLowerCase().includes(lowerText)) ||
+          (brandName && brandName.toLowerCase().includes(lowerText)) ||
           (part.description &&
             part.description.toLowerCase().includes(lowerText)) ||
           (part.part_number &&
@@ -218,7 +308,7 @@ function CreateBuildListPartForm({
         );
       });
     },
-    [globalParts]
+    [globalParts, brands]
   );
 
   // Convert categories to SearchableSelect options (only active categories)
@@ -253,6 +343,74 @@ function CreateBuildListPartForm({
       });
     },
     [categories]
+  );
+
+  // Convert brands to SearchableSelect options
+  const brandOptions: SearchableSelectOption[] = useMemo(() => {
+    return brands
+      .filter((brand) => brand.is_active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((brand) => ({
+        id: brand.id,
+        label: brand.name,
+        value: brand.id,
+      }));
+  }, [brands]);
+
+  // Filter function for brands
+  const filterBrands = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((opt) => {
+        const brand = brands.find((b) => b.id === opt.value);
+        if (!brand) return false;
+        return (
+          opt.label.toLowerCase().includes(lowerText) ||
+          (brand.description &&
+            brand.description.toLowerCase().includes(lowerText))
+        );
+      });
+    },
+    [brands]
+  );
+
+  const handleBrandChange = useCallback(
+    (value: number | string | null) => {
+      const brandId = value !== null && value !== '' ? Number(value) : null;
+      setFormData((prev) => ({ ...prev, brand_id: brandId }));
+      // Clear pending brand if an existing brand is selected or value is cleared
+      if (brandId !== null || value === null) {
+        setPendingBrandName(null);
+      }
+      if (validationError) setValidationError(null);
+    },
+    [validationError]
+  );
+
+  const createBrandRequestFn = (data: BrandCreate) =>
+    brandsApi.createBrand(data);
+  const { executeRequest: createBrand } = useApiRequest(createBrandRequestFn);
+
+  const handleCreateNewBrand = (brandName: string) => {
+    // Store the brand name to be created later, don't create it yet
+    setPendingBrandName(brandName.trim());
+    // Clear the brand_id since we're creating a new brand
+    setFormData((prev) => ({ ...prev, brand_id: null }));
+    if (validationError) setValidationError(null);
+  };
+
+  const handleBrandInputChange = useCallback(
+    (text: string) => {
+      // Clear pending brand if user types something different
+      if (pendingBrandName && text.trim() !== pendingBrandName) {
+        setPendingBrandName(null);
+      }
+    },
+    [pendingBrandName]
   );
 
   const handleCategoryChange = useCallback(
@@ -292,6 +450,34 @@ function CreateBuildListPartForm({
       setCreateError(null);
 
       try {
+        // Create brand first if there's a pending brand name
+        let brandId = formData.brand_id;
+        if (pendingBrandName) {
+          try {
+            const brandResult = await createBrand({
+              name: pendingBrandName,
+              description: null,
+            });
+            if (brandResult !== null && brandResult.id) {
+              brandId = brandResult.id;
+              // Refresh brands list
+              await fetchBrands();
+            } else {
+              setCreateError('Failed to create brand. Please try again.');
+              setIsCreating(false);
+              return;
+            }
+          } catch (error) {
+            setCreateError(
+              error instanceof Error
+                ? error.message
+                : 'Failed to create brand. Please try again.'
+            );
+            setIsCreating(false);
+            return;
+          }
+        }
+
         const globalPartData: GlobalPartCreate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
@@ -302,7 +488,7 @@ function CreateBuildListPartForm({
           product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
           car_id: formData.car_id,
-          brand: formData.brand.trim() || null,
+          brand_id: brandId,
           part_number: formData.part_number.trim() || null,
         };
 
@@ -316,6 +502,8 @@ function CreateBuildListPartForm({
           buildListPartData
         );
 
+        // Clear pending brand after successful creation
+        setPendingBrandName(null);
         onPartAdded();
       } catch (error) {
         setCreateError(
@@ -372,7 +560,7 @@ function CreateBuildListPartForm({
       setFormData({
         name: '',
         part_number: '',
-        brand: '',
+        brand_id: null,
         description: '',
         price: '',
         product_url: '',
@@ -381,6 +569,7 @@ function CreateBuildListPartForm({
         notes: '',
       });
       setImageFileKey(null);
+      setPendingBrandName(null);
     } else {
       // Clear selection when switching to create mode
       setSelectedGlobalPartId(null);
@@ -473,15 +662,48 @@ function CreateBuildListPartForm({
             placeholder="Enter part number"
           />
 
-          <Input
-            label="Brand"
-            id="global-part-brand"
-            name="brand"
-            type="text"
-            value={formData.brand}
-            onChange={handleInputChange}
-            placeholder="Enter brand name"
-          />
+          <div>
+            <SearchableSelect
+              id="global-part-brand"
+              name="brand_id"
+              label="Brand (Optional)"
+              placeholder="Type to search for a brand or create new..."
+              value={formData.brand_id}
+              onChange={handleBrandChange}
+              options={brandOptions}
+              disabled={isLoadingBrands}
+              isLoading={isLoadingBrands}
+              emptyMessage="No brands found. Type a name to create a new brand."
+              filterOptions={filterBrands}
+              onCreateNew={handleCreateNewBrand}
+              createNewLabel="Create brand"
+              displayValue={pendingBrandName}
+              onInputChange={handleBrandInputChange}
+            />
+            {pendingBrandName && (
+              <div className="mt-2 px-3 py-2 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-blue-300">
+                  <svg
+                    className="w-4 h-4 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>
+                    New brand <strong>&quot;{pendingBrandName}&quot;</strong> will be
+                    created when you submit this form.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           <Input
             label="Description"
@@ -505,15 +727,70 @@ function CreateBuildListPartForm({
             leftIcon={<span className="text-white/80 font-medium">$</span>}
           />
 
-          <Input
-            label="Product URL"
-            id="global-part-product-url"
-            name="product_url"
-            type="url"
-            value={formData.product_url}
-            onChange={handleInputChange}
-            placeholder="https://example.com/product"
-          />
+          <div>
+            <Input
+              label="Product URL"
+              id="global-part-product-url"
+              name="product_url"
+              type="url"
+              value={formData.product_url}
+              onChange={handleInputChange}
+              placeholder="https://example.com/product"
+            />
+            {isCheckingUrl && formData.product_url.trim() && (
+              <p className="mt-1 text-xs text-gray-400 flex items-center gap-1">
+                <LoadingSpinner />
+                <span>Checking if URL already exists...</span>
+              </p>
+            )}
+            {duplicatePartId && (
+              <div className="mt-2 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="w-4 h-4 flex-shrink-0 text-yellow-400 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div className="flex-grow min-w-0">
+                    <p className="text-sm font-medium text-yellow-300 mb-1">
+                      A part with this URL already exists
+                    </p>
+                    <p className="text-xs text-yellow-200/80 mb-2">
+                      This product URL is already associated with an existing part in
+                      the catalog.
+                    </p>
+                    <Link
+                      to={`/global-parts/${duplicatePartId}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-300 hover:text-yellow-200 underline"
+                    >
+                      <span>View existing part</span>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           <SearchableSelect
             id="global-part-category"
@@ -654,10 +931,10 @@ function CreateBuildListPartForm({
                                     </svg>
                                   </a>
                                 </div>
-                                {selectedPart.brand && (
+                                {selectedPart.brand_id && (
                                   <p className="text-sm text-gray-400 mt-1">
                                     <span className="font-medium">Brand:</span>{' '}
-                                    {selectedPart.brand}
+                                    {brands.find((b) => b.id === selectedPart.brand_id)?.name || 'Unknown'}
                                   </p>
                                 )}
                                 {selectedPart.part_number && (

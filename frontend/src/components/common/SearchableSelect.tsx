@@ -21,6 +21,11 @@ interface SearchableSelectProps {
     options: SearchableSelectOption[],
     searchText: string
   ) => SearchableSelectOption[];
+  onCreateNew?: (searchText: string) => void | Promise<void>;
+  createNewLabel?: string;
+  isCreatingNew?: boolean;
+  displayValue?: string | null; // Display text when value is null (e.g., for pending creation)
+  onInputChange?: (text: string) => void; // Callback when input text changes
 }
 
 function SearchableSelect({
@@ -35,6 +40,11 @@ function SearchableSelect({
   isLoading = false,
   emptyMessage = 'No options found',
   filterOptions: customFilterOptions,
+  onCreateNew,
+  createNewLabel = 'Create new',
+  isCreatingNew = false,
+  displayValue,
+  onInputChange,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -61,6 +71,26 @@ function SearchableSelect({
   // Filter options based on search text
   const filteredOptions = filterOptionsFn(options, searchText);
 
+  // Check if we should show "Create new" option
+  // Don't show if there's already a displayValue (pending creation)
+  const shouldShowCreateNew =
+    onCreateNew &&
+    searchText.trim() &&
+    filteredOptions.length === 0 &&
+    !isLoading &&
+    !displayValue; // Don't show create button if we already have a pending value
+
+  // Close dropdown when displayValue is set (pending creation)
+  useEffect(() => {
+    if (displayValue && isOpen) {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
+  }, [displayValue, isOpen]);
+
+  // Adjust highlighted index for "Create new" option
+  const totalOptions = filteredOptions.length + (shouldShowCreateNew ? 1 : 0);
+
   // Handle selection
   const handleSelect = useCallback(
     (selectedValue: number | string | null) => {
@@ -81,7 +111,10 @@ function SearchableSelect({
 
   // Update search text when value changes externally
   useEffect(() => {
-    if (value === null || value === '') {
+    // Always prioritize displayValue if it exists (pending creation)
+    if (displayValue) {
+      setSearchText(displayValue);
+    } else if (value === null || value === '') {
       setSearchText('');
     } else if (selectedOption && searchText !== selectedOption.label) {
       // Only update if the search text doesn't match the selected option
@@ -91,7 +124,7 @@ function SearchableSelect({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, selectedOption, isOpen]); // searchText intentionally excluded to prevent loops
+  }, [value, selectedOption, isOpen, displayValue]); // searchText intentionally excluded to prevent loops
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -105,6 +138,8 @@ function SearchableSelect({
         // Reset search text to selected option when closing
         if (selectedOption) {
           setSearchText(selectedOption.label);
+        } else if (displayValue) {
+          setSearchText(displayValue);
         } else {
           setSearchText('');
         }
@@ -115,7 +150,7 @@ function SearchableSelect({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [selectedOption]);
+  }, [selectedOption, displayValue]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -125,18 +160,27 @@ function SearchableSelect({
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
+          prev < totalOptions - 1 ? prev + 1 : prev
         );
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-      } else if (
-        e.key === 'Enter' &&
-        highlightedIndex >= 0 &&
-        filteredOptions[highlightedIndex]
-      ) {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
-        handleSelect(filteredOptions[highlightedIndex].value);
+        if (highlightedIndex >= 0) {
+          if (
+            shouldShowCreateNew &&
+            highlightedIndex === filteredOptions.length
+          ) {
+            // Create new option
+            void handleCreateNew();
+          } else if (filteredOptions[highlightedIndex]) {
+            handleSelect(filteredOptions[highlightedIndex].value);
+          }
+        } else if (shouldShowCreateNew && searchText.trim()) {
+          // If nothing is highlighted but we can create new, create it
+          void handleCreateNew();
+        }
       } else if (e.key === 'Escape') {
         setIsOpen(false);
         setHighlightedIndex(-1);
@@ -147,6 +191,7 @@ function SearchableSelect({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, filteredOptions, highlightedIndex, handleSelect]);
 
   // Scroll highlighted option into view
@@ -171,6 +216,11 @@ function SearchableSelect({
     setIsOpen(true);
     setHighlightedIndex(-1);
 
+    // Notify parent of input change (e.g., to clear pending state)
+    if (onInputChange) {
+      onInputChange(newText);
+    }
+
     // If user clears the input, clear the selection
     if (!newText.trim()) {
       onChange(null);
@@ -179,8 +229,12 @@ function SearchableSelect({
 
   const handleInputFocus = () => {
     setIsOpen(true);
-    // Clear search text when focusing to allow new search
-    if (selectedOption) {
+    // When focusing, preserve displayValue if it exists (pending creation)
+    // Otherwise, clear search text to allow new search
+    if (displayValue) {
+      // Keep the display value when focusing if it's a pending creation
+      setSearchText(displayValue);
+    } else if (selectedOption) {
       setSearchText('');
     }
   };
@@ -191,6 +245,14 @@ function SearchableSelect({
     setSearchText('');
     setIsOpen(false);
     inputRef.current?.focus();
+  };
+
+  const handleCreateNew = async () => {
+    if (onCreateNew && searchText.trim()) {
+      await onCreateNew(searchText.trim());
+      // Keep dropdown open and search text after creation
+      // The parent component should update the options and select the new item
+    }
   };
 
   return (
@@ -215,6 +277,18 @@ function SearchableSelect({
           value={searchText}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
+          onBlur={() => {
+            // On blur, preserve displayValue if it exists and user hasn't changed it
+            if (displayValue) {
+              // Only restore if the current text doesn't match what user might have typed
+              // If onInputChange cleared displayValue, it means user typed something different
+              // Otherwise, restore the displayValue
+              const currentText = inputRef.current?.value || '';
+              if (currentText.trim() === displayValue || !currentText.trim()) {
+                setSearchText(displayValue);
+              }
+            }
+          }}
           placeholder={placeholder}
           disabled={disabled || isLoading}
           className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-300 ease-out input-modern min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed pr-10"
@@ -266,15 +340,67 @@ function SearchableSelect({
       </div>
 
       {/* Dropdown */}
-      {isOpen && !disabled && (
+      {isOpen && !disabled && !displayValue && (
         <div
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-gray-800 border border-white/20 rounded-xl shadow-lg max-h-60 overflow-auto"
         >
-          {isLoading ? (
+          {isLoading || isCreatingNew ? (
             <div className="px-4 py-3 text-white/60 text-center">
-              Loading...
+              {isCreatingNew ? 'Creating...' : 'Loading...'}
             </div>
+          ) : shouldShowCreateNew ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleCreateNew()}
+                className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors text-primary-400 ${
+                  highlightedIndex === filteredOptions.length
+                    ? 'bg-gray-700'
+                    : ''
+                }`}
+                onMouseEnter={() =>
+                  setHighlightedIndex(filteredOptions.length)
+                }
+              >
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  {createNewLabel}: "{searchText}"
+                </span>
+              </button>
+              {filteredOptions.length > 0 && (
+                <>
+                  <div className="border-t border-white/10 my-1" />
+                  {filteredOptions.map((option, index) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleSelect(option.value)}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors ${
+                        option.value === value
+                          ? 'bg-primary-500/20 text-primary-400'
+                          : 'text-white'
+                      } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
           ) : filteredOptions.length === 0 ? (
             <div className="px-4 py-3 text-white/60 text-center">
               {emptyMessage}

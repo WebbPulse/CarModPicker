@@ -209,26 +209,36 @@ class TestSearch:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_via_admin(client, admin_token)
 
-        # Create a global part with a brand
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
+
+        # Create a brand "ACME" (any authenticated user can create)
+        brand_resp = client.post(
+            f"{settings.API_STR}/brands/",
+            json={"name": "ACME", "description": "ACME brand", "is_active": True},
+            headers=headers,
+        )
+        assert brand_resp.status_code == 200
+        brand_id = brand_resp.json()["id"]
+
+        # Create a global part with that brand
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "price": 9999,  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
-            "brand": "ACME",
+            "brand_id": brand_id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
-        # Search for "ACME"
+        # Search for "ACME" (matches brand name)
         response = client.get(f"{settings.API_STR}/search/?q=ACME")
         assert response.status_code == 200
         data = response.json()
         assert len(data["global_parts"]["data"]) > 0
-        assert any("ACME" in gp.get("brand", "") for gp in data["global_parts"]["data"])
+        assert any(gp.get("brand_id") == brand_id for gp in data["global_parts"]["data"])
 
     def test_search_empty_query(self, client: TestClient) -> None:
         """Test search with empty query."""
