@@ -126,7 +126,7 @@ app = FastAPI(
 
 # Add CORS middleware
 # Restrict methods and headers for better security
-# Note: Chrome extensions send requests with null origin (service workers) or 
+# Note: Chrome extensions send requests with null origin (service workers) or
 # chrome-extension:// origin (popup/content scripts). We allow both via:
 # - allow_origins includes "null" for service workers
 # - allow_origin_regex allows chrome-extension:// origins
