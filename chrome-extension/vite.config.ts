@@ -185,11 +185,13 @@ export default defineConfig({
         },
       },
     },
-    // Don't minify for easier debugging (optional, can enable later)
-    minify: false,
+    // Minify for production builds
+    minify: process.env.NODE_ENV === 'production' ? 'esbuild' : false,
     // Use ES2015 target for better Chrome extension compatibility
     target: "es2015",
     modulePreload: false,
+    // Disable source maps in production
+    sourcemap: process.env.NODE_ENV === 'production' ? false : true,
   },
   resolve: {
     alias: {

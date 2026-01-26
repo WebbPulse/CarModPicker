@@ -3,6 +3,7 @@
   "name": "CarModPicker Part Scraper",
   "version": "1.0.0",
   "description": "Quickly scrape part information from web pages and add them to CarModPicker",
+  "homepage_url": "https://carmodpicker.com",
   "permissions": [
     "activeTab",
     "storage",
@@ -35,5 +36,8 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }
