@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
-import type { ScrapedProductData, Category, Car, GlobalPartCreate, ApiResponse } from '../../types';
-import SearchableSelect from '../common/SearchableSelect';
+import type { FormEvent } from "react";
+import React, { useEffect, useState } from "react";
+import type {
+  ApiResponse,
+  Car,
+  Category,
+  GlobalPartCreate,
+  ScrapedProductData,
+} from "../../types";
+import SearchableSelect from "../common/SearchableSelect";
 
 interface PartDialogProps {
   scrapedData: ScrapedProductData;
@@ -23,13 +29,13 @@ const PartDialog: React.FC<PartDialogProps> = ({
   sendMessage,
 }) => {
   const [formData, setFormData] = useState({
-    name: scrapedData.name || '',
-    brand: scrapedData.brand || '',
-    partNumber: scrapedData.part_number || '',
-    description: scrapedData.description || '',
-    price: scrapedData.price ? (scrapedData.price / 100).toFixed(2) : '',
-    url: scrapedData.product_url || '',
-    imageUrl: scrapedData.image_url || '',
+    name: scrapedData.name || "",
+    brand: scrapedData.brand || "",
+    partNumber: scrapedData.part_number || "",
+    description: scrapedData.description || "",
+    price: scrapedData.price ? (scrapedData.price / 100).toFixed(2) : "",
+    url: scrapedData.product_url || "",
+    imageUrl: scrapedData.image_url || "",
     categoryId: null as number | string | null,
     carId: null as number | string | null,
   });
@@ -37,8 +43,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [cars, setCars] = useState<Car[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [imagePreview, setImagePreview] = useState(scrapedData.image_url || '');
+  const [error, setError] = useState("");
+  const [imagePreview, setImagePreview] = useState(scrapedData.image_url || "");
 
   useEffect(() => {
     loadCategories();
@@ -54,29 +60,29 @@ const PartDialog: React.FC<PartDialogProps> = ({
   const loadCategories = async () => {
     try {
       const response = (await sendMessage({
-        action: 'getCategories',
+        action: "getCategories",
       })) as ApiResponse<Category[]>;
-      
+
       if (response.success && Array.isArray(response.data)) {
         setCategories(response.data.filter((cat) => cat.is_active));
       }
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      console.error("Failed to load categories:", error);
     }
   };
 
   const loadCars = async () => {
     try {
       const response = (await sendMessage({
-        action: 'getCars',
+        action: "getCars",
         limit: 1000,
       })) as ApiResponse<Car[]>;
-      
+
       if (response.success && Array.isArray(response.data)) {
         setCars(response.data);
       }
     } catch (error) {
-      console.error('Failed to load cars:', error);
+      console.error("Failed to load cars:", error);
     }
   };
 
@@ -87,34 +93,34 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
     try {
       const response = (await sendMessage({
-        action: 'searchCars',
+        action: "searchCars",
         searchTerm,
       })) as ApiResponse<Car[]>;
-      
+
       if (response.success && Array.isArray(response.data)) {
         return response.data;
       }
     } catch (error) {
-      console.error('Failed to search cars:', error);
+      console.error("Failed to search cars:", error);
     }
-    
+
     return [];
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       if (!formData.name.trim()) {
-        setError('Part name is required');
+        setError("Part name is required");
         setIsLoading(false);
         return;
       }
 
       if (!formData.categoryId) {
-        setError('Category is required');
+        setError("Category is required");
         setIsLoading(false);
         return;
       }
@@ -122,7 +128,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
       const partData: GlobalPartCreate = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
-        price: formData.price ? Math.round(parseFloat(formData.price) * 100) : null,
+        price: formData.price
+          ? Math.round(parseFloat(formData.price) * 100)
+          : null,
         product_url: formData.url.trim() || null,
         category_id: parseInt(formData.categoryId.toString()),
         car_id: formData.carId ? parseInt(formData.carId.toString()) : null,
@@ -134,30 +142,73 @@ const PartDialog: React.FC<PartDialogProps> = ({
       // Upload image if provided
       if (formData.imageUrl.trim()) {
         const imageResult = (await sendMessage({
-          action: 'uploadImage',
+          action: "uploadImage",
           imageUrl: formData.imageUrl.trim(),
         })) as ApiResponse<{ fileKey: string }>;
 
         if (imageResult.success && imageResult.data) {
           partData.image_url = imageResult.data.fileKey;
         } else {
-          console.warn('Image upload failed:', imageResult.error);
+          console.warn("Image upload failed:", imageResult.error);
         }
       }
 
       // Create part
       const response = (await sendMessage({
-        action: 'createGlobalPart',
+        action: "createGlobalPart",
         partData,
-      })) as ApiResponse<unknown>;
+      })) as ApiResponse<{ id: number }>;
 
       if (response.success) {
+        // Check if we should open the part page
+        chrome.storage.sync.get(
+          ["openPartAfterCreation", "openInNewTab", "apiUrl"],
+          (settings) => {
+            const shouldOpen = settings["openPartAfterCreation"] !== false; // Default to true
+            const openInNewTab = settings["openInNewTab"] !== false; // Default to true
+
+            if (shouldOpen && response.data?.id) {
+              // Get frontend URL based on API environment
+              const apiUrl =
+                (settings["apiUrl"] as string) ||
+                "https://carmodpicker.com/api";
+              let frontendUrl = "https://carmodpicker.com";
+
+              if (
+                apiUrl.includes("localhost") ||
+                apiUrl.includes("127.0.0.1")
+              ) {
+                frontendUrl = "http://localhost:4000";
+              } else if (apiUrl.includes("staging")) {
+                frontendUrl = "https://carmodpicker.staging.webbpulse.com";
+              }
+
+              const partUrl = `${frontendUrl}/global-parts/${response.data.id}`;
+
+              if (openInNewTab) {
+                chrome.tabs.create({ url: partUrl });
+              } else {
+                chrome.tabs.query(
+                  { active: true, currentWindow: true },
+                  (tabs) => {
+                    if (tabs[0]?.id) {
+                      chrome.tabs.update(tabs[0].id, { url: partUrl });
+                    }
+                  },
+                );
+              }
+            }
+          },
+        );
+
         onPartCreated();
       } else {
-        setError(response.error || 'Failed to create part');
+        setError(response.error || "Failed to create part");
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to create part');
+      setError(
+        error instanceof Error ? error.message : "Failed to create part",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -171,13 +222,13 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
   const carOptions = cars.map((car) => ({
     id: car.id,
-    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ''})`,
+    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ""})`,
     value: car.id,
   }));
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-[800px] max-h-[600px] overflow-y-auto">
         <div className="shrink-0 p-6 border-b border-white/10">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gradient">Create Part</h2>
@@ -194,8 +245,10 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
         <div className="p-6 space-y-6">
           {error && (
-            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm">
-              {error}
+            <div className="sticky top-0 z-10 -mx-6 -mt-6 px-6 pt-6 pb-4 bg-neutral-900/95 backdrop-blur-xl">
+              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm">
+                {error}
+              </div>
             </div>
           )}
 
@@ -207,7 +260,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
@@ -221,7 +276,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <input
                 type="text"
                 value={formData.brand}
-                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, brand: e.target.value })
+                }
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               />
@@ -234,7 +291,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <input
                 type="text"
                 value={formData.partNumber}
-                onChange={(e) => setFormData({ ...formData, partNumber: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, partNumber: e.target.value })
+                }
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               />
@@ -246,7 +305,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               </label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={3}
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
                 disabled={isLoading}
@@ -262,7 +323,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
                 step="0.01"
                 min="0"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: e.target.value })
+                }
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               />
@@ -275,7 +338,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <input
                 type="url"
                 value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, url: e.target.value })
+                }
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               />
@@ -285,7 +350,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <SearchableSelect
                 options={categoryOptions}
                 value={formData.categoryId}
-                onChange={(value) => setFormData({ ...formData, categoryId: value })}
+                onChange={(value) =>
+                  setFormData({ ...formData, categoryId: value })
+                }
                 placeholder="Select a category..."
                 label="Category *"
                 disabled={isLoading}
@@ -309,7 +376,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                   const searchResults = await searchCars(searchText);
                   return searchResults.map((car) => ({
                     id: car.id,
-                    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ''})`,
+                    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ""})`,
                     value: car.id,
                   }));
                 }}
@@ -323,7 +390,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
               <input
                 type="url"
                 value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, imageUrl: e.target.value })
+                }
                 className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               />
@@ -333,7 +402,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                     src={imagePreview}
                     alt="Preview"
                     className="max-w-full max-h-48 rounded-lg border border-white/20 mx-auto"
-                    onError={() => setImagePreview('')}
+                    onError={() => setImagePreview("")}
                   />
                 </div>
               )}
@@ -353,7 +422,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                 className="flex-1 py-3 px-6 rounded-xl font-semibold bg-linear-to-r from-[#667eea] to-[#764ba2] bg-size-[200%_200%] text-white border-none transition-all duration-300 hover:translate-y-[-3px] hover:shadow-[0_15px_35px_rgba(102,126,234,0.4)] hover:animate-[gradientShift_3s_ease_infinite] relative overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating...' : 'Create Part'}
+                {isLoading ? "Creating..." : "Create Part"}
               </button>
             </div>
           </form>

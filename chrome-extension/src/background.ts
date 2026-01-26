@@ -81,14 +81,29 @@ async function apiRequest<T>(
     if (!response.ok) {
       const errorData = data as { detail?: string };
       const errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-      console.error('[Background] API error:', errorMessage);
+      
+      // Don't log 401/403 as errors - these are expected when not logged in
+      if (response.status === 401 || response.status === 403) {
+        console.log('[Background] API request requires authentication (user not logged in)');
+      } else {
+        console.error('[Background] API error:', errorMessage);
+      }
       throw new Error(errorMessage);
     }
 
     return { success: true, data: data as T };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Request failed';
-    console.error('[Background] API request failed:', errorMessage, error);
+    
+    // Check if this is a network/CORS error vs authentication error
+    if (errorMessage === 'Failed to fetch') {
+      // This could be CORS, network issue, or user not logged in
+      // Only log as warning, not error, since it's often expected
+      console.warn('[Background] API request failed (network/CORS or not authenticated):', url);
+    } else {
+      console.error('[Background] API request failed:', errorMessage, error);
+    }
+    
     return {
       success: false,
       error: errorMessage,

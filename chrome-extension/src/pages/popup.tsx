@@ -15,6 +15,16 @@ function Popup() {
     checkAuthStatus();
   }, []);
 
+  // Dynamically resize popup window based on dialog state
+  useEffect(() => {
+    const body = document.body;
+    if (showPartDialog) {
+      body.style.width = '800px';
+    } else {
+      body.style.width = '400px';
+    }
+  }, [showPartDialog]);
+
   const checkAuthStatus = async () => {
     try {
       const response = (await sendMessage({
@@ -117,14 +127,19 @@ function Popup() {
 
   if (isLoading) {
     return (
-      <div className="w-full min-h-[500px] max-h-[600px] overflow-y-auto flex items-center justify-center">
+      <div className="w-full min-h-[200px] flex items-center justify-center">
         <div className="text-white/60">Loading...</div>
       </div>
     );
   }
 
+  // Dynamically size the popup based on whether we're showing the dialog
+  const containerClasses = showPartDialog
+    ? "w-full min-h-[600px] max-h-[600px] overflow-y-auto"
+    : "w-full overflow-y-auto";
+
   return (
-    <div className="w-full min-h-[500px] max-h-[600px] overflow-y-auto">
+    <div className={containerClasses}>
       {!user ? (
         <LoginScreen onLogin={handleLogin} sendMessage={sendMessage} />
       ) : (

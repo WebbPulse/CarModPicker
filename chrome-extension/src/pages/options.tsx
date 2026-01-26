@@ -10,15 +10,23 @@ type ApiEnvironment = keyof typeof API_URLS;
 
 function Options() {
   const [environment, setEnvironment] = useState<ApiEnvironment>('prod');
+  const [openPartAfterCreation, setOpenPartAfterCreation] = useState(true);
+  const [openInNewTab, setOpenInNewTab] = useState(true);
   const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     // Load saved settings
-    chrome.storage.sync.get(['apiUrl'], (result) => {
+    chrome.storage.sync.get(['apiUrl', 'openPartAfterCreation', 'openInNewTab'], (result) => {
       const apiUrl = result['apiUrl'];
       if (apiUrl && typeof apiUrl === 'string') {
         const env = getEnvironmentFromUrl(apiUrl);
         setEnvironment(env);
+      }
+      if (result['openPartAfterCreation'] !== undefined) {
+        setOpenPartAfterCreation(result['openPartAfterCreation'] as boolean);
+      }
+      if (result['openInNewTab'] !== undefined) {
+        setOpenInNewTab(result['openInNewTab'] as boolean);
       }
     });
   }, []);
@@ -40,7 +48,11 @@ function Options() {
     }
 
     const apiUrl = API_URLS[environment];
-    await chrome.storage.sync.set({ apiUrl });
+    await chrome.storage.sync.set({
+      apiUrl,
+      openPartAfterCreation,
+      openInNewTab,
+    });
     setStatus({ message: 'Settings saved successfully!', type: 'success' });
 
     setTimeout(() => {
@@ -49,12 +61,62 @@ function Options() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 p-10">
+    <div className="min-h-screen p-10">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gradient mb-8">CarModPicker Extension Settings</h1>
 
         <div className="glass-card rounded-2xl p-6 space-y-6">
           <div>
+            <h2 className="text-xl font-semibold text-white mb-4 pb-2 border-b border-white/10">
+              General Settings
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={openPartAfterCreation}
+                    onChange={(e) => setOpenPartAfterCreation(e.target.checked)}
+                    className="w-5 h-5 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 cursor-pointer"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-neutral-300">
+                      Open part page after creation
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      Automatically navigate to the created part's page on the frontend
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {openPartAfterCreation && (
+                <div className="ml-8">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={openInNewTab}
+                      onChange={(e) => setOpenInNewTab(e.target.checked)}
+                      className="w-5 h-5 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-neutral-300">
+                        Open in new tab
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        If unchecked, opens in the current tab
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4 pb-2 border-b border-white/10">
+              Developer Settings
+            </h2>
             <label
               htmlFor="apiEnvironment"
               className="block text-sm font-medium text-neutral-300 mb-2"
@@ -65,11 +127,17 @@ function Options() {
               id="apiEnvironment"
               value={environment}
               onChange={(e) => setEnvironment(e.target.value as ApiEnvironment)}
-              className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 1rem center',
+                paddingRight: '2.5rem'
+              }}
             >
-              <option value="prod">Production</option>
-              <option value="staging">Staging</option>
-              <option value="localhost">Localhost</option>
+              <option value="prod" className="bg-neutral-900 text-white">Production</option>
+              <option value="staging" className="bg-neutral-900 text-white">Staging</option>
+              <option value="localhost" className="bg-neutral-900 text-white">Localhost</option>
             </select>
             <div className="mt-2 text-xs text-neutral-400">
               Select which API environment to use. Default: Production

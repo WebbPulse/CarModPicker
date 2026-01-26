@@ -18,7 +18,12 @@ const inlineVendorPlugin = () => {
       const optionsJsPath = resolve(__dirname, "dist", "options.js");
       
       // Find vendor chunk
-      const vendorFiles = readdirSync(resolve(__dirname, "dist", "assets")).filter(
+      const assetsDir = resolve(__dirname, "dist", "assets");
+      if (!existsSync(assetsDir)) {
+        console.log("⚠ No assets directory found, skipping vendor inlining");
+        return;
+      }
+      const vendorFiles = readdirSync(assetsDir).filter(
         (f) => f.startsWith("vendor-") && f.endsWith(".js")
       );
       
@@ -29,24 +34,33 @@ const inlineVendorPlugin = () => {
         // Inline vendor into popup.js
         if (existsSync(popupJsPath)) {
           let popupContent = readFileSync(popupJsPath, "utf-8");
-          // Replace import statement with vendor content
-          popupContent = popupContent.replace(
-            /import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/g,
-            vendorContent
-          );
-          writeFileSync(popupJsPath, popupContent, "utf-8");
-          console.log("✓ Inlined vendor chunk into popup.js");
+          // Replace import statement with vendor content - only match at start of line or after semicolon/newline
+          // This avoids matching import statements inside strings
+          const importRegex = /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
+          if (importRegex.test(popupContent)) {
+            popupContent = popupContent.replace(importRegex, (match, prefix) => {
+              return prefix + '\n' + vendorContent;
+            });
+            writeFileSync(popupJsPath, popupContent, "utf-8");
+            console.log("✓ Inlined vendor chunk into popup.js");
+          } else {
+            console.log("⚠ No vendor import found in popup.js to inline");
+          }
         }
         
         // Inline vendor into options.js
         if (existsSync(optionsJsPath)) {
           let optionsContent = readFileSync(optionsJsPath, "utf-8");
-          optionsContent = optionsContent.replace(
-            /import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/g,
-            vendorContent
-          );
-          writeFileSync(optionsJsPath, optionsContent, "utf-8");
-          console.log("✓ Inlined vendor chunk into options.js");
+          const importRegex = /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
+          if (importRegex.test(optionsContent)) {
+            optionsContent = optionsContent.replace(importRegex, (match, prefix) => {
+              return prefix + '\n' + vendorContent;
+            });
+            writeFileSync(optionsJsPath, optionsContent, "utf-8");
+            console.log("✓ Inlined vendor chunk into options.js");
+          } else {
+            console.log("⚠ No vendor import found in options.js to inline");
+          }
         }
       }
     },
@@ -65,7 +79,7 @@ const fixHtmlPlugin = () => {
         // Remove crossorigin attribute from script and link tags
         html = html.replace(/\s+crossorigin="[^"]*"/g, "");
         html = html.replace(/\s+crossorigin/g, "");
-        // Keep type="module" for ES modules
+        // Keep type="module" - required for ES modules
         writeFileSync(popupHtmlPath, html, "utf-8");
         console.log("✓ Fixed popup.html for Chrome extension");
       }
@@ -74,9 +88,10 @@ const fixHtmlPlugin = () => {
       const optionsHtmlPath = resolve(__dirname, "dist", "options.html");
       if (existsSync(optionsHtmlPath)) {
         let html = readFileSync(optionsHtmlPath, "utf-8");
+        // Remove crossorigin attribute from script and link tags
         html = html.replace(/\s+crossorigin="[^"]*"/g, "");
         html = html.replace(/\s+crossorigin/g, "");
-        html = html.replace(/\s+type="module"/g, "");
+        // Keep type="module" - required for ES modules
         writeFileSync(optionsHtmlPath, html, "utf-8");
         console.log("✓ Fixed options.html for Chrome extension");
       }
