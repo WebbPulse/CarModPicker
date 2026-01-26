@@ -13,7 +13,11 @@
   "python.analysis.autoSearchPaths": true,
   "python.analysis.useLibraryCodeForTypes": true,
   "python.analysis.autoImportCompletions": true,
-  "python.analysis.ignore": ["**/alembic/versions/**", "**/scripts/**", "**/backend/tests/**"],
+  "python.analysis.ignore": [
+    "**/alembic/versions/**",
+    "**/scripts/**",
+    "**/backend/tests/**"
+  ],
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUnusedImport": "warning",
     "reportUnusedVariable": "warning",
@@ -201,5 +205,28 @@
   "git.confirmSync": true,
 
   // Terminal
-  "terminal.integrated.defaultProfile.linux": "zsh"
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "cursorpyright.analysis.autoImportCompletions": true,
+  "cursorpyright.analysis.autoSearchPaths": true,
+  "cursorpyright.analysis.diagnosticMode": "workspace",
+  "cursorpyright.analysis.diagnosticSeverityOverrides": {
+    "reportUnusedImport": "warning",
+    "reportUnusedVariable": "warning",
+    "reportUnusedFunction": "information",
+    "reportUnusedClass": "information",
+    "reportUndefinedVariable": "error",
+    "reportOptionalMemberAccess": "warning",
+    "reportOptionalSubscript": "warning",
+    "reportOptionalCall": "warning",
+    "reportGeneralTypeIssues": "warning",
+    "reportMissingImports": "error",
+    "reportMissingTypeStubs": "none"
+  },
+  "cursorpyright.analysis.ignore": [
+    "**/alembic/versions/**",
+    "**/scripts/**",
+    "**/backend/tests/**"
+  ],
+  "cursorpyright.analysis.typeCheckingMode": "strict",
+  "cursorpyright.analysis.useLibraryCodeForTypes": true
 }
