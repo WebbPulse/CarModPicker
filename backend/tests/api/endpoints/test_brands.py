@@ -87,9 +87,7 @@ def create_and_login_user(
     return user_id, token
 
 
-def create_brand_via_api(
-    client: TestClient, token: str, name: str, description: str | None = None
-) -> dict[str, Any]:
+def create_brand_via_api(client: TestClient, token: str, name: str, description: str | None = None) -> dict[str, Any]:
     """Create a brand via API and return the response JSON."""
     headers = {"Authorization": f"Bearer {token}"}
     payload = {"name": name, "description": description, "is_active": True}
@@ -188,9 +186,7 @@ class TestBrands:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_create_brand_duplicate_returns_existing(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_create_brand_duplicate_returns_existing(self, client: TestClient, db_session: Session) -> None:
         """Test creating a brand with existing name returns existing brand (case-insensitive)."""
         _, token = create_and_login_user(client, "dup")
         name = get_unique_name("DupBrand")
@@ -230,9 +226,7 @@ class TestBrands:
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_brand_forbidden_non_admin(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_update_brand_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         """Test updating a brand as non-admin returns 403."""
         _, token = create_and_login_user(client, "update_forbidden")
         created = create_brand_via_api(client, token, get_unique_name("NoUpdate"))
@@ -272,9 +266,7 @@ class TestBrands:
         get_resp = client.get(f"{settings.API_STR}/brands/{created['id']}")
         assert get_resp.status_code == 404
 
-    def test_delete_brand_forbidden_non_admin(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_delete_brand_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         """Test deleting a brand as non-admin returns 403."""
         _, token = create_and_login_user(client, "delete_forbidden")
         created = create_brand_via_api(client, token, get_unique_name("NoDelete"))
@@ -290,9 +282,7 @@ class TestBrands:
         response = client.delete(f"{settings.API_STR}/brands/99999", headers=headers)
         assert response.status_code == 404
 
-    def test_delete_brand_with_parts_fails(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_delete_brand_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
         """Test deleting a brand that has parts returns 409."""
         _, user_token = create_and_login_user(client, "delete_with_parts", db_session)
         created = create_brand_via_api(client, user_token, get_unique_name("BrandWithParts"))
@@ -317,9 +307,7 @@ class TestBrands:
         detail = body.get("detail", body.get("message", ""))
         assert "associated parts" in detail.lower() or "cannot delete" in detail.lower()
 
-    def test_get_global_parts_by_brand_success(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_get_global_parts_by_brand_success(self, client: TestClient, db_session: Session) -> None:
         """Test getting global parts by brand (public)."""
         _, token = create_and_login_user(client, "parts_by_brand", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandForParts"))
@@ -342,9 +330,7 @@ class TestBrands:
         assert len(parts) >= 1
         assert all(p["brand_id"] == brand_id for p in parts)
 
-    def test_get_global_parts_by_brand_pagination(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_get_global_parts_by_brand_pagination(self, client: TestClient, db_session: Session) -> None:
         """Test pagination for parts by brand."""
         _, token = create_and_login_user(client, "parts_pag", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandPag"))
@@ -369,9 +355,7 @@ class TestBrands:
         parts = response.json()
         assert len(parts) <= 2
 
-    def test_get_brand_parts_count_success(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_get_brand_parts_count_success(self, client: TestClient, db_session: Session) -> None:
         """Test getting parts count for a brand (public)."""
         _, token = create_and_login_user(client, "count_user", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandCount"))

@@ -89,12 +89,26 @@ class TestReportService:
             db_session.add(category)
             db_session.commit()
 
+        # Get or create a brand
+        from app.api.models.brand import Brand
+
+        brand = db_session.query(Brand).first()
+        if not brand:
+            brand = Brand(
+                name="test_brand",
+                description="Test brand",
+                is_active=True,
+            )
+            db_session.add(brand)
+            db_session.commit()
+
         global_part = GlobalPart(
             name=get_unique_name("test_part"),
             description="Test part",
             price=1000,
             user_id=other_user.id,
             category_id=category.id,
+            brand_id=brand.id,
         )
         db_session.add(global_part)
         db_session.commit()
@@ -259,12 +273,26 @@ class TestReportService:
             db_session.add(category)
             db_session.commit()
 
+        # Get or create a brand
+        from app.api.models.brand import Brand
+
+        brand = db_session.query(Brand).first()
+        if not brand:
+            brand = Brand(
+                name="test_brand2",
+                description="Test brand 2",
+                is_active=True,
+            )
+            db_session.add(brand)
+            db_session.commit()
+
         global_part = GlobalPart(
             name=get_unique_name("test_part2"),
             description="Test part",
             price=1000,
             user_id=other_user.id,
             category_id=category.id,
+            brand_id=brand.id,
         )
         db_session.add(global_part)
         db_session.commit()

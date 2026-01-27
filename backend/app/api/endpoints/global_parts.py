@@ -88,15 +88,9 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         """
         # Check for duplicate product_url if provided
         if data.product_url and data.product_url.strip():
-            existing_part = (
-                db.query(DBGlobalPart)
-                .filter(DBGlobalPart.product_url == data.product_url.strip())
-                .first()
-            )
+            existing_part = db.query(DBGlobalPart).filter(DBGlobalPart.product_url == data.product_url.strip()).first()
             if existing_part:
-                logger.info(
-                    f"User {current_user.id} attempted to create part with duplicate URL: {data.product_url}"
-                )
+                logger.info(f"User {current_user.id} attempted to create part with duplicate URL: {data.product_url}")
                 ResponsePatterns.raise_conflict(
                     message=f"A part with this URL already exists (Part ID: {existing_part.id})",
                     error_code="DUPLICATE_PRODUCT_URL",
@@ -413,15 +407,11 @@ async def check_product_url_exists(
         # FastAPI will decode the URL automatically, but let's ensure we handle it properly
         if not product_url or not product_url.strip():
             return {"existing_part_id": None}
-        
+
         # Normalize the URL by stripping whitespace
         normalized_url = product_url.strip()
 
-        existing_part = (
-            db.query(DBGlobalPart)
-            .filter(DBGlobalPart.product_url == normalized_url)
-            .first()
-        )
+        existing_part = db.query(DBGlobalPart).filter(DBGlobalPart.product_url == normalized_url).first()
 
         if existing_part:
             logger.info(f"URL check: Found existing part {existing_part.id} for URL: {normalized_url[:50]}...")

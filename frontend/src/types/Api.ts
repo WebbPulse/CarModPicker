@@ -193,7 +193,7 @@ export interface GlobalPartCreate {
   product_url?: string | null;
   category_id: number;
   car_id?: number | null; // Optional car association
-  brand_id?: number | null; // Optional brand association
+  brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
@@ -247,7 +247,7 @@ export interface GlobalPartUpdate {
   product_url?: string | null;
   category_id?: number | null;
   car_id?: number | null; // Optional car association
-  brand_id?: number | null; // Optional brand association
+  brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }

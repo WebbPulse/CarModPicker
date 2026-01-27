@@ -293,6 +293,11 @@ function EditGlobalPartForm({
       return;
     }
 
+    if (!formData.brand_id && !pendingBrandName) {
+      setValidationError('Brand is required');
+      return;
+    }
+
     // Create brand first if there's a pending brand name
     let brandId = formData.brand_id;
     if (pendingBrandName) {
@@ -322,7 +327,7 @@ function EditGlobalPartForm({
     const globalPartData: GlobalPartUpdate = {
       name: formData.name.trim(),
       part_number: formData.part_number.trim() || null,
-      brand_id: brandId,
+      brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
       description: formData.description.trim() || null,
       price: formData.price
         ? Math.round(parseFloat(formData.price) * 100)
@@ -415,7 +420,7 @@ function EditGlobalPartForm({
         <SearchableSelect
           id="global-part-brand"
           name="brand_id"
-          label="Brand (Optional)"
+          label="Brand *"
           placeholder="Type to search for a brand or create new..."
           value={formData.brand_id}
           onChange={handleBrandChange}

@@ -446,6 +446,11 @@ function CreateBuildListPartForm({
         return;
       }
 
+      if (!formData.brand_id && !pendingBrandName) {
+        setValidationError('Brand is required');
+        return;
+      }
+
       setIsCreating(true);
       setCreateError(null);
 
@@ -488,7 +493,7 @@ function CreateBuildListPartForm({
           product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
           car_id: formData.car_id,
-          brand_id: brandId,
+          brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
           part_number: formData.part_number.trim() || null,
         };
 
@@ -666,7 +671,7 @@ function CreateBuildListPartForm({
             <SearchableSelect
               id="global-part-brand"
               name="brand_id"
-              label="Brand (Optional)"
+              label="Brand *"
               placeholder="Type to search for a brand or create new..."
               value={formData.brand_id}
               onChange={handleBrandChange}

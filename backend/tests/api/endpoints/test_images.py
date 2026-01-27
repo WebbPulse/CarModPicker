@@ -417,7 +417,7 @@ class TestImages:
         assert "not found" in response.json()["message"].lower()
 
     def test_upload_image_global_part(
-        self, client: TestClient, test_user: DBUser, test_category, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
     ) -> None:
         """Test uploading an image for a global part."""
         # Create a car first (requires admin)
@@ -433,6 +433,7 @@ class TestImages:
             "price": 9999,  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200

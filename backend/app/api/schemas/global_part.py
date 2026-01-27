@@ -15,7 +15,7 @@ class GlobalPartCreate(BaseModel):
     product_url: Optional[str] = None
     category_id: int
     car_id: Optional[int] = None  # Optional car association
-    brand_id: Optional[int] = None  # Optional brand association
+    brand_id: int  # Required brand association
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
 
@@ -36,7 +36,7 @@ class GlobalPartUpdate(BaseModel):
     product_url: Optional[str] = None
     category_id: Optional[int] = None
     car_id: Optional[int] = None  # Optional car association
-    brand_id: Optional[int] = None  # Optional brand association
+    brand_id: int  # Required brand association
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
 

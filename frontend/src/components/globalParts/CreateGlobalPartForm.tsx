@@ -335,6 +335,11 @@ function CreateGlobalPartForm({
       return;
     }
 
+    if (!formData.brand_id && !pendingBrandName) {
+      setValidationError('Brand is required');
+      return;
+    }
+
     // Create brand first if there's a pending brand name
     let brandId = formData.brand_id;
     if (pendingBrandName) {
@@ -361,7 +366,7 @@ function CreateGlobalPartForm({
       }
     }
 
-    const globalPartData: GlobalPartCreate = {
+      const globalPartData: GlobalPartCreate = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
       price: formData.price
@@ -371,7 +376,7 @@ function CreateGlobalPartForm({
       product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
       car_id: formData.car_id,
-      brand_id: brandId,
+      brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
       part_number: formData.part_number.trim() || null,
     };
 
@@ -463,7 +468,7 @@ function CreateGlobalPartForm({
         <SearchableSelect
           id="global-part-brand"
           name="brand_id"
-          label="Brand (Optional)"
+          label="Brand *"
           placeholder="Type to search for a brand or create new..."
           value={formData.brand_id}
           onChange={handleBrandChange}

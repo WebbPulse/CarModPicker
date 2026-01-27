@@ -172,7 +172,7 @@ class TestSearch:
         assert len(data["users"]["data"]) > 0
 
     def test_search_global_parts_by_name(
-        self, client: TestClient, test_user: DBUser, test_category, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
     ) -> None:
         """Test searching global parts by name."""
         # Create a car first (requires admin)
@@ -189,6 +189,7 @@ class TestSearch:
             "price": 9999,  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
