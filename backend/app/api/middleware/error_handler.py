@@ -6,7 +6,7 @@ standardized response formats using ResponsePatterns.
 """
 
 import logging
-from typing import Awaitable, Callable, Dict, List
+from typing import Any, Awaitable, Callable, Dict, List
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import HTTPException, RequestValidationError
@@ -71,15 +71,34 @@ def handle_http_exception(exc: HTTPException) -> JSONResponse:
             error_message = "Service unavailable"
         else:
             error_message = "Server error"
+        error_data: Dict[str, str | bool] = {
+            "success": False,
+            "message": error_message,
+            "error_code": get_error_code(exc.status_code),
+        }
     else:
-        error_message = str(exc.detail)
-
-    # Convert to standardized format
-    error_data: Dict[str, str | bool] = {
-        "success": False,
-        "message": error_message,
-        "error_code": get_error_code(exc.status_code),
-    }
+        # Handle dict details (for additional error information)
+        if isinstance(exc.detail, dict):
+            detail_dict: Dict[str, Any] = exc.detail  # type: ignore[assignment]
+            error_message: str = str(detail_dict.get("message", str(exc.detail)))  # type: ignore[arg-type, misc]
+            error_code: str = str(detail_dict.get("error_code", get_error_code(exc.status_code)))  # type: ignore[arg-type, misc]
+            error_data_dict: Dict[str, Any] = {
+                "success": False,
+                "message": error_message,
+                "error_code": error_code,
+            }
+            # Include additional details if present
+            if "details" in detail_dict:
+                error_data_dict["details"] = detail_dict["details"]  # type: ignore[index, misc]
+            error_data = error_data_dict
+        else:
+            error_message = str(exc.detail)
+            error_data_dict_else: Dict[str, str | bool] = {
+                "success": False,
+                "message": error_message,
+                "error_code": get_error_code(exc.status_code),
+            }
+            error_data = error_data_dict_else
 
     return JSONResponse(content=error_data, status_code=exc.status_code, headers=exc.headers)
 

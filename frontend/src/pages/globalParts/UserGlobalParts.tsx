@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { buildListPartsApi, globalPartsApi } from '../../services/Api';
 import type { GlobalPartReadWithVotes } from '../../types/Api';
 
-import ActionButton from '../../components/buttons/ActionButton';
+import LinkButton from '../../components/buttons/LinkButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
@@ -18,7 +18,6 @@ let cachedUserParts: GlobalPartReadWithVotes[] | null = null;
 let cachedUserPartsTimestamp = 0;
 
 function UserGlobalParts() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
@@ -142,39 +141,12 @@ function UserGlobalParts() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader title="My Parts" />
-
-      {/* Tab Navigation */}
-      <div className="mb-6">
-        <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg border border-gray-700">
-          <Link
-            to="/global-parts"
-            className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-              location.pathname === '/global-parts'
-                ? 'bg-primary-600 text-white shadow-lg'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-          >
-            Parts Catalog
-          </Link>
-          <Link
-            to="/my-global-parts"
-            className={`flex-1 text-center px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-              location.pathname === '/my-global-parts'
-                ? 'bg-primary-600 text-white shadow-lg'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-          >
-            My Parts
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <div />
-        <Link to="/global-parts">
-          <ActionButton>Browse All Parts</ActionButton>
-        </Link>
+      {/* Header with Browse All Parts button */}
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader title="My Parts" />
+        <LinkButton to="/global-parts" variant="outline" size="md">
+          Browse All Parts
+        </LinkButton>
       </div>
 
       {error && displayData.length === 0 ? (

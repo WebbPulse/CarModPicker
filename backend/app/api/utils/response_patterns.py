@@ -302,9 +302,14 @@ class ResponsePatterns:
         Raises:
             HTTPException: FastAPI HTTPException with standardized format
         """
-        # Use simple string detail for FastAPI compatibility
-        # This ensures response.json()["detail"] works in tests
-        raise HTTPException(status_code=status_code, detail=message)
+        # Use dict detail to support additional error information
+        # The error handler will extract message, error_code, and details
+        detail_dict: Dict[str, Any] = {"message": message}
+        if error_code:
+            detail_dict["error_code"] = error_code
+        if details is not None:
+            detail_dict["details"] = details
+        raise HTTPException(status_code=status_code, detail=detail_dict)
 
     @staticmethod
     def raise_not_found(

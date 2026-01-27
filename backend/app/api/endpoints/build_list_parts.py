@@ -268,7 +268,7 @@ async def create_global_part_and_add_to_build_list(
         "image_url": request.image_url,
         "category_id": request.category_id,
         "car_id": request.car_id,  # Optional car association
-        "brand": request.brand,
+        "brand_id": request.brand_id,  # Optional brand association
         "part_number": request.part_number,
         "specifications": request.specifications,
         "user_id": current_user.id,

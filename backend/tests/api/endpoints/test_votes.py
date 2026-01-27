@@ -199,6 +199,14 @@ class TestUnifiedVotes:
         db_session.commit()
         db_session.refresh(category)
 
+        # Create a brand
+        from app.api.models.brand import Brand as DBBrand
+
+        brand = DBBrand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
+        db_session.add(brand)
+        db_session.commit()
+        db_session.refresh(brand)
+
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -212,6 +220,7 @@ class TestUnifiedVotes:
             "description": "A test part description",
             "category_id": category.id,
             "price": 9999,  # price in cents (99.99)
+            "brand_id": brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=part_owner_headers)
         assert response.status_code == 200

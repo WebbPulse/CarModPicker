@@ -228,5 +228,7 @@
     "**/backend/tests/**"
   ],
   "cursorpyright.analysis.typeCheckingMode": "strict",
-  "cursorpyright.analysis.useLibraryCodeForTypes": true
+  "cursorpyright.analysis.useLibraryCodeForTypes": true,
+  "python-envs.defaultEnvManager": "ms-python.python:pyenv",
+  "python-envs.pythonProjects": []
 }

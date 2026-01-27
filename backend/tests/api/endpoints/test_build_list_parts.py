@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
+from app.api.models.brand import Brand
 from app.api.models.category import Category
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
@@ -83,7 +84,7 @@ class TestBuildListParts:
     """Test cases for build list parts endpoints."""
 
     def test_add_part_to_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test successfully adding a part to a build list."""
         # Login as test user and get token
@@ -110,6 +111,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -144,7 +146,7 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_add_part_to_build_list_not_found(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a non-existent build list."""
         # Login as test user and get token
@@ -157,6 +159,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -207,7 +210,7 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_add_part_to_build_list_missing_quantity(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a build list without providing quantity."""
         # Login as test user and get token
@@ -234,6 +237,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -251,7 +255,7 @@ class TestBuildListParts:
         assert response.status_code == 200
 
     def test_add_part_to_build_list_invalid_quantity(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a build list with invalid quantity."""
         # Login as test user and get token
@@ -278,6 +282,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -295,7 +300,7 @@ class TestBuildListParts:
         assert response.status_code == 200
 
     def test_add_part_to_build_list_duplicate(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a duplicate part to a build list."""
         # Login as test user and get token
@@ -322,6 +327,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -347,7 +353,7 @@ class TestBuildListParts:
         assert response.status_code == 409
 
     def test_get_build_list_parts_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test getting parts from a build list."""
         # Login as test user and get token
@@ -374,6 +380,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -414,7 +421,7 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_get_build_list_parts_unauthorized(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test getting parts from a build list without authentication (public read is allowed)."""
         # Create a car first (requires admin)
@@ -438,7 +445,7 @@ class TestBuildListParts:
         assert response.status_code == 200  # Public read is allowed
 
     def test_update_build_list_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a build list part."""
         # Login as test user and get token
@@ -465,6 +472,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -525,7 +533,7 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_update_build_list_part_invalid_quantity(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a build list part with invalid quantity."""
         # Login as test user and get token
@@ -552,6 +560,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -584,7 +593,7 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_remove_part_from_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test removing a part from a build list."""
         # Login as test user and get token
@@ -611,6 +620,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -658,7 +668,7 @@ class TestBuildListParts:
         assert response.status_code == 401
 
     def test_add_part_to_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a build list with extra fields in the request."""
         # Login as test user and get token
@@ -685,6 +695,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -709,7 +720,7 @@ class TestBuildListParts:
         assert data["notes"] == "Test notes"
 
     def test_add_part_to_build_list_with_malformed_json(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a build list with malformed JSON."""
         # Login as test user and get token
@@ -736,6 +747,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -752,7 +764,7 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_add_part_to_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test adding a part to a build list with wrong content type."""
         # Login as test user and get token
@@ -779,6 +791,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -799,7 +812,7 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_update_build_list_part_with_extra_fields(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a build list part with extra fields in the request."""
         # Login as test user and get token
@@ -826,6 +839,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -862,7 +876,7 @@ class TestBuildListParts:
         assert data["notes"] == "Updated notes"
 
     def test_update_build_list_part_with_malformed_json(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a build list part with malformed JSON."""
         # Login as test user and get token
@@ -889,6 +903,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -918,7 +933,7 @@ class TestBuildListParts:
         assert response.status_code == 422
 
     def test_update_build_list_part_with_wrong_content_type(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a build list part with wrong content type."""
         # Login as test user and get token
@@ -945,6 +960,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -982,6 +998,7 @@ class TestBuildListParts:
         client: TestClient,
         test_user: User,
         test_category: Category,
+        test_brand: Brand,
         db_session: Session,
     ) -> None:
         """Test adding a part to a build list with a disabled user account."""
@@ -1005,6 +1022,7 @@ class TestBuildListParts:
         client: TestClient,
         test_user: User,
         test_category: Category,
+        test_brand: Brand,
         db_session: Session,
     ) -> None:
         """Test adding a part to a build list with an unverified email user account."""
@@ -1033,7 +1051,7 @@ class TestBuildListParts:
         # The test demonstrates that unverified email users cannot access protected endpoints
 
     def test_create_and_add_part_to_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test creating a global part and adding it to a build list in one operation."""
         # Login as test user and get token
@@ -1060,6 +1078,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 12999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
             "notes": "Some notes about the part",
         }
         response = client.post(
@@ -1076,7 +1095,7 @@ class TestBuildListParts:
         assert data["global_part"]["name"] == part_data["name"]
 
     def test_get_global_parts_in_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test getting global parts from a build list with full part details."""
         # Login as test user and get token
@@ -1103,6 +1122,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1134,7 +1154,7 @@ class TestBuildListParts:
         assert part["global_part"]["name"] == global_part["name"]
 
     def test_update_global_part_in_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test updating a global part in a build list by build_list_id and global_part_id."""
         # Login as test user and get token
@@ -1161,6 +1181,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1229,7 +1250,7 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_remove_global_part_from_build_list_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test removing a global part from a build list by build_list_id and global_part_id."""
         # Login as test user and get token
@@ -1256,6 +1277,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1315,7 +1337,7 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test counting build lists containing a global part when it exists in multiple build lists."""
         # Login as test user and get token
@@ -1332,6 +1354,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1384,7 +1407,7 @@ class TestBuildListParts:
         assert data["count"] == 2
 
     def test_count_build_lists_containing_global_part_zero(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test counting build lists containing a global part when it exists but is not in any build lists."""
         # Login as test user and get token
@@ -1397,6 +1420,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1417,7 +1441,7 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_public_endpoint(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test that counting build lists containing a global part works without authentication."""
         # Login as test user and get token to create data
@@ -1434,6 +1458,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1469,7 +1494,7 @@ class TestBuildListParts:
         assert data["count"] == 1
 
     def test_update_build_list_part_when_build_list_deleted(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test build list part update when build list is deleted (edge case - cascade behavior)."""
         token = login_user(client, test_user.username)
@@ -1496,6 +1521,7 @@ class TestBuildListParts:
             "price": 9999,  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
         assert response.status_code == 200
@@ -1528,7 +1554,7 @@ class TestBuildListParts:
         assert response.status_code == 404, "Update should fail when build list is deleted"
 
     def test_delete_build_list_part_when_build_list_deleted(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test build list part deletion when build list is deleted (edge case - cascade behavior)."""
         token = login_user(client, test_user.username)
@@ -1555,6 +1581,7 @@ class TestBuildListParts:
             "price": 9999,  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
         assert response.status_code == 200
@@ -1581,7 +1608,7 @@ class TestBuildListParts:
         assert response.status_code == 404, "Delete should fail when build list part was cascade deleted"
 
     def test_count_build_list_parts_success(
-        self, client: TestClient, test_user: User, test_category: Category, db_session: Session
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test counting build list parts."""
         # Login as test user and get token
@@ -1608,6 +1635,7 @@ class TestBuildListParts:
             "description": "A test part description",
             "price": 9999,
             "category_id": test_category.id,
+            "brand_id": test_brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
