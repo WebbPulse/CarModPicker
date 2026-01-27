@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 import {
+  adminApi,
   bugReportsApi,
   buildListPartsApi,
   buildListsApi,
@@ -61,6 +62,15 @@ function AdminDashboard() {
   const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const [isDeletingAllCars, setIsDeletingAllCars] = useState(false);
   const [deleteAllError, setDeleteAllError] = useState<string | null>(null);
+  const [isRunningMigrations, setIsRunningMigrations] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<{
+    success: boolean;
+    output: string;
+    error: string | null;
+    current_revision: string | null;
+  } | null>(null);
+  const [currentRevision, setCurrentRevision] = useState<string | null>(null);
+  const [isLoadingRevision, setIsLoadingRevision] = useState(false);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -182,7 +192,41 @@ function AdminDashboard() {
   // Fetch entity counts on mount
   useEffect(() => {
     void fetchCounts();
+    void fetchCurrentRevision();
   }, [fetchCounts]);
+
+  const fetchCurrentRevision = async () => {
+    setIsLoadingRevision(true);
+    try {
+      const response = await adminApi.getCurrentRevision();
+      setCurrentRevision(response.data.current_revision);
+    } catch (error) {
+      console.error('Failed to fetch current revision:', error);
+    } finally {
+      setIsLoadingRevision(false);
+    }
+  };
+
+  const handleRunMigrations = async () => {
+    setIsRunningMigrations(true);
+    setMigrationResult(null);
+
+    try {
+      const response = await adminApi.runMigrations();
+      setMigrationResult(response.data);
+      // Refresh revision after migration
+      await fetchCurrentRevision();
+    } catch (error) {
+      setMigrationResult({
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : 'Failed to run migrations',
+        current_revision: null,
+      });
+    } finally {
+      setIsRunningMigrations(false);
+    }
+  };
 
   const handleDeleteAllCars = async () => {
     setIsDeletingAllCars(true);
@@ -393,6 +437,117 @@ function AdminDashboard() {
               </div>
             </div>
           )}
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Database Migrations" />
+          <div className="p-6 bg-blue-900/20 border-2 border-blue-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-blue-400 mb-2">
+                Run Database Migrations
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Manually run database migrations to update the database schema.
+                This is useful if automatic migrations fail or need to be run
+                on-demand.
+              </p>
+              {currentRevision && (
+                <p className="text-sm text-neutral-400 mb-4">
+                  Current revision:{' '}
+                  <span className="font-mono font-semibold text-white">
+                    {currentRevision || 'Unknown'}
+                  </span>
+                </p>
+              )}
+            </div>
+            <div className="flex gap-4 mb-4">
+              <ActionButton
+                onClick={() => void handleRunMigrations()}
+                disabled={isRunningMigrations}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                {isRunningMigrations ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Running Migrations...
+                  </span>
+                ) : (
+                  '🔄 Run Migrations'
+                )}
+              </ActionButton>
+              <ActionButton
+                onClick={() => void fetchCurrentRevision()}
+                disabled={isLoadingRevision}
+                className="text-sm"
+              >
+                {isLoadingRevision ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Loading...
+                  </span>
+                ) : (
+                  '🔄 Refresh Revision'
+                )}
+              </ActionButton>
+            </div>
+            {migrationResult && (
+              <div
+                className={`p-4 rounded-lg border-2 ${
+                  migrationResult.success
+                    ? 'bg-green-900/20 border-green-700'
+                    : 'bg-red-900/20 border-red-700'
+                }`}
+              >
+                <div className="mb-2">
+                  <span
+                    className={`font-semibold ${
+                      migrationResult.success
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    }`}
+                  >
+                    {migrationResult.success
+                      ? '✓ Migrations completed successfully'
+                      : '✗ Migration failed'}
+                  </span>
+                </div>
+                {migrationResult.current_revision && (
+                  <div className="text-sm text-neutral-300 mb-2">
+                    <span className="font-semibold">New revision:</span>{' '}
+                    <span className="font-mono">
+                      {migrationResult.current_revision}
+                    </span>
+                  </div>
+                )}
+                {migrationResult.output && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                      View output
+                    </summary>
+                    <pre className="mt-2 p-2 bg-gray-900 rounded text-xs text-neutral-300 overflow-x-auto max-h-60 overflow-y-auto">
+                      {migrationResult.output}
+                    </pre>
+                  </details>
+                )}
+                {migrationResult.error && (
+                  <div className="mt-2">
+                    <p className="text-sm font-semibold text-red-400 mb-1">
+                      Error:
+                    </p>
+                    <pre className="p-2 bg-gray-900 rounded text-xs text-red-300 overflow-x-auto max-h-60 overflow-y-auto">
+                      {migrationResult.error}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 

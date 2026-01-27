@@ -1,0 +1,213 @@
+"""
+Admin endpoints for system management operations.
+
+This module provides admin-only endpoints for system maintenance tasks
+such as running database migrations.
+"""
+
+import logging
+import os
+import subprocess  # nosec B404 - Used safely for running database migrations
+from pathlib import Path
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.dependencies.auth import get_current_admin_user
+from app.api.models.user import User as DBUser
+from app.api.utils.endpoint_decorators import standard_responses
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+def _get_alembic_directory() -> str:
+    """
+    Get the directory containing alembic.ini.
+    
+    Returns the backend directory where alembic.ini is located.
+    """
+    # Try production path first (/app)
+    if os.path.exists("/app/alembic.ini"):
+        return "/app"
+    
+    # Find backend directory by looking for alembic.ini
+    # Start from this file's location and walk up
+    current_file = Path(__file__).resolve()
+    # This file is at: backend/app/api/endpoints/admin.py
+    # alembic.ini is at: backend/alembic.ini
+    # So we need to go up 3 levels from this file
+    backend_dir = current_file.parent.parent.parent.parent
+    
+    # Verify alembic.ini exists there
+    alembic_ini = backend_dir / "alembic.ini"
+    if alembic_ini.exists():
+        return str(backend_dir)
+    
+    # Fallback: try current working directory
+    if os.path.exists("alembic.ini"):
+        return os.getcwd()
+    
+    # Last resort: use the calculated backend directory anyway
+    return str(backend_dir)
+
+
+@router.post(
+    "/migrations/run",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Migrations executed successfully",
+        forbidden=True,
+    ),
+)
+async def run_migrations(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Run database migrations manually (admin only).
+
+    This endpoint allows admins to trigger database migrations manually
+    in case automatic migrations fail or need to be run on-demand.
+
+    Returns:
+        - success: Whether migrations completed successfully
+        - output: Migration command output
+        - error: Error message if migration failed
+        - current_revision: Current database revision after migration
+    """
+    # Determine the correct working directory for alembic
+    cwd = _get_alembic_directory()
+    alembic_ini = os.path.join(cwd, "alembic.ini")
+    
+    if not os.path.exists(alembic_ini):
+        error_msg = f"Could not find alembic.ini in {cwd}"
+        logger.error(error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        )
+
+    try:
+        logger.info(f"Admin {current_user.id} triggered manual migration from {cwd}")
+
+        # Run alembic upgrade head with explicit config file
+        # nosec B603, B607 - Hardcoded command for database migrations, not user input
+        result = subprocess.run(
+            ["alembic", "-c", alembic_ini, "upgrade", "head"],  # nosec B603, B607
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300,  # 5 minute timeout
+        )
+
+        # Get current revision
+        current_revision = None
+        try:
+            current_result = subprocess.run(
+                ["alembic", "-c", alembic_ini, "current"],  # nosec B603, B607
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+            current_revision = current_result.stdout.strip()
+        except Exception as e:
+            logger.warning(f"Could not get current revision: {e}")
+
+        # Invalidate connection pool to pick up schema changes
+        from app.db.session import engine
+
+        engine.dispose(close=False)
+
+        logger.info(f"Migration completed successfully by admin {current_user.id}")
+
+        return {
+            "success": True,
+            "output": result.stdout,
+            "error": None,
+            "current_revision": current_revision,
+        }
+    except subprocess.TimeoutExpired:
+        error_msg = "Migration timed out after 5 minutes"
+        logger.error(f"Migration timeout: {error_msg}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        )
+    except subprocess.CalledProcessError as e:
+        error_output = e.stderr or e.stdout or str(e)
+        logger.error(f"Migration failed: {error_output}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Migration failed: {error_output}",
+        )
+    except Exception as e:
+        error_msg = f"Unexpected error during migration: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        )
+
+
+@router.get(
+    "/migrations/current",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Current migration revision retrieved",
+        forbidden=True,
+    ),
+)
+async def get_current_migration_revision(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Get the current database migration revision (admin only).
+
+    Returns:
+        - current_revision: Current database revision
+        - output: Full alembic current output
+    """
+    # Determine the correct working directory for alembic
+    cwd = _get_alembic_directory()
+    alembic_ini = os.path.join(cwd, "alembic.ini")
+    
+    if not os.path.exists(alembic_ini):
+        error_msg = f"Could not find alembic.ini in {cwd}"
+        logger.error(error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        )
+
+    try:
+        result = subprocess.run(
+            ["alembic", "-c", alembic_ini, "current"],  # nosec B603, B607
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+
+        return {
+            "current_revision": result.stdout.strip(),
+            "output": result.stdout,
+        }
+    except subprocess.CalledProcessError as e:
+        error_output = e.stderr or e.stdout or str(e)
+        logger.error(f"Failed to get current revision: {error_output}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get current revision: {error_output}",
+        )
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        )

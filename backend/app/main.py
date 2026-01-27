@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
+    admin,
     auth,
     brands,
     bug_reports,
@@ -255,6 +256,14 @@ endpoint_registry.register_endpoint(
     prefix="/build-logs",
     tags=["build-logs"],
     description="Forum-style build log threads for build lists",
+)
+
+# Admin endpoint
+endpoint_registry.register_endpoint(
+    admin.router,
+    prefix="/admin",
+    tags=["admin"],
+    description="Admin-only system management operations",
 )
 
 
