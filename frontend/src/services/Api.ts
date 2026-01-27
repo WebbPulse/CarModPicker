@@ -378,9 +378,12 @@ export const globalPartsApi = {
 
   // Check if product URL exists
   checkProductUrl: (productUrl: string) =>
-    apiClient.get<{ existing_part_id: number | null }>('/global-parts/check-url', {
-      params: { product_url: productUrl },
-    }),
+    apiClient.get<{ existing_part_id: number | null }>(
+      '/global-parts/check-url',
+      {
+        params: { product_url: productUrl },
+      }
+    ),
 };
 
 // Categories API
@@ -411,17 +414,28 @@ export const categoriesApi = {
 // Brands API
 export const brandsApi = {
   getBrands: (activeOnly: boolean = true) =>
-    apiClient.get<BrandResponse[]>('/brands/', { params: { active_only: activeOnly } }),
+    apiClient.get<BrandResponse[]>('/brands/', {
+      params: { active_only: activeOnly },
+    }),
   searchBrands: (q: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<BrandResponse[]>('/brands/search', { params: { q, ...params } }),
-  getBrand: (brandId: number) => apiClient.get<BrandResponse>(`/brands/${brandId}`),
-  createBrand: (data: BrandCreate) => apiClient.post<BrandResponse>('/brands/', data),
+    apiClient.get<BrandResponse[]>('/brands/search', {
+      params: { q, ...params },
+    }),
+  getBrand: (brandId: number) =>
+    apiClient.get<BrandResponse>(`/brands/${brandId}`),
+  createBrand: (data: BrandCreate) =>
+    apiClient.post<BrandResponse>('/brands/', data),
   updateBrand: (brandId: number, data: BrandUpdate) =>
     apiClient.put<BrandResponse>(`/brands/${brandId}`, data),
   deleteBrand: (brandId: number) =>
     apiClient.delete<Record<string, string>>(`/brands/${brandId}`),
-  getPartsByBrand: (brandId: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<GlobalPartRead[]>(`/brands/${brandId}/global-parts`, { params }),
+  getPartsByBrand: (
+    brandId: number,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<GlobalPartRead[]>(`/brands/${brandId}/global-parts`, {
+      params,
+    }),
   getBrandPartsCount: (brandId: number) =>
     apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
   countBrands: () => apiClient.get<{ count: number }>('/brands/count'),

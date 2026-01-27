@@ -135,7 +135,7 @@ function CreateBuildListPartForm({
     }
 
     const url = formData.product_url.trim();
-    
+
     // Don't check if URL is empty
     if (!url) {
       setDuplicatePartId(null);
@@ -702,8 +702,8 @@ function CreateBuildListPartForm({
                     />
                   </svg>
                   <span>
-                    New brand <strong>&quot;{pendingBrandName}&quot;</strong> will be
-                    created when you submit this form.
+                    New brand <strong>&quot;{pendingBrandName}&quot;</strong>{' '}
+                    will be created when you submit this form.
                   </span>
                 </div>
               </div>
@@ -769,8 +769,8 @@ function CreateBuildListPartForm({
                       A part with this URL already exists
                     </p>
                     <p className="text-xs text-yellow-200/80 mb-2">
-                      This product URL is already associated with an existing part in
-                      the catalog.
+                      This product URL is already associated with an existing
+                      part in the catalog.
                     </p>
                     <Link
                       to={`/global-parts/${duplicatePartId}`}
@@ -939,7 +939,9 @@ function CreateBuildListPartForm({
                                 {selectedPart.brand_id && (
                                   <p className="text-sm text-gray-400 mt-1">
                                     <span className="font-medium">Brand:</span>{' '}
-                                    {brands.find((b) => b.id === selectedPart.brand_id)?.name || 'Unknown'}
+                                    {brands.find(
+                                      (b) => b.id === selectedPart.brand_id
+                                    )?.name || 'Unknown'}
                                   </p>
                                 )}
                                 {selectedPart.part_number && (

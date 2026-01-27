@@ -359,9 +359,7 @@ function SearchableSelect({
                     ? 'bg-gray-700'
                     : ''
                 }`}
-                onMouseEnter={() =>
-                  setHighlightedIndex(filteredOptions.length)
-                }
+                onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
               >
                 <span className="flex items-center gap-2">
                   <svg

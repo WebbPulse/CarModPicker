@@ -182,10 +182,7 @@ function CreateGlobalPartForm({
     }
   };
 
-  const {
-    isLoading,
-    error,
-  } = useApiRequest(createGlobalPartRequestFn);
+  const { isLoading, error } = useApiRequest(createGlobalPartRequestFn);
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: carsData, executeRequest: fetchCars } =
@@ -233,7 +230,7 @@ function CreateGlobalPartForm({
     }
 
     const url = formData.product_url.trim();
-    
+
     // Don't check if URL is empty
     if (!url) {
       setDuplicatePartId(null);
@@ -366,7 +363,7 @@ function CreateGlobalPartForm({
       }
     }
 
-      const globalPartData: GlobalPartCreate = {
+    const globalPartData: GlobalPartCreate = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
       price: formData.price
@@ -499,8 +496,8 @@ function CreateGlobalPartForm({
                 />
               </svg>
               <span>
-                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will be
-                created when you submit this form.
+                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will
+                be created when you submit this form.
               </span>
             </div>
           </div>
@@ -566,8 +563,8 @@ function CreateGlobalPartForm({
                   A part with this URL already exists
                 </p>
                 <p className="text-xs text-yellow-200/80 mb-2">
-                  This product URL is already associated with an existing part in
-                  the catalog.
+                  This product URL is already associated with an existing part
+                  in the catalog.
                 </p>
                 <Link
                   to={`/global-parts/${duplicatePartId}`}

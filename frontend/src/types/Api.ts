@@ -209,6 +209,7 @@ export interface GlobalPartRead {
   user_id: number;
   car_id?: number | null; // Optional car association
   brand_id?: number | null; // Optional brand association
+  brand?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   is_verified: boolean;

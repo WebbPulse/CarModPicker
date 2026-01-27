@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { brandsApi, carsApi, categoriesApi } from '../../services/Api';
+import apiClient, {
+  brandsApi,
+  carsApi,
+  categoriesApi,
+} from '../../services/Api';
 import type {
   BrandCreate,
   BrandResponse,
@@ -451,8 +455,8 @@ function EditGlobalPartForm({
                 />
               </svg>
               <span>
-                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will be
-                created when you submit this form.
+                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will
+                be created when you submit this form.
               </span>
             </div>
           </div>
