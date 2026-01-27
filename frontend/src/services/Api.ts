@@ -894,4 +894,24 @@ export const bugReportsApi = {
   countBugReports: () => apiClient.get<{ count: number }>('/bug-reports/count'),
 };
 
+// Admin API
+export interface MigrationResult {
+  success: boolean;
+  output: string;
+  error: string | null;
+  current_revision: string | null;
+}
+
+export interface CurrentRevisionResult {
+  current_revision: string;
+  output: string;
+}
+
+export const adminApi = {
+  runMigrations: () =>
+    apiClient.post<MigrationResult>('/admin/migrations/run'),
+  getCurrentRevision: () =>
+    apiClient.get<CurrentRevisionResult>('/admin/migrations/current'),
+};
+
 export default apiClient;
