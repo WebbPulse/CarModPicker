@@ -25,13 +25,13 @@ router = APIRouter()
 def _get_alembic_directory() -> str:
     """
     Get the directory containing alembic.ini.
-    
+
     Returns the backend directory where alembic.ini is located.
     """
     # Try production path first (/app)
     if os.path.exists("/app/alembic.ini"):
         return "/app"
-    
+
     # Find backend directory by looking for alembic.ini
     # Start from this file's location and walk up
     current_file = Path(__file__).resolve()
@@ -39,16 +39,16 @@ def _get_alembic_directory() -> str:
     # alembic.ini is at: backend/alembic.ini
     # So we need to go up 3 levels from this file
     backend_dir = current_file.parent.parent.parent.parent
-    
+
     # Verify alembic.ini exists there
     alembic_ini = backend_dir / "alembic.ini"
     if alembic_ini.exists():
         return str(backend_dir)
-    
+
     # Fallback: try current working directory
     if os.path.exists("alembic.ini"):
         return os.getcwd()
-    
+
     # Last resort: use the calculated backend directory anyway
     return str(backend_dir)
 
@@ -79,7 +79,7 @@ async def run_migrations(
     # Determine the correct working directory for alembic
     cwd = _get_alembic_directory()
     alembic_ini = os.path.join(cwd, "alembic.ini")
-    
+
     if not os.path.exists(alembic_ini):
         error_msg = f"Could not find alembic.ini in {cwd}"
         logger.error(error_msg)
@@ -174,7 +174,7 @@ async def get_current_migration_revision(
     # Determine the correct working directory for alembic
     cwd = _get_alembic_directory()
     alembic_ini = os.path.join(cwd, "alembic.ini")
-    
+
     if not os.path.exists(alembic_ini):
         error_msg = f"Could not find alembic.ini in {cwd}"
         logger.error(error_msg)
