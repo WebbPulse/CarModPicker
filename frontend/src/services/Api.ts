@@ -908,8 +908,7 @@ export interface CurrentRevisionResult {
 }
 
 export const adminApi = {
-  runMigrations: () =>
-    apiClient.post<MigrationResult>('/admin/migrations/run'),
+  runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
   getCurrentRevision: () =>
     apiClient.get<CurrentRevisionResult>('/admin/migrations/current'),
 };

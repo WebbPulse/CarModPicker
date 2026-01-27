@@ -220,7 +220,8 @@ function AdminDashboard() {
       setMigrationResult({
         success: false,
         output: '',
-        error: error instanceof Error ? error.message : 'Failed to run migrations',
+        error:
+          error instanceof Error ? error.message : 'Failed to run migrations',
         current_revision: null,
       });
     } finally {
