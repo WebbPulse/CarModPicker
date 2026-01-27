@@ -5,10 +5,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
+from app.api.models.brand import Brand
 from app.api.models.category import Category
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import get_default_category_id
+from tests.conftest import get_default_category_id, test_brand
 
 
 def get_unique_name(base_name: str) -> str:
@@ -222,7 +223,9 @@ class TestCategories:
         parts = response.json()
         assert isinstance(parts, list)
 
-    def test_get_parts_by_category_with_pagination(self, client: TestClient, db_session: Session) -> None:
+    def test_get_parts_by_category_with_pagination(
+        self, client: TestClient, test_brand: Brand, db_session: Session
+    ) -> None:
         """Test getting parts by category with pagination."""
         # Get a category ID from the database
         category_id = get_default_category_id(db_session)
@@ -246,6 +249,7 @@ class TestCategories:
                 "price": 100 + i * 10,
                 "build_list_id": build_list_id,
                 "category_id": category_id,
+                "brand_id": test_brand.id,
             }
             response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
             assert response.status_code == 200
@@ -427,12 +431,19 @@ class TestCategories:
         category_id = get_default_category_id(db_session)
 
         # Create a part in that category
+        # Create a brand for the part
+        brand = Brand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
+        db_session.add(brand)
+        db_session.commit()
+        db_session.refresh(brand)
+
         part_data = {
             "name": "Test Part",
             "description": "Test part description",
             "price": 100,
             "build_list_id": build_list_id,
             "category_id": category_id,
+            "brand_id": brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
@@ -474,6 +485,12 @@ class TestCategories:
         # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
 
+        # Create a brand for the part
+        brand = Brand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
+        db_session.add(brand)
+        db_session.commit()
+        db_session.refresh(brand)
+
         # Create a part in that category
         part_data = {
             "name": "Test Part for Count",
@@ -481,6 +498,7 @@ class TestCategories:
             "price": 100,
             "build_list_id": build_list_id,
             "category_id": category_id,
+            "brand_id": brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200

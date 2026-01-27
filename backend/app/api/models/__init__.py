@@ -1,3 +1,4 @@
+from .brand import Brand
 from .bug_report import BugReport
 from .build_list import BuildList
 from .build_list_part import BuildListPart
@@ -17,6 +18,7 @@ __all__ = [
     "GlobalPart",
     "Subscription",
     "Category",
+    "Brand",
     "BuildListPart",
     "Vote",
     "Report",

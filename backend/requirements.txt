@@ -27,7 +27,7 @@ alembic==1.16.2
 # The ecdsa maintainers have indicated no plans to fix this vulnerability.
 python-jose[cryptography]==3.5.0
 bcrypt==4.3.0
-python-multipart==0.0.20
+python-multipart==0.0.22
 pyotp==2.9.0
 qrcode[pil]==7.4.2
 

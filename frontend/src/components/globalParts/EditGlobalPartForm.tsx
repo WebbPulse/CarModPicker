@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { carsApi, categoriesApi } from '../../services/Api';
+import apiClient, {
+  brandsApi,
+  carsApi,
+  categoriesApi,
+} from '../../services/Api';
 import type {
+  BrandCreate,
+  BrandResponse,
   CarRead,
   CategoryResponse,
   GlobalPartRead,
@@ -36,6 +42,7 @@ const updateGlobalPartRequestFn = (payload: {
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
 
 function EditGlobalPartForm({
   globalPart,
@@ -45,7 +52,7 @@ function EditGlobalPartForm({
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand: '',
+    brand_id: null as number | null,
     description: '',
     price: '',
     product_url: '',
@@ -59,6 +66,9 @@ function EditGlobalPartForm({
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [cars, setCars] = useState<CarRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
+  const [brands, setBrands] = useState<BrandResponse[]>([]);
+  const [isLoadingBrands, setIsLoadingBrands] = useState(true);
+  const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
 
   const {
     isLoading,
@@ -71,10 +81,13 @@ function EditGlobalPartForm({
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
+  const { data: brandsData, executeRequest: fetchBrands } =
+    useApiRequest(fetchBrandsRequestFn);
 
   useEffect(() => {
     void fetchCategories();
     void fetchCars();
+    void fetchBrands();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch once on mount - request functions are stable
 
@@ -93,11 +106,18 @@ function EditGlobalPartForm({
   }, [carsData]);
 
   useEffect(() => {
+    if (brandsData && Array.isArray(brandsData)) {
+      setBrands(brandsData);
+      setIsLoadingBrands(false);
+    }
+  }, [brandsData]);
+
+  useEffect(() => {
     try {
       setFormData({
         name: globalPart.name ?? '',
         part_number: globalPart.part_number ?? '',
-        brand: globalPart.brand ?? '',
+        brand_id: globalPart.brand_id ?? null,
         description: globalPart.description ?? '',
         price:
           globalPart.price !== null && globalPart.price !== undefined
@@ -167,6 +187,68 @@ function EditGlobalPartForm({
     if (validationError) setValidationError(null);
   };
 
+  const handleBrandChange = (value: number | string | null) => {
+    const brandId = value !== null && value !== '' ? Number(value) : null;
+    setFormData((prev) => ({ ...prev, brand_id: brandId }));
+    // Clear pending brand if an existing brand is selected or value is cleared
+    if (brandId !== null || value === null) {
+      setPendingBrandName(null);
+    }
+    if (validationError) setValidationError(null);
+  };
+
+  const createBrandRequestFn = (data: BrandCreate) =>
+    brandsApi.createBrand(data);
+  const { executeRequest: createBrand } = useApiRequest(createBrandRequestFn);
+
+  const handleCreateNewBrand = (brandName: string) => {
+    // Store the brand name to be created later, don't create it yet
+    setPendingBrandName(brandName.trim());
+    // Clear the brand_id since we're creating a new brand
+    setFormData((prev) => ({ ...prev, brand_id: null }));
+    if (validationError) setValidationError(null);
+  };
+
+  const handleBrandInputChange = (text: string) => {
+    // Clear pending brand if user types something different
+    if (pendingBrandName && text.trim() !== pendingBrandName) {
+      setPendingBrandName(null);
+    }
+  };
+
+  // Convert brands to SearchableSelect options
+  const brandOptions: SearchableSelectOption[] = useMemo(() => {
+    return brands
+      .filter((brand) => brand.is_active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((brand) => ({
+        id: brand.id,
+        label: brand.name,
+        value: brand.id,
+      }));
+  }, [brands]);
+
+  // Filter function for brands
+  const filterBrands = useCallback(
+    (
+      options: SearchableSelectOption[],
+      searchText: string
+    ): SearchableSelectOption[] => {
+      if (!searchText.trim()) return options;
+      const lowerText = searchText.toLowerCase();
+      return options.filter((opt) => {
+        const brand = brands.find((b) => b.id === opt.value);
+        if (!brand) return false;
+        return (
+          opt.label.toLowerCase().includes(lowerText) ||
+          (brand.description &&
+            brand.description.toLowerCase().includes(lowerText))
+        );
+      });
+    },
+    [brands]
+  );
+
   // Convert cars to SearchableSelectOption format
   const carOptions: SearchableSelectOption[] = cars
     .sort((a, b) => {
@@ -215,10 +297,41 @@ function EditGlobalPartForm({
       return;
     }
 
+    if (!formData.brand_id && !pendingBrandName) {
+      setValidationError('Brand is required');
+      return;
+    }
+
+    // Create brand first if there's a pending brand name
+    let brandId = formData.brand_id;
+    if (pendingBrandName) {
+      try {
+        const brandResult = await createBrand({
+          name: pendingBrandName,
+          description: null,
+        });
+        if (brandResult !== null && brandResult.id) {
+          brandId = brandResult.id;
+          // Refresh brands list
+          await fetchBrands();
+        } else {
+          setValidationError('Failed to create brand. Please try again.');
+          return;
+        }
+      } catch (error) {
+        setValidationError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to create brand. Please try again.'
+        );
+        return;
+      }
+    }
+
     const globalPartData: GlobalPartUpdate = {
       name: formData.name.trim(),
       part_number: formData.part_number.trim() || null,
-      brand: formData.brand.trim() || null,
+      brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
       description: formData.description.trim() || null,
       price: formData.price
         ? Math.round(parseFloat(formData.price) * 100)
@@ -238,6 +351,8 @@ function EditGlobalPartForm({
       globalPartData,
     });
     if (result !== null) {
+      // Clear pending brand after successful update
+      setPendingBrandName(null);
       await onGlobalPartUpdated();
     }
   };
@@ -305,15 +420,48 @@ function EditGlobalPartForm({
         placeholder="Enter part number"
       />
 
-      <Input
-        label="Brand"
-        id="global-part-brand"
-        name="brand"
-        type="text"
-        value={formData.brand}
-        onChange={handleInputChange}
-        placeholder="Enter brand name"
-      />
+      <div>
+        <SearchableSelect
+          id="global-part-brand"
+          name="brand_id"
+          label="Brand *"
+          placeholder="Type to search for a brand or create new..."
+          value={formData.brand_id}
+          onChange={handleBrandChange}
+          options={brandOptions}
+          disabled={isLoadingBrands}
+          isLoading={isLoadingBrands}
+          emptyMessage="No brands found. Type a name to create a new brand."
+          filterOptions={filterBrands}
+          onCreateNew={handleCreateNewBrand}
+          createNewLabel="Create brand"
+          displayValue={pendingBrandName}
+          onInputChange={handleBrandInputChange}
+        />
+        {pendingBrandName && (
+          <div className="mt-2 px-3 py-2 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-blue-300">
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>
+                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will
+                be created when you submit this form.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <Input
         label="Description"

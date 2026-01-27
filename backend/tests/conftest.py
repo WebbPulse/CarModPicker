@@ -15,6 +15,7 @@ os.environ["ENABLE_RATE_LIMITING"] = "false"
 
 # Import after environment setup - environment variables must be set before importing app code
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
+from app.api.models.brand import Brand  # noqa: E402
 from app.api.models.category import Category  # noqa: E402
 from app.api.models.user import User  # noqa: E402
 from app.db.base import Base  # noqa: E402
@@ -208,6 +209,20 @@ def test_category(db_session: Session) -> Category:
     db_session.commit()
     db_session.refresh(category)
     return category
+
+
+@pytest.fixture(scope="function")
+def test_brand(db_session: Session) -> Brand:
+    """Create a test brand for testing."""
+    brand = Brand(
+        name=f"test_brand_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        description="A test brand",
+        is_active=True,
+    )
+    db_session.add(brand)
+    db_session.commit()
+    db_session.refresh(brand)
+    return brand
 
 
 @pytest.fixture(scope="function")

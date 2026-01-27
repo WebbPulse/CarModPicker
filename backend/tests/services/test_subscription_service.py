@@ -157,7 +157,7 @@ class TestSubscriptionService:
         assert status.status == "active"
         assert status.limits["cars"] == 3
         assert status.limits["build_lists"] == 5
-        assert "usage" in status.dict()
+        assert "usage" in status.model_dump()
 
     def test_get_subscription_status_premium_tier(self, db_session: Session, test_user: User) -> None:
         """Test getting subscription status for premium tier user."""
