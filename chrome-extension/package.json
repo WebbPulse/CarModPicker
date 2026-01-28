@@ -17,6 +17,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.7",
     "@types/chrome": "^0.0.268",
+    "@types/node": "^25.1.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react-swc": "^3.9.0",
