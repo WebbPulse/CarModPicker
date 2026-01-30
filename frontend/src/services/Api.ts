@@ -394,10 +394,9 @@ export const globalPartsApi = {
       `/global-parts/${partId}/images/${imageIndex}`
     ),
   setGlobalPartPrimaryImage: (partId: number, index: number) =>
-    apiClient.patch<GlobalPartRead>(
-      `/global-parts/${partId}/primary-image`,
-      { index }
-    ),
+    apiClient.patch<GlobalPartRead>(`/global-parts/${partId}/primary-image`, {
+      index,
+    }),
 
   // Count endpoints
   countGlobalParts: () =>
@@ -614,13 +613,15 @@ export const buildListPartsApi = {
       {
         name: globalPartData.name,
         description: globalPartData.description,
-        price: globalPartData.price,
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
         car_id: globalPartData.car_id,
         brand_id: globalPartData.brand_id,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
+        retailer_id: globalPartData.retailer_id,
+        price_cents: globalPartData.price_cents,
+        product_url: globalPartData.product_url,
         notes: buildListPartData.notes,
       }
     ),

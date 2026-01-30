@@ -148,9 +148,9 @@ function AddToBuildListDialog({
               {globalPart.brand && (
                 <p className="text-sm text-gray-400 mb-1">{globalPart.brand}</p>
               )}
-              {globalPart.price !== null && globalPart.price !== undefined && (
+              {globalPart.best_price_cents != null && (
                 <p className="text-sm font-medium text-green-400">
-                  ${(globalPart.price / 100).toFixed(2)}
+                  ${(globalPart.best_price_cents / 100).toFixed(2)}
                 </p>
               )}
               {globalPart.description && (

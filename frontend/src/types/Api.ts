@@ -188,7 +188,6 @@ export interface BuildLogReadPaginated {
 export interface GlobalPartCreate {
   name: string;
   description?: string | null;
-  price?: number | null;
   image_url?: string | null;
   image_urls?: string[] | null;
   product_url?: string | null;
@@ -197,13 +196,15 @@ export interface GlobalPartCreate {
   brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
+  retailer_id?: number | null;
+  price_cents?: number | null; // Price for this retailer (creates/updates listing)
 }
 
 export interface GlobalPartRead {
   id: number;
   name: string;
   description?: string | null;
-  price?: number | null;
+  best_price_cents?: number | null; // Lowest current price from any retailer listing
   image_url?: string | null;
   image_urls?: string[] | null;
   category_id: number;
@@ -278,7 +279,6 @@ export interface PaginatedResponse<T> {
 export interface GlobalPartUpdate {
   name?: string | null;
   description?: string | null;
-  price?: number | null;
   image_url?: string | null;
   image_urls?: string[] | null;
   category_id?: number | null;

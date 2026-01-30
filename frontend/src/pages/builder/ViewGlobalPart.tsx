@@ -534,11 +534,11 @@ function ViewGlobalPart() {
               <p>{part.part_number}</p>
             </CardInfoItem>
           )}
-          {part.price !== null && part.price !== undefined && (
-            <CardInfoItem label="Price:">
+          {part.best_price_cents != null && (
+            <CardInfoItem label="From:">
               <p>
                 $
-                {(part.price / 100).toLocaleString(undefined, {
+                {(part.best_price_cents / 100).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}

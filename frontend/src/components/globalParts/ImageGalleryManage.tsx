@@ -22,7 +22,7 @@ interface ImageGalleryManageProps {
  * Displays part images with management actions for users with edit permission:
  * set primary image, remove image. Uses the same carousel/grid layout as ImageGallery.
  */
-function ImageGalleryManage({
+export default function ImageGalleryManage({
   imageUrl,
   imageUrls,
   altText,
@@ -36,9 +36,9 @@ function ImageGalleryManage({
   );
   const [isRemoving, setIsRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const [settingPrimaryIndex, setSettingPrimaryIndex] = useState<
-    number | null
-  >(null);
+  const [settingPrimaryIndex, setSettingPrimaryIndex] = useState<number | null>(
+    null
+  );
 
   const allUrls =
     imageUrls && imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
@@ -80,9 +80,7 @@ function ImageGalleryManage({
       await onPartUpdated();
       closeRemoveDialog();
     } catch (e) {
-      setRemoveError(
-        e instanceof Error ? e.message : 'Failed to remove image'
-      );
+      setRemoveError(e instanceof Error ? e.message : 'Failed to remove image');
     } finally {
       setIsRemoving(false);
     }
@@ -146,7 +144,7 @@ function ImageGalleryManage({
                     {isSettingPrimary ? 'Updating…' : 'Set as primary'}
                   </button>
                 )}
-                  <button
+                <button
                   type="button"
                   onClick={() => openRemoveDialog(imageIndex)}
                   className="text-xs font-medium text-white bg-red-600 hover:bg-red-500 px-2 py-1 rounded"
@@ -189,5 +187,3 @@ function ImageGalleryManage({
     </div>
   );
 }
-
-export default ImageGalleryManage;

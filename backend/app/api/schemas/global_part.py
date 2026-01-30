@@ -21,7 +21,6 @@ def _serialize_image_urls(value: Optional[List[str]]) -> Optional[List[str]]:
 class GlobalPartCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = Field(
         None,
@@ -42,9 +41,9 @@ class GlobalPartCreate(BaseModel):
         None, ge=0, le=2147483647, description="Price in cents for this retailer (creates/updates listing)"
     )
 
-    @field_validator("price", "price_cents")
+    @field_validator("price_cents")
     @classmethod
-    def validate_price(cls, v: Optional[int]) -> Optional[int]:
+    def validate_price_cents(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and (v < 0 or v > 2147483647):
             raise ValueError("Price must be between 0 and 2,147,483,647 (max PostgreSQL integer)")
         return v
@@ -54,7 +53,6 @@ class GlobalPartCreate(BaseModel):
 class GlobalPartUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[int] = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = Field(
         None,
@@ -67,20 +65,15 @@ class GlobalPartUpdate(BaseModel):
     part_number: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
 
-    @field_validator("price")
-    @classmethod
-    def validate_price(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and (v < 0 or v > 2147483647):
-            raise ValueError("Price must be between 0 and 2,147,483,647 (max PostgreSQL integer)")
-        return v
-
 
 # Schema for response body when reading a part
 class GlobalPartRead(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
-    price: Optional[int] = None
+    best_price_cents: Optional[int] = Field(
+        None, description="Lowest current price from any retailer listing (computed when available)"
+    )
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = None
     category_id: int
@@ -130,9 +123,14 @@ class SetPrimaryImageRequest(BaseModel):
     index: int = Field(..., ge=0, description="0-based index into the part's image_urls gallery")
 
 
+def _default_listings() -> list[PartListingReadWithRetailer]:
+    """Typed default for listings to satisfy strict type checking (default_factory=list is list[Unknown])."""
+    return []
+
+
 # Schema for response when reading a part with listings and best listing
 class GlobalPartReadWithListings(GlobalPartRead):
-    listings: List[PartListingReadWithRetailer] = Field(
-        default_factory=list, description="Retailer listings with current price"
+    listings: list[PartListingReadWithRetailer] = Field(
+        default_factory=_default_listings, description="Retailer listings with current price"
     )
     best_listing: Optional[PartListingReadWithRetailer] = Field(None, description="Listing with lowest current price")

@@ -674,9 +674,7 @@ function AdminDashboard() {
                       Show key list (first 50)
                     </summary>
                     <pre className="mt-2 p-2 bg-gray-800 rounded text-xs text-neutral-300 overflow-x-auto max-h-48 overflow-y-auto">
-                      {orphanedResult.orphaned_keys
-                        .slice(0, 50)
-                        .join('\n')}
+                      {orphanedResult.orphaned_keys.slice(0, 50).join('\n')}
                       {orphanedResult.orphaned_keys.length > 50 &&
                         `\n... and ${orphanedResult.orphaned_keys.length - 50} more`}
                     </pre>

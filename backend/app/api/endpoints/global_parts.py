@@ -135,6 +135,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         entity_data.pop("retailer_id", None)
         entity_data.pop("price_cents", None)
         entity_data.pop("product_url", None)  # Only used for listing, not stored on part
+        entity_data.pop("price", None)  # Removed: pricing is per-retailer via listings
         if additional_data:
             entity_data.update(additional_data)
         entity_data["user_id"] = current_user.id
@@ -428,6 +429,21 @@ async def read_global_parts_with_votes(
         elif vote_type == "downvote":
             downvotes_dict[entity_id] = count
 
+    # Min price per part (from retailer listings) for best_price_cents
+    min_prices = (
+        db.query(
+            DBPartListing.global_part_id,
+            func.min(DBPartListing.last_known_price_cents).label("min_price"),
+        )
+        .filter(
+            DBPartListing.global_part_id.in_(part_ids),
+            DBPartListing.last_known_price_cents.isnot(None),
+        )
+        .group_by(DBPartListing.global_part_id)
+        .all()
+    )
+    best_price_cents_dict: Dict[int, int] = {gp_id: int(mp) for gp_id, mp in min_prices}
+
     # Bulk fetch user votes if user is authenticated
     user_votes_dict: Dict[int, str] = {}
     if current_user:
@@ -442,10 +458,11 @@ async def read_global_parts_with_votes(
         )
         user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
 
-    # Convert parts to schema with vote data
+    # Convert parts to schema with vote data and best_price_cents
     parts_data: List[GlobalPartReadWithVotes] = []
     for part in parts:
         part_dict = GlobalPartRead.model_validate(part).model_dump()
+        part_dict["best_price_cents"] = best_price_cents_dict.get(part.id)
         part_dict["upvotes"] = upvotes_dict.get(part.id, 0)
         part_dict["downvotes"] = downvotes_dict.get(part.id, 0)
         part_dict["total_votes"] = part_dict["upvotes"] + part_dict["downvotes"]
@@ -814,8 +831,10 @@ async def get_global_part_with_listings(
         )
         if best_with_retailer:
             best_serialized = PartListingReadWithRetailer.model_validate(best_with_retailer)
+    part_dict = GlobalPartRead.model_validate(part).model_dump()
+    part_dict["best_price_cents"] = best.last_known_price_cents if best else None
     return GlobalPartReadWithListings(
-        **GlobalPartRead.model_validate(part).model_dump(),
+        **part_dict,
         listings=[PartListingReadWithRetailer.model_validate(l) for l in listings],
         best_listing=best_serialized,
     )

@@ -263,11 +263,10 @@ function GlobalPartList({
                           </p>
                         )}
                       </div>
-                      {globalPart.price !== null &&
-                        globalPart.price !== undefined && (
+                      {globalPart.best_price_cents != null && (
                           <div className="flex-shrink-0 text-right">
                             <p className="text-base font-semibold text-green-400">
-                              ${(globalPart.price / 100).toFixed(2)}
+                              ${(globalPart.best_price_cents / 100).toFixed(2)}
                             </p>
                           </div>
                         )}

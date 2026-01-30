@@ -4,7 +4,7 @@ Common operations and utilities for API endpoints.
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Query, Session
@@ -430,7 +430,7 @@ def update_entity(
                 # Remove the deleted primary image from image_urls so the gallery does not
                 # keep a broken reference (edit form often only sends image_url, not image_urls).
                 if hasattr(entity, "image_urls") and "image_urls" not in update_data:
-                    current_urls = getattr(entity, "image_urls", None) or []
+                    current_urls = cast(list[str], getattr(entity, "image_urls", None) or [])
                     if old_image_url in current_urls:
                         from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
 
@@ -444,7 +444,7 @@ def update_entity(
             from app.api.services.storage_service import storage_service
             from app.api.utils.image_utils import is_file_key
 
-            old_urls = getattr(entity, "image_urls", None) or []
+            old_urls = cast(list[str], getattr(entity, "image_urls", None) or [])
             new_urls = (update_data["image_urls"] or [])[:MAX_IMAGES_PER_GLOBAL_PART]
             update_data["image_urls"] = new_urls
 
@@ -541,7 +541,7 @@ def delete_entity(
                         logger.warning(f"Failed to delete image for {entity_name} {entity_id}: {str(e)}")
 
         if hasattr(entity, "image_urls"):
-            image_urls = getattr(entity, "image_urls", None) or []
+            image_urls = cast(list[str], getattr(entity, "image_urls", None) or [])
             for img_key in image_urls:
                 if img_key and is_file_key(img_key):
                     try:

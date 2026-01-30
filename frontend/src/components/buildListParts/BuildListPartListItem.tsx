@@ -33,8 +33,8 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
     const navigate = useNavigate();
     const { global_part, notes, quantity, purchased } = buildListPart;
 
-    // Prices are stored in cents, so we keep them in cents for calculations
-    const partPriceInCents = global_part.price;
+    // Prices from retailer listings (best_price_cents when available)
+    const partPriceInCents = global_part.best_price_cents;
     const qty = quantity || 1;
     const totalPriceInCents =
       partPriceInCents !== null && partPriceInCents !== undefined
@@ -217,8 +217,8 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
       prevProps.buildListPart.purchased === nextProps.buildListPart.purchased &&
       prevProps.buildListPart.quantity === nextProps.buildListPart.quantity &&
       prevProps.buildListPart.notes === nextProps.buildListPart.notes &&
-      prevProps.buildListPart.global_part.price ===
-        nextProps.buildListPart.global_part.price &&
+      prevProps.buildListPart.global_part.best_price_cents ===
+        nextProps.buildListPart.global_part.best_price_cents &&
       prevProps.canEdit === nextProps.canEdit &&
       prevProps.canDelete === nextProps.canDelete &&
       prevProps.canMarkPurchased === nextProps.canMarkPurchased &&

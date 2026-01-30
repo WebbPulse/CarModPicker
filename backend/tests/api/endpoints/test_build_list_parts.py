@@ -109,7 +109,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -157,7 +156,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -235,7 +233,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -280,7 +277,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -325,7 +321,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -378,7 +373,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -470,7 +464,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -558,7 +551,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -618,7 +610,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -693,7 +684,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -745,7 +735,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -789,7 +778,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -837,7 +825,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -901,7 +888,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -958,7 +944,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1076,7 +1061,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 12999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
             "notes": "Some notes about the part",
@@ -1120,7 +1104,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1179,7 +1162,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1275,7 +1257,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1352,7 +1333,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1418,7 +1398,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1456,7 +1435,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -1518,7 +1496,7 @@ class TestBuildListParts:
         global_part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,  # price in cents (99.99)
+  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
             "brand_id": test_brand.id,
@@ -1578,7 +1556,7 @@ class TestBuildListParts:
         global_part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,  # price in cents (99.99)
+  # price in cents (99.99)
             "category_id": test_category.id,
             "car_id": car["id"],
             "brand_id": test_brand.id,
@@ -1633,7 +1611,6 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
