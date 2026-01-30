@@ -1,12 +1,13 @@
 """
 Image upload endpoint for Railway Storage Buckets.
 Handles secure image uploads with validation and authentication.
+Supports source URL tracking for deduplication (avoid re-downloading same images).
 """
 
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
@@ -14,8 +15,10 @@ from app.api.dependencies.auth import (
     get_current_user,
     get_optional_current_user,
 )
+from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.user import User as DBUser
 from app.api.services.storage_service import storage_service
+from app.api.utils.image_url_utils import get_canonical_image_url
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -23,10 +26,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/by-source-url")
+async def get_image_by_source_url(
+    source_url: str = Query(..., description="Original URL the image was downloaded from"),
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """
+    Check if we've already stored an image from this source URL (deduplication).
+    Returns the existing file_key if found, so clients can skip re-uploading.
+    """
+    canonical = get_canonical_image_url(source_url)
+    mapping = db.query(DBImageSourceMapping).filter(DBImageSourceMapping.source_url == canonical).first()
+    if not mapping:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No cached image for this source URL")
+    return {"file_key": mapping.file_key}
+
+
 @router.post("/upload")
 async def upload_image(
     entity_type: str,
     entity_id: Optional[int] = None,
+    source_url: Optional[str] = Form(
+        None, description="Original URL (for deduplication; skips upload if already stored)"
+    ),
     file: UploadFile = File(...),
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -111,7 +134,33 @@ async def upload_image(
                 detail=f"Not authorized to upload images for this {entity_type}",
             )
 
+        # For global_part: reject upload if part already has max images (avoid expensive bucket uploads)
+        if entity_type == "global_part":
+            from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
+
+            part = db.query(DBGlobalPart).filter(DBGlobalPart.id == entity_id).first()
+            if part:
+                current_count = len(part.image_urls or [])
+                if current_count >= MAX_IMAGES_PER_GLOBAL_PART:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Global part already has the maximum number of images ({MAX_IMAGES_PER_GLOBAL_PART}).",
+                    )
+
     try:
+        # Deduplication: if source_url provided and we already have it, return existing file_key
+        if source_url and source_url.strip():
+            canonical = get_canonical_image_url(source_url)
+            existing = db.query(DBImageSourceMapping).filter(DBImageSourceMapping.source_url == canonical).first()
+            if existing:
+                presigned_url = storage_service.get_presigned_url(existing.file_key)
+                logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
+                return {
+                    "file_key": existing.file_key,
+                    "presigned_url": presigned_url,
+                    "message": "Image already cached; reused existing",
+                }
+
         # Upload image to Railway Storage Bucket
         # Force square aspect ratio for user profile pictures
         force_square = entity_type == "user"
@@ -127,6 +176,20 @@ async def upload_image(
         presigned_url = storage_service.get_presigned_url(file_key)
 
         logger.info(f"User {current_user.id} uploaded image: {file_key}")
+
+        # Store source_url mapping for future deduplication (global_part only for now)
+        if source_url and source_url.strip() and entity_type == "global_part":
+            try:
+                canonical = get_canonical_image_url(source_url)
+                mapping = DBImageSourceMapping(
+                    source_url=canonical,
+                    file_key=file_key,
+                )
+                db.add(mapping)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"Failed to store image source mapping: {e}")
 
         return {
             "file_key": file_key,

@@ -14,6 +14,7 @@ import type {
   GlobalPartUpdate,
 } from '../../types/Api';
 
+import { LARGE_FETCH_LIMIT } from '../../constants';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -23,7 +24,6 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
-import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface EditGlobalPartFormProps {
   globalPart: GlobalPartRead;
@@ -55,7 +55,6 @@ function EditGlobalPartForm({
     brand_id: null as number | null,
     description: '',
     price: '',
-    product_url: '',
     category_id: 1,
     car_id: null as number | null,
   });
@@ -123,7 +122,6 @@ function EditGlobalPartForm({
           globalPart.price !== null && globalPart.price !== undefined
             ? (globalPart.price / 100).toFixed(2)
             : '',
-        product_url: globalPart.product_url ?? '',
         category_id: globalPart.category_id ?? 1,
         car_id: globalPart.car_id ?? null,
       });
@@ -336,7 +334,6 @@ function EditGlobalPartForm({
       price: formData.price
         ? Math.round(parseFloat(formData.price) * 100)
         : null,
-      product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
       car_id: formData.car_id,
     };
@@ -483,16 +480,6 @@ function EditGlobalPartForm({
         onBlur={handlePriceBlur}
         placeholder="0.00"
         leftIcon={<span className="text-white/80 font-medium">$</span>}
-      />
-
-      <Input
-        label="Product URL"
-        id="global-part-product-url"
-        name="product_url"
-        type="url"
-        value={formData.product_url}
-        onChange={handleInputChange}
-        placeholder="https://example.com/product"
       />
 
       <SearchableSelect

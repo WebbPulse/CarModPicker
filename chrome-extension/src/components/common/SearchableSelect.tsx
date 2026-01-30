@@ -21,6 +21,11 @@ interface SearchableSelectProps {
     options: SearchableSelectOption[],
     searchText: string
   ) => SearchableSelectOption[] | Promise<SearchableSelectOption[]>;
+  /** When provided, show "Create X" option when no matches. Called when user selects it. */
+  onCreateNew?: (searchText: string) => void | Promise<void>;
+  createNewLabel?: string;
+  /** Display text when value is null (e.g. pending brand creation) */
+  displayValue?: string | null;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -35,6 +40,9 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   isLoading = false,
   emptyMessage = 'No options found',
   filterOptions: customFilterOptions,
+  onCreateNew,
+  createNewLabel = 'Create',
+  displayValue,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -46,6 +54,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Find selected option
   const selectedOption = options.find((opt) => opt.value === value) || null;
+
+  // Show "Create new" when no matches and user has typed something
+  const shouldShowCreateNew =
+    onCreateNew &&
+    searchText.trim() &&
+    filteredOptions.length === 0 &&
+    !isLoading &&
+    !displayValue;
+  const totalOptions = filteredOptions.length + (shouldShowCreateNew ? 1 : 0);
 
   // Default filter function
   const defaultFilterOptions = useCallback(
@@ -91,14 +108,25 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Update search text when value changes externally
   useEffect(() => {
-    if (value === null || value === '') {
+    if (displayValue) {
+      setSearchText(displayValue);
+    } else if (value === null || value === '') {
       setSearchText('');
     } else if (selectedOption && searchText !== selectedOption.label) {
       if (!isOpen) {
         setSearchText(selectedOption.label);
       }
     }
-  }, [value, selectedOption, isOpen]);
+  }, [value, selectedOption, isOpen, displayValue]);
+
+  const handleCreateNew = useCallback(() => {
+    const text = searchText.trim();
+    if (text && onCreateNew) {
+      void onCreateNew(text);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
+  }, [searchText, onCreateNew]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -111,6 +139,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         setHighlightedIndex(-1);
         if (selectedOption) {
           setSearchText(selectedOption.label);
+        } else if (displayValue) {
+          setSearchText(displayValue);
         } else {
           setSearchText('');
         }
@@ -121,7 +151,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [selectedOption]);
+  }, [selectedOption, displayValue]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -131,20 +161,22 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
+          prev < totalOptions - 1 ? prev + 1 : prev
         );
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-      } else if (
-        e.key === 'Enter' &&
-        highlightedIndex >= 0 &&
-        filteredOptions[highlightedIndex]
-      ) {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
-        const selectedOption = filteredOptions[highlightedIndex];
-        if (selectedOption) {
-          handleSelect(selectedOption.value);
+        if (highlightedIndex >= 0) {
+          if (shouldShowCreateNew && highlightedIndex === filteredOptions.length) {
+            handleCreateNew();
+          } else if (filteredOptions[highlightedIndex]) {
+            const opt = filteredOptions[highlightedIndex];
+            if (opt) handleSelect(opt.value);
+          }
+        } else if (shouldShowCreateNew && searchText.trim()) {
+          handleCreateNew();
         }
       } else if (e.key === 'Escape') {
         setIsOpen(false);
@@ -156,14 +188,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, filteredOptions, highlightedIndex, handleSelect]);
+  }, [isOpen, filteredOptions, highlightedIndex, handleSelect, shouldShowCreateNew, searchText, handleCreateNew, totalOptions]);
 
   // Scroll highlighted option into view
   useEffect(() => {
     if (
-      highlightedIndex >= 0 &&
-      dropdownRef.current &&
-      dropdownRef.current.children[highlightedIndex]
+        highlightedIndex >= 0 &&
+        dropdownRef.current &&
+        dropdownRef.current.children[highlightedIndex] &&
+        highlightedIndex < totalOptions
     ) {
       const optionElement = dropdownRef.current.children[
         highlightedIndex
@@ -197,6 +230,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     onChange(null);
     setSearchText('');
     setIsOpen(false);
+    setHighlightedIndex(-1);
     inputRef.current?.focus();
   };
 
@@ -226,7 +260,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           autoComplete="off"
         />
 
-        {value !== null && value !== '' && !disabled && (
+        {((value !== null && value !== '') || displayValue) && !disabled && (
           <button
             type="button"
             onClick={handleClear}
@@ -275,24 +309,38 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         >
           {isLoading ? (
             <div className="px-4 py-3 text-white/60 text-center">Loading...</div>
-          ) : filteredOptions.length === 0 ? (
+          ) : filteredOptions.length === 0 && !shouldShowCreateNew ? (
             <div className="px-4 py-3 text-white/60 text-center">{emptyMessage}</div>
           ) : (
-            filteredOptions.map((option, index) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => handleSelect(option.value)}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors ${
-                  option.value === value
-                    ? 'bg-primary-500/20 text-primary-400'
-                    : 'text-white'
-                } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
-                onMouseEnter={() => setHighlightedIndex(index)}
-              >
-                {option.label}
-              </button>
-            ))
+            <>
+              {filteredOptions.map((option, index) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleSelect(option.value)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors ${
+                    option.value === value
+                      ? 'bg-primary-500/20 text-primary-400'
+                      : 'text-white'
+                  } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                >
+                  {option.label}
+                </button>
+              ))}
+              {shouldShowCreateNew && (
+                <button
+                  type="button"
+                  onClick={handleCreateNew}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors text-primary-400 ${
+                    filteredOptions.length === highlightedIndex ? 'bg-gray-700' : ''
+                  }`}
+                  onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
+                >
+                  {createNewLabel} &quot;{searchText.trim()}&quot;
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

@@ -37,6 +37,8 @@ import type {
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
+  PartListingReadWithRetailer,
+  PartPriceHistoryReadWithRetailer,
   LoginResponse,
   NewPassword,
   PaginatedResponse,
@@ -361,6 +363,22 @@ export const globalPartsApi = {
   // Get specific global part
   getGlobalPart: (partId: number) =>
     apiClient.get<GlobalPartRead>(`/global-parts/${partId}`),
+
+  // Get retailer listings for a part (price by retailer)
+  getGlobalPartListings: (partId: number) =>
+    apiClient.get<PartListingReadWithRetailer[]>(
+      `/global-parts/${partId}/listings`
+    ),
+
+  // Get price history for a part (optional filter by retailer)
+  getGlobalPartPriceHistory: (
+    partId: number,
+    params?: { retailer_id?: number }
+  ) =>
+    apiClient.get<PartPriceHistoryReadWithRetailer[]>(
+      `/global-parts/${partId}/price-history`,
+      { params }
+    ),
 
   // Update global part
   updateGlobalPart: (partId: number, data: GlobalPartUpdate) =>

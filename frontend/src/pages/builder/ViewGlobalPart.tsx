@@ -16,6 +16,7 @@ import type {
   CarRead,
   CategoryResponse,
   GlobalPartReadWithVotes,
+  PartListingReadWithRetailer,
 } from '../../types/Api';
 
 import ReportDialog from '../../components/admin/ReportDialog';
@@ -25,11 +26,12 @@ import Card from '../../components/common/Card';
 import CardInfoItem from '../../components/common/CardInfoItem';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
 import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm';
+import ImageGallery from '../../components/globalParts/ImageGallery';
+import PriceHistoryLineChart from '../../components/globalParts/PriceHistoryLineChart';
 import VoteButtons from '../../components/globalParts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
@@ -51,6 +53,12 @@ const fetchBrandRequestFn = (brandId: number) => brandsApi.getBrand(brandId);
 
 const deletePartRequestFn = (partId: string) =>
   globalPartsApi.deleteGlobalPart(Number(partId));
+
+const fetchListingsRequestFn = (partId: string) =>
+  globalPartsApi.getGlobalPartListings(Number(partId));
+
+const fetchPriceHistoryRequestFn = (partId: string) =>
+  globalPartsApi.getGlobalPartPriceHistory(Number(partId));
 
 function ViewGlobalPart() {
   const { partId } = useParams<{ partId: string }>();
@@ -119,6 +127,20 @@ function ViewGlobalPart() {
     setError: setDeletePartError,
   } = useApiRequest(deletePartRequestFn);
 
+  const {
+    data: listingsData,
+    isLoading: isLoadingListings,
+    error: listingsApiError,
+    executeRequest: fetchListings,
+  } = useApiRequest(fetchListingsRequestFn);
+
+  const {
+    data: priceHistoryData,
+    isLoading: isLoadingPriceHistory,
+    error: priceHistoryApiError,
+    executeRequest: fetchPriceHistory,
+  } = useApiRequest(fetchPriceHistoryRequestFn);
+
   const memoizedFetchPart = useCallback(() => {
     if (partId) {
       void fetchPart(partId);
@@ -162,6 +184,18 @@ function ViewGlobalPart() {
     memoizedFetchVoteSummary();
     memoizedFetchCategories();
   }, [memoizedFetchPart, memoizedFetchVoteSummary, memoizedFetchCategories]);
+
+  useEffect(() => {
+    if (partId) {
+      void fetchListings(partId);
+    }
+  }, [partId, fetchListings]);
+
+  useEffect(() => {
+    if (partId) {
+      void fetchPriceHistory(partId);
+    }
+  }, [partId, fetchPriceHistory]);
 
   useEffect(() => {
     if (categoriesData) {
@@ -443,17 +477,18 @@ function ViewGlobalPart() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <CardInfoItem label="Part Image">
-            <ImageWithPlaceholder
-              srcUrl={part.image_url ?? null}
+        {/* Part Images - full width */}
+        <div className="mb-6">
+          <CardInfoItem label="Part Images">
+            <ImageGallery
+              imageUrl={part.image_url ?? null}
+              imageUrls={part.image_urls ?? null}
               altText={part.name}
-              imageClassName="h-48 w-auto object-contain rounded"
-              containerClassName="h-48 flex justify-left items-center"
-              fallbackText="No image available for this part."
             />
           </CardInfoItem>
-          <div className="hidden md:block"></div> {/* Spacer */}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           {part.description && (
             <CardInfoItem label="Description:">
               <p className="whitespace-pre-wrap">{part.description}</p>
@@ -499,18 +534,6 @@ function ViewGlobalPart() {
               </p>
             </CardInfoItem>
           )}
-          {part.product_url && (
-            <CardInfoItem label="Product URL:">
-              <a
-                href={part.product_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline break-all"
-              >
-                {part.product_url}
-              </a>
-            </CardInfoItem>
-          )}
           {part.specifications &&
             Object.keys(part.specifications).length > 0 && (
               <CardInfoItem label="Specifications:">
@@ -551,6 +574,114 @@ function ViewGlobalPart() {
           <CardInfoItem label="Last Updated:">
             <p>{new Date(part.updated_at).toLocaleDateString()}</p>
           </CardInfoItem>
+        </div>
+
+        {/* Price by retailer */}
+        <div className="mb-6">
+          <SectionHeader title="Price by retailer" />
+          {isLoadingListings && (
+            <p className="text-gray-400 text-sm">Loading retailer prices…</p>
+          )}
+          {listingsApiError && (
+            <ErrorAlert
+              message={`Could not load retailer prices: ${listingsApiError}`}
+            />
+          )}
+          {!isLoadingListings && !listingsApiError && listingsData && (
+            <>
+              {listingsData.length === 0 ? (
+                <p className="text-gray-400 text-sm">
+                  No retailer listings with price for this part yet.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {listingsData
+                    .filter(
+                      (l: PartListingReadWithRetailer) =>
+                        l.last_known_price_cents != null
+                    )
+                    .sort(
+                      (
+                        a: PartListingReadWithRetailer,
+                        b: PartListingReadWithRetailer
+                      ) =>
+                        (a.last_known_price_cents ?? 0) -
+                        (b.last_known_price_cents ?? 0)
+                    )
+                    .map((listing: PartListingReadWithRetailer) => (
+                      <li
+                        key={listing.id}
+                        className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-white">
+                            {listing.retailer.name}
+                          </span>
+                          {listing.last_price_updated_at && (
+                            <span className="text-gray-400 text-sm ml-2">
+                              (updated{' '}
+                              {new Date(
+                                listing.last_price_updated_at
+                              ).toLocaleDateString()}
+                              )
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-emerald-400 font-semibold">
+                            $
+                            {(
+                              (listing.last_known_price_cents ?? 0) / 100
+                            ).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          {listing.product_url && (
+                            <a
+                              href={listing.product_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary-400 hover:text-primary-300 text-sm underline"
+                            >
+                              View at retailer →
+                            </a>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Price history */}
+        <div className="mb-6">
+          <SectionHeader title="Price history" />
+          {isLoadingPriceHistory && (
+            <p className="text-gray-400 text-sm">Loading price history…</p>
+          )}
+          {priceHistoryApiError && (
+            <ErrorAlert
+              message={`Could not load price history: ${priceHistoryApiError}`}
+            />
+          )}
+          {!isLoadingPriceHistory &&
+            !priceHistoryApiError &&
+            priceHistoryData && (
+              <>
+                {priceHistoryData.length === 0 ? (
+                  <p className="text-gray-400 text-sm">
+                    No price history recorded for this part yet.
+                  </p>
+                ) : (
+                  <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4">
+                    <PriceHistoryLineChart data={priceHistoryData} />
+                  </div>
+                )}
+              </>
+            )}
         </div>
 
         {voteApiError && (

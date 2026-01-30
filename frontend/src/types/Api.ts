@@ -190,6 +190,7 @@ export interface GlobalPartCreate {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
+  image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
   car_id?: number | null; // Optional car association
@@ -204,7 +205,7 @@ export interface GlobalPartRead {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
-  product_url?: string | null;
+  image_urls?: string[] | null;
   category_id: number;
   user_id: number;
   car_id?: number | null; // Optional car association
@@ -226,6 +227,40 @@ export interface GlobalPartReadWithVotes extends GlobalPartRead {
   user_vote?: 'upvote' | 'downvote' | null;
 }
 
+/** Retailer (store) where parts are sold */
+export interface RetailerRead {
+  id: number;
+  name: string;
+  domain?: string | null;
+  base_url?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Part listing at a retailer with current price */
+export interface PartListingReadWithRetailer {
+  id: number;
+  global_part_id: number;
+  retailer_id: number;
+  product_url?: string | null;
+  last_known_price_cents?: number | null;
+  last_price_updated_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  retailer: RetailerRead;
+}
+
+/** Price history entry with retailer info */
+export interface PartPriceHistoryReadWithRetailer {
+  id: number;
+  part_listing_id: number;
+  price_cents: number;
+  observed_at: string;
+  retailer_id: number;
+  retailer_name: string;
+}
+
 export interface PaginationInfo {
   current_page: number;
   total_pages: number;
@@ -245,7 +280,7 @@ export interface GlobalPartUpdate {
   description?: string | null;
   price?: number | null;
   image_url?: string | null;
-  product_url?: string | null;
+  image_urls?: string[] | null;
   category_id?: number | null;
   car_id?: number | null; // Optional car association
   brand_id: number; // Required brand association

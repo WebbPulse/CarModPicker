@@ -427,6 +427,35 @@ def update_entity(
                         # Log but don't fail the update if image deletion fails
                         logger.warning(f"Failed to delete old image for {entity_name} {entity.id}: {str(e)}")
 
+                # Remove the deleted primary image from image_urls so the gallery does not
+                # keep a broken reference (edit form often only sends image_url, not image_urls).
+                if hasattr(entity, "image_urls") and "image_urls" not in update_data:
+                    current_urls = getattr(entity, "image_urls", None) or []
+                    if old_image_url in current_urls:
+                        from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
+
+                        update_data["image_urls"] = [k for k in current_urls if k != old_image_url][
+                            :MAX_IMAGES_PER_GLOBAL_PART
+                        ]
+
+        # Handle image_urls deletion when gallery is being updated
+        if "image_urls" in update_data and hasattr(entity, "image_urls"):
+            from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
+            from app.api.services.storage_service import storage_service
+            from app.api.utils.image_utils import is_file_key
+
+            old_urls = getattr(entity, "image_urls", None) or []
+            new_urls = (update_data["image_urls"] or [])[:MAX_IMAGES_PER_GLOBAL_PART]
+            update_data["image_urls"] = new_urls
+
+            for old_key in old_urls:
+                if old_key and old_key not in new_urls and is_file_key(old_key):
+                    try:
+                        storage_service.delete_image(old_key)
+                        logger.info(f"Deleted old gallery image for {entity_name} {entity.id}: {old_key}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete gallery image for {entity_name} {entity.id}: {str(e)}")
+
         # Update model fields
         for key, value in update_data.items():
             if hasattr(entity, key):
@@ -497,21 +526,29 @@ def delete_entity(
     try:
         entity_id = getattr(entity, "id")
 
-        # Delete associated image if it exists
+        # Delete associated images if they exist
+        from app.api.services.storage_service import storage_service
+        from app.api.utils.image_utils import is_file_key
+
         if hasattr(entity, "image_url"):
             image_url = getattr(entity, "image_url", None)
             if image_url:
-                from app.api.services.storage_service import storage_service
-                from app.api.utils.image_utils import is_file_key
-
-                # Only delete if it's a file key (not a regular URL)
                 if is_file_key(image_url):
                     try:
                         storage_service.delete_image(image_url)
                         logger.info(f"Deleted image for {entity_name} {entity_id}: {image_url}")
                     except Exception as e:
-                        # Log but don't fail the deletion if image deletion fails
                         logger.warning(f"Failed to delete image for {entity_name} {entity_id}: {str(e)}")
+
+        if hasattr(entity, "image_urls"):
+            image_urls = getattr(entity, "image_urls", None) or []
+            for img_key in image_urls:
+                if img_key and is_file_key(img_key):
+                    try:
+                        storage_service.delete_image(img_key)
+                        logger.info(f"Deleted gallery image for {entity_name} {entity_id}: {img_key}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete gallery image for {entity_name} {entity_id}: {str(e)}")
 
         db.delete(entity)
         db.commit()

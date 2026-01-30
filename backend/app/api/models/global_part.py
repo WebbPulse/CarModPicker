@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .build_list_part import BuildListPart
     from .car import Car
     from .category import Category
+    from .part_listing import PartListing
     from .report import Report
     from .user import User
     from .vote import Vote
@@ -29,7 +30,7 @@ class GlobalPart(Base):
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     price: Mapped[Optional[int]] = mapped_column(nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
-    product_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Gallery images (file keys)
 
     # New fields for shared architecture
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
@@ -72,4 +73,7 @@ class GlobalPart(Base):
         primaryjoin="and_(Report.entity_id == GlobalPart.id, Report.entity_type == 'global_part')",
         cascade="all, delete-orphan",
         overlaps="reports,reports",
+    )
+    part_listings: Mapped[list["PartListing"]] = relationship(
+        "PartListing", back_populates="global_part", cascade="all, delete-orphan"
     )

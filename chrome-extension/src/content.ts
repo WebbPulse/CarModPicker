@@ -3,6 +3,10 @@
  */
 
 import type { ScrapedProductData } from "./types";
+import {
+  getCanonicalImageUrl,
+  getHighResImageUrl,
+} from "./utils/imageUrlUtils";
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(
@@ -33,6 +37,7 @@ function scrapeProductData(): ScrapedProductData {
     description: null,
     price: null,
     image_url: null,
+    image_urls: [],
     product_url: window.location.href,
     brand: null,
     part_number: null,
@@ -47,8 +52,10 @@ function scrapeProductData(): ScrapedProductData {
   // Extract price
   data.price = extractPrice();
 
-  // Extract image URL
-  data.image_url = extractImageUrl();
+  // Extract images (multiple for gallery)
+  const imageUrls = extractImageUrls();
+  data.image_urls = imageUrls;
+  data.image_url = imageUrls.length > 0 ? (imageUrls[0] ?? null) : null;
 
   // Extract brand
   data.brand = extractBrand();
@@ -200,66 +207,334 @@ function extractPriceValue(priceText: string): number | null {
   return null;
 }
 
+const MAX_GALLERY_IMAGES = 10;
+const MIN_IMAGE_SIZE = 150;
+/** Min size for images inside thumbnail/carousel strips so we don't collect small thumbs */
+const MIN_MAIN_IMAGE_SIZE = 300;
+
+/** Resolve image src to absolute URL */
+function toAbsoluteUrl(src: string): string {
+  if (src.startsWith("http")) return src;
+  if (src.startsWith("//")) return window.location.protocol + src;
+  try {
+    return new URL(src, window.location.href).href;
+  } catch {
+    return "";
+  }
+}
+
+/** Check if URL looks like a product image (not icon/logo) */
+function isProductImageLike(
+  url: string,
+  img?: HTMLImageElement,
+  skipSizeCheck?: boolean,
+  minSize: number = MIN_IMAGE_SIZE,
+): boolean {
+  if (!url || url.length < 10) return false;
+  const lower = url.toLowerCase();
+  if (
+    lower.includes("icon") ||
+    lower.includes("logo") ||
+    lower.includes("avatar") ||
+    lower.includes("placeholder") ||
+    lower.includes("1x1") ||
+    lower.endsWith(".svg") ||
+    lower.includes("pixel.")
+  ) {
+    return false;
+  }
+  // Skip size check for lazy-loaded images (naturalWidth may be 0) or when explicitly asked
+  if (!skipSizeCheck && img) {
+    const w = img.naturalWidth || img.width || 0;
+    const h = img.naturalHeight || img.height || 0;
+    if (w > 0 && h > 0 && (w < minSize || h < minSize)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** True if the image is inside a thumbnail strip / carousel thumb container (small previews) */
+function isInThumbnailStrip(img: HTMLImageElement): boolean {
+  let el: HTMLElement | null = img.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    if (
+      tag === "picture" ||
+      /thumbnail|thumb-nav|thumbstrip|carousel-thumb|gallery-thumb|slick-thumb|swiper-thumb|nav-thumb/.test(
+        cls,
+      ) ||
+      /thumbnail|thumbstrip|thumb-nav/.test(id)
+    ) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
 /**
- * Extract product image URL
+ * Extract multiple product image URLs for gallery.
+ * Dedupes by canonical URL (same image at different sizes) and favors high-res.
  */
-function extractImageUrl(): string | null {
-  // Try Open Graph image first
-  const ogImage = document.querySelector('meta[property="og:image"]');
-  if (ogImage && ogImage instanceof HTMLMetaElement && ogImage.content) {
-    const url = ogImage.content.trim();
-    if (url && url.startsWith("http")) {
-      return url;
+function extractImageUrls(): string[] {
+  const byCanonical = new Map<string, string>();
+
+  function add(
+    url: string,
+    img?: HTMLImageElement,
+    skipSizeCheck?: boolean,
+    minSize: number = MIN_IMAGE_SIZE,
+  ): void {
+    const abs = toAbsoluteUrl(url);
+    if (!abs || !isProductImageLike(abs, img, skipSizeCheck, minSize)) return;
+    const canonical = getCanonicalImageUrl(abs);
+    if (!canonical) return;
+    // Keep high-res variant (we'll normalize output to high-res later)
+    const existing = byCanonical.get(canonical);
+    if (!existing || getWidthFromUrl(abs) > getWidthFromUrl(existing)) {
+      byCanonical.set(canonical, abs);
     }
   }
 
-  // Try common product image selectors
-  const imgSelectors = [
-    '[class*="product"][class*="image"] img',
+  function getWidthFromUrl(u: string): number {
+    try {
+      const match =
+        new URL(u).searchParams.get("width") ||
+        new URL(u).searchParams.get("w");
+      return match ? parseInt(match, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  // 1. Open Graph images (can have multiple via og:image:url in JSON-LD)
+  const ogImages = document.querySelectorAll('meta[property="og:image"]');
+  for (const meta of Array.from(ogImages)) {
+    if (meta instanceof HTMLMetaElement && meta.content) {
+      add(meta.content.trim());
+    }
+  }
+
+  // 2. JSON-LD product with image array
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]',
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const imgs = item.image;
+          if (Array.isArray(imgs)) {
+            for (const img of imgs) {
+              const url = typeof img === "string" ? img : img?.url;
+              if (url) add(url);
+            }
+          } else if (typeof imgs === "string") {
+            add(imgs);
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 3. Product gallery / carousel / thumbnail containers
+  const gallerySelectors = [
+    '[class*="product"][class*="gallery"] img',
+    '[class*="product"][class*="carousel"] img',
+    '[class*="product"][class*="slider"] img',
+    '[class*="gallery"] img',
+    '[class*="thumbnail"] img',
+    '[class*="product-image"] img',
     '[class*="main"][class*="image"] img',
     '[id*="product"][id*="image"] img',
+    "[data-gallery] img",
+    "[data-product-images] img",
+    "[data-gallery-role] img",
     '[itemprop="image"]',
-    'img[class*="product"]',
+    ".product-images img",
+    ".product-gallery img",
+    ".slick-slide img",
+    ".swiper-slide img",
+    ".carousel-item img",
+    ".fotorama__img",
+    ".product-image-photo",
+    ".gallery-placeholder img",
+    ".gallery__image img",
+    '[class*="fotorama"] img',
+    "picture.product img",
+    'picture[class*="gallery"] img',
+    '[class*="media-gallery"] img',
+    '[class*="image-gallery"] img',
+    ".zoomWindowContainer img",
+    '[class*="cloudzoom"] img',
   ];
 
-  for (const selector of imgSelectors) {
-    const img = document.querySelector(selector);
-    if (img && img instanceof HTMLImageElement) {
-      const src =
-        img.src ||
-        img.getAttribute("data-src") ||
-        img.getAttribute("data-lazy-src");
-      if (src) {
-        // Convert relative URLs to absolute
-        if (src.startsWith("http")) {
-          return src;
-        } else if (src.startsWith("//")) {
-          return window.location.protocol + src;
-        } else {
-          return new URL(src, window.location.href).href;
+  for (const selector of gallerySelectors) {
+    try {
+      const imgs = document.querySelectorAll(selector);
+      for (const img of Array.from(imgs)) {
+        if (img instanceof HTMLImageElement) {
+          // Prefer full-size zoom URL over thumbnail src when present
+          const zoomUrl =
+            img.getAttribute("data-zoom-image") ||
+            img.getAttribute("data-zoom-src");
+          const src =
+            zoomUrl ||
+            img.src ||
+            img.getAttribute("data-src") ||
+            img.getAttribute("data-lazy-src") ||
+            img
+              .getAttribute("data-srcset")
+              ?.split(",")[0]
+              ?.trim()
+              .split(/\s+/)[0];
+          if (!src) continue;
+          // Images in thumbnail strips must meet min main size so we skip small carousel thumbs
+          const inThumbStrip = isInThumbnailStrip(img);
+          const skipSize = !inThumbStrip;
+          const minSize = inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE;
+          add(src, img, skipSize, minSize);
+        }
+      }
+    } catch {
+      /* selector may not be valid in some contexts */
+    }
+  }
+
+  // 3b. Magento / Fotorama: images in nav or as data attributes on parent
+  const galleryParents = document.querySelectorAll(
+    '[class*="fotorama"], [data-gallery-role], .gallery-placeholder, [class*="media-gallery"]',
+  );
+  for (const parent of Array.from(galleryParents)) {
+    const links = parent.querySelectorAll(
+      'a[href*=".jpg"], a[href*=".jpeg"], a[href*=".png"], a[href*=".webp"]',
+    );
+    for (const a of Array.from(links)) {
+      const href = a.getAttribute("href");
+      if (href) add(href, undefined, true);
+    }
+    const imgs = parent.querySelectorAll("img");
+    for (const img of Array.from(imgs)) {
+      if (img instanceof HTMLImageElement) {
+        const zoomUrl =
+          img.getAttribute("data-zoom-image") ||
+          img.getAttribute("data-zoom-src");
+        const src =
+          zoomUrl ||
+          img.src ||
+          img.getAttribute("data-src") ||
+          img.getAttribute("data-lazy-src") ||
+          img
+            .getAttribute("data-srcset")
+            ?.split(",")[0]
+            ?.trim()
+            .split(/\s+/)[0];
+        if (!src) continue;
+        const inThumbStrip = isInThumbnailStrip(img);
+        add(
+          src,
+          img,
+          !inThumbStrip,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+        );
+      }
+    }
+  }
+
+  // 3c. Elements with data attributes pointing to full-size images
+  const imageDataEls = document.querySelectorAll(
+    "[data-image], [data-zoom-image], [data-zoom-src]",
+  );
+  for (const el of Array.from(imageDataEls)) {
+    const url =
+      el.getAttribute("data-image") ||
+      el.getAttribute("data-zoom-image") ||
+      el.getAttribute("data-zoom-src");
+    if (
+      url &&
+      (url.startsWith("http") || url.startsWith("//") || url.startsWith("/"))
+    ) {
+      add(url, undefined, true);
+    }
+  }
+
+  // 3d. Parse srcset for additional image URLs (e.g. "url1 1x, url2 2x")
+  const srcsetImgs = document.querySelectorAll("img[srcset]");
+  for (const img of Array.from(srcsetImgs)) {
+    if (!(img instanceof HTMLImageElement)) continue;
+    const srcset = img.getAttribute("srcset");
+    if (srcset) {
+      const inThumbStrip = isInThumbnailStrip(img);
+      for (const part of srcset.split(",")) {
+        const trimmed = part.trim().split(/\s+/)[0];
+        if (trimmed)
+          add(
+            trimmed,
+            img,
+            !inThumbStrip,
+            inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+          );
+      }
+    }
+  }
+
+  // 4. Any img with product-related parent (include lazy-loaded; skip strict size check)
+  const productContainers = document.querySelectorAll(
+    '[class*="product"], [id*="product"], [data-product], .product-info, .product-detail, main, [role="main"]',
+  );
+  for (const container of Array.from(productContainers)) {
+    const imgs = container.querySelectorAll("img");
+    for (const img of Array.from(imgs)) {
+      if (img instanceof HTMLImageElement) {
+        const zoomUrl =
+          img.getAttribute("data-zoom-image") ||
+          img.getAttribute("data-zoom-src");
+        const src =
+          zoomUrl ||
+          img.src ||
+          img.getAttribute("data-src") ||
+          img.getAttribute("data-lazy-src");
+        if (!src) continue;
+        const inThumbStrip = isInThumbnailStrip(img);
+        add(
+          src,
+          img,
+          !inThumbStrip,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+        );
+      }
+    }
+  }
+
+  // 5. Fallback: first few large images on page (excluding header/nav)
+  if (byCanonical.size === 0) {
+    const allImgs = document.querySelectorAll("img");
+    for (const img of Array.from(allImgs)) {
+      if (img instanceof HTMLImageElement && !isInHeaderNav(img)) {
+        const src = img.src || img.getAttribute("data-src");
+        if (
+          src &&
+          (img.naturalWidth >= MIN_IMAGE_SIZE || img.width >= MIN_IMAGE_SIZE)
+        ) {
+          add(src, img);
         }
       }
     }
   }
 
-  // Fallback to first large image
-  const images = document.querySelectorAll("img");
-  for (const img of Array.from(images)) {
-    if (img instanceof HTMLImageElement) {
-      const src = img.src;
-      if (src && (img.naturalWidth > 200 || img.width > 200)) {
-        if (src.startsWith("http")) {
-          return src;
-        } else if (src.startsWith("//")) {
-          return window.location.protocol + src;
-        } else {
-          return new URL(src, window.location.href).href;
-        }
-      }
-    }
-  }
-
-  return null;
+  // Return high-res URLs (favors best quality when fetching)
+  const result = Array.from(byCanonical.values()).map(getHighResImageUrl);
+  return result.slice(0, MAX_GALLERY_IMAGES);
 }
 
 /**
@@ -379,8 +654,8 @@ function extractBrandFromSiteBranding(): string | null {
     '[class*="site-brand"]',
     '[class*="company-name"]',
     'h1[class*="logo"]',
-    '.logo',
-    '#logo',
+    ".logo",
+    "#logo",
   ];
 
   for (const selector of brandSelectors) {
@@ -424,7 +699,11 @@ function extractBrandFromSiteBranding(): string | null {
       const match = titleText.match(pattern);
       if (match && match[1]) {
         const brand = match[1].trim();
-        if (!isCarManufacturer(brand) && brand.length >= 2 && brand.length <= 30) {
+        if (
+          !isCarManufacturer(brand) &&
+          brand.length >= 2 &&
+          brand.length <= 30
+        ) {
           const known = isKnownBrand(brand);
           if (known) {
             return known;
@@ -630,7 +909,7 @@ function extractBrand(): string | null {
     if (known) {
       candidates.push({
         brand: known,
-        confidence: 0.90,
+        confidence: 0.9,
         source: "domain",
       });
     } else {
@@ -656,7 +935,7 @@ function extractBrand(): string | null {
     } else {
       candidates.push({
         brand: siteBrand,
-        confidence: 0.80,
+        confidence: 0.8,
         source: "site-branding",
       });
     }
@@ -983,7 +1262,9 @@ function extractBrand(): string | null {
 
     // Prioritize domain/site-branding matches (they're most reliable for site-specific brands)
     const siteMatch = filteredCandidates.find(
-      (c) => (c.source === "domain" || c.source === "site-branding") && c.confidence >= 0.80,
+      (c) =>
+        (c.source === "domain" || c.source === "site-branding") &&
+        c.confidence >= 0.8,
     );
     if (siteMatch) {
       return siteMatch.brand;
@@ -1019,7 +1300,28 @@ function extractBrand(): string | null {
 }
 
 /**
- * Extract part number/SKU
+ * Normalize part number / SKU by stripping common prefixes so we get the actual code.
+ * E.g. "SKU: A18A20-2401" -> "A18A20-2401"
+ */
+function normalizePartNumber(raw: string): string {
+  let s = raw.trim();
+  const prefixes = [
+    /^SKU\s*:\s*/i,
+    /^Part\s*#\s*:\s*/i,
+    /^Part\s*Number\s*:\s*/i,
+    /^Item\s*#\s*:\s*/i,
+    /^Product\s*Code\s*:\s*/i,
+    /^Model\s*#?\s*:\s*/i,
+    /^Code\s*:\s*/i,
+  ];
+  for (const re of prefixes) {
+    s = s.replace(re, "");
+  }
+  return s.trim();
+}
+
+/**
+ * Extract part number/SKU (returns normalized value without "SKU:" etc.)
  */
 function extractPartNumber(): string | null {
   const skuSelectors = [
@@ -1033,8 +1335,8 @@ function extractPartNumber(): string | null {
   for (const selector of skuSelectors) {
     const elem = document.querySelector(selector);
     if (elem) {
-      const sku = elem.textContent?.trim() || elem.getAttribute("content");
-      if (sku) return sku;
+      const raw = elem.textContent?.trim() || elem.getAttribute("content");
+      if (raw) return normalizePartNumber(raw) || null;
     }
   }
 
