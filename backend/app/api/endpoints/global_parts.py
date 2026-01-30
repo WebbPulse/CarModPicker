@@ -19,13 +19,6 @@ from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHis
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
-from app.api.services.part_listing_service import (
-    create_or_update_listing_and_price,
-    find_part_by_brand_and_part_number,
-    find_part_by_product_url,
-    get_best_listing_for_part,
-    normalize_part_number,
-)
 from app.api.schemas.global_part import (
     MAX_IMAGES_PER_GLOBAL_PART,
     GlobalPartAppendImages,
@@ -42,6 +35,13 @@ from app.api.schemas.part_listing import (
 )
 from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.services.part_listing_service import (
+    create_or_update_listing_and_price,
+    find_part_by_brand_and_part_number,
+    find_part_by_product_url,
+    get_best_listing_for_part,
+    normalize_part_number,
+)
 from app.api.utils.authorization import (
     require_global_part_edit_permission,
 )

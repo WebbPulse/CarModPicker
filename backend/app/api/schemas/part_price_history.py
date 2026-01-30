@@ -12,9 +12,7 @@ class PartPriceHistoryBase(BaseModel):
 class PartPriceHistoryCreate(BaseModel):
     part_listing_id: int = Field(..., description="Part listing ID")
     price_cents: int = Field(..., ge=0, description="Price in cents")
-    observed_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC), description="When this price was observed"
-    )
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(UTC), description="When this price was observed")
 
 
 class PartPriceHistoryRead(PartPriceHistoryBase):

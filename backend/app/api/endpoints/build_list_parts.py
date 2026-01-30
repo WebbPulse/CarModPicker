@@ -17,17 +17,17 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
-from app.api.services.part_listing_service import (
-    create_or_update_listing_and_price,
-    find_part_by_brand_and_part_number,
-    find_part_by_product_url,
-)
 from app.api.schemas.build_list_part import (
     BuildListPartCreate,
     BuildListPartRead,
     BuildListPartReadWithGlobalPart,
     BuildListPartUpdate,
     CreateGlobalPartAndAddToBuildListRequest,
+)
+from app.api.services.part_listing_service import (
+    create_or_update_listing_and_price,
+    find_part_by_brand_and_part_number,
+    find_part_by_product_url,
 )
 from app.api.utils.authorization import (
     require_build_list_part_delete_permission,

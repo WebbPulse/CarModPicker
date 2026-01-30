@@ -43,6 +43,7 @@ from .report import (
     ReportUpdate,
     ReportWithDetails,
 )
+from .retailer import RetailerCreate, RetailerRead, RetailerUpdate
 from .subscription import (
     SubscriptionCreate,
     SubscriptionInDB,
@@ -51,7 +52,6 @@ from .subscription import (
     SubscriptionUpdate,
     UpgradeRequest,
 )
-from .retailer import RetailerCreate, RetailerRead, RetailerUpdate
 from .token import Token, TokenData
 from .user import PublicUserRead, UserCreate, UserRead, UserUpdate
 from .vote import (

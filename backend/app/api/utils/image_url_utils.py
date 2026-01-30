@@ -6,9 +6,7 @@ Common CDN patterns: Shopify (width=, height=), imgix (w=, h=), Cloudinary, etc.
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Query params that specify image dimensions (strip for canonical dedup)
-SIZE_PARAMS = frozenset(
-    {"width", "height", "w", "h", "size", "resize", "dpr", "q", "quality", "format", "fit", "crop"}
-)
+SIZE_PARAMS = frozenset({"width", "height", "w", "h", "size", "resize", "dpr", "q", "quality", "format", "fit", "crop"})
 
 # Prefer this width when fetching high-res (Shopify supports up to 5760)
 PREFERRED_WIDTH = 5760

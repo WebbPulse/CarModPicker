@@ -275,24 +275,37 @@ export default function PriceHistoryLineChart({
           strokeWidth={1}
         />
 
-        {/* Data lines */}
-        {lines.map(({ retailerName, color, pathD }) => (
-          <path
-            key={retailerName}
-            d={pathD}
-            fill="none"
-            stroke={color}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        {/* Data lines - dim non-hovered when hovering over a point */}
+        {lines.map(({ retailerName, color, pathD }) => {
+          const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+          const strokeColor = isHoveredLine ? color : '#6b7280';
+          const strokeOpacity = hoveredPoint ? (isHoveredLine ? 1 : 0.25) : 1;
+          return (
+            <path
+              key={retailerName}
+              d={pathD}
+              fill="none"
+              stroke={strokeColor}
+              strokeOpacity={strokeOpacity}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transition: 'stroke 0.15s ease, stroke-opacity 0.15s ease',
+              }}
+            />
+          );
+        })}
 
         {/* Data points - invisible larger hit area for easier hovering */}
         {lines.map(({ retailerName, color, points }) =>
           points.map((p) => {
             const cx = chartData.xScale(p.x);
             const cy = chartData.yScale(p.y);
+            const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+            const pointColor =
+              hoveredPoint && !isHoveredLine ? '#6b7280' : color;
+            const pointOpacity = hoveredPoint && !isHoveredLine ? 0.4 : 1;
             return (
               <g key={`${retailerName}-${p.x}`}>
                 <circle
@@ -316,10 +329,14 @@ export default function PriceHistoryLineChart({
                   cx={cx}
                   cy={cy}
                   r={4}
-                  fill={color}
+                  fill={pointColor}
+                  fillOpacity={pointOpacity}
                   stroke="rgb(15 23 42)"
                   strokeWidth={1}
                   pointerEvents="none"
+                  style={{
+                    transition: 'fill 0.15s ease, fill-opacity 0.15s ease',
+                  }}
                 />
               </g>
             );
@@ -347,18 +364,29 @@ export default function PriceHistoryLineChart({
         </div>
       )}
 
-      {/* Legend */}
+      {/* Legend - dim non-hovered when a point is hovered */}
       <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-        {lines.map(({ retailerName, color }) => (
-          <div key={retailerName} className="flex items-center gap-2">
-            <span
-              className="h-3 w-3 shrink-0 rounded-full"
-              style={{ backgroundColor: color }}
-              aria-hidden
-            />
-            <span className="text-sm text-gray-300">{retailerName}</span>
-          </div>
-        ))}
+        {lines.map(({ retailerName, color }) => {
+          const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+          const dimmed = hoveredPoint && !isHoveredLine;
+          return (
+            <div
+              key={retailerName}
+              className={`flex items-center gap-2 transition-opacity duration-150 ${
+                dimmed ? 'opacity-40' : ''
+              }`}
+            >
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: dimmed ? '#6b7280' : color,
+                }}
+                aria-hidden
+              />
+              <span className="text-sm text-gray-300">{retailerName}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

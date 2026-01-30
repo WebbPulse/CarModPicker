@@ -411,9 +411,7 @@ async def purge_orphaned_bucket_objects(
             if storage_service.delete_image(key):
                 deleted_keys.append(key)
 
-        logger.info(
-            f"Admin {current_user.id} purged {len(deleted_keys)} orphaned bucket objects"
-        )
+        logger.info(f"Admin {current_user.id} purged {len(deleted_keys)} orphaned bucket objects")
         return {
             "deleted": len(deleted_keys),
             "deleted_keys": deleted_keys,

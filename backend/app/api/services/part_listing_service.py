@@ -7,8 +7,8 @@ Used by global part create, create-and-add-part, and scrapers to:
 - Create/update PartListing and append PartPriceHistory
 """
 
-from datetime import UTC, datetime
 import re
+from datetime import UTC, datetime
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -186,9 +186,7 @@ def create_or_update_listing_and_price(
     return listing
 
 
-def get_best_listing_for_part(
-    db: Session, global_part_id: int
-) -> Optional[DBPartListing]:
+def get_best_listing_for_part(db: Session, global_part_id: int) -> Optional[DBPartListing]:
     """
     Return the PartListing with the lowest current price for this part.
     Uses last_known_price_cents; only considers listings that have a price.
