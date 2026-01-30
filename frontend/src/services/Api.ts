@@ -388,6 +388,17 @@ export const globalPartsApi = {
   deleteGlobalPart: (partId: number) =>
     apiClient.delete<GlobalPartRead>(`/global-parts/${partId}`),
 
+  // Image management (requires edit permission)
+  removeGlobalPartImage: (partId: number, imageIndex: number) =>
+    apiClient.delete<GlobalPartRead>(
+      `/global-parts/${partId}/images/${imageIndex}`
+    ),
+  setGlobalPartPrimaryImage: (partId: number, index: number) =>
+    apiClient.patch<GlobalPartRead>(
+      `/global-parts/${partId}/primary-image`,
+      { index }
+    ),
+
   // Count endpoints
   countGlobalParts: () =>
     apiClient.get<{ count: number }>('/global-parts/count'),

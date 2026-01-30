@@ -31,6 +31,7 @@ import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
 import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm';
 import ImageGallery from '../../components/globalParts/ImageGallery';
+import ImageGalleryManage from '../../components/globalParts/ImageGalleryManage';
 import PriceHistoryLineChart from '../../components/globalParts/PriceHistoryLineChart';
 import VoteButtons from '../../components/globalParts/VoteButtons';
 import Divider from '../../components/layout/Divider';
@@ -477,14 +478,24 @@ function ViewGlobalPart() {
           </div>
         )}
 
-        {/* Part Images - full width */}
+        {/* Part Images - full width; manage (set primary, remove) when user can edit */}
         <div className="mb-6">
           <CardInfoItem label="Part Images">
-            <ImageGallery
-              imageUrl={part.image_url ?? null}
-              imageUrls={part.image_urls ?? null}
-              altText={part.name}
-            />
+            {canEdit ? (
+              <ImageGalleryManage
+                imageUrl={part.image_url ?? null}
+                imageUrls={part.image_urls ?? null}
+                altText={part.name}
+                partId={part.id}
+                onPartUpdated={handleGlobalPartUpdated}
+              />
+            ) : (
+              <ImageGallery
+                imageUrl={part.image_url ?? null}
+                imageUrls={part.image_urls ?? null}
+                altText={part.name}
+              />
+            )}
           </CardInfoItem>
         </div>
 

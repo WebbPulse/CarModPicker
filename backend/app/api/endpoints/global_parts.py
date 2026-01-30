@@ -34,6 +34,7 @@ from app.api.schemas.global_part import (
     GlobalPartReadWithListings,
     GlobalPartReadWithVotes,
     GlobalPartUpdate,
+    SetPrimaryImageRequest,
 )
 from app.api.schemas.part_listing import (
     PartListingCreate,
@@ -648,6 +649,106 @@ async def append_images_to_global_part(
     part.image_urls = existing[:MAX_IMAGES_PER_GLOBAL_PART]
     if not part.image_url and existing:
         part.image_url = existing[0]
+    db.commit()
+    db.refresh(part)
+    return GlobalPartRead.model_validate(part)
+
+
+def _get_part_image_file_keys(part: DBGlobalPart) -> List[str]:
+    """Return ordered list of image file keys (gallery + primary if not in gallery)."""
+    urls = list(part.image_urls or [])
+    if not urls and part.image_url:
+        return [part.image_url]
+    return urls
+
+
+@router.delete(
+    "/{global_part_id}/images/{image_index}",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Image removed from part",
+        not_found=True,
+    ),
+)
+async def remove_image_from_global_part(
+    global_part_id: int,
+    image_index: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Remove the image at the given index from the global part's gallery.
+    Requires edit permission. Removes from storage when the image is a stored file key.
+    """
+    from app.api.services.storage_service import storage_service
+    from app.api.utils.image_utils import is_file_key
+
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    require_global_part_edit_permission(current_user, part)
+
+    file_keys = _get_part_image_file_keys(part)
+    if image_index < 0 or image_index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {image_index}. Part has {len(file_keys)} image(s).",
+        )
+
+    removed_key = file_keys[image_index]
+    new_keys = [fk for i, fk in enumerate(file_keys) if i != image_index]
+
+    part.image_urls = new_keys if new_keys else None
+    if part.image_url == removed_key:
+        part.image_url = new_keys[0] if new_keys else None
+
+    if removed_key and is_file_key(removed_key):
+        try:
+            storage_service.delete_image(removed_key)
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Failed to delete image from storage for part %s: %s",
+                global_part_id,
+                e,
+            )
+
+    db.commit()
+    db.refresh(part)
+    return GlobalPartRead.model_validate(part)
+
+
+@router.patch(
+    "/{global_part_id}/primary-image",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Primary image updated",
+        not_found=True,
+    ),
+)
+async def set_primary_image_for_global_part(
+    global_part_id: int,
+    data: SetPrimaryImageRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Set the image at the given index as the primary (display) image and move it to the front of the gallery.
+    Requires edit permission.
+    """
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    require_global_part_edit_permission(current_user, part)
+
+    file_keys = _get_part_image_file_keys(part)
+    if data.index < 0 or data.index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {data.index}. Part has {len(file_keys)} image(s).",
+        )
+
+    primary_key = file_keys[data.index]
+    new_order = [primary_key] + [fk for i, fk in enumerate(file_keys) if i != data.index]
+    part.image_urls = new_order
+    part.image_url = primary_key
     db.commit()
     db.refresh(part)
     return GlobalPartRead.model_validate(part)

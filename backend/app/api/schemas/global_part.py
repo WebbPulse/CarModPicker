@@ -125,6 +125,11 @@ class GlobalPartAppendImages(BaseModel):
     )
 
 
+# Schema for setting the primary (display) image by index
+class SetPrimaryImageRequest(BaseModel):
+    index: int = Field(..., ge=0, description="0-based index into the part's image_urls gallery")
+
+
 # Schema for response when reading a part with listings and best listing
 class GlobalPartReadWithListings(GlobalPartRead):
     listings: List[PartListingReadWithRetailer] = Field(
