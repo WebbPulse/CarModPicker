@@ -859,6 +859,21 @@ export const imageApi = {
 
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
+
+  /** Dry run: list bucket object keys not referenced by any entity (admin only). */
+  getOrphanedBucketObjects: () =>
+    apiClient.get<{
+      orphaned_keys: string[];
+      count: number;
+      total_bucket: number;
+      total_referenced: number;
+    }>('/images/admin/orphaned'),
+
+  /** Delete bucket objects not referenced by any entity (admin only). Non-destructive. */
+  purgeOrphanedBucketObjects: () =>
+    apiClient.post<{ deleted: number; deleted_keys: string[] }>(
+      '/images/admin/purge-orphaned'
+    ),
 };
 
 // Build Logs API

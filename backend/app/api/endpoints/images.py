@@ -18,6 +18,7 @@ from app.api.dependencies.auth import (
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.user import User as DBUser
 from app.api.services.storage_service import storage_service
+from app.api.utils.bucket_orphan_utils import get_all_referenced_file_keys
 from app.api.utils.image_url_utils import get_canonical_image_url
 from app.db.session import get_db
 
@@ -352,4 +353,76 @@ async def get_bucket_object_count(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while counting bucket objects",
+        )
+
+
+@router.get("/admin/orphaned")
+async def list_orphaned_bucket_objects(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int | list[str]]:
+    """
+    List bucket object keys that are not referenced by any entity (dry run).
+    Admin only. Use this to preview what would be deleted by purge-orphaned.
+    No objects are deleted.
+    """
+    try:
+        referenced = get_all_referenced_file_keys(db)
+        bucket_keys = storage_service.list_bucket_object_keys()
+        orphaned = [k for k in bucket_keys if k not in referenced]
+        logger.info(
+            f"Admin {current_user.id} orphan dry run: {len(orphaned)} orphaned of {len(bucket_keys)} total "
+            f"({len(referenced)} referenced)"
+        )
+        return {
+            "orphaned_keys": orphaned,
+            "count": len(orphaned),
+            "total_bucket": len(bucket_keys),
+            "total_referenced": len(referenced),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list orphaned bucket objects: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while listing orphaned objects",
+        )
+
+
+@router.post("/admin/purge-orphaned")
+async def purge_orphaned_bucket_objects(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int | list[str]]:
+    """
+    Delete bucket objects that are not referenced by any entity (orphans).
+    Admin only. Non-destructive: only objects with no DB reference are removed.
+    Referenced keys come from: global_part (image_url, image_urls), user (image_url),
+    car (image_url), build_list (image_url), image_source_mapping (file_key).
+    """
+    try:
+        referenced = get_all_referenced_file_keys(db)
+        bucket_keys = storage_service.list_bucket_object_keys()
+        orphaned = [k for k in bucket_keys if k not in referenced]
+
+        deleted_keys: list[str] = []
+        for key in orphaned:
+            if storage_service.delete_image(key):
+                deleted_keys.append(key)
+
+        logger.info(
+            f"Admin {current_user.id} purged {len(deleted_keys)} orphaned bucket objects"
+        )
+        return {
+            "deleted": len(deleted_keys),
+            "deleted_keys": deleted_keys,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to purge orphaned bucket objects: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while purging orphaned objects",
         )
