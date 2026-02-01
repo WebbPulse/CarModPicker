@@ -275,25 +275,48 @@ export default function PriceHistoryLineChart({
           strokeWidth={1}
         />
 
-        {/* Data lines - dim non-hovered when hovering over a point */}
-        {lines.map(({ retailerName, color, pathD }) => {
+        {/* Data lines - use full color always; dim non-hovered when hovering */}
+        {lines.map(({ retailerName, color, pathD, points }) => {
           const isHoveredLine = hoveredPoint?.retailerName === retailerName;
-          const strokeColor = isHoveredLine ? color : '#6b7280';
+          const strokeColor = color;
           const strokeOpacity = hoveredPoint ? (isHoveredLine ? 1 : 0.25) : 1;
+          const lastPoint = points[points.length - 1];
           return (
-            <path
-              key={retailerName}
-              d={pathD}
-              fill="none"
-              stroke={strokeColor}
-              strokeOpacity={strokeOpacity}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                transition: 'stroke 0.15s ease, stroke-opacity 0.15s ease',
-              }}
-            />
+            <g key={retailerName}>
+              <path
+                d={pathD}
+                fill="none"
+                stroke={strokeColor}
+                strokeOpacity={strokeOpacity}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transition: 'stroke 0.15s ease, stroke-opacity 0.15s ease',
+                }}
+              />
+              {/* Invisible wide stroke for line hover - render before point hit areas so points take precedence */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={16}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                onMouseEnter={() =>
+                  lastPoint &&
+                  setHoveredPoint({
+                    retailerName,
+                    observedAt: lastPoint.observedAt,
+                    priceCents: lastPoint.y,
+                    cx: chartData.xScale(lastPoint.x),
+                    cy: chartData.yScale(lastPoint.y),
+                  })
+                }
+                onMouseLeave={() => setHoveredPoint(null)}
+                className="cursor-pointer"
+              />
+            </g>
           );
         })}
 
