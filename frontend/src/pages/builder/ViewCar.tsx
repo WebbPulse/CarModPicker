@@ -12,7 +12,6 @@ import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import CardInfoItem from '../../components/common/CardInfoItem';
 import Dialog from '../../components/common/Dialog';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
@@ -142,15 +141,6 @@ function ViewCar(): React.JSX.Element {
           <SectionHeader title="Car Information" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <CardInfoItem label="">
-            <ImageWithPlaceholder
-              srcUrl={car.image_url ?? null}
-              altText={`${car.make} ${car.model} ${car.generation_name}`}
-              imageClassName="h-48 w-auto object-contain rounded"
-              containerClassName="h-48 flex justify-left items-center"
-              fallbackText="No image available."
-            />
-          </CardInfoItem>
           <div className="hidden md:block"></div> {/* Spacer */}
           <CardInfoItem label="Make:">
             <p>{car.make}</p>

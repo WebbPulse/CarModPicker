@@ -16,7 +16,6 @@ import {
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi, carsApi } from '../../services/Api';
 import type { CarRead } from '../../types/Api';
-import { getManufacturerLogoUrl } from '../../utils/assetPaths';
 
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -203,7 +202,6 @@ const BuildListsCatalog: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                   {availableMakes.map((make) => {
-                    const logoUrl = getManufacturerLogoUrl(make);
                     return (
                       <Card
                         key={make}
@@ -211,11 +209,6 @@ const BuildListsCatalog: React.FC = () => {
                         interactive
                         className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors flex flex-col items-center justify-center min-h-[100px]"
                       >
-                        <img
-                          src={logoUrl}
-                          alt={make}
-                          className="h-10 w-auto max-w-full object-contain mb-2"
-                        />
                         <h4 className="text-lg font-semibold text-gray-200">
                           {make}
                         </h4>
@@ -330,13 +323,6 @@ const BuildListsCatalog: React.FC = () => {
                     interactive
                     className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
                   >
-                    {car.image_url && (
-                      <img
-                        src={car.image_url}
-                        alt={`${car.make} ${car.model} ${car.generation_name}`}
-                        className="w-full h-32 object-cover rounded-md mb-3"
-                      />
-                    )}
                     <h4 className="text-lg font-semibold text-indigo-400 mb-1">
                       {car.generation_name}
                     </h4>

@@ -6,7 +6,6 @@ Collects all file keys referenced by entities so we can safely delete only unref
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.user import User as DBUser
@@ -34,11 +33,6 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
 
     # Users: image_url
     for row in db.query(DBUser.image_url).filter(DBUser.image_url.isnot(None)).all():
-        if row.image_url and is_file_key(row.image_url):
-            referenced.add(row.image_url)
-
-    # Cars: image_url
-    for row in db.query(DBCar.image_url).filter(DBCar.image_url.isnot(None)).all():
         if row.image_url and is_file_key(row.image_url):
             referenced.add(row.image_url)
 

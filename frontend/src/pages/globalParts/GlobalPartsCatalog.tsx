@@ -1036,13 +1036,6 @@ const GlobalPartsCatalog: React.FC = () => {
                         interactive
                         className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
                       >
-                        {car.image_url && (
-                          <img
-                            src={car.image_url}
-                            alt={`${car.make} ${car.model} ${car.generation_name}`}
-                            className="w-full h-32 object-cover rounded-md mb-3"
-                          />
-                        )}
                         <h4 className="text-lg font-semibold text-indigo-400 mb-1">
                           {car.generation_name}
                         </h4>
@@ -1403,13 +1396,6 @@ const GlobalPartsCatalog: React.FC = () => {
                           interactive
                           className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
                         >
-                          {car.image_url && (
-                            <img
-                              src={car.image_url}
-                              alt={`${car.make} ${car.model} ${car.generation_name}`}
-                              className="w-full h-32 object-cover rounded-md mb-3"
-                            />
-                          )}
                           <h4 className="text-lg font-semibold text-indigo-400 mb-1">
                             {car.generation_name}
                           </h4>
