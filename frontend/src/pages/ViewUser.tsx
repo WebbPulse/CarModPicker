@@ -7,6 +7,7 @@ import CardInfoItem from '../components/common/CardInfoItem';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
+import SocialLinks from '../components/profile/SocialLinks';
 import useApiRequest from '../hooks/UseApiRequest';
 import apiClient, { buildListsApi } from '../services/Api';
 import type { BuildListRead, UserRead } from '../types/Api';
@@ -104,6 +105,16 @@ function ViewUser() {
             <p>{user.username}</p>
           </CardInfoItem>
         </div>
+        <SocialLinks
+          links={{
+            instagram_url: user.instagram_url,
+            facebook_url: user.facebook_url,
+            reddit_url: user.reddit_url,
+            youtube_url: user.youtube_url,
+            tiktok_url: user.tiktok_url,
+          }}
+          className="mt-4 pt-4 border-t border-gray-700"
+        />
       </Card>
 
       <div className="mt-8">

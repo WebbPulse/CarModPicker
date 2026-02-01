@@ -33,6 +33,9 @@ class Settings(BaseSettings):
         description="Secret key for JWT token signing. MUST be set in production!",
     )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Bounds for user-configurable session length (minutes). User preference is clamped to this range.
+    ACCESS_TOKEN_EXPIRE_MINUTES_MIN: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES_MAX: int = 10080  # 7 days
 
     @model_validator(mode="after")
     def validate_and_normalize_settings(self) -> "Settings":

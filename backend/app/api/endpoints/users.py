@@ -15,12 +15,14 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
+    get_access_token_expires_delta_for_user,
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
     get_password_hash,
     verify_password,
 )
+from app.core.config import settings
 from app.api.models.user import User as DBUser
 from app.api.schemas.user import (
     AdminUserUpdate,
@@ -419,6 +421,7 @@ async def update_user(
         exclude_unset=True, exclude={"current_password", "otp"}
     )  # Exclude current_password and otp from data to be saved
     username_changed = False
+    session_expire_minutes_changed = False
 
     if (
         "username" in update_data
@@ -426,6 +429,23 @@ async def update_user(
         and update_data["username"] != db_user.username
     ):
         username_changed = True
+
+    # Clamp user session preference to server bounds; allow None for "use server default"
+    if "session_expire_minutes" in update_data:
+        val = update_data["session_expire_minutes"]
+        if val is None:
+            if getattr(db_user, "session_expire_minutes", None) is not None:
+                session_expire_minutes_changed = True
+            db_user.session_expire_minutes = None
+        else:
+            clamped = max(
+                settings.ACCESS_TOKEN_EXPIRE_MINUTES_MIN,
+                min(settings.ACCESS_TOKEN_EXPIRE_MINUTES_MAX, val),
+            )
+            if clamped != getattr(db_user, "session_expire_minutes", None):
+                session_expire_minutes_changed = True
+            db_user.session_expire_minutes = clamped
+        del update_data["session_expire_minutes"]
 
     if "password" in update_data and update_data["password"]:
         hashed_password = get_password_hash(update_data["password"])
@@ -443,15 +463,21 @@ async def update_user(
         db.refresh(db_user)
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
-        if username_changed:
-            logger.info(
-                f"Username for user {user_id} changed to '{db_user.username}'. "
-                f"Client should re-authenticate to get new token."
-            )
-            # Note: With Bearer tokens, client should re-login to get a new token with updated username
-            # Return new token in response header for convenience
+        if username_changed or session_expire_minutes_changed:
+            if username_changed:
+                logger.info(
+                    f"Username for user {user_id} changed to '{db_user.username}'. "
+                    f"Client should re-authenticate to get new token."
+                )
+            if session_expire_minutes_changed:
+                logger.info(
+                    f"Session expiry preference updated for user {user_id}. "
+                    f"Returning new token with updated expiry."
+                )
+            # Return new token so client gets correct expiry (and username if changed)
             new_access_token_data = {"sub": db_user.username}
-            new_access_token = create_access_token(data=new_access_token_data)
+            expires_delta = get_access_token_expires_delta_for_user(db_user)
+            new_access_token = create_access_token(data=new_access_token_data, expires_delta=expires_delta)
             response.headers["X-New-Access-Token"] = new_access_token
 
     except IntegrityError as e:

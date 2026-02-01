@@ -43,6 +43,16 @@ class User(Base):
     totp_secret: Mapped[Optional[str]] = mapped_column(nullable=True)  # TOTP secret key
     totp_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)  # Whether 2FA is enabled
 
+    # Session preference: how long the user's access token lasts (minutes). None = use server default.
+    session_expire_minutes: Mapped[Optional[int]] = mapped_column(nullable=True)
+
+    # Social links (optional profile URLs for display only)
+    instagram_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    facebook_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    reddit_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    youtube_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    tiktok_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+
     # Relationships
     build_lists: Mapped[List["BuildList"]] = relationship(
         "BuildList", back_populates="owner", cascade="all, delete-orphan"
