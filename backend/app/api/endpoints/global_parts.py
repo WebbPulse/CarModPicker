@@ -8,26 +8,49 @@ while maintaining global part-specific functionality.
 import logging
 from typing import Any, Dict, List, Optional, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies.auth import get_optional_current_user
+from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
+from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.global_part import (
+    MAX_IMAGES_PER_GLOBAL_PART,
+    GlobalPartAppendImages,
     GlobalPartCreate,
     GlobalPartRead,
+    GlobalPartReadWithListings,
     GlobalPartReadWithVotes,
     GlobalPartUpdate,
+    SetPrimaryImageRequest,
 )
+from app.api.schemas.part_listing import (
+    PartListingCreate,
+    PartListingReadWithRetailer,
+)
+from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.services.part_listing_service import (
+    create_or_update_listing_and_price,
+    find_part_by_brand_and_part_number,
+    find_part_by_gtin,
+    find_part_by_product_url,
+    get_best_listing_for_part,
+    normalize_gtin,
+    normalize_part_number,
+)
 from app.api.utils.authorization import (
     require_global_part_edit_permission,
 )
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_operations import (
+    check_subscription_limits,
+    create_entity,
     delete_entity,
     update_entity,
     verify_entity_exists,
@@ -35,6 +58,7 @@ from app.api.utils.common_operations import (
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     apply_standard_filters,
+    get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
 )
@@ -71,40 +95,93 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> DBGlobalPart:
         """
-        Create a new global part with duplicate URL checking.
-
-        Args:
-            db: Database session
-            data: Global part creation data
-            current_user: Current authenticated user
-            logger: Logger instance
-            additional_data: Additional data to include (e.g., user_id)
-
-        Returns:
-            The created global part
-
-        Raises:
-            HTTPException: If creation fails, subscription limit reached, or duplicate URL found
+        Create a new global part with dedup by URL, brand+part_number, and GTIN (UPC/EAN).
+        If an existing part is found, create/update PartListing and return that part.
         """
-        # Check for duplicate product_url if provided
-        if data.product_url and data.product_url.strip():
-            existing_part = db.query(DBGlobalPart).filter(DBGlobalPart.product_url == data.product_url.strip()).first()
-            if existing_part:
-                logger.info(f"User {current_user.id} attempted to create part with duplicate URL: {data.product_url}")
-                ResponsePatterns.raise_conflict(
-                    message=f"A part with this URL already exists (Part ID: {existing_part.id})",
-                    error_code="DUPLICATE_PRODUCT_URL",
-                    details={"existing_part_id": existing_part.id},
-                )
+        check_subscription_limits(db, current_user, "can_create_global_part", self.entity_name, logger)
 
-        # Call parent create method if no duplicate found
-        return super().create(
-            db=db,
-            data=data,
-            current_user=current_user,
-            logger=logger,
-            additional_data=additional_data,
+        part_by_url: Optional[DBGlobalPart] = None
+        part_by_brand: Optional[DBGlobalPart] = None
+        part_by_gtin: Optional[DBGlobalPart] = None
+
+        if data.product_url and data.product_url.strip():
+            part_by_url = find_part_by_product_url(db, data.product_url)
+        if data.brand_id and data.part_number and data.part_number.strip():
+            part_by_brand = find_part_by_brand_and_part_number(db, data.brand_id, data.part_number)
+        if data.gtin and normalize_gtin(data.gtin):
+            part_by_gtin = find_part_by_gtin(db, data.gtin)
+
+        parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+        ids = {p.id for p in parts}
+        if len(ids) > 1:
+            logger.info(f"User {current_user.id} part create conflict: dedup keys point to different parts {ids}")
+            ResponsePatterns.raise_conflict(
+                message="Product URL, brand+part number, or GTIN point to different existing parts.",
+                error_code="PART_DEDUP_CONFLICT",
+                details={
+                    "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
+                    "url_part_id": part_by_url.id if part_by_url else None,
+                    "brand_part_id": part_by_brand.id if part_by_brand else None,
+                },
+            )
+
+        existing_part = part_by_gtin or part_by_url or part_by_brand
+        if existing_part:
+            if data.retailer_id and (data.product_url or data.price_cents is not None):
+                _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
+                create_or_update_listing_and_price(
+                    db,
+                    existing_part.id,
+                    data.retailer_id,
+                    product_url=data.product_url,
+                    price_cents=data.price_cents,
+                )
+            logger.info(f"User {current_user.id} part create: returning existing part {existing_part.id} (dedup)")
+            return existing_part
+
+        entity_data = data.model_dump()
+        entity_data.pop("retailer_id", None)
+        entity_data.pop("price_cents", None)
+        entity_data.pop("product_url", None)  # Only used for listing, not stored on part
+        entity_data.pop("price", None)  # Removed: pricing is per-retailer via listings
+        if additional_data:
+            entity_data.update(additional_data)
+        entity_data["user_id"] = current_user.id
+        # Store normalized part_number so lookups and future scrapes match
+        entity_data["part_number"] = (
+            normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
         )
+        # Store normalized GTIN (digits only) for dedup
+        if data.gtin:
+            entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
+        # Use first gallery image as primary if image_url not set; cap gallery size
+        if entity_data.get("image_urls") is not None:
+            entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
+        if not entity_data.get("image_url") and entity_data.get("image_urls"):
+            urls = entity_data["image_urls"]
+            if urls:
+                entity_data["image_url"] = urls[0]
+
+        part = create_entity(
+            db=db,
+            model=DBGlobalPart,
+            data=entity_data,
+            user_id=current_user.id,
+            logger=logger,
+            entity_name=self.entity_name,
+        )
+
+        if data.retailer_id and (data.product_url or data.price_cents is not None):
+            _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
+            create_or_update_listing_and_price(
+                db,
+                part.id,
+                data.retailer_id,
+                product_url=data.product_url,
+                price_cents=data.price_cents,
+            )
+
+        return part
 
     def update(
         self,
@@ -124,8 +201,12 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         # Check authorization (allows creator, admin, or superuser)
         require_global_part_edit_permission(current_user, entity)
 
-        # Update the entity
+        # Update the entity; cap image_urls to global limit; normalize gtin
         update_data = data.model_dump(exclude_unset=True)
+        if update_data.get("image_urls") is not None:
+            update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
+        if "gtin" in update_data and update_data["gtin"] is not None:
+            update_data["gtin"] = normalize_gtin(update_data["gtin"])
         return update_entity(
             db=db,
             entity=entity,
@@ -189,6 +270,8 @@ async def read_global_parts_with_votes(
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
     car_id: Optional[int] = Query(None, description="Filter by car ID"),
     brand_id: Optional[int] = Query(None, description="Filter by brand ID"),
+    retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
+    sort: Optional[str] = Query(None, description="Sort: default by votes, or 'lowest_price' by best listing price"),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
@@ -240,6 +323,11 @@ async def read_global_parts_with_votes(
         base_query = base_query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
     if brand_id:
         base_query = base_query.filter(DBGlobalPart.brand_id == brand_id)
+    if retailer_id is not None:
+        base_query = base_query.join(DBPartListing).filter(
+            DBPartListing.global_part_id == DBGlobalPart.id,
+            DBPartListing.retailer_id == retailer_id,
+        )
 
     # Get total count from base query (joins don't affect which parts match filters)
     total = base_query.count()
@@ -263,13 +351,35 @@ async def read_global_parts_with_votes(
         query = query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
     if brand_id:
         query = query.filter(DBGlobalPart.brand_id == brand_id)
+    if retailer_id is not None:
+        query = query.join(DBPartListing).filter(
+            DBPartListing.global_part_id == DBGlobalPart.id,
+            DBPartListing.retailer_id == retailer_id,
+        )
 
-    # Sort by net votes (upvotes - downvotes) descending, then by id for consistent ordering
-    # This matches what users see in the UI (the +1, -2, etc. values)
-    query = query.order_by(
-        (func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)).desc(),
-        DBGlobalPart.id.desc(),
-    )
+    # Sort: by lowest price (best listing) or by net votes (default)
+    if sort == "lowest_price":
+        min_price_subq = (
+            db.query(
+                DBPartListing.global_part_id,
+                func.min(DBPartListing.last_known_price_cents).label("min_price"),
+            )
+            .filter(DBPartListing.last_known_price_cents.isnot(None))
+            .group_by(DBPartListing.global_part_id)
+            .subquery()
+        )
+        query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
+        query = query.order_by(
+            min_price_subq.c.min_price.asc().nullslast(),
+            DBGlobalPart.id.desc(),
+        )
+    else:
+        query = query.order_by(
+            (
+                func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
+            ).desc(),
+            DBGlobalPart.id.desc(),
+        )
 
     # Get paginated results
     # Since joins are one-to-one, we can get IDs in order, then fetch full objects
@@ -332,6 +442,21 @@ async def read_global_parts_with_votes(
         elif vote_type == "downvote":
             downvotes_dict[entity_id] = count
 
+    # Min price per part (from retailer listings) for best_price_cents
+    min_prices = (
+        db.query(
+            DBPartListing.global_part_id,
+            func.min(DBPartListing.last_known_price_cents).label("min_price"),
+        )
+        .filter(
+            DBPartListing.global_part_id.in_(part_ids),
+            DBPartListing.last_known_price_cents.isnot(None),
+        )
+        .group_by(DBPartListing.global_part_id)
+        .all()
+    )
+    best_price_cents_dict: Dict[int, int] = {gp_id: int(mp) for gp_id, mp in min_prices}
+
     # Bulk fetch user votes if user is authenticated
     user_votes_dict: Dict[int, str] = {}
     if current_user:
@@ -346,10 +471,11 @@ async def read_global_parts_with_votes(
         )
         user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
 
-    # Convert parts to schema with vote data
+    # Convert parts to schema with vote data and best_price_cents
     parts_data: List[GlobalPartReadWithVotes] = []
     for part in parts:
         part_dict = GlobalPartRead.model_validate(part).model_dump()
+        part_dict["best_price_cents"] = best_price_cents_dict.get(part.id)
         part_dict["upvotes"] = upvotes_dict.get(part.id, 0)
         part_dict["downvotes"] = downvotes_dict.get(part.id, 0)
         part_dict["total_votes"] = part_dict["upvotes"] + part_dict["downvotes"]
@@ -411,7 +537,7 @@ async def check_product_url_exists(
         # Normalize the URL by stripping whitespace
         normalized_url = product_url.strip()
 
-        existing_part = db.query(DBGlobalPart).filter(DBGlobalPart.product_url == normalized_url).first()
+        existing_part = find_part_by_product_url(db, normalized_url)
 
         if existing_part:
             logger.info(f"URL check: Found existing part {existing_part.id} for URL: {normalized_url[:50]}...")
@@ -423,6 +549,346 @@ async def check_product_url_exists(
         logger.error(f"Error checking product URL: {str(e)}", exc_info=True)
         # Return None on error to avoid blocking the user
         return {"existing_part_id": None}
+
+
+@router.get(
+    "/find-by-brand-and-part-number",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Existing part found",
+        not_found=True,
+    ),
+)
+async def find_global_part_by_brand_and_part_number(
+    brand_id: int = Query(..., description="Brand ID"),
+    part_number: str = Query(..., min_length=1, description="Part number or SKU"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Find an existing global part by brand and part number (normalized).
+    Used by scrapers to detect update mode when the same part is scraped from another URL.
+    Returns 404 if no matching part exists.
+    """
+    db = deps["db"]
+    part = find_part_by_brand_and_part_number(db, brand_id, part_number)
+    if not part:
+        raise HTTPException(status_code=404, detail="No global part found for this brand and part number")
+    return GlobalPartRead.model_validate(part)
+
+
+@router.get(
+    "/{global_part_id}/listings",
+    response_model=List[PartListingReadWithRetailer],
+    responses=standard_responses(
+        success_description="Part listings retrieved",
+        not_found=True,
+    ),
+)
+async def get_global_part_listings(
+    global_part_id: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> List[PartListingReadWithRetailer]:
+    """List all retailer listings for a global part (with current price)."""
+    db = deps["db"]
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    listings = (
+        db.query(DBPartListing)
+        .filter(DBPartListing.global_part_id == global_part_id)
+        .options(joinedload(DBPartListing.retailer))
+        .all()
+    )
+    return [PartListingReadWithRetailer.model_validate(l) for l in listings]
+
+
+@router.post(
+    "/{global_part_id}/listings",
+    response_model=PartListingReadWithRetailer,
+    responses=standard_responses(
+        success_description="Part listing created or updated",
+        not_found=True,
+    ),
+)
+async def create_or_update_global_part_listing(
+    global_part_id: int,
+    data: PartListingCreate,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> PartListingReadWithRetailer:
+    """Create or update a retailer listing for a global part (and optionally add a price)."""
+    db = deps["db"]
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
+    if data.global_part_id != global_part_id:
+        ResponsePatterns.raise_conflict(
+            message="Body global_part_id must match path global_part_id.",
+            error_code="GLOBAL_PART_ID_MISMATCH",
+        )
+    listing = create_or_update_listing_and_price(
+        db,
+        global_part_id,
+        data.retailer_id,
+        product_url=data.product_url,
+        price_cents=data.price_cents,
+    )
+    db.commit()
+    db.refresh(listing)
+    listing_with_retailer = (
+        db.query(DBPartListing)
+        .filter(DBPartListing.id == listing.id)
+        .options(joinedload(DBPartListing.retailer))
+        .first()
+    )
+    return PartListingReadWithRetailer.model_validate(listing_with_retailer)
+
+
+@router.post(
+    "/{global_part_id}/append-images",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Images appended to part",
+        not_found=True,
+    ),
+)
+async def append_images_to_global_part(
+    global_part_id: int,
+    data: GlobalPartAppendImages,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Append image file keys to a global part's gallery.
+    Used when re-scraping finds new images not yet in the catalog.
+    """
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    require_global_part_edit_permission(current_user, part)
+
+    existing = list(part.image_urls or []) or ([part.image_url] if part.image_url else [])
+    if len(existing) >= MAX_IMAGES_PER_GLOBAL_PART:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Global part already has the maximum number of images ({MAX_IMAGES_PER_GLOBAL_PART}).",
+        )
+
+    seen = set(existing)
+    for fk in data.file_keys:
+        if fk and fk not in seen and len(existing) < MAX_IMAGES_PER_GLOBAL_PART:
+            existing.append(fk)
+            seen.add(fk)
+
+    part.image_urls = existing[:MAX_IMAGES_PER_GLOBAL_PART]
+    if not part.image_url and existing:
+        part.image_url = existing[0]
+    db.commit()
+    db.refresh(part)
+    return GlobalPartRead.model_validate(part)
+
+
+def _get_part_image_file_keys(part: DBGlobalPart) -> List[str]:
+    """Return ordered list of image file keys (gallery + primary if not in gallery)."""
+    urls = list(part.image_urls or [])
+    if not urls and part.image_url:
+        return [part.image_url]
+    return urls
+
+
+@router.delete(
+    "/{global_part_id}/images/{image_index}",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Image removed from part",
+        not_found=True,
+    ),
+)
+async def remove_image_from_global_part(
+    global_part_id: int,
+    image_index: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Remove the image at the given index from the global part's gallery.
+    Requires edit permission. Removes from storage when the image is a stored file key.
+    """
+    from app.api.services.storage_service import storage_service
+    from app.api.utils.image_utils import is_file_key
+
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    require_global_part_edit_permission(current_user, part)
+
+    file_keys = _get_part_image_file_keys(part)
+    if image_index < 0 or image_index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {image_index}. Part has {len(file_keys)} image(s).",
+        )
+
+    removed_key = file_keys[image_index]
+    new_keys = [fk for i, fk in enumerate(file_keys) if i != image_index]
+
+    part.image_urls = new_keys if new_keys else None
+    if part.image_url == removed_key:
+        part.image_url = new_keys[0] if new_keys else None
+
+    if removed_key and is_file_key(removed_key):
+        try:
+            storage_service.delete_image(removed_key)
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Failed to delete image from storage for part %s: %s",
+                global_part_id,
+                e,
+            )
+
+    db.commit()
+    db.refresh(part)
+    return GlobalPartRead.model_validate(part)
+
+
+@router.patch(
+    "/{global_part_id}/primary-image",
+    response_model=GlobalPartRead,
+    responses=standard_responses(
+        success_description="Primary image updated",
+        not_found=True,
+    ),
+)
+async def set_primary_image_for_global_part(
+    global_part_id: int,
+    data: SetPrimaryImageRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> GlobalPartRead:
+    """
+    Set the image at the given index as the primary (display) image and move it to the front of the gallery.
+    Requires edit permission.
+    """
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    require_global_part_edit_permission(current_user, part)
+
+    file_keys = _get_part_image_file_keys(part)
+    if data.index < 0 or data.index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {data.index}. Part has {len(file_keys)} image(s).",
+        )
+
+    primary_key = file_keys[data.index]
+    new_order = [primary_key] + [fk for i, fk in enumerate(file_keys) if i != data.index]
+    part.image_urls = new_order
+    part.image_url = primary_key
+    db.commit()
+    db.refresh(part)
+    return GlobalPartRead.model_validate(part)
+
+
+@router.get(
+    "/{global_part_id}/best-listing",
+    response_model=PartListingReadWithRetailer,
+    responses=standard_responses(
+        success_description="Best (lowest price) listing retrieved",
+        not_found=True,
+    ),
+)
+async def get_global_part_best_listing(
+    global_part_id: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> PartListingReadWithRetailer:
+    """Get the listing with the lowest current price for this part. 404 if no listing has a price."""
+    db = deps["db"]
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    best = get_best_listing_for_part(db, global_part_id)
+    if not best:
+        ResponsePatterns.raise_http_exception(
+            status.HTTP_404_NOT_FOUND,
+            "No listing with price for this part",
+            error_code="NOT_FOUND",
+        )
+    listing_with_retailer = (
+        db.query(DBPartListing).filter(DBPartListing.id == best.id).options(joinedload(DBPartListing.retailer)).first()
+    )
+    return PartListingReadWithRetailer.model_validate(listing_with_retailer)
+
+
+@router.get(
+    "/{global_part_id}/with-listings",
+    response_model=GlobalPartReadWithListings,
+    responses=standard_responses(
+        success_description="Part with listings and best listing retrieved",
+        not_found=True,
+    ),
+)
+async def get_global_part_with_listings(
+    global_part_id: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> GlobalPartReadWithListings:
+    """Get a global part with all retailer listings and the best (lowest price) listing."""
+    db = deps["db"]
+    part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    listings = (
+        db.query(DBPartListing)
+        .filter(DBPartListing.global_part_id == global_part_id)
+        .options(joinedload(DBPartListing.retailer))
+        .all()
+    )
+    best = get_best_listing_for_part(db, global_part_id)
+    best_serialized = None
+    if best:
+        best_with_retailer = (
+            db.query(DBPartListing)
+            .filter(DBPartListing.id == best.id)
+            .options(joinedload(DBPartListing.retailer))
+            .first()
+        )
+        if best_with_retailer:
+            best_serialized = PartListingReadWithRetailer.model_validate(best_with_retailer)
+    part_dict = GlobalPartRead.model_validate(part).model_dump()
+    part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+    return GlobalPartReadWithListings(
+        **part_dict,
+        listings=[PartListingReadWithRetailer.model_validate(l) for l in listings],
+        best_listing=best_serialized,
+    )
+
+
+@router.get(
+    "/{global_part_id}/price-history",
+    response_model=List[PartPriceHistoryReadWithRetailer],
+    responses=standard_responses(
+        success_description="Price history retrieved",
+        not_found=True,
+    ),
+)
+async def get_global_part_price_history(
+    global_part_id: int,
+    retailer_id: Optional[int] = Query(None, description="Filter by retailer ID"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> List[PartPriceHistoryReadWithRetailer]:
+    """Get price history for this part, optionally filtered by retailer. Ordered by observed_at desc."""
+    db = deps["db"]
+    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    query = (
+        db.query(DBPartPriceHistory, DBPartListing, DBRetailer)
+        .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
+        .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
+        .filter(DBPartListing.global_part_id == global_part_id)
+    )
+    if retailer_id is not None:
+        query = query.filter(DBPartListing.retailer_id == retailer_id)
+    rows = query.order_by(DBPartPriceHistory.observed_at.desc()).all()
+    return [
+        PartPriceHistoryReadWithRetailer(
+            id=h.id,
+            part_listing_id=h.part_listing_id,
+            price_cents=h.price_cents,
+            observed_at=h.observed_at,
+            retailer_id=r.id,
+            retailer_name=r.name,
+        )
+        for h, _listing, r in rows
+    ]
 
 
 # Create base endpoint router AFTER custom endpoints to avoid route collision

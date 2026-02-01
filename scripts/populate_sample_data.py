@@ -64,7 +64,19 @@ from app.api.models.category import Category  # pyright: ignore[reportMissingImp
 from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
     GlobalPart,
 )  # pyright: ignore[reportMissingImports]
+from app.api.models.part_listing import (
+    PartListing,
+)  # pyright: ignore[reportMissingImports]
+from app.api.models.part_price_history import (  # pyright: ignore[reportMissingImports]
+    PartPriceHistory,
+)  # pyright: ignore[reportMissingImports]
 from app.api.models.report import Report  # pyright: ignore[reportMissingImports]
+from app.api.models.retailer import Retailer  # pyright: ignore[reportMissingImports]
+from app.api.services.part_listing_service import (  # pyright: ignore[reportMissingImports]
+    create_or_update_listing_and_price,
+    get_or_create_brand_by_name,
+    get_or_create_retailer,
+)  # pyright: ignore[reportMissingImports]
 from app.api.models.subscription import (  # pyright: ignore[reportMissingImports]
     Subscription,
 )  # pyright: ignore[reportMissingImports]
@@ -436,21 +448,102 @@ def create_sample_cars(db: Session) -> list[Car]:
     return cars
 
 
+def _ensure_sample_retailers(db: Session) -> list[Retailer]:
+    """Ensure fake retailers exist for sample data; return list of retailers."""
+    fake_retailers = [
+        {
+            "name": "Summit Racing",
+            "domain": "summitracing.com",
+            "base_url": "https://www.summitracing.com",
+        },
+        {
+            "name": "A90Shop",
+            "domain": "a90shop.com",
+            "base_url": "https://www.a90shop.com",
+        },
+        {
+            "name": "Tire Rack",
+            "domain": "tirerack.com",
+            "base_url": "https://www.tirerack.com",
+        },
+        {
+            "name": "RockAuto",
+            "domain": "rockauto.com",
+            "base_url": "https://www.rockauto.com",
+        },
+        {
+            "name": "AutoZone",
+            "domain": "autozone.com",
+            "base_url": "https://www.autozone.com",
+        },
+        {
+            "name": "Advance Auto Parts",
+            "domain": "advanceautoparts.com",
+            "base_url": "https://www.advanceautoparts.com",
+        },
+        {"name": "JEGS", "domain": "jegs.com", "base_url": "https://www.jegs.com"},
+        {
+            "name": "ECS Tuning",
+            "domain": "ecstuning.com",
+            "base_url": "https://www.ecstuning.com",
+        },
+        {
+            "name": "FCP Euro",
+            "domain": "fcpeuro.com",
+            "base_url": "https://www.fcpeuro.com",
+        },
+        {
+            "name": "ModAuto",
+            "domain": "modauto.com",
+            "base_url": "https://www.modauto.com",
+        },
+    ]
+    retailers = []
+    for r in fake_retailers:
+        retailer = get_or_create_retailer(
+            db, r["name"], domain=r.get("domain"), base_url=r.get("base_url")
+        )
+        retailers.append(retailer)
+    db.commit()
+    for retailer in retailers:
+        db.refresh(retailer)
+    return retailers
+
+
 def create_sample_global_parts(
     db: Session, users: list[User], categories: list[Category]
 ) -> list[GlobalPart]:
-    """Create sample global parts."""
+    """Create sample global parts (refactored: brand_id, no price; prices via PartListing)."""
     start_time = time.time()
     log_section("Creating sample global parts...")
 
-    # Initial parts
-    initial_parts = [
+    # Collect all brand names we use, then get-or-create brands and build brand_id map
+    initial_brand_names = [
+        "AWE",
+        "KW",
+        "Garrett",
+        "Rays",
+        "APR",
+        "Recaro",
+        "Brembo",
+        "Injen",
+        "HKS",
+        "Ohlins",
+    ]
+    brand_map: dict[str, int] = {}
+    for name in initial_brand_names:
+        brand = get_or_create_brand_by_name(db, name)
+        if brand:
+            brand_map[name] = brand.id
+    db.commit()
+
+    # Initial parts: use brand_id, no price/brand (price comes from PartListing later)
+    initial_parts_raw = [
         {
             "name": "AWE Touring Exhaust System",
             "description": "High-quality cat-back exhaust system with deep, aggressive tone",
-            "price": 1299,
-            "category_id": categories[0].id,  # exhaust
-            "user_id": users[1].id,  # john_doe
+            "category_id": categories[0].id,
+            "user_id": users[1].id,
             "brand": "AWE",
             "part_number": "AWE-EXH-001",
             "specifications": {
@@ -463,9 +556,8 @@ def create_sample_global_parts(
         {
             "name": "KW V3 Coilover Kit",
             "description": "Premium adjustable coilover suspension system",
-            "price": 2499,
-            "category_id": categories[1].id,  # suspension
-            "user_id": users[2].id,  # jane_smith
+            "category_id": categories[1].id,
+            "user_id": users[2].id,
             "brand": "KW",
             "part_number": "KW-SUS-001",
             "specifications": {
@@ -478,9 +570,8 @@ def create_sample_global_parts(
         {
             "name": "Garrett GT2860RS Turbocharger",
             "description": "High-performance turbocharger for increased power",
-            "price": 1899,
-            "category_id": categories[2].id,  # engine
-            "user_id": users[3].id,  # car_enthusiast
+            "category_id": categories[2].id,
+            "user_id": users[3].id,
             "brand": "Garrett",
             "part_number": "GAR-TUR-001",
             "specifications": {"max_boost": "25psi", "compressor": "dual_ball_bearing"},
@@ -489,9 +580,8 @@ def create_sample_global_parts(
         {
             "name": "Volk TE37 Wheels",
             "description": "Lightweight forged wheels, 18x9.5 +22",
-            "price": 3200,
-            "category_id": categories[3].id,  # wheels
-            "user_id": users[1].id,  # john_doe
+            "category_id": categories[3].id,
+            "user_id": users[1].id,
             "brand": "Rays",
             "part_number": "VOLK-TE37-001",
             "specifications": {"size": "18x9.5", "offset": "+22", "weight": "18.5lbs"},
@@ -500,9 +590,8 @@ def create_sample_global_parts(
         {
             "name": "APR Carbon Fiber Wing",
             "description": "Large carbon fiber rear wing for downforce",
-            "price": 899,
-            "category_id": categories[4].id,  # body
-            "user_id": users[4].id,  # modder_pro
+            "category_id": categories[4].id,
+            "user_id": users[4].id,
             "brand": "APR",
             "part_number": "APR-AERO-001",
             "specifications": {"material": "carbon_fiber", "adjustable": True},
@@ -511,9 +600,8 @@ def create_sample_global_parts(
         {
             "name": "Recaro Sportster CS Seats",
             "description": "Premium sport seats with heating",
-            "price": 1599,
-            "category_id": categories[5].id,  # interior
-            "user_id": users[2].id,  # jane_smith
+            "category_id": categories[5].id,
+            "user_id": users[2].id,
             "brand": "Recaro",
             "part_number": "REC-INT-001",
             "specifications": {"heated": True, "adjustable": True},
@@ -522,9 +610,8 @@ def create_sample_global_parts(
         {
             "name": "Brembo GT Big Brake Kit",
             "description": "6-piston front brake kit with slotted rotors",
-            "price": 3499,
-            "category_id": categories[6].id,  # brakes
-            "user_id": users[3].id,  # car_enthusiast
+            "category_id": categories[6].id,
+            "user_id": users[3].id,
             "brand": "Brembo",
             "part_number": "BRE-BRK-001",
             "specifications": {
@@ -537,9 +624,8 @@ def create_sample_global_parts(
         {
             "name": "Injen Cold Air Intake",
             "description": "High-flow cold air intake system",
-            "price": 399,
-            "category_id": categories[2].id,  # engine
-            "user_id": users[1].id,  # john_doe
+            "category_id": categories[2].id,
+            "user_id": users[1].id,
             "brand": "Injen",
             "part_number": "INJ-INT-001",
             "specifications": {"filter_type": "dry", "material": "aluminum"},
@@ -548,9 +634,8 @@ def create_sample_global_parts(
         {
             "name": "HKS Hi-Power Exhaust",
             "description": "JDM-style exhaust with titanium tips",
-            "price": 1099,
-            "category_id": categories[0].id,  # exhaust
-            "user_id": users[4].id,  # modder_pro
+            "category_id": categories[0].id,
+            "user_id": users[4].id,
             "brand": "HKS",
             "part_number": "HKS-EXH-001",
             "specifications": {"material": "titanium", "tips": 2},
@@ -559,15 +644,26 @@ def create_sample_global_parts(
         {
             "name": "Ohlins Road & Track Coilovers",
             "description": "Premium Swedish coilover system",
-            "price": 2999,
-            "category_id": categories[1].id,  # suspension
-            "user_id": users[1].id,  # john_doe
+            "category_id": categories[1].id,
+            "user_id": users[1].id,
             "brand": "Ohlins",
             "part_number": "OHL-SUS-001",
             "specifications": {"adjustable": True, "damping": "dual_flow_valve"},
             "is_verified": True,
         },
     ]
+    initial_parts = []
+    for p in initial_parts_raw:
+        brand_id = brand_map.get(p["brand"])
+        if brand_id is None:
+            b = get_or_create_brand_by_name(db, p["brand"])
+            if b:
+                brand_map[p["brand"]] = b.id
+                brand_id = b.id
+        if brand_id is not None:
+            part_data = {k: v for k, v in p.items() if k != "brand"}
+            part_data["brand_id"] = brand_id
+            initial_parts.append(part_data)
 
     # Part templates for each category
     part_templates = {
@@ -713,6 +809,17 @@ def create_sample_global_parts(
         },
     }
 
+    # Ensure all template brands exist for generated parts
+    all_template_brands = set()
+    for template in part_templates.values():
+        all_template_brands.update(template["brands"])
+    for name in all_template_brands:
+        if name not in brand_map:
+            b = get_or_create_brand_by_name(db, name)
+            if b:
+                brand_map[name] = b.id
+    db.commit()
+
     parts_data = initial_parts.copy()
 
     # Generate additional parts to reach 2500 total (to test pagination with limit=1000)
@@ -722,18 +829,28 @@ def create_sample_global_parts(
         template = part_templates.get(category_name, part_templates["exhaust"])
 
         name_base = random.choice(template["names"])
-        brand = random.choice(template["brands"])
+        brand_name = random.choice(template["brands"])
+        brand_id = brand_map.get(brand_name)
+        if brand_id is None:
+            b = get_or_create_brand_by_name(db, brand_name)
+            if b:
+                brand_map[brand_name] = b.id
+                brand_id = b.id
+        if brand_id is None:
+            continue
+
         name = (
-            f"{brand} {name_base} {i+1}"
+            f"{brand_name} {name_base} {i+1}"
             if i < 30
-            else f"{name_base} {brand} Edition {i+1}"
+            else f"{name_base} {brand_name} Edition {i+1}"
         )
         description = random.choice(template["descriptions"])
-        price = random.randint(*template["price_range"])
         user = random.choice(users)
         is_verified = random.choice([True, True, True, False])  # 75% verified
 
-        part_number = f"{brand[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
+        part_number = (
+            f"{brand_name[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
+        )
 
         # Generate specifications based on category
         specs = {}
@@ -779,10 +896,9 @@ def create_sample_global_parts(
             {
                 "name": name,
                 "description": description,
-                "price": price,
                 "category_id": category.id,
                 "user_id": user.id,
-                "brand": brand,
+                "brand_id": brand_id,
                 "part_number": part_number,
                 "specifications": specs,
                 "is_verified": is_verified,
@@ -813,6 +929,56 @@ def create_sample_global_parts(
 
     elapsed = time.time() - start_time
     log_info(f"✓ Created {len(parts):,} global parts (took {elapsed:.1f}s)")
+
+    # Ensure fake retailers exist, then add many retailers + price history to one part for UI debugging
+    retailers = _ensure_sample_retailers(db)
+    debug_part = parts[0]  # First part: "AWE Touring Exhaust System"
+    base_price_cents = 129900  # $1299.00
+    num_price_history_per_listing = 25
+    days_back = 90
+
+    log_info(
+        f"Adding {len(retailers):,} retailers and price history to debug part (ID: {debug_part.id}, Name: {debug_part.name})..."
+    )
+    for retailer in retailers:
+        listing = create_or_update_listing_and_price(
+            db,
+            debug_part.id,
+            retailer.id,
+            product_url=f"https://{retailer.domain or 'example.com'}/parts/{debug_part.part_number or debug_part.id}",
+            price_cents=base_price_cents
+            + random.randint(-5000, 8000),  # vary by retailer
+            observed_at=datetime.now(UTC),
+        )
+        # Add multiple price history entries (time series over past days_back days)
+        for j in range(num_price_history_per_listing - 1):
+            days_ago = random.randint(1, days_back)
+            observed_at = datetime.now(UTC) - timedelta(days=days_ago)
+            price_cents = base_price_cents + random.randint(-8000, 10000)
+            hist = PartPriceHistory(
+                part_listing_id=listing.id,
+                price_cents=max(100, price_cents),
+                observed_at=observed_at,
+            )
+            db.add(hist)
+    db.commit()
+
+    log_info("")
+    log_info("=" * 60)
+    log_info("DEBUG PART FOR RETAILERS & PRICE HISTORY UI")
+    log_info("=" * 60)
+    log_info(
+        f"  Use this global part to test retailer listings and price history charts:"
+    )
+    log_info(f"  Global Part ID:   {debug_part.id}")
+    log_info(f"  Name:             {debug_part.name}")
+    log_info(f"  Retailers:        {len(retailers):,} (PartListings)")
+    log_info(
+        f"  Price history:    ~{len(retailers) * num_price_history_per_listing:,} entries total"
+    )
+    log_info("=" * 60)
+    log_info("")
+
     return parts
 
 

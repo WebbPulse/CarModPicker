@@ -36,11 +36,11 @@ const GlobalPartListItem: React.FC<GlobalPartListItemProps> = ({ part }) => {
               </div>
             )}
 
-            {part.price !== null && part.price !== undefined && (
+            {part.best_price_cents != null && (
               <div>
                 {/* Optional: you can remove the "Price: " label if it's implied */}
                 <span className="text-gray-300 font-semibold text-lg">
-                  ${(part.price / 100).toFixed(2)}
+                  ${(part.best_price_cents / 100).toFixed(2)}
                 </span>
               </div>
             )}

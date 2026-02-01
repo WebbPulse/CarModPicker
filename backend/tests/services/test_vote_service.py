@@ -90,7 +90,6 @@ class TestVoteService:
         global_part = GlobalPart(
             name=get_unique_name("test_part"),
             description="Test part",
-            price=1000,
             user_id=test_user.id,
             category_id=category.id,
         )

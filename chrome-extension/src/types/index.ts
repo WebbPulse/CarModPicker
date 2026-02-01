@@ -41,24 +41,66 @@ export interface Car {
   updated_at: string;
 }
 
+export interface Brand {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Retailer {
+  id: number;
+  name: string;
+  domain?: string | null;
+  base_url?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GlobalPartCreate {
   name: string;
   description?: string | null;
-  price?: number | null; // Price in cents
+  price?: number | null; // Price in cents (legacy GlobalPart field)
   image_url?: string | null;
+  image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
   car_id?: number | null;
-  brand?: string | null;
+  brand_id: number; // Required - part manufacturer (e.g. HKS, Borla)
   part_number?: string | null;
   specifications?: Record<string, unknown> | null;
+  retailer_id?: number | null; // Optional - store/site where part is sold
+  price_cents?: number | null; // Optional - for PartListing/price history when retailer_id set
+}
+
+export interface GlobalPartRead {
+  id: number;
+  name: string;
+  description?: string | null;
+  price?: number | null;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  category_id: number;
+  user_id: number;
+  car_id?: number | null;
+  brand_id?: number | null;
+  part_number?: string | null;
+  is_verified: boolean;
+  source: string;
+  edit_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ScrapedProductData {
   name: string | null;
   description: string | null;
   price: number | null; // Price in cents
-  image_url: string | null;
+  image_url: string | null; // Primary image (first in gallery)
+  image_urls: string[]; // All product images for gallery
   product_url: string;
   brand: string | null;
   part_number: string | null;
@@ -84,10 +126,24 @@ export interface ImageUploadResponse {
   message: string;
 }
 
+export interface PartListingCreate {
+  global_part_id: number;
+  retailer_id: number;
+  product_url?: string | null;
+  price_cents?: number | null;
+}
+
 export interface ExtensionMessage {
   action: string;
   username?: string;
   password?: string;
   partData?: GlobalPartCreate;
   imageUrl?: string;
+  limit?: number;
+  searchTerm?: string;
+  brandName?: string;
+  productUrl?: string;
+  partId?: number;
+  domain?: string;
+  listingData?: PartListingCreate;
 }

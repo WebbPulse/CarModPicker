@@ -3,6 +3,10 @@
  */
 
 import type { ScrapedProductData } from "./types";
+import {
+  getCanonicalImageUrl,
+  getHighResImageUrl,
+} from "./utils/imageUrlUtils";
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(
@@ -12,7 +16,7 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (response: {
       success: boolean;
       data: ScrapedProductData;
-    }) => void,
+    }) => void
   ) => {
     if (request.action === "scrapePage") {
       const scrapedData = scrapeProductData();
@@ -20,7 +24,7 @@ chrome.runtime.onMessage.addListener(
       return true; // Keep channel open for async response
     }
     return false;
-  },
+  }
 );
 
 /**
@@ -33,6 +37,7 @@ function scrapeProductData(): ScrapedProductData {
     description: null,
     price: null,
     image_url: null,
+    image_urls: [],
     product_url: window.location.href,
     brand: null,
     part_number: null,
@@ -47,8 +52,10 @@ function scrapeProductData(): ScrapedProductData {
   // Extract price
   data.price = extractPrice();
 
-  // Extract image URL
-  data.image_url = extractImageUrl();
+  // Extract images (multiple for gallery)
+  const imageUrls = extractImageUrls();
+  data.image_urls = imageUrls;
+  data.image_url = imageUrls.length > 0 ? imageUrls[0] ?? null : null;
 
   // Extract brand
   data.brand = extractBrand();
@@ -144,36 +151,148 @@ function extractDescription(): string | null {
   return null;
 }
 
+/** Check if element is inside a related/recommended/cross-sell products section */
+function isInRelatedProductsSection(element: Element): boolean {
+  let el: HTMLElement | null = element.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    const role = (el.getAttribute?.("role") ?? "").toLowerCase();
+    const ariaLabel = (el.getAttribute?.("aria-label") ?? "").toLowerCase();
+    const text = el.textContent?.toLowerCase().slice(0, 200) ?? "";
+    if (
+      /related|recommended|similar|cross-?sell|upsell|also-?bought|you-?may-?like|other-?products|other-?great-?products|check-?out-?these/.test(
+        cls + id + role + ariaLabel + text
+      )
+    ) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/** Find the main product container (contains product h1, excludes header/nav) */
+function getMainProductContainer(): Element | null {
+  const h1 = document.querySelector("h1");
+  if (!h1 || isInHeaderNav(h1)) return null;
+  // Walk up to find a reasonable product block (main, product-detail, etc.)
+  let el: HTMLElement | null = h1.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    if (
+      tag === "main" ||
+      /product-detail|product-info|product-main|product-summary|product-single/.test(
+        cls + id
+      )
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return h1.closest('[class*="product"], [id*="product"]') ?? h1.parentElement;
+}
+
 /**
  * Extract price from the page
+ * Prioritizes: JSON-LD Product schema, main product area, then structured markup.
+ * Avoids related products, cart subtotals ($0), and financing "per month" amounts.
  */
 function extractPrice(): number | null {
-  // Find all price-like text
   const pricePattern = /\$[\d,]+\.?\d*/g;
-  const pageText = document.body.textContent || "";
-  const prices = pageText.match(pricePattern) || [];
+  const currentUrl = window.location.href;
 
-  if (prices.length === 0) return null;
+  // 1. JSON-LD Product schema (most reliable - unambiguous product price)
+  let jsonLdPriceMatch: number | null = null;
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        const type = item?.["@type"];
+        if (
+          type === "Product" ||
+          (Array.isArray(type) && type.includes("Product"))
+        ) {
+          const price =
+            item.offers?.price ?? item.offers?.[0]?.price ?? item.price;
+          if (price != null) {
+            const num =
+              typeof price === "string" ? parseFloat(price) : Number(price);
+            if (!isNaN(num) && num > 0) {
+              const cents = Math.round(num * 100);
+              const offerUrl =
+                item.offers?.url ?? item.offers?.[0]?.url ?? item.url ?? "";
+              const urlMatches =
+                !offerUrl ||
+                currentUrl.startsWith(offerUrl) ||
+                offerUrl.includes(new URL(currentUrl).pathname);
+              if (urlMatches) return cents;
+              if (!jsonLdPriceMatch) jsonLdPriceMatch = cents;
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+  if (jsonLdPriceMatch) return jsonLdPriceMatch;
 
-  // Try structured data first
-  const priceElem =
-    document.querySelector('[itemprop="price"]') ||
-    document.querySelector("[data-price]") ||
-    document.querySelector('[class*="price"]');
-
-  if (priceElem) {
-    const priceText =
-      priceElem.textContent ||
-      priceElem.getAttribute("content") ||
-      priceElem.getAttribute("data-price") ||
-      "";
-    const price = extractPriceValue(priceText);
-    if (price) return price;
+  // 2. Open Graph product price meta
+  const ogPrice = document.querySelector(
+    'meta[property="product:price:amount"], meta[property="og:price:amount"]'
+  );
+  if (ogPrice instanceof HTMLMetaElement && ogPrice.content) {
+    const num = parseFloat(ogPrice.content);
+    if (!isNaN(num) && num > 0) return Math.round(num * 100);
   }
 
-  // Fallback to first price found
-  if (prices.length > 0 && prices[0]) {
-    return extractPriceValue(prices[0]);
+  // 3. Scoped to main product container - avoid related products
+  const mainContainer = getMainProductContainer();
+  const searchRoot = mainContainer ?? document.body;
+
+  const tryPriceFromElement = (elem: Element): number | null => {
+    if (isInRelatedProductsSection(elem)) return null;
+    const priceText =
+      elem.textContent ||
+      elem.getAttribute("content") ||
+      elem.getAttribute("data-price") ||
+      "";
+    const price = extractPriceValue(priceText);
+    if (price && price > 0) return price;
+    return null;
+  };
+
+  const structuredSelectors = [
+    '[itemprop="price"]',
+    "[data-price]",
+    '[class*="product"][class*="price"]',
+    '[class*="price"][class*="product"]',
+    '.product-price, .price-box, [class*="product-price"], [class*="price-box"]',
+    '[class*="price"]',
+  ];
+
+  for (const selector of structuredSelectors) {
+    const elems = searchRoot.querySelectorAll(selector);
+    for (const elem of Array.from(elems)) {
+      if (isInRelatedProductsSection(elem)) continue;
+      const price = tryPriceFromElement(elem);
+      if (price) return price;
+    }
+  }
+
+  // 4. Fallback: first price-like text in main product area (exclude $0 and tiny amounts)
+  const scopeText = searchRoot.textContent || "";
+  const prices = scopeText.match(pricePattern) || [];
+  for (const p of prices) {
+    const val = extractPriceValue(p);
+    if (val && val >= 100) return val; // Skip $0 and trivial amounts
   }
 
   return null;
@@ -200,66 +319,334 @@ function extractPriceValue(priceText: string): number | null {
   return null;
 }
 
+const MAX_GALLERY_IMAGES = 10;
+const MIN_IMAGE_SIZE = 150;
+/** Min size for images inside thumbnail/carousel strips so we don't collect small thumbs */
+const MIN_MAIN_IMAGE_SIZE = 300;
+
+/** Resolve image src to absolute URL */
+function toAbsoluteUrl(src: string): string {
+  if (src.startsWith("http")) return src;
+  if (src.startsWith("//")) return window.location.protocol + src;
+  try {
+    return new URL(src, window.location.href).href;
+  } catch {
+    return "";
+  }
+}
+
+/** Check if URL looks like a product image (not icon/logo) */
+function isProductImageLike(
+  url: string,
+  img?: HTMLImageElement,
+  skipSizeCheck?: boolean,
+  minSize: number = MIN_IMAGE_SIZE
+): boolean {
+  if (!url || url.length < 10) return false;
+  const lower = url.toLowerCase();
+  if (
+    lower.includes("icon") ||
+    lower.includes("logo") ||
+    lower.includes("avatar") ||
+    lower.includes("placeholder") ||
+    lower.includes("1x1") ||
+    lower.endsWith(".svg") ||
+    lower.includes("pixel.")
+  ) {
+    return false;
+  }
+  // Skip size check for lazy-loaded images (naturalWidth may be 0) or when explicitly asked
+  if (!skipSizeCheck && img) {
+    const w = img.naturalWidth || img.width || 0;
+    const h = img.naturalHeight || img.height || 0;
+    if (w > 0 && h > 0 && (w < minSize || h < minSize)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** True if the image is inside a thumbnail strip / carousel thumb container (small previews) */
+function isInThumbnailStrip(img: HTMLImageElement): boolean {
+  let el: HTMLElement | null = img.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    if (
+      tag === "picture" ||
+      /thumbnail|thumb-nav|thumbstrip|carousel-thumb|gallery-thumb|slick-thumb|swiper-thumb|nav-thumb/.test(
+        cls
+      ) ||
+      /thumbnail|thumbstrip|thumb-nav/.test(id)
+    ) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
 /**
- * Extract product image URL
+ * Extract multiple product image URLs for gallery.
+ * Dedupes by canonical URL (same image at different sizes) and favors high-res.
  */
-function extractImageUrl(): string | null {
-  // Try Open Graph image first
-  const ogImage = document.querySelector('meta[property="og:image"]');
-  if (ogImage && ogImage instanceof HTMLMetaElement && ogImage.content) {
-    const url = ogImage.content.trim();
-    if (url && url.startsWith("http")) {
-      return url;
+function extractImageUrls(): string[] {
+  const byCanonical = new Map<string, string>();
+
+  function add(
+    url: string,
+    img?: HTMLImageElement,
+    skipSizeCheck?: boolean,
+    minSize: number = MIN_IMAGE_SIZE
+  ): void {
+    const abs = toAbsoluteUrl(url);
+    if (!abs || !isProductImageLike(abs, img, skipSizeCheck, minSize)) return;
+    const canonical = getCanonicalImageUrl(abs);
+    if (!canonical) return;
+    // Keep high-res variant (we'll normalize output to high-res later)
+    const existing = byCanonical.get(canonical);
+    if (!existing || getWidthFromUrl(abs) > getWidthFromUrl(existing)) {
+      byCanonical.set(canonical, abs);
     }
   }
 
-  // Try common product image selectors
-  const imgSelectors = [
-    '[class*="product"][class*="image"] img',
+  function getWidthFromUrl(u: string): number {
+    try {
+      const match =
+        new URL(u).searchParams.get("width") ||
+        new URL(u).searchParams.get("w");
+      return match ? parseInt(match, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  // 1. Open Graph images (can have multiple via og:image:url in JSON-LD)
+  const ogImages = document.querySelectorAll('meta[property="og:image"]');
+  for (const meta of Array.from(ogImages)) {
+    if (meta instanceof HTMLMetaElement && meta.content) {
+      add(meta.content.trim());
+    }
+  }
+
+  // 2. JSON-LD product with image array
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const imgs = item.image;
+          if (Array.isArray(imgs)) {
+            for (const img of imgs) {
+              const url = typeof img === "string" ? img : img?.url;
+              if (url) add(url);
+            }
+          } else if (typeof imgs === "string") {
+            add(imgs);
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 3. Product gallery / carousel / thumbnail containers
+  const gallerySelectors = [
+    '[class*="product"][class*="gallery"] img',
+    '[class*="product"][class*="carousel"] img',
+    '[class*="product"][class*="slider"] img',
+    '[class*="gallery"] img',
+    '[class*="thumbnail"] img',
+    '[class*="product-image"] img',
     '[class*="main"][class*="image"] img',
     '[id*="product"][id*="image"] img',
+    "[data-gallery] img",
+    "[data-product-images] img",
+    "[data-gallery-role] img",
     '[itemprop="image"]',
-    'img[class*="product"]',
+    ".product-images img",
+    ".product-gallery img",
+    ".slick-slide img",
+    ".swiper-slide img",
+    ".carousel-item img",
+    ".fotorama__img",
+    ".product-image-photo",
+    ".gallery-placeholder img",
+    ".gallery__image img",
+    '[class*="fotorama"] img',
+    "picture.product img",
+    'picture[class*="gallery"] img',
+    '[class*="media-gallery"] img',
+    '[class*="image-gallery"] img',
+    ".zoomWindowContainer img",
+    '[class*="cloudzoom"] img',
   ];
 
-  for (const selector of imgSelectors) {
-    const img = document.querySelector(selector);
-    if (img && img instanceof HTMLImageElement) {
-      const src =
-        img.src ||
-        img.getAttribute("data-src") ||
-        img.getAttribute("data-lazy-src");
-      if (src) {
-        // Convert relative URLs to absolute
-        if (src.startsWith("http")) {
-          return src;
-        } else if (src.startsWith("//")) {
-          return window.location.protocol + src;
-        } else {
-          return new URL(src, window.location.href).href;
+  for (const selector of gallerySelectors) {
+    try {
+      const imgs = document.querySelectorAll(selector);
+      for (const img of Array.from(imgs)) {
+        if (img instanceof HTMLImageElement) {
+          // Prefer full-size zoom URL over thumbnail src when present
+          const zoomUrl =
+            img.getAttribute("data-zoom-image") ||
+            img.getAttribute("data-zoom-src");
+          const src =
+            zoomUrl ||
+            img.src ||
+            img.getAttribute("data-src") ||
+            img.getAttribute("data-lazy-src") ||
+            img
+              .getAttribute("data-srcset")
+              ?.split(",")[0]
+              ?.trim()
+              .split(/\s+/)[0];
+          if (!src) continue;
+          // Images in thumbnail strips must meet min main size so we skip small carousel thumbs
+          const inThumbStrip = isInThumbnailStrip(img);
+          const skipSize = !inThumbStrip;
+          const minSize = inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE;
+          add(src, img, skipSize, minSize);
+        }
+      }
+    } catch {
+      /* selector may not be valid in some contexts */
+    }
+  }
+
+  // 3b. Magento / Fotorama: images in nav or as data attributes on parent
+  const galleryParents = document.querySelectorAll(
+    '[class*="fotorama"], [data-gallery-role], .gallery-placeholder, [class*="media-gallery"]'
+  );
+  for (const parent of Array.from(galleryParents)) {
+    const links = parent.querySelectorAll(
+      'a[href*=".jpg"], a[href*=".jpeg"], a[href*=".png"], a[href*=".webp"]'
+    );
+    for (const a of Array.from(links)) {
+      const href = a.getAttribute("href");
+      if (href) add(href, undefined, true);
+    }
+    const imgs = parent.querySelectorAll("img");
+    for (const img of Array.from(imgs)) {
+      if (img instanceof HTMLImageElement) {
+        const zoomUrl =
+          img.getAttribute("data-zoom-image") ||
+          img.getAttribute("data-zoom-src");
+        const src =
+          zoomUrl ||
+          img.src ||
+          img.getAttribute("data-src") ||
+          img.getAttribute("data-lazy-src") ||
+          img
+            .getAttribute("data-srcset")
+            ?.split(",")[0]
+            ?.trim()
+            .split(/\s+/)[0];
+        if (!src) continue;
+        const inThumbStrip = isInThumbnailStrip(img);
+        add(
+          src,
+          img,
+          !inThumbStrip,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
+        );
+      }
+    }
+  }
+
+  // 3c. Elements with data attributes pointing to full-size images
+  const imageDataEls = document.querySelectorAll(
+    "[data-image], [data-zoom-image], [data-zoom-src]"
+  );
+  for (const el of Array.from(imageDataEls)) {
+    const url =
+      el.getAttribute("data-image") ||
+      el.getAttribute("data-zoom-image") ||
+      el.getAttribute("data-zoom-src");
+    if (
+      url &&
+      (url.startsWith("http") || url.startsWith("//") || url.startsWith("/"))
+    ) {
+      add(url, undefined, true);
+    }
+  }
+
+  // 3d. Parse srcset for additional image URLs (e.g. "url1 1x, url2 2x")
+  const srcsetImgs = document.querySelectorAll("img[srcset]");
+  for (const img of Array.from(srcsetImgs)) {
+    if (!(img instanceof HTMLImageElement)) continue;
+    const srcset = img.getAttribute("srcset");
+    if (srcset) {
+      const inThumbStrip = isInThumbnailStrip(img);
+      for (const part of srcset.split(",")) {
+        const trimmed = part.trim().split(/\s+/)[0];
+        if (trimmed)
+          add(
+            trimmed,
+            img,
+            !inThumbStrip,
+            inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
+          );
+      }
+    }
+  }
+
+  // 4. Any img with product-related parent (include lazy-loaded; skip strict size check)
+  const productContainers = document.querySelectorAll(
+    '[class*="product"], [id*="product"], [data-product], .product-info, .product-detail, main, [role="main"]'
+  );
+  for (const container of Array.from(productContainers)) {
+    const imgs = container.querySelectorAll("img");
+    for (const img of Array.from(imgs)) {
+      if (img instanceof HTMLImageElement) {
+        const zoomUrl =
+          img.getAttribute("data-zoom-image") ||
+          img.getAttribute("data-zoom-src");
+        const src =
+          zoomUrl ||
+          img.src ||
+          img.getAttribute("data-src") ||
+          img.getAttribute("data-lazy-src");
+        if (!src) continue;
+        const inThumbStrip = isInThumbnailStrip(img);
+        add(
+          src,
+          img,
+          !inThumbStrip,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
+        );
+      }
+    }
+  }
+
+  // 5. Fallback: first few large images on page (excluding header/nav)
+  if (byCanonical.size === 0) {
+    const allImgs = document.querySelectorAll("img");
+    for (const img of Array.from(allImgs)) {
+      if (img instanceof HTMLImageElement && !isInHeaderNav(img)) {
+        const src = img.src || img.getAttribute("data-src");
+        if (
+          src &&
+          (img.naturalWidth >= MIN_IMAGE_SIZE || img.width >= MIN_IMAGE_SIZE)
+        ) {
+          add(src, img);
         }
       }
     }
   }
 
-  // Fallback to first large image
-  const images = document.querySelectorAll("img");
-  for (const img of Array.from(images)) {
-    if (img instanceof HTMLImageElement) {
-      const src = img.src;
-      if (src && (img.naturalWidth > 200 || img.width > 200)) {
-        if (src.startsWith("http")) {
-          return src;
-        } else if (src.startsWith("//")) {
-          return window.location.protocol + src;
-        } else {
-          return new URL(src, window.location.href).href;
-        }
-      }
-    }
-  }
-
-  return null;
+  // Return high-res URLs (favors best quality when fetching)
+  const result = Array.from(byCanonical.values()).map(getHighResImageUrl);
+  return result.slice(0, MAX_GALLERY_IMAGES);
 }
 
 /**
@@ -321,7 +708,7 @@ const CAR_MANUFACTURERS = [
 function isCarManufacturer(text: string): boolean {
   const normalized = normalizeBrand(text);
   return CAR_MANUFACTURERS.some(
-    (manufacturer) => normalizeBrand(manufacturer) === normalized,
+    (manufacturer) => normalizeBrand(manufacturer) === normalized
   );
 }
 
@@ -379,8 +766,8 @@ function extractBrandFromSiteBranding(): string | null {
     '[class*="site-brand"]',
     '[class*="company-name"]',
     'h1[class*="logo"]',
-    '.logo',
-    '#logo',
+    ".logo",
+    "#logo",
   ];
 
   for (const selector of brandSelectors) {
@@ -424,7 +811,11 @@ function extractBrandFromSiteBranding(): string | null {
       const match = titleText.match(pattern);
       if (match && match[1]) {
         const brand = match[1].trim();
-        if (!isCarManufacturer(brand) && brand.length >= 2 && brand.length <= 30) {
+        if (
+          !isCarManufacturer(brand) &&
+          brand.length >= 2 &&
+          brand.length <= 30
+        ) {
           const known = isKnownBrand(brand);
           if (known) {
             return known;
@@ -630,7 +1021,7 @@ function extractBrand(): string | null {
     if (known) {
       candidates.push({
         brand: known,
-        confidence: 0.90,
+        confidence: 0.9,
         source: "domain",
       });
     } else {
@@ -656,14 +1047,72 @@ function extractBrand(): string | null {
     } else {
       candidates.push({
         brand: siteBrand,
-        confidence: 0.80,
+        confidence: 0.8,
         source: "site-branding",
       });
     }
   }
 
   // Strategy 1: Structured data (Schema.org, Open Graph, JSON-LD)
-  // Highest confidence - these are explicitly marked as brand
+  // Highest confidence - these are explicitly marked as brand/manufacturer
+  // 1a. JSON-LD Product schema (brand.name or brand)
+  const jsonLdScripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(jsonLdScripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const brandObj = item.brand;
+          const brandName =
+            typeof brandObj === "string" ? brandObj : brandObj?.name;
+          if (brandName && typeof brandName === "string") {
+            const normalized = brandName.trim();
+            if (normalized.length > 1 && normalized.length < 50) {
+              const known = isKnownBrand(normalized);
+              candidates.push({
+                brand: known ?? normalized,
+                confidence: 0.96,
+                source: "structured",
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 1b. Manufacturer/vendor links (e.g. "Manufacturer [ADRO USA](link)")
+  const brandSearchRoot = getMainProductContainer() ?? document.body;
+  const manufacturerLinks = brandSearchRoot.querySelectorAll(
+    '[class*="manufacturer"] a, [class*="vendor"] a, [id*="manufacturer"] a, [id*="vendor"] a'
+  );
+  for (const link of Array.from(manufacturerLinks)) {
+    if (isInRelatedProductsSection(link)) continue;
+    const linkText = link.textContent?.trim();
+    if (linkText && linkText.length >= 2 && linkText.length <= 30) {
+      const known = isKnownBrand(linkText);
+      if (
+        known ||
+        /^[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)?$/.test(linkText)
+      ) {
+        candidates.push({
+          brand: known ?? linkText,
+          confidence: 0.82,
+          source: "structured",
+        });
+      }
+    }
+  }
+
+  // 1c. DOM structured selectors
   const structuredSelectors = [
     '[itemprop="brand"]',
     '[itemprop="manufacturer"]',
@@ -716,15 +1165,25 @@ function extractBrand(): string | null {
   ];
 
   for (const selector of classPatternSelectors) {
-    const elems = document.querySelectorAll(selector);
+    const elems = brandSearchRoot.querySelectorAll(selector);
     for (const elem of Array.from(elems)) {
-      const text = elem.textContent?.trim();
+      if (isInRelatedProductsSection(elem)) continue;
+      let text = elem.textContent?.trim() ?? "";
+      // Strip "Manufacturer", "Brand", "Vendor" label prefix (e.g. "Manufacturer ADRO USA")
+      text = text.replace(/^(?:Manufacturer|Brand|Vendor)\s*:?\s*/i, "").trim();
       if (text && text.length > 1 && text.length < 50) {
         const known = isKnownBrand(text);
         if (known) {
           candidates.push({
             brand: known,
             confidence: 0.8,
+            source: "css-selector",
+          });
+        } else if (/^[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)?$/.test(text)) {
+          // Accept "ADRO USA", "AWE Tuning" etc. when in manufacturer/brand elements
+          candidates.push({
+            brand: text,
+            confidence: 0.78,
             source: "css-selector",
           });
         }
@@ -765,7 +1224,7 @@ function extractBrand(): string | null {
   // Some sites use /brand/product-name or /brands/brand-name
   const url = window.location.href;
   const urlMatch = url.match(
-    /\/(?:brand|brands|vendor|manufacturer)[\/-]([^\/\?&#]+)/i,
+    /\/(?:brand|brands|vendor|manufacturer)[\/-]([^\/\?&#]+)/i
   );
   if (urlMatch && urlMatch[1]) {
     const brandFromUrl = decodeURIComponent(urlMatch[1]).replace(/[-_]/g, " ");
@@ -869,7 +1328,7 @@ function extractBrand(): string | null {
 
   // Strategy 5c: Look for standalone brand mentions near product title
   const productTitle = document.querySelector(
-    'h1, [class*="product-title"], [class*="product-name"]',
+    'h1, [class*="product-title"], [class*="product-name"]'
   );
   if (productTitle) {
     const titleParent = productTitle.parentElement;
@@ -880,12 +1339,12 @@ function extractBrand(): string | null {
         ...Array.from(
           productTitle.nextElementSibling
             ? [productTitle.nextElementSibling]
-            : [],
+            : []
         ),
         ...Array.from(
           productTitle.previousElementSibling
             ? [productTitle.previousElementSibling]
-            : [],
+            : []
         ),
       ];
 
@@ -935,7 +1394,7 @@ function extractBrand(): string | null {
 
   // Strategy 7: Image alt text
   const images = document.querySelectorAll(
-    'img[alt*="brand" i], img[alt*="logo" i]',
+    'img[alt*="brand" i], img[alt*="logo" i]'
   );
   for (const img of Array.from(images)) {
     const alt = img.getAttribute("alt");
@@ -973,7 +1432,7 @@ function extractBrand(): string | null {
 
   // Filter out car manufacturers from candidates
   const filteredCandidates = candidates.filter(
-    (c) => !isCarManufacturer(c.brand),
+    (c) => !isCarManufacturer(c.brand)
   );
 
   // Return the highest confidence candidate
@@ -981,27 +1440,52 @@ function extractBrand(): string | null {
     // Sort by confidence (highest first)
     filteredCandidates.sort((a, b) => b.confidence - a.confidence);
 
-    // Prioritize domain/site-branding matches (they're most reliable for site-specific brands)
-    const siteMatch = filteredCandidates.find(
-      (c) => (c.source === "domain" || c.source === "site-branding") && c.confidence >= 0.80,
-    );
-    if (siteMatch) {
-      return siteMatch.brand;
-    }
-
-    // If we have a high-confidence structured data match, use it
+    // Prioritize product manufacturer/brand over retailer/site branding.
+    // On retailer sites (e.g. vividracing.com), the domain = retailer, not product brand.
+    // Explicit manufacturer/brand from the product page should always win.
     const structuredMatch = filteredCandidates.find(
-      (c) => c.source === "structured" && c.confidence >= 0.85,
+      (c) => c.source === "structured" && c.confidence >= 0.85
     );
     if (structuredMatch) {
       return structuredMatch.brand;
+    }
+
+    // Manufacturer from product area (class*="manufacturer", etc.) - product brand
+    const manufacturerMatch = filteredCandidates.find(
+      (c) => c.source === "css-selector" && c.confidence >= 0.8
+    );
+    if (manufacturerMatch) {
+      return manufacturerMatch.brand;
+    }
+
+    // Product name prefix (e.g. "ADRO USA Carbon Hood") - strong product brand signal
+    const productNameMatch = filteredCandidates.find(
+      (c) =>
+        (c.source === "product-name-first" ||
+          c.source === "product-name-prefix" ||
+          c.source === "product-name-after-car") &&
+        c.confidence >= 0.5
+    );
+    if (productNameMatch) {
+      return productNameMatch.brand;
+    }
+
+    // Domain/site-branding: use only when no product manufacturer was found.
+    // This handles manufacturer-direct sites (e.g. adro.com → ADRO).
+    const siteMatch = filteredCandidates.find(
+      (c) =>
+        (c.source === "domain" || c.source === "site-branding") &&
+        c.confidence >= 0.8
+    );
+    if (siteMatch) {
+      return siteMatch.brand;
     }
 
     // Prefer known brands over unknown ones if confidence is similar
     const knownBrandMatch = filteredCandidates.find((c) => {
       const normalized = normalizeBrand(c.brand);
       return KNOWN_CAR_PART_BRANDS.some(
-        (b) => normalizeBrand(b) === normalized,
+        (b) => normalizeBrand(b) === normalized
       );
     });
 
@@ -1019,22 +1503,117 @@ function extractBrand(): string | null {
 }
 
 /**
- * Extract part number/SKU
+ * Normalize part number / SKU by stripping common prefixes so we get the actual code.
+ * E.g. "SKU: A18A20-2401" -> "A18A20-2401"
+ */
+function normalizePartNumber(raw: string): string {
+  let s = raw.trim();
+  const prefixes = [
+    /^SKU\s*:\s*/i,
+    /^Part\s*#\s*:\s*/i,
+    /^Part\s*Number\s*:\s*/i,
+    /^Item\s*#\s*:\s*/i,
+    /^Product\s*Code\s*:\s*/i,
+    /^Model\s*#?\s*:?\s*/i,
+    /^Code\s*:\s*/i,
+  ];
+  for (const re of prefixes) {
+    s = s.replace(re, "");
+  }
+  return s.trim();
+}
+
+/** True if string looks like a part number (not a year or car model) */
+function looksLikePartNumber(s: string): boolean {
+  const t = s.trim();
+  if (!t || t.length < 3) return false;
+  // Reject plain 4-digit years (2020, 2021, etc.)
+  if (/^\d{4}$/.test(t)) return false;
+  // Reject year ranges (2020-2025)
+  if (/^\d{4}\s*-\s*\d{4}$/.test(t)) return false;
+  // Reject car model names (multiple words, or common vehicle terms)
+  if (/\s{2,}/.test(t) || /^(base|premium|launch|edition)$/i.test(t))
+    return false;
+  // Part numbers: alphanumeric with hyphens/dots; must contain at least one letter
+  if (!/[A-Za-z]/.test(t)) return false;
+  return /^[A-Za-z0-9\-\.]+$/.test(t);
+}
+
+/**
+ * Extract part number/SKU (returns normalized value without "SKU:" etc.)
+ * Handles Vivid Racing and similar sites that use "Model#" instead of SKU.
  */
 function extractPartNumber(): string | null {
+  // 1. JSON-LD Product schema (sku, mpn)
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const sku = item.sku ?? item.mpn;
+          if (sku && typeof sku === "string") {
+            const normalized = normalizePartNumber(sku);
+            if (normalized && looksLikePartNumber(normalized))
+              return normalized;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 2. DOM selectors (sku, part-number, product-code, model)
   const skuSelectors = [
     '[class*="sku"]',
     '[id*="sku"]',
     '[itemprop="sku"]',
     '[class*="part-number"]',
     '[class*="product-code"]',
+    '[class*="model"]',
+    '[id*="model"]',
+    "[data-model]",
+    "[data-sku]",
   ];
 
   for (const selector of skuSelectors) {
-    const elem = document.querySelector(selector);
-    if (elem) {
-      const sku = elem.textContent?.trim() || elem.getAttribute("content");
-      if (sku) return sku;
+    const elems = document.querySelectorAll(selector);
+    for (const elem of Array.from(elems)) {
+      if (isInRelatedProductsSection(elem)) continue;
+      const raw =
+        elem.textContent?.trim() ||
+        elem.getAttribute("content") ||
+        elem.getAttribute("data-model") ||
+        elem.getAttribute("data-sku");
+      if (raw) {
+        const normalized = normalizePartNumber(raw);
+        if (normalized && looksLikePartNumber(normalized)) return normalized;
+      }
+    }
+  }
+
+  // 3. Regex fallback: scan main product area for "Model# X" or "Model: X"
+  const mainContainer = getMainProductContainer();
+  const searchRoot = mainContainer ?? document.body;
+  const text = searchRoot.textContent || "";
+  const modelPatterns = [
+    /Model\s*#\s*([A-Za-z0-9\-\.]+)/i,
+    /Model\s*:\s*([A-Za-z0-9\-\.]+)/i,
+    /Model\s*#([A-Za-z0-9\-\.]+)/i,
+    /(?:SKU|Part\s*#?|Item\s*#?)\s*:?\s*([A-Za-z0-9\-\.]+)/i,
+  ];
+  for (const re of modelPatterns) {
+    const match = text.match(re);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      if (looksLikePartNumber(candidate)) return candidate;
     }
   }
 

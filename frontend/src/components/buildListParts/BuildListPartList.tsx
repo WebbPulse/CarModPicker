@@ -82,12 +82,12 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     });
   }, [buildListParts, categoryMap]);
 
-  // Calculate total price
+  // Calculate total price (from best_price_cents when available)
   const totalPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
-      const price = part.global_part.price;
+      const price = part.global_part.best_price_cents;
       const quantity = part.quantity || 1;
-      if (price !== null && price !== undefined) {
+      if (price != null) {
         return sum + price * quantity;
       }
       return sum;
@@ -98,9 +98,9 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (part.purchased) return sum; // Skip purchased parts
-      const price = part.global_part.price;
+      const price = part.global_part.best_price_cents;
       const quantity = part.quantity || 1;
-      if (price !== null && price !== undefined) {
+      if (price != null) {
         return sum + price * quantity;
       }
       return sum;
@@ -111,9 +111,9 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const purchasedPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (!part.purchased) return sum; // Skip unpurchased parts
-      const price = part.global_part.price;
+      const price = part.global_part.best_price_cents;
       const quantity = part.quantity || 1;
-      if (price !== null && price !== undefined) {
+      if (price != null) {
         return sum + price * quantity;
       }
       return sum;

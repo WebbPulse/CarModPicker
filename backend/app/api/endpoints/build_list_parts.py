@@ -15,6 +15,7 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_part import (
     BuildListPartCreate,
@@ -22,6 +23,13 @@ from app.api.schemas.build_list_part import (
     BuildListPartReadWithGlobalPart,
     BuildListPartUpdate,
     CreateGlobalPartAndAddToBuildListRequest,
+)
+from app.api.services.part_listing_service import (
+    create_or_update_listing_and_price,
+    find_part_by_brand_and_part_number,
+    find_part_by_gtin,
+    find_part_by_product_url,
+    normalize_gtin,
 )
 from app.api.utils.authorization import (
     require_build_list_part_delete_permission,
@@ -260,25 +268,97 @@ async def create_global_part_and_add_to_build_list(
     # Verify category exists
     _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
-    # Create the global part with the current user as creator
+    # Dedup: find existing part by URL, brand+part_number, or GTIN
+    part_by_url: Optional[DBGlobalPart] = None
+    part_by_brand: Optional[DBGlobalPart] = None
+    part_by_gtin: Optional[DBGlobalPart] = None
+    if request.product_url and request.product_url.strip():
+        part_by_url = find_part_by_product_url(db, request.product_url)
+    if request.brand_id and request.part_number and request.part_number.strip():
+        part_by_brand = find_part_by_brand_and_part_number(db, request.brand_id, request.part_number)
+    if request.gtin and normalize_gtin(request.gtin):
+        part_by_gtin = find_part_by_gtin(db, request.gtin)
+
+    parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+    ids = {p.id for p in parts}
+    if len(ids) > 1:
+        ResponsePatterns.raise_conflict(
+            message="Product URL, brand+part number, or GTIN point to different existing parts.",
+            error_code="PART_DEDUP_CONFLICT",
+            details={
+                "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
+                "url_part_id": part_by_url.id if part_by_url else None,
+                "brand_part_id": part_by_brand.id if part_by_brand else None,
+            },
+        )
+
+    existing_part = part_by_gtin or part_by_url or part_by_brand
+    if existing_part:
+        if request.retailer_id and (request.product_url or request.price_cents is not None):
+            _ = get_entity_or_404(db, DBRetailer, request.retailer_id, "retailer")
+            create_or_update_listing_and_price(
+                db,
+                existing_part.id,
+                request.retailer_id,
+                product_url=request.product_url,
+                price_cents=request.price_cents,
+            )
+        db_build_list_part = DBBuildListPart(
+            build_list_id=build_list_id,
+            global_part_id=existing_part.id,
+            added_by=current_user.id,
+            quantity=1,
+            notes=request.notes,
+        )
+        db.add(db_build_list_part)
+        db.commit()
+        db.refresh(db_build_list_part)
+        db.refresh(existing_part)
+        logger.info(
+            f"User {current_user.id} added existing part {existing_part.id} to build list "
+            f"{build_list_id} as build list part {db_build_list_part.id} (dedup)"
+        )
+        return BuildListPartReadWithGlobalPart(
+            id=db_build_list_part.id,
+            build_list_id=db_build_list_part.build_list_id,
+            global_part_id=db_build_list_part.global_part_id,
+            added_by=db_build_list_part.added_by,
+            quantity=db_build_list_part.quantity,
+            notes=db_build_list_part.notes,
+            purchased=db_build_list_part.purchased,
+            added_at=db_build_list_part.added_at,
+            global_part=existing_part,
+        )
+
+    # No match: create new global part
     global_part_dict: Dict[str, Any] = {
         "name": request.name,
         "description": request.description,
-        "price": request.price,
         "image_url": request.image_url,
         "category_id": request.category_id,
-        "car_id": request.car_id,  # Optional car association
-        "brand_id": request.brand_id,  # Optional brand association
+        "car_id": request.car_id,
+        "brand_id": request.brand_id,
         "part_number": request.part_number,
         "specifications": request.specifications,
         "user_id": current_user.id,
     }
+    if request.gtin and normalize_gtin(request.gtin):
+        global_part_dict["gtin"] = normalize_gtin(request.gtin)
 
     db_global_part = DBGlobalPart(**global_part_dict)
     db.add(db_global_part)
-    db.flush()  # Get the ID without committing yet
+    db.flush()
 
-    # Create the build list part relationship
+    if request.retailer_id and (request.product_url or request.price_cents is not None):
+        _ = get_entity_or_404(db, DBRetailer, request.retailer_id, "retailer")
+        create_or_update_listing_and_price(
+            db,
+            db_global_part.id,
+            request.retailer_id,
+            product_url=request.product_url,
+            price_cents=request.price_cents,
+        )
+
     db_build_list_part = DBBuildListPart(
         build_list_id=build_list_id,
         global_part_id=db_global_part.id,
@@ -286,7 +366,6 @@ async def create_global_part_and_add_to_build_list(
         quantity=1,
         notes=request.notes,
     )
-
     db.add(db_build_list_part)
     db.commit()
     db.refresh(db_global_part)
@@ -294,11 +373,8 @@ async def create_global_part_and_add_to_build_list(
 
     logger.info(
         f"Global part {db_global_part.id} created and added to build list "
-        f"{build_list_id} as build list part {db_build_list_part.id} "
-        f"by user {current_user.id}"
+        f"{build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
     )
-
-    # Return the build list part with global part details
     return BuildListPartReadWithGlobalPart(
         id=db_build_list_part.id,
         build_list_id=db_build_list_part.build_list_id,

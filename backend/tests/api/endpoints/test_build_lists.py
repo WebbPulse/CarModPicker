@@ -632,7 +632,6 @@ class TestBuildLists:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": category.id,
             "brand_id": brand.id,
         }

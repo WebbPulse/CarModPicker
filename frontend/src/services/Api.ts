@@ -37,6 +37,8 @@ import type {
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
+  PartListingReadWithRetailer,
+  PartPriceHistoryReadWithRetailer,
   LoginResponse,
   NewPassword,
   PaginatedResponse,
@@ -362,6 +364,22 @@ export const globalPartsApi = {
   getGlobalPart: (partId: number) =>
     apiClient.get<GlobalPartRead>(`/global-parts/${partId}`),
 
+  // Get retailer listings for a part (price by retailer)
+  getGlobalPartListings: (partId: number) =>
+    apiClient.get<PartListingReadWithRetailer[]>(
+      `/global-parts/${partId}/listings`
+    ),
+
+  // Get price history for a part (optional filter by retailer)
+  getGlobalPartPriceHistory: (
+    partId: number,
+    params?: { retailer_id?: number }
+  ) =>
+    apiClient.get<PartPriceHistoryReadWithRetailer[]>(
+      `/global-parts/${partId}/price-history`,
+      { params }
+    ),
+
   // Update global part
   updateGlobalPart: (partId: number, data: GlobalPartUpdate) =>
     apiClient.put<GlobalPartRead>(`/global-parts/${partId}`, data),
@@ -369,6 +387,16 @@ export const globalPartsApi = {
   // Delete global part
   deleteGlobalPart: (partId: number) =>
     apiClient.delete<GlobalPartRead>(`/global-parts/${partId}`),
+
+  // Image management (requires edit permission)
+  removeGlobalPartImage: (partId: number, imageIndex: number) =>
+    apiClient.delete<GlobalPartRead>(
+      `/global-parts/${partId}/images/${imageIndex}`
+    ),
+  setGlobalPartPrimaryImage: (partId: number, index: number) =>
+    apiClient.patch<GlobalPartRead>(`/global-parts/${partId}/primary-image`, {
+      index,
+    }),
 
   // Count endpoints
   countGlobalParts: () =>
@@ -585,13 +613,15 @@ export const buildListPartsApi = {
       {
         name: globalPartData.name,
         description: globalPartData.description,
-        price: globalPartData.price,
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
         car_id: globalPartData.car_id,
         brand_id: globalPartData.brand_id,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
+        retailer_id: globalPartData.retailer_id,
+        price_cents: globalPartData.price_cents,
+        product_url: globalPartData.product_url,
         notes: buildListPartData.notes,
       }
     ),
@@ -830,6 +860,21 @@ export const imageApi = {
 
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
+
+  /** Dry run: list bucket object keys not referenced by any entity (admin only). */
+  getOrphanedBucketObjects: () =>
+    apiClient.get<{
+      orphaned_keys: string[];
+      count: number;
+      total_bucket: number;
+      total_referenced: number;
+    }>('/images/admin/orphaned'),
+
+  /** Delete bucket objects not referenced by any entity (admin only). Non-destructive. */
+  purgeOrphanedBucketObjects: () =>
+    apiClient.post<{ deleted: number; deleted_keys: string[] }>(
+      '/images/admin/purge-orphaned'
+    ),
 };
 
 // Build Logs API

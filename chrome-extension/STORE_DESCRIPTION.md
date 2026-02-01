@@ -1,12 +1,15 @@
 # Chrome Web Store Listing
 
 ## Short Description (132 characters max)
+
 **132 characters:**
+
 ```
 Quickly add car parts to CarModPicker from any website. Smart scraping extracts product details with one click. Save hours of manual data entry.
 ```
 
 **Alternative (shorter):**
+
 ```
 Add car parts to CarModPicker instantly. Smart scraping from any website saves hours of manual data entry.
 ```
@@ -22,11 +25,13 @@ CarModPicker Part Scraper makes it effortless to build your car parts collection
 **✨ Key Features:**
 
 🚀 **One-Click Scraping**
+
 - Visit any product page and click "Scrape Current Page"
 - Automatically extracts all product information instantly
 - Works on most e-commerce websites
 
 🧠 **Smart Data Extraction**
+
 - Product name and description
 - Price (automatically converted to correct format)
 - Product images (handled automatically)
@@ -35,28 +40,33 @@ CarModPicker Part Scraper makes it effortless to build your car parts collection
 - Product URL
 
 ✏️ **Review & Edit Before Saving**
+
 - Review all scraped data before creating the part
 - Edit any field if needed
 - Select the appropriate category
 - Optionally associate parts with specific car models
 
 🔐 **Secure & Private**
+
 - Login with your CarModPicker account
 - Authentication tokens stored securely
 - All data synced to your CarModPicker account
 
 ⚙️ **Customizable Settings**
+
 - Configure API endpoints for different environments
 - Choose to open created parts in new tabs
 - Settings sync across your devices
 
 **Perfect For:**
+
 - Car enthusiasts building their parts catalog
 - Mechanics organizing part databases
 - Car builders tracking modifications
 - Anyone who wants to save time on data entry
 
 **How It Works:**
+
 1. Login with your CarModPicker credentials
 2. Navigate to any product page on the web
 3. Click the extension icon and select "Scrape Current Page"
@@ -64,12 +74,13 @@ CarModPicker Part Scraper makes it effortless to build your car parts collection
 5. Click "Create Part" and you're done!
 
 **Privacy & Permissions:**
+
 - The extension requires access to web pages to extract product information
 - All data is sent only to your CarModPicker account
 - Authentication tokens are stored locally on your device
 - We never collect or share your browsing data
 
-**Note:** 2FA-enabled accounts must login via the web app first.
+**Note:** OTP 2FA (authenticator app) is fully supported in the extension.
 
 Start building your car parts catalog faster today!
 
@@ -82,6 +93,7 @@ Start building your car parts catalog faster today!
 Stop wasting time manually entering product details. CarModPicker Part Scraper automatically extracts product information from any website with a single click.
 
 **What It Does:**
+
 - Extracts product name, description, price, images, brand, and part numbers
 - Works on most e-commerce websites
 - Lets you review and edit data before saving
@@ -95,6 +107,7 @@ Stop wasting time manually entering product details. CarModPicker Part Scraper a
 ✅ Review before saving
 
 **Simple 3-Step Process:**
+
 1. Login with your CarModPicker account
 2. Visit any product page
 3. Click "Scrape" and review the data
@@ -114,6 +127,7 @@ Tired of copying and pasting product information? CarModPicker Part Scraper does
 
 **Smart Extraction Technology:**
 Our intelligent scraper recognizes product information across different website layouts, extracting:
+
 - Product names and descriptions
 - Prices (with automatic currency conversion)
 - High-quality product images
@@ -122,6 +136,7 @@ Our intelligent scraper recognizes product information across different website 
 - Product URLs
 
 **Seamless Integration:**
+
 - Direct integration with your CarModPicker account
 - Automatic image uploads
 - Category selection from your existing categories
@@ -129,6 +144,7 @@ Our intelligent scraper recognizes product information across different website 
 - Settings sync across devices
 
 **User-Friendly Workflow:**
+
 1. Login once with your CarModPicker credentials
 2. Browse any product page on the web
 3. Click the extension icon → "Scrape Current Page"
@@ -139,12 +155,14 @@ Our intelligent scraper recognizes product information across different website 
 What used to take 5-10 minutes of manual data entry now takes 10 seconds. Build your parts catalog 30x faster.
 
 **Privacy First:**
+
 - All data sent only to your CarModPicker account
 - Secure local token storage
 - No tracking or data collection
 - Full control over your information
 
 **Perfect For:**
+
 - Car modification enthusiasts
 - Professional mechanics
 - Car builders and restorers
@@ -157,6 +175,7 @@ Start saving time today and build your dream car parts collection faster than ev
 ## Recommended: Use Version 1 (Comprehensive)
 
 The comprehensive version provides the best balance of information and appeal. It clearly explains:
+
 - What the extension does
 - Why users need it
 - How it works
@@ -166,26 +185,32 @@ The comprehensive version provides the best balance of information and appeal. I
 ## Additional Store Listing Information
 
 ### Category
+
 **Primary:** Productivity
 **Secondary:** Shopping
 
 ### Language
+
 English (United States)
 
 ### Support URL
+
 https://carmodpicker.com/support
 
 ### Privacy Policy URL
+
 https://carmodpicker.com/privacy-policy
 
 ### Permissions Justification (for review process)
 
 **Why we need these permissions:**
+
 - **Access to all websites**: Required to extract product information from any e-commerce site. The extension only reads product data from pages you actively visit and does not track your browsing.
 - **Storage**: Saves your login session and preferences locally on your device.
 - **Active Tab**: Only accesses the current page when you click the scrape button.
 
 **What we don't do:**
+
 - We don't track your browsing history
 - We don't collect personal data
 - We don't share information with third parties

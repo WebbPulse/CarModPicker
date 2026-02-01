@@ -6,7 +6,11 @@ from .build_log import BuildLog, BuildLogPost
 from .car import Car
 from .category import Category
 from .global_part import GlobalPart
+from .image_source_mapping import ImageSourceMapping
+from .part_listing import PartListing
+from .part_price_history import PartPriceHistory
 from .report import Report
+from .retailer import Retailer
 from .subscription import Subscription
 from .user import User
 from .vote import Vote
@@ -16,6 +20,7 @@ __all__ = [
     "Car",
     "BuildList",
     "GlobalPart",
+    "ImageSourceMapping",
     "Subscription",
     "Category",
     "Brand",
@@ -25,4 +30,7 @@ __all__ = [
     "BugReport",
     "BuildLog",
     "BuildLogPost",
+    "Retailer",
+    "PartListing",
+    "PartPriceHistory",
 ]

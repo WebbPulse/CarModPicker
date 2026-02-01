@@ -53,7 +53,7 @@ export const mockGlobalPart: GlobalPartRead = {
   id: 1,
   name: 'Test Part',
   description: 'Test part description',
-  price: 100.0,
+  best_price_cents: 10000, // $100.00
   image_url: 'https://example.com/part.jpg',
   category_id: 1,
   user_id: 1,

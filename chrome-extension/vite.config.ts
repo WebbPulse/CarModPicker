@@ -130,7 +130,13 @@ const copyManifestPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), inlineVendorPlugin(), fixHtmlPlugin(), copyManifestPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    inlineVendorPlugin(),
+    fixHtmlPlugin(),
+    copyManifestPlugin(),
+  ],
   base: "./", // Use relative paths for Chrome extension
   build: {
     outDir: "dist",
@@ -168,7 +174,7 @@ export default defineConfig({
         // Keep ES module format but ensure proper bundling
         format: "es",
         // Bundle everything together for popup/options (no separate vendor chunk)
-        // This avoids MIME type issues with Chrome extensions
+        // Background/content chunks are inlined by inlineExtensionScriptsPlugin so they have no top-level import
         manualChunks: (id, { getModuleInfo }) => {
           const moduleInfo = getModuleInfo(id);
           // For popup and options entries, bundle everything together
@@ -178,7 +184,7 @@ export default defineConfig({
               return undefined; // Bundle everything into the entry file
             }
           }
-          // For background and content, allow vendor chunk
+          // For background and content, allow vendor chunk (they also get asset chunks inlined by plugin)
           if (id.includes("node_modules")) {
             return "vendor";
           }
