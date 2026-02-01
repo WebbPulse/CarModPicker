@@ -81,6 +81,7 @@ The extension is built with TypeScript for consistency with the main codebase.
 2. **Make your changes** to TypeScript files in `src/`
 
 3. **Reload the extension** in Chrome:
+
    - Go to `chrome://extensions/`
    - Find "CarModPicker Part Scraper"
    - Click the **reload button** (circular arrow icon) 🔄
@@ -112,7 +113,7 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed development workflow.
 ## Notes
 
 - The extension requires authentication via your CarModPicker account
-- 2FA-enabled accounts must login via the web app first
+- OTP 2FA is supported directly in the extension login flow
 - Image uploads are handled automatically when creating parts
 - The scraper works best on standard e-commerce product pages
 

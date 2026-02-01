@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (response: {
       success: boolean;
       data: ScrapedProductData;
-    }) => void,
+    }) => void
   ) => {
     if (request.action === "scrapePage") {
       const scrapedData = scrapeProductData();
@@ -24,7 +24,7 @@ chrome.runtime.onMessage.addListener(
       return true; // Keep channel open for async response
     }
     return false;
-  },
+  }
 );
 
 /**
@@ -55,7 +55,7 @@ function scrapeProductData(): ScrapedProductData {
   // Extract images (multiple for gallery)
   const imageUrls = extractImageUrls();
   data.image_urls = imageUrls;
-  data.image_url = imageUrls.length > 0 ? (imageUrls[0] ?? null) : null;
+  data.image_url = imageUrls.length > 0 ? imageUrls[0] ?? null : null;
 
   // Extract brand
   data.brand = extractBrand();
@@ -151,36 +151,148 @@ function extractDescription(): string | null {
   return null;
 }
 
+/** Check if element is inside a related/recommended/cross-sell products section */
+function isInRelatedProductsSection(element: Element): boolean {
+  let el: HTMLElement | null = element.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    const role = (el.getAttribute?.("role") ?? "").toLowerCase();
+    const ariaLabel = (el.getAttribute?.("aria-label") ?? "").toLowerCase();
+    const text = el.textContent?.toLowerCase().slice(0, 200) ?? "";
+    if (
+      /related|recommended|similar|cross-?sell|upsell|also-?bought|you-?may-?like|other-?products|other-?great-?products|check-?out-?these/.test(
+        cls + id + role + ariaLabel + text
+      )
+    ) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/** Find the main product container (contains product h1, excludes header/nav) */
+function getMainProductContainer(): Element | null {
+  const h1 = document.querySelector("h1");
+  if (!h1 || isInHeaderNav(h1)) return null;
+  // Walk up to find a reasonable product block (main, product-detail, etc.)
+  let el: HTMLElement | null = h1.parentElement;
+  while (el && el.tagName !== "BODY") {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className?.toString?.() ?? "").toLowerCase();
+    const id = (el.id ?? "").toLowerCase();
+    if (
+      tag === "main" ||
+      /product-detail|product-info|product-main|product-summary|product-single/.test(
+        cls + id
+      )
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return h1.closest('[class*="product"], [id*="product"]') ?? h1.parentElement;
+}
+
 /**
  * Extract price from the page
+ * Prioritizes: JSON-LD Product schema, main product area, then structured markup.
+ * Avoids related products, cart subtotals ($0), and financing "per month" amounts.
  */
 function extractPrice(): number | null {
-  // Find all price-like text
   const pricePattern = /\$[\d,]+\.?\d*/g;
-  const pageText = document.body.textContent || "";
-  const prices = pageText.match(pricePattern) || [];
+  const currentUrl = window.location.href;
 
-  if (prices.length === 0) return null;
+  // 1. JSON-LD Product schema (most reliable - unambiguous product price)
+  let jsonLdPriceMatch: number | null = null;
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        const type = item?.["@type"];
+        if (
+          type === "Product" ||
+          (Array.isArray(type) && type.includes("Product"))
+        ) {
+          const price =
+            item.offers?.price ?? item.offers?.[0]?.price ?? item.price;
+          if (price != null) {
+            const num =
+              typeof price === "string" ? parseFloat(price) : Number(price);
+            if (!isNaN(num) && num > 0) {
+              const cents = Math.round(num * 100);
+              const offerUrl =
+                item.offers?.url ?? item.offers?.[0]?.url ?? item.url ?? "";
+              const urlMatches =
+                !offerUrl ||
+                currentUrl.startsWith(offerUrl) ||
+                offerUrl.includes(new URL(currentUrl).pathname);
+              if (urlMatches) return cents;
+              if (!jsonLdPriceMatch) jsonLdPriceMatch = cents;
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+  if (jsonLdPriceMatch) return jsonLdPriceMatch;
 
-  // Try structured data first
-  const priceElem =
-    document.querySelector('[itemprop="price"]') ||
-    document.querySelector("[data-price]") ||
-    document.querySelector('[class*="price"]');
-
-  if (priceElem) {
-    const priceText =
-      priceElem.textContent ||
-      priceElem.getAttribute("content") ||
-      priceElem.getAttribute("data-price") ||
-      "";
-    const price = extractPriceValue(priceText);
-    if (price) return price;
+  // 2. Open Graph product price meta
+  const ogPrice = document.querySelector(
+    'meta[property="product:price:amount"], meta[property="og:price:amount"]'
+  );
+  if (ogPrice instanceof HTMLMetaElement && ogPrice.content) {
+    const num = parseFloat(ogPrice.content);
+    if (!isNaN(num) && num > 0) return Math.round(num * 100);
   }
 
-  // Fallback to first price found
-  if (prices.length > 0 && prices[0]) {
-    return extractPriceValue(prices[0]);
+  // 3. Scoped to main product container - avoid related products
+  const mainContainer = getMainProductContainer();
+  const searchRoot = mainContainer ?? document.body;
+
+  const tryPriceFromElement = (elem: Element): number | null => {
+    if (isInRelatedProductsSection(elem)) return null;
+    const priceText =
+      elem.textContent ||
+      elem.getAttribute("content") ||
+      elem.getAttribute("data-price") ||
+      "";
+    const price = extractPriceValue(priceText);
+    if (price && price > 0) return price;
+    return null;
+  };
+
+  const structuredSelectors = [
+    '[itemprop="price"]',
+    "[data-price]",
+    '[class*="product"][class*="price"]',
+    '[class*="price"][class*="product"]',
+    '.product-price, .price-box, [class*="product-price"], [class*="price-box"]',
+    '[class*="price"]',
+  ];
+
+  for (const selector of structuredSelectors) {
+    const elems = searchRoot.querySelectorAll(selector);
+    for (const elem of Array.from(elems)) {
+      if (isInRelatedProductsSection(elem)) continue;
+      const price = tryPriceFromElement(elem);
+      if (price) return price;
+    }
+  }
+
+  // 4. Fallback: first price-like text in main product area (exclude $0 and tiny amounts)
+  const scopeText = searchRoot.textContent || "";
+  const prices = scopeText.match(pricePattern) || [];
+  for (const p of prices) {
+    const val = extractPriceValue(p);
+    if (val && val >= 100) return val; // Skip $0 and trivial amounts
   }
 
   return null;
@@ -228,7 +340,7 @@ function isProductImageLike(
   url: string,
   img?: HTMLImageElement,
   skipSizeCheck?: boolean,
-  minSize: number = MIN_IMAGE_SIZE,
+  minSize: number = MIN_IMAGE_SIZE
 ): boolean {
   if (!url || url.length < 10) return false;
   const lower = url.toLowerCase();
@@ -264,7 +376,7 @@ function isInThumbnailStrip(img: HTMLImageElement): boolean {
     if (
       tag === "picture" ||
       /thumbnail|thumb-nav|thumbstrip|carousel-thumb|gallery-thumb|slick-thumb|swiper-thumb|nav-thumb/.test(
-        cls,
+        cls
       ) ||
       /thumbnail|thumbstrip|thumb-nav/.test(id)
     ) {
@@ -286,7 +398,7 @@ function extractImageUrls(): string[] {
     url: string,
     img?: HTMLImageElement,
     skipSizeCheck?: boolean,
-    minSize: number = MIN_IMAGE_SIZE,
+    minSize: number = MIN_IMAGE_SIZE
   ): void {
     const abs = toAbsoluteUrl(url);
     if (!abs || !isProductImageLike(abs, img, skipSizeCheck, minSize)) return;
@@ -320,7 +432,7 @@ function extractImageUrls(): string[] {
 
   // 2. JSON-LD product with image array
   const scripts = document.querySelectorAll(
-    'script[type="application/ld+json"]',
+    'script[type="application/ld+json"]'
   );
   for (const script of Array.from(scripts)) {
     try {
@@ -413,11 +525,11 @@ function extractImageUrls(): string[] {
 
   // 3b. Magento / Fotorama: images in nav or as data attributes on parent
   const galleryParents = document.querySelectorAll(
-    '[class*="fotorama"], [data-gallery-role], .gallery-placeholder, [class*="media-gallery"]',
+    '[class*="fotorama"], [data-gallery-role], .gallery-placeholder, [class*="media-gallery"]'
   );
   for (const parent of Array.from(galleryParents)) {
     const links = parent.querySelectorAll(
-      'a[href*=".jpg"], a[href*=".jpeg"], a[href*=".png"], a[href*=".webp"]',
+      'a[href*=".jpg"], a[href*=".jpeg"], a[href*=".png"], a[href*=".webp"]'
     );
     for (const a of Array.from(links)) {
       const href = a.getAttribute("href");
@@ -445,7 +557,7 @@ function extractImageUrls(): string[] {
           src,
           img,
           !inThumbStrip,
-          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
         );
       }
     }
@@ -453,7 +565,7 @@ function extractImageUrls(): string[] {
 
   // 3c. Elements with data attributes pointing to full-size images
   const imageDataEls = document.querySelectorAll(
-    "[data-image], [data-zoom-image], [data-zoom-src]",
+    "[data-image], [data-zoom-image], [data-zoom-src]"
   );
   for (const el of Array.from(imageDataEls)) {
     const url =
@@ -482,7 +594,7 @@ function extractImageUrls(): string[] {
             trimmed,
             img,
             !inThumbStrip,
-            inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+            inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
           );
       }
     }
@@ -490,7 +602,7 @@ function extractImageUrls(): string[] {
 
   // 4. Any img with product-related parent (include lazy-loaded; skip strict size check)
   const productContainers = document.querySelectorAll(
-    '[class*="product"], [id*="product"], [data-product], .product-info, .product-detail, main, [role="main"]',
+    '[class*="product"], [id*="product"], [data-product], .product-info, .product-detail, main, [role="main"]'
   );
   for (const container of Array.from(productContainers)) {
     const imgs = container.querySelectorAll("img");
@@ -510,7 +622,7 @@ function extractImageUrls(): string[] {
           src,
           img,
           !inThumbStrip,
-          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE,
+          inThumbStrip ? MIN_MAIN_IMAGE_SIZE : MIN_IMAGE_SIZE
         );
       }
     }
@@ -596,7 +708,7 @@ const CAR_MANUFACTURERS = [
 function isCarManufacturer(text: string): boolean {
   const normalized = normalizeBrand(text);
   return CAR_MANUFACTURERS.some(
-    (manufacturer) => normalizeBrand(manufacturer) === normalized,
+    (manufacturer) => normalizeBrand(manufacturer) === normalized
   );
 }
 
@@ -1044,7 +1156,7 @@ function extractBrand(): string | null {
   // Some sites use /brand/product-name or /brands/brand-name
   const url = window.location.href;
   const urlMatch = url.match(
-    /\/(?:brand|brands|vendor|manufacturer)[\/-]([^\/\?&#]+)/i,
+    /\/(?:brand|brands|vendor|manufacturer)[\/-]([^\/\?&#]+)/i
   );
   if (urlMatch && urlMatch[1]) {
     const brandFromUrl = decodeURIComponent(urlMatch[1]).replace(/[-_]/g, " ");
@@ -1148,7 +1260,7 @@ function extractBrand(): string | null {
 
   // Strategy 5c: Look for standalone brand mentions near product title
   const productTitle = document.querySelector(
-    'h1, [class*="product-title"], [class*="product-name"]',
+    'h1, [class*="product-title"], [class*="product-name"]'
   );
   if (productTitle) {
     const titleParent = productTitle.parentElement;
@@ -1159,12 +1271,12 @@ function extractBrand(): string | null {
         ...Array.from(
           productTitle.nextElementSibling
             ? [productTitle.nextElementSibling]
-            : [],
+            : []
         ),
         ...Array.from(
           productTitle.previousElementSibling
             ? [productTitle.previousElementSibling]
-            : [],
+            : []
         ),
       ];
 
@@ -1214,7 +1326,7 @@ function extractBrand(): string | null {
 
   // Strategy 7: Image alt text
   const images = document.querySelectorAll(
-    'img[alt*="brand" i], img[alt*="logo" i]',
+    'img[alt*="brand" i], img[alt*="logo" i]'
   );
   for (const img of Array.from(images)) {
     const alt = img.getAttribute("alt");
@@ -1252,7 +1364,7 @@ function extractBrand(): string | null {
 
   // Filter out car manufacturers from candidates
   const filteredCandidates = candidates.filter(
-    (c) => !isCarManufacturer(c.brand),
+    (c) => !isCarManufacturer(c.brand)
   );
 
   // Return the highest confidence candidate
@@ -1264,7 +1376,7 @@ function extractBrand(): string | null {
     const siteMatch = filteredCandidates.find(
       (c) =>
         (c.source === "domain" || c.source === "site-branding") &&
-        c.confidence >= 0.8,
+        c.confidence >= 0.8
     );
     if (siteMatch) {
       return siteMatch.brand;
@@ -1272,7 +1384,7 @@ function extractBrand(): string | null {
 
     // If we have a high-confidence structured data match, use it
     const structuredMatch = filteredCandidates.find(
-      (c) => c.source === "structured" && c.confidence >= 0.85,
+      (c) => c.source === "structured" && c.confidence >= 0.85
     );
     if (structuredMatch) {
       return structuredMatch.brand;
@@ -1282,7 +1394,7 @@ function extractBrand(): string | null {
     const knownBrandMatch = filteredCandidates.find((c) => {
       const normalized = normalizeBrand(c.brand);
       return KNOWN_CAR_PART_BRANDS.some(
-        (b) => normalizeBrand(b) === normalized,
+        (b) => normalizeBrand(b) === normalized
       );
     });
 

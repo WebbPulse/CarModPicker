@@ -9,7 +9,7 @@ function Popup() {
   const [isLoading, setIsLoading] = useState(true);
   const [showPartDialog, setShowPartDialog] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedProductData | null>(
-    null,
+    null
   );
   const [statusMessage, setStatusMessage] = useState<{
     message: string;
@@ -72,12 +72,12 @@ function Popup() {
         tab.id,
         { action: "scrapePage" },
         (
-          response: { success: boolean; data: ScrapedProductData } | undefined,
+          response: { success: boolean; data: ScrapedProductData } | undefined
         ) => {
           if (chrome.runtime.lastError) {
             showStatus(
               "Failed to scrape page data. Make sure you are on a product page and refresh if needed.",
-              "error",
+              "error"
             );
             return;
           }
@@ -87,16 +87,16 @@ function Popup() {
           } else {
             showStatus(
               "Failed to scrape page data. Make sure you are on a product page.",
-              "error",
+              "error"
             );
           }
-        },
+        }
       );
     } catch (error) {
       showStatus(
         "Error scraping page: " +
           (error instanceof Error ? error.message : "Unknown error"),
-        "error",
+        "error"
       );
     }
   };
@@ -120,6 +120,7 @@ function Popup() {
     action: string;
     username?: string;
     password?: string;
+    otp?: string;
     partData?: unknown;
     imageUrl?: string;
     limit?: number;
