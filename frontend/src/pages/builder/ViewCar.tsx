@@ -9,11 +9,9 @@ import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
 import ActionButton from '../../components/buttons/ActionButton';
-import EditCarForm from '../../components/cars/EditCarForm';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import CardInfoItem from '../../components/common/CardInfoItem';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
 import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
@@ -25,8 +23,6 @@ import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
 
-const deleteCarRequestFn = (carId: string) => carsApi.deleteCar(Number(carId));
-
 function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
   const { user: currentUser } = useAuth();
@@ -35,8 +31,6 @@ function ViewCar(): React.JSX.Element {
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
   const [partsRefreshTrigger, setPartsRefreshTrigger] = useState(0);
-  const [isEditCarFormOpen, setIsEditCarFormOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [buildListSearchTerm, setBuildListSearchTerm] = useState('');
@@ -48,13 +42,6 @@ function ViewCar(): React.JSX.Element {
     error: carApiError,
     executeRequest: fetchCar,
   } = useApiRequest(fetchCarRequestFn);
-
-  const {
-    isLoading: isDeletingCar,
-    error: deleteCarError,
-    executeRequest: executeDeleteCar,
-    setError: setDeleteCarError,
-  } = useApiRequest(deleteCarRequestFn);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -114,40 +101,6 @@ function ViewCar(): React.JSX.Element {
     setIsCreateBuildListFormOpen(false);
   };
 
-  const openEditCarDialog = () => {
-    setIsEditCarFormOpen(true);
-  };
-
-  const closeEditCarDialog = () => {
-    setIsEditCarFormOpen(false);
-  };
-
-  const handleCarUpdated = () => {
-    if (carId) {
-      void fetchCar(carId);
-    }
-    setIsEditCarFormOpen(false);
-  };
-
-  const openDeleteConfirmDialog = () => {
-    setDeleteCarError(null); // Clear previous errors
-    setIsDeleteConfirmOpen(true);
-  };
-
-  const closeDeleteConfirmDialog = () => {
-    setIsDeleteConfirmOpen(false);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!car || !carId) return;
-
-    const result = await executeDeleteCar(carId);
-    if (result !== null) {
-      setIsDeleteConfirmOpen(false);
-      void navigate('/builder');
-    }
-  };
-
   if (isLoadingCar) {
     return (
       <>
@@ -187,22 +140,8 @@ function ViewCar(): React.JSX.Element {
         title={`${car.make} ${car.model} ${car.generation_name} (${car.start_year}-${car.end_year})`}
       />
       <Card>
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4">
           <SectionHeader title="Car Information" />
-          {currentUser &&
-            (currentUser.is_admin || currentUser.is_superuser) && (
-              <div className="flex space-x-2">
-                <ActionButton onClick={openEditCarDialog}>
-                  Edit Car
-                </ActionButton>
-                <ActionButton
-                  onClick={openDeleteConfirmDialog}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Delete Car
-                </ActionButton>
-              </div>
-            )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="">
@@ -238,34 +177,6 @@ function ViewCar(): React.JSX.Element {
       </Card>
 
       <Divider />
-
-      {/* Dialog for Editing Car */}
-      {car && (
-        <Dialog
-          isOpen={isEditCarFormOpen}
-          onClose={closeEditCarDialog}
-          title={`Edit ${car.make} ${car.model}`}
-        >
-          <EditCarForm
-            car={car}
-            onCarUpdated={handleCarUpdated}
-            onCancel={closeEditCarDialog}
-          />
-        </Dialog>
-      )}
-
-      {/* Dialog for Deleting Car Confirmation */}
-      {car && (
-        <DeleteConfirmationDialog
-          isOpen={isDeleteConfirmOpen}
-          onClose={closeDeleteConfirmDialog}
-          onConfirm={() => void handleConfirmDelete()}
-          itemName={`${car.make} ${car.model} ${car.generation_name}`}
-          itemType="car"
-          isProcessing={isDeletingCar}
-          error={deleteCarError}
-        />
-      )}
 
       {/* Dialog for Creating Build List */}
       <Dialog

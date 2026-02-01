@@ -5,7 +5,6 @@ import { useAuth } from '../../hooks/useAuth';
 import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
-import DangerousActionDialog from '../../components/common/DangerousActionDialog';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
@@ -60,9 +59,6 @@ function AdminDashboard() {
   });
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
-  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
-  const [isDeletingAllCars, setIsDeletingAllCars] = useState(false);
-  const [deleteAllError, setDeleteAllError] = useState<string | null>(null);
   const [isRunningMigrations, setIsRunningMigrations] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     success: boolean;
@@ -241,24 +237,6 @@ function AdminDashboard() {
     }
   };
 
-  const handleDeleteAllCars = async () => {
-    setIsDeletingAllCars(true);
-    setDeleteAllError(null);
-
-    try {
-      await carsApi.deleteAllCars();
-      setIsDeleteAllDialogOpen(false);
-      // Refresh counts after deletion
-      await fetchCounts();
-    } catch (error) {
-      setDeleteAllError(
-        error instanceof Error ? error.message : 'Failed to delete all cars.'
-      );
-    } finally {
-      setIsDeletingAllCars(false);
-    }
-  };
-
   const handleListOrphaned = async () => {
     setIsListingOrphaned(true);
     setOrphanedResult(null);
@@ -314,19 +292,6 @@ function AdminDashboard() {
   }
 
   const adminFeatures = [
-    {
-      title: 'Car Management',
-      description:
-        'Edit and manage car generations (primarily for editing existing cars)',
-      icon: '🚗',
-      path: '/admin/cars',
-    },
-    {
-      title: 'Category Management',
-      description: 'Create, edit, and manage part categories',
-      icon: '📂',
-      path: '/admin/categories',
-    },
     {
       title: 'User Management',
       description: 'View and manage user accounts',
@@ -697,50 +662,6 @@ function AdminDashboard() {
         itemType="storage"
         isProcessing={isPurgingOrphaned}
         error={purgeOrphanError}
-      />
-
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Dangerous Actions" />
-          <div className="p-6 bg-red-900/20 border-2 border-red-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-red-400 mb-2">
-                Delete All Cars
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                This will permanently delete all cars from the system. This
-                action cannot be undone. Cars with associated build lists cannot
-                be deleted.
-              </p>
-              <p className="text-sm text-neutral-400 mb-4">
-                Current car count:{' '}
-                <span className="font-semibold text-white">
-                  {counts.cars?.toLocaleString() ?? '—'}
-                </span>
-              </p>
-            </div>
-            <ActionButton
-              onClick={() => setIsDeleteAllDialogOpen(true)}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
-            >
-              🗑️ Delete All Cars
-            </ActionButton>
-          </div>
-        </Card>
-      </div>
-
-      <DangerousActionDialog
-        isOpen={isDeleteAllDialogOpen}
-        onClose={() => {
-          setIsDeleteAllDialogOpen(false);
-          setDeleteAllError(null);
-        }}
-        onConfirm={() => void handleDeleteAllCars()}
-        actionName="Delete All Cars"
-        confirmationPhrase="DELETE ALL CARS"
-        warningMessage={`You are about to permanently delete ALL ${counts.cars?.toLocaleString() ?? 'cars'} from the system. This action is irreversible and will affect all users. Build lists associated with deleted cars will have their car assignment removed and users will be prompted to assign a new car when they view those build lists.`}
-        isProcessing={isDeletingAllCars}
-        error={deleteAllError}
       />
     </div>
   );

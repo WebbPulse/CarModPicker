@@ -31,6 +31,7 @@ from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
+from .core.init_categories import init_part_categories
 from .db.session import SessionLocal
 
 # Configure logging for the entire application
@@ -106,17 +107,18 @@ def run_migrations() -> None:
 run_migrations()
 
 
-# Initialize car generations after migrations
+# Initialize car generations and part categories after migrations
 def init_data() -> None:
-    """Initialize application data (car generations) after migrations."""
+    """Initialize application data (car generations, part categories) after migrations."""
     try:
         db = SessionLocal()
         try:
             init_car_generations(db)
+            init_part_categories(db)
         finally:
             db.close()
     except Exception as e:
-        logger.warning(f"Failed to initialize car generations: {e}. App will continue to start.")
+        logger.warning(f"Failed to initialize application data: {e}. App will continue to start.")
 
 
 init_data()
