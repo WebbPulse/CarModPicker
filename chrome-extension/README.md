@@ -42,7 +42,7 @@ A Chrome extension that allows you to quickly scrape part information from web p
 
 Click "Settings" in the login screen to configure:
 
-- **API URL**: Set the base URL for the CarModPicker API (default: `https://carmodpicker.com/api`)
+- **API URL**: Set the base URL for the CarModPicker API (default: `https://api.carmodpicker.webbpulse.com/api`)
 
 ## Development
 

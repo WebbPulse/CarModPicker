@@ -195,11 +195,11 @@ English (United States)
 
 ### Support URL
 
-https://carmodpicker.com/support
+https://carmodpicker.webbpulse.com/support
 
 ### Privacy Policy URL
 
-https://carmodpicker.com/privacy-policy
+https://carmodpicker.webbpulse.com/privacy-policy
 
 ### Permissions Justification (for review process)
 
