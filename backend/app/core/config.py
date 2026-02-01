@@ -179,6 +179,7 @@ class Settings(BaseSettings):
         default=86400,
         description="Presigned URL expiration time in seconds (default: 24 hours, max: 90 days)",
     )
+
     @property
     def allowed_image_extensions_list(self) -> list[str]:
         """Get allowed image extensions as a list."""
