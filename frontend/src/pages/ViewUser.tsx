@@ -107,11 +107,11 @@ function ViewUser() {
         </div>
         <SocialLinks
           links={{
-            instagram_url: user.instagram_url,
-            facebook_url: user.facebook_url,
-            reddit_url: user.reddit_url,
-            youtube_url: user.youtube_url,
-            tiktok_url: user.tiktok_url,
+            instagram_url: user.instagram_url ?? null,
+            facebook_url: user.facebook_url ?? null,
+            reddit_url: user.reddit_url ?? null,
+            youtube_url: user.youtube_url ?? null,
+            tiktok_url: user.tiktok_url ?? null,
           }}
           className="mt-4 pt-4 border-t border-gray-700"
         />

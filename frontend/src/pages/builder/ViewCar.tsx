@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { carsApi, categoriesApi } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
-import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
-import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import CardInfoItem from '../../components/common/CardInfoItem';
@@ -26,7 +25,6 @@ const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
 function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
   const { user: currentUser } = useAuth();
-  const navigate = useNavigate();
   const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] =
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
