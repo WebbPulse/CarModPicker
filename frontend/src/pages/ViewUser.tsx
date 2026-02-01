@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import BuildListItem from '../components/buildLists/BuildListItem';
 import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import CardInfoItem from '../components/common/CardInfoItem';
@@ -7,12 +8,15 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import useApiRequest from '../hooks/UseApiRequest';
-import apiClient from '../services/Api';
-import type { UserRead } from '../types/Api';
+import apiClient, { buildListsApi } from '../services/Api';
+import type { BuildListRead, UserRead } from '../types/Api';
 
 const fetchUserRequestFn = (
   userId: string // userId will be a string from URL params
 ) => apiClient.get<UserRead>(`/users/${userId}`);
+
+const fetchBuildListsByUserRequestFn = (userId: number) =>
+  buildListsApi.getBuildListsByUser(userId);
 
 function ViewUser() {
   const { userId: userIdParam } = useParams<{ userId: string }>();
@@ -24,11 +28,25 @@ function ViewUser() {
     executeRequest: fetchUser,
   } = useApiRequest(fetchUserRequestFn);
 
+  const {
+    data: buildListsResponse,
+    isLoading: isLoadingBuildLists,
+    executeRequest: fetchBuildListsByUser,
+  } = useApiRequest(fetchBuildListsByUserRequestFn);
+
   useEffect(() => {
     if (userIdParam) {
       void fetchUser(userIdParam);
     }
-  }, [userIdParam, fetchUser]); // Dependency array updated
+  }, [userIdParam, fetchUser]);
+
+  useEffect(() => {
+    if (user?.id != null) {
+      void fetchBuildListsByUser(user.id);
+    }
+  }, [user?.id, fetchBuildListsByUser]);
+
+  const buildLists: BuildListRead[] = buildListsResponse ?? [];
 
   if (isLoadingUser) {
     return (
@@ -85,15 +103,25 @@ function ViewUser() {
           <CardInfoItem label="Username">
             <p>{user.username}</p>
           </CardInfoItem>
-          <CardInfoItem label="User ID">
-            <p>{user.id}</p>
-          </CardInfoItem>
         </div>
-        <p className="text-sm text-gray-400">
-          This is a public user profile. For privacy, detailed account
-          information is not displayed.
-        </p>
       </Card>
+
+      <div className="mt-8">
+        <SectionHeader title={`${user.username}'s Build Lists`} />
+        {isLoadingBuildLists ? (
+          <LoadingSpinner />
+        ) : buildLists.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+            {buildLists.map((buildList) => (
+              <BuildListItem key={buildList.id} buildList={buildList} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400 mt-4">
+            This user has no public build lists yet.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
