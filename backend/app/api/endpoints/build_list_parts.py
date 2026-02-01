@@ -8,6 +8,7 @@ and response documentation while maintaining build list part-specific functional
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
@@ -15,6 +16,7 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_part import (
@@ -24,11 +26,13 @@ from app.api.schemas.build_list_part import (
     BuildListPartUpdate,
     CreateGlobalPartAndAddToBuildListRequest,
 )
+from app.api.schemas.global_part import GlobalPartRead
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_part_by_brand_and_part_number,
     find_part_by_gtin,
     find_part_by_product_url,
+    get_best_listing_for_part,
     normalize_gtin,
 )
 from app.api.utils.authorization import (
@@ -318,6 +322,9 @@ async def create_global_part_and_add_to_build_list(
             f"User {current_user.id} added existing part {existing_part.id} to build list "
             f"{build_list_id} as build list part {db_build_list_part.id} (dedup)"
         )
+        best = get_best_listing_for_part(db, existing_part.id)
+        global_part_dict = GlobalPartRead.model_validate(existing_part).model_dump()
+        global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
         return BuildListPartReadWithGlobalPart(
             id=db_build_list_part.id,
             build_list_id=db_build_list_part.build_list_id,
@@ -327,7 +334,7 @@ async def create_global_part_and_add_to_build_list(
             notes=db_build_list_part.notes,
             purchased=db_build_list_part.purchased,
             added_at=db_build_list_part.added_at,
-            global_part=existing_part,
+            global_part=GlobalPartRead(**global_part_dict),
         )
 
     # No match: create new global part
@@ -375,6 +382,9 @@ async def create_global_part_and_add_to_build_list(
         f"Global part {db_global_part.id} created and added to build list "
         f"{build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
     )
+    best = get_best_listing_for_part(db, db_global_part.id)
+    global_part_dict = GlobalPartRead.model_validate(db_global_part).model_dump()
+    global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
     return BuildListPartReadWithGlobalPart(
         id=db_build_list_part.id,
         build_list_id=db_build_list_part.build_list_id,
@@ -384,7 +394,7 @@ async def create_global_part_and_add_to_build_list(
         notes=db_build_list_part.notes,
         purchased=db_build_list_part.purchased,
         added_at=db_build_list_part.added_at,
-        global_part=db_global_part,
+        global_part=GlobalPartRead(**global_part_dict),
     )
 
 
@@ -418,7 +428,43 @@ async def get_global_parts_in_build_list(
         .all()
     )
 
-    build_list_parts = [BuildListPartReadWithGlobalPart.model_validate(part) for part in db_build_list_parts]
+    # Pull lowest available price for every related global part (from retailer listings)
+    part_ids = [p.global_part_id for p in db_build_list_parts]
+    best_price_cents_dict: Dict[int, int] = {}
+    if part_ids:
+        min_prices = (
+            db.query(
+                DBPartListing.global_part_id,
+                func.min(DBPartListing.last_known_price_cents).label("min_price"),
+            )
+            .filter(
+                DBPartListing.global_part_id.in_(part_ids),
+                DBPartListing.last_known_price_cents.isnot(None),
+            )
+            .group_by(DBPartListing.global_part_id)
+            .all()
+        )
+        best_price_cents_dict = {gp_id: int(mp) for gp_id, mp in min_prices}
+
+    def global_part_read_with_best_price(db_global_part: DBGlobalPart) -> GlobalPartRead:
+        part_dict = GlobalPartRead.model_validate(db_global_part).model_dump()
+        part_dict["best_price_cents"] = best_price_cents_dict.get(db_global_part.id)
+        return GlobalPartRead(**part_dict)
+
+    build_list_parts = [
+        BuildListPartReadWithGlobalPart(
+            id=part.id,
+            build_list_id=part.build_list_id,
+            global_part_id=part.global_part_id,
+            added_by=part.added_by,
+            quantity=part.quantity,
+            notes=part.notes,
+            purchased=part.purchased,
+            added_at=part.added_at,
+            global_part=global_part_read_with_best_price(part.global_part),
+        )
+        for part in db_build_list_parts
+    ]
 
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     logger.info(f"{user_info}: Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
