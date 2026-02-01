@@ -15,7 +15,8 @@ from app.core.part_categories_data import get_all_part_categories
 logger = logging.getLogger(__name__)
 
 # Fields from source that are synced when updating an existing category
-_CATEGORY_SYNC_FIELDS = ("display_name", "description", "icon", "is_active", "sort_order")
+# (only fields defined on PartCategoryData; is_active is not in source, Category defaults to True)
+_CATEGORY_SYNC_FIELDS = ("display_name", "description", "icon", "sort_order")
 
 
 def init_part_categories(db: Session) -> None:
@@ -39,7 +40,7 @@ def init_part_categories(db: Session) -> None:
         if existing:
             for key in _CATEGORY_SYNC_FIELDS:
                 if key in cat_data:
-                    setattr(existing, key, cat_data[key])
+                    setattr(existing, key, cat_data.get(key))
             updated_count += 1
         else:
             category = Category(**cat_data)

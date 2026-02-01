@@ -91,7 +91,7 @@ def sync_static_assets_to_bucket() -> None:
     if os.path.isdir(categories_dir):
         for cat in get_all_part_categories():
             name = cat.get("name")
-            if not name or not isinstance(name, str):
+            if not name:
                 continue
             slug = category_name_to_slug(name)
             synced = False

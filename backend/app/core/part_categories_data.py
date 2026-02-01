@@ -10,7 +10,7 @@ To add a new part category:
 2. The initialization logic will automatically create it in the database
 """
 
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from typing_extensions import NotRequired
 
@@ -79,11 +79,11 @@ PART_CATEGORIES: list[PartCategoryData] = [
 ]
 
 
-def get_all_part_categories() -> list[dict[str, str | int]]:
+def get_all_part_categories() -> list[PartCategoryData]:
     """
     Return all part category definitions for seeding the database.
 
     Returns:
         List of dictionaries with name, display_name, description, icon, sort_order
     """
-    return [dict(cat) for cat in PART_CATEGORIES]
+    return cast(list[PartCategoryData], [dict(cat) for cat in PART_CATEGORIES])
