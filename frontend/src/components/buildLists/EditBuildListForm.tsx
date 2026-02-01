@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carsApi } from '../../services/Api';
 import type { BuildListRead, BuildListUpdate, CarRead } from '../../types/Api';
@@ -9,7 +10,6 @@ import Card from '../common/Card';
 import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface EditBuildListFormProps {
   buildList: BuildListRead;
@@ -317,13 +317,6 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                       interactive
                       className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors p-5"
                     >
-                      {car.image_url && (
-                        <img
-                          src={car.image_url}
-                          alt={`${car.make} ${car.model} ${car.generation_name}`}
-                          className="w-full h-24 object-cover rounded-md mb-3"
-                        />
-                      )}
                       <h4 className="text-base font-semibold text-indigo-400 mb-1 break-words px-1">
                         {car.generation_name}
                       </h4>

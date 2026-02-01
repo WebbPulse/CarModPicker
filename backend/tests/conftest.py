@@ -395,7 +395,6 @@ def create_car_in_db(
         "start_year": car.start_year,
         "end_year": car.end_year,
         "description": car.description,
-        "image_url": car.image_url,
         "created_at": car.created_at.isoformat() if car.created_at else None,
         "updated_at": car.updated_at.isoformat() if car.updated_at else None,
     }
