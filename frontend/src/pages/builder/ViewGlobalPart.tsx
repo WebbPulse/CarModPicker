@@ -478,33 +478,45 @@ function ViewGlobalPart() {
           </div>
         )}
 
-        {/* Part Images - full width; manage (set primary, remove) when user can edit */}
-        <div className="mb-6">
-          <CardInfoItem label="Part Images">
-            {canEdit ? (
-              <ImageGalleryManage
-                imageUrl={part.image_url ?? null}
-                imageUrls={part.image_urls ?? null}
-                altText={part.name}
-                partId={part.id}
-                onPartUpdated={handleGlobalPartUpdated}
-              />
+        {/* Part images (left half) + description (right half) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+          <div className="min-w-0">
+            <CardInfoItem label="Part Images">
+              {canEdit ? (
+                <ImageGalleryManage
+                  imageUrl={part.image_url ?? null}
+                  imageUrls={part.image_urls ?? null}
+                  altText={part.name}
+                  partId={part.id}
+                  onPartUpdated={handleGlobalPartUpdated}
+                  layout="hero"
+                />
+              ) : (
+                <ImageGallery
+                  imageUrl={part.image_url ?? null}
+                  imageUrls={part.image_urls ?? null}
+                  altText={part.name}
+                  layout="hero"
+                />
+              )}
+            </CardInfoItem>
+          </div>
+          <div className="min-w-0">
+            {part.description ? (
+              <CardInfoItem label="Description">
+                <p className="whitespace-pre-wrap text-gray-300">
+                  {part.description}
+                </p>
+              </CardInfoItem>
             ) : (
-              <ImageGallery
-                imageUrl={part.image_url ?? null}
-                imageUrls={part.image_urls ?? null}
-                altText={part.name}
-              />
+              <CardInfoItem label="Description">
+                <p className="text-gray-500 italic">No description.</p>
+              </CardInfoItem>
             )}
-          </CardInfoItem>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          {part.description && (
-            <CardInfoItem label="Description:">
-              <p className="whitespace-pre-wrap">{part.description}</p>
-            </CardInfoItem>
-          )}
           {category && (
             <CardInfoItem label="Category:">
               <Link
@@ -587,112 +599,115 @@ function ViewGlobalPart() {
           </CardInfoItem>
         </div>
 
-        {/* Price by retailer */}
-        <div className="mb-6">
-          <SectionHeader title="Price by retailer" />
-          {isLoadingListings && (
-            <p className="text-gray-400 text-sm">Loading retailer prices…</p>
-          )}
-          {listingsApiError && (
-            <ErrorAlert
-              message={`Could not load retailer prices: ${listingsApiError}`}
-            />
-          )}
-          {!isLoadingListings && !listingsApiError && listingsData && (
-            <>
-              {listingsData.length === 0 ? (
-                <p className="text-gray-400 text-sm">
-                  No retailer listings with price for this part yet.
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {listingsData
-                    .filter(
-                      (l: PartListingReadWithRetailer) =>
-                        l.last_known_price_cents != null
-                    )
-                    .sort(
-                      (
-                        a: PartListingReadWithRetailer,
-                        b: PartListingReadWithRetailer
-                      ) =>
-                        (a.last_known_price_cents ?? 0) -
-                        (b.last_known_price_cents ?? 0)
-                    )
-                    .map((listing: PartListingReadWithRetailer) => (
-                      <li
-                        key={listing.id}
-                        className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-white">
-                            {listing.retailer.name}
-                          </span>
-                          {listing.last_price_updated_at && (
-                            <span className="text-gray-400 text-sm ml-2">
-                              (updated{' '}
-                              {new Date(
-                                listing.last_price_updated_at
-                              ).toLocaleDateString()}
-                              )
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-emerald-400 font-semibold">
-                            $
-                            {(
-                              (listing.last_known_price_cents ?? 0) / 100
-                            ).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          {listing.product_url && (
-                            <a
-                              href={listing.product_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary-400 hover:text-primary-300 text-sm underline"
-                            >
-                              View at retailer →
-                            </a>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                </ul>
+        {/* Price history (left) + Price by retailer (right) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
+          {/* Price history - left */}
+          <div className="min-w-0">
+            <SectionHeader title="Price history" />
+            {isLoadingPriceHistory && (
+              <p className="text-gray-400 text-sm">Loading price history…</p>
+            )}
+            {priceHistoryApiError && (
+              <ErrorAlert
+                message={`Could not load price history: ${priceHistoryApiError}`}
+              />
+            )}
+            {!isLoadingPriceHistory &&
+              !priceHistoryApiError &&
+              priceHistoryData && (
+                <>
+                  {priceHistoryData.length === 0 ? (
+                    <p className="text-gray-400 text-sm">
+                      No price history recorded for this part yet.
+                    </p>
+                  ) : (
+                    <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4">
+                      <PriceHistoryLineChart data={priceHistoryData} />
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+          </div>
 
-        {/* Price history */}
-        <div className="mb-6">
-          <SectionHeader title="Price history" />
-          {isLoadingPriceHistory && (
-            <p className="text-gray-400 text-sm">Loading price history…</p>
-          )}
-          {priceHistoryApiError && (
-            <ErrorAlert
-              message={`Could not load price history: ${priceHistoryApiError}`}
-            />
-          )}
-          {!isLoadingPriceHistory &&
-            !priceHistoryApiError &&
-            priceHistoryData && (
+          {/* Price by retailer - right */}
+          <div className="min-w-0">
+            <SectionHeader title="Price by retailer" />
+            {isLoadingListings && (
+              <p className="text-gray-400 text-sm">Loading retailer prices…</p>
+            )}
+            {listingsApiError && (
+              <ErrorAlert
+                message={`Could not load retailer prices: ${listingsApiError}`}
+              />
+            )}
+            {!isLoadingListings && !listingsApiError && listingsData && (
               <>
-                {priceHistoryData.length === 0 ? (
+                {listingsData.length === 0 ? (
                   <p className="text-gray-400 text-sm">
-                    No price history recorded for this part yet.
+                    No retailer listings with price for this part yet.
                   </p>
                 ) : (
-                  <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4">
-                    <PriceHistoryLineChart data={priceHistoryData} />
-                  </div>
+                  <ul className="space-y-3">
+                    {listingsData
+                      .filter(
+                        (l: PartListingReadWithRetailer) =>
+                          l.last_known_price_cents != null
+                      )
+                      .sort(
+                        (
+                          a: PartListingReadWithRetailer,
+                          b: PartListingReadWithRetailer
+                        ) =>
+                          (a.last_known_price_cents ?? 0) -
+                          (b.last_known_price_cents ?? 0)
+                      )
+                      .map((listing: PartListingReadWithRetailer) => (
+                        <li
+                          key={listing.id}
+                          className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-white">
+                              {listing.retailer.name}
+                            </span>
+                            {listing.last_price_updated_at && (
+                              <span className="text-gray-400 text-sm ml-2">
+                                (updated{' '}
+                                {new Date(
+                                  listing.last_price_updated_at
+                                ).toLocaleDateString()}
+                                )
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-emerald-400 font-semibold">
+                              $
+                              {(
+                                (listing.last_known_price_cents ?? 0) / 100
+                              ).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                            {listing.product_url && (
+                              <a
+                                href={listing.product_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary-400 hover:text-primary-300 text-sm underline"
+                              >
+                                View at retailer →
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
                 )}
               </>
             )}
+          </div>
         </div>
 
         {voteApiError && (
