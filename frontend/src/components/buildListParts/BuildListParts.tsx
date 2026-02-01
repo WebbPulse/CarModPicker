@@ -15,6 +15,7 @@ import EditBuildListPartForm from './EditBuildListPartForm';
 
 interface BuildListPartsProps {
   buildListId: number;
+  buildListCarId?: number | null;
   canManageParts: boolean;
   refreshKey: number;
   onAddPartClick?: () => void;
@@ -29,6 +30,7 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const BuildListParts: React.FC<BuildListPartsProps> = ({
   buildListId,
+  buildListCarId,
   canManageParts,
   refreshKey,
   onAddPartClick,
@@ -228,6 +230,14 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     [handleTogglePurchased]
   );
 
+  const parts = localBuildListParts || buildListParts || [];
+  const hasCarMismatchParts =
+    buildListCarId != null &&
+    parts.some(
+      (p) =>
+        p.global_part?.car_id != null && p.global_part.car_id !== buildListCarId
+    );
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -255,8 +265,38 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         )}
       </div>
 
+      {hasCarMismatchParts && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+          <div className="flex gap-3">
+            <svg
+              className="flex-shrink-0 w-5 h-5 text-amber-400 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-amber-200">
+                Possible car compatibility warning
+              </p>
+              <p className="text-sm text-amber-200/90 mt-1">
+                One or more parts in this build list may be associated with a
+                different car model. Parts may not be compatible across
+                vehicles. Please verify fitment and do your own due diligence.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BuildListPartList
-        buildListParts={localBuildListParts || buildListParts || []}
+        buildListParts={parts}
         categories={categories || []}
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
