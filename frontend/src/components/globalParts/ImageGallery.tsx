@@ -46,7 +46,7 @@ function ImageGallery({
         {/* Large image: shows whichever thumbnail is selected (primary by default) */}
         <div className="aspect-[4/3] max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50">
           <ImageWithPlaceholder
-            srcUrl={selectedUrl}
+            srcUrl={selectedUrl ?? null}
             altText={`${altText} - image ${displayIndex + 1}`}
             imageClassName="w-full h-full object-contain"
             containerClassName="w-full h-full"

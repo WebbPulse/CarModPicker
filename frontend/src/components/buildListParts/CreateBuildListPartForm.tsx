@@ -911,7 +911,10 @@ function CreateBuildListPartForm({
                               {selectedPart.best_price_cents != null && (
                                 <div className="ml-4 text-right flex-shrink-0">
                                   <span className="text-lg font-semibold text-green-400">
-                                    ${(selectedPart.best_price_cents / 100).toFixed(2)}
+                                    $
+                                    {(
+                                      selectedPart.best_price_cents / 100
+                                    ).toFixed(2)}
                                   </span>
                                 </div>
                               )}

@@ -110,7 +110,7 @@ export default function ImageGalleryManage({
         {/* Large image: shows whichever thumbnail is selected (primary by default) */}
         <div className="aspect-[4/3] max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50 relative group">
           <ImageWithPlaceholder
-            srcUrl={selectedUrl}
+            srcUrl={selectedUrl ?? null}
             altText={`${altText} - image ${displayIndex + 1}`}
             imageClassName="w-full h-full object-contain"
             containerClassName="w-full h-full"
@@ -154,7 +154,7 @@ export default function ImageGalleryManage({
               const isSelected = idx === displayIndex;
               return (
                 <div
-                  key={`${url}-${idx}`}
+                  key={url}
                   role="button"
                   tabIndex={0}
                   onClick={() => setSelectedIndex(idx)}
@@ -268,7 +268,7 @@ export default function ImageGalleryManage({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleSetPrimary(imageIndex)}
+                    onClick={() => void handleSetPrimary(imageIndex)}
                     disabled={isSettingPrimary}
                     className="text-xs font-medium text-white bg-primary-600 hover:bg-primary-500 px-2 py-1 rounded disabled:opacity-50"
                   >

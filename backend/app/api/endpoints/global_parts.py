@@ -41,8 +41,8 @@ from app.api.services.part_listing_service import (
     find_part_by_gtin,
     find_part_by_product_url,
     get_best_listing_for_part,
-    normalize_part_number,
     normalize_gtin,
+    normalize_part_number,
 )
 from app.api.utils.authorization import (
     require_global_part_edit_permission,

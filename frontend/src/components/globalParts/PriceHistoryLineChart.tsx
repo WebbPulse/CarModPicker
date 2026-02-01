@@ -297,7 +297,7 @@ export default function PriceHistoryLineChart({
     const maxXTicks = 8;
     const dayCount = Math.ceil(xRange / MS_PER_DAY);
     const step = Math.max(1, Math.ceil(dayCount / maxXTicks));
-    let tickDate = new Date(
+    const tickDate = new Date(
       startDate.getFullYear(),
       startDate.getMonth(),
       startDate.getDate()
@@ -612,7 +612,7 @@ export default function PriceHistoryLineChart({
               >
                 {hoveredPoint.entries.map((entry, i) => (
                   <div
-                    key={`${entry.retailerName}-${entry.observedAt}-${i}`}
+                    key={`${entry.retailerName}-${entry.observedAt}-${entry.priceCents}`}
                     className={
                       i > 0 ? 'mt-2 border-t border-gray-600 pt-2' : ''
                     }
