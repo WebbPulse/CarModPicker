@@ -32,6 +32,7 @@ function AddToBuildListDialog({
   const [selectedBuildListIds, setSelectedBuildListIds] = useState<Set<number>>(
     () => new Set()
   );
+  const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
@@ -86,6 +87,7 @@ function AddToBuildListDialog({
   useEffect(() => {
     if (isOpen) {
       setSelectedBuildListIds(new Set());
+      setQuantity(1);
       setError(null);
     }
   }, [isOpen]);
@@ -101,7 +103,10 @@ function AddToBuildListDialog({
     setIsAdding(true);
     setError(null);
 
-    const buildListPartData: BuildListPartCreate = { notes: null };
+    const buildListPartData: BuildListPartCreate = {
+      quantity: Math.max(1, quantity),
+      notes: null,
+    };
 
     try {
       for (const buildListId of selectedBuildListIds) {
@@ -181,6 +186,28 @@ function AddToBuildListDialog({
             </div>
           </div>
         </Card>
+
+        {/* Quantity */}
+        <div className="space-y-2">
+          <label
+            htmlFor="add-to-build-list-quantity"
+            className="block text-sm font-medium text-neutral-200"
+          >
+            Quantity
+          </label>
+          <input
+            id="add-to-build-list-quantity"
+            type="number"
+            min={1}
+            max={999}
+            value={quantity}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v) && v >= 1) setQuantity(v);
+            }}
+            className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        </div>
 
         {/* Build List Selection */}
         <div className="space-y-4">

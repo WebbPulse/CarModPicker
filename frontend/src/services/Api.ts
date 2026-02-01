@@ -627,6 +627,7 @@ export const buildListPartsApi = {
         retailer_id: globalPartData.retailer_id,
         price_cents: globalPartData.price_cents,
         product_url: globalPartData.product_url,
+        quantity: buildListPartData.quantity ?? 1,
         notes: buildListPartData.notes,
       }
     ),

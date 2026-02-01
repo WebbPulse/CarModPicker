@@ -68,6 +68,7 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     price_cents: int | None = Field(None, ge=0, le=2147483647, description="Price in cents for this retailer")
 
     # Build list part fields
+    quantity: int = Field(1, ge=1, description="Quantity of the part")
     notes: str | None = None
 
     @field_validator("price_cents")
