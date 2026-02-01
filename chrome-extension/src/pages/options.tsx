@@ -1,49 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 const API_URLS = {
-  prod: 'https://carmodpicker.com/api',
-  staging: 'https://carmodpicker.staging.webbpulse.com/api',
-  localhost: 'http://localhost:4000/api',
+  prod: "https://api.carmodpicker.webbpulse.com/api",
+  staging: "https://api.carmodpicker.staging.webbpulse.com/api",
+  localhost: "http://localhost:4000/api",
 } as const;
 
 type ApiEnvironment = keyof typeof API_URLS;
 
 function Options() {
-  const [environment, setEnvironment] = useState<ApiEnvironment>('prod');
+  const [environment, setEnvironment] = useState<ApiEnvironment>("prod");
   const [openPartAfterCreation, setOpenPartAfterCreation] = useState(true);
   const [openInNewTab, setOpenInNewTab] = useState(true);
-  const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [status, setStatus] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     // Load saved settings
-    chrome.storage.sync.get(['apiUrl', 'openPartAfterCreation', 'openInNewTab'], (result) => {
-      const apiUrl = result['apiUrl'];
-      if (apiUrl && typeof apiUrl === 'string') {
-        const env = getEnvironmentFromUrl(apiUrl);
-        setEnvironment(env);
+    chrome.storage.sync.get(
+      ["apiUrl", "openPartAfterCreation", "openInNewTab"],
+      (result) => {
+        const apiUrl = result["apiUrl"];
+        if (apiUrl && typeof apiUrl === "string") {
+          const env = getEnvironmentFromUrl(apiUrl);
+          setEnvironment(env);
+        }
+        if (result["openPartAfterCreation"] !== undefined) {
+          setOpenPartAfterCreation(result["openPartAfterCreation"] as boolean);
+        }
+        if (result["openInNewTab"] !== undefined) {
+          setOpenInNewTab(result["openInNewTab"] as boolean);
+        }
       }
-      if (result['openPartAfterCreation'] !== undefined) {
-        setOpenPartAfterCreation(result['openPartAfterCreation'] as boolean);
-      }
-      if (result['openInNewTab'] !== undefined) {
-        setOpenInNewTab(result['openInNewTab'] as boolean);
-      }
-    });
+    );
   }, []);
 
   const getEnvironmentFromUrl = (apiUrl: string): ApiEnvironment => {
-    if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
-      return 'localhost';
+    if (apiUrl.includes("localhost") || apiUrl.includes("127.0.0.1")) {
+      return "localhost";
     }
-    if (apiUrl.includes('staging')) {
-      return 'staging';
+    if (apiUrl.includes("staging")) {
+      return "staging";
     }
-    return 'prod';
+    return "prod";
   };
 
   const handleSave = async () => {
     if (!environment || !API_URLS[environment]) {
-      setStatus({ message: 'Invalid environment selected', type: 'error' });
+      setStatus({ message: "Invalid environment selected", type: "error" });
       return;
     }
 
@@ -53,7 +59,7 @@ function Options() {
       openPartAfterCreation,
       openInNewTab,
     });
-    setStatus({ message: 'Settings saved successfully!', type: 'success' });
+    setStatus({ message: "Settings saved successfully!", type: "success" });
 
     setTimeout(() => {
       setStatus(null);
@@ -63,7 +69,9 @@ function Options() {
   return (
     <div className="min-h-screen p-10">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gradient mb-8">CarModPicker Extension Settings</h1>
+        <h1 className="text-3xl font-bold text-gradient mb-8">
+          CarModPicker Extension Settings
+        </h1>
 
         <div className="glass-card rounded-2xl p-6 space-y-6">
           <div>
@@ -84,7 +92,8 @@ function Options() {
                       Open part page after creation
                     </div>
                     <div className="text-xs text-neutral-400">
-                      Automatically navigate to the created part's page on the frontend
+                      Automatically navigate to the created part's page on the
+                      frontend
                     </div>
                   </div>
                 </label>
@@ -130,14 +139,20 @@ function Options() {
               className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 1rem center',
-                paddingRight: '2.5rem'
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 1rem center",
+                paddingRight: "2.5rem",
               }}
             >
-              <option value="prod" className="bg-neutral-900 text-white">Production</option>
-              <option value="staging" className="bg-neutral-900 text-white">Staging</option>
-              <option value="localhost" className="bg-neutral-900 text-white">Localhost</option>
+              <option value="prod" className="bg-neutral-900 text-white">
+                Production
+              </option>
+              <option value="staging" className="bg-neutral-900 text-white">
+                Staging
+              </option>
+              <option value="localhost" className="bg-neutral-900 text-white">
+                Localhost
+              </option>
             </select>
             <div className="mt-2 text-xs text-neutral-400">
               Select which API environment to use. Default: Production
@@ -154,9 +169,9 @@ function Options() {
           {status && (
             <div
               className={`p-3 rounded-xl text-sm ${
-                status.type === 'success'
-                  ? 'bg-green-500/20 border border-green-500/50 text-green-200'
-                  : 'bg-red-500/20 border border-red-500/50 text-red-200'
+                status.type === "success"
+                  ? "bg-green-500/20 border border-green-500/50 text-green-200"
+                  : "bg-red-500/20 border border-red-500/50 text-red-200"
               }`}
             >
               {status.message}

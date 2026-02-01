@@ -20,15 +20,25 @@ import {
   getHighResImageUrl,
 } from "./utils/imageUrlUtils";
 
-// API base URL - defaults to production
-const DEFAULT_API_URL = "https://carmodpicker.com/api";
+// API base URL - defaults to production (backend is at api subdomain + /api path)
+const DEFAULT_API_URL = "https://api.carmodpicker.webbpulse.com/api";
+
+/** Old prod URLs to migrate to DEFAULT_API_URL when seen */
+const LEGACY_PROD_API_URLS = [
+  "https://carmodpicker.webbpulse.com/api", // frontend origin + /api
+  "https://api.carmodpicker.webbpulse.com", // api host without /api path
+];
 
 /**
  * Get API base URL from storage
  */
 async function getApiUrl(): Promise<string> {
   const result = await chrome.storage.sync.get(["apiUrl"]);
-  const apiUrl = (result["apiUrl"] as string) || DEFAULT_API_URL;
+  let apiUrl = (result["apiUrl"] as string) || DEFAULT_API_URL;
+  if (LEGACY_PROD_API_URLS.includes(apiUrl)) {
+    apiUrl = DEFAULT_API_URL;
+    await chrome.storage.sync.set({ apiUrl });
+  }
   return apiUrl;
 }
 

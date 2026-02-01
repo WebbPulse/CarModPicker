@@ -64,7 +64,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
 
   const toggleImage = useCallback((url: string) => {
     setSelectedUrls((prev) =>
-      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url],
+      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]
     );
   }, []);
 
@@ -146,8 +146,8 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
             if (shouldOpen) {
               const apiUrl =
                 (settings["apiUrl"] as string) ||
-                "https://carmodpicker.com/api";
-              let frontendUrl = "https://carmodpicker.com";
+                "https://api.carmodpicker.webbpulse.com/api";
+              let frontendUrl = "https://carmodpicker.webbpulse.com";
               if (
                 apiUrl.includes("localhost") ||
                 apiUrl.includes("127.0.0.1")
@@ -166,11 +166,11 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
                     if (tabs[0]?.id) {
                       chrome.tabs.update(tabs[0].id, { url: partUrl });
                     }
-                  },
+                  }
                 );
               }
             }
-          },
+          }
         );
         onPriceRecorded();
       } else {

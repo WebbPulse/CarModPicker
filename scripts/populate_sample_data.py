@@ -121,7 +121,7 @@ def create_sample_users(db: Session) -> list[User]:
     users_data = [
         {
             "username": "admin",
-            "email": "admin@carmodpicker.com",
+            "email": "admin@carmodpicker.webbpulse.com",
             "hashed_password": get_password_hash("admin123"),
             "email_verified": True,
             "is_admin": True,
