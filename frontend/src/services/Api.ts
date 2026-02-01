@@ -4,6 +4,9 @@ import type {
   BodyLoginForAccessToken,
   BodyResetPassword,
   BodyVerifyEmail,
+  BrandCreate,
+  BrandResponse,
+  BrandUpdate,
   BugReportCreate,
   BugReportRead,
   BugReportUpdate,
@@ -26,9 +29,6 @@ import type {
   CarGenerationUpdate,
   CarRead,
   CarUpdate,
-  BrandCreate,
-  BrandResponse,
-  BrandUpdate,
   CategoryCreate,
   CategoryResponse,
   CategoryUpdate,
@@ -37,11 +37,11 @@ import type {
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
-  PartListingReadWithRetailer,
-  PartPriceHistoryReadWithRetailer,
   LoginResponse,
   NewPassword,
   PaginatedResponse,
+  PartListingReadWithRetailer,
+  PartPriceHistoryReadWithRetailer,
   ReportCreate,
   ReportRead,
   ReportUpdate,
@@ -467,6 +467,11 @@ export const brandsApi = {
   getBrandPartsCount: (brandId: number) =>
     apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
   countBrands: () => apiClient.get<{ count: number }>('/brands/count'),
+};
+
+// Retailers API (part stores/sites)
+export const retailersApi = {
+  countRetailers: () => apiClient.get<{ count: number }>('/retailers/count'),
 };
 
 // Unified Votes API
