@@ -1054,7 +1054,65 @@ function extractBrand(): string | null {
   }
 
   // Strategy 1: Structured data (Schema.org, Open Graph, JSON-LD)
-  // Highest confidence - these are explicitly marked as brand
+  // Highest confidence - these are explicitly marked as brand/manufacturer
+  // 1a. JSON-LD Product schema (brand.name or brand)
+  const jsonLdScripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(jsonLdScripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const brandObj = item.brand;
+          const brandName =
+            typeof brandObj === "string" ? brandObj : brandObj?.name;
+          if (brandName && typeof brandName === "string") {
+            const normalized = brandName.trim();
+            if (normalized.length > 1 && normalized.length < 50) {
+              const known = isKnownBrand(normalized);
+              candidates.push({
+                brand: known ?? normalized,
+                confidence: 0.96,
+                source: "structured",
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 1b. Manufacturer/vendor links (e.g. "Manufacturer [ADRO USA](link)")
+  const brandSearchRoot = getMainProductContainer() ?? document.body;
+  const manufacturerLinks = brandSearchRoot.querySelectorAll(
+    '[class*="manufacturer"] a, [class*="vendor"] a, [id*="manufacturer"] a, [id*="vendor"] a'
+  );
+  for (const link of Array.from(manufacturerLinks)) {
+    if (isInRelatedProductsSection(link)) continue;
+    const linkText = link.textContent?.trim();
+    if (linkText && linkText.length >= 2 && linkText.length <= 30) {
+      const known = isKnownBrand(linkText);
+      if (
+        known ||
+        /^[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)?$/.test(linkText)
+      ) {
+        candidates.push({
+          brand: known ?? linkText,
+          confidence: 0.82,
+          source: "structured",
+        });
+      }
+    }
+  }
+
+  // 1c. DOM structured selectors
   const structuredSelectors = [
     '[itemprop="brand"]',
     '[itemprop="manufacturer"]',
@@ -1107,15 +1165,25 @@ function extractBrand(): string | null {
   ];
 
   for (const selector of classPatternSelectors) {
-    const elems = document.querySelectorAll(selector);
+    const elems = brandSearchRoot.querySelectorAll(selector);
     for (const elem of Array.from(elems)) {
-      const text = elem.textContent?.trim();
+      if (isInRelatedProductsSection(elem)) continue;
+      let text = elem.textContent?.trim() ?? "";
+      // Strip "Manufacturer", "Brand", "Vendor" label prefix (e.g. "Manufacturer ADRO USA")
+      text = text.replace(/^(?:Manufacturer|Brand|Vendor)\s*:?\s*/i, "").trim();
       if (text && text.length > 1 && text.length < 50) {
         const known = isKnownBrand(text);
         if (known) {
           candidates.push({
             brand: known,
             confidence: 0.8,
+            source: "css-selector",
+          });
+        } else if (/^[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)?$/.test(text)) {
+          // Accept "ADRO USA", "AWE Tuning" etc. when in manufacturer/brand elements
+          candidates.push({
+            brand: text,
+            confidence: 0.78,
             source: "css-selector",
           });
         }
@@ -1372,7 +1440,38 @@ function extractBrand(): string | null {
     // Sort by confidence (highest first)
     filteredCandidates.sort((a, b) => b.confidence - a.confidence);
 
-    // Prioritize domain/site-branding matches (they're most reliable for site-specific brands)
+    // Prioritize product manufacturer/brand over retailer/site branding.
+    // On retailer sites (e.g. vividracing.com), the domain = retailer, not product brand.
+    // Explicit manufacturer/brand from the product page should always win.
+    const structuredMatch = filteredCandidates.find(
+      (c) => c.source === "structured" && c.confidence >= 0.85
+    );
+    if (structuredMatch) {
+      return structuredMatch.brand;
+    }
+
+    // Manufacturer from product area (class*="manufacturer", etc.) - product brand
+    const manufacturerMatch = filteredCandidates.find(
+      (c) => c.source === "css-selector" && c.confidence >= 0.8
+    );
+    if (manufacturerMatch) {
+      return manufacturerMatch.brand;
+    }
+
+    // Product name prefix (e.g. "ADRO USA Carbon Hood") - strong product brand signal
+    const productNameMatch = filteredCandidates.find(
+      (c) =>
+        (c.source === "product-name-first" ||
+          c.source === "product-name-prefix" ||
+          c.source === "product-name-after-car") &&
+        c.confidence >= 0.5
+    );
+    if (productNameMatch) {
+      return productNameMatch.brand;
+    }
+
+    // Domain/site-branding: use only when no product manufacturer was found.
+    // This handles manufacturer-direct sites (e.g. adro.com → ADRO).
     const siteMatch = filteredCandidates.find(
       (c) =>
         (c.source === "domain" || c.source === "site-branding") &&
@@ -1380,14 +1479,6 @@ function extractBrand(): string | null {
     );
     if (siteMatch) {
       return siteMatch.brand;
-    }
-
-    // If we have a high-confidence structured data match, use it
-    const structuredMatch = filteredCandidates.find(
-      (c) => c.source === "structured" && c.confidence >= 0.85
-    );
-    if (structuredMatch) {
-      return structuredMatch.brand;
     }
 
     // Prefer known brands over unknown ones if confidence is similar
@@ -1423,7 +1514,7 @@ function normalizePartNumber(raw: string): string {
     /^Part\s*Number\s*:\s*/i,
     /^Item\s*#\s*:\s*/i,
     /^Product\s*Code\s*:\s*/i,
-    /^Model\s*#?\s*:\s*/i,
+    /^Model\s*#?\s*:?\s*/i,
     /^Code\s*:\s*/i,
   ];
   for (const re of prefixes) {
@@ -1432,23 +1523,97 @@ function normalizePartNumber(raw: string): string {
   return s.trim();
 }
 
+/** True if string looks like a part number (not a year or car model) */
+function looksLikePartNumber(s: string): boolean {
+  const t = s.trim();
+  if (!t || t.length < 3) return false;
+  // Reject plain 4-digit years (2020, 2021, etc.)
+  if (/^\d{4}$/.test(t)) return false;
+  // Reject year ranges (2020-2025)
+  if (/^\d{4}\s*-\s*\d{4}$/.test(t)) return false;
+  // Reject car model names (multiple words, or common vehicle terms)
+  if (/\s{2,}/.test(t) || /^(base|premium|launch|edition)$/i.test(t))
+    return false;
+  // Part numbers: alphanumeric with hyphens/dots; must contain at least one letter
+  if (!/[A-Za-z]/.test(t)) return false;
+  return /^[A-Za-z0-9\-\.]+$/.test(t);
+}
+
 /**
  * Extract part number/SKU (returns normalized value without "SKU:" etc.)
+ * Handles Vivid Racing and similar sites that use "Model#" instead of SKU.
  */
 function extractPartNumber(): string | null {
+  // 1. JSON-LD Product schema (sku, mpn)
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (
+          item?.["@type"] === "Product" ||
+          item?.["@type"]?.includes?.("Product")
+        ) {
+          const sku = item.sku ?? item.mpn;
+          if (sku && typeof sku === "string") {
+            const normalized = normalizePartNumber(sku);
+            if (normalized && looksLikePartNumber(normalized))
+              return normalized;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 2. DOM selectors (sku, part-number, product-code, model)
   const skuSelectors = [
     '[class*="sku"]',
     '[id*="sku"]',
     '[itemprop="sku"]',
     '[class*="part-number"]',
     '[class*="product-code"]',
+    '[class*="model"]',
+    '[id*="model"]',
+    "[data-model]",
+    "[data-sku]",
   ];
 
   for (const selector of skuSelectors) {
-    const elem = document.querySelector(selector);
-    if (elem) {
-      const raw = elem.textContent?.trim() || elem.getAttribute("content");
-      if (raw) return normalizePartNumber(raw) || null;
+    const elems = document.querySelectorAll(selector);
+    for (const elem of Array.from(elems)) {
+      if (isInRelatedProductsSection(elem)) continue;
+      const raw =
+        elem.textContent?.trim() ||
+        elem.getAttribute("content") ||
+        elem.getAttribute("data-model") ||
+        elem.getAttribute("data-sku");
+      if (raw) {
+        const normalized = normalizePartNumber(raw);
+        if (normalized && looksLikePartNumber(normalized)) return normalized;
+      }
+    }
+  }
+
+  // 3. Regex fallback: scan main product area for "Model# X" or "Model: X"
+  const mainContainer = getMainProductContainer();
+  const searchRoot = mainContainer ?? document.body;
+  const text = searchRoot.textContent || "";
+  const modelPatterns = [
+    /Model\s*#\s*([A-Za-z0-9\-\.]+)/i,
+    /Model\s*:\s*([A-Za-z0-9\-\.]+)/i,
+    /Model\s*#([A-Za-z0-9\-\.]+)/i,
+    /(?:SKU|Part\s*#?|Item\s*#?)\s*:?\s*([A-Za-z0-9\-\.]+)/i,
+  ];
+  for (const re of modelPatterns) {
+    const match = text.match(re);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      if (looksLikePartNumber(candidate)) return candidate;
     }
   }
 
