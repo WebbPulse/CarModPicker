@@ -238,28 +238,6 @@ export const carGenerationsApi = {
   countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
-// Static asset URLs (manufacturer logos, category icons) from storage bucket
-export interface AssetUrlsResponse {
-  manufacturers: Record<string, string>;
-  categories: Record<string, string>;
-}
-
-export const assetsApi = {
-  getAssetUrls: (params?: {
-    manufacturers?: string[];
-    categories?: string[];
-  }) => {
-    const query: { manufacturers?: string; categories?: string } = {};
-    if (params?.manufacturers?.length) {
-      query.manufacturers = params.manufacturers.join(',');
-    }
-    if (params?.categories?.length) {
-      query.categories = params.categories.join(',');
-    }
-    return apiClient.get<AssetUrlsResponse>('/assets/urls', { params: query });
-  },
-};
-
 // Build List API
 export const buildListsApi = {
   createBuildList: (data: BuildListCreate) =>

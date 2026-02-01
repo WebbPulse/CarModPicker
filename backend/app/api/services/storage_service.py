@@ -331,39 +331,6 @@ class StorageService:
                 detail="Invalid file key format",
             )
 
-    def validate_asset_key(self, key: str) -> None:
-        """
-        Validate that an asset key is safe (for static UI assets under assets/).
-
-        Args:
-            key: The S3 object key (e.g. assets/manufacturers/honda.svg)
-
-        Raises:
-            HTTPException: If the key is invalid or contains path traversal
-        """
-        if not key:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Asset key is required",
-            )
-        if ".." in key or key.startswith("/") or "//" in key:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid asset key: path traversal detected",
-            )
-        if not key.startswith("assets/"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Asset key must start with assets/",
-            )
-        # Safe segments: lowercase, digits, hyphens; filename can have dots (extension)
-        pattern = r"^assets/([a-z0-9-]+/)+[a-z0-9.-]+$"
-        if not re.match(pattern, key):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid asset key format",
-            )
-
     def object_exists(self, key: str) -> bool:
         """
         Check if an object exists in the bucket (head_object).
@@ -388,56 +355,6 @@ class StorageService:
         except Exception as e:
             logger.warning(f"object_exists failed for {key}: {e}")
             return False
-
-    def upload_bytes(
-        self,
-        key: str,
-        body: bytes,
-        content_type: str,
-    ) -> str:
-        """
-        Upload raw bytes to the bucket at the given key (for static assets).
-        Does not validate file key format; use validate_asset_key for asset keys.
-
-        Args:
-            key: The S3 object key (e.g. assets/manufacturers/honda.svg)
-            body: Raw file bytes
-            content_type: MIME type (e.g. image/svg+xml, image/png)
-
-        Returns:
-            str: The key that was written
-
-        Raises:
-            HTTPException: If upload fails or storage is not configured
-        """
-        if not self.s3_client or not self.bucket_name:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Image storage is not configured. Please contact administrator.",
-            )
-        try:
-            assert self.bucket_name is not None
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=body,
-                ContentType=content_type,
-            )
-            logger.info(f"Uploaded static asset to bucket: {key}")
-            return key
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "")
-            logger.error(f"Bucket upload error for {key} ({error_code}): {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload asset: {error_code}",
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error uploading asset {key}: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An unexpected error occurred during asset upload",
-            )
 
     def upload_image(
         self,

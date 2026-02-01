@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.endpoints import (
     admin,
-    assets,
     auth,
     brands,
     bug_reports,
@@ -122,18 +121,7 @@ def init_data() -> None:
         logger.warning(f"Failed to initialize application data: {e}. App will continue to start.")
 
 
-def sync_static_assets() -> None:
-    """Sync static UI assets from local dir to bucket if missing."""
-    try:
-        from app.core.static_assets_sync import sync_static_assets_to_bucket
-
-        sync_static_assets_to_bucket()
-    except Exception as e:
-        logger.warning("Static assets sync failed: %s. App will continue to start.", e)
-
-
 init_data()
-sync_static_assets()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -269,14 +257,6 @@ endpoint_registry.register_endpoint(
     prefix="/images",
     tags=["images"],
     description="Image upload and management operations using Railway Storage Buckets",
-)
-
-# Static asset URLs (manufacturer logos, category icons in bucket)
-endpoint_registry.register_endpoint(
-    assets.router,
-    prefix="/assets",
-    tags=["assets"],
-    description="Presigned URLs for static UI assets (logos, category icons)",
 )
 
 # Build logs endpoint
