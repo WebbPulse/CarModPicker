@@ -22,7 +22,6 @@ from app.api.dependencies.auth import (
     get_password_hash,
     verify_password,
 )
-from app.core.config import settings
 from app.api.models.user import User as DBUser
 from app.api.schemas.user import (
     AdminUserUpdate,
@@ -36,6 +35,7 @@ from app.api.services.user_service import UserService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
 from app.api.utils.response_patterns import ResponsePatterns
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
 

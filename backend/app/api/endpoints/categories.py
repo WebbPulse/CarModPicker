@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
-from app.api.schemas.category import CategoryResponse
+from app.api.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.api.schemas.global_part import GlobalPartRead
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
@@ -22,8 +23,6 @@ from app.api.utils.common_patterns import (
     validate_pagination_params,
 )
 from app.api.utils.endpoint_decorators import pagination_responses, standard_responses
-from app.api.schemas.global_part import GlobalPartRead
-from app.api.schemas.category import CategoryCreate, CategoryUpdate
 
 
 # Category service (used only for get_active_categories; no create/update/delete)
