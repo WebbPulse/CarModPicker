@@ -10,7 +10,7 @@ from app.api.models.category import Category
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import login_user
+from tests.conftest import create_car_in_db, login_user
 
 
 def get_unique_name(base_name: str) -> str:
@@ -56,30 +56,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Toyota",
-    model: str = "Camry",
-    generation_name: str = "8th Gen",
-    start_year: int = 2018,
-    end_year: int = 2024,
-) -> dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestBuildListParts:
     """Test cases for build list parts endpoints."""
 
@@ -91,9 +67,8 @@ class TestBuildListParts:
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -184,7 +159,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -217,7 +192,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -261,7 +236,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -305,7 +280,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -357,7 +332,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -418,9 +393,8 @@ class TestBuildListParts:
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
     ) -> None:
         """Test getting parts from a build list without authentication (public read is allowed)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list as test_user
         token = login_user(client, test_user.username)
@@ -448,7 +422,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -535,7 +509,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -594,7 +568,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -668,7 +642,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -717,9 +691,8 @@ class TestBuildListParts:
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -762,7 +735,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -809,7 +782,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -872,7 +845,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -928,7 +901,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {
@@ -1022,7 +995,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin) - but this will fail due to unverified email
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Try to create a build list - should fail due to unverified email
         build_list_data = {
@@ -1045,7 +1018,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1088,7 +1061,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1146,7 +1119,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1207,7 +1180,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1241,7 +1214,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1299,7 +1272,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Honda", "Accord", "10th Gen", 2018, 2022)
+        car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
 
         # Create a build list
         build_list_data = {
@@ -1327,7 +1300,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a global part
         part_data = {
@@ -1429,7 +1402,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a global part
         part_data = {
@@ -1478,9 +1451,8 @@ class TestBuildListParts:
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -1538,9 +1510,8 @@ class TestBuildListParts:
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -1595,7 +1566,7 @@ class TestBuildListParts:
 
         # Create a car first (requires admin)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list
         build_list_data = {

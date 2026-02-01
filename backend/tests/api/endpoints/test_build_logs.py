@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -62,30 +63,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Toyota",
-    model: str = "Camry",
-    generation_name: str = "8th Gen",
-    start_year: int = 2018,
-    end_year: int = 2024,
-) -> Dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestBuildLogs:
     """Test cases for build logs endpoints."""
 
@@ -102,9 +79,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test getting build log by build list ID (public read access)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -134,9 +110,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that accessing a build log auto-creates it if it doesn't exist."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -159,9 +134,8 @@ class TestBuildLogs:
 
     def test_get_build_log_with_pagination(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test getting build log with pagination."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -200,9 +174,8 @@ class TestBuildLogs:
 
     def test_create_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test creating a build log post."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -234,9 +207,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that creating a post auto-creates the build log if it doesn't exist."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -281,9 +253,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test creating a post with empty content."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -308,9 +279,8 @@ class TestBuildLogs:
 
     def test_update_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test updating a build log post."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -364,9 +334,8 @@ class TestBuildLogs:
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # User 1 creates a build list
         build_list_data = {
@@ -397,9 +366,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that build list owner can update any post in their build log."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create second user
         username2 = get_unique_name("user2")
@@ -453,9 +421,8 @@ class TestBuildLogs:
 
     def test_delete_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test deleting a build log post."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -494,9 +461,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that build list owner can delete any post in their build log."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create second user
         username2 = get_unique_name("user2")
@@ -543,9 +509,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test deleting another user's post (should fail)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create second user
         username2 = get_unique_name("user2")
@@ -625,9 +590,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that admin can delete any build log post."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -652,6 +616,7 @@ class TestBuildLogs:
         post_id = response.json()["id"]
 
         # Admin can delete the post
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("admin_deleter"))
         admin_headers = get_auth_headers(admin_token)
         response = client.delete(f"{settings.API_STR}/build-logs/posts/{post_id}", headers=admin_headers)
         assert response.status_code == 200
@@ -661,9 +626,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test updating a build log post with empty content."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -696,9 +660,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test build log pagination with boundary cases."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -748,9 +711,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test updating a build log post with null content (partial update - should preserve existing content)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -787,9 +749,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test build log post retrieval when author user is deleted (orphaned post scenario)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create second user
         username2 = get_unique_name("user2")
@@ -845,9 +806,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test build log post when author has no profile picture."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -882,9 +842,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test build log post creation with very long content (boundary testing)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -915,9 +874,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test updating build log post with whitespace-only content."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -956,9 +914,8 @@ class TestBuildLogs:
         from app.api.models.build_log import BuildLog as DBBuildLog
         from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -1007,9 +964,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that accessing build log returns 404 when build list is deleted."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -1044,9 +1000,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that updating a post fails with 404 when build list is deleted."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -1083,9 +1038,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that deleting a post fails with 404 when build list is deleted."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -1121,9 +1075,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that creating a post fails with 404 when build list is deleted."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -1154,9 +1107,8 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that author info is correctly populated for posts across different build logs."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create two build lists
         token = get_auth_token(client, test_user.username)

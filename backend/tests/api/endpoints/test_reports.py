@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.user import User
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -49,30 +50,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Honda",
-    model: str = "Civic",
-    generation_name: str = "10th Gen",
-    start_year: int = 2016,
-    end_year: int = 2021,
-) -> dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = {"Authorization": f"Bearer {admin_token}"}
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestUnifiedReports:
     """Test cases for unified reports endpoints."""
 
@@ -108,8 +85,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -272,8 +248,7 @@ class TestUnifiedReports:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list owned by test user
         build_list_data = {
@@ -326,8 +301,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -441,8 +415,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -537,8 +510,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -640,8 +612,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -744,8 +715,7 @@ class TestUnifiedReports:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -805,8 +775,7 @@ class TestUnifiedReports:
         db_session.refresh(build_list_owner)
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}

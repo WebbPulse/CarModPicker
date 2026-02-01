@@ -8,6 +8,7 @@ from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -53,30 +54,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Honda",
-    model: str = "Civic",
-    generation_name: str = "10th Gen",
-    start_year: int = 2016,
-    end_year: int = 2021,
-) -> dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
 
@@ -84,7 +61,7 @@ class TestUnifiedVotes:
         """Test successfully upvoting a car."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
+        car = create_car_in_db(db_session, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
 
         # Login as test user and upvote the car
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -135,8 +112,7 @@ class TestUnifiedVotes:
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -272,7 +248,7 @@ class TestUnifiedVotes:
         """Test updating an existing vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Ford"), "Mustang", "S550", 2015, 2023)
+        car = create_car_in_db(db_session, get_unique_name("Ford"), "Mustang", "S550", 2015, 2023)
 
         # Login as test user and vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -308,7 +284,7 @@ class TestUnifiedVotes:
         """Test successfully removing a vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Chevrolet"), "Camaro", "6th Gen", 2016, 2023)
+        car = create_car_in_db(db_session, get_unique_name("Chevrolet"), "Camaro", "6th Gen", 2016, 2023)
 
         # Login as test user and create a vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -334,7 +310,7 @@ class TestUnifiedVotes:
         """Test removing a vote that doesn't exist."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("BMW"), "3 Series", "G20", 2019, 2023)
+        car = create_car_in_db(db_session, get_unique_name("BMW"), "3 Series", "G20", 2019, 2023)
 
         # Login as test user and try to remove non-existent vote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -350,7 +326,7 @@ class TestUnifiedVotes:
         """Test successfully getting vote summary for an entity."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Audi"), "A4", "B9", 2016, 2023)
+        car = create_car_in_db(db_session, get_unique_name("Audi"), "A4", "B9", 2016, 2023)
 
         # Login as test user and create an upvote
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -445,7 +421,7 @@ class TestUnifiedVotes:
 
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Tesla"), "Model 3", "1st Gen", 2017, 2023)
+        car = create_car_in_db(db_session, get_unique_name("Tesla"), "Model 3", "1st Gen", 2017, 2023)
 
         # Try to vote with invalid vote type
         vote_data = {"vote_type": "invalid_vote"}
@@ -465,7 +441,7 @@ class TestUnifiedVotes:
 
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
+        car = create_car_in_db(db_session, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
 
         # Login as test user and vote
         login_data = {"username": test_user.username, "password": "testpassword"}

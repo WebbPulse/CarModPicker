@@ -242,36 +242,10 @@ class TestSubscriptions:
         initial_data = response.json()
         initial_usage = initial_data["usage"]["build_lists"]
 
-        # Create a car first (requires admin)
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        from tests.conftest import create_car_in_db
 
-        admin_user = DBUser(
-            username=f"admin_sub_{os.getpid()}",
-            email=f"admin_sub_{os.getpid()}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            is_admin=True,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
-        )
-        db_session.add(admin_user)
-        db_session.commit()
-        db_session.refresh(admin_user)
-        admin_login_data = {"username": admin_user.username, "password": "testpassword"}
-        admin_token_response = client.post(f"{settings.API_STR}/auth/token", data=admin_login_data)
-        admin_token = admin_token_response.json()["access_token"]
-        admin_headers = {"Authorization": f"Bearer {admin_token}"}
-        car_data = {
-            "make": "Toyota",
-            "model": "Camry",
-            "generation_name": "8th Gen",
-            "start_year": 2018,
-            "end_year": 2024,
-        }
-        response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=admin_headers)
-        assert response.status_code == 200
-        car = response.json()
+        car = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
 
         # Create a build list (should increment usage)
         build_list_data = {

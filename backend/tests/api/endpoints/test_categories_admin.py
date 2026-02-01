@@ -74,10 +74,12 @@ def create_and_login_regular_user(
 
 
 class TestCategoriesAdminAuthentication:
-    """Test cases for category endpoints with admin authentication."""
+    """Category create/update/delete are removed; categories are seeded from backend source.
+    These tests assert that write endpoints return 404 or 405 (method/path not available).
+    """
 
     def test_create_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
-        """Test that creating a category without authentication fails."""
+        """Categories are seeded from backend; create endpoint is removed (404/405)."""
         category_data = {
             "name": "test_category",
             "display_name": "Test Category",
@@ -85,20 +87,13 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 1,
             "is_active": True,
         }
-
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
-        assert response.status_code == 401, "Should require authentication"
-        # Check for authentication error (message format may vary)
-        response_data = response.json()
-        response_text = response_data.get("message", "").lower()
-        assert "not authenticated" in response_text or "unauthorized" in response_text or "credentials" in response_text
+        assert response.status_code in (404, 405), "Create endpoint is removed"
 
     def test_create_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that regular users cannot create categories."""
-        # Create and login regular user
+        """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_regular_user(client, db_session, "create_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
         category_data = {
             "name": "test_category",
             "display_name": "Test Category",
@@ -106,17 +101,13 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 1,
             "is_active": True,
         }
-
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
-        assert response.status_code == 403, "Regular users should not be able to create categories"
-        assert "Admin access required" in response.text
+        assert response.status_code in (404, 405), "Create endpoint is removed"
 
     def test_create_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that admin users can create categories."""
-        # Create and login admin user
+        """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "create_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
         category_data = {
             "name": "test_category_admin",
             "display_name": "Test Category Admin",
@@ -124,22 +115,14 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 1,
             "is_active": True,
         }
-
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
-        assert response.status_code == 200, f"Admin should be able to create categories: {response.text}"
-
-        created_category = response.json()
-        assert created_category["name"] == category_data["name"]
-        assert created_category["display_name"] == category_data["display_name"]
-        assert created_category["description"] == category_data["description"]
+        assert response.status_code in (404, 405), "Create endpoint is removed"
 
     def test_create_category_with_superuser(self, client: TestClient, db_session: Session) -> None:
-        """Test that superusers can create categories."""
-        # Create superuser directly in database
+        """Categories are seeded from backend; create endpoint is removed (404/405)."""
         username = "superuser_test_create"
         email = f"{username}@example.com"
         password = "testpassword"
-
         superuser = DBUser(
             username=username,
             email=email,
@@ -151,14 +134,11 @@ class TestCategoriesAdminAuthentication:
         )
         db_session.add(superuser)
         db_session.commit()
-
-        # Log in superuser
         login_data = {"username": username, "password": password}
         token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert token_response.status_code == 200
         token = token_response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
-
         category_data = {
             "name": "test_category_superuser",
             "display_name": "Test Category Superuser",
@@ -166,16 +146,11 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 2,
             "is_active": True,
         }
-
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
-        assert response.status_code == 200, f"Superuser should be able to create categories: {response.text}"
-
-        created_category = response.json()
-        assert created_category["name"] == category_data["name"]
+        assert response.status_code in (404, 405), "Create endpoint is removed"
 
     def test_update_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
-        """Test that updating a category without authentication fails."""
-        # Create a category first
+        """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category",
             display_name="Test Update Category",
@@ -186,18 +161,12 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        update_data = {
-            "display_name": "Updated Category Name",
-            "description": "Updated description",
-        }
-
+        update_data = {"display_name": "Updated Category Name", "description": "Updated description"}
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data)
-        assert response.status_code == 401, "Should require authentication"
+        assert response.status_code in (404, 405), "Update endpoint is removed"
 
     def test_update_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that regular users cannot update categories."""
-        # Create a category first
+        """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category_regular",
             display_name="Test Update Category Regular",
@@ -208,23 +177,14 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        # Create and login regular user
         _, token = create_and_login_regular_user(client, db_session, "update_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
-        update_data = {
-            "display_name": "Updated Category Name",
-            "description": "Updated description",
-        }
-
+        update_data = {"display_name": "Updated Category Name", "description": "Updated description"}
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
-        assert response.status_code == 403, "Regular users should not be able to update categories"
-        assert "Admin access required" in response.text
+        assert response.status_code in (404, 405), "Update endpoint is removed"
 
     def test_update_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that admin users can update categories."""
-        # Create a category first
+        """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category_admin",
             display_name="Test Update Category Admin",
@@ -235,28 +195,18 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "update_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
         update_data = {
             "display_name": "Updated Category Name by Admin",
             "description": "Updated description by admin",
             "sort_order": 5,
         }
-
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
-        assert response.status_code == 200, f"Admin should be able to update categories: {response.text}"
-
-        updated_category = response.json()
-        assert updated_category["display_name"] == update_data["display_name"]
-        assert updated_category["description"] == update_data["description"]
-        assert updated_category["sort_order"] == update_data["sort_order"]
+        assert response.status_code in (404, 405), "Update endpoint is removed"
 
     def test_delete_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
-        """Test that deleting a category without authentication fails."""
-        # Create a category first
+        """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category",
             display_name="Test Delete Category",
@@ -267,13 +217,11 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
         response = client.delete(f"{settings.API_STR}/categories/{category.id}")
-        assert response.status_code == 401, "Should require authentication"
+        assert response.status_code in (404, 405), "Delete endpoint is removed"
 
     def test_delete_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that regular users cannot delete categories."""
-        # Create a category first
+        """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category_regular",
             display_name="Test Delete Category Regular",
@@ -284,18 +232,13 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        # Create and login regular user
         _, token = create_and_login_regular_user(client, db_session, "delete_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
-        assert response.status_code == 403, "Regular users should not be able to delete categories"
-        assert "Admin access required" in response.text
+        assert response.status_code in (404, 405), "Delete endpoint is removed"
 
     def test_delete_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
-        """Test that admin users can delete categories."""
-        # Create a category first
+        """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category_admin",
             display_name="Test Delete Category Admin",
@@ -306,23 +249,15 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "delete_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
-        assert response.status_code == 200, f"Admin should be able to delete categories: {response.text}"
-
-        # Verify the category was deleted
-        get_response = client.get(f"{settings.API_STR}/categories/{category.id}", headers=headers)
-        assert get_response.status_code == 404, "Category should be deleted"
+        assert response.status_code in (404, 405), "Delete endpoint is removed"
 
     def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
-        """Test that deleting a category with parts fails."""
+        """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         from app.api.models.global_part import GlobalPart as DBGlobalPart
 
-        # Create a user first
         user = DBUser(
             username="test_user_for_part",
             email="test_user_for_part@example.com",
@@ -335,8 +270,6 @@ class TestCategoriesAdminAuthentication:
         db_session.add(user)
         db_session.commit()
         db_session.refresh(user)
-
-        # Create a category first
         category = DBCategory(
             name="test_delete_category_with_parts",
             display_name="Test Delete Category With Parts",
@@ -347,24 +280,18 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-
-        # Create a part in this category
         part = DBGlobalPart(
             name="Test Part",
             description="A test part",
             category_id=category.id,
-            user_id=user.id,  # Use the actual user ID
+            user_id=user.id,
         )
         db_session.add(part)
         db_session.commit()
-
-        # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "delete_cat_parts")
         headers = {"Authorization": f"Bearer {token}"}
-
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
-        assert response.status_code == 409, "Should return 409 Conflict when deleting category with parts"
-        assert "parts" in response.text.lower() and "category" in response.text.lower()
+        assert response.status_code in (404, 405), "Delete endpoint is removed"
 
     def test_public_category_endpoints_remain_public(self, client: TestClient, db_session: Session) -> None:
         """Test that public category endpoints remain accessible without authentication."""
@@ -402,12 +329,9 @@ class TestCategoriesAdminAuthentication:
         assert isinstance(parts, list), "Should return a list of parts"
 
     def test_duplicate_category_name_fails(self, client: TestClient, db_session: Session) -> None:
-        """Test that creating a category with duplicate name fails."""
-        # Create and login admin user
+        """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "duplicate_cat")
         headers = {"Authorization": f"Bearer {token}"}
-
-        # Create first category
         category_data_1 = {
             "name": "duplicate_test_category",
             "display_name": "Duplicate Test Category 1",
@@ -415,19 +339,5 @@ class TestCategoriesAdminAuthentication:
             "sort_order": 1,
             "is_active": True,
         }
-
         response = client.post(f"{settings.API_STR}/categories/", json=category_data_1, headers=headers)
-        assert response.status_code == 200, "First category should be created"
-
-        # Try to create second category with same name
-        category_data_2 = {
-            "name": "duplicate_test_category",  # Same name
-            "display_name": "Duplicate Test Category 2",
-            "description": "Second category",
-            "sort_order": 2,
-            "is_active": True,
-        }
-
-        response = client.post(f"{settings.API_STR}/categories/", json=category_data_2, headers=headers)
-        assert response.status_code == 409, "Should return 409 Conflict for duplicate category names"
-        assert "already exists" in response.text
+        assert response.status_code in (404, 405), "Create endpoint is removed"

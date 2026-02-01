@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -62,30 +63,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Toyota",
-    model: str = "Camry",
-    generation_name: str = "8th Gen",
-    start_year: int = 2018,
-    end_year: int = 2024,
-) -> Dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestSearch:
     """Test cases for search endpoint."""
 
@@ -102,8 +79,7 @@ class TestSearch:
     def test_search_build_lists_by_name(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test searching build lists by name."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -127,9 +103,8 @@ class TestSearch:
 
     def test_search_build_lists_by_car_make(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test searching build lists by associated car make."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token, make="Honda", model="Civic")
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session, "Honda", "Civic")
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -176,8 +151,7 @@ class TestSearch:
     ) -> None:
         """Test searching global parts by name."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a global part
         token = get_auth_token(client, test_user.username)
@@ -206,8 +180,7 @@ class TestSearch:
     ) -> None:
         """Test searching global parts by brand."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
@@ -261,8 +234,7 @@ class TestSearch:
     def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test that search is case-insensitive."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list with lowercase name
         token = get_auth_token(client, test_user.username)
@@ -287,8 +259,7 @@ class TestSearch:
     def test_search_with_pagination(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test search with pagination parameters."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create multiple build lists
         token = get_auth_token(client, test_user.username)
@@ -316,8 +287,7 @@ class TestSearch:
     def test_search_partial_match(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test that search supports partial matches."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list with a specific name
         token = get_auth_token(client, test_user.username)
@@ -372,8 +342,7 @@ class TestSearch:
     def test_search_unicode_characters(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test search with unicode and emoji characters."""
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         # Create a build list with unicode characters
         token = get_auth_token(client, test_user.username)
@@ -432,8 +401,7 @@ class TestSearch:
         headers = get_auth_headers(token)
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         build_list_data = {
             "name": get_unique_name("test_build_list"),
@@ -498,8 +466,7 @@ class TestSearch:
         headers = get_auth_headers(token)
 
         # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        car = create_car_in_db(db_session)
 
         build_list_name = get_unique_name("MiXeDcAsE")
         build_list_data = {
