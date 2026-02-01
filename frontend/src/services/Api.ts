@@ -4,6 +4,9 @@ import type {
   BodyLoginForAccessToken,
   BodyResetPassword,
   BodyVerifyEmail,
+  BrandCreate,
+  BrandResponse,
+  BrandUpdate,
   BugReportCreate,
   BugReportRead,
   BugReportUpdate,
@@ -20,28 +23,19 @@ import type {
   BuildLogPostRead,
   BuildLogPostUpdate,
   BuildLogReadPaginated,
-  CarCreate,
-  CarGenerationCreate,
   CarGenerationRead,
-  CarGenerationUpdate,
   CarRead,
-  CarUpdate,
-  BrandCreate,
-  BrandResponse,
-  BrandUpdate,
-  CategoryCreate,
   CategoryResponse,
-  CategoryUpdate,
   FlaggedEntitySummary,
   GlobalPartCreate,
   GlobalPartRead,
   GlobalPartReadWithVotes,
   GlobalPartUpdate,
-  PartListingReadWithRetailer,
-  PartPriceHistoryReadWithRetailer,
   LoginResponse,
   NewPassword,
   PaginatedResponse,
+  PartListingReadWithRetailer,
+  PartPriceHistoryReadWithRetailer,
   ReportCreate,
   ReportRead,
   ReportUpdate,
@@ -190,21 +184,8 @@ export const usersApi = {
     apiClient.delete<UserRead>(`/users/admin/users/${userId}`),
 };
 
-// Car API
+// Car API (read-only; cars are seeded from backend car_generations_data)
 export const carsApi = {
-  // Admin-only create/update/delete
-  createCar: (data: CarCreate) =>
-    apiClient.post<CarRead>('/cars/admin/cars', data),
-  updateCar: (carId: number, data: CarUpdate) =>
-    apiClient.put<CarRead>(`/cars/admin/cars/${carId}`, data),
-  deleteCar: (carId: number) =>
-    apiClient.delete<CarRead>(`/cars/admin/cars/${carId}`),
-  deleteAllCars: () =>
-    apiClient.delete<{ message: string; deleted_count: number }>(
-      '/cars/admin/cars'
-    ),
-
-  // Public read endpoints
   getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
   listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
     apiClient.get<CarRead[]>('/cars/', { params }),
@@ -230,16 +211,10 @@ export const carsApi = {
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
-// Car Generation API (Admin only) - now uses /cars endpoints
+// Car Generation API (read-only; uses /cars endpoints)
 export const carGenerationsApi = {
-  createCarGeneration: (data: CarGenerationCreate) =>
-    apiClient.post<CarGenerationRead>('/cars/admin/cars', data),
   getCarGeneration: (generationId: number) =>
     apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
-  updateCarGeneration: (generationId: number, data: CarGenerationUpdate) =>
-    apiClient.put<CarGenerationRead>(`/cars/admin/cars/${generationId}`, data),
-  deleteCarGeneration: (generationId: number) =>
-    apiClient.delete<CarGenerationRead>(`/cars/admin/cars/${generationId}`),
   listCarGenerations: (params?: {
     skip?: number;
     limit?: number;
@@ -261,6 +236,28 @@ export const carGenerationsApi = {
       params,
     }),
   countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
+};
+
+// Static asset URLs (manufacturer logos, category icons) from storage bucket
+export interface AssetUrlsResponse {
+  manufacturers: Record<string, string>;
+  categories: Record<string, string>;
+}
+
+export const assetsApi = {
+  getAssetUrls: (params?: {
+    manufacturers?: string[];
+    categories?: string[];
+  }) => {
+    const query: { manufacturers?: string; categories?: string } = {};
+    if (params?.manufacturers?.length) {
+      query.manufacturers = params.manufacturers.join(',');
+    }
+    if (params?.categories?.length) {
+      query.categories = params.categories.join(',');
+    }
+    return apiClient.get<AssetUrlsResponse>('/assets/urls', { params: query });
+  },
 };
 
 // Build List API
@@ -414,17 +411,11 @@ export const globalPartsApi = {
     ),
 };
 
-// Categories API
+// Categories API (read-only; categories are seeded from backend part_categories_data)
 export const categoriesApi = {
   getCategories: () => apiClient.get<CategoryResponse[]>('/categories/'),
   getCategory: (categoryId: number) =>
     apiClient.get<CategoryResponse>(`/categories/${categoryId}`),
-  createCategory: (data: CategoryCreate) =>
-    apiClient.post<CategoryResponse>('/categories/', data),
-  updateCategory: (categoryId: number, data: CategoryUpdate) =>
-    apiClient.put<CategoryResponse>(`/categories/${categoryId}`, data),
-  deleteCategory: (categoryId: number) =>
-    apiClient.delete<Record<string, string>>(`/categories/${categoryId}`),
   getPartsByCategory: (
     categoryId: number,
     params?: { skip?: number; limit?: number }
@@ -467,6 +458,11 @@ export const brandsApi = {
   getBrandPartsCount: (brandId: number) =>
     apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
   countBrands: () => apiClient.get<{ count: number }>('/brands/count'),
+};
+
+// Retailers API (part stores/sites)
+export const retailersApi = {
+  countRetailers: () => apiClient.get<{ count: number }>('/retailers/count'),
 };
 
 // Unified Votes API
@@ -622,6 +618,7 @@ export const buildListPartsApi = {
         retailer_id: globalPartData.retailer_id,
         price_cents: globalPartData.price_cents,
         product_url: globalPartData.product_url,
+        quantity: buildListPartData.quantity ?? 1,
         notes: buildListPartData.notes,
       }
     ),

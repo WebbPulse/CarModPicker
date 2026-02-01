@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
 } from '../../types/Api';
-import Dialog from '../common/Dialog';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
+import Dialog from '../common/Dialog';
 
 interface EditBuildListPartFormProps {
   buildListPart: BuildListPartReadWithGlobalPart;
@@ -26,35 +26,69 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
   loading = false,
 }) => {
   const [notes, setNotes] = useState(buildListPart.notes || '');
+  const [quantity, setQuantity] = useState(buildListPart.quantity ?? 1);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setNotes(buildListPart.notes || '');
+      setQuantity(buildListPart.quantity ?? 1);
+      setError(null);
+    }
+  }, [isOpen, buildListPart.notes, buildListPart.quantity]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    void onSubmit(buildListPart.id, { notes: notes || null })
+    void onSubmit(buildListPart.id, {
+      notes: notes || null,
+      quantity: Math.max(1, quantity),
+    })
       .then(() => onClose())
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to update notes');
+        setError(err instanceof Error ? err.message : 'Failed to update part');
       });
   };
 
   const handleClose = () => {
     setNotes(buildListPart.notes || '');
+    setQuantity(buildListPart.quantity ?? 1);
     setError(null);
     onClose();
   };
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Edit Part Notes">
+    <Dialog isOpen={isOpen} onClose={handleClose} title="Edit Part">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <h3 className="text-lg font-semibold text-white mb-2">
             {buildListPart.global_part.name}
           </h3>
           <p className="text-gray-400 text-sm mb-4">
-            Add your personal notes about this part in your build list.
+            Update quantity and notes for this part in your build list.
           </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-part-quantity"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
+            Quantity
+          </label>
+          <input
+            id="edit-part-quantity"
+            type="number"
+            min={1}
+            max={999}
+            value={quantity}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v) && v >= 1) setQuantity(v);
+            }}
+            className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
         </div>
 
         <div>
@@ -89,7 +123,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
             Cancel
           </SecondaryButton>
           <ActionButton type="submit" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Notes'}
+            {loading ? 'Saving...' : 'Save'}
           </ActionButton>
         </div>
       </form>

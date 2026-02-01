@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import {
   brandsApi,
@@ -17,6 +17,7 @@ import type {
   GlobalPartCreate,
 } from '../../types/Api';
 
+import { LARGE_FETCH_LIMIT } from '../../constants';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -27,7 +28,6 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
-import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface CreateBuildListPartFormProps {
   buildListId: number;
@@ -56,6 +56,7 @@ function CreateBuildListPartForm({
     category_id: null as number | null,
     car_id: null as number | null,
     notes: '',
+    quantity: 1,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -463,6 +464,7 @@ function CreateBuildListPartForm({
         };
 
         const buildListPartData: BuildListPartCreate = {
+          quantity: Math.max(1, formData.quantity),
           notes: formData.notes.trim() || null,
         };
 
@@ -495,6 +497,7 @@ function CreateBuildListPartForm({
 
       try {
         const buildListPartData: BuildListPartCreate = {
+          quantity: Math.max(1, formData.quantity),
           notes: formData.notes.trim() || null,
         };
 
@@ -536,6 +539,7 @@ function CreateBuildListPartForm({
         category_id: null,
         car_id: null,
         notes: '',
+        quantity: 1,
       });
       setImageFileKey(null);
       setPendingBrandName(null);
@@ -931,15 +935,36 @@ function CreateBuildListPartForm({
         </div>
       )}
 
-      {/* Notes Field (Common to both modes) */}
+      {/* Quantity & Notes (Common to both modes) */}
       <div className="space-y-4 pt-4 border-t border-gray-700">
         <div>
           <h3 className="text-lg font-semibold text-gray-200 mb-1">
-            Build List Notes
+            Build List Options
           </h3>
           <p className="text-sm text-gray-400 mb-3">
-            Add personal notes about this part in your build list (optional)
+            Set quantity and optional notes for this part in your build list
           </p>
+        </div>
+        <div>
+          <label
+            htmlFor="build-list-part-quantity"
+            className="block text-sm font-medium text-gray-300 mb-1"
+          >
+            Quantity
+          </label>
+          <input
+            id="build-list-part-quantity"
+            type="number"
+            min={1}
+            max={999}
+            value={formData.quantity}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v) && v >= 1)
+                setFormData((prev) => ({ ...prev, quantity: v }));
+            }}
+            className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
         </div>
         <Input
           label="Notes (Optional)"

@@ -9,6 +9,7 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -64,30 +65,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Toyota",
-    model: str = "Camry",
-    generation_name: str = "8th Gen",
-    start_year: int = 2018,
-    end_year: int = 2024,
-) -> dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
-
-
 class TestBuildLists:
     """Test cases for build lists endpoints."""
 
@@ -97,9 +74,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -132,9 +108,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Try to create a build list without name
         build_list_data = {"description": "A test build list description", "car_id": car["id"]}
@@ -147,9 +122,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Try to create a build list with empty name
         build_list_data = {
@@ -166,9 +140,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create build list
         build_list_data = {
@@ -199,9 +172,8 @@ class TestBuildLists:
 
     def test_get_build_list_unauthorized(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving a build list without authentication (public read is allowed)."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list as test_user
         token = get_auth_token(client, test_user.username)
@@ -225,9 +197,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create build list
         build_list_data = {
@@ -258,9 +229,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create build list
         build_list_data = {
@@ -300,9 +270,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create build list
         build_list_data = {
@@ -334,9 +303,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create build list
         build_list_data = {
@@ -363,9 +331,8 @@ class TestBuildLists:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test retrieving build lists for a car (public read is allowed)."""
-        # Create a car (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Try to get build lists for a car without authentication (public read is allowed)
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
@@ -379,9 +346,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list with extra fields (car_id is now required)
         build_list_data = {
@@ -421,9 +387,8 @@ class TestBuildLists:
         headers = get_auth_headers(token)
         headers["Content-Type"] = "text/plain"
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Try to create a build list with wrong content type
         build_list_data = {
@@ -446,9 +411,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -481,9 +445,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -513,9 +476,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -567,9 +529,8 @@ class TestBuildLists:
         db_session.commit()
         db_session.refresh(test_user)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Login as test user (this should work since email verification is checked in get_current_user)
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -600,9 +561,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -682,9 +642,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -718,9 +677,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -787,9 +745,8 @@ class TestBuildLists:
         original_token = get_auth_token(client, original_owner.username)
         original_headers = get_auth_headers(original_token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -823,9 +780,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -898,9 +854,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {
@@ -933,9 +888,8 @@ class TestBuildLists:
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
         """Test that build lists with votes endpoint allows public access."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Login as test user and create a build list
         token = get_auth_token(client, test_user.username)
@@ -963,9 +917,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create multiple build lists
         for i in range(5):
@@ -992,9 +945,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list with unique name
         unique_name = get_unique_name("searchable_build_list")
@@ -1027,10 +979,9 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create two cars (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car1 = create_car_via_admin(client, admin_token, "Toyota", "Camry", "8th Gen", 2018, 2024)
-        car2 = create_car_via_admin(client, admin_token, "Honda", "Civic", "10th Gen", 2016, 2021)
+        # Create two cars in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car1 = create_car_in_db(db_session, "Toyota", "Camry", "8th Gen", 2018, 2024)
+        car2 = create_car_in_db(db_session, "Honda", "Civic", "10th Gen", 2016, 2021)
 
         # Create build lists for each car
         build_list_data1 = {
@@ -1071,9 +1022,8 @@ class TestBuildLists:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         build_list_data = {

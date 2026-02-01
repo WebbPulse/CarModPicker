@@ -434,6 +434,7 @@ function ViewBuildList() {
       {buildList && (
         <BuildListParts
           buildListId={buildList.id}
+          buildListCarId={buildList.car_id ?? null}
           canManageParts={canManage || false}
           refreshKey={partsRefreshTrigger}
           {...(canManage && { onAddPartClick: openCreatePartDialog })}

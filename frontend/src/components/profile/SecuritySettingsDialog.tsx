@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FaLock, FaShieldAlt } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
+import { FaClock, FaLock, FaShieldAlt } from 'react-icons/fa';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, usersApi } from '../../services/Api';
@@ -11,15 +11,27 @@ import Dialog from '../common/Dialog';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 
+const SESSION_EXPIRE_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null, label: 'Use server default (60 min)' },
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 60, label: '1 hour' },
+  { value: 240, label: '4 hours' },
+  { value: 480, label: '8 hours' },
+  { value: 1440, label: '24 hours' },
+  { value: 10080, label: '7 days' },
+];
+
 interface SecuritySettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onPasswordChanged: () => void;
   on2FAEnabled: () => void;
   on2FADisabled: () => void;
+  onSessionUpdated?: () => void;
 }
 
-type TabType = 'password' | '2fa';
+type TabType = 'password' | '2fa' | 'session';
 
 function SecuritySettingsDialog({
   isOpen,
@@ -27,6 +39,7 @@ function SecuritySettingsDialog({
   onPasswordChanged,
   on2FAEnabled,
   on2FADisabled,
+  onSessionUpdated,
 }: SecuritySettingsDialogProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('password');
@@ -52,12 +65,28 @@ function SecuritySettingsDialog({
   const [twoFAError, setTwoFAError] = useState<string | null>(null);
   const [twoFASuccess, setTwoFASuccess] = useState<string | null>(null);
 
+  // Session expiry state
+  const [sessionExpireMinutes, setSessionExpireMinutes] = useState<
+    number | null
+  >(() => user?.session_expire_minutes ?? null);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionSuccess, setSessionSuccess] = useState<string | null>(null);
+
   const setupRequestFn = () => authApi.setup2FA();
   const {
     error: setupError,
     isLoading: isSettingUp,
     executeRequest: performSetup,
   } = useApiRequest(setupRequestFn);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setSessionExpireMinutes(user.session_expire_minutes ?? null);
+      setSessionError(null);
+      setSessionSuccess(null);
+    }
+  }, [isOpen, user]);
 
   const handleClose = () => {
     // Reset password form
@@ -78,7 +107,33 @@ function SecuritySettingsDialog({
     setTwoFAError(null);
     setTwoFASuccess(null);
 
+    setSessionError(null);
+    setSessionSuccess(null);
+
     onClose();
+  };
+
+  const handleSaveSession = async () => {
+    if (!user) return;
+    setSessionError(null);
+    setSessionSuccess(null);
+    setIsSavingSession(true);
+    try {
+      await usersApi.updateUser(user.id, {
+        session_expire_minutes: sessionExpireMinutes,
+      });
+      setSessionSuccess(
+        'Session length updated. Your current session has been extended with the new expiry.'
+      );
+      onSessionUpdated?.();
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      setSessionError(
+        axiosError.response?.data?.detail || 'Failed to update session length.'
+      );
+    } finally {
+      setIsSavingSession(false);
+    }
   };
 
   // Password change handlers
@@ -286,6 +341,20 @@ function SecuritySettingsDialog({
             <div className="flex items-center justify-center space-x-2">
               <FaShieldAlt />
               <span>Two-Factor Authentication</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('session')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'session'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <FaClock />
+              <span>Session</span>
             </div>
           </button>
         </div>
@@ -588,6 +657,67 @@ function SecuritySettingsDialog({
                 </ActionButton>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Session Tab */}
+        {activeTab === 'session' && (
+          <div className="space-y-6">
+            {sessionSuccess && <ConfirmationAlert message={sessionSuccess} />}
+            {sessionError && <ErrorAlert message={sessionError} />}
+
+            <div className="flex items-center space-x-3 text-gray-300">
+              <FaClock className="text-primary-400 text-2xl" />
+              <div>
+                <h3 className="text-lg font-semibold">Session length</h3>
+                <p className="text-sm text-gray-400">
+                  Choose how long you stay signed in. Shorter sessions are more
+                  secure. A new token with the selected expiry is issued when
+                  you save.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="session-expire"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                Stay signed in for
+              </label>
+              <select
+                id="session-expire"
+                value={sessionExpireMinutes ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSessionExpireMinutes(v === '' ? null : Number(v));
+                  setSessionError(null);
+                }}
+                disabled={isSavingSession}
+                className="block w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-gray-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+              >
+                {SESSION_EXPIRE_OPTIONS.map((opt) => (
+                  <option key={opt.value ?? 'default'} value={opt.value ?? ''}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <ActionButton
+              onClick={() => void handleSaveSession()}
+              disabled={isSavingSession}
+              className="w-full"
+            >
+              {isSavingSession ? (
+                <>
+                  <LoadingSpinner />
+                  <span className="ml-2">Saving...</span>
+                </>
+              ) : (
+                'Save session length'
+              )}
+            </ActionButton>
           </div>
         )}
       </div>

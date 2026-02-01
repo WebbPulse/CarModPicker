@@ -43,6 +43,18 @@ def get_password_hash(password: str) -> str:
 # --- JWT Utilities ---
 
 
+def get_access_token_expires_delta_for_user(user: DBUser) -> timedelta:
+    """Returns the access token expiry duration for a user (their preference clamped to server bounds)."""
+    minutes = getattr(user, "session_expire_minutes", None)
+    if minutes is None:
+        minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    minutes = max(
+        settings.ACCESS_TOKEN_EXPIRE_MINUTES_MIN,
+        min(settings.ACCESS_TOKEN_EXPIRE_MINUTES_MAX, minutes),
+    )
+    return timedelta(minutes=minutes)
+
+
 def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Creates a JWT access token."""
     to_encode = data.copy()

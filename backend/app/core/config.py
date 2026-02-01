@@ -33,6 +33,9 @@ class Settings(BaseSettings):
         description="Secret key for JWT token signing. MUST be set in production!",
     )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Bounds for user-configurable session length (minutes). User preference is clamped to this range.
+    ACCESS_TOKEN_EXPIRE_MINUTES_MIN: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES_MAX: int = 10080  # 7 days
 
     @model_validator(mode="after")
     def validate_and_normalize_settings(self) -> "Settings":
@@ -175,6 +178,11 @@ class Settings(BaseSettings):
     PRESIGNED_URL_EXPIRATION: int = Field(
         default=86400,
         description="Presigned URL expiration time in seconds (default: 24 hours, max: 90 days)",
+    )
+    # Local directory for static UI assets (manufacturer logos, category icons). Synced to bucket on startup if missing.
+    STATIC_ASSETS_DIR: str = Field(
+        default="",
+        description="Path to static_assets directory (default: backend/static_assets relative to app root)",
     )
 
     @property

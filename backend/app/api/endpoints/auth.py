@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
+    get_access_token_expires_delta_for_user,
     get_current_user,
     get_password_hash,
     verify_password,
@@ -73,7 +74,8 @@ async def login_for_access_token(
         }
 
     access_token_data = {"sub": user.username}
-    access_token = create_access_token(data=access_token_data)
+    expires_delta = get_access_token_expires_delta_for_user(user)
+    access_token = create_access_token(data=access_token_data, expires_delta=expires_delta)
 
     logger.info(f"User logged in successfully: {user.username}")
     return {
@@ -126,7 +128,8 @@ async def login_with_2fa(
         ResponsePatterns.raise_unauthorized("Invalid OTP code", headers={"WWW-Authenticate": "Bearer"})
 
     access_token_data = {"sub": user.username}
-    access_token = create_access_token(data=access_token_data)
+    expires_delta = get_access_token_expires_delta_for_user(user)
+    access_token = create_access_token(data=access_token_data, expires_delta=expires_delta)
 
     logger.info(f"User logged in successfully with 2FA: {user.username}")
     return {
