@@ -3,7 +3,7 @@ Service for part listing deduplication and retailer/listing/price operations.
 
 Used by global part create, create-and-add-part, and scrapers to:
 - Get-or-create retailers and brands
-- Find existing parts by URL or brand+part_number
+- Find existing parts by URL, brand+part_number, or GTIN (UPC/EAN)
 - Create/update PartListing and append PartPriceHistory
 """
 
@@ -129,6 +129,33 @@ def find_part_by_brand_and_part_number(
     )
     for c in candidates:
         if normalize_part_number(c.part_number) == normalized:
+            return c
+    return None
+
+
+def normalize_gtin(gtin: Optional[str]) -> Optional[str]:
+    """
+    Normalize GTIN (UPC/EAN) to digits only for storage and dedup lookup.
+    Handles formats like 0-12345-67890-1 or 012345678901.
+    """
+    if not gtin or not gtin.strip():
+        return None
+    digits = "".join(c for c in gtin.strip() if c.isdigit())
+    return digits if digits else None
+
+
+def find_part_by_gtin(db: Session, gtin: str) -> Optional[DBGlobalPart]:
+    """Find a global part by GTIN (UPC/EAN). Uses normalized digits-only for matching."""
+    normalized = normalize_gtin(gtin)
+    if not normalized:
+        return None
+    part = db.query(DBGlobalPart).filter(DBGlobalPart.gtin == normalized).first()
+    if part:
+        return part
+    # Legacy: match if stored value normalizes to same (e.g. stored with dashes)
+    candidates = db.query(DBGlobalPart).filter(DBGlobalPart.gtin.isnot(None)).all()
+    for c in candidates:
+        if c.gtin and normalize_gtin(c.gtin) == normalized:
             return c
     return None
 

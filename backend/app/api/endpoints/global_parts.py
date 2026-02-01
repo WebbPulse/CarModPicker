@@ -38,9 +38,11 @@ from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_part_by_brand_and_part_number,
+    find_part_by_gtin,
     find_part_by_product_url,
     get_best_listing_for_part,
     normalize_part_number,
+    normalize_gtin,
 )
 from app.api.utils.authorization import (
     require_global_part_edit_permission,
@@ -93,31 +95,37 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> DBGlobalPart:
         """
-        Create a new global part with dedup by URL and by brand+part_number.
+        Create a new global part with dedup by URL, brand+part_number, and GTIN (UPC/EAN).
         If an existing part is found, create/update PartListing and return that part.
         """
         check_subscription_limits(db, current_user, "can_create_global_part", self.entity_name, logger)
 
         part_by_url: Optional[DBGlobalPart] = None
         part_by_brand: Optional[DBGlobalPart] = None
+        part_by_gtin: Optional[DBGlobalPart] = None
 
         if data.product_url and data.product_url.strip():
             part_by_url = find_part_by_product_url(db, data.product_url)
         if data.brand_id and data.part_number and data.part_number.strip():
             part_by_brand = find_part_by_brand_and_part_number(db, data.brand_id, data.part_number)
+        if data.gtin and normalize_gtin(data.gtin):
+            part_by_gtin = find_part_by_gtin(db, data.gtin)
 
-        if part_by_url is not None and part_by_brand is not None and part_by_url.id != part_by_brand.id:
-            logger.info(
-                f"User {current_user.id} part create conflict: URL points to part {part_by_url.id}, "
-                f"brand+part_number to part {part_by_brand.id}"
-            )
+        parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+        ids = {p.id for p in parts}
+        if len(ids) > 1:
+            logger.info(f"User {current_user.id} part create conflict: dedup keys point to different parts {ids}")
             ResponsePatterns.raise_conflict(
-                message="Product URL and brand+part number point to different existing parts.",
+                message="Product URL, brand+part number, or GTIN point to different existing parts.",
                 error_code="PART_DEDUP_CONFLICT",
-                details={"url_part_id": part_by_url.id, "brand_part_id": part_by_brand.id},
+                details={
+                    "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
+                    "url_part_id": part_by_url.id if part_by_url else None,
+                    "brand_part_id": part_by_brand.id if part_by_brand else None,
+                },
             )
 
-        existing_part = part_by_url or part_by_brand
+        existing_part = part_by_gtin or part_by_url or part_by_brand
         if existing_part:
             if data.retailer_id and (data.product_url or data.price_cents is not None):
                 _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
@@ -143,6 +151,9 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         entity_data["part_number"] = (
             normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
         )
+        # Store normalized GTIN (digits only) for dedup
+        if data.gtin:
+            entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
         # Use first gallery image as primary if image_url not set; cap gallery size
         if entity_data.get("image_urls") is not None:
             entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
@@ -190,10 +201,12 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         # Check authorization (allows creator, admin, or superuser)
         require_global_part_edit_permission(current_user, entity)
 
-        # Update the entity; cap image_urls to global limit
+        # Update the entity; cap image_urls to global limit; normalize gtin
         update_data = data.model_dump(exclude_unset=True)
         if update_data.get("image_urls") is not None:
             update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
+        if "gtin" in update_data and update_data["gtin"] is not None:
+            update_data["gtin"] = normalize_gtin(update_data["gtin"])
         return update_entity(
             db=db,
             entity=entity,

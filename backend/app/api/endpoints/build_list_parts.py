@@ -27,7 +27,9 @@ from app.api.schemas.build_list_part import (
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_part_by_brand_and_part_number,
+    find_part_by_gtin,
     find_part_by_product_url,
+    normalize_gtin,
 )
 from app.api.utils.authorization import (
     require_build_list_part_delete_permission,
@@ -266,22 +268,31 @@ async def create_global_part_and_add_to_build_list(
     # Verify category exists
     _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
-    # Dedup: find existing part by URL and/or brand+part_number
+    # Dedup: find existing part by URL, brand+part_number, or GTIN
     part_by_url: Optional[DBGlobalPart] = None
     part_by_brand: Optional[DBGlobalPart] = None
+    part_by_gtin: Optional[DBGlobalPart] = None
     if request.product_url and request.product_url.strip():
         part_by_url = find_part_by_product_url(db, request.product_url)
     if request.brand_id and request.part_number and request.part_number.strip():
         part_by_brand = find_part_by_brand_and_part_number(db, request.brand_id, request.part_number)
+    if request.gtin and normalize_gtin(request.gtin):
+        part_by_gtin = find_part_by_gtin(db, request.gtin)
 
-    if part_by_url is not None and part_by_brand is not None and part_by_url.id != part_by_brand.id:
+    parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+    ids = {p.id for p in parts}
+    if len(ids) > 1:
         ResponsePatterns.raise_conflict(
-            message="Product URL and brand+part number point to different existing parts.",
+            message="Product URL, brand+part number, or GTIN point to different existing parts.",
             error_code="PART_DEDUP_CONFLICT",
-            details={"url_part_id": part_by_url.id, "brand_part_id": part_by_brand.id},
+            details={
+                "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
+                "url_part_id": part_by_url.id if part_by_url else None,
+                "brand_part_id": part_by_brand.id if part_by_brand else None,
+            },
         )
 
-    existing_part = part_by_url or part_by_brand
+    existing_part = part_by_gtin or part_by_url or part_by_brand
     if existing_part:
         if request.retailer_id and (request.product_url or request.price_cents is not None):
             _ = get_entity_or_404(db, DBRetailer, request.retailer_id, "retailer")
@@ -331,6 +342,8 @@ async def create_global_part_and_add_to_build_list(
         "specifications": request.specifications,
         "user_id": current_user.id,
     }
+    if request.gtin and normalize_gtin(request.gtin):
+        global_part_dict["gtin"] = normalize_gtin(request.gtin)
 
     db_global_part = DBGlobalPart(**global_part_dict)
     db.add(db_global_part)

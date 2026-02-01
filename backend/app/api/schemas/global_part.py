@@ -34,6 +34,10 @@ class GlobalPartCreate(BaseModel):
     car_id: Optional[int] = None  # Optional car association
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
+    gtin: Optional[str] = Field(
+        None,
+        description="UPC/EAN/GTIN barcode for dedup (digits only stored); e.g. 012345678901",
+    )
     specifications: Optional[Dict[str, Any]] = None
     # Optional: link to retailer listing for dedup and price history
     retailer_id: Optional[int] = Field(None, description="Retailer ID when product_url is from a known retailer")
@@ -63,6 +67,7 @@ class GlobalPartUpdate(BaseModel):
     car_id: Optional[int] = None  # Optional car association
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
+    gtin: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
 
 
@@ -81,6 +86,7 @@ class GlobalPartRead(BaseModel):
     car_id: Optional[int] = None  # Optional car association
     brand_id: Optional[int] = None  # Optional brand association
     part_number: Optional[str] = None
+    gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
     specifications: Optional[Dict[str, Any]] = None
     is_verified: bool
     source: str

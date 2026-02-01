@@ -41,6 +41,7 @@ class GlobalPart(Base):
         ForeignKey("brands.id"), nullable=True, index=True
     )  # Optional brand association
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
+    gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)  # UPC/EAN/GTIN for dedup
     specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # Quality and moderation
