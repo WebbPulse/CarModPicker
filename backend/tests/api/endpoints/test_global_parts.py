@@ -40,11 +40,10 @@ class TestGlobalParts:
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create global part
+        # Create global part (pricing is per-retailer via listings, not on part)
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,  # Price in cents (integer)
             "category_id": test_category.id,
             "brand_id": test_brand.id,
             "image_url": "https://example.com/image.jpg",
@@ -55,7 +54,6 @@ class TestGlobalParts:
         data = response.json()
         assert data["name"] == part_data["name"]
         assert data["description"] == part_data["description"]
-        assert data["price"] == part_data["price"]
         assert data["category_id"] == test_category.id
         assert data["user_id"] == test_user.id
         assert "id" in data
@@ -69,7 +67,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,  # Price in cents (integer)
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -90,7 +87,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -117,7 +113,6 @@ class TestGlobalParts:
             part_data = {
                 "name": get_unique_name(f"test_part_{i}"),
                 "description": f"Test part {i}",
-                "price": 9999 + i,  # Price in cents (integer)
                 "category_id": test_category.id,
                 "brand_id": test_brand.id,
             }
@@ -140,7 +135,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -167,7 +161,6 @@ class TestGlobalParts:
         part_data = {
             "name": unique_name,
             "description": "A searchable part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -192,7 +185,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -222,7 +214,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -230,11 +221,10 @@ class TestGlobalParts:
         assert response.status_code == 200
         created_part = response.json()
 
-        # Update the part
+        # Update the part (price is per-retailer via listings, not on part)
         update_data = {
             "name": get_unique_name("updated_part"),
             "description": "Updated description",
-            "price": 14999,  # Price in cents (integer)
             "brand_id": test_brand.id,
         }
         response = client.put(
@@ -244,7 +234,6 @@ class TestGlobalParts:
         data = response.json()
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
-        assert data["price"] == update_data["price"]
 
     def test_update_global_part_unauthorized(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
@@ -256,7 +245,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -279,7 +267,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -305,7 +292,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -327,7 +313,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -349,42 +334,34 @@ class TestGlobalParts:
             assert "downvotes" in part
             assert "user_vote" in part
 
-    def test_create_global_part_with_invalid_price(
+    def test_create_global_part_with_invalid_price_cents(
         self, client: TestClient, test_user: Any, test_category: Any, test_brand: Brand
     ) -> None:
-        """Test that creating a global part with an invalid price fails validation."""
+        """Test that creating a global part with invalid price_cents (for retailer listing) fails validation."""
         # Login as test user
         headers = get_auth_token_and_headers(client, test_user.username)
 
-        # Test with price too large for PostgreSQL integer
+        # Test with price_cents too large for PostgreSQL integer (schema validation)
         part_data = {
-            "name": "Test Part with Invalid Price",
-            "description": "A test part with invalid price",
-            "price": 2147483648,  # One more than max PostgreSQL integer
+            "name": "Test Part with Invalid Price Cents",
+            "description": "A test part",
             "category_id": test_category.id,
             "brand_id": test_brand.id,
+            "price_cents": 2147483648,  # One more than max PostgreSQL integer
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 422
         error_detail = response.json()["details"][0]
         assert error_detail["type"] == "less_than_equal"
-        assert "price" in error_detail["field"]
+        assert "price_cents" in error_detail["field"]
 
-        # Test with negative price
-        part_data["price"] = -1
+        # Test with negative price_cents
+        part_data["price_cents"] = -1
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 422
         error_detail = response.json()["details"][0]
         assert error_detail["type"] == "greater_than_equal"
-        assert "price" in error_detail["field"]
-
-        # Test with extremely large price
-        part_data["price"] = 999999999999999999
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
-        assert response.status_code == 422
-        error_detail = response.json()["details"][0]
-        assert error_detail["type"] == "less_than_equal"
-        assert "price" in error_detail["field"]
+        assert "price_cents" in error_detail["field"]
 
     def test_get_global_parts_by_category_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
@@ -400,7 +377,6 @@ class TestGlobalParts:
             part_data = {
                 "name": part_name,
                 "description": "A test part description",
-                "price": 9999,
                 "category_id": test_category.id,
                 "brand_id": test_brand.id,
             }
@@ -438,7 +414,6 @@ class TestGlobalParts:
             part_data = {
                 "name": get_unique_name(f"test_part_{i}"),
                 "description": "A test part description",
-                "price": 9999,
                 "category_id": test_category.id,
                 "brand_id": test_brand.id,
             }
@@ -484,7 +459,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -517,7 +491,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }
@@ -568,7 +541,6 @@ class TestGlobalParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "price": 9999,
             "category_id": test_category.id,
             "brand_id": test_brand.id,
         }

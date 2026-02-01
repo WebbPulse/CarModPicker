@@ -246,8 +246,6 @@ class TestCategories:
             part_data = {
                 "name": f"Test Part {i}",
                 "description": f"Test part description {i}",
-                "price": 100 + i * 10,
-                "build_list_id": build_list_id,
                 "category_id": category_id,
                 "brand_id": test_brand.id,
             }
@@ -440,8 +438,6 @@ class TestCategories:
         part_data = {
             "name": "Test Part",
             "description": "Test part description",
-            "price": 100,
-            "build_list_id": build_list_id,
             "category_id": category_id,
             "brand_id": brand.id,
         }
@@ -495,8 +491,6 @@ class TestCategories:
         part_data = {
             "name": "Test Part for Count",
             "description": "Test part description",
-            "price": 100,
-            "build_list_id": build_list_id,
             "category_id": category_id,
             "brand_id": brand.id,
         }

@@ -550,6 +550,68 @@ class StorageService:
                 detail="An unexpected error occurred while counting bucket objects",
             )
 
+    def list_bucket_object_keys(self) -> list[str]:
+        """
+        List all object keys in the Railway Storage Bucket (for admin orphan cleanup).
+
+        Uses list_objects_v2 with pagination. Use with care on large buckets.
+
+        Returns:
+            list[str]: All object keys in the bucket
+
+        Raises:
+            HTTPException: If listing fails or bucket is not configured
+        """
+        if not self.s3_client or not self.bucket_name:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Image storage is not configured. Please contact administrator.",
+            )
+
+        try:
+            assert self.bucket_name is not None
+            keys: list[str] = []
+            continuation_token = None
+
+            while True:
+                list_kwargs: dict[str, Any] = {"Bucket": self.bucket_name}
+                if continuation_token:
+                    list_kwargs["ContinuationToken"] = continuation_token
+
+                response = self.s3_client.list_objects_v2(**list_kwargs)
+
+                if "Contents" in response:
+                    for obj in response["Contents"]:
+                        if "Key" in obj:
+                            keys.append(obj["Key"])
+
+                if response.get("IsTruncated", False):
+                    continuation_token = response.get("NextContinuationToken")
+                else:
+                    break
+
+            return keys
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            logger.error(f"Railway Storage Bucket list error ({error_code}): {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to list bucket objects: {error_code}",
+            )
+        except BotoCoreError as e:
+            logger.error(f"Boto3 error during bucket list: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to list bucket objects due to storage service error",
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error during bucket list: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred while listing bucket objects",
+            )
+
 
 # Create singleton instance
 storage_service = StorageService()

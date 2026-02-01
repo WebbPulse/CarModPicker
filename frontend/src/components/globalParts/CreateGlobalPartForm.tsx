@@ -43,7 +43,6 @@ function CreateGlobalPartForm({
     part_number: '',
     brand_id: null as number | null,
     description: '',
-    price: '',
     product_url: '',
     category_id: null as number | null,
     car_id: null as number | null,
@@ -282,37 +281,6 @@ function CreateGlobalPartForm({
     // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
-  const handlePriceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const value = e.target.value.trim();
-    if (value === '') {
-      setFormData((prev) => ({ ...prev, price: '' }));
-      return;
-    }
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue >= 0) {
-      const formatted = numValue.toFixed(2);
-      setFormData((prev) => ({ ...prev, price: formatted }));
-    }
-  };
-
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    // Allow empty value
-    if (value === '') {
-      setFormData((prev) => ({ ...prev, price: '' }));
-      if (validationError) setValidationError(null);
-      return;
-    }
-
-    // Allow only numbers and one decimal point
-    if (/^\d*\.?\d*$/.test(value)) {
-      // Store the raw value while typing - don't format until blur
-      setFormData((prev) => ({ ...prev, price: value }));
-      if (validationError) setValidationError(null);
-    }
-  };
-
   const handleCarChange = (value: number | string | null) => {
     const carId = value !== null && value !== '' ? Number(value) : null;
     setFormData((prev) => ({ ...prev, car_id: carId }));
@@ -366,9 +334,6 @@ function CreateGlobalPartForm({
     const globalPartData: GlobalPartCreate = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
-      price: formData.price
-        ? Math.round(parseFloat(formData.price) * 100)
-        : null,
       image_url: imageFileKey || null,
       product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
@@ -512,18 +477,6 @@ function CreateGlobalPartForm({
         value={formData.description}
         onChange={handleInputChange}
         placeholder="Enter part description"
-      />
-
-      <Input
-        label="Price"
-        id="global-part-price"
-        name="price"
-        type="text"
-        value={formData.price}
-        onChange={handlePriceChange}
-        onBlur={handlePriceBlur}
-        placeholder="0.00"
-        leftIcon={<span className="text-white/80 font-medium">$</span>}
       />
 
       <div>

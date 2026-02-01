@@ -4,8 +4,8 @@
   "description": "Chrome extension for CarModPicker part scraping",
   "type": "module",
   "scripts": {
-    "build": "NODE_ENV=production vite build",
-    "build:dev": "vite build",
+    "build": "NODE_ENV=production vite build && node scripts/inline-content.js",
+    "build:dev": "vite build && node scripts/inline-content.js",
     "watch": "vite build --watch",
     "dev": "vite build --watch",
     "type-check": "tsc --noEmit"

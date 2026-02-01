@@ -10,10 +10,13 @@ A Chrome extension that allows you to quickly scrape part information from web p
   - Description
   - Price
   - Image URL
-  - Brand
+  - Brand (part manufacturer)
   - Part number/SKU
   - Product URL
 - **Easy Part Creation**: Review and edit scraped data before creating parts
+- **Brand Selection**: Search and select from existing brands or create new ones
+- **Retailer & Price History**: Automatically gets or creates retailers by domain, so PartListing and PartPriceHistory are always created when scraping—enabling price history and best-retailer features
+- **Re-scrape for Price Updates**: When you scrape a product URL that already exists in the catalog, the extension shows a read-only view and lets you record the current price (adds to price history) without editing the part
 - **Category Selection**: Choose from available categories
 - **Car Association**: Optionally associate parts with specific car models
 
@@ -38,6 +41,7 @@ A Chrome extension that allows you to quickly scrape part information from web p
 ## Configuration
 
 Click "Settings" in the login screen to configure:
+
 - **API URL**: Set the base URL for the CarModPicker API (default: `https://carmodpicker.com/api`)
 
 ## Development
@@ -47,12 +51,14 @@ The extension is built with TypeScript for consistency with the main codebase.
 ### Setup
 
 1. Install dependencies:
+
    ```bash
    cd chrome-extension
    npm install
    ```
 
 2. Build the extension:
+
    ```bash
    npm run build
    ```
@@ -67,6 +73,7 @@ The extension is built with TypeScript for consistency with the main codebase.
 **Important:** You don't need to delete and re-add the extension after changes!
 
 1. **Run watch mode** in a terminal:
+
    ```bash
    npm run watch
    ```
@@ -74,13 +81,15 @@ The extension is built with TypeScript for consistency with the main codebase.
 2. **Make your changes** to TypeScript files in `src/`
 
 3. **Reload the extension** in Chrome:
+
    - Go to `chrome://extensions/`
    - Find "CarModPicker Part Scraper"
    - Click the **reload button** (circular arrow icon) 🔄
 
 4. **Test your changes**
 
-**Note:** 
+**Note:**
+
 - Service worker (background.ts) changes require extension reload
 - Content scripts update automatically on next page navigation
 - Popup scripts update when you close/reopen the popup
@@ -104,13 +113,14 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed development workflow.
 ## Notes
 
 - The extension requires authentication via your CarModPicker account
-- 2FA-enabled accounts must login via the web app first
+- OTP 2FA is supported directly in the extension login flow
 - Image uploads are handled automatically when creating parts
 - The scraper works best on standard e-commerce product pages
 
 ## Permissions
 
 The extension requires:
+
 - `activeTab`: To access the current page content
 - `storage`: To save authentication tokens and settings
 - `scripting`: To inject content scripts

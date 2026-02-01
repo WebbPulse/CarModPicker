@@ -55,20 +55,24 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     # Global part fields
     name: str
     description: str | None = None
-    price: int | None = Field(None, ge=0, le=2147483647, description="Price in cents (max 21,474,836.47)")
     image_url: str | None = None
+    product_url: str | None = None
     category_id: int
     car_id: int | None = None  # Optional car association
     brand_id: int  # Required brand association
     part_number: str | None = None
+    gtin: str | None = Field(None, description="UPC/EAN/GTIN for dedup (digits only stored)")
     specifications: dict[str, Any] | None = None
+    # Optional: link to retailer for dedup and price history
+    retailer_id: int | None = None
+    price_cents: int | None = Field(None, ge=0, le=2147483647, description="Price in cents for this retailer")
 
     # Build list part fields
     notes: str | None = None
 
-    @field_validator("price")
+    @field_validator("price_cents")
     @classmethod
-    def validate_price(cls, v: Optional[int]) -> Optional[int]:
+    def validate_price_cents(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and (v < 0 or v > 2147483647):
             raise ValueError("Price must be between 0 and 2,147,483,647 (max PostgreSQL integer)")
         return v

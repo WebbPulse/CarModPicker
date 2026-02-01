@@ -24,6 +24,17 @@ from .global_part import (
     GlobalPartReadWithVotes,
     GlobalPartUpdate,
 )
+from .part_listing import (
+    PartListingCreate,
+    PartListingRead,
+    PartListingReadWithRetailer,
+    PartListingUpdate,
+)
+from .part_price_history import (
+    PartPriceHistoryCreate,
+    PartPriceHistoryRead,
+    PartPriceHistoryReadWithRetailer,
+)
 from .report import (
     ReportCreate,
     ReportRead,
@@ -32,6 +43,7 @@ from .report import (
     ReportUpdate,
     ReportWithDetails,
 )
+from .retailer import RetailerCreate, RetailerRead, RetailerUpdate
 from .subscription import (
     SubscriptionCreate,
     SubscriptionInDB,
@@ -107,4 +119,14 @@ __all__ = [
     "BugReportWithDetails",
     "BugReportStatus",
     "BugReportPriority",
+    "RetailerCreate",
+    "RetailerRead",
+    "RetailerUpdate",
+    "PartListingCreate",
+    "PartListingRead",
+    "PartListingReadWithRetailer",
+    "PartListingUpdate",
+    "PartPriceHistoryCreate",
+    "PartPriceHistoryRead",
+    "PartPriceHistoryReadWithRetailer",
 ]

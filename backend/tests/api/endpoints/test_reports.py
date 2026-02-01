@@ -202,7 +202,6 @@ class TestUnifiedReports:
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
             "category_id": category.id,
-            "price": 9999,  # price in cents (99.99)
             "brand_id": brand.id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)

@@ -20,6 +20,7 @@ from .api.endpoints import (
     global_parts,
     images,
     reports,
+    retailers,
     search,
     subscriptions,
     users,
@@ -193,6 +194,12 @@ endpoint_registry.register_crud_endpoint(
     brands.router,
     entity_name="brands",
     description="Brand management operations",
+)
+
+endpoint_registry.register_crud_endpoint(
+    retailers.router,
+    entity_name="retailers",
+    description="Retailer (store) management operations",
 )
 
 # Search endpoint

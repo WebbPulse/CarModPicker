@@ -6,6 +6,7 @@ import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DangerousActionDialog from '../../components/common/DangerousActionDialog';
+import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -71,6 +72,17 @@ function AdminDashboard() {
   } | null>(null);
   const [currentRevision, setCurrentRevision] = useState<string | null>(null);
   const [isLoadingRevision, setIsLoadingRevision] = useState(false);
+  const [orphanedResult, setOrphanedResult] = useState<{
+    count: number;
+    total_bucket: number;
+    total_referenced: number;
+    orphaned_keys: string[];
+  } | null>(null);
+  const [isListingOrphaned, setIsListingOrphaned] = useState(false);
+  const [isPurgingOrphaned, setIsPurgingOrphaned] = useState(false);
+  const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] =
+    useState(false);
+  const [purgeOrphanError, setPurgeOrphanError] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -244,6 +256,38 @@ function AdminDashboard() {
       );
     } finally {
       setIsDeletingAllCars(false);
+    }
+  };
+
+  const handleListOrphaned = async () => {
+    setIsListingOrphaned(true);
+    setOrphanedResult(null);
+    try {
+      const response = await imageApi.getOrphanedBucketObjects();
+      setOrphanedResult(response.data);
+    } catch {
+      setOrphanedResult(null);
+    } finally {
+      setIsListingOrphaned(false);
+    }
+  };
+
+  const handleConfirmPurgeOrphaned = async () => {
+    setIsPurgingOrphaned(true);
+    setPurgeOrphanError(null);
+    try {
+      await imageApi.purgeOrphanedBucketObjects();
+      setIsPurgeOrphanConfirmOpen(false);
+      setOrphanedResult(null);
+      await fetchCounts();
+    } catch (error) {
+      setPurgeOrphanError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to purge orphaned bucket objects.'
+      );
+    } finally {
+      setIsPurgingOrphaned(false);
     }
   };
 
@@ -551,6 +595,109 @@ function AdminDashboard() {
           </div>
         </Card>
       </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Storage / Bucket" />
+          <div className="p-6 bg-cyan-900/20 border-2 border-cyan-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-cyan-400 mb-2">
+                Railway bucket orphan cleanup
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Bucket objects that are not referenced by any entity (global
+                parts, users, cars, build lists, image cache) can be safely
+                removed to free space. This is non-destructive: only orphaned
+                objects are deleted; no entity loses its images.
+              </p>
+              <p className="text-sm text-neutral-400 mb-4">
+                Total bucket objects:{' '}
+                <span className="font-semibold text-white">
+                  {counts.bucketObjects?.toLocaleString() ?? '—'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => void handleListOrphaned()}
+                disabled={isListingOrphaned}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              >
+                {isListingOrphaned ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Listing...
+                  </span>
+                ) : (
+                  'List orphaned (dry run)'
+                )}
+              </ActionButton>
+              <ActionButton
+                onClick={() => {
+                  setPurgeOrphanError(null);
+                  setIsPurgeOrphanConfirmOpen(true);
+                }}
+                disabled={isPurgingOrphaned}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isPurgingOrphaned ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Purging...
+                  </span>
+                ) : (
+                  'Purge orphaned objects'
+                )}
+              </ActionButton>
+            </div>
+            {orphanedResult && (
+              <div className="p-4 rounded-lg border border-cyan-700 bg-gray-900/50">
+                <p className="text-neutral-300 mb-2">
+                  <span className="font-semibold text-cyan-400">
+                    {orphanedResult.count.toLocaleString()}
+                  </span>{' '}
+                  orphaned object(s) of{' '}
+                  <span className="font-semibold">
+                    {orphanedResult.total_bucket.toLocaleString()}
+                  </span>{' '}
+                  total in bucket (
+                  {orphanedResult.total_referenced.toLocaleString()} referenced
+                  by entities).
+                </p>
+                {orphanedResult.orphaned_keys.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                      Show key list (first 50)
+                    </summary>
+                    <pre className="mt-2 p-2 bg-gray-800 rounded text-xs text-neutral-300 overflow-x-auto max-h-48 overflow-y-auto">
+                      {orphanedResult.orphaned_keys.slice(0, 50).join('\n')}
+                      {orphanedResult.orphaned_keys.length > 50 &&
+                        `\n... and ${orphanedResult.orphaned_keys.length - 50} more`}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <DeleteConfirmationDialog
+        isOpen={isPurgeOrphanConfirmOpen}
+        onClose={() => {
+          setIsPurgeOrphanConfirmOpen(false);
+          setPurgeOrphanError(null);
+        }}
+        onConfirm={() => void handleConfirmPurgeOrphaned()}
+        itemName="orphaned bucket objects (only unreferenced images)"
+        itemType="storage"
+        isProcessing={isPurgingOrphaned}
+        error={purgeOrphanError}
+      />
 
       <div className="mt-6">
         <Card>

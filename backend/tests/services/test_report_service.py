@@ -105,7 +105,6 @@ class TestReportService:
         global_part = GlobalPart(
             name=get_unique_name("test_part"),
             description="Test part",
-            price=1000,
             user_id=other_user.id,
             category_id=category.id,
             brand_id=brand.id,
@@ -289,7 +288,6 @@ class TestReportService:
         global_part = GlobalPart(
             name=get_unique_name("test_part2"),
             description="Test part",
-            price=1000,
             user_id=other_user.id,
             category_id=category.id,
             brand_id=brand.id,

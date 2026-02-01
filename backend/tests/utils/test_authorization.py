@@ -26,7 +26,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,
         )
         assert can_delete_global_part(test_user, global_part) is True
@@ -48,7 +47,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,  # Owned by different user
         )
         assert can_delete_global_part(admin_user, global_part) is True
@@ -70,7 +68,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,  # Owned by different user
         )
         assert can_delete_global_part(other_user, global_part) is False
@@ -80,7 +77,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,
         )
         assert can_edit_global_part(test_user, global_part) is True
@@ -102,7 +98,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,
         )
         assert can_edit_global_part(admin_user, global_part) is True
@@ -198,7 +193,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,
         )
 
@@ -225,7 +219,6 @@ class TestAuthorization:
         global_part = GlobalPart(
             name="Test Part",
             description="Test",
-            price=1000,
             user_id=test_user.id,
         )
 

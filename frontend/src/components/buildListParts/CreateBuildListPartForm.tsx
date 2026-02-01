@@ -52,7 +52,6 @@ function CreateBuildListPartForm({
     part_number: '',
     brand_id: null as number | null,
     description: '',
-    price: '',
     product_url: '',
     category_id: null as number | null,
     car_id: null as number | null,
@@ -187,37 +186,6 @@ function CreateBuildListPartForm({
     // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
-  const handlePriceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const value = e.target.value.trim();
-    if (value === '') {
-      setFormData((prev) => ({ ...prev, price: '' }));
-      return;
-    }
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue >= 0) {
-      const formatted = numValue.toFixed(2);
-      setFormData((prev) => ({ ...prev, price: formatted }));
-    }
-  };
-
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    // Allow empty value
-    if (value === '') {
-      setFormData((prev) => ({ ...prev, price: '' }));
-      if (validationError) setValidationError(null);
-      return;
-    }
-
-    // Allow only numbers and one decimal point
-    if (/^\d*\.?\d*$/.test(value)) {
-      // Store the raw value while typing - don't format until blur
-      setFormData((prev) => ({ ...prev, price: value }));
-      if (validationError) setValidationError(null);
-    }
-  };
-
   const handleCarChange = useCallback(
     (carId: number | string | null) => {
       const numericCarId = carId ? Number(carId) : null;
@@ -278,7 +246,7 @@ function CreateBuildListPartForm({
         return {
           id: part.id,
           value: part.id,
-          label: `${part.name}${brandName ? ` - ${brandName}` : ''}${part.price ? ` - $${(part.price / 100).toFixed(2)}` : ''}`,
+          label: `${part.name}${brandName ? ` - ${brandName}` : ''}${part.best_price_cents != null ? ` - $${(part.best_price_cents / 100).toFixed(2)}` : ''}`,
         };
       });
   }, [globalParts, brands]);
@@ -486,9 +454,6 @@ function CreateBuildListPartForm({
         const globalPartData: GlobalPartCreate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          price: formData.price
-            ? Math.round(parseFloat(formData.price) * 100)
-            : null,
           image_url: imageFileKey || null,
           product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
@@ -567,7 +532,6 @@ function CreateBuildListPartForm({
         part_number: '',
         brand_id: null,
         description: '',
-        price: '',
         product_url: '',
         category_id: null,
         car_id: null,
@@ -718,18 +682,6 @@ function CreateBuildListPartForm({
             value={formData.description}
             onChange={handleInputChange}
             placeholder="Enter part description"
-          />
-
-          <Input
-            label="Price"
-            id="global-part-price"
-            name="price"
-            type="text"
-            value={formData.price}
-            onChange={handlePriceChange}
-            onBlur={handlePriceBlur}
-            placeholder="0.00"
-            leftIcon={<span className="text-white/80 font-medium">$</span>}
           />
 
           <div>
@@ -956,10 +908,13 @@ function CreateBuildListPartForm({
                                   </p>
                                 )}
                               </div>
-                              {selectedPart.price && (
+                              {selectedPart.best_price_cents != null && (
                                 <div className="ml-4 text-right flex-shrink-0">
                                   <span className="text-lg font-semibold text-green-400">
-                                    ${(selectedPart.price / 100).toFixed(2)}
+                                    $
+                                    {(
+                                      selectedPart.best_price_cents / 100
+                                    ).toFixed(2)}
                                   </span>
                                 </div>
                               )}
