@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PartPriceHistoryReadWithRetailer } from '../../types/Api';
 
 /** Distinct colors for retailer lines - visible on dark backgrounds */
@@ -39,26 +40,60 @@ export default function PriceHistoryLineChart({
   const chartData = useMemo(() => {
     if (data.length === 0) return null;
 
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const todayTime = today.getTime();
+    // Aggregate to one point per (retailer, calendar day) - keep latest observation per day
+    // Use local timezone so dates align with user's local calendar
+    const dayKey = (iso: string) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const dayStartMs = (iso: string) => {
+      const d = new Date(iso);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    };
+    const byRetailerDay = new Map<string, PartPriceHistoryReadWithRetailer>();
+    for (const d of data) {
+      const key = `${d.retailer_name}\0${dayKey(d.observed_at)}`;
+      const existing = byRetailerDay.get(key);
+      if (
+        !existing ||
+        new Date(d.observed_at).getTime() >
+          new Date(existing.observed_at).getTime()
+      ) {
+        byRetailerDay.set(key, d);
+      }
+    }
+    const aggregated = [...byRetailerDay.values()];
 
-    const dates = data.map((d) => new Date(d.observed_at).getTime());
+    const today = new Date();
+
+    const dates = aggregated.map((d) => dayStartMs(d.observed_at));
     const oldestData = Math.min(...dates);
     const newestData = Math.max(...dates);
 
-    // X-axis: oldest (left) to newest (right). Use a minimum range when few points so scale/labels make sense.
-    let xMin = Math.min(oldestData, todayTime);
-    let xMax = Math.max(newestData, todayTime);
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+    // X-axis: snap to local calendar day boundaries so data points align exactly on days
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    ).getTime();
+    let xMin = Math.min(oldestData, todayStart);
+    let xMax = Math.max(newestData + MS_PER_DAY, todayStart + MS_PER_DAY);
     let xRange = xMax - xMin;
     if (xRange < MIN_X_RANGE_MS) {
-      const center = (xMin + xMax) / 2;
-      xMin = center - MIN_X_RANGE_MS / 2;
-      xMax = center + MIN_X_RANGE_MS / 2;
+      const centerDate = new Date((xMin + xMax) / 2);
+      const centerDayStart = new Date(
+        centerDate.getFullYear(),
+        centerDate.getMonth(),
+        centerDate.getDate()
+      ).getTime();
+      xMin = centerDayStart - MIN_X_RANGE_MS / 2;
+      xMax = xMin + MIN_X_RANGE_MS;
       xRange = MIN_X_RANGE_MS;
     }
 
-    const prices = data.map((d) => d.price_cents);
+    const prices = aggregated.map((d) => d.price_cents);
     const priceMin = Math.min(...prices);
     const priceMax = Math.max(...prices);
     const pricePadding = Math.max((priceMax - priceMin) * 0.1, 100);
@@ -87,7 +122,7 @@ export default function PriceHistoryLineChart({
     const yScale = (c: number) =>
       padding.top + chartHeight - ((c - yMin) / yRange) * chartHeight;
 
-    const retailers = [...new Set(data.map((d) => d.retailer_name))];
+    const retailers = [...new Set(aggregated.map((d) => d.retailer_name))];
     const retailerColors = Object.fromEntries(
       retailers.map((name, i) => [
         name,
@@ -96,10 +131,10 @@ export default function PriceHistoryLineChart({
     );
 
     const lines = retailers.map((retailerName) => {
-      const points = data
+      const points = aggregated
         .filter((d) => d.retailer_name === retailerName)
         .map((d) => ({
-          x: new Date(d.observed_at).getTime(),
+          x: dayStartMs(d.observed_at),
           y: d.price_cents,
           observedAt: d.observed_at,
         }))
@@ -127,16 +162,29 @@ export default function PriceHistoryLineChart({
 
     const formatYLabel = (v: number) => `$${(v / 100).toFixed(0)}`;
 
-    const xTicks = 5;
-    const xTickValuesRaw = Array.from({ length: xTicks + 1 }, (_, i) => {
-      const t = xMin + (xRange * i) / xTicks;
-      return new Date(t);
-    }).sort((a, b) => a.getTime() - b.getTime());
+    // X-axis ticks at local calendar day boundaries so labels align with data points
+    const xTickValuesRaw: Date[] = [];
+    const startDate = new Date(xMin);
+    const maxXTicks = 8;
+    const dayCount = Math.ceil(xRange / MS_PER_DAY);
+    const step = Math.max(1, Math.ceil(dayCount / maxXTicks));
+    let tickDate = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
+    while (tickDate.getTime() < xMax) {
+      xTickValuesRaw.push(new Date(tickDate));
+      tickDate.setDate(tickDate.getDate() + step);
+    }
+
+    // Only include ticks within the visible range so labels don't overflow or overlap
+    const visibleTicks = xTickValuesRaw.filter((d) => d.getTime() >= xMin);
 
     // Deduplicate: keep only one label per unique date
-    const xTickValues = xTickValuesRaw.filter(
+    const xTickValues = visibleTicks.filter(
       (d, i) =>
-        i === 0 || formatXLabel(d) !== formatXLabel(xTickValuesRaw[i - 1]!)
+        i === 0 || formatXLabel(d) !== formatXLabel(visibleTicks[i - 1]!)
     );
 
     // Y ticks at step intervals ($10 minimum), top to bottom
@@ -157,7 +205,7 @@ export default function PriceHistoryLineChart({
       retailerColors,
       xTickValues,
       yTickValues,
-      xTickValuesGrid: xTickValuesRaw,
+      xTickValuesGrid: visibleTicks,
       yTickValuesGrid: yTickValuesRaw,
       formatXLabel,
       formatYLabel,
@@ -167,12 +215,19 @@ export default function PriceHistoryLineChart({
   }, [data, width, height, padding]);
 
   const [hoveredPoint, setHoveredPoint] = useState<{
-    retailerName: string;
-    observedAt: string;
-    priceCents: number;
     cx: number;
     cy: number;
+    entries: Array<{
+      retailerName: string;
+      observedAt: string;
+      priceCents: number;
+    }>;
   } | null>(null);
+
+  /** Pixel distance within which points are considered co-located (multiple retailers at same spot) */
+  const CO_LOCATED_THRESHOLD = 16;
+
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const formatTooltipDate = (iso: string) =>
     new Date(iso).toLocaleString(undefined, {
@@ -195,6 +250,7 @@ export default function PriceHistoryLineChart({
   return (
     <div className="relative w-full overflow-x-auto" dir="ltr">
       <svg
+        ref={svgRef}
         width={width}
         height={height}
         className="min-w-[400px]"
@@ -215,7 +271,7 @@ export default function PriceHistoryLineChart({
             strokeDasharray="4 4"
           />
         ))}
-        {xTickValuesGrid.slice(1, -1).map((d) => (
+        {xTickValuesGrid.map((d) => (
           <line
             key={`grid-x-${d.getTime()}`}
             x1={chartData.xScale(d.getTime())}
@@ -242,7 +298,7 @@ export default function PriceHistoryLineChart({
           </text>
         ))}
 
-        {/* X-axis labels */}
+        {/* X-axis labels - center all under their grid lines for consistent alignment */}
         {xTickValues.map((d) => (
           <text
             key={`x-${d.getTime()}`}
@@ -277,7 +333,9 @@ export default function PriceHistoryLineChart({
 
         {/* Data lines - use full color always; dim non-hovered when hovering */}
         {lines.map(({ retailerName, color, pathD, points }) => {
-          const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+          const isHoveredLine = hoveredPoint?.entries.some(
+            (e) => e.retailerName === retailerName
+          );
           const strokeColor = color;
           const strokeOpacity = hoveredPoint ? (isHoveredLine ? 1 : 0.25) : 1;
           const lastPoint = points[points.length - 1];
@@ -306,11 +364,15 @@ export default function PriceHistoryLineChart({
                 onMouseEnter={() =>
                   lastPoint &&
                   setHoveredPoint({
-                    retailerName,
-                    observedAt: lastPoint.observedAt,
-                    priceCents: lastPoint.y,
                     cx: chartData.xScale(lastPoint.x),
                     cy: chartData.yScale(lastPoint.y),
+                    entries: [
+                      {
+                        retailerName,
+                        observedAt: lastPoint.observedAt,
+                        priceCents: lastPoint.y,
+                      },
+                    ],
                   })
                 }
                 onMouseLeave={() => setHoveredPoint(null)}
@@ -325,7 +387,9 @@ export default function PriceHistoryLineChart({
           points.map((p) => {
             const cx = chartData.xScale(p.x);
             const cy = chartData.yScale(p.y);
-            const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+            const isHoveredLine = hoveredPoint?.entries.some(
+              (e) => e.retailerName === retailerName
+            );
             const pointColor =
               hoveredPoint && !isHoveredLine ? '#6b7280' : color;
             const pointOpacity = hoveredPoint && !isHoveredLine ? 0.4 : 1;
@@ -336,15 +400,29 @@ export default function PriceHistoryLineChart({
                   cy={cy}
                   r={12}
                   fill="transparent"
-                  onMouseEnter={() =>
-                    setHoveredPoint({
-                      retailerName,
-                      observedAt: p.observedAt,
-                      priceCents: p.y,
-                      cx,
-                      cy,
-                    })
-                  }
+                  onMouseEnter={() => {
+                    const entries: Array<{
+                      retailerName: string;
+                      observedAt: string;
+                      priceCents: number;
+                    }> = [];
+                    for (const line of lines) {
+                      for (const pt of line.points) {
+                        const pcx = chartData.xScale(pt.x);
+                        const pcy = chartData.yScale(pt.y);
+                        if (
+                          Math.hypot(cx - pcx, cy - pcy) <= CO_LOCATED_THRESHOLD
+                        ) {
+                          entries.push({
+                            retailerName: line.retailerName,
+                            observedAt: pt.observedAt,
+                            priceCents: pt.y,
+                          });
+                        }
+                      }
+                    }
+                    setHoveredPoint({ cx, cy, entries });
+                  }}
                   onMouseLeave={() => setHoveredPoint(null)}
                   className="cursor-pointer"
                 />
@@ -367,30 +445,45 @@ export default function PriceHistoryLineChart({
         )}
       </svg>
 
-      {/* Hover tooltip */}
-      {hoveredPoint && (
-        <div
-          className="pointer-events-none absolute z-10 rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-lg"
-          style={{
-            left: hoveredPoint.cx,
-            top: hoveredPoint.cy,
-            transform: 'translate(-50%, calc(-100% - 10px))',
-          }}
-        >
-          <div className="font-medium">{hoveredPoint.retailerName}</div>
-          <div className="mt-0.5 text-gray-300">
-            {formatTooltipDate(hoveredPoint.observedAt)}
-          </div>
-          <div className="mt-0.5 font-medium">
-            ${(hoveredPoint.priceCents / 100).toFixed(2)}
-          </div>
-        </div>
-      )}
+      {/* Hover tooltip - rendered via portal so it can overflow outside the chart container */}
+      {hoveredPoint &&
+        svgRef.current &&
+        (() => {
+          const rect = svgRef.current.getBoundingClientRect();
+          return createPortal(
+            <div
+              className="pointer-events-none fixed z-[9999] rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-lg"
+              style={{
+                left: rect.left + hoveredPoint.cx,
+                top: rect.top + hoveredPoint.cy,
+                transform: 'translate(-50%, calc(-100% - 10px))',
+              }}
+            >
+              {hoveredPoint.entries.map((entry, i) => (
+                <div
+                  key={`${entry.retailerName}-${entry.observedAt}-${i}`}
+                  className={i > 0 ? 'mt-2 border-t border-gray-600 pt-2' : ''}
+                >
+                  <div className="font-medium">{entry.retailerName}</div>
+                  <div className="mt-0.5 text-gray-300">
+                    {formatTooltipDate(entry.observedAt)}
+                  </div>
+                  <div className="mt-0.5 font-medium">
+                    ${(entry.priceCents / 100).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>,
+            document.body
+          );
+        })()}
 
       {/* Legend - dim non-hovered when a point is hovered */}
       <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
         {lines.map(({ retailerName, color }) => {
-          const isHoveredLine = hoveredPoint?.retailerName === retailerName;
+          const isHoveredLine = hoveredPoint?.entries.some(
+            (e) => e.retailerName === retailerName
+          );
           const dimmed = hoveredPoint && !isHoveredLine;
           return (
             <div

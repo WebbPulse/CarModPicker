@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import Optional
 from urllib.parse import urlparse
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.models.brand import Brand as DBBrand
@@ -171,12 +171,30 @@ def create_or_update_listing_and_price(
 
     if price_cents is not None and price_cents >= 0:
         ts = observed_at or datetime.now(UTC)
-        history = DBPartPriceHistory(
-            part_listing_id=listing.id,
-            price_cents=price_cents,
-            observed_at=ts,
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        target_date = ts.date()
+
+        # Max one price record per listing per calendar day (UTC); upsert if same day
+        existing = (
+            db.query(DBPartPriceHistory)
+            .filter(
+                DBPartPriceHistory.part_listing_id == listing.id,
+                func.date(DBPartPriceHistory.observed_at) == target_date,
+            )
+            .first()
         )
-        db.add(history)
+        if existing:
+            existing.price_cents = price_cents
+            existing.observed_at = ts
+            db.add(existing)
+        else:
+            history = DBPartPriceHistory(
+                part_listing_id=listing.id,
+                price_cents=price_cents,
+                observed_at=ts,
+            )
+            db.add(history)
         db.flush()
         listing.last_known_price_cents = price_cents
         listing.last_price_updated_at = ts
