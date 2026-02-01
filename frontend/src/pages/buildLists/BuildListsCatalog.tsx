@@ -8,14 +8,15 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListsApi, carsApi } from '../../services/Api';
-import type { CarRead } from '../../types/Api';
 import {
   BUILD_LISTS_CATALOG_ITEMS_PER_PAGE,
   FEATURED_BUILD_LISTS_LIMIT,
   LARGE_FETCH_LIMIT,
 } from '../../constants';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { buildListsApi, carsApi } from '../../services/Api';
+import type { CarRead } from '../../types/Api';
+import { getManufacturerLogoUrl } from '../../utils/assetPaths';
 
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -28,6 +29,9 @@ const BuildListsCatalog: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = BUILD_LISTS_CATALOG_ITEMS_PER_PAGE;
+  const [manufacturerLogoErrors, setManufacturerLogoErrors] = useState<
+    Set<string>
+  >(new Set());
 
   // Fetch featured build lists (top 4 voted)
   const fetchFeaturedBuildListsFn = useCallback(
@@ -202,18 +206,33 @@ const BuildListsCatalog: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
-                  {availableMakes.map((make) => (
-                    <Card
-                      key={make}
-                      onClick={() => setSelectedMake(make)}
-                      interactive
-                      className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
-                    >
-                      <h4 className="text-lg font-semibold text-gray-200">
-                        {make}
-                      </h4>
-                    </Card>
-                  ))}
+                  {availableMakes.map((make) => {
+                    const logoFailed = manufacturerLogoErrors.has(make);
+                    return (
+                      <Card
+                        key={make}
+                        onClick={() => setSelectedMake(make)}
+                        interactive
+                        className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors flex flex-col items-center justify-center min-h-[100px]"
+                      >
+                        {!logoFailed ? (
+                          <img
+                            src={getManufacturerLogoUrl(make)}
+                            alt={make}
+                            className="h-10 w-auto max-w-full object-contain mb-2"
+                            onError={() => {
+                              setManufacturerLogoErrors((prev) =>
+                                new Set(prev).add(make)
+                              );
+                            }}
+                          />
+                        ) : null}
+                        <h4 className="text-lg font-semibold text-gray-200">
+                          {make}
+                        </h4>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </Card>
