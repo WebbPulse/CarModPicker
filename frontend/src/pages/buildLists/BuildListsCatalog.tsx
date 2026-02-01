@@ -14,9 +14,8 @@ import {
   LARGE_FETCH_LIMIT,
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListsApi, carsApi } from '../../services/Api';
+import { assetsApi, buildListsApi, carsApi } from '../../services/Api';
 import type { CarRead } from '../../types/Api';
-import { getManufacturerLogoUrl } from '../../utils/assetPaths';
 
 const BuildListsCatalog: React.FC = () => {
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -29,9 +28,9 @@ const BuildListsCatalog: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = BUILD_LISTS_CATALOG_ITEMS_PER_PAGE;
-  const [manufacturerLogoErrors, setManufacturerLogoErrors] = useState<
-    Set<string>
-  >(new Set());
+  const [manufacturerLogoUrls, setManufacturerLogoUrls] = useState<
+    Record<string, string>
+  >({});
 
   // Fetch featured build lists (top 4 voted)
   const fetchFeaturedBuildListsFn = useCallback(
@@ -86,6 +85,26 @@ const BuildListsCatalog: React.FC = () => {
       setAvailableMakes(makes);
     }
   }, [makeStats]);
+
+  // Fetch presigned logo URLs from backend (assets in storage bucket)
+  const fetchAssetUrlsFn = useCallback(
+    () => assetsApi.getAssetUrls({ manufacturers: availableMakes }),
+    [availableMakes]
+  );
+  const { data: assetUrlsData, executeRequest: fetchAssetUrls } =
+    useApiRequest(fetchAssetUrlsFn);
+  useEffect(() => {
+    if (availableMakes.length > 0) {
+      void fetchAssetUrls();
+    } else {
+      setManufacturerLogoUrls({});
+    }
+  }, [availableMakes.length, fetchAssetUrls]);
+  useEffect(() => {
+    if (assetUrlsData?.manufacturers) {
+      setManufacturerLogoUrls(assetUrlsData.manufacturers);
+    }
+  }, [assetUrlsData]);
 
   useEffect(() => {
     if (selectedMake) {
@@ -207,7 +226,7 @@ const BuildListsCatalog: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                   {availableMakes.map((make) => {
-                    const logoFailed = manufacturerLogoErrors.has(make);
+                    const logoUrl = manufacturerLogoUrls[make];
                     return (
                       <Card
                         key={make}
@@ -215,16 +234,11 @@ const BuildListsCatalog: React.FC = () => {
                         interactive
                         className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors flex flex-col items-center justify-center min-h-[100px]"
                       >
-                        {!logoFailed ? (
+                        {logoUrl ? (
                           <img
-                            src={getManufacturerLogoUrl(make)}
+                            src={logoUrl}
                             alt={make}
                             className="h-10 w-auto max-w-full object-contain mb-2"
-                            onError={() => {
-                              setManufacturerLogoErrors((prev) =>
-                                new Set(prev).add(make)
-                              );
-                            }}
                           />
                         ) : null}
                         <h4 className="text-lg font-semibold text-gray-200">

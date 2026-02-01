@@ -179,6 +179,11 @@ class Settings(BaseSettings):
         default=86400,
         description="Presigned URL expiration time in seconds (default: 24 hours, max: 90 days)",
     )
+    # Local directory for static UI assets (manufacturer logos, category icons). Synced to bucket on startup if missing.
+    STATIC_ASSETS_DIR: str = Field(
+        default="",
+        description="Path to static_assets directory (default: backend/static_assets relative to app root)",
+    )
 
     @property
     def allowed_image_extensions_list(self) -> list[str]:
