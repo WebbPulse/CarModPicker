@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -63,30 +64,6 @@ def create_and_login_admin_user(
     token = token_response.json()["access_token"]
 
     return admin_user.__dict__, token
-
-
-def create_car_via_admin(
-    client: TestClient,
-    admin_token: str,
-    make: str = "Toyota",
-    model: str = "Camry",
-    generation_name: str = "8th Gen",
-    start_year: int = 2018,
-    end_year: int = 2024,
-) -> Dict[str, Any]:
-    """Create a car via admin endpoint and return the created car data."""
-    headers = get_auth_headers(admin_token)
-    car_data = {
-        "make": make,
-        "model": model,
-        "generation_name": generation_name,
-        "start_year": start_year,
-        "end_year": end_year,
-    }
-
-    response = client.post(f"{settings.API_STR}/cars/admin/cars", json=car_data, headers=headers)
-    assert response.status_code == 200, f"Failed to create car: {response.text}"
-    return response.json()
 
 
 def create_test_image() -> io.BytesIO:
@@ -165,9 +142,8 @@ class TestImages:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that user can only upload images for their own build lists."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -208,9 +184,8 @@ class TestImages:
 
     def test_upload_image_car_admin_only(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test that only admins can upload images for cars."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Regular user tries to upload image for car (should fail)
         token = get_auth_token(client, test_user.username)
@@ -371,9 +346,8 @@ class TestImages:
 
     def test_upload_image_build_log_post(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test uploading an image for a build log post."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a build list
         token = get_auth_token(client, test_user.username)
@@ -420,9 +394,8 @@ class TestImages:
         self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
     ) -> None:
         """Test uploading an image for a global part."""
-        # Create a car first (requires admin)
-        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
-        car = create_car_via_admin(client, admin_token)
+        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
+        car = create_car_in_db(db_session)
 
         # Create a global part
         token = get_auth_token(client, test_user.username)

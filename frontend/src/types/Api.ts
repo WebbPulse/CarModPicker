@@ -21,6 +21,12 @@ export interface UserRead {
   subscription_status: string;
   subscription_expires_at?: string | null;
   totp_enabled: boolean;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  reddit_url?: string | null;
+  youtube_url?: string | null;
+  tiktok_url?: string | null;
+  session_expire_minutes?: number | null;
 }
 
 export interface UserCreate {
@@ -37,6 +43,12 @@ export interface UserUpdate {
   image_url?: string | null;
   current_password?: string | null;
   otp?: string | null; // Required if 2FA is enabled and changing password
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  reddit_url?: string | null;
+  youtube_url?: string | null;
+  tiktok_url?: string | null;
+  session_expire_minutes?: number | null;
 }
 
 export interface AdminUserUpdate {

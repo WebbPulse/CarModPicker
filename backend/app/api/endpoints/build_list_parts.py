@@ -311,7 +311,7 @@ async def create_global_part_and_add_to_build_list(
             build_list_id=build_list_id,
             global_part_id=existing_part.id,
             added_by=current_user.id,
-            quantity=1,
+            quantity=request.quantity,
             notes=request.notes,
         )
         db.add(db_build_list_part)
@@ -370,7 +370,7 @@ async def create_global_part_and_add_to_build_list(
         build_list_id=build_list_id,
         global_part_id=db_global_part.id,
         added_by=current_user.id,
-        quantity=1,
+        quantity=request.quantity,
         notes=request.notes,
     )
     db.add(db_build_list_part)

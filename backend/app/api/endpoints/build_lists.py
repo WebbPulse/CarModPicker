@@ -31,7 +31,6 @@ from app.api.utils.common_patterns import (
     get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
-    verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
@@ -357,26 +356,23 @@ async def read_my_build_lists(
 @router.get(
     "/user/{user_id}",
     response_model=List[BuildListRead],
-    responses=pagination_responses("build list", allow_public_read=False),
+    responses=pagination_responses("build list", allow_public_read=True),
 )
 async def read_build_lists_by_user(
     user_id: int,
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListRead]:
     """
-    Retrieve all build lists owned by a specific user with pagination.
-    Users can only access their own build lists, or admins can access any user's build lists.
+    Retrieve all build lists owned by a specific user.
+    Public endpoint - build lists are discoverable via search and catalog, so listing by user is allowed for profile pages.
     """
     db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
-
-    # Check authorization - users can only access their own build lists, or admins can access any
-    verify_user_access_or_admin(current_user, user_id, "access this user's build lists", logger)
 
     build_lists = db.query(DBBuildList).filter(DBBuildList.user_id == user_id).offset(skip).limit(limit).all()
     if not build_lists:

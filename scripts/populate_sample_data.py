@@ -85,6 +85,9 @@ from app.api.models.vote import Vote  # pyright: ignore[reportMissingImports]
 from app.core.car_generations_data import (  # pyright: ignore[reportMissingImports]
     get_all_car_generations,
 )
+from app.core.part_categories_data import (  # pyright: ignore[reportMissingImports]
+    get_all_part_categories,
+)
 from app.db.base import (  # pyright: ignore[reportMissingImports]
     Base,
 )  # Import Base to ensure all models are registered  # pyright: ignore[reportMissingImports]
@@ -323,62 +326,11 @@ def create_sample_users(db: Session) -> list[User]:
 
 
 def create_sample_categories(db: Session) -> list[Category]:
-    """Create sample categories."""
+    """Create sample categories from canonical part_categories_data (same as init_categories)."""
     start_time = time.time()
     log_section("Creating sample categories...")
 
-    categories_data = [
-        {
-            "name": "exhaust",
-            "display_name": "Exhaust Systems",
-            "description": "Exhaust systems, mufflers, headers, and related components",
-            "icon": "??",
-            "sort_order": 1,
-        },
-        {
-            "name": "suspension",
-            "display_name": "Suspension",
-            "description": "Coilovers, springs, struts, and suspension components",
-            "icon": "??",
-            "sort_order": 2,
-        },
-        {
-            "name": "engine",
-            "display_name": "Engine Performance",
-            "description": "Turbochargers, superchargers, intakes, and engine mods",
-            "icon": "??",
-            "sort_order": 3,
-        },
-        {
-            "name": "wheels",
-            "display_name": "Wheels & Tires",
-            "description": "Wheels, rims, tires, and wheel accessories",
-            "icon": "?",
-            "sort_order": 4,
-        },
-        {
-            "name": "body",
-            "display_name": "Body & Aero",
-            "description": "Body kits, spoilers, splitters, and aerodynamic components",
-            "icon": "???",
-            "sort_order": 5,
-        },
-        {
-            "name": "interior",
-            "display_name": "Interior",
-            "description": "Seats, steering wheels, shift knobs, and interior mods",
-            "icon": "??",
-            "sort_order": 6,
-        },
-        {
-            "name": "brakes",
-            "display_name": "Brakes",
-            "description": "Brake pads, rotors, calipers, and brake systems",
-            "icon": "??",
-            "sort_order": 7,
-        },
-    ]
-
+    categories_data = get_all_part_categories()
     categories = []
     created_count = 0
     for cat_data in categories_data:

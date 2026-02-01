@@ -9,14 +9,19 @@ import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import ImageWithPlaceholder from '../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
-import { buildListsApi, globalPartsApi } from '../services/Api';
+import {
+  brandsApi,
+  buildListsApi,
+  globalPartsApi,
+  retailersApi,
+} from '../services/Api';
 import type {
   BuildListReadWithVotes,
   GlobalPartReadWithVotes,
 } from '../types/Api';
-import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
@@ -61,10 +66,28 @@ export default function HomePage() {
     executeRequest: fetchPopularParts,
   } = useApiRequest(fetchPopularPartsFn);
 
+  // Stats bar: retailers and brands count
+  const fetchRetailersCountFn = useCallback(
+    () => retailersApi.countRetailers(),
+    []
+  );
+  const fetchBrandsCountFn = useCallback(() => brandsApi.countBrands(), []);
+  const { data: retailersCountData, executeRequest: fetchRetailersCount } =
+    useApiRequest(fetchRetailersCountFn);
+  const { data: brandsCountData, executeRequest: fetchBrandsCount } =
+    useApiRequest(fetchBrandsCountFn);
+
   useEffect(() => {
     void fetchFeaturedBuildLists();
     void fetchPopularParts();
-  }, [fetchFeaturedBuildLists, fetchPopularParts]);
+    void fetchRetailersCount();
+    void fetchBrandsCount();
+  }, [
+    fetchFeaturedBuildLists,
+    fetchPopularParts,
+    fetchRetailersCount,
+    fetchBrandsCount,
+  ]);
 
   useEffect(() => {
     if (featuredBuildListsData?.data) {
@@ -353,7 +376,7 @@ export default function HomePage() {
         {/* Stats Banner */}
         <div className="mt-12">
           <Card className="glass-card">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center max-w-2xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center max-w-4xl mx-auto">
               <div className="animate-slideInUp">
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
                   {featuredBuildListsData?.pagination?.total_items ?? '—'}
@@ -367,7 +390,25 @@ export default function HomePage() {
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
                   {popularPartsData?.pagination?.total_items ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">Parts Catalog</div>
+                <div className="text-sm text-neutral-400">Parts</div>
+              </div>
+              <div
+                className="animate-slideInUp"
+                style={{ animationDelay: '0.2s' }}
+              >
+                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                  {retailersCountData?.count ?? '—'}
+                </div>
+                <div className="text-sm text-neutral-400">Retailers</div>
+              </div>
+              <div
+                className="animate-slideInUp"
+                style={{ animationDelay: '0.3s' }}
+              >
+                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                  {brandsCountData?.count ?? '—'}
+                </div>
+                <div className="text-sm text-neutral-400">Part Brands</div>
               </div>
             </div>
           </Card>

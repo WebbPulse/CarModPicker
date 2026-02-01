@@ -35,10 +35,6 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.tsx'));
 const Support = lazy(() => import('./pages/Support.tsx'));
 const Search = lazy(() => import('./pages/Search.tsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.tsx'));
-const CarManagement = lazy(() => import('./pages/admin/CarManagement.tsx'));
-const CategoryManagement = lazy(
-  () => import('./pages/admin/CategoryManagement.tsx')
-);
 const ReportReview = lazy(() => import('./pages/admin/ReportReview.tsx'));
 const BugReportReview = lazy(() => import('./pages/admin/BugReportReview.tsx'));
 const BugReport = lazy(() => import('./pages/BugReport.tsx'));
@@ -153,11 +149,6 @@ function App() {
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/cars" element={<CarManagement />} />
-              <Route
-                path="/admin/categories"
-                element={<CategoryManagement />}
-              />
               <Route path="/admin/reports" element={<ReportReview />} />
               <Route path="/admin/bug-reports" element={<BugReportReview />} />
               <Route path="/admin/users" element={<UserManagement />} />

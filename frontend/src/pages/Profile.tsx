@@ -9,6 +9,7 @@ import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import CardInfoItem from '../components/common/CardInfoItem';
 import ImageUpload from '../components/common/ImageUpload';
+import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Divider from '../components/layout/Divider';
 import PageHeader from '../components/layout/PageHeader';
@@ -35,12 +36,32 @@ function Profile() {
     type: 'success' | 'error' | 'info';
     message: string;
   } | null>(null);
+  const [socialLinks, setSocialLinks] = useState<{
+    instagram_url: string;
+    facebook_url: string;
+    reddit_url: string;
+    youtube_url: string;
+    tiktok_url: string;
+  }>({
+    instagram_url: '',
+    facebook_url: '',
+    reddit_url: '',
+    youtube_url: '',
+    tiktok_url: '',
+  });
 
   useEffect(() => {
     if (user) {
       // Note: user.image_url is now a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
+      setSocialLinks({
+        instagram_url: user.instagram_url ?? '',
+        facebook_url: user.facebook_url ?? '',
+        reddit_url: user.reddit_url ?? '',
+        youtube_url: user.youtube_url ?? '',
+        tiktok_url: user.tiktok_url ?? '',
+      });
     }
   }, [user]);
 
@@ -97,6 +118,33 @@ function Profile() {
       setStatusMessage({
         type: 'success',
         message: 'Profile updated successfully!',
+      });
+    }
+  };
+
+  const handleSaveSocialLinks = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (!user) return;
+    setUpdateApiError(null);
+    setStatusMessage(null);
+
+    const payload: UserUpdate = {
+      instagram_url: socialLinks.instagram_url.trim() || null,
+      facebook_url: socialLinks.facebook_url.trim() || null,
+      reddit_url: socialLinks.reddit_url.trim() || null,
+      youtube_url: socialLinks.youtube_url.trim() || null,
+      tiktok_url: socialLinks.tiktok_url.trim() || null,
+    };
+
+    const result = await executeUpdateUser({ userId: user.id, data: payload });
+
+    if (result) {
+      authLogin(result);
+      setStatusMessage({
+        type: 'success',
+        message: 'Social links updated successfully!',
       });
     }
   };
@@ -288,6 +336,96 @@ function Profile() {
         </div>
       </Card>
 
+      <Card className="mt-8">
+        <SectionHeader title="Social Links" />
+        <p className="text-gray-400 text-sm mb-4">
+          Add links to your social profiles. They will be shown on your public
+          profile. Leave blank to hide.
+        </p>
+        <form
+          onSubmit={(e) => void handleSaveSocialLinks(e)}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Instagram"
+              type="url"
+              placeholder="https://instagram.com/yourusername"
+              value={socialLinks.instagram_url}
+              onChange={(e) =>
+                setSocialLinks((prev) => ({
+                  ...prev,
+                  instagram_url: e.target.value,
+                }))
+              }
+              id="instagram_url"
+              name="instagram_url"
+            />
+            <Input
+              label="Facebook"
+              type="url"
+              placeholder="https://facebook.com/yourpage"
+              value={socialLinks.facebook_url}
+              onChange={(e) =>
+                setSocialLinks((prev) => ({
+                  ...prev,
+                  facebook_url: e.target.value,
+                }))
+              }
+              id="facebook_url"
+              name="facebook_url"
+            />
+            <Input
+              label="Reddit"
+              type="url"
+              placeholder="https://reddit.com/user/yourusername"
+              value={socialLinks.reddit_url}
+              onChange={(e) =>
+                setSocialLinks((prev) => ({
+                  ...prev,
+                  reddit_url: e.target.value,
+                }))
+              }
+              id="reddit_url"
+              name="reddit_url"
+            />
+            <Input
+              label="YouTube"
+              type="url"
+              placeholder="https://youtube.com/@yourchannel"
+              value={socialLinks.youtube_url}
+              onChange={(e) =>
+                setSocialLinks((prev) => ({
+                  ...prev,
+                  youtube_url: e.target.value,
+                }))
+              }
+              id="youtube_url"
+              name="youtube_url"
+            />
+            <Input
+              label="TikTok"
+              type="url"
+              placeholder="https://tiktok.com/@yourusername"
+              value={socialLinks.tiktok_url}
+              onChange={(e) =>
+                setSocialLinks((prev) => ({
+                  ...prev,
+                  tiktok_url: e.target.value,
+                }))
+              }
+              id="tiktok_url"
+              name="tiktok_url"
+            />
+          </div>
+          <div className="pt-2">
+            <ButtonStretch type="submit" disabled={isUpdating}>
+              {isUpdating ? 'Saving...' : 'Save Social Links'}
+            </ButtonStretch>
+          </div>
+        </form>
+      </Card>
+
       {user && (
         <SecuritySettingsDialog
           isOpen={isSecurityDialogOpen}
@@ -310,6 +448,13 @@ function Profile() {
             setStatusMessage({
               type: 'success',
               message: '2FA disabled successfully!',
+            });
+            void checkAuthStatus();
+          }}
+          onSessionUpdated={() => {
+            setStatusMessage({
+              type: 'success',
+              message: 'Session length updated.',
             });
             void checkAuthStatus();
           }}

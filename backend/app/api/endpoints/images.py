@@ -369,7 +369,8 @@ async def list_orphaned_bucket_objects(
     try:
         referenced = get_all_referenced_file_keys(db)
         bucket_keys = storage_service.list_bucket_object_keys()
-        orphaned = [k for k in bucket_keys if k not in referenced]
+        # Exclude static assets (assets/) from orphan list; they are not in DB
+        orphaned = [k for k in bucket_keys if k not in referenced and not k.startswith("assets/")]
         logger.info(
             f"Admin {current_user.id} orphan dry run: {len(orphaned)} orphaned of {len(bucket_keys)} total "
             f"({len(referenced)} referenced)"
@@ -404,7 +405,8 @@ async def purge_orphaned_bucket_objects(
     try:
         referenced = get_all_referenced_file_keys(db)
         bucket_keys = storage_service.list_bucket_object_keys()
-        orphaned = [k for k in bucket_keys if k not in referenced]
+        # Exclude static assets (assets/) from orphan purge
+        orphaned = [k for k in bucket_keys if k not in referenced and not k.startswith("assets/")]
 
         deleted_keys: list[str] = []
         for key in orphaned:

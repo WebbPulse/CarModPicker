@@ -344,23 +344,61 @@ def create_car_for_user_cookie_auth(client: TestClient) -> int:
     """DEPRECATED: Create a car for the currently logged-in user.
 
     This function is deprecated since cars are now centrally managed by admins.
-    Use admin car creation endpoints instead. This function will raise an error
-    since regular users cannot create cars.
+    Use create_car_in_db() for test setup instead.
     """
     import warnings
 
     warnings.warn(
         "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
-        "Use admin car creation endpoints instead. This function will raise an error.",
+        "Use create_car_in_db(db_session, ...) for test setup instead.",
         DeprecationWarning,
         stacklevel=2,
     )
 
     raise NotImplementedError(
-        "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed by admins. "
-        "Use admin car creation endpoints (e.g., /cars/admin/cars) with an admin token instead. "
-        "See test_cars.py for examples of create_car_via_admin() helper function."
+        "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
+        "Use create_car_in_db(db_session, ...) for test setup instead."
     )
+
+
+def create_car_in_db(
+    db: Session,
+    make: str = "Honda",
+    model: str = "Civic",
+    generation_name: str = "10th Gen",
+    start_year: int = 2016,
+    end_year: int = 2021,
+    description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a car directly in the database for test setup. Cars are seeded from
+    backend source code in production; this helper is for tests that need a specific car.
+    Returns a dict with id, make, model, generation_name, start_year, end_year (API shape).
+    """
+    from app.api.models.car import Car
+
+    car = Car(
+        make=make,
+        model=model,
+        generation_name=generation_name,
+        start_year=start_year,
+        end_year=end_year,
+        description=description,
+    )
+    db.add(car)
+    db.commit()
+    db.refresh(car)
+    return {
+        "id": car.id,
+        "make": car.make,
+        "model": car.model,
+        "generation_name": car.generation_name,
+        "start_year": car.start_year,
+        "end_year": car.end_year,
+        "description": car.description,
+        "image_url": car.image_url,
+        "created_at": car.created_at.isoformat() if car.created_at else None,
+        "updated_at": car.updated_at.isoformat() if car.updated_at else None,
+    }
 
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
