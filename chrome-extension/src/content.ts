@@ -19,8 +19,23 @@ chrome.runtime.onMessage.addListener(
     }) => void
   ) => {
     if (request.action === "scrapePage") {
-      const scrapedData = scrapeProductData();
-      sendResponse({ success: true, data: scrapedData });
+      try {
+        const scrapedData = scrapeProductData();
+        sendResponse({ success: true, data: scrapedData });
+      } catch (err) {
+        // Always respond so popup doesn't get chrome.runtime.lastError
+        const fallback: ScrapedProductData = {
+          name: null,
+          description: null,
+          price: null,
+          image_url: null,
+          image_urls: [],
+          product_url: window.location.href,
+          brand: null,
+          part_number: null,
+        };
+        sendResponse({ success: true, data: fallback });
+      }
       return true; // Keep channel open for async response
     }
     return false;
@@ -28,8 +43,161 @@ chrome.runtime.onMessage.addListener(
 );
 
 /**
+ * Extract product data from JSON-LD Product schema (Shopify and most e-commerce sites).
+ * Returns partial data; DOM extractors fill in missing fields.
+ */
+function extractFromJsonLd(): Partial<ScrapedProductData> {
+  const result: Partial<ScrapedProductData> = {};
+  const scripts = document.querySelectorAll(
+    'script[type="application/ld+json"]'
+  );
+  const currentUrl = window.location.href;
+
+  for (const script of Array.from(scripts)) {
+    try {
+      const json = JSON.parse(script.textContent || "{}");
+      let items: Record<string, unknown>[] = Array.isArray(json)
+        ? (json as Record<string, unknown>[])
+        : [json as Record<string, unknown>];
+      if (
+        json &&
+        typeof json === "object" &&
+        "@graph" in json &&
+        Array.isArray((json as { "@graph"?: unknown })["@graph"])
+      ) {
+        items = (json as { "@graph": Record<string, unknown>[] })["@graph"];
+      }
+
+      for (const item of items) {
+        const type = item?.["@type"];
+        if (
+          type !== "Product" &&
+          !(Array.isArray(type) && type.includes("Product"))
+        )
+          continue;
+
+        const name = item["name"];
+        if (!result.name && name && typeof name === "string") {
+          result.name = name.trim();
+        }
+        const desc = item["description"];
+        if (!result.description && desc && typeof desc === "string") {
+          const d = desc.trim();
+          if (d.length > 10) result.description = d.substring(0, 2000);
+        }
+        if (!result.brand) {
+          const brandObj = item["brand"];
+          const brandName =
+            typeof brandObj === "string"
+              ? brandObj
+              : (brandObj as { name?: string })?.name;
+          if (
+            brandName &&
+            typeof brandName === "string" &&
+            brandName.trim().length >= 2
+          ) {
+            result.brand = brandName.trim();
+          }
+        }
+        const skuVal = item["sku"] ?? item["mpn"];
+        if (
+          !result.part_number &&
+          skuVal &&
+          typeof skuVal === "string" &&
+          skuVal.trim().length >= 2
+        ) {
+          result.part_number = skuVal.trim();
+        }
+
+        const offers = item["offers"];
+        const offer = Array.isArray(offers) ? offers[0] : offers;
+        if (offer && typeof offer === "object" && !result.price) {
+          const offerObj = offer as Record<string, unknown>;
+          const price =
+            offerObj["price"] ?? offerObj["lowPrice"] ?? offerObj["highPrice"];
+          if (price != null) {
+            const num =
+              typeof price === "string"
+                ? parseFloat(String(price).replace(/,/g, ""))
+                : Number(price);
+            if (!isNaN(num) && num > 0) {
+              const offerUrl = offerObj["url"] ?? item["url"];
+              const urlMatches =
+                !offerUrl ||
+                currentUrl.startsWith(String(offerUrl)) ||
+                (typeof offerUrl === "string" &&
+                  offerUrl.includes(new URL(currentUrl).pathname));
+              if (urlMatches) result.price = Math.round(num * 100);
+            }
+          }
+        }
+
+        const img = item["image"];
+        if (!result.image_url && !result.image_urls?.length && img) {
+          const imgs = Array.isArray(img) ? img : [img];
+          const urls: string[] = [];
+          for (const i of imgs) {
+            const url =
+              typeof i === "string" ? i : (i as { url?: string })?.url;
+            if (url && typeof url === "string") urls.push(url.trim());
+          }
+          if (urls.length > 0) {
+            result.image_urls = urls;
+            result.image_url = urls[0] ?? null;
+          }
+        }
+
+        if (result.name && result.price != null) break;
+      }
+      if (result.name || result.price != null) break;
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+
+  if (!result.name || !result.image_url) {
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle instanceof HTMLMetaElement && ogTitle.content && !result.name) {
+      const t = ogTitle.content.trim();
+      if (t.length > 5)
+        result.name = t.split("|")[0]?.split("–")[0]?.trim() || t;
+    }
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (
+      ogDesc instanceof HTMLMetaElement &&
+      ogDesc.content &&
+      !result.description
+    ) {
+      const d = ogDesc.content.trim();
+      if (d.length > 10) result.description = d.substring(0, 2000);
+    }
+    const ogImg = document.querySelector('meta[property="og:image"]');
+    if (
+      ogImg instanceof HTMLMetaElement &&
+      ogImg.content &&
+      !result.image_url
+    ) {
+      result.image_url = ogImg.content.trim();
+      result.image_urls = [result.image_url];
+    }
+    const priceMeta = document.querySelector(
+      'meta[property="product:price:amount"], meta[property="og:price:amount"]'
+    );
+    if (
+      priceMeta instanceof HTMLMetaElement &&
+      priceMeta.content &&
+      result.price == null
+    ) {
+      const num = parseFloat(priceMeta.content.replace(/,/g, ""));
+      if (!isNaN(num) && num > 0) result.price = Math.round(num * 100);
+    }
+  }
+  return result;
+}
+
+/**
  * Scrape product information from the current page
- * Uses multiple strategies to extract product data
+ * Uses JSON-LD first (Shopify, etc.), then DOM-based strategies
  */
 function scrapeProductData(): ScrapedProductData {
   const data: ScrapedProductData = {
@@ -43,25 +211,29 @@ function scrapeProductData(): ScrapedProductData {
     part_number: null,
   };
 
-  // Extract product name
-  data.name = extractProductName();
+  const jsonLd = extractFromJsonLd();
+  if (jsonLd.name) data.name = jsonLd.name;
+  if (jsonLd.description) data.description = jsonLd.description;
+  if (jsonLd.price != null) data.price = jsonLd.price;
+  if (jsonLd.brand) data.brand = jsonLd.brand;
+  if (jsonLd.part_number) data.part_number = jsonLd.part_number;
+  if (jsonLd.image_url) data.image_url = jsonLd.image_url;
+  if (jsonLd.image_urls?.length) data.image_urls = jsonLd.image_urls;
 
-  // Extract description
-  data.description = extractDescription();
+  if (!data.name) data.name = extractProductName();
+  if (!data.description) data.description = extractDescription();
+  if (data.price == null) data.price = extractPrice();
 
-  // Extract price
-  data.price = extractPrice();
+  if (data.image_urls.length === 0) {
+    const imageUrls = extractImageUrls();
+    data.image_urls = imageUrls;
+    data.image_url = imageUrls.length > 0 ? imageUrls[0] ?? null : null;
+  } else if (!data.image_url && data.image_urls.length > 0) {
+    data.image_url = data.image_urls[0] ?? null;
+  }
 
-  // Extract images (multiple for gallery)
-  const imageUrls = extractImageUrls();
-  data.image_urls = imageUrls;
-  data.image_url = imageUrls.length > 0 ? imageUrls[0] ?? null : null;
-
-  // Extract brand
-  data.brand = extractBrand();
-
-  // Extract part number/SKU
-  data.part_number = extractPartNumber();
+  if (!data.brand) data.brand = extractBrand();
+  if (!data.part_number) data.part_number = extractPartNumber();
 
   return data;
 }
@@ -176,7 +348,7 @@ function isInRelatedProductsSection(element: Element): boolean {
 function getMainProductContainer(): Element | null {
   const h1 = document.querySelector("h1");
   if (!h1 || isInHeaderNav(h1)) return null;
-  // Walk up to find a reasonable product block (main, product-detail, etc.)
+  // Walk up to find a reasonable product block (main, product-detail, Shopify themes, etc.)
   let el: HTMLElement | null = h1.parentElement;
   while (el && el.tagName !== "BODY") {
     const tag = el.tagName.toLowerCase();
@@ -184,7 +356,7 @@ function getMainProductContainer(): Element | null {
     const id = (el.id ?? "").toLowerCase();
     if (
       tag === "main" ||
-      /product-detail|product-info|product-main|product-summary|product-single/.test(
+      /product-detail|product-info|product-main|product-summary|product-single|product__media|product__info|product-template/.test(
         cls + id
       )
     ) {
@@ -201,7 +373,8 @@ function getMainProductContainer(): Element | null {
  * Avoids related products, cart subtotals ($0), and financing "per month" amounts.
  */
 function extractPrice(): number | null {
-  const pricePattern = /\$[\d,]+\.?\d*/g;
+  // Allow optional whitespace after $ (e.g. "$ 2,195.00" on Shopify/StudioRSR)
+  const pricePattern = /\$\s*[\d,]+\.?\d*/g;
   const currentUrl = window.location.href;
 
   // 1. JSON-LD Product schema (most reliable - unambiguous product price)
@@ -223,7 +396,9 @@ function extractPrice(): number | null {
             item.offers?.price ?? item.offers?.[0]?.price ?? item.price;
           if (price != null) {
             const num =
-              typeof price === "string" ? parseFloat(price) : Number(price);
+              typeof price === "string"
+                ? parseFloat(String(price).replace(/,/g, ""))
+                : Number(price);
             if (!isNaN(num) && num > 0) {
               const cents = Math.round(num * 100);
               const offerUrl =
@@ -249,7 +424,7 @@ function extractPrice(): number | null {
     'meta[property="product:price:amount"], meta[property="og:price:amount"]'
   );
   if (ogPrice instanceof HTMLMetaElement && ogPrice.content) {
-    const num = parseFloat(ogPrice.content);
+    const num = parseFloat(ogPrice.content.replace(/,/g, ""));
     if (!isNaN(num) && num > 0) return Math.round(num * 100);
   }
 
@@ -272,9 +447,12 @@ function extractPrice(): number | null {
   const structuredSelectors = [
     '[itemprop="price"]',
     "[data-price]",
+    "[data-product-price]",
+    ".price-item, .price__regular .price-item",
     '[class*="product"][class*="price"]',
     '[class*="price"][class*="product"]',
     '.product-price, .price-box, [class*="product-price"], [class*="price-box"]',
+    ".price .money, .product__price .money",
     '[class*="price"]',
   ];
 
@@ -464,6 +642,8 @@ function extractImageUrls(): string[] {
     '[class*="product"][class*="gallery"] img',
     '[class*="product"][class*="carousel"] img',
     '[class*="product"][class*="slider"] img',
+    '[class*="product__media"] img',
+    '[class*="product-media"] img',
     '[class*="gallery"] img',
     '[class*="thumbnail"] img',
     '[class*="product-image"] img',
@@ -475,6 +655,7 @@ function extractImageUrls(): string[] {
     '[itemprop="image"]',
     ".product-images img",
     ".product-gallery img",
+    ".product__media img",
     ".slick-slide img",
     ".swiper-slide img",
     ".carousel-item img",
@@ -714,7 +895,7 @@ function isCarManufacturer(text: string): boolean {
 
 /**
  * Extract brand from domain name
- * e.g., "adro.com" -> "ADRO", "martiniworks.com" -> "MartiniWorks"
+ * e.g., "adro.com" -> "ADRO", "airliftperformance.com" -> "Air Lift Performance"
  */
 function extractBrandFromDomain(): string | null {
   try {
@@ -727,6 +908,10 @@ function extractBrandFromDomain(): string | null {
     // Split by dots and take the main part
     const parts = domain.split(".");
     domain = parts[parts.length - 1] || domain;
+
+    // Prefer display name when domain is one word but brand uses spaces
+    const displayName = DOMAIN_TO_BRAND_DISPLAY_NAME[domain.toLowerCase()];
+    if (displayName) return displayName;
 
     // Capitalize appropriately (handle camelCase domains)
     if (domain.length >= 2 && domain.length <= 30) {
@@ -830,6 +1015,22 @@ function extractBrandFromSiteBranding(): string | null {
 }
 
 /**
+ * Domain stem (no www, no TLD) -> preferred brand display name.
+ * Use when the site's domain is one word but the official brand uses spaces
+ * (e.g. airliftperformance.com -> "Air Lift Performance").
+ */
+const DOMAIN_TO_BRAND_DISPLAY_NAME: Record<string, string> = {
+  airliftperformance: "Air Lift Performance",
+  airlift: "Air Lift",
+  vividracing: "Vivid Racing",
+  tirerack: "Tire Rack",
+  summitracing: "Summit Racing",
+  rockauto: "RockAuto",
+  fcpeuro: "FCP Euro",
+  turnermotorsport: "Turner Motorsport",
+};
+
+/**
  * Comprehensive list of known car part brands
  * Used for pattern matching and validation
  */
@@ -861,6 +1062,7 @@ const KNOWN_CAR_PART_BRANDS = [
   "Eibach",
   "Swift",
   "Ground Control",
+  "Air Lift Performance",
 
   // Engine/Tuning
   "APR",
@@ -939,6 +1141,8 @@ const KNOWN_CAR_PART_BRANDS = [
   "Anzo",
 
   // Other
+  "Studio RSR",
+  "StudioRSR",
   "Active",
   "Autowerke",
   "ECS Tuning",
@@ -1512,6 +1716,7 @@ function normalizePartNumber(raw: string): string {
     /^SKU\s*:\s*/i,
     /^Part\s*#\s*:\s*/i,
     /^Part\s*Number\s*:\s*/i,
+    /^P\/N\s*:\s*/i,
     /^Item\s*#\s*:\s*/i,
     /^Product\s*Code\s*:\s*/i,
     /^Model\s*#?\s*:?\s*/i,
@@ -1534,6 +1739,8 @@ function looksLikePartNumber(s: string): boolean {
   // Reject car model names (multiple words, or common vehicle terms)
   if (/\s{2,}/.test(t) || /^(base|premium|launch|edition)$/i.test(t))
     return false;
+  // Allow all-numeric if 5+ digits (e.g. 78587, 78687 - common part number format)
+  if (/^\d{5,}$/.test(t)) return true;
   // Part numbers: alphanumeric with hyphens/dots; must contain at least one letter
   if (!/[A-Za-z]/.test(t)) return false;
   return /^[A-Za-z0-9\-\.]+$/.test(t);
@@ -1544,6 +1751,16 @@ function looksLikePartNumber(s: string): boolean {
  * Handles Vivid Racing and similar sites that use "Model#" instead of SKU.
  */
 function extractPartNumber(): string | null {
+  // 0. URL path: on /product/78687 the slug is the canonical part number for this page.
+  //    Prefer it so we don't pick a related product's number (e.g. 78587) from the body.
+  const pathMatch = window.location.pathname.match(
+    /\/product\/\s*([A-Za-z0-9\-\.]+)(?:\/|$)/i
+  );
+  if (pathMatch && pathMatch[1]) {
+    const fromUrl = pathMatch[1].trim();
+    if (looksLikePartNumber(fromUrl)) return fromUrl;
+  }
+
   // 1. JSON-LD Product schema (sku, mpn)
   const scripts = document.querySelectorAll(
     'script[type="application/ld+json"]'
@@ -1604,10 +1821,11 @@ function extractPartNumber(): string | null {
   const searchRoot = mainContainer ?? document.body;
   const text = searchRoot.textContent || "";
   const modelPatterns = [
+    /P\/N\s*:\s*([A-Za-z0-9\-\.]+)/i,
     /Model\s*#\s*([A-Za-z0-9\-\.]+)/i,
     /Model\s*:\s*([A-Za-z0-9\-\.]+)/i,
     /Model\s*#([A-Za-z0-9\-\.]+)/i,
-    /(?:SKU|Part\s*#?|Item\s*#?)\s*:?\s*([A-Za-z0-9\-\.]+)/i,
+    /(?:SKU|Part\s*#?|Item\s*#?|P\/N)\s*:?\s*([A-Za-z0-9\-\.]+)/i,
   ];
   for (const re of modelPatterns) {
     const match = text.match(re);
