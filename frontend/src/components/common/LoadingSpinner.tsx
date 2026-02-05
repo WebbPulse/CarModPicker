@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
+const SLOW_LOAD_HINT_DELAY_MS = 2000;
 
 interface LoadingSpinnerProps {
   size?: 'xs' | 'sm' | 'base' | 'md' | 'lg' | 'xl';
@@ -6,6 +8,8 @@ interface LoadingSpinnerProps {
   className?: string;
   text?: string;
   inline?: boolean;
+  /** Show a callout after 2s explaining serverless cold start. Only for non-inline spinners. Default true. */
+  showSlowLoadHint?: boolean;
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
@@ -14,7 +18,15 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   className = '',
   text,
   inline = false,
+  showSlowLoadHint = true,
 }) => {
+  const [showSlowHint, setShowSlowHint] = useState(false);
+
+  useEffect(() => {
+    if (inline || !showSlowLoadHint) return;
+    const t = setTimeout(() => setShowSlowHint(true), SLOW_LOAD_HINT_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [inline, showSlowLoadHint]);
   const sizeClasses = {
     xs: 'w-4 h-4',
     sm: 'w-4 h-4', // Keep backward compatibility
@@ -108,6 +120,17 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       {/* Loading text */}
       {text && (
         <p className="mt-3 text-sm text-neutral-400 animate-pulse">{text}</p>
+      )}
+
+      {/* Slow load callout: show after 2s to explain serverless cold start */}
+      {showSlowLoadHint && showSlowHint && (
+        <p
+          className="mt-4 max-w-sm text-center text-sm text-neutral-500"
+          role="status"
+        >
+          Initial load can be slower when the server has been idle. This is
+          normal—the app is waking up.
+        </p>
       )}
     </div>
   );

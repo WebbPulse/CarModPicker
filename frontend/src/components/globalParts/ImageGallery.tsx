@@ -11,6 +11,8 @@ interface ImageGalleryProps {
   altText: string;
   /** When "hero", show large primary image with carousel of others beneath */
   layout?: 'carousel' | 'hero';
+  /** Custom message when no images are available */
+  emptyMessage?: string;
 }
 
 /**
@@ -21,6 +23,7 @@ function ImageGallery({
   imageUrls,
   altText,
   layout = 'carousel',
+  emptyMessage = 'No images available for this part.',
 }: ImageGalleryProps) {
   const [showAll, setShowAll] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -32,7 +35,7 @@ function ImageGallery({
   if (allUrls.length === 0) {
     return (
       <div className="h-48 flex items-center justify-center border border-gray-600 bg-gray-800/50 rounded-lg p-4">
-        <p className="text-gray-400">No images available for this part.</p>
+        <p className="text-gray-400">{emptyMessage}</p>
       </div>
     );
   }
