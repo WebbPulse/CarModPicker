@@ -1,10 +1,17 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
-import { resolve } from "path";
-import { defineConfig } from "vite";
-import { copyFileSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync } from "fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "fs";
+import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
-import { dirname } from "path";
+import { defineConfig } from "vite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,7 +23,7 @@ const inlineVendorPlugin = () => {
     closeBundle() {
       const popupJsPath = resolve(__dirname, "dist", "popup.js");
       const optionsJsPath = resolve(__dirname, "dist", "options.js");
-      
+
       // Find vendor chunk
       const assetsDir = resolve(__dirname, "dist", "assets");
       if (!existsSync(assetsDir)) {
@@ -25,21 +32,25 @@ const inlineVendorPlugin = () => {
       const vendorFiles = readdirSync(assetsDir).filter(
         (f) => f.startsWith("vendor-") && f.endsWith(".js")
       );
-      
+
       if (vendorFiles.length > 0) {
         const vendorPath = resolve(__dirname, "dist", "assets", vendorFiles[0]);
         const vendorContent = readFileSync(vendorPath, "utf-8");
-        
+
         // Inline vendor into popup.js
         if (existsSync(popupJsPath)) {
           let popupContent = readFileSync(popupJsPath, "utf-8");
           // Replace import statement with vendor content - only match at start of line or after semicolon/newline
           // This avoids matching import statements inside strings
-          const importRegex = /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
+          const importRegex =
+            /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
           if (importRegex.test(popupContent)) {
-            popupContent = popupContent.replace(importRegex, (match, prefix) => {
-              return prefix + '\n' + vendorContent;
-            });
+            popupContent = popupContent.replace(
+              importRegex,
+              (match, prefix) => {
+                return prefix + "\n" + vendorContent;
+              }
+            );
             writeFileSync(popupJsPath, popupContent, "utf-8");
           }
         }
@@ -47,15 +58,34 @@ const inlineVendorPlugin = () => {
         // Inline vendor into options.js
         if (existsSync(optionsJsPath)) {
           let optionsContent = readFileSync(optionsJsPath, "utf-8");
-          const importRegex = /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
+          const importRegex =
+            /(^|\n|;)\s*import\s+.*?\s+from\s+["']\.\/assets\/vendor-[^"']+["'];?/gm;
           if (importRegex.test(optionsContent)) {
-            optionsContent = optionsContent.replace(importRegex, (match, prefix) => {
-              return prefix + '\n' + vendorContent;
-            });
+            optionsContent = optionsContent.replace(
+              importRegex,
+              (match, prefix) => {
+                return prefix + "\n" + vendorContent;
+              }
+            );
             writeFileSync(optionsJsPath, optionsContent, "utf-8");
           }
         }
       }
+    },
+  };
+};
+
+// Plugin to wrap content script in run-once IIFE (prevents "Identifier has already been declared"
+// when script runs twice via declarative + programmatic injection)
+const contentScriptRunOncePlugin = () => {
+  return {
+    name: "content-script-run-once",
+    closeBundle() {
+      const contentPath = resolve(__dirname, "dist", "content.js");
+      if (!existsSync(contentPath)) return;
+      const code = readFileSync(contentPath, "utf-8");
+      const wrapped = `(function(){if(typeof window!=="undefined"&&window.__carModPickerScraperLoaded)return;window.__carModPickerScraperLoaded=true;\n${code}\n})();`;
+      writeFileSync(contentPath, wrapped, "utf-8");
     },
   };
 };
@@ -100,11 +130,12 @@ const copyManifestPlugin = () => {
         const manifest = JSON.parse(readFileSync(manifestSrc, "utf-8"));
         // Fix paths - remove 'dist/' prefix since manifest will be in dist/
         if (manifest.background?.service_worker?.startsWith("dist/")) {
-          manifest.background.service_worker = manifest.background.service_worker.replace("dist/", "");
+          manifest.background.service_worker =
+            manifest.background.service_worker.replace("dist/", "");
         }
         if (manifest.content_scripts?.[0]?.js) {
-          manifest.content_scripts[0].js = manifest.content_scripts[0].js.map((path: string) =>
-            path.replace("dist/", "")
+          manifest.content_scripts[0].js = manifest.content_scripts[0].js.map(
+            (path: string) => path.replace("dist/", "")
           );
         }
         writeFileSync(manifestDest, JSON.stringify(manifest, null, 2), "utf-8");
@@ -134,6 +165,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     inlineVendorPlugin(),
+    contentScriptRunOncePlugin(),
     fixHtmlPlugin(),
     copyManifestPlugin(),
   ],
@@ -179,8 +211,9 @@ export default defineConfig({
           const moduleInfo = getModuleInfo(id);
           // For popup and options entries, bundle everything together
           if (moduleInfo?.isEntry) {
-            const entryName = moduleInfo.id.split('/').pop()?.replace('.html', '') || '';
-            if (entryName === 'popup' || entryName === 'options') {
+            const entryName =
+              moduleInfo.id.split("/").pop()?.replace(".html", "") || "";
+            if (entryName === "popup" || entryName === "options") {
               return undefined; // Bundle everything into the entry file
             }
           }
@@ -192,12 +225,12 @@ export default defineConfig({
       },
     },
     // Minify for production builds
-    minify: process.env.NODE_ENV === 'production' ? 'esbuild' : false,
+    minify: process.env.NODE_ENV === "production" ? "esbuild" : false,
     // Use ES2015 target for better Chrome extension compatibility
     target: "es2015",
     modulePreload: false,
     // Disable source maps in production
-    sourcemap: process.env.NODE_ENV === 'production' ? false : true,
+    sourcemap: process.env.NODE_ENV === "production" ? false : true,
   },
   resolve: {
     alias: {

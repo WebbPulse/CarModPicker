@@ -68,6 +68,32 @@ function Popup() {
         return;
       }
 
+      // Programmatically inject content script if not already loaded (e.g. tab was
+      // open before extension install/reload, or content script failed to inject)
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        });
+      } catch (injectError) {
+        const msg =
+          injectError instanceof Error
+            ? injectError.message
+            : String(injectError);
+        if (msg.includes("Cannot access") || msg.includes("restricted")) {
+          showStatus(
+            "Cannot scrape this page. Try a product page on a regular website.",
+            "error"
+          );
+        } else {
+          showStatus(
+            `Failed to load scraper: ${msg}. Try refreshing the page.`,
+            "error"
+          );
+        }
+        return;
+      }
+
       chrome.tabs.sendMessage(
         tab.id,
         { action: "scrapePage" },
