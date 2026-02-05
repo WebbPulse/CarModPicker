@@ -19,9 +19,9 @@ import Card from '../../components/common/Card';
 import CardInfoItem from '../../components/common/CardInfoItem';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Dialog from '../../components/common/Dialog';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import ImageGallery from '../../components/globalParts/ImageGallery';
 import VoteButtons from '../../components/globalParts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
@@ -316,56 +316,57 @@ function ViewBuildList() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <CardInfoItem label="">
-            <ImageWithPlaceholder
-              srcUrl={buildList.image_url ?? null}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-gray-300 items-start">
+          <div className="min-w-0">
+            <ImageGallery
+              imageUrl={buildList.image_url ?? null}
+              imageUrls={null}
               altText={buildList.name}
-              imageClassName="h-48 w-auto object-contain rounded"
-              containerClassName="h-48 flex justify-left items-center"
-              fallbackText="No image available for this build list."
+              layout="hero"
+              emptyMessage="No image available for this build list."
             />
-          </CardInfoItem>
-          <div className="hidden md:block"></div> {/* Spacer */}
-          <CardInfoItem label="Description:">
-            <p>{buildList.description || 'No description provided.'}</p>
-          </CardInfoItem>
-          <div className="hidden md:block"></div> {/* Spacer */}
-          {associatedCar && (
-            <CardInfoItem label="Associated Car:">
-              <ParentNavigationLink
-                linkTo={`/cars/${associatedCar.id}`}
-                linkText={`${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})`}
-              />
+          </div>
+          <div className="min-w-0 space-y-4">
+            <CardInfoItem label="Description:">
+              <p>{buildList.description || 'No description provided.'}</p>
             </CardInfoItem>
-          )}
-          {buildListOwner && (
-            <CardInfoItem label="Build List Owner:">
-              <ParentNavigationLink
-                linkTo={`/user/${buildListOwner.id}`}
-                linkText={buildListOwner.username}
-              />
-            </CardInfoItem>
-          )}
-          {voteSummary && (
-            <CardInfoItem label="Community Rating:">
-              <VoteButtons
-                entityId={buildList.id}
-                upvotes={voteSummary.upvotes}
-                downvotes={voteSummary.downvotes}
-                userVote={voteSummary.user_vote ?? null}
-                onVoteUpdate={handleVoteUpdate}
-                voteApi={{
-                  voteOnEntity: (
-                    id: number,
-                    data: { vote_type: 'upvote' | 'downvote' }
-                  ) => buildListVotesApi.voteOnBuildList(id, data),
-                  removeVote: (id: number) => buildListVotesApi.removeVote(id),
-                }}
-                size="md"
-              />
-            </CardInfoItem>
-          )}
+            {associatedCar && (
+              <CardInfoItem label="Associated Car:">
+                <ParentNavigationLink
+                  linkTo={`/cars/${associatedCar.id}`}
+                  linkText={`${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${associatedCar.start_year}-${associatedCar.end_year})`}
+                />
+              </CardInfoItem>
+            )}
+            {buildListOwner && (
+              <CardInfoItem label="Build List Owner:">
+                <ParentNavigationLink
+                  linkTo={`/user/${buildListOwner.id}`}
+                  linkText={buildListOwner.username}
+                />
+              </CardInfoItem>
+            )}
+            {voteSummary && (
+              <CardInfoItem label="Community Rating:">
+                <VoteButtons
+                  entityId={buildList.id}
+                  upvotes={voteSummary.upvotes}
+                  downvotes={voteSummary.downvotes}
+                  userVote={voteSummary.user_vote ?? null}
+                  onVoteUpdate={handleVoteUpdate}
+                  voteApi={{
+                    voteOnEntity: (
+                      id: number,
+                      data: { vote_type: 'upvote' | 'downvote' }
+                    ) => buildListVotesApi.voteOnBuildList(id, data),
+                    removeVote: (id: number) =>
+                      buildListVotesApi.removeVote(id),
+                  }}
+                  size="md"
+                />
+              </CardInfoItem>
+            )}
+          </div>
         </div>
         {carApiError && (
           <ErrorAlert
