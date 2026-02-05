@@ -56,10 +56,39 @@ import type {
   VoteSummary,
 } from '../types/Api';
 
+// Normalize a base URL (ensure protocol, append /api)
+const normalizeApiUrl = (url: string): string => {
+  const urlWithProtocol =
+    url.startsWith('http://') || url.startsWith('https://')
+      ? url
+      : `https://${url}`;
+  return `${urlWithProtocol.replace(/\/+$/, '')}/api`;
+};
+
 // Determine the API base URL based on environment
 const getApiBaseUrl = () => {
-  // In development, use the proxy
+  // In development: allow targeting staging or prod via VITE_BACKEND
   if (import.meta.env.DEV) {
+    const backend =
+      (import.meta.env['VITE_BACKEND'] as string | undefined)?.toLowerCase() ||
+      'local';
+    if (backend === 'staging') {
+      const stagingUrl = import.meta.env['VITE_STAGING_API_URL'] as
+        | string
+        | undefined;
+      if (stagingUrl && typeof stagingUrl === 'string' && stagingUrl.trim()) {
+        return normalizeApiUrl(stagingUrl.trim());
+      }
+    }
+    if (backend === 'prod') {
+      const prodUrl = import.meta.env['VITE_PROD_API_URL'] as
+        | string
+        | undefined;
+      if (prodUrl && typeof prodUrl === 'string' && prodUrl.trim()) {
+        return normalizeApiUrl(prodUrl.trim());
+      }
+    }
+    // default (local): use proxy to localhost backend
     return '/api';
   }
 
@@ -68,12 +97,7 @@ const getApiBaseUrl = () => {
     | string
     | undefined;
   if (apiUrl && typeof apiUrl === 'string') {
-    // Ensure the URL has a protocol
-    const urlWithProtocol =
-      apiUrl.startsWith('http://') || apiUrl.startsWith('https://')
-        ? apiUrl
-        : `https://${apiUrl}`;
-    return `${urlWithProtocol}/api`;
+    return normalizeApiUrl(apiUrl);
   }
 
   // Default fallback for production
