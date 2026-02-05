@@ -61,6 +61,32 @@ function ContactUs() {
           </Card>
         </div>
       </section>
+
+      {/* DMCA / Copyright Section */}
+      <section className="py-24 px-4">
+        <div className="container mx-auto text-center">
+          <Card variant="glass" className="max-w-4xl mx-auto p-12">
+            <div className="animate-fadeInScale">
+              <h2 className="text-5xl md:text-6xl font-bold mb-8">
+                <span className="text-gradient">DMCA & Copyright</span>
+              </h2>
+              <p className="text-xl text-neutral-400 mb-8 max-w-2xl mx-auto leading-relaxed">
+                If you believe that material on CarModPicker violates your
+                copyright, please notify us in accordance with our DMCA policy.
+                We will respond to valid notices and address infringing content
+                as required by law.
+              </p>
+              <p className="text-lg text-neutral-300 mb-4">DMCA complaints:</p>
+              <a
+                href="mailto:tyler@webbpulse.com"
+                className="text-2xl font-semibold text-gradient hover:underline inline-block"
+              >
+                tyler@webbpulse.com
+              </a>
+            </div>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }
