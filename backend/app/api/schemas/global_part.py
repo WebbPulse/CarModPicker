@@ -21,11 +21,14 @@ def _serialize_image_urls(value: Optional[List[str]]) -> Optional[List[str]]:
 class GlobalPartCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Primary image: file key (from images/upload) or external URL (e.g. scraped).",
+    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery image file keys (uploaded via images API); max 10",
+        description="Gallery: file keys (from images/upload) and/or external URLs (scraped); max 12.",
     )
     product_url: Optional[str] = Field(
         None, description="Product URL at retailer (used only with retailer_id for listing)"
@@ -57,11 +60,14 @@ class GlobalPartCreate(BaseModel):
 class GlobalPartUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Primary image: file key or external URL.",
+    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery image file keys; max 10",
+        description="Gallery: file keys and/or external URLs; max 12.",
     )
     category_id: Optional[int] = None
     car_id: Optional[int] = None  # Optional car association
@@ -120,7 +126,7 @@ class GlobalPartAppendImages(BaseModel):
     file_keys: List[str] = Field(
         ...,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="File keys to append (from images/upload API); max 10",
+        description="Image references to append: file keys (from images/upload) or external URLs (scraped); max 12.",
     )
 
 

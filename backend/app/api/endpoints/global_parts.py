@@ -154,13 +154,9 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         # Store normalized GTIN (digits only) for dedup
         if data.gtin:
             entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
-        # Use first gallery image as primary if image_url not set; cap gallery size
+        # Cap gallery size; do not set image_url from scraped gallery (leave null if no manual primary)
         if entity_data.get("image_urls") is not None:
             entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
-        if not entity_data.get("image_url") and entity_data.get("image_urls"):
-            urls = entity_data["image_urls"]
-            if urls:
-                entity_data["image_url"] = urls[0]
 
         part = create_entity(
             db=db,
@@ -207,6 +203,19 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
         if "gtin" in update_data and update_data["gtin"] is not None:
             update_data["gtin"] = normalize_gtin(update_data["gtin"])
+        # When primary image (image_url) is set (e.g. manual upload), ensure it appears in the carousel
+        if update_data.get("image_url"):
+            new_primary = update_data["image_url"]
+            current_urls: List[str]
+            if update_data.get("image_urls") is not None:
+                current_urls = list(update_data["image_urls"])
+            else:
+                current_urls = list(entity.image_urls or []) or (
+                    [entity.image_url] if entity.image_url else []
+                )
+            if new_primary not in current_urls:
+                merged = [new_primary] + [u for u in current_urls if u != new_primary]
+                update_data["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
         return update_entity(
             db=db,
             entity=entity,
@@ -677,8 +686,7 @@ async def append_images_to_global_part(
             seen.add(fk)
 
     part.image_urls = existing[:MAX_IMAGES_PER_GLOBAL_PART]
-    if not part.image_url and existing:
-        part.image_url = existing[0]
+    # Do not set primary image from appended (scraped) images; leave image_url as-is
     db.commit()
     db.refresh(part)
     return GlobalPartRead.model_validate(part)

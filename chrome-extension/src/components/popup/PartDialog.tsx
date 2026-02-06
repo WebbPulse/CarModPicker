@@ -454,34 +454,19 @@ const PartDialog: React.FC<PartDialogProps> = ({
         price_cents: retailer && priceCents != null ? priceCents : null,
       };
 
-      // Collect all image URLs: manual entry + scraped gallery (deduped)
-      const urlsToUpload = [
+      // Scraped images: store as external URL references (no upload). Cap at max images per part.
+      const MAX_IMAGES_PER_GLOBAL_PART = 12;
+      const scrapedImageUrls = [
         ...new Set(
           [formData.imageUrl.trim() || null, ...formData.imageUrls].filter(
             Boolean
           ) as string[]
         ),
-      ];
+      ].slice(0, MAX_IMAGES_PER_GLOBAL_PART);
 
-      if (urlsToUpload.length > 0) {
-        const fileKeys: string[] = [];
-        for (const url of urlsToUpload) {
-          const imageResult = (await sendMessage({
-            action: "uploadImage",
-            imageUrl: url,
-          })) as ApiResponse<{ fileKey: string }>;
-          if (imageResult.success && imageResult.data) {
-            fileKeys.push(imageResult.data.fileKey);
-          }
-        }
-        if (fileKeys.length > 0) {
-          const cappedKeys = fileKeys.slice(0, 10); // max images per global part
-          const firstKey = cappedKeys[0];
-          if (firstKey) {
-            partData.image_url = firstKey;
-            partData.image_urls = cappedKeys;
-          }
-        }
+      if (scrapedImageUrls.length > 0) {
+        partData.image_urls = scrapedImageUrls;
+        // Do not set image_url from scraped URLs; leave null so only manual uploads set primary
       }
 
       // Create part

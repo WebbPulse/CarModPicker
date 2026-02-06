@@ -5,6 +5,7 @@ import type {
   Retailer,
   ScrapedProductData,
 } from "../../types";
+import { getCanonicalImageUrl } from "../../utils/imageUrlUtils";
 
 interface RecordPriceDialogProps {
   existingPart: GlobalPartRead;
@@ -38,29 +39,38 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [uncachedUrls, setUncachedUrls] = useState<string[]>([]);
+  const MAX_IMAGES_PER_GLOBAL_PART = 12;
+  const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
-  const [isCheckingImages, setIsCheckingImages] = useState(true);
 
-  // Check which scraped images are not yet in our cache (max 10 per global part)
+  // Scraped images not already on the part (by exact or canonical URL match)
   useEffect(() => {
-    const urls = (scrapedData.image_urls ?? []).slice(0, 10);
-    if (urls.length === 0) {
-      setIsCheckingImages(false);
+    const scraped = scrapedData.image_urls ?? [];
+    if (scraped.length === 0) {
+      setNewImageUrls([]);
+      setSelectedUrls([]);
       return;
     }
-    (async () => {
-      const response = (await sendMessage({
-        action: "checkUncachedImageUrls",
-        sourceUrls: urls,
-      })) as ApiResponse<{ uncachedUrls: string[] }>;
-      if (response.success && response.data) {
-        setUncachedUrls(response.data.uncachedUrls);
-        setSelectedUrls(response.data.uncachedUrls);
-      }
-      setIsCheckingImages(false);
-    })();
-  }, [scrapedData.image_urls, sendMessage]);
+    const existing = existingPart.image_urls ?? [];
+    const existingCanonicals = new Set(
+      existing
+        .filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+        .map(getCanonicalImageUrl)
+        .filter(Boolean)
+    );
+    const newUrls = scraped.filter((url) => {
+      if (existing.includes(url)) return false;
+      const c = getCanonicalImageUrl(url);
+      return !c || !existingCanonicals.has(c);
+    });
+    const slotsLeft = Math.max(
+      0,
+      MAX_IMAGES_PER_GLOBAL_PART - existing.length
+    );
+    const capped = newUrls.slice(0, slotsLeft);
+    setNewImageUrls(capped);
+    setSelectedUrls(capped);
+  }, [scrapedData.image_urls, existingPart.image_urls]);
 
   const toggleImage = useCallback((url: string) => {
     setSelectedUrls((prev) =>
@@ -84,37 +94,23 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
     setIsLoading(true);
 
     try {
-      // Upload selected uncached images and append to part (backend enforces max per global part)
-      const maxImagesPerPart = 12; // must match backend MAX_IMAGES_PER_GLOBAL_PART
+      // Append selected scraped images as external URL references (no upload)
       const currentCount = existingPart.image_urls?.length ?? 0;
-      const slotsLeft = Math.max(0, maxImagesPerPart - currentCount);
+      const slotsLeft = Math.max(
+        0,
+        MAX_IMAGES_PER_GLOBAL_PART - currentCount
+      );
 
       if (selectedUrls.length > 0 && slotsLeft > 0) {
-        const fileKeys: string[] = [];
-        const urlsToUpload = selectedUrls.slice(0, slotsLeft);
-        for (const url of urlsToUpload) {
-          const uploadRes = (await sendMessage({
-            action: "uploadImage",
-            imageUrl: url,
-            partId: existingPart.id,
-          })) as ApiResponse<{ fileKey: string }>;
-          if (uploadRes.success && uploadRes.data?.fileKey) {
-            fileKeys.push(uploadRes.data.fileKey);
-          } else {
-            // Backend may reject when part is full (e.g. race); stop trying more
-            break;
-          }
-        }
-        if (fileKeys.length > 0) {
-          const appendRes = (await sendMessage({
-            action: "appendImagesToGlobalPart",
-            partId: existingPart.id,
-            fileKeys: fileKeys.slice(0, maxImagesPerPart),
-          })) as ApiResponse<unknown>;
-          if (!appendRes.success) {
-            // Don't block price recording - user may lack edit permission
-            console.warn("Append images failed:", appendRes.error);
-          }
+        const refsToAppend = selectedUrls.slice(0, slotsLeft);
+        const appendRes = (await sendMessage({
+          action: "appendImagesToGlobalPart",
+          partId: existingPart.id,
+          fileKeys: refsToAppend,
+        })) as ApiResponse<unknown>;
+        if (!appendRes.success) {
+          // Don't block price recording - user may lack edit permission
+          console.warn("Append images failed:", appendRes.error);
         }
       }
 
@@ -260,23 +256,20 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
             )}
           </div>
 
-          {/* New images not yet in catalog */}
-          {uncachedUrls.length > 0 && (
+          {/* New scraped images not yet on this part */}
+          {newImageUrls.length > 0 && (
             <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
               <div>
                 <span className="text-xs text-neutral-500 uppercase tracking-wide">
-                  New images (not in catalog)
+                  New images (not on this part)
                 </span>
                 <p className="text-neutral-400 text-sm mt-1">
-                  {selectedUrls.length} of {uncachedUrls.length} selected to
+                  {selectedUrls.length} of {newImageUrls.length} selected to
                   add. Click × to exclude, click again to include.
                 </p>
               </div>
-              {isCheckingImages ? (
-                <p className="text-neutral-500 text-sm">Checking images…</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {uncachedUrls.map((url) => (
+              <div className="flex flex-wrap gap-2">
+                {newImageUrls.map((url) => (
                     <div
                       key={url}
                       className={`relative group ${
@@ -301,16 +294,15 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
                         }`}
                         title={
                           selectedUrls.includes(url)
-                            ? "Exclude from upload"
-                            : "Include in upload"
+                            ? "Exclude from adding"
+                            : "Include"
                         }
                       >
                         ×
                       </button>
                     </div>
                   ))}
-                </div>
-              )}
+              </div>
             </div>
           )}
 
