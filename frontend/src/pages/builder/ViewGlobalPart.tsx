@@ -570,19 +570,6 @@ function ViewGlobalPart() {
                 </div>
               </CardInfoItem>
             )}
-          <CardInfoItem label="Status:">
-            <div className="flex items-center space-x-2">
-              {part.is_verified && (
-                <span className="text-green-400 text-sm">✓ Verified</span>
-              )}
-              <span className="text-gray-400 text-sm">
-                Source: {part.source}
-              </span>
-            </div>
-          </CardInfoItem>
-          <CardInfoItem label="Edit History:">
-            <p>{part.edit_count} edits</p>
-          </CardInfoItem>
           {itemOwner && (
             <CardInfoItem label="Created by:">
               <ParentNavigationLink
