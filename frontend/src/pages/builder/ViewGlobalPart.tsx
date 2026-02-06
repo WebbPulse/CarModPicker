@@ -442,11 +442,12 @@ function ViewGlobalPart() {
                 <span className="text-2xl">🌐</span>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    Universal Part
+                    No car linked yet
                   </h3>
                   <p className="text-sm text-gray-300">
-                    This part is not tied to a specific car and can be used with
-                    any vehicle (wheels, tools, accessories, etc.)
+                    This part isn’t linked to a specific car yet. It might be
+                    universal (wheels, tools, accessories, etc.) or we just don’t
+                    know which vehicle it fits—you can add a car if you know.
                   </p>
                 </div>
               </div>

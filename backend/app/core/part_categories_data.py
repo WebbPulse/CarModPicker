@@ -76,6 +76,27 @@ PART_CATEGORIES: list[PartCategoryData] = [
         "icon": "🛑",
         "sort_order": 7,
     },
+    {
+        "name": "lighting",
+        "display_name": "Lighting",
+        "description": "Headlights, taillights, fog lights, DRL, LED, and lighting accessories",
+        "icon": "💡",
+        "sort_order": 8,
+    },
+    {
+        "name": "drivetrain",
+        "display_name": "Drivetrain",
+        "description": "Differential, driveshaft, axles, clutch, transmission, and driveline",
+        "icon": "⚙",
+        "sort_order": 9,
+    },
+    {
+        "name": "other",
+        "display_name": "Other",
+        "description": "Parts that don't fit other categories",
+        "icon": "📦",
+        "sort_order": 10,
+    },
 ]
 
 
