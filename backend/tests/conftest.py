@@ -385,11 +385,7 @@ def create_car_in_db(
         db.add(make_entity)
         db.flush()
 
-    car_model_entity = (
-        db.query(CarModel)
-        .filter(CarModel.make_id == make_entity.id, CarModel.name == model)
-        .first()
-    )
+    car_model_entity = db.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model).first()
     if car_model_entity is None:
         car_model_entity = CarModel(make_id=make_entity.id, name=model)
         db.add(car_model_entity)
@@ -442,11 +438,7 @@ def create_car_orm_in_db(
         db.add(make_entity)
         db.flush()
 
-    car_model_entity = (
-        db.query(CarModel)
-        .filter(CarModel.make_id == make_entity.id, CarModel.name == model)
-        .first()
-    )
+    car_model_entity = db.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model).first()
     if car_model_entity is None:
         car_model_entity = CarModel(make_id=make_entity.id, name=model)
         db.add(car_model_entity)
@@ -463,12 +455,7 @@ def create_car_orm_in_db(
     db.commit()
     db.refresh(car)
     # Reload with relationships so car.make / car.model work
-    car = (
-        db.query(Car)
-        .options(joinedload(Car.car_model).joinedload(CarModel.make))
-        .filter(Car.id == car.id)
-        .first()
-    )
+    car = db.query(Car).options(joinedload(Car.car_model).joinedload(CarModel.make)).filter(Car.id == car.id).first()
     return car
 
 

@@ -9,7 +9,6 @@ from app.api.models.car import Car
 from app.api.models.user import User
 from app.api.schemas.car import CarCreate, CarUpdate
 from app.api.services.car_service import CarService
-
 from tests.conftest import create_car_orm_in_db
 
 
@@ -25,9 +24,15 @@ class TestCarService:
 
     def test_get_cars_by_make_model_with_make(self, db_session: Session) -> None:
         """Test getting cars filtered by make."""
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021)
-        create_car_orm_in_db(db_session, make="Honda", model="Accord", generation_name="10th Gen", start_year=2018, end_year=2022)
-        create_car_orm_in_db(db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024)
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021
+        )
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Accord", generation_name="10th Gen", start_year=2018, end_year=2022
+        )
+        create_car_orm_in_db(
+            db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024
+        )
 
         service = CarService()
         result = service.get_cars_by_make_model(db_session, make="Honda")
@@ -37,9 +42,15 @@ class TestCarService:
 
     def test_get_cars_by_make_model_with_make_and_model(self, db_session: Session) -> None:
         """Test getting cars filtered by make and model."""
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021)
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="11th Gen", start_year=2022, end_year=2024)
-        create_car_orm_in_db(db_session, make="Honda", model="Accord", generation_name="10th Gen", start_year=2018, end_year=2022)
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021
+        )
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="11th Gen", start_year=2022, end_year=2024
+        )
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Accord", generation_name="10th Gen", start_year=2018, end_year=2022
+        )
 
         service = CarService()
         result = service.get_cars_by_make_model(db_session, make="Honda", model="Civic")
@@ -49,8 +60,12 @@ class TestCarService:
 
     def test_get_cars_by_make_model_with_no_filters(self, db_session: Session) -> None:
         """Test getting cars with no filters."""
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021)
-        create_car_orm_in_db(db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024)
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021
+        )
+        create_car_orm_in_db(
+            db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024
+        )
 
         service = CarService()
         result = service.get_cars_by_make_model(db_session)
@@ -76,8 +91,12 @@ class TestCarService:
 
     def test_search_cars_by_make(self, db_session: Session) -> None:
         """Test searching cars by make."""
-        create_car_orm_in_db(db_session, make="Tesla", model="Model 3", generation_name="1st Gen", start_year=2017, end_year=2023)
-        create_car_orm_in_db(db_session, make="Toyota", model="Corolla", generation_name="12th Gen", start_year=2019, end_year=2022)
+        create_car_orm_in_db(
+            db_session, make="Tesla", model="Model 3", generation_name="1st Gen", start_year=2017, end_year=2023
+        )
+        create_car_orm_in_db(
+            db_session, make="Toyota", model="Corolla", generation_name="12th Gen", start_year=2019, end_year=2022
+        )
 
         service = CarService()
         result = service.search_cars(db_session, search_term="Tesla")
@@ -98,8 +117,12 @@ class TestCarService:
 
     def test_search_cars_by_generation_name(self, db_session: Session) -> None:
         """Test searching cars by generation name."""
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021)
-        create_car_orm_in_db(db_session, make="Honda", model="Civic", generation_name="11th Gen", start_year=2022, end_year=2024)
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="10th Gen", start_year=2016, end_year=2021
+        )
+        create_car_orm_in_db(
+            db_session, make="Honda", model="Civic", generation_name="11th Gen", start_year=2022, end_year=2024
+        )
 
         service = CarService()
         result = service.search_cars(db_session, search_term="10th Gen")

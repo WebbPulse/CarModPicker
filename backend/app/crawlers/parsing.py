@@ -93,9 +93,7 @@ def _images_from_json_ld(item: Dict[str, Any]) -> List[str]:
     return urls
 
 
-def scraped_payload_from_json_ld(
-    item: Dict[str, Any], product_url: str
-) -> Optional[ScrapedPayload]:
+def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Optional[ScrapedPayload]:
     """
     Build a ScrapedPayload from a JSON-LD Product item. Returns None if missing name.
     """

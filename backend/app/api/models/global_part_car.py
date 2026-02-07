@@ -3,7 +3,7 @@ Association table for many-to-many between GlobalPart and Car.
 A part can be associated with multiple cars, or marked as universal (fits all cars).
 """
 
-from sqlalchemy import ForeignKey, Table, Column
+from sqlalchemy import Column, ForeignKey, Table
 
 from app.db.base_class import Base
 

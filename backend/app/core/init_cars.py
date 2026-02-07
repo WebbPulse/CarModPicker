@@ -52,9 +52,7 @@ def init_car_generations(db: Session) -> None:
             db.flush()
 
         # Get or create CarModel
-        car_model = (
-            db.query(CarModel).filter(CarModel.make_id == make.id, CarModel.name == model_name).first()
-        )
+        car_model = db.query(CarModel).filter(CarModel.make_id == make.id, CarModel.name == model_name).first()
         if car_model is None:
             car_model = CarModel(make_id=make.id, name=model_name)
             db.add(car_model)

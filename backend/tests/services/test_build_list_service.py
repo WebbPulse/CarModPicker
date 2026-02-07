@@ -6,9 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
 from app.api.models.user import User
-
-from tests.conftest import create_car_orm_in_db
 from app.api.services.build_list_service import BuildListService
+from tests.conftest import create_car_orm_in_db
 
 
 def get_unique_name(base_name: str) -> str:

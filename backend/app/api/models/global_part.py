@@ -68,6 +68,7 @@ class GlobalPart(Base):
     def car_ids(self) -> List[int]:
         """IDs of cars this part is associated with (empty if is_universal)."""
         return [c.id for c in self.cars]
+
     build_lists: Mapped[list["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="global_part", cascade="all, delete-orphan"
     )

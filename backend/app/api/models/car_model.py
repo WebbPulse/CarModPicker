@@ -30,9 +30,7 @@ class CarModel(Base):
     name: Mapped[str] = mapped_column(nullable=False, index=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     make: Mapped["Make"] = relationship("Make", back_populates="car_models")

@@ -5,9 +5,9 @@ Each adapter implements: discover_product_urls() and parse_product_page(html, ur
 Register new adapters in ADAPTER_REGISTRY so the runner can run them by name.
 """
 
+from app.crawlers.adapters.a90shop import A90ShopAdapter
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.adapters.example import ExampleRetailerAdapter
-from app.crawlers.adapters.a90shop import A90ShopAdapter
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "example": ExampleRetailerAdapter,

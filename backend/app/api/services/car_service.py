@@ -25,11 +25,8 @@ from app.api.utils.common_operations import (
 
 def _car_query_with_make_model(db: Session):
     """Base query for Car with car_model and make eager-loaded (for make/model properties)."""
-    return (
-        db.query(DBCar)
-        .options(
-            joinedload(DBCar.car_model).joinedload(CarModel.make),
-        )
+    return db.query(DBCar).options(
+        joinedload(DBCar.car_model).joinedload(CarModel.make),
     )
 
 
@@ -59,19 +56,14 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     ) -> DBCar:
         """Get car by ID with car_model and make loaded (for make/model properties)."""
         if current_user and not allow_public:
-            verify_entity_access(
-                db, self.model, entity_id, current_user, self.entity_name, allow_public
-            )
+            verify_entity_access(db, self.model, entity_id, current_user, self.entity_name, allow_public)
         else:
             verify_entity_exists(db, self.model, entity_id, self.entity_name)
 
-        car = (
-            _car_query_with_make_model(db)
-            .filter(DBCar.id == entity_id)
-            .first()
-        )
+        car = _car_query_with_make_model(db).filter(DBCar.id == entity_id).first()
         if car is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail=f"{self.entity_name.title()} not found")
         if logger:
             logger.info(f"Retrieved {self.entity_name} {entity_id}")

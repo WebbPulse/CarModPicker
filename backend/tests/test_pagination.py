@@ -48,9 +48,7 @@ def test_db_session() -> Generator[Session, None, None]:
             session.add(make_entity)
             session.flush()
         car_model_entity = (
-            session.query(CarModel)
-            .filter(CarModel.make_id == make_entity.id, CarModel.name == model_name)
-            .first()
+            session.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model_name).first()
         )
         if car_model_entity is None:
             car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
@@ -146,12 +144,7 @@ class TestTotalCount:
 
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
         """Test getting total count of filtered query (by make via join)."""
-        query = (
-            test_db_session.query(Car)
-            .join(Car.car_model)
-            .join(CarModel.make)
-            .filter(Make.name == "Make1")
-        )
+        query = test_db_session.query(Car).join(Car.car_model).join(CarModel.make).filter(Make.name == "Make1")
         total = get_total_count(query)
 
         assert total == 4  # 20 total / 5 makes = 4 per make
@@ -220,9 +213,7 @@ class TestSearchFilter:
     def test_apply_search_filter_with_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns results (Car column: generation_name)."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="Gen1", search_fields=["generation_name"]
-        )
+        filtered_query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
 
         results = filtered_query.all()
         # Should find Gen1, Gen10-19 (11 total)
@@ -232,9 +223,7 @@ class TestSearchFilter:
     def test_apply_search_filter_no_search_term(self, test_db_session: Session) -> None:
         """Test applying search filter with no search term."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search=None, search_fields=["generation_name"]
-        )
+        filtered_query = apply_search_filter(query, search=None, search_fields=["generation_name"])
 
         results = filtered_query.all()
         assert len(results) == 20  # Should return all results
@@ -242,9 +231,7 @@ class TestSearchFilter:
     def test_apply_search_filter_no_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns no results."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="NonExistentGen", search_fields=["generation_name"]
-        )
+        filtered_query = apply_search_filter(query, search="NonExistentGen", search_fields=["generation_name"])
 
         results = filtered_query.all()
         assert len(results) == 0
@@ -252,9 +239,7 @@ class TestSearchFilter:
     def test_apply_search_filter_multiple_fields(self, test_db_session: Session) -> None:
         """Test applying search filter across multiple fields (Car columns only)."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(
-            query, search="Gen", search_fields=["generation_name"]
-        )
+        filtered_query = apply_search_filter(query, search="Gen", search_fields=["generation_name"])
 
         results = filtered_query.all()
         assert len(results) == 20  # All have generation_name containing "Gen"
@@ -320,9 +305,7 @@ class TestIntegration:
         """Test complete pagination workflow (search on Car column: generation_name)."""
         query = test_db_session.query(Car)
 
-        query = apply_search_filter(
-            query, search="Gen1", search_fields=["generation_name"]
-        )
+        query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
         query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
         total = get_total_count(query)

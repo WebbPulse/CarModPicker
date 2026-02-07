@@ -8,8 +8,8 @@ to extract name, price, brand, part_number, etc. from the retailer's HTML/JSON.
 
 from typing import Iterator, Optional
 
-from app.crawlers.base import ScrapedPayload
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
+from app.crawlers.base import ScrapedPayload
 
 
 class ExampleRetailerAdapter(RetailerCrawlerAdapter):

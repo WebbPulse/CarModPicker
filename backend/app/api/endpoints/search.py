@@ -103,9 +103,7 @@ async def search_all(
                 cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
             )
         )
-        .options(
-            joinedload(DBBuildList.car).joinedload(DBCar.car_model).joinedload(DBCarModel.make)
-        )
+        .options(joinedload(DBBuildList.car).joinedload(DBCar.car_model).joinedload(DBCarModel.make))
     )
     build_list_total = get_total_count(build_list_query)
     build_lists = build_list_query.offset(skip).limit(limit).all()

@@ -38,10 +38,13 @@ class TestInferCategory:
 
     def test_steering_wheels_interior_not_wheels(self) -> None:
         # "Steering Wheels" / "steering wheel" = interior (shift paddles, etc.), not Wheels & Tires
-        assert infer_category(
-            "Rexpeed Forged Carbon Steering Wheels Shift Paddles Extension Supra GR 2020+",
-            None,
-        ) == "interior"
+        assert (
+            infer_category(
+                "Rexpeed Forged Carbon Steering Wheels Shift Paddles Extension Supra GR 2020+",
+                None,
+            )
+            == "interior"
+        )
         assert infer_category("Steering Wheel Cover", None) == "interior"
 
     def test_lighting(self) -> None:

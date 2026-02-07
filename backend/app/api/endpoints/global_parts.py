@@ -220,9 +220,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             if update_data.get("image_urls") is not None:
                 current_urls = list(update_data["image_urls"])
             else:
-                current_urls = list(entity.image_urls or []) or (
-                    [entity.image_url] if entity.image_url else []
-                )
+                current_urls = list(entity.image_urls or []) or ([entity.image_url] if entity.image_url else [])
             if new_primary not in current_urls:
                 merged = [new_primary] + [u for u in current_urls if u != new_primary]
                 update_data["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
@@ -300,7 +298,9 @@ async def read_global_parts_with_votes(
     category_id: Optional[int] = Query(None, description="Filter by category ID (single; use category_ids for multi)"),
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
     car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(None, description="Filter by car IDs (e.g. all generations for a make or model)"),
+    car_ids: Optional[List[int]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
     brand_id: Optional[int] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
@@ -552,8 +552,7 @@ def _apply_global_parts_list_filters(
         query = query.filter(DBGlobalPart.brand_id.in_(brand_ids))
     if car_ids:
         part_fits_any_car = exists().where(
-            (global_part_cars.c.global_part_id == DBGlobalPart.id)
-            & (global_part_cars.c.car_id.in_(car_ids))
+            (global_part_cars.c.global_part_id == DBGlobalPart.id) & (global_part_cars.c.car_id.in_(car_ids))
         )
         query = query.filter(or_(DBGlobalPart.is_universal, part_fits_any_car))
     if user_id is not None:
@@ -577,9 +576,7 @@ def _global_parts_base_query(
 ):
     """Build base query for global parts list with filters applied (no pagination/sort)."""
     q = db.query(DBGlobalPart)
-    return _apply_global_parts_list_filters(
-        q, category_ids, brand_ids, car_ids, search, user_id, retailer_id
-    )
+    return _apply_global_parts_list_filters(q, category_ids, brand_ids, car_ids, search, user_id, retailer_id)
 
 
 @router.get(
@@ -590,7 +587,9 @@ async def get_global_parts_filter_options(
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(None, description="Filter by car IDs (e.g. all generations for a make or model)"),
+    car_ids: Optional[List[int]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
     user_id: Optional[int] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -612,7 +611,10 @@ async def get_global_parts_filter_options(
     )
     available_categories = [
         row[0]
-        for row in q.with_entities(DBGlobalPart.category_id).distinct().filter(DBGlobalPart.category_id.isnot(None)).all()
+        for row in q.with_entities(DBGlobalPart.category_id)
+        .distinct()
+        .filter(DBGlobalPart.category_id.isnot(None))
+        .all()
     ]
     available_brands = [
         row[0]

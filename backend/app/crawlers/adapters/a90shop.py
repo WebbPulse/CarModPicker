@@ -16,14 +16,14 @@ from typing import Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
-from app.crawlers.base import ScrapedPayload, fetch_page
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
+from app.crawlers.base import ScrapedPayload, fetch_page
 from app.crawlers.parsing import (
     extract_json_ld_product,
-    scraped_payload_from_json_ld,
-    parse_price_cents,
-    normalize_part_number,
     extract_sku_from_text,
+    normalize_part_number,
+    parse_price_cents,
+    scraped_payload_from_json_ld,
 )
 
 # Default start URL for PoC; used only when sitemap discovery fails

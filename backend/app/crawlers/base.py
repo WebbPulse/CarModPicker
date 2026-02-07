@@ -23,22 +23,22 @@ from urllib.robotparser import RobotFileParser
 import requests
 from sqlalchemy.orm import Session
 
+from app.api.endpoints.global_parts import GlobalPartService
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.schemas.global_part import GlobalPartCreate
-from app.core.category_inference import infer_category
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     domain_from_url,
     find_part_by_brand_and_part_number,
-    find_part_by_product_url,
     find_part_by_gtin,
+    find_part_by_product_url,
     get_or_create_brand_by_name,
     get_or_create_retailer,
     normalize_gtin,
 )
-from app.api.endpoints.global_parts import GlobalPartService
+from app.core.category_inference import infer_category
 
 logger = logging.getLogger(__name__)
 

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
 from app.api.models.user import User as DBUser
+from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
     DEFAULT_USER_AGENT,
@@ -30,7 +31,6 @@ from app.crawlers.base import (
     get_crawl_delay_sec,
     ingest_payload,
 )
-from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.db.session import SessionLocal
 
 logging.basicConfig(
@@ -45,9 +45,7 @@ def _get_crawler_user(db: Session) -> DBUser:
     """Load crawler user by CRAWLER_USER_ID. Exits with message if not set or not found."""
     raw = os.environ.get("CRAWLER_USER_ID")
     if not raw:
-        logger.error(
-            "CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts."
-        )
+        logger.error("CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts.")
         sys.exit(1)
     try:
         user_id = int(raw)

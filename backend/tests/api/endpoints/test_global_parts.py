@@ -613,8 +613,7 @@ class TestGlobalParts:
     ) -> None:
         """Test check-url with non-existent URL returns null."""
         response = client.get(
-            f"{settings.API_STR}/global-parts/check-url"
-            "?product_url=https://example.com/nonexistent/product"
+            f"{settings.API_STR}/global-parts/check-url" "?product_url=https://example.com/nonexistent/product"
         )
         assert response.status_code == 200
         data = response.json()

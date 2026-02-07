@@ -76,7 +76,9 @@ async def read_build_lists_with_votes(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
     car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(None, description="Filter by car IDs (e.g. all generations for a make or model)"),
+    car_ids: Optional[List[int]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
     min_cost_cents: Optional[int] = Query(None, ge=0, description="Minimum total build list cost (cents)"),
     max_cost_cents: Optional[int] = Query(None, ge=0, description="Maximum total build list cost (cents)"),
     sort: Optional[str] = Query(
