@@ -22,6 +22,7 @@ import { ErrorAlert } from '../common/Alerts';
 import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import CarModelMultiSelect from '../common/CarModelMultiSelect';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
@@ -45,7 +46,8 @@ function CreateGlobalPartForm({
     description: '',
     product_url: '',
     category_id: null as number | null,
-    car_id: null as number | null,
+    car_ids: [] as number[],
+    is_universal: false,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -59,25 +61,6 @@ function CreateGlobalPartForm({
   const [isLoadingBrands, setIsLoadingBrands] = useState(true);
   const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
   const urlCheckTimeoutRef = useRef<number | null>(null);
-
-  // Convert cars to SearchableSelect options
-  const carOptions: SearchableSelectOption[] = cars.map((car) => ({
-    id: car.id,
-    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${
-      car.end_year ? `-${car.end_year}` : ''
-    })`,
-    value: car.id,
-  }));
-
-  // Filter function for cars
-  const filterCars = (
-    options: SearchableSelectOption[],
-    searchText: string
-  ): SearchableSelectOption[] => {
-    if (!searchText.trim()) return options;
-    const lowerText = searchText.toLowerCase();
-    return options.filter((opt) => opt.label.toLowerCase().includes(lowerText));
-  };
 
   // Convert categories to SearchableSelect options (only active categories)
   const categoryOptions: SearchableSelectOption[] = useMemo(() => {
@@ -281,9 +264,14 @@ function CreateGlobalPartForm({
     // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
-  const handleCarChange = (value: number | string | null) => {
-    const carId = value !== null && value !== '' ? Number(value) : null;
-    setFormData((prev) => ({ ...prev, car_id: carId }));
+  const handleCarIdsChange = (carIds: number[]) => {
+    setFormData((prev) => ({ ...prev, car_ids: carIds }));
+    if (validationError) setValidationError(null);
+  };
+
+  const handleUniversalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setFormData((prev) => ({ ...prev, is_universal: checked }));
     if (validationError) setValidationError(null);
   };
 
@@ -337,7 +325,8 @@ function CreateGlobalPartForm({
       image_url: imageFileKey || null,
       product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
-      car_id: formData.car_id,
+      is_universal: formData.is_universal,
+      car_ids: formData.is_universal ? [] : formData.car_ids,
       brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
       part_number: formData.part_number.trim() || null,
     };
@@ -558,19 +547,32 @@ function CreateGlobalPartForm({
         filterOptions={filterCategories}
       />
 
-      <SearchableSelect
-        id="global-part-car"
-        name="car_id"
-        label="Car Model (Optional)"
-        placeholder="Type to search for a car model..."
-        value={formData.car_id}
-        onChange={handleCarChange}
-        options={carOptions}
-        disabled={isLoadingCars}
-        isLoading={isLoadingCars}
-        emptyMessage="No cars found. Try a different search term."
-        filterOptions={filterCars}
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="global-part-universal"
+          checked={formData.is_universal}
+          onChange={handleUniversalChange}
+          className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+        />
+        <label
+          htmlFor="global-part-universal"
+          className="text-sm text-gray-300"
+        >
+          Universal part (fits all vehicles)
+        </label>
+      </div>
+      {!formData.is_universal && (
+        <CarModelMultiSelect
+          cars={cars}
+          value={formData.car_ids}
+          onChange={handleCarIdsChange}
+          label="Car models (optional)"
+          placeholder="Type to search for a car model..."
+          isLoading={isLoadingCars}
+          emptyMessage="No cars found or all selected."
+        />
+      )}
 
       <ImageUpload
         currentImageUrl={imageFileKey}

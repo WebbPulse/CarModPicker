@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.orm import Query, Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -633,44 +633,3 @@ def get_entities_with_pagination(
         logger.info(f"Retrieved {len(entities)} {model.__name__} entities")
 
     return entities
-
-
-def check_subscription_limits(
-    db: Session,
-    current_user: DBUser,
-    service_method: str,
-    entity_name: str,
-    logger: logging.Logger,
-) -> None:
-    """
-    Check subscription limits for entity creation.
-
-    Args:
-        db: Database session
-        current_user: Current authenticated user
-        service_method: Method name to call on SubscriptionService
-        entity_name: Name of the entity being created
-        logger: Logger instance
-
-    Raises:
-        HTTPException: If subscription limit is reached
-    """
-    from app.api.services.subscription_service import SubscriptionService
-
-    if not getattr(SubscriptionService, service_method)(db, current_user):
-        limits = SubscriptionService.get_user_limits(current_user)
-        usage = SubscriptionService.get_user_usage(db, current_user.id)
-
-        logger.warning(f"Subscription limit reached for {entity_name} creation by user {current_user.id}")
-
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail={
-                "message": (
-                    f"{entity_name.title()} creation limit reached. "
-                    f"Upgrade to premium for unlimited {entity_name}s."
-                ),
-                "limits": limits,
-                "usage": usage,
-            },
-        )

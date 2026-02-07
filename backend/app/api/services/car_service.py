@@ -3,15 +3,31 @@ Car service that extends BaseCRUDService to eliminate redundancy.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.car import Car as DBCar
+from app.api.models.car_model import CarModel
+from app.api.models.make import Make
 from app.api.models.user import User as DBUser
 from app.api.schemas.car import CarCreate, CarRead, CarUpdate
 from app.api.services.base_crud_service import BaseCRUDService
-from app.api.utils.common_operations import delete_entity
+from app.api.utils.common_operations import (
+    apply_pagination_and_ordering,
+    delete_entity,
+    validate_pagination_params,
+    verify_entity_access,
+    verify_entity_exists,
+)
+
+
+def _car_query_with_make_model(db: Session):
+    """Base query for Car with car_model and make eager-loaded (for make/model properties)."""
+    return db.query(DBCar).options(
+        joinedload(DBCar.car_model).joinedload(CarModel.make),
+    )
 
 
 class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
@@ -19,17 +35,75 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     Car service that provides CRUD operations for cars.
 
     This service eliminates redundancy by extending BaseCRUDService
-    and only implementing car-specific logic.
+    and only implementing car-specific logic. Make/model filtering uses
+    joins to Make and CarModel.
     """
 
     def __init__(self) -> None:
         """Initialize the car service."""
-        # Cars are now centrally managed, so no subscription check needed
         super().__init__(
             model=DBCar,
             entity_name="car",
-            subscription_check_method=None,  # Cars are admin-managed, no subscription check
         )
+
+    def get_by_id(
+        self,
+        db: Session,
+        entity_id: int,
+        current_user: Optional[DBUser] = None,
+        allow_public: bool = False,
+        logger: Optional[logging.Logger] = None,
+    ) -> DBCar:
+        """Get car by ID with car_model and make loaded (for make/model properties)."""
+        if current_user and not allow_public:
+            verify_entity_access(db, self.model, entity_id, current_user, self.entity_name, allow_public)
+        else:
+            verify_entity_exists(db, self.model, entity_id, self.entity_name)
+
+        car = _car_query_with_make_model(db).filter(DBCar.id == entity_id).first()
+        if car is None:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail=f"{self.entity_name.title()} not found")
+        if logger:
+            logger.info(f"Retrieved {self.entity_name} {entity_id}")
+        return car
+
+    def list_all(
+        self,
+        db: Session,
+        skip: int = 0,
+        limit: int = 100,
+        filters: Optional[dict] = None,
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None,
+        order_by: str = "created_at",
+        order_direction: str = "desc",
+        logger: Optional[logging.Logger] = None,
+    ) -> List[DBCar]:
+        """List cars with car_model and make loaded. Ignores make/model filters (use get_cars_by_make_model)."""
+        validate_pagination_params(skip, limit)
+        query = _car_query_with_make_model(db)
+
+        # Search: make, model (via join), generation_name
+        if search and search_fields:
+            if "make" in search_fields or "model" in search_fields or "generation_name" in search_fields:
+                query = query.join(DBCar.car_model).join(CarModel.make)
+                conditions = []
+                if "make" in search_fields:
+                    conditions.append(Make.name.ilike(f"%{search}%"))
+                if "model" in search_fields:
+                    conditions.append(CarModel.name.ilike(f"%{search}%"))
+                if "generation_name" in search_fields:
+                    conditions.append(DBCar.generation_name.ilike(f"%{search}%"))
+                if conditions:
+                    query = query.filter(or_(*conditions))
+
+        query = apply_pagination_and_ordering(query, skip, limit, order_by, order_direction)
+        entities = query.all()
+        if logger:
+            logger.info(f"Retrieved {len(entities)} {self.entity_name} entities")
+        return entities
 
     def get_cars_by_make_model(
         self,
@@ -41,32 +115,21 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
-        Get cars filtered by make and/or model.
-
-        Args:
-            db: Database session
-            make: Car make to filter by
-            model: Car model to filter by
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-            logger: Logger instance (optional)
-
-        Returns:
-            List of cars matching the filters
+        Get cars filtered by make and/or model (via joins to Make and CarModel).
         """
-        filters: Dict[str, Any] = {}
-        if make:
-            filters["make"] = make
-        if model:
-            filters["model"] = model
+        validate_pagination_params(skip, limit)
+        query = _car_query_with_make_model(db).join(DBCar.car_model).join(CarModel.make)
 
-        return self.list_all(
-            db=db,
-            skip=skip,
-            limit=limit,
-            filters=filters,
-            logger=logger,
-        )
+        if make:
+            query = query.filter(Make.name == make)
+        if model:
+            query = query.filter(CarModel.name == model)
+
+        query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
+        entities = query.all()
+        if logger:
+            logger.info(f"Retrieved {len(entities)} cars by make/model")
+        return entities
 
     def search_cars(
         self,
@@ -77,26 +140,26 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """
-        Search cars by make, model, or generation name.
-
-        Args:
-            db: Database session
-            search_term: Search term to look for
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-            logger: Logger instance (optional)
-
-        Returns:
-            List of cars matching the search term
+        Search cars by make, model (via join), or generation name.
         """
-        return self.list_all(
-            db=db,
-            skip=skip,
-            limit=limit,
-            search=search_term,
-            search_fields=["make", "model", "generation_name"],
-            logger=logger,
+        validate_pagination_params(skip, limit)
+        query = (
+            _car_query_with_make_model(db)
+            .join(DBCar.car_model)
+            .join(CarModel.make)
+            .filter(
+                or_(
+                    Make.name.ilike(f"%{search_term}%"),
+                    CarModel.name.ilike(f"%{search_term}%"),
+                    DBCar.generation_name.ilike(f"%{search_term}%"),
+                )
+            )
         )
+        query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
+        entities = query.all()
+        if logger:
+            logger.info(f"Retrieved {len(entities)} cars for search")
+        return entities
 
     def delete(
         self,
@@ -107,32 +170,17 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     ) -> DBCar:
         """
         Delete a car (admin only, no ownership check since cars are centrally managed).
-
-        Args:
-            db: Database session
-            entity_id: ID of the car to delete
-            current_user: Current authenticated user (must be admin)
-            logger: Logger instance
-
-        Returns:
-            The deleted car entity
-
-        Raises:
-            HTTPException: If car not found or deletion fails
         """
-        # Use default logger if none provided
         if logger is None:
             logger = logging.getLogger(__name__)
 
-        # Get the car first (no ownership check since cars are centrally managed)
         car = self.get_by_id(
             db=db,
             entity_id=entity_id,
-            allow_public=True,  # Public read, but delete requires admin (checked by endpoint)
+            allow_public=True,
             logger=logger,
         )
 
-        # Delete the entity (returns a message dict, but we return the car object)
         delete_entity(
             db=db,
             entity=car,
@@ -140,6 +188,4 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
             logger=logger,
             entity_name=self.entity_name,
         )
-
-        # Return the car that was deleted
         return car

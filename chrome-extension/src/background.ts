@@ -398,7 +398,7 @@ async function appendImagesToGlobalPart(
 }
 
 /** Max images allowed per global part (must match backend MAX_IMAGES_PER_GLOBAL_PART) */
-const MAX_IMAGES_PER_GLOBAL_PART = 10;
+const MAX_IMAGES_PER_GLOBAL_PART = 12;
 
 /**
  * Check which source URLs are not in our image cache.

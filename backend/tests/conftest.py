@@ -372,13 +372,27 @@ def create_car_in_db(
 ) -> Dict[str, Any]:
     """Create a car directly in the database for test setup. Cars are seeded from
     backend source code in production; this helper is for tests that need a specific car.
+    Creates Make and CarModel if needed, then Car (generation).
     Returns a dict with id, make, model, generation_name, start_year, end_year (API shape).
     """
     from app.api.models.car import Car
+    from app.api.models.car_model import CarModel
+    from app.api.models.make import Make
+
+    make_entity = db.query(Make).filter(Make.name == make).first()
+    if make_entity is None:
+        make_entity = Make(name=make)
+        db.add(make_entity)
+        db.flush()
+
+    car_model_entity = db.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model).first()
+    if car_model_entity is None:
+        car_model_entity = CarModel(make_id=make_entity.id, name=model)
+        db.add(car_model_entity)
+        db.flush()
 
     car = Car(
-        make=make,
-        model=model,
+        car_model_id=car_model_entity.id,
         generation_name=generation_name,
         start_year=start_year,
         end_year=end_year,
@@ -389,8 +403,8 @@ def create_car_in_db(
     db.refresh(car)
     return {
         "id": car.id,
-        "make": car.make,
-        "model": car.model,
+        "make": make,
+        "model": model,
         "generation_name": car.generation_name,
         "start_year": car.start_year,
         "end_year": car.end_year,
@@ -398,6 +412,51 @@ def create_car_in_db(
         "created_at": car.created_at.isoformat() if car.created_at else None,
         "updated_at": car.updated_at.isoformat() if car.updated_at else None,
     }
+
+
+def create_car_orm_in_db(
+    db: Session,
+    make: str = "Honda",
+    model: str = "Civic",
+    generation_name: str = "10th Gen",
+    start_year: int = 2016,
+    end_year: int = 2021,
+    description: Optional[str] = None,
+):
+    """Create a car in the DB and return the Car ORM instance (with relationships loaded).
+    Use when tests need the Car object (e.g. car.make, car.id) rather than the API dict.
+    """
+    from sqlalchemy.orm import joinedload
+
+    from app.api.models.car import Car
+    from app.api.models.car_model import CarModel
+    from app.api.models.make import Make
+
+    make_entity = db.query(Make).filter(Make.name == make).first()
+    if make_entity is None:
+        make_entity = Make(name=make)
+        db.add(make_entity)
+        db.flush()
+
+    car_model_entity = db.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model).first()
+    if car_model_entity is None:
+        car_model_entity = CarModel(make_id=make_entity.id, name=model)
+        db.add(car_model_entity)
+        db.flush()
+
+    car = Car(
+        car_model_id=car_model_entity.id,
+        generation_name=generation_name,
+        start_year=start_year,
+        end_year=end_year,
+        description=description,
+    )
+    db.add(car)
+    db.commit()
+    db.refresh(car)
+    # Reload with relationships so car.make / car.model work
+    car = db.query(Car).options(joinedload(Car.car_model).joinedload(CarModel.make)).filter(Car.id == car.id).first()
+    return car
 
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:

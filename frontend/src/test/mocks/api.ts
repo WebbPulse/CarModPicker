@@ -4,7 +4,6 @@ import type {
   CarRead,
   CategoryResponse,
   GlobalPartRead,
-  SubscriptionResponse,
   UserRead,
   VoteSummary,
 } from '../../types/Api';
@@ -57,6 +56,8 @@ export const mockGlobalPart: GlobalPartRead = {
   image_url: 'https://example.com/part.jpg',
   category_id: 1,
   user_id: 1,
+  car_ids: [],
+  is_universal: false,
   brand: 'TestBrand',
   part_number: 'TP001',
   specifications: { weight: '2.5kg', material: 'aluminum' },
@@ -91,17 +92,6 @@ export const mockVoteSummary: VoteSummary = {
   user_vote: 'upvote',
 };
 
-// Mock subscription data
-export const mockSubscription: SubscriptionResponse = {
-  tier: 'premium',
-  status: 'active',
-  expires_at: '2024-12-31T23:59:59Z',
-  id: 1,
-  user_id: 1,
-  created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
 // Mock API responses
 export const mockApiResponses = {
   // Auth endpoints
@@ -124,9 +114,6 @@ export const mockApiResponses = {
 
   // Categories endpoints
   '/categories': { data: [mockCategory] },
-
-  // Subscription endpoints
-  '/subscriptions/status': { data: mockSubscription },
 
   // Default error response
   default: { data: null, status: 404 },

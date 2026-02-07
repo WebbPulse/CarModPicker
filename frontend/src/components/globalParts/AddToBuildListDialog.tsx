@@ -54,11 +54,13 @@ function AddToBuildListDialog({
   // Check if any selected build list is for a different car model than the part
   const hasCarMismatch =
     globalPart != null &&
-    globalPart.car_id != null &&
+    !globalPart.is_universal &&
+    (globalPart.car_ids?.length ?? 0) > 0 &&
     Array.from(selectedBuildListIds).some((blId) => {
       const buildList = buildLists.find((bl) => bl.id === blId);
       return (
-        buildList?.car_id != null && buildList.car_id !== globalPart?.car_id
+        buildList?.car_id != null &&
+        !globalPart.car_ids.includes(buildList.car_id)
       );
     });
 
@@ -228,9 +230,10 @@ function AddToBuildListDialog({
               {buildLists.map((buildList: BuildListRead) => {
                 const isSelected = selectedBuildListIds.has(buildList.id);
                 const isCarMismatch =
-                  globalPart.car_id != null &&
+                  !globalPart.is_universal &&
+                  (globalPart.car_ids?.length ?? 0) > 0 &&
                   buildList.car_id != null &&
-                  buildList.car_id !== globalPart.car_id;
+                  !globalPart.car_ids.includes(buildList.car_id);
                 return (
                   <Card
                     key={buildList.id}

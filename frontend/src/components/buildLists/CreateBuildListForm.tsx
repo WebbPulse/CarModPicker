@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carsApi } from '../../services/Api';
+import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type { BuildListCreate, BuildListRead, CarRead } from '../../types/Api';
 import ButtonStretch from '../buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
@@ -89,9 +90,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   }, [selectedMake, fetchCarsByMake]);
 
   useEffect(() => {
-    if (carsByMake) {
-      setAvailableCars(carsByMake);
-    }
+    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
   }, [carsByMake]);
 
   useEffect(() => {
@@ -149,12 +148,15 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
 
   // Get unique models for selected make
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model))
+    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
   ).sort();
 
   // Get generations (cars) for selected make and model
   const generations = availableCars
-    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .filter(
+      (car) =>
+        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+    )
     .sort((a, b) => {
       // Sort by start_year, then generation_name
       if (a.start_year !== b.start_year) {
@@ -274,7 +276,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                         {car.generation_name}
                       </h4>
                       <p className="text-xs text-gray-400">
-                        {car.start_year} - {car.end_year}
+                        {formatCarYearRange(car.start_year, car.end_year)}
                       </p>
                     </Card>
                   ))}
@@ -293,8 +295,10 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">
-                      {selectedGeneration.start_year} -{' '}
-                      {selectedGeneration.end_year}
+                      {formatCarYearRange(
+                        selectedGeneration.start_year,
+                        selectedGeneration.end_year
+                      )}
                     </p>
                   </div>
                   <button

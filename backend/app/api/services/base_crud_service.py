@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump
 from app.api.utils.common_operations import (
-    check_subscription_limits,
     create_entity,
     delete_entity,
     get_entities_with_pagination,
@@ -43,7 +42,6 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         self,
         model: Type[ModelType],
         entity_name: str = "entity",
-        subscription_check_method: Optional[str] = None,
     ):
         """
         Initialize the base CRUD service.
@@ -51,11 +49,9 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         Args:
             model: The SQLAlchemy model class
             entity_name: Human-readable name of the entity type
-            subscription_check_method: Method name to call on SubscriptionService for limits
         """
         self.model = model
         self.entity_name = entity_name
-        self.subscription_check_method = subscription_check_method
 
     def create(
         self,
@@ -79,18 +75,8 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             The created entity
 
         Raises:
-            HTTPException: If creation fails or subscription limit reached
+            HTTPException: If creation fails
         """
-        # Check subscription limits if method is specified
-        if self.subscription_check_method:
-            check_subscription_limits(
-                db,
-                current_user,
-                self.subscription_check_method,
-                self.entity_name,
-                logger,
-            )
-
         # Prepare data for creation
         # CreateSchema is bound to HasModelDump, so model_dump() is available
         entity_data = data.model_dump()

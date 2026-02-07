@@ -4,6 +4,7 @@ import { FaArrowUp, FaCogs, FaFire, FaUsers } from 'react-icons/fa';
 import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
 import { HiSparkles } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
+import BuildListCard from '../components/buildLists/BuildListCard';
 import LinkButton from '../components/buttons/LinkButton';
 import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
@@ -200,37 +201,7 @@ export default function HomePage() {
             ) : featuredBuildLists.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {featuredBuildLists.map((buildList) => (
-                  <Link
-                    key={buildList.id}
-                    to={`/build-lists/${buildList.id}`}
-                    className="block hover:no-underline"
-                  >
-                    <Card className="h-full hover:border-primary-500 border-2 border-transparent transition-all duration-300 group">
-                      <div className="relative mb-4">
-                        <ImageWithPlaceholder
-                          srcUrl={buildList.image_url ?? null}
-                          altText={buildList.name}
-                          imageClassName="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
-                          containerClassName="w-full h-48"
-                          fallbackText="No image"
-                        />
-                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-lg">
-                          <FaArrowUp className="text-primary-400 text-xs" />
-                          <span className="text-xs font-semibold text-white">
-                            {buildList.total_votes} votes
-                          </span>
-                        </div>
-                      </div>
-                      <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-primary-400 transition-colors">
-                        {buildList.name}
-                      </h3>
-                      {buildList.description && (
-                        <p className="text-sm text-neutral-400 line-clamp-2">
-                          {buildList.description}
-                        </p>
-                      )}
-                    </Card>
-                  </Link>
+                  <BuildListCard key={buildList.id} buildList={buildList} />
                 ))}
               </div>
             ) : (

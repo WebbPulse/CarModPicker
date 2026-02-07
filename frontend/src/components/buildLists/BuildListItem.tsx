@@ -7,6 +7,7 @@ import type {
   CarRead,
   VoteSummary,
 } from '../../types/Api';
+import { normalizeCarRead } from '../../utils/carUtils';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import VoteButtons from '../globalParts/VoteButtons';
@@ -61,7 +62,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
       carsApi
         .getCar(buildList.car_id)
         .then((response) => {
-          setCarInfo(response.data);
+          setCarInfo(normalizeCarRead(response.data) ?? null);
           setIsLoadingCar(false);
         })
         .catch(() => {
@@ -143,7 +144,8 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
             )}
             {carInfo && (
               <p className="text-xs text-gray-300 mb-2">
-                {carInfo.make} {carInfo.model} {carInfo.generation_name}
+                {carInfo?.make ?? ''} {carInfo?.model ?? ''}{' '}
+                {carInfo?.generation_name ?? ''}
               </p>
             )}
           </div>

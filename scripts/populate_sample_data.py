@@ -9,7 +9,6 @@ where pagination might be missing or improper:
 - Build Lists: 2500+ (tests pagination with limit=1000)
 - Build List Parts: 5000+ (tests pagination)
 - Votes: 5000+ (tests pagination)
-- Subscriptions: 2500+ (one per user)
 - Reports: 2500+ (tests pagination)
 - Build Logs: One per build list
 - Build Log Posts: 200-300 per build log (tests pagination with limit=100)
@@ -60,7 +59,9 @@ from app.api.models.build_log import (  # pyright: ignore[reportMissingImports]
     BuildLogPost,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
+from app.api.models.make import Make  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
     GlobalPart,
 )  # pyright: ignore[reportMissingImports]
@@ -76,9 +77,6 @@ from app.api.services.part_listing_service import (  # pyright: ignore[reportMis
     create_or_update_listing_and_price,
     get_or_create_brand_by_name,
     get_or_create_retailer,
-)  # pyright: ignore[reportMissingImports]
-from app.api.models.subscription import (  # pyright: ignore[reportMissingImports]
-    Subscription,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.user import User  # pyright: ignore[reportMissingImports]
 from app.api.models.vote import Vote  # pyright: ignore[reportMissingImports]
@@ -356,35 +354,59 @@ def create_sample_categories(db: Session) -> list[Category]:
 
 
 def create_sample_cars(db: Session) -> list[Car]:
-    """Create sample centrally managed car generations using the canonical data source."""
+    """Create sample centrally managed car generations using the canonical data source.
+    Uses Make and CarModel entities; same logic as init_car_generations.
+    """
     start_time = time.time()
     log_section("Creating sample car generations...")
 
-    # Use the same method as the application initialization
-    # This ensures consistency with the canonical car_generations_data.py
     cars_data = get_all_car_generations()
-
-    cars = []
+    cars: list[Car] = []
     created_count = 0
     skipped_count = 0
 
     for car_data in cars_data:
+        make_name = car_data["make"]
+        model_name = car_data["model"]
+
+        # Get or create Make
+        make_entity = db.query(Make).filter(Make.name == make_name).first()
+        if make_entity is None:
+            make_entity = Make(name=make_name)
+            db.add(make_entity)
+            db.flush()
+
+        # Get or create CarModel
+        car_model_entity = (
+            db.query(CarModel)
+            .filter(CarModel.make_id == make_entity.id, CarModel.name == model_name)
+            .first()
+        )
+        if car_model_entity is None:
+            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            db.add(car_model_entity)
+            db.flush()
+
         # Check if car generation already exists
         existing = (
             db.query(Car)
             .filter(
-                Car.make == car_data["make"],
-                Car.model == car_data["model"],
+                Car.car_model_id == car_model_entity.id,
                 Car.generation_name == car_data["generation_name"],
             )
             .first()
         )
         if existing:
-            # Skip existing cars to preserve manual edits (same behavior as init_car_generations)
             cars.append(existing)
             skipped_count += 1
         else:
-            car = Car(**car_data)
+            car = Car(
+                car_model_id=car_model_entity.id,
+                generation_name=car_data["generation_name"],
+                start_year=car_data["start_year"],
+                end_year=car_data.get("end_year"),
+                description=car_data.get("description"),
+            )
             db.add(car)
             cars.append(car)
             created_count += 1
@@ -1844,96 +1866,6 @@ def create_sample_votes(
     return all_votes
 
 
-def create_sample_subscriptions(db: Session, users: list[User]) -> list[Subscription]:
-    """Create sample subscriptions."""
-    start_time = time.time()
-    log_section("Creating sample subscriptions...")
-
-    # Initial subscriptions
-    subscriptions_data = [
-        {
-            "user_id": users[1].id,  # john_doe
-            "tier": "premium",
-            "status": "active",
-            "expires_at": datetime.now(UTC) + timedelta(days=365),
-        },
-        {
-            "user_id": users[3].id,  # car_enthusiast
-            "tier": "premium",
-            "status": "active",
-            "expires_at": datetime.now(UTC) + timedelta(days=180),
-        },
-        {
-            "user_id": users[2].id,  # jane_smith
-            "tier": "free",
-            "status": "active",
-            "expires_at": None,
-        },
-    ]
-
-    used_user_ids = {sub["user_id"] for sub in subscriptions_data}
-
-    # Generate additional subscriptions for more users - target 2500 total (one per user)
-    tiers = ["free", "free", "free", "premium"]  # More free than premium
-    statuses = ["active", "active", "active", "inactive", "expired"]
-
-    for i in range(2497):  # 2497 more to reach 2500 total
-        # Choose a user that doesn't already have a subscription
-        available_users = [u for u in users if u.id not in used_user_ids]
-        if not available_users:
-            # If all users have subscriptions, just pick any user
-            available_users = users
-
-        user = random.choice(available_users)
-        tier = random.choice(tiers)
-        status = random.choice(statuses)
-
-        # Set expiration based on tier and status
-        expires_at = None
-        if tier == "premium" and status == "active":
-            expires_at = datetime.now(UTC) + timedelta(days=random.randint(30, 365))
-        elif tier == "premium" and status == "expired":
-            expires_at = datetime.now(UTC) - timedelta(days=random.randint(1, 90))
-        elif tier == "free":
-            expires_at = None  # Free subscriptions don't expire
-
-        subscriptions_data.append(
-            {
-                "user_id": user.id,
-                "tier": tier,
-                "status": status,
-                "expires_at": expires_at,
-            }
-        )
-        used_user_ids.add(user.id)
-
-    subscriptions = []
-    batch_size = 500
-    total = len(subscriptions_data)
-
-    log_info(f"Processing {total:,} subscriptions in batches of {batch_size}...")
-
-    for i, sub_data in enumerate(subscriptions_data):
-        subscription = Subscription(**sub_data)
-        db.add(subscription)
-        subscriptions.append(subscription)
-
-        # Commit in batches for better performance
-        if (i + 1) % batch_size == 0:
-            db.commit()
-            batch_num = i // batch_size + 1
-            log_progress(min(i + 1, total), total, "Subscriptions")
-            log_info(f"  Committed batch {batch_num} ({batch_size:,} subscriptions)...")
-
-    db.commit()
-    for subscription in subscriptions:
-        db.refresh(subscription)
-
-    elapsed = time.time() - start_time
-    log_info(f"✓ Created {len(subscriptions):,} subscriptions (took {elapsed:.1f}s)")
-    return subscriptions
-
-
 def create_sample_reports(
     db: Session, users: list[User], global_parts: list[GlobalPart]
 ) -> list[Report]:
@@ -2200,9 +2132,6 @@ def check_section_complete(db: Session, section_name: str, min_count: int) -> bo
         elif section_name == "votes":
             count = db.query(Vote).count()
             return count >= min_count
-        elif section_name == "subscriptions":
-            count = db.query(Subscription).count()
-            return count >= min_count
         elif section_name == "reports":
             count = db.query(Report).count()
             return count >= min_count
@@ -2235,7 +2164,6 @@ def main() -> None:
             "build_lists",
             "build_list_parts",
             "votes",
-            "subscriptions",
             "reports",
             "build_logs",
         ],
@@ -2378,7 +2306,6 @@ def main() -> None:
         build_lists = None
         build_list_parts = None
         votes = None
-        subscriptions = None
         reports = None
         build_logs = None
         build_log_posts = None
@@ -2451,15 +2378,6 @@ def main() -> None:
             log_section("Skipping votes (already complete or skipped)")
             votes = db.query(Vote).all()
 
-        # Subscriptions
-        if "subscriptions" not in skip_list and not (
-            args.skip_complete and check_section_complete(db, "subscriptions", 2000)
-        ):
-            subscriptions = create_sample_subscriptions(db, users)
-        else:
-            log_section("Skipping subscriptions (already complete or skipped)")
-            subscriptions = db.query(Subscription).all()
-
         # Reports
         if "reports" not in skip_list and not (
             args.skip_complete and check_section_complete(db, "reports", 2000)
@@ -2493,7 +2411,6 @@ def main() -> None:
             f"  Build List Parts: {len(build_list_parts) if build_list_parts else 0:,}"
         )
         log_info(f"  Votes: {len(votes) if votes else 0:,}")
-        log_info(f"  Subscriptions: {len(subscriptions) if subscriptions else 0:,}")
         log_info(f"  Reports: {len(reports) if reports else 0:,}")
         log_info(f"  Build Logs: {len(build_logs) if build_logs else 0:,}")
         log_info(

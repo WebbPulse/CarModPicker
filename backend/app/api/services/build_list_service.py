@@ -27,7 +27,6 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         super().__init__(
             model=DBBuildList,
             entity_name="build list",
-            subscription_check_method="can_create_build_list",
         )
 
     def create(

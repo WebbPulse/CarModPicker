@@ -1,17 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import BuildListItem from '../components/buildLists/BuildListItem';
 import ActionButton from '../components/buttons/ActionButton';
 import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
-import ImageWithPlaceholder from '../components/common/ImageWithPlaceholder';
+import GlobalPartList from '../components/globalParts/GlobalPartList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import UserCard from '../components/users/UserCard';
 import useApiRequest from '../hooks/UseApiRequest';
 import { searchApi } from '../services/Api';
-import type { BuildListRead, GlobalPartRead, UserRead } from '../types/Api';
+import type {
+  BuildListRead,
+  GlobalPartRead,
+  GlobalPartReadWithVotes,
+  UserRead,
+} from '../types/Api';
 import {
   SEARCH_INITIAL_LIMITS,
   SEARCH_LOAD_MORE_INCREMENT,
@@ -47,7 +52,23 @@ function Search() {
     users: { has_next: boolean; skip: number };
     global_parts: { has_next: boolean; skip: number };
   } | null>(null);
-  const [currentQuery, setCurrentQuery] = useState<string>('');
+  const [currentQuery, setCurrentQuery] = useState<string>(initialQuery);
+
+  // Convert GlobalPartRead to GlobalPartReadWithVotes for GlobalPartList (adds vote defaults)
+  const globalPartsWithVotes = useMemo((): GlobalPartReadWithVotes[] => {
+    const count =
+      displayedCounts.global_parts ||
+      Math.min(SEARCH_INITIAL_LIMITS.global_parts, globalParts.length);
+    return globalParts.slice(0, count).map(
+      (p): GlobalPartReadWithVotes => ({
+        ...p,
+        upvotes: 0,
+        downvotes: 0,
+        total_votes: 0,
+        user_vote: null,
+      })
+    );
+  }, [globalParts, displayedCounts.global_parts]);
 
   const {
     data: searchResults,
@@ -74,6 +95,29 @@ function Search() {
       void performSearch({ q: query, skip: 0, limit: SEARCH_RESULTS_LIMIT });
     }
   }, [searchTerm, setSearchParams, performSearch]);
+
+  // Live search: debounce search as user types (300ms delay)
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    const timer = setTimeout(() => {
+      if (trimmed) {
+        setSearchParams({ q: trimmed });
+      } else {
+        setSearchParams({});
+        setCurrentQuery('');
+        setBuildLists([]);
+        setUsers([]);
+        setGlobalParts([]);
+        setDisplayedCounts({
+          build_lists: 0,
+          users: 0,
+          global_parts: 0,
+        });
+        setPagination(null);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, setSearchParams]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -295,225 +339,131 @@ function Search() {
         </Card>
       )}
 
-      {/* Search Results */}
-      {!isLoading &&
-        !error &&
-        (searchResults ||
-          buildLists.length > 0 ||
-          users.length > 0 ||
-          globalParts.length > 0) && (
-          <>
-            {/* Build Lists Results */}
-            <Card className="mb-6">
-              <SectionHeader
-                title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
-              />
-              {buildLists.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No build lists found.</p>
+      {/* Search Results (including "no results" state when currentQuery is set) */}
+      {!isLoading && !error && currentQuery && (
+        <>
+          {/* Build Lists Results */}
+          <Card className="mb-6">
+            <SectionHeader
+              title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
+            />
+            {buildLists.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No build lists found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {buildLists
+                    .slice(
+                      0,
+                      displayedCounts.build_lists ||
+                        Math.min(
+                          SEARCH_INITIAL_LIMITS.build_lists,
+                          buildLists.length
+                        )
+                    )
+                    .map((buildList) => (
+                      <BuildListItem key={buildList.id} buildList={buildList} />
+                    ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {buildLists
-                      .slice(
-                        0,
-                        displayedCounts.build_lists ||
-                          Math.min(
-                            SEARCH_INITIAL_LIMITS.build_lists,
-                            buildLists.length
-                          )
-                      )
-                      .map((buildList) => (
-                        <BuildListItem
-                          key={buildList.id}
-                          buildList={buildList}
-                        />
-                      ))}
+                {(pagination?.build_lists.has_next ||
+                  displayedCounts.build_lists < buildLists.length) && (
+                  <div className="mt-6 flex justify-center">
+                    <ActionButton
+                      onClick={() => loadMore('build_lists')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Loading...' : 'Load More Build Lists'}
+                    </ActionButton>
                   </div>
-                  {(pagination?.build_lists.has_next ||
-                    displayedCounts.build_lists < buildLists.length) && (
-                    <div className="mt-6 flex justify-center">
-                      <ActionButton
-                        onClick={() => loadMore('build_lists')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'Load More Build Lists'}
-                      </ActionButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
+                )}
+              </>
+            )}
+          </Card>
 
-            {/* Users Results */}
-            <Card className="mb-6">
-              <SectionHeader
-                title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
-              />
-              {users.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No users found.</p>
+          {/* Users Results */}
+          <Card className="mb-6">
+            <SectionHeader
+              title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
+            />
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No users found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {users
+                    .slice(
+                      0,
+                      displayedCounts.users ||
+                        Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
+                    )
+                    .map((user) => (
+                      <UserCard key={user.id} user={user} />
+                    ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {users
-                      .slice(
-                        0,
-                        displayedCounts.users ||
-                          Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
-                      )
-                      .map((user) => (
-                        <UserCard key={user.id} user={user} />
-                      ))}
+                {(pagination?.users.has_next ||
+                  displayedCounts.users < users.length) && (
+                  <div className="mt-6 flex justify-center">
+                    <ActionButton
+                      onClick={() => loadMore('users')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Loading...' : 'Load More Users'}
+                    </ActionButton>
                   </div>
-                  {(pagination?.users.has_next ||
-                    displayedCounts.users < users.length) && (
-                    <div className="mt-6 flex justify-center">
-                      <ActionButton
-                        onClick={() => loadMore('users')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'Load More Users'}
-                      </ActionButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
+                )}
+              </>
+            )}
+          </Card>
 
-            {/* Parts Results */}
-            <Card className="mb-6">
-              <SectionHeader
-                title={`Parts (${pagination?.global_parts ? searchResults?.global_parts.total || globalParts.length : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total || 0}` : ''})`}
-              />
-              {globalParts.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No parts found.</p>
+          {/* Parts Results - table layout matching parts catalog (no filters) */}
+          <div className="mb-6">
+            <GlobalPartList
+              data={globalPartsWithVotes}
+              layout="table"
+              title={`Parts (${pagination?.global_parts ? (searchResults?.global_parts.total ?? globalParts.length) : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
+              emptyMessage="No parts found."
+              categories={[]}
+              brands={[]}
+              carsById={{}}
+            />
+            {(pagination?.global_parts.has_next ||
+              displayedCounts.global_parts < globalParts.length) && (
+              <div className="mt-6 flex justify-center">
+                <ActionButton
+                  onClick={() => loadMore('global_parts')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Load More Parts'}
+                </ActionButton>
+              </div>
+            )}
+          </div>
+
+          {/* No Results Message */}
+          {buildLists.length === 0 &&
+            users.length === 0 &&
+            globalParts.length === 0 &&
+            currentQuery && (
+              <Card>
+                <div className="text-center py-12">
+                  <p className="text-xl text-gray-400 mb-2">
+                    No results found for "{currentQuery}"
+                  </p>
+                  <p className="text-gray-500">
+                    Try different search terms or check your spelling.
+                  </p>
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    {globalParts
-                      .slice(
-                        0,
-                        displayedCounts.global_parts ||
-                          Math.min(
-                            SEARCH_INITIAL_LIMITS.global_parts,
-                            globalParts.length
-                          )
-                      )
-                      .map((globalPart: GlobalPartRead) => (
-                        <div
-                          key={globalPart.id}
-                          className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                          <div className="flex flex-row items-center gap-4 p-3">
-                            {/* Image */}
-                            <Link
-                              to={`/global-parts/${globalPart.id}`}
-                              className="flex-shrink-0"
-                            >
-                              <div className="w-20 h-20">
-                                <ImageWithPlaceholder
-                                  srcUrl={globalPart.image_url ?? null}
-                                  altText={globalPart.name}
-                                  imageClassName="w-full h-full object-cover rounded"
-                                  containerClassName="w-full h-full flex justify-center items-center"
-                                  fallbackText="No image"
-                                />
-                              </div>
-                            </Link>
+              </Card>
+            )}
+        </>
+      )}
 
-                            {/* Main Content */}
-                            <div className="flex-grow min-w-0">
-                              <Link
-                                to={`/global-parts/${globalPart.id}`}
-                                className="block hover:no-underline"
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex-grow min-w-0">
-                                    <h3 className="text-base font-semibold text-gray-200 mb-1 truncate">
-                                      {globalPart.name}
-                                    </h3>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                      {globalPart.brand && (
-                                        <span className="text-gray-400">
-                                          <span className="text-gray-500">
-                                            Brand:
-                                          </span>{' '}
-                                          {globalPart.brand}
-                                        </span>
-                                      )}
-                                      {globalPart.part_number && (
-                                        <span className="text-gray-400">
-                                          <span className="text-gray-500">
-                                            P/N:
-                                          </span>{' '}
-                                          {globalPart.part_number}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {globalPart.description && (
-                                      <p className="text-sm text-gray-400 mt-1 line-clamp-1">
-                                        {globalPart.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                  {globalPart.best_price_cents != null && (
-                                    <div className="flex-shrink-0 text-right">
-                                      <p className="text-base font-semibold text-green-400">
-                                        $
-                                        {(
-                                          globalPart.best_price_cents / 100
-                                        ).toFixed(2)}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                  {(pagination?.global_parts.has_next ||
-                    displayedCounts.global_parts < globalParts.length) && (
-                    <div className="mt-6 flex justify-center">
-                      <ActionButton
-                        onClick={() => loadMore('global_parts')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'Load More Parts'}
-                      </ActionButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* No Results Message */}
-            {buildLists.length === 0 &&
-              users.length === 0 &&
-              globalParts.length === 0 &&
-              currentQuery && (
-                <Card>
-                  <div className="text-center py-12">
-                    <p className="text-xl text-gray-400 mb-2">
-                      No results found for "{currentQuery}"
-                    </p>
-                    <p className="text-gray-500">
-                      Try different search terms or check your spelling.
-                    </p>
-                  </div>
-                </Card>
-              )}
-          </>
-        )}
-
-      {/* Initial State (no search performed yet) */}
-      {!isLoading && !error && !searchResults && (
+      {/* Initial State (no search performed yet or search cleared) */}
+      {!isLoading && !error && !currentQuery && (
         <Card>
           <div className="text-center py-12">
             <p className="text-xl text-gray-400 mb-2">

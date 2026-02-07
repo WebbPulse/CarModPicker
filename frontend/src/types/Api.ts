@@ -81,7 +81,7 @@ export interface CarRead {
   model: string;
   generation_name: string;
   start_year: number;
-  end_year: number;
+  end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
   image_url?: string | null;
 }
@@ -112,7 +112,7 @@ export interface CarGenerationRead {
   model: string;
   generation_name: string;
   start_year: number;
-  end_year: number;
+  end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
 }
 
@@ -148,6 +148,8 @@ export interface BuildListReadWithVotes extends BuildListRead {
   downvotes: number;
   total_votes: number;
   user_vote?: 'upvote' | 'downvote' | null;
+  /** Sum of (part quantity * best price) for all parts in the build list (cents). */
+  total_cost_cents?: number | null;
 }
 
 export interface BuildListUpdate {
@@ -204,7 +206,8 @@ export interface GlobalPartCreate {
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
-  car_id?: number | null; // Optional car association
+  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  is_universal?: boolean; // When true, part fits all cars
   brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -221,7 +224,8 @@ export interface GlobalPartRead {
   image_urls?: string[] | null;
   category_id: number;
   user_id: number;
-  car_id?: number | null; // Optional car association
+  car_ids: number[]; // Car IDs this part is associated with
+  is_universal: boolean; // When true, part fits all cars
   brand_id?: number | null; // Optional brand association
   brand?: string | null;
   part_number?: string | null;
@@ -294,7 +298,8 @@ export interface GlobalPartUpdate {
   image_url?: string | null;
   image_urls?: string[] | null;
   category_id?: number | null;
-  car_id?: number | null; // Optional car association
+  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  is_universal?: boolean | null;
   brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -476,30 +481,6 @@ export interface BugReportUpdate {
   priority?: 'low' | 'medium' | 'high' | 'critical' | null;
   admin_notes?: string | null;
   assigned_to?: number | null;
-}
-
-// New interfaces for subscription system
-export interface SubscriptionStatus {
-  tier: 'free' | 'premium';
-  status: 'active' | 'cancelled' | 'expired';
-  expires_at?: string | null;
-  limits: Record<string, number>;
-  usage: Record<string, number>;
-}
-
-export interface SubscriptionResponse {
-  tier: 'free' | 'premium';
-  status: 'active' | 'cancelled' | 'expired';
-  expires_at?: string | null;
-  id: number;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UpgradeRequest {
-  tier: 'premium';
-  payment_method?: string | null;
 }
 
 // Build list part relationship

@@ -36,7 +36,6 @@ class RetailerService(BaseCRUDService[DBRetailer, RetailerCreate, RetailerRead, 
         super().__init__(
             model=DBRetailer,
             entity_name="retailer",
-            subscription_check_method=None,
         )
 
     def get_active_retailers(self, db: Session) -> List[DBRetailer]:

@@ -246,7 +246,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       description: existingPartByBrandAndPartNumber.description ?? "",
       categoryId:
         existingPartByBrandAndPartNumber.category_id ?? prev.categoryId,
-      carId: existingPartByBrandAndPartNumber.car_id ?? prev.carId,
+      carId:
+        existingPartByBrandAndPartNumber.car_ids?.[0] ?? prev.carId,
     }));
   }, [existingPartByBrandAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
 
@@ -445,7 +446,10 @@ const PartDialog: React.FC<PartDialogProps> = ({
         price: priceCents,
         product_url: formData.url.trim() || null,
         category_id: parseInt(formData.categoryId.toString()),
-        car_id: formData.carId ? parseInt(formData.carId.toString()) : null,
+        is_universal: false,
+        car_ids: formData.carId
+          ? [parseInt(formData.carId.toString())]
+          : [],
         brand_id: brandId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
         image_url: null,
@@ -454,34 +458,19 @@ const PartDialog: React.FC<PartDialogProps> = ({
         price_cents: retailer && priceCents != null ? priceCents : null,
       };
 
-      // Collect all image URLs: manual entry + scraped gallery (deduped)
-      const urlsToUpload = [
+      // Scraped images: store as external URL references (no upload). Cap at max images per part.
+      const MAX_IMAGES_PER_GLOBAL_PART = 12;
+      const scrapedImageUrls = [
         ...new Set(
           [formData.imageUrl.trim() || null, ...formData.imageUrls].filter(
             Boolean
           ) as string[]
         ),
-      ];
+      ].slice(0, MAX_IMAGES_PER_GLOBAL_PART);
 
-      if (urlsToUpload.length > 0) {
-        const fileKeys: string[] = [];
-        for (const url of urlsToUpload) {
-          const imageResult = (await sendMessage({
-            action: "uploadImage",
-            imageUrl: url,
-          })) as ApiResponse<{ fileKey: string }>;
-          if (imageResult.success && imageResult.data) {
-            fileKeys.push(imageResult.data.fileKey);
-          }
-        }
-        if (fileKeys.length > 0) {
-          const cappedKeys = fileKeys.slice(0, 10); // max images per global part
-          const firstKey = cappedKeys[0];
-          if (firstKey) {
-            partData.image_url = firstKey;
-            partData.image_urls = cappedKeys;
-          }
-        }
+      if (scrapedImageUrls.length > 0) {
+        partData.image_urls = scrapedImageUrls;
+        // Do not set image_url from scraped URLs; leave null so only manual uploads set primary
       }
 
       // Create part

@@ -21,6 +21,7 @@ import { ErrorAlert } from '../common/Alerts';
 import ImageUpload from '../common/ImageUpload';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import CarModelMultiSelect from '../common/CarModelMultiSelect';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
@@ -55,7 +56,8 @@ function EditGlobalPartForm({
     brand_id: null as number | null,
     description: '',
     category_id: 1,
-    car_id: null as number | null,
+    car_ids: [] as number[],
+    is_universal: false,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
@@ -112,13 +114,15 @@ function EditGlobalPartForm({
 
   useEffect(() => {
     try {
+      const carIds = globalPart.car_ids ?? [];
       setFormData({
         name: globalPart.name ?? '',
         part_number: globalPart.part_number ?? '',
         brand_id: globalPart.brand_id ?? null,
         description: globalPart.description ?? '',
         category_id: globalPart.category_id ?? 1,
-        car_id: globalPart.car_id ?? null,
+        car_ids: [...carIds],
+        is_universal: globalPart.is_universal ?? false,
       });
       // Note: globalPart.image_url is now a presigned URL from the API
       setImageFileKey(null);
@@ -143,9 +147,14 @@ function EditGlobalPartForm({
     if (validationError) setValidationError(null);
   };
 
-  const handleCarChange = (carId: number | string | null) => {
-    const numericCarId = carId ? Number(carId) : null;
-    setFormData((prev) => ({ ...prev, car_id: numericCarId }));
+  const handleCarIdsChange = (carIds: number[]) => {
+    setFormData((prev) => ({ ...prev, car_ids: carIds }));
+    if (validationError) setValidationError(null);
+  };
+
+  const handleUniversalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setFormData((prev) => ({ ...prev, is_universal: checked }));
     if (validationError) setValidationError(null);
   };
 
@@ -211,46 +220,6 @@ function EditGlobalPartForm({
     [brands]
   );
 
-  // Convert cars to SearchableSelectOption format
-  const carOptions: SearchableSelectOption[] = cars
-    .sort((a, b) => {
-      // Sort by make, then model, then generation
-      if (a.make !== b.make) {
-        return a.make.localeCompare(b.make);
-      }
-      if (a.model !== b.model) {
-        return a.model.localeCompare(b.model);
-      }
-      return a.generation_name.localeCompare(b.generation_name);
-    })
-    .map((car) => ({
-      id: car.id,
-      value: car.id,
-      label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}${car.end_year ? `-${car.end_year}` : ''})`,
-    }));
-
-  // Custom filter function that searches across make, model, generation, and years
-  const filterCars = (
-    options: SearchableSelectOption[],
-    searchText: string
-  ): SearchableSelectOption[] => {
-    if (!searchText.trim()) return options;
-    const lowerText = searchText.toLowerCase();
-    return options.filter((option) => {
-      const car = cars.find((c) => c.id === option.value);
-      if (!car) return false;
-      return (
-        car.make.toLowerCase().includes(lowerText) ||
-        car.model.toLowerCase().includes(lowerText) ||
-        car.generation_name.toLowerCase().includes(lowerText) ||
-        car.start_year.toString().includes(lowerText) ||
-        (car.end_year !== null &&
-          car.end_year.toString().includes(lowerText)) ||
-        option.label.toLowerCase().includes(lowerText)
-      );
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -296,7 +265,8 @@ function EditGlobalPartForm({
       brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
       description: formData.description.trim() || null,
       category_id: formData.category_id,
-      car_id: formData.car_id,
+      is_universal: formData.is_universal,
+      car_ids: formData.is_universal ? [] : formData.car_ids,
     };
 
     // Only include image_url if it was changed (new file key uploaded)
@@ -431,19 +401,32 @@ function EditGlobalPartForm({
         placeholder="Enter part description"
       />
 
-      <SearchableSelect
-        id="global-part-car"
-        name="car_id"
-        label="Car Model (Optional)"
-        placeholder="Type to search for a car model..."
-        value={formData.car_id}
-        onChange={handleCarChange}
-        options={carOptions}
-        disabled={isLoadingCars}
-        isLoading={isLoadingCars}
-        emptyMessage="No cars found. Try a different search term."
-        filterOptions={filterCars}
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="global-part-universal-edit"
+          checked={formData.is_universal}
+          onChange={handleUniversalChange}
+          className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+        />
+        <label
+          htmlFor="global-part-universal-edit"
+          className="text-sm text-gray-300"
+        >
+          Universal part (fits all vehicles)
+        </label>
+      </div>
+      {!formData.is_universal && (
+        <CarModelMultiSelect
+          cars={cars}
+          value={formData.car_ids}
+          onChange={handleCarIdsChange}
+          label="Car models (optional)"
+          placeholder="Type to search for a car model..."
+          isLoading={isLoadingCars}
+          emptyMessage="No cars found or all selected."
+        />
+      )}
 
       <ImageUpload
         currentImageUrl={globalPart.image_url ?? null}

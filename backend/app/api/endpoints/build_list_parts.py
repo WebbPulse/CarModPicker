@@ -343,7 +343,7 @@ async def create_global_part_and_add_to_build_list(
         "description": request.description,
         "image_url": request.image_url,
         "category_id": request.category_id,
-        "car_id": request.car_id,
+        "is_universal": request.is_universal,
         "brand_id": request.brand_id,
         "part_number": request.part_number,
         "specifications": request.specifications,
@@ -354,6 +354,17 @@ async def create_global_part_and_add_to_build_list(
 
     db_global_part = DBGlobalPart(**global_part_dict)
     db.add(db_global_part)
+    db.flush()
+
+    # Sync car associations
+    if not request.is_universal and request.car_ids:
+        from app.api.models.car import Car as DBCar
+
+        for cid in request.car_ids:
+            get_entity_or_404(db, DBCar, cid, "car")
+        db_global_part.cars = [db.get(DBCar, cid) for cid in request.car_ids]
+    else:
+        db_global_part.cars = []
     db.flush()
 
     if request.retailer_id and (request.product_url or request.price_cents is not None):

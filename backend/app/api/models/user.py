@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from .build_log import BuildLogPost
     from .global_part import GlobalPart
     from .report import Report
-    from .subscription import Subscription
     from .vote import Vote
 
 
@@ -62,9 +61,6 @@ class User(Base):
     )
     build_list_parts: Mapped[List["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="user", cascade="all, delete-orphan"
-    )
-    subscriptions: Mapped[List["Subscription"]] = relationship(
-        "Subscription", back_populates="user", cascade="all, delete-orphan"
     )
     # Unified votes and reports
     votes: Mapped[List["Vote"]] = relationship("Vote", back_populates="user", cascade="all, delete-orphan")

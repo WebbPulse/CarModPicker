@@ -11,6 +11,7 @@ import {
   globalPartVotesApi,
   usersApi,
 } from '../../services/Api';
+import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type {
   BrandResponse,
   CarRead,
@@ -48,8 +49,6 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const fetchUserRequestFn = (userId: number) => usersApi.getUser(userId);
 
-const fetchCarRequestFn = (carId: number) => carsApi.getCar(carId);
-
 const fetchBrandRequestFn = (brandId: number) => brandsApi.getBrand(brandId);
 
 const deletePartRequestFn = (partId: string) =>
@@ -76,7 +75,8 @@ function ViewGlobalPart() {
     useState<GlobalPartReadWithVotes | null>(null);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
-  const [car, setCar] = useState<CarRead | null>(null);
+  const [compatibleCars, setCompatibleCars] = useState<CarRead[]>([]);
+  const [isLoadingCompatibleCars, setIsLoadingCompatibleCars] = useState(false);
   const [brand, setBrand] = useState<BrandResponse | null>(null);
 
   const {
@@ -106,13 +106,6 @@ function ViewGlobalPart() {
     error: ownerApiError,
     executeRequest: fetchUser,
   } = useApiRequest(fetchUserRequestFn);
-
-  const {
-    data: carData,
-    isLoading: isLoadingCar,
-    error: carApiError,
-    executeRequest: fetchCar,
-  } = useApiRequest(fetchCarRequestFn);
 
   const {
     data: brandData,
@@ -164,14 +157,6 @@ function ViewGlobalPart() {
     }
   }, [fetchUser, part?.user_id]);
 
-  const memoizedFetchCar = useCallback(() => {
-    if (part?.car_id) {
-      void fetchCar(part.car_id);
-    } else {
-      setCar(null);
-    }
-  }, [fetchCar, part?.car_id]);
-
   const memoizedFetchBrand = useCallback(() => {
     if (part?.brand_id) {
       void fetchBrand(part.brand_id);
@@ -221,18 +206,41 @@ function ViewGlobalPart() {
   }, [memoizedFetchUser]);
 
   useEffect(() => {
-    memoizedFetchCar();
-  }, [memoizedFetchCar]);
-
-  useEffect(() => {
     memoizedFetchBrand();
   }, [memoizedFetchBrand]);
 
+  // Fetch all compatible cars when part has car_ids
   useEffect(() => {
-    if (carData) {
-      setCar(carData);
+    const carIds = part?.car_ids ?? [];
+    if (carIds.length === 0) {
+      setCompatibleCars([]);
+      setIsLoadingCompatibleCars(false);
+      return;
     }
-  }, [carData]);
+    let cancelled = false;
+    setIsLoadingCompatibleCars(true);
+    Promise.all(carIds.map((id) => carsApi.getCar(id)))
+      .then((responses) => {
+        if (!cancelled) {
+          setCompatibleCars(
+            normalizeCarReadList(responses.map((r) => r.data).filter(Boolean))
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCompatibleCars([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingCompatibleCars(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [part?.car_ids]);
 
   useEffect(() => {
     if (brandData) {
@@ -320,7 +328,7 @@ function ViewGlobalPart() {
     isLoadingVotes ||
     isLoadingCategories ||
     isLoadingOwner ||
-    isLoadingCar ||
+    isLoadingCompatibleCars ||
     isLoadingBrand;
 
   if (isLoading && !part) {
@@ -414,25 +422,61 @@ function ViewGlobalPart() {
 
         {/* Car Association / Universal Parts Badge */}
         <div className="mb-6">
-          {part.car_id && car ? (
+          {part.is_universal ? (
             <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">🚗</span>
+                <span className="text-2xl">🌐</span>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    Car-Specific Part
+                    Universal Part
                   </h3>
                   <p className="text-sm text-gray-300">
-                    This part is designed for:{' '}
-                    <Link
-                      to={`/cars/${car.id}`}
-                      className="font-semibold text-indigo-300 hover:text-indigo-200 underline transition-colors"
-                    >
-                      {car.make} {car.model} {car.generation_name} (
-                      {car.start_year}
-                      {car.end_year ? `-${car.end_year}` : '+'})
-                    </Link>
+                    This part fits all vehicles (wheels, tools, accessories,
+                    etc.).
                   </p>
+                </div>
+              </div>
+            </div>
+          ) : part.car_ids?.length ? (
+            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🚗</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
+                    {part.car_ids.length > 1
+                      ? 'Car-Specific Part (multiple)'
+                      : 'Car-Specific Part'}
+                  </h3>
+                  {isLoadingCompatibleCars ? (
+                    <p className="text-sm text-gray-400">
+                      Loading compatible cars...
+                    </p>
+                  ) : compatibleCars.length > 0 ? (
+                    <div className="mt-1">
+                      <p className="text-sm text-gray-300 mb-2">
+                        This part fits the following {compatibleCars.length}{' '}
+                        vehicle
+                        {compatibleCars.length !== 1 ? 's' : ''}:
+                      </p>
+                      <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
+                        {compatibleCars.map((c) => (
+                          <li key={c.id}>
+                            <Link
+                              to={`/cars/${c.id}`}
+                              className="text-sm font-medium text-indigo-300 hover:text-indigo-200 underline transition-colors"
+                            >
+                              {c.make} {c.model} {c.generation_name} (
+                              {formatCarYearRange(c.start_year, c.end_year)})
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">
+                      Compatible car list could not be loaded.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -442,11 +486,11 @@ function ViewGlobalPart() {
                 <span className="text-2xl">🌐</span>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    Universal Part
+                    No car linked yet
                   </h3>
                   <p className="text-sm text-gray-300">
-                    This part is not tied to a specific car and can be used with
-                    any vehicle (wheels, tools, accessories, etc.)
+                    This part isn’t linked to specific cars yet. Mark as
+                    universal or add car fitment in edit.
                   </p>
                 </div>
               </div>
@@ -521,8 +565,8 @@ function ViewGlobalPart() {
             <CardInfoItem label="Category:">
               <Link
                 to={
-                  part.car_id
-                    ? `/global-parts?mode=category_car&category_id=${category.id}&car_id=${part.car_id}`
+                  part.car_ids?.length
+                    ? `/global-parts?mode=category_car&category_id=${category.id}&car_id=${part.car_ids[0]}`
                     : `/global-parts?mode=category_car&category_id=${category.id}`
                 }
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
@@ -570,19 +614,6 @@ function ViewGlobalPart() {
                 </div>
               </CardInfoItem>
             )}
-          <CardInfoItem label="Status:">
-            <div className="flex items-center space-x-2">
-              {part.is_verified && (
-                <span className="text-green-400 text-sm">✓ Verified</span>
-              )}
-              <span className="text-gray-400 text-sm">
-                Source: {part.source}
-              </span>
-            </div>
-          </CardInfoItem>
-          <CardInfoItem label="Edit History:">
-            <p>{part.edit_count} edits</p>
-          </CardInfoItem>
           {itemOwner && (
             <CardInfoItem label="Created by:">
               <ParentNavigationLink
@@ -721,11 +752,6 @@ function ViewGlobalPart() {
         {ownerApiError && (
           <ErrorAlert
             message={`Error loading creator information: ${ownerApiError}`}
-          />
-        )}
-        {carApiError && (
-          <ErrorAlert
-            message={`Error loading car information: ${carApiError}`}
           />
         )}
         {brandApiError && (

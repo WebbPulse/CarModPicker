@@ -16,8 +16,11 @@ export const BUILDER_ITEMS_PER_PAGE = 8;
 /** Items per page for global parts catalog */
 export const GLOBAL_PARTS_ITEMS_PER_PAGE = 10;
 
-/** Items per page for build lists catalog */
+/** Items per page for build lists catalog (when filtering by vehicle) */
 export const BUILD_LISTS_CATALOG_ITEMS_PER_PAGE = 20;
+
+/** Items per page when showing all build lists (no vehicle filter) */
+export const BUILD_LISTS_ALL_PAGE_SIZE = 12;
 
 /** Posts per page for build logs */
 export const BUILD_LOG_POSTS_PER_PAGE = 10;

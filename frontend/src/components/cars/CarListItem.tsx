@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { formatCarYearRange } from '../../utils/carUtils';
 import type { CarRead } from '../../types/Api';
 import Card from '../common/Card';
 import CardInfoItem from '../common/CardInfoItem';
@@ -15,16 +16,14 @@ const CarListItem: React.FC<CarListItemProps> = ({ car }) => {
         {/* Add hover effect */}
         <div className="flex-grow flex flex-col">
           <h3 className="text-lg font-semibold text-indigo-400 mb-2">
-            {car.make} {car.model} {car.generation_name}
+            {car.make ?? ''} {car.model ?? ''} {car.generation_name ?? ''}
           </h3>
           <div className="grid grid-cols-1 gap-1 text-xs flex-grow">
             <CardInfoItem label="Generation">
-              <p>{car.generation_name}</p>
+              <p>{car.generation_name ?? ''}</p>
             </CardInfoItem>
             <CardInfoItem label="Year Range">
-              <p>
-                {car.start_year}-{car.end_year}
-              </p>
+              <p>{formatCarYearRange(car.start_year, car.end_year)}</p>
             </CardInfoItem>
           </div>
         </div>

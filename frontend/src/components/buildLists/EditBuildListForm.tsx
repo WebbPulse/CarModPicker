@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carsApi } from '../../services/Api';
+import {
+  formatCarYearRange,
+  normalizeCarRead,
+  normalizeCarReadList,
+} from '../../utils/carUtils';
 import type { BuildListRead, BuildListUpdate, CarRead } from '../../types/Api';
 import SecondaryButton from '../buttons/SecondaryButton';
 import ButtonStretch from '../buttons/StretchButton';
@@ -110,9 +115,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   }, [selectedMake, fetchCarsByMake]);
 
   useEffect(() => {
-    if (carsByMake) {
-      setAvailableCars(carsByMake);
-    }
+    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
   }, [carsByMake]);
 
   useEffect(() => {
@@ -135,9 +138,12 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 
   useEffect(() => {
     if (currentCarData) {
-      setSelectedMake(currentCarData.make);
-      setSelectedModel(currentCarData.model);
-      setSelectedGeneration(currentCarData);
+      const car = normalizeCarRead(currentCarData);
+      if (car) {
+        setSelectedMake(car.make);
+        setSelectedModel(car.model);
+        setSelectedGeneration(car);
+      }
     }
   }, [currentCarData]);
 
@@ -194,12 +200,15 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 
   // Get unique models for selected make
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model))
+    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
   ).sort();
 
   // Get generations (cars) for selected make and model
   const generations = availableCars
-    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .filter(
+      (car) =>
+        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+    )
     .sort((a, b) => {
       // Sort by start_year, then generation_name
       if (a.start_year !== b.start_year) {
@@ -321,7 +330,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                         {car.generation_name}
                       </h4>
                       <p className="text-xs text-gray-400">
-                        {car.start_year} - {car.end_year}
+                        {formatCarYearRange(car.start_year, car.end_year)}
                       </p>
                     </Card>
                   ))}
@@ -340,8 +349,10 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">
-                      {selectedGeneration.start_year} -{' '}
-                      {selectedGeneration.end_year}
+                      {formatCarYearRange(
+                        selectedGeneration.start_year,
+                        selectedGeneration.end_year
+                      )}
                     </p>
                   </div>
                   <button

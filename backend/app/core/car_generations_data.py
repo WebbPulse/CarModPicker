@@ -544,7 +544,7 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 {
                     "generation_name": "A90",
                     "start_year": 2019,
-                    "end_year": 2024,
+                    "end_year": 2026,
                     "description": "Modern Supra revival co-developed with BMW. Features turbocharged inline-6 engine producing up to 382 horsepower. Excellent handling and modern technology while honoring Supra heritage.",
                 },
             ],

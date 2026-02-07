@@ -275,6 +275,32 @@ def test_get_car_make_stats(client: TestClient, db_session: Session) -> None:
     assert "Honda" in stats or "Toyota" in stats
 
 
+def test_count_makes(client: TestClient, db_session: Session) -> None:
+    """Test counting makes (Make entities)."""
+    client.cookies.clear()
+
+    response = client.get(f"{settings.API_STR}/cars/makes/count")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "count" in data
+    assert isinstance(data["count"], int)
+    assert data["count"] >= 0
+
+
+def test_count_car_models(client: TestClient, db_session: Session) -> None:
+    """Test counting car models (CarModel entities)."""
+    client.cookies.clear()
+
+    response = client.get(f"{settings.API_STR}/cars/car-models/count")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "count" in data
+    assert isinstance(data["count"], int)
+    assert data["count"] >= 0
+
+
 def test_admin_car_write_endpoints_removed(client: TestClient, db_session: Session) -> None:
     """Cars are seeded from backend source; admin write endpoints are removed (405)."""
     car = create_car_in_db(db_session, "Honda", "Civic", "10th Gen", 2016, 2021)

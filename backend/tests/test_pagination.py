@@ -13,6 +13,8 @@ from sqlalchemy.pool import StaticPool
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
 from app.api.models.car import Car  # noqa: E402
+from app.api.models.car_model import CarModel  # noqa: E402
+from app.api.models.make import Make  # noqa: E402
 from app.api.utils.pagination_utils import (  # noqa: E402
     apply_search_filter,
     apply_sorting,
@@ -36,12 +38,24 @@ def test_db_session() -> Generator[Session, None, None]:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()
 
-    # Add test data
-    # Cars are now centrally managed (no user_id) and use generation_name, start_year, end_year
+    # Add test data: Make -> CarModel -> Car (generation)
     for i in range(20):
+        make_name = f"Make{i % 5}"
+        model_name = f"Model{i}"
+        make_entity = session.query(Make).filter(Make.name == make_name).first()
+        if make_entity is None:
+            make_entity = Make(name=make_name)
+            session.add(make_entity)
+            session.flush()
+        car_model_entity = (
+            session.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model_name).first()
+        )
+        if car_model_entity is None:
+            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            session.add(car_model_entity)
+            session.flush()
         car = Car(
-            make=f"Make{i % 5}",  # 5 different makes
-            model=f"Model{i}",
+            car_model_id=car_model_entity.id,
             generation_name=f"Gen{i}",
             start_year=2000 + i,
             end_year=2000 + i + 1,
@@ -129,8 +143,8 @@ class TestTotalCount:
         assert total == 20
 
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
-        """Test getting total count of filtered query."""
-        query = test_db_session.query(Car).filter(Car.make == "Make1")
+        """Test getting total count of filtered query (by make via join)."""
+        query = test_db_session.query(Car).join(Car.car_model).join(CarModel.make).filter(Make.name == "Make1")
         total = get_total_count(query)
 
         assert total == 4  # 20 total / 5 makes = 4 per make
@@ -197,19 +211,19 @@ class TestSearchFilter:
     """Test search filtering functionality."""
 
     def test_apply_search_filter_with_results(self, test_db_session: Session) -> None:
-        """Test applying search filter that returns results."""
+        """Test applying search filter that returns results (Car column: generation_name)."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(query, search="Model1", search_fields=["model"])
+        filtered_query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
 
         results = filtered_query.all()
-        # Should find Model1, Model10-19 (11 total)
+        # Should find Gen1, Gen10-19 (11 total)
         assert len(results) >= 1
-        assert all("Model1" in car.model for car in results)
+        assert all("Gen1" in car.generation_name for car in results)
 
     def test_apply_search_filter_no_search_term(self, test_db_session: Session) -> None:
         """Test applying search filter with no search term."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(query, search=None, search_fields=["model"])
+        filtered_query = apply_search_filter(query, search=None, search_fields=["generation_name"])
 
         results = filtered_query.all()
         assert len(results) == 20  # Should return all results
@@ -217,18 +231,18 @@ class TestSearchFilter:
     def test_apply_search_filter_no_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns no results."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(query, search="NonExistentModel", search_fields=["model"])
+        filtered_query = apply_search_filter(query, search="NonExistentGen", search_fields=["generation_name"])
 
         results = filtered_query.all()
         assert len(results) == 0
 
     def test_apply_search_filter_multiple_fields(self, test_db_session: Session) -> None:
-        """Test applying search filter across multiple fields."""
+        """Test applying search filter across multiple fields (Car columns only)."""
         query = test_db_session.query(Car)
-        filtered_query = apply_search_filter(query, search="Make1", search_fields=["make", "model"])
+        filtered_query = apply_search_filter(query, search="Gen", search_fields=["generation_name"])
 
         results = filtered_query.all()
-        assert len(results) >= 4  # At least the 4 cars with Make1
+        assert len(results) == 20  # All have generation_name containing "Gen"
 
 
 class TestSorting:
@@ -275,41 +289,32 @@ class TestSorting:
         assert len(results) == 20
 
     def test_apply_sorting_without_allowed_fields(self, test_db_session: Session) -> None:
-        """Test applying sort without allowed fields restriction."""
+        """Test applying sort without allowed fields restriction (use Car column)."""
         query = test_db_session.query(Car)
-        sorted_query = apply_sorting(query, sort_by="make", sort_order="asc")
+        sorted_query = apply_sorting(query, sort_by="generation_name", sort_order="asc")
 
         results = sorted_query.all()
-        makes = [car.make for car in results]
-        assert makes == sorted(makes)
+        names = [car.generation_name for car in results]
+        assert names == sorted(names)
 
 
 class TestIntegration:
     """Integration tests combining multiple pagination utilities."""
 
     def test_full_pagination_workflow(self, test_db_session: Session) -> None:
-        """Test complete pagination workflow."""
-        # Start with base query
+        """Test complete pagination workflow (search on Car column: generation_name)."""
         query = test_db_session.query(Car)
 
-        # Apply search filter
-        query = apply_search_filter(query, search="Make1", search_fields=["make"])
-
-        # Apply sorting
+        query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
         query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
-        # Get total count before pagination
         total = get_total_count(query)
-
-        # Paginate
         results = paginate_query(query, skip=0, limit=2, entity_name="cars")
-
-        # Create paginated response
         response = create_paginated_response(data=results, total=total, skip=0, limit=2, entity_name="cars")
 
         assert len(response["data"]) <= 2
         assert response["pagination"]["total_items"] == total
-        assert all(car.make == "Make1" for car in results)
+        assert all("Gen1" in car.generation_name for car in results)
 
         # Verify sorting
         if len(results) > 1:
