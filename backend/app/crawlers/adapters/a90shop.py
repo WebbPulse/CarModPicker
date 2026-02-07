@@ -15,7 +15,6 @@ from typing import Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
-
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
