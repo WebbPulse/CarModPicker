@@ -9,11 +9,13 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.global_part_car import global_part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
@@ -144,6 +146,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         entity_data.pop("price_cents", None)
         entity_data.pop("product_url", None)  # Only used for listing, not stored on part
         entity_data.pop("price", None)  # Removed: pricing is per-retailer via listings
+        entity_data.pop("car_ids", None)  # Synced via association table after create
         if additional_data:
             entity_data.update(additional_data)
         entity_data["user_id"] = current_user.id
@@ -177,6 +180,16 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
                 price_cents=data.price_cents,
             )
 
+        # Sync car associations: part fits all cars (is_universal) or listed car_ids
+        if not part.is_universal and data.car_ids:
+            for cid in data.car_ids:
+                get_entity_or_404(db, DBCar, cid, "car")
+            part.cars = [db.get(DBCar, cid) for cid in data.car_ids]
+        else:
+            part.cars = []
+        db.commit()
+        db.refresh(part)
+
         return part
 
     def update(
@@ -199,6 +212,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
 
         # Update the entity; cap image_urls to global limit; normalize gtin
         update_data = data.model_dump(exclude_unset=True)
+        car_ids = update_data.pop("car_ids", None)
         if update_data.get("image_urls") is not None:
             update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
         if "gtin" in update_data and update_data["gtin"] is not None:
@@ -216,6 +230,17 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             if new_primary not in current_urls:
                 merged = [new_primary] + [u for u in current_urls if u != new_primary]
                 update_data["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
+        # Sync car associations when car_ids was provided
+        if car_ids is not None:
+            is_universal_after = (
+                update_data.get("is_universal") if "is_universal" in update_data else entity.is_universal
+            )
+            if not is_universal_after and car_ids:
+                for cid in car_ids:
+                    get_entity_or_404(db, DBCar, cid, "car")
+                entity.cars = [db.get(DBCar, cid) for cid in car_ids]
+            else:
+                entity.cars = []
         return update_entity(
             db=db,
             entity=entity,
@@ -328,8 +353,12 @@ async def read_global_parts_with_votes(
         search_fields=["name", "description"],
     )
     if car_id:
-        # Include both parts specific to this car AND universal parts (car_id is null)
-        base_query = base_query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
+        # Include parts that are universal OR associated with this car
+        part_fits_car = exists().where(
+            (global_part_cars.c.global_part_id == DBGlobalPart.id)
+            & (global_part_cars.c.car_id == car_id)
+        )
+        base_query = base_query.filter(or_(DBGlobalPart.is_universal, part_fits_car))
     if brand_id:
         base_query = base_query.filter(DBGlobalPart.brand_id == brand_id)
     if retailer_id is not None:
@@ -356,8 +385,11 @@ async def read_global_parts_with_votes(
         search_fields=["name", "description"],
     )
     if car_id:
-        # Include both parts specific to this car AND universal parts (car_id is null)
-        query = query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
+        part_fits_car = exists().where(
+            (global_part_cars.c.global_part_id == DBGlobalPart.id)
+            & (global_part_cars.c.car_id == car_id)
+        )
+        query = query.filter(or_(DBGlobalPart.is_universal, part_fits_car))
     if brand_id:
         query = query.filter(DBGlobalPart.brand_id == brand_id)
     if retailer_id is not None:

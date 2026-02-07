@@ -246,7 +246,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       description: existingPartByBrandAndPartNumber.description ?? "",
       categoryId:
         existingPartByBrandAndPartNumber.category_id ?? prev.categoryId,
-      carId: existingPartByBrandAndPartNumber.car_id ?? prev.carId,
+      carId:
+        existingPartByBrandAndPartNumber.car_ids?.[0] ?? prev.carId,
     }));
   }, [existingPartByBrandAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
 
@@ -445,7 +446,10 @@ const PartDialog: React.FC<PartDialogProps> = ({
         price: priceCents,
         product_url: formData.url.trim() || null,
         category_id: parseInt(formData.categoryId.toString()),
-        car_id: formData.carId ? parseInt(formData.carId.toString()) : null,
+        is_universal: false,
+        car_ids: formData.carId
+          ? [parseInt(formData.carId.toString())]
+          : [],
         brand_id: brandId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
         image_url: null,

@@ -25,6 +25,7 @@ import ImageUpload from '../common/ImageUpload';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import CarModelMultiSelect from '../common/CarModelMultiSelect';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
@@ -54,7 +55,8 @@ function CreateBuildListPartForm({
     description: '',
     product_url: '',
     category_id: null as number | null,
-    car_id: null as number | null,
+    car_ids: [] as number[],
+    is_universal: false,
     notes: '',
     quantity: 1,
   });
@@ -187,49 +189,21 @@ function CreateBuildListPartForm({
     // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
-  const handleCarChange = useCallback(
-    (carId: number | string | null) => {
-      const numericCarId = carId ? Number(carId) : null;
-      setFormData((prev) => ({ ...prev, car_id: numericCarId }));
+  const handleCarIdsChange = useCallback(
+    (carIds: number[]) => {
+      setFormData((prev) => ({ ...prev, car_ids: carIds }));
       if (validationError) setValidationError(null);
     },
     [validationError]
   );
 
-  // Memoize car options to prevent unnecessary re-renders
-  const carOptions: SearchableSelectOption[] = useMemo(() => {
-    return cars
-      .sort((a, b) => {
-        // Sort by make, then model, then generation
-        if (a.make !== b.make) {
-          return a.make.localeCompare(b.make);
-        }
-        if (a.model !== b.model) {
-          return a.model.localeCompare(b.model);
-        }
-        return a.generation_name.localeCompare(b.generation_name);
-      })
-      .map((car) => ({
-        id: car.id,
-        value: car.id,
-        label: `${car.make} ${car.model} - ${car.generation_name} (${car.start_year}-${car.end_year})`,
-      }));
-  }, [cars]);
-
-  // Memoize filter function to prevent SearchableSelect from breaking
-  const filterCars = useCallback(
-    (
-      options: SearchableSelectOption[],
-      searchText: string
-    ): SearchableSelectOption[] => {
-      if (!searchText.trim()) return options;
-      const lowerText = searchText.toLowerCase();
-      return options.filter((option) => {
-        // Search in the label directly (which contains all car info)
-        return option.label.toLowerCase().includes(lowerText);
-      });
+  const handleUniversalChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const checked = e.target.checked;
+      setFormData((prev) => ({ ...prev, is_universal: checked }));
+      if (validationError) setValidationError(null);
     },
-    []
+    [validationError]
   );
 
   // Convert global parts to SearchableSelectOption format
@@ -458,7 +432,8 @@ function CreateBuildListPartForm({
           image_url: imageFileKey || null,
           product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
-          car_id: formData.car_id,
+          is_universal: formData.is_universal,
+          car_ids: formData.is_universal ? [] : formData.car_ids,
           brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
           part_number: formData.part_number.trim() || null,
         };
@@ -537,7 +512,8 @@ function CreateBuildListPartForm({
         description: '',
         product_url: '',
         category_id: null,
-        car_id: null,
+        car_ids: [],
+        is_universal: false,
         notes: '',
         quantity: 1,
       });
@@ -780,19 +756,29 @@ function CreateBuildListPartForm({
             maxSizeMB={10}
           />
 
-          <SearchableSelect
-            id="global-part-car"
-            name="car_id"
-            label="Car Model (Optional)"
-            placeholder="Type to search for a car model..."
-            value={formData.car_id}
-            onChange={handleCarChange}
-            options={carOptions}
-            disabled={isLoadingCars}
-            isLoading={isLoadingCars}
-            emptyMessage="No cars found. Try a different search term."
-            filterOptions={filterCars}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="create-part-universal"
+              checked={formData.is_universal}
+              onChange={handleUniversalChange}
+              className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+            />
+            <label htmlFor="create-part-universal" className="text-sm text-gray-300">
+              Universal part (fits all vehicles)
+            </label>
+          </div>
+          {!formData.is_universal && (
+            <CarModelMultiSelect
+              cars={cars}
+              value={formData.car_ids}
+              onChange={handleCarIdsChange}
+              label="Car models (optional)"
+              placeholder="Type to search for a car model..."
+              isLoading={isLoadingCars}
+              emptyMessage="No cars found or all selected."
+            />
+          )}
         </div>
       ) : (
         /* Select Existing Part */

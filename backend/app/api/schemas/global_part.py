@@ -34,7 +34,14 @@ class GlobalPartCreate(BaseModel):
         None, description="Product URL at retailer (used only with retailer_id for listing)"
     )
     category_id: int
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Car IDs this part fits. Ignored when is_universal is True.",
+    )
+    is_universal: bool = Field(
+        default=False,
+        description="When True, part fits all cars; no need to list car_ids.",
+    )
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
@@ -70,7 +77,8 @@ class GlobalPartUpdate(BaseModel):
         description="Gallery: file keys and/or external URLs; max 12.",
     )
     category_id: Optional[int] = None
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: Optional[List[int]] = None  # Car IDs this part fits; ignored when is_universal
+    is_universal: Optional[bool] = None
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = None
@@ -89,7 +97,8 @@ class GlobalPartRead(BaseModel):
     image_urls: Optional[List[str]] = None
     category_id: int
     user_id: int  # Creator
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: List[int] = Field(default_factory=list, description="Car IDs this part is associated with")
+    is_universal: bool = Field(default=False, description="When True, part fits all cars")
     brand_id: Optional[int] = None  # Optional brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")

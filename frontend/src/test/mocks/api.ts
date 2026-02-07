@@ -57,6 +57,8 @@ export const mockGlobalPart: GlobalPartRead = {
   image_url: 'https://example.com/part.jpg',
   category_id: 1,
   user_id: 1,
+  car_ids: [],
+  is_universal: false,
   brand: 'TestBrand',
   part_number: 'TP001',
   specifications: { weight: '2.5kg', material: 'aluminum' },

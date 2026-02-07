@@ -6,6 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
 
+from .global_part_car import global_part_cars
+
 if TYPE_CHECKING:
     from .brand import Brand
     from .build_list_part import BuildListPart
@@ -34,9 +36,8 @@ class GlobalPart(Base):
     # New fields for shared architecture
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)  # Creator
-    car_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("cars.id"), nullable=True, index=True
-    )  # Optional car association
+    is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
+    """When True, part fits all cars; no need to list every car_id in global_part_cars."""
     brand_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("brands.id"), nullable=True, index=True
     )  # Optional brand association
@@ -55,8 +56,18 @@ class GlobalPart(Base):
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="global_parts")
     creator: Mapped["User"] = relationship("User", back_populates="global_parts")
-    car: Mapped[Optional["Car"]] = relationship("Car", back_populates="global_parts")
+    cars: Mapped[List["Car"]] = relationship(
+        "Car",
+        secondary=global_part_cars,
+        back_populates="global_parts",
+        lazy="selectin",
+    )
     brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="global_parts")
+
+    @property
+    def car_ids(self) -> List[int]:
+        """IDs of cars this part is associated with (empty if is_universal)."""
+        return [c.id for c in self.cars]
     build_lists: Mapped[list["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="global_part", cascade="all, delete-orphan"
     )

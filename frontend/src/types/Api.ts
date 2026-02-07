@@ -204,7 +204,8 @@ export interface GlobalPartCreate {
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
-  car_id?: number | null; // Optional car association
+  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  is_universal?: boolean; // When true, part fits all cars
   brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -221,7 +222,8 @@ export interface GlobalPartRead {
   image_urls?: string[] | null;
   category_id: number;
   user_id: number;
-  car_id?: number | null; // Optional car association
+  car_ids: number[]; // Car IDs this part is associated with
+  is_universal: boolean; // When true, part fits all cars
   brand_id?: number | null; // Optional brand association
   brand?: string | null;
   part_number?: string | null;
@@ -294,7 +296,8 @@ export interface GlobalPartUpdate {
   image_url?: string | null;
   image_urls?: string[] | null;
   category_id?: number | null;
-  car_id?: number | null; // Optional car association
+  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  is_universal?: boolean | null;
   brand_id: number; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;

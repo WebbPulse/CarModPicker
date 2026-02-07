@@ -68,7 +68,8 @@ export interface GlobalPartCreate {
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
-  car_id?: number | null;
+  car_ids?: number[] | null;
+  is_universal?: boolean;
   brand_id: number; // Required - part manufacturer (e.g. HKS, Borla)
   part_number?: string | null;
   specifications?: Record<string, unknown> | null;
@@ -85,7 +86,8 @@ export interface GlobalPartRead {
   image_urls?: string[] | null;
   category_id: number;
   user_id: number;
-  car_id?: number | null;
+  car_ids: number[];
+  is_universal: boolean;
   brand_id?: number | null;
   part_number?: string | null;
   is_verified: boolean;

@@ -233,10 +233,13 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const parts = localBuildListParts || buildListParts || [];
   const hasCarMismatchParts =
     buildListCarId != null &&
-    parts.some(
-      (p) =>
-        p.global_part?.car_id != null && p.global_part.car_id !== buildListCarId
-    );
+    parts.some((p) => {
+      const gp = p.global_part;
+      if (!gp) return false;
+      if (gp.is_universal) return false;
+      const carIds = gp.car_ids ?? [];
+      return carIds.length > 0 && !carIds.includes(buildListCarId);
+    });
 
   if (error) {
     return (

@@ -35,7 +35,11 @@ class Car(Base):
 
     # Relationships
     build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car")
-    global_parts: Mapped[List["GlobalPart"]] = relationship("GlobalPart", back_populates="car")
+    global_parts: Mapped[List["GlobalPart"]] = relationship(
+        "GlobalPart",
+        secondary="global_part_cars",
+        back_populates="cars",
+    )
     # votes
     votes: Mapped[List["Vote"]] = relationship(
         "Vote",
