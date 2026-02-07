@@ -100,8 +100,15 @@ function getDateRangeBounds(
       const dates = data.map((d) => parseObservedAt(d.observed_at).getTime());
       const oldest = Math.min(...dates);
       const newest = Math.max(...dates);
+      // Use start-of-day for xMin so the first data point (positioned at day boundary) is within range
+      const oldestDate = new Date(oldest);
+      const xMinDayStart = new Date(
+        oldestDate.getFullYear(),
+        oldestDate.getMonth(),
+        oldestDate.getDate()
+      ).getTime();
       return {
-        xMin: oldest,
+        xMin: xMinDayStart,
         xMax: Math.max(newest, todayStart) + MS_PER_DAY,
       };
     }
@@ -259,8 +266,35 @@ export default function PriceHistoryLineChart({
       ])
     );
 
+    // For windowed ranges: last known price before window start (to extend lines to left boundary)
+    const cutoffMs = getDateRangeStartMs(dateRange);
+    const lastKnownBeforeWindow =
+      cutoffMs !== null
+        ? (() => {
+            const m = new Map<
+              string,
+              { price_cents: number; observed_at: string }
+            >();
+            for (const d of data) {
+              const t = parseObservedAt(d.observed_at).getTime();
+              if (t >= cutoffMs) continue;
+              const existing = m.get(d.retailer_name);
+              if (
+                !existing ||
+                t > parseObservedAt(existing.observed_at).getTime()
+              ) {
+                m.set(d.retailer_name, {
+                  price_cents: d.price_cents,
+                  observed_at: d.observed_at,
+                });
+              }
+            }
+            return m;
+          })()
+        : null;
+
     const lines = retailers.map((retailerName) => {
-      const points = aggregated
+      let points = aggregated
         .filter((d) => d.retailer_name === retailerName)
         .map((d) => ({
           x: dayStartMs(d.observed_at),
@@ -268,6 +302,26 @@ export default function PriceHistoryLineChart({
           observedAt: d.observed_at,
         }))
         .sort((a, b) => a.x - b.x);
+
+      // Extend line to left boundary with last known price when no point on first day
+      if (
+        cutoffMs !== null &&
+        lastKnownBeforeWindow !== null &&
+        points.length > 0 &&
+        points[0]!.x > cutoffMs
+      ) {
+        const carryOver = lastKnownBeforeWindow.get(retailerName);
+        if (carryOver) {
+          points = [
+            {
+              x: cutoffMs,
+              y: carryOver.price_cents,
+              observedAt: carryOver.observed_at,
+            },
+            ...points,
+          ];
+        }
+      }
 
       const pathD = points
         .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`)
