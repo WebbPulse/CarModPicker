@@ -28,6 +28,41 @@ interface CachedData {
 }
 const globalPartsCache = new Map<string, CachedData>();
 
+const COLUMN_WIDTH_STORAGE_KEY = 'globalPartsTableColumnWidths';
+
+type TableColumnKey =
+  | 'part'
+  | 'brand'
+  | 'part_number'
+  | 'category'
+  | 'fit'
+  | 'rating'
+  | 'price'
+  | 'actions';
+
+// Part ~25 chars + thumb; price/rating/actions get more space; part_number truncated more; fit less.
+const DEFAULT_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
+  part: 200,
+  brand: 50,
+  part_number: 24,
+  category: 60,
+  fit: 80,
+  rating: 120,
+  price: 100,
+  actions: 192,
+};
+
+const MIN_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
+  part: 100,
+  brand: 40,
+  part_number: 20,
+  category: 50,
+  fit: 56,
+  rating: 80,
+  price: 70,
+  actions: 120,
+};
+
 function getCacheKey(params?: {
   skip?: number;
   limit?: number;
@@ -148,6 +183,117 @@ function GlobalPartList({
     | 'price';
   const [sortColumn, setSortColumn] = useState<SortColumn>('rating');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const [columnWidths, setColumnWidths] = useState<
+    Partial<Record<TableColumnKey, number>>
+  >(() => {
+    try {
+      const raw = localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      const out: Partial<Record<TableColumnKey, number>> = {};
+      const keys: TableColumnKey[] = [
+        'part',
+        'brand',
+        'part_number',
+        'category',
+        'fit',
+        'rating',
+        'price',
+        'actions',
+      ];
+      keys.forEach((k) => {
+        if (typeof parsed[k] === 'number' && parsed[k] >= MIN_COLUMN_WIDTHS[k]) {
+          out[k] = parsed[k];
+        }
+      });
+      return out;
+    } catch {
+      return {};
+    }
+  });
+
+  const tableColumnKeys = useMemo((): TableColumnKey[] => {
+    const keys: TableColumnKey[] = ['part', 'brand', 'part_number'];
+    if (categories.length > 0) keys.push('category');
+    keys.push('fit');
+    if (showVoteButtons) keys.push('rating');
+    keys.push('price');
+    if (showAddToBuildListButton || onEdit || onDelete) keys.push('actions');
+    return keys;
+  }, [categories.length, showVoteButtons, showAddToBuildListButton, onEdit, onDelete]);
+
+  const getColumnWidth = useCallback(
+    (key: TableColumnKey) => columnWidths[key] ?? DEFAULT_COLUMN_WIDTHS[key],
+    [columnWidths]
+  );
+
+  const resizeRef = useRef<{
+    leftKey: TableColumnKey;
+    rightKey: TableColumnKey;
+    startX: number;
+    startLeft: number;
+    startRight: number;
+  } | null>(null);
+
+  const handleResizeStart = useCallback(
+    (leftKey: TableColumnKey, rightKey: TableColumnKey) =>
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        resizeRef.current = {
+          leftKey,
+          rightKey,
+          startX: e.clientX,
+          startLeft: getColumnWidth(leftKey),
+          startRight: getColumnWidth(rightKey),
+        };
+        const onMove = (moveEvent: MouseEvent) => {
+          const r = resizeRef.current;
+          if (!r) return;
+          const delta = moveEvent.clientX - r.startX;
+          const minLeft = MIN_COLUMN_WIDTHS[r.leftKey];
+          const minRight = MIN_COLUMN_WIDTHS[r.rightKey];
+          let newLeft = r.startLeft + delta;
+          let newRight = r.startRight - delta;
+          if (newLeft < minLeft) {
+            newLeft = minLeft;
+            newRight = r.startLeft + r.startRight - minLeft;
+          } else if (newRight < minRight) {
+            newRight = minRight;
+            newLeft = r.startLeft + r.startRight - minRight;
+          }
+          setColumnWidths((prev) => {
+            const next = {
+              ...prev,
+              [r.leftKey]: newLeft,
+              [r.rightKey]: newRight,
+            };
+            try {
+              localStorage.setItem(
+                COLUMN_WIDTH_STORAGE_KEY,
+                JSON.stringify(next)
+              );
+            } catch {
+              // ignore
+            }
+            return next;
+          });
+        };
+        const onUp = () => {
+          resizeRef.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      },
+    [getColumnWidth]
+  );
 
   const handleSort = useCallback(
     (column: SortColumn) => {
@@ -355,19 +501,32 @@ function GlobalPartList({
     carsById,
   ]);
 
+  const totalTableWidth = useMemo(
+    () =>
+      tableColumnKeys.reduce(
+        (sum, key) => sum + getColumnWidth(key),
+        0
+      ),
+    [tableColumnKeys, getColumnWidth]
+  );
+
   const SortableTh = ({
     column,
     children,
     align = 'left',
+    columnKey,
+    nextColumnKey,
   }: {
     column: SortColumn;
     children: React.ReactNode;
     align?: 'left' | 'right';
+    columnKey: TableColumnKey;
+    nextColumnKey?: TableColumnKey | undefined;
   }) => {
     const isActive = sortColumn === column;
     return (
       <th
-        className={`px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
+        className={`relative px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
           align === 'right' ? 'text-right' : 'text-left'
         } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
         onClick={() => handleSort(column)}
@@ -388,6 +547,14 @@ function GlobalPartList({
             </span>
           )}
         </span>
+        {nextColumnKey != null && (
+          <div
+            role="separator"
+            aria-label="Resize column"
+            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize touch-none hover:bg-indigo-500/50 active:bg-indigo-500/70 z-10"
+            onMouseDown={handleResizeStart(columnKey, nextColumnKey)}
+          />
+        )}
       </th>
     );
   };
@@ -427,37 +594,84 @@ function GlobalPartList({
           <div className="overflow-x-auto min-w-0 rounded-inherit">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col className="w-[min(280px,28%)]" />
-                <col className="w-[min(100px,10%)]" />
-                <col className="w-[min(100px,10%)]" />
-                {categories.length > 0 && (
-                  <col className="w-[min(120px,12%)]" />
-                )}
-                <col className="w-[min(100px,10%)]" />
-                {showVoteButtons && <col className="w-[min(100px,10%)]" />}
-                <col className="w-[min(80px,8%)]" />
-                {(showAddToBuildListButton || onEdit || onDelete) && (
-                  <col className="w-[12rem]" />
-                )}
+                {tableColumnKeys.map((key) => (
+                  <col
+                    key={key}
+                    style={{
+                      width: `${(getColumnWidth(key) / totalTableWidth) * 100}%`,
+                    }}
+                  />
+                ))}
               </colgroup>
               <thead>
                 <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
-                  <SortableTh column="part">Part</SortableTh>
-                  <SortableTh column="brand">Brand</SortableTh>
-                  <SortableTh column="part_number">Part #</SortableTh>
+                  <SortableTh
+                    column="part"
+                    columnKey="part"
+                    nextColumnKey={tableColumnKeys[1]}
+                  >
+                    Part name
+                  </SortableTh>
+                  <SortableTh
+                    column="brand"
+                    columnKey="brand"
+                    nextColumnKey={tableColumnKeys[2]}
+                  >
+                    Brand
+                  </SortableTh>
+                  <SortableTh
+                    column="part_number"
+                    columnKey="part_number"
+                    nextColumnKey={
+                      categories.length > 0
+                        ? 'category'
+                        : 'fit'
+                    }
+                  >
+                    Part #
+                  </SortableTh>
                   {categories.length > 0 && (
-                    <SortableTh column="category">Category</SortableTh>
+                    <SortableTh
+                      column="category"
+                      columnKey="category"
+                      nextColumnKey="fit"
+                    >
+                      Category
+                    </SortableTh>
                   )}
-                  <SortableTh column="fit">Fit</SortableTh>
+                  <SortableTh
+                    column="fit"
+                    columnKey="fit"
+                    nextColumnKey={
+                      showVoteButtons ? 'rating' : 'price'
+                    }
+                  >
+                    Fit
+                  </SortableTh>
                   {showVoteButtons && (
-                    <SortableTh column="rating">Rating</SortableTh>
+                    <SortableTh
+                      column="rating"
+                      columnKey="rating"
+                      nextColumnKey="price"
+                    >
+                      Rating
+                    </SortableTh>
                   )}
-                  <SortableTh column="price" align="right">
+                  <SortableTh
+                    column="price"
+                    align="right"
+                    columnKey="price"
+                    nextColumnKey={
+                      showAddToBuildListButton || onEdit || onDelete
+                        ? 'actions'
+                        : undefined
+                    }
+                  >
                     Price
                   </SortableTh>
                   {(showAddToBuildListButton || onEdit || onDelete) && (
                     <th
-                      className="px-4 py-3 font-medium whitespace-nowrap min-w-[12rem]"
+                      className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
                       aria-label="Actions"
                     />
                   )}
@@ -470,7 +684,7 @@ function GlobalPartList({
                     className="border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group"
                   >
                     {/* Part: thumb + name */}
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 min-w-0 overflow-hidden" title={globalPart.name}>
                       <Link
                         to={`/global-parts/${globalPart.id}`}
                         className="flex items-center gap-2 hover:no-underline"
@@ -490,38 +704,52 @@ function GlobalPartList({
                       </Link>
                     </td>
                     {/* Brand */}
-                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
-                      {getBrandName(globalPart)}
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={getBrandName(globalPart)}
+                    >
+                      <span className="block truncate">
+                        {getBrandName(globalPart)}
+                      </span>
                     </td>
                     {/* Part # */}
-                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap font-mono text-xs">
-                      {globalPart.part_number ?? '—'}
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
+                      title={globalPart.part_number ?? '—'}
+                    >
+                      <span className="block truncate">
+                        {globalPart.part_number ?? '—'}
+                      </span>
                     </td>
                     {/* Category */}
                     {categories.length > 0 && (
-                      <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
-                        {getCategoryName(globalPart.category_id)}
+                      <td
+                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                        title={getCategoryName(globalPart.category_id)}
+                      >
+                        <span className="block truncate">
+                          {getCategoryName(globalPart.category_id)}
+                        </span>
                       </td>
                     )}
                     {/* Fit */}
-                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                    <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
                       {(() => {
                         const { label, title } = getFitCell(globalPart);
-                        return title ? (
+                        const tooltip = title ?? label;
+                        return (
                           <span
-                            title={title}
-                            className="cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                            title={tooltip}
+                            className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
                           >
                             {label}
                           </span>
-                        ) : (
-                          label
                         );
                       })()}
                     </td>
                     {/* Rating */}
                     {showVoteButtons && (
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         {onVoteUpdate ? (
                           <VoteButtons
                             entityId={globalPart.id}
