@@ -284,6 +284,9 @@ export const buildListsApi = {
     limit?: number;
     search?: string;
     car_id?: number;
+    min_cost_cents?: number;
+    max_cost_cents?: number;
+    sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
   }) =>
     apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
       '/build-lists/with-votes',
@@ -362,7 +365,9 @@ export const globalPartsApi = {
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
       '/global-parts/with-votes',
       {
-        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
       }
     ),
 
@@ -377,7 +382,9 @@ export const globalPartsApi = {
     apiClient.get<{ category_ids: number[]; brand_ids: number[] }>(
       '/global-parts/filter-options',
       {
-        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
       }
     ),
 

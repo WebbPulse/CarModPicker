@@ -7,19 +7,22 @@ import type {
   PaginatedResponse,
 } from '../../types/Api';
 
+import { LARGE_FETCH_LIMIT } from '../../constants';
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListCard from './BuildListCard';
 import BuildListItem from './BuildListItem';
-import { LARGE_FETCH_LIMIT } from '../../constants';
 
 interface BuildListCatalogListProps {
   params?: {
     skip?: number;
     limit?: number;
     search?: string;
+    min_cost_cents?: number;
+    max_cost_cents?: number;
+    sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
   };
   carIds?: number[]; // Optional: filter by car IDs
   refreshKey?: number;
@@ -35,6 +38,9 @@ const fetchBuildListsRequestFn = (params?: {
   limit?: number;
   search?: string;
   car_id?: number;
+  min_cost_cents?: number;
+  max_cost_cents?: number;
+  sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
 }) => buildListsApi.getBuildListsWithVotes(params);
 
 // Type predicate to check if response is a PaginatedResponse
@@ -74,7 +80,15 @@ function BuildListCatalogList({
     executeRequest: fetchBuildLists,
   } = useApiRequest<
     PaginatedResponse<BuildListReadWithVotes>,
-    { skip?: number; limit?: number; search?: string; car_id?: number }
+    {
+      skip?: number;
+      limit?: number;
+      search?: string;
+      car_id?: number;
+      min_cost_cents?: number;
+      max_cost_cents?: number;
+      sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
+    }
   >(fetchBuildListsRequestFn);
 
   // Update buildListsWithVotes when response changes

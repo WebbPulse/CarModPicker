@@ -148,6 +148,8 @@ export interface BuildListReadWithVotes extends BuildListRead {
   downvotes: number;
   total_votes: number;
   user_vote?: 'upvote' | 'downvote' | null;
+  /** Sum of (part quantity * best price) for all parts in the build list (cents). */
+  total_cost_cents?: number | null;
 }
 
 export interface BuildListUpdate {

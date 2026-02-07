@@ -1,4 +1,5 @@
 import React from 'react';
+import { filterChipClass } from '../common/VehicleFilterChips';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
 export interface GlobalPartsActiveFilterChipsProps {
@@ -40,10 +41,8 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
 
   if (!hasActiveFilters) return null;
 
-  const chipClass =
-    'inline-flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-full bg-gray-800 border border-gray-600/80 text-gray-200 text-sm';
   const removeButtonClass =
-    'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors';
+    'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0';
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
@@ -51,7 +50,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         const cat = activeCategories.find((c) => c.id === id);
         if (!cat) return null;
         return (
-          <span key={`cat-${id}`} className={chipClass}>
+          <span key={`cat-${id}`} className={filterChipClass}>
             {cat.display_name || cat.name}
             <button
               type="button"
@@ -68,7 +67,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         const brand = availableBrands.find((b) => b.id === id);
         if (!brand) return null;
         return (
-          <span key={`brand-${id}`} className={chipClass}>
+          <span key={`brand-${id}`} className={filterChipClass}>
             {brand.name}
             <button
               type="button"
@@ -82,7 +81,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         );
       })}
       {(selectedGeneration || showUniversalParts) && (
-        <span className={chipClass}>
+        <span className={filterChipClass}>
           {showUniversalParts
             ? 'Universal'
             : `${selectedGeneration?.make} ${selectedGeneration?.model} ${selectedGeneration?.generation_name}`}
@@ -97,7 +96,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         </span>
       )}
       {hasPriceRange && (
-        <span className={chipClass}>
+        <span className={filterChipClass}>
           {priceMin.trim() && priceMax.trim()
             ? `$${priceMin.trim()} – $${priceMax.trim()}`
             : priceMin.trim()

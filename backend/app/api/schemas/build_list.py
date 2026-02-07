@@ -47,3 +47,7 @@ class BuildListReadWithVotes(BuildListRead):
     downvotes: int = 0
     total_votes: int = 0
     user_vote: Optional[str] = None  # 'upvote', 'downvote', or None
+    total_cost_cents: Optional[int] = Field(
+        None,
+        description="Sum of (part quantity * best price) for all parts in the build list",
+    )

@@ -15,9 +15,21 @@ function hasVoteData(
   return 'total_votes' in bl && typeof (bl as BuildListReadWithVotes).total_votes === 'number';
 }
 
+function formatTotalCost(cents: number): string {
+  return `$${(cents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
   const showVoteBadge = hasVoteData(buildList);
   const totalVotes = showVoteBadge ? buildList.total_votes : 0;
+  const totalCostCents =
+    'total_cost_cents' in buildList &&
+    typeof (buildList as BuildListReadWithVotes).total_cost_cents === 'number'
+      ? (buildList as BuildListReadWithVotes).total_cost_cents
+      : null;
 
   return (
     <Link
@@ -38,6 +50,13 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
               <FaArrowUp className="text-primary-400 text-xs" />
               <span className="text-xs font-semibold text-white">
                 {totalVotes} votes
+              </span>
+            </div>
+          )}
+          {totalCostCents != null && totalCostCents > 0 && (
+            <div className="absolute bottom-3 left-3 flex items-center bg-black/60 backdrop-blur-sm px-2 py-1 rounded-lg">
+              <span className="text-sm font-semibold text-green-400">
+                {formatTotalCost(totalCostCents)} total
               </span>
             </div>
           )}
