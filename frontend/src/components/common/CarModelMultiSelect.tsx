@@ -5,7 +5,7 @@ import SearchableSelect, {
 } from './SearchableSelect';
 
 function formatCarLabel(car: CarRead): string {
-  return `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${
+  return `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
     car.end_year ? `-${car.end_year}` : '+'
   })`;
 }
@@ -98,7 +98,10 @@ function CarModelMultiSelect({
               key={car.id}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-sm text-indigo-200"
             >
-              <span className="truncate max-w-[200px]" title={formatCarLabel(car)}>
+              <span
+                className="truncate max-w-[200px]"
+                title={formatCarLabel(car)}
+              >
                 {formatCarLabel(car)}
               </span>
               {!disabled && (
@@ -141,11 +144,14 @@ function CarModelMultiSelect({
           filterOptions={filterOptions}
         />
       )}
-      {!disabled && availableOptions.length === 0 && !isLoading && value.length > 0 && (
-        <p className="text-sm text-neutral-500">
-          All available car models are already selected.
-        </p>
-      )}
+      {!disabled &&
+        availableOptions.length === 0 &&
+        !isLoading &&
+        value.length > 0 && (
+          <p className="text-sm text-neutral-500">
+            All available car models are already selected.
+          </p>
+        )}
     </div>
   );
 }

@@ -4,7 +4,9 @@ from .build_list import BuildList
 from .build_list_part import BuildListPart
 from .build_log import BuildLog, BuildLogPost
 from .car import Car
+from .car_model import CarModel
 from .category import Category
+from .make import Make
 from .global_part import GlobalPart
 from .image_source_mapping import ImageSourceMapping
 from .part_listing import PartListing
@@ -18,6 +20,8 @@ from .vote import Vote
 __all__ = [
     "User",
     "Car",
+    "CarModel",
+    "Make",
     "BuildList",
     "GlobalPart",
     "ImageSourceMapping",

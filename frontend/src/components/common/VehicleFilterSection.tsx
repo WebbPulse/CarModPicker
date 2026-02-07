@@ -1,6 +1,7 @@
 import React from 'react';
-import LoadingSpinner from './LoadingSpinner';
+import { formatCarYearRange } from '../../utils/carUtils';
 import type { CarRead } from '../../types/Api';
+import LoadingSpinner from './LoadingSpinner';
 
 export interface VehicleFilterSectionProps {
   showUniversalParts: boolean;
@@ -127,8 +128,8 @@ const VehicleFilterSection: React.FC<VehicleFilterSectionProps> = (props) => {
                             selectedGeneration?.id === car.id
                           )}
                         >
-                          {car.generation_name} ({car.start_year}–
-                          {car.end_year})
+                          {car.generation_name} (
+                          {formatCarYearRange(car.start_year, car.end_year)})
                         </button>
                       ))
                     )}

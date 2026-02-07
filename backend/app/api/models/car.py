@@ -1,12 +1,14 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
+    from .car_model import CarModel
     from .global_part import GlobalPart
     from .vote import Vote
 
@@ -15,15 +17,16 @@ class Car(Base):
     """
     Centrally managed car entity representing a car generation.
     A generation groups multiple model years together (e.g., "5th Gen Civic" for 2006-2011).
-    This is manually managed by admins.
+    Links to Make via CarModel (car_model_id -> CarModel -> Make).
     Build lists can be linked to cars (generations).
     """
 
     __tablename__ = "cars"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    make: Mapped[str] = mapped_column(index=True, nullable=False)
-    model: Mapped[str] = mapped_column(index=True, nullable=False)
+    car_model_id: Mapped[int] = mapped_column(
+        ForeignKey("car_models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     generation_name: Mapped[str] = mapped_column(nullable=False)  # e.g., "5th Gen", "MK7", "F30"
     start_year: Mapped[int] = mapped_column(nullable=False)
     end_year: Mapped[Optional[int]] = mapped_column(nullable=True)  # None for current/ongoing generations
@@ -34,13 +37,13 @@ class Car(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
+    car_model: Mapped["CarModel"] = relationship("CarModel", back_populates="cars")
     build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car")
     global_parts: Mapped[List["GlobalPart"]] = relationship(
         "GlobalPart",
         secondary="global_part_cars",
         back_populates="cars",
     )
-    # votes
     votes: Mapped[List["Vote"]] = relationship(
         "Vote",
         foreign_keys="[Vote.entity_id]",
@@ -48,3 +51,12 @@ class Car(Base):
         cascade="all, delete-orphan",
         overlaps="votes",
     )
+
+    # API backward compatibility: expose make/model as properties (from car_model.make.name, car_model.name)
+    @property
+    def make(self) -> str:
+        return self.car_model.make.name
+
+    @property
+    def model(self) -> str:
+        return self.car_model.name

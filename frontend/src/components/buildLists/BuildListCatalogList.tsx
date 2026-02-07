@@ -7,7 +7,6 @@ import type {
   PaginatedResponse,
 } from '../../types/Api';
 
-import { LARGE_FETCH_LIMIT } from '../../constants';
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -38,6 +37,7 @@ const fetchBuildListsRequestFn = (params?: {
   limit?: number;
   search?: string;
   car_id?: number;
+  car_ids?: number[];
   min_cost_cents?: number;
   max_cost_cents?: number;
   sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -65,9 +65,6 @@ function BuildListCatalogList({
   showVoteButtons = false,
   layout = 'list',
 }: BuildListCatalogListProps) {
-  const [allBuildLists, setAllBuildLists] = useState<BuildListRead[]>([]);
-  const [isLoadingMultiple, setIsLoadingMultiple] = useState(false);
-  const [errorMultiple, setErrorMultiple] = useState<string | null>(null);
   const [buildListsWithVotes, setBuildListsWithVotes] = useState<
     BuildListReadWithVotes[]
   >([]);
@@ -85,6 +82,7 @@ function BuildListCatalogList({
       limit?: number;
       search?: string;
       car_id?: number;
+      car_ids?: number[];
       min_cost_cents?: number;
       max_cost_cents?: number;
       sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -102,41 +100,6 @@ function BuildListCatalogList({
       setBuildListsWithVotes([]);
     }
   }, [buildListsResponse]);
-
-  // Fetch build lists for multiple cars
-  const fetchBuildListsForCars = useCallback(async () => {
-    if (!carIds || carIds.length === 0) {
-      return;
-    }
-
-    setIsLoadingMultiple(true);
-    setErrorMultiple(null);
-
-    try {
-      // Fetch build lists for all selected cars in parallel
-      const promises = carIds.map(
-        (carId) =>
-          buildListsApi
-            .getBuildListsByCar(carId, { limit: LARGE_FETCH_LIMIT })
-            .then((response) => response.data.data) // Extract the array from PaginatedResponse
-      );
-
-      const results = await Promise.all(promises);
-      // Combine all build lists and remove duplicates (in case a build list is associated with multiple car generations)
-      const combined = results.flat();
-      const uniqueBuildLists = Array.from(
-        new Map(combined.map((bl) => [bl.id, bl])).values()
-      );
-
-      setAllBuildLists(uniqueBuildLists);
-    } catch (err) {
-      setErrorMultiple(
-        err instanceof Error ? err.message : 'Failed to fetch build lists'
-      );
-    } finally {
-      setIsLoadingMultiple(false);
-    }
-  }, [carIds]);
 
   const handleVoteUpdate = useCallback(
     (buildListId: number, newVote: 'upvote' | 'downvote' | null) => {
@@ -176,40 +139,25 @@ function BuildListCatalogList({
     []
   );
 
-  const memoizedFetchBuildLists = useCallback(() => {
+  // Stable request key so we only refetch when the actual request changes (avoids duplicate fetches from parent re-renders)
+  const fetchRequestKey = `${refreshKey}-${carIds?.join(',') ?? ''}-${params?.skip ?? 0}-${params?.limit ?? 0}-${params?.sort ?? ''}-${params?.search ?? ''}-${params?.min_cost_cents ?? ''}-${params?.max_cost_cents ?? ''}`;
+
+  useEffect(() => {
     if (carIds && carIds.length > 0) {
-      if (carIds.length === 1) {
-        // Use with-votes endpoint for single car (vote counts for cards)
-        void fetchBuildLists({
-          ...params,
-          car_id: carIds[0] as number,
-        });
-      } else {
-        void fetchBuildListsForCars();
-      }
+      void fetchBuildLists({
+        ...params,
+        car_ids: carIds,
+      });
     } else {
       void fetchBuildLists(params);
     }
-  }, [fetchBuildLists, fetchBuildListsForCars, params, carIds]);
-
-  // Refetch when params (including search) or carIds change
-  useEffect(() => {
-    memoizedFetchBuildLists();
-  }, [memoizedFetchBuildLists, refreshKey]);
+  }, [fetchRequestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only refetch when request key changes; fetchBuildLists/params/carIds are used inside
 
   // Filter build lists by search term if provided
-  // When showVoteButtons is true and we have a single car, we use the with-votes endpoint
-  // which populates buildListsWithVotes. Otherwise, use allBuildLists for multiple cars
-  // or buildListsResponse for no carIds.
+  // When carIds is set we use the with-votes endpoint with car_ids - data is in buildListsWithVotes
   let filteredBuildLists: (BuildListRead | BuildListReadWithVotes)[] = [];
   if (carIds && carIds.length > 0) {
-    if (carIds.length === 1) {
-      // Single car: we used with-votes endpoint - data is in buildListsWithVotes
-      filteredBuildLists = buildListsWithVotes;
-    } else {
-      // Multiple cars: data is in allBuildLists
-      filteredBuildLists = allBuildLists;
-    }
+    filteredBuildLists = buildListsWithVotes;
   } else {
     // No carIds - use buildListsResponse
     if (showVoteButtons) {
@@ -232,18 +180,8 @@ function BuildListCatalogList({
       )
     : filteredBuildLists;
 
-  const isLoadingState =
-    carIds && carIds.length > 0
-      ? carIds.length === 1
-        ? isLoading
-        : isLoadingMultiple
-      : isLoading;
-  const errorState =
-    carIds && carIds.length > 0
-      ? carIds.length === 1
-        ? error
-        : errorMultiple
-      : error;
+  const isLoadingState = isLoading;
+  const errorState = error;
 
   if (isLoadingState) {
     return (

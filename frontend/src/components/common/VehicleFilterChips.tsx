@@ -3,6 +3,8 @@ import type { CarRead } from '../../types/Api';
 
 export interface VehicleFilterChipsProps {
   selectedGeneration: CarRead | null;
+  selectedMake?: string;
+  selectedModel?: string;
   showUniversalParts: boolean;
   clearVehicleFilter: () => void;
   searchTerm?: string;
@@ -17,8 +19,26 @@ export const filterChipClass =
 const removeButtonClass =
   'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0';
 
+function vehicleChipLabel(
+  selectedGeneration: CarRead | null,
+  selectedMake: string,
+  selectedModel: string,
+  showUniversalParts: boolean
+): string {
+  if (showUniversalParts) return 'Universal';
+  if (selectedGeneration)
+    return `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() || 'Vehicle';
+  if (selectedMake) {
+    const makeModel = `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim();
+    return makeModel || 'Vehicle';
+  }
+  return 'Vehicle';
+}
+
 const VehicleFilterChips: React.FC<VehicleFilterChipsProps> = ({
   selectedGeneration,
+  selectedMake = '',
+  selectedModel = '',
   showUniversalParts,
   clearVehicleFilter,
   searchTerm = '',
@@ -26,7 +46,9 @@ const VehicleFilterChips: React.FC<VehicleFilterChipsProps> = ({
   wrapInContainer = true,
 }) => {
   const hasVehicle =
-    selectedGeneration !== null || showUniversalParts;
+    selectedGeneration !== null ||
+    showUniversalParts ||
+    (selectedMake !== '' && !showUniversalParts);
   const hasSearch = searchTerm.trim() !== '' && onClearSearch;
   if (!hasVehicle && !hasSearch) return null;
 
@@ -34,9 +56,12 @@ const VehicleFilterChips: React.FC<VehicleFilterChipsProps> = ({
     <>
       {hasVehicle && (
         <span className={filterChipClass}>
-          {showUniversalParts
-            ? 'Universal'
-            : `${selectedGeneration?.make} ${selectedGeneration?.model} ${selectedGeneration?.generation_name}`}
+          {vehicleChipLabel(
+            selectedGeneration,
+            selectedMake,
+            selectedModel,
+            showUniversalParts
+          )}
           <button
             type="button"
             onClick={clearVehicleFilter}

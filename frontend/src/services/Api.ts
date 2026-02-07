@@ -216,26 +216,27 @@ export const carsApi = {
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>('/cars/search', { params: { q, ...params } }),
   getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/make/${make}`, { params }),
+    apiClient.get<CarRead[]>(`/cars/make/${encodeURIComponent(make)}`, {
+      params,
+    }),
   getCarsByMakeModel: (
     make: string,
     model: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarRead[]>(`/cars/make/${make}/model/${model}`, { params }),
-  getCarsByGeneration: (
-    generationId: number,
-    params?: { skip?: number; limit?: number }
-  ) => apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
-  getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
+    apiClient.get<CarRead[]>(
+      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+      { params }
+    ),
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
+  countMakes: () => apiClient.get<{ count: number }>('/cars/makes/count'),
+  countCarModels: () => apiClient.get<{ count: number }>('/cars/car-models/count'),
 };
 
-// Car Generation API (read-only; uses /cars endpoints)
+// Car Generation API (read-only; uses /cars endpoints; Car = generation in backend)
 export const carGenerationsApi = {
   getCarGeneration: (generationId: number) =>
     apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
@@ -248,17 +249,19 @@ export const carGenerationsApi = {
     make: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}`, {
-      params,
-    }),
+    apiClient.get<CarGenerationRead[]>(
+      `/cars/make/${encodeURIComponent(make)}`,
+      { params }
+    ),
   getCarGenerationsByMakeModel: (
     make: string,
     model: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}/model/${model}`, {
-      params,
-    }),
+    apiClient.get<CarGenerationRead[]>(
+      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+      { params }
+    ),
   countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
@@ -284,6 +287,7 @@ export const buildListsApi = {
     limit?: number;
     search?: string;
     car_id?: number;
+    car_ids?: number[];
     min_cost_cents?: number;
     max_cost_cents?: number;
     sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -291,7 +295,7 @@ export const buildListsApi = {
     apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
       '/build-lists/with-votes',
       {
-        params,
+        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
       }
     ),
   getBuildListsByCar: (
@@ -354,6 +358,7 @@ export const globalPartsApi = {
     category_id?: number;
     category_ids?: number[];
     car_id?: number;
+    car_ids?: number[];
     brand_id?: number;
     brand_ids?: number[];
     user_id?: number;
@@ -376,6 +381,7 @@ export const globalPartsApi = {
     category_ids?: number[];
     brand_ids?: number[];
     car_id?: number;
+    car_ids?: number[];
     search?: string;
     user_id?: number;
   }) =>

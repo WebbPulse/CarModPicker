@@ -1,7 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
-import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
 import BuildListCard from '../../components/buildLists/BuildListCard';
+import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import Input from '../../components/common/Input';
@@ -19,8 +25,12 @@ import {
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi, carsApi } from '../../services/Api';
-import type { BuildListReadWithVotes, CarRead } from '../../types/Api';
-import type { PaginatedResponse } from '../../types/Api';
+import type {
+  BuildListReadWithVotes,
+  CarRead,
+  PaginatedResponse,
+} from '../../types/Api';
+import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,9 +134,8 @@ const BuildListsCatalog: React.FC = () => {
     (carId: number) => carsApi.getCar(carId),
     []
   );
-  const { data: carFromUrl, executeRequest: fetchCarById } = useApiRequest(
-    fetchCarByIdFn
-  );
+  const { data: carFromUrl, executeRequest: fetchCarById } =
+    useApiRequest(fetchCarByIdFn);
 
   useEffect(() => {
     void fetchMakes();
@@ -185,10 +194,13 @@ const BuildListsCatalog: React.FC = () => {
 
   useEffect(() => {
     if (carFromUrl && isInitializingFromUrlRef.current) {
-      setSelectedMake(carFromUrl.make);
-      setSelectedModel(carFromUrl.model);
-      setSelectedGeneration(carFromUrl);
-      void fetchCarsByMake(carFromUrl.make);
+      const car = normalizeCarRead(carFromUrl);
+      if (car) {
+        setSelectedMake(car.make);
+        setSelectedModel(car.model);
+        setSelectedGeneration(car);
+        void fetchCarsByMake(car.make);
+      }
       isInitializingFromUrlRef.current = false;
       setIsInitializedFromUrl(true);
     }
@@ -201,11 +213,13 @@ const BuildListsCatalog: React.FC = () => {
     if (searchTerm) newParams.set('search', searchTerm);
     if (costMin.trim() !== '') {
       const n = Number.parseFloat(costMin.trim());
-      if (!Number.isNaN(n) && n >= 0) newParams.set('min_price', costMin.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('min_price', costMin.trim());
     }
     if (costMax.trim() !== '') {
       const n = Number.parseFloat(costMax.trim());
-      if (!Number.isNaN(n) && n >= 0) newParams.set('max_price', costMax.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('max_price', costMax.trim());
     }
     if (selectedGeneration)
       newParams.set('car_id', selectedGeneration.id.toString());
@@ -262,7 +276,10 @@ const BuildListsCatalog: React.FC = () => {
     if (selectedMake) {
       void fetchCarsByMake(selectedMake);
       // Only clear model/generation when user changed make; skip when restoring from URL
-      if (!selectedGeneration || selectedGeneration.make !== selectedMake) {
+      if (
+        !selectedGeneration ||
+        (selectedGeneration.make ?? '') !== selectedMake
+      ) {
         setSelectedModel('');
         setSelectedGeneration(null);
       }
@@ -274,9 +291,7 @@ const BuildListsCatalog: React.FC = () => {
   }, [selectedMake, selectedGeneration, fetchCarsByMake]);
 
   useEffect(() => {
-    if (carsByMake) {
-      setAvailableCars(carsByMake);
-    }
+    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
   }, [carsByMake]);
 
   useEffect(() => {
@@ -292,7 +307,14 @@ const BuildListsCatalog: React.FC = () => {
   useEffect(() => {
     if (isInitializingFromUrlRef.current) return;
     setCurrentPage(1);
-  }, [debouncedSearchTerm, selectedMake, selectedModel, costMin, costMax, sortBy]);
+  }, [
+    debouncedSearchTerm,
+    selectedMake,
+    selectedModel,
+    costMin,
+    costMax,
+    sortBy,
+  ]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -323,29 +345,83 @@ const BuildListsCatalog: React.FC = () => {
       Number.parseFloat(costMax.trim()) >= 0);
 
   const hasActiveFilters =
-    selectedGeneration !== null ||
-    searchTerm.trim() !== '' ||
-    hasCostRange;
+    selectedMake !== '' || searchTerm.trim() !== '' || hasCostRange;
 
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model))
+    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
   ).sort();
 
   const generations = availableCars
-    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .filter(
+      (car) =>
+        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+    )
     .sort((a, b) => {
       if (a.start_year !== b.start_year) return a.start_year - b.start_year;
-      return a.generation_name.localeCompare(b.generation_name);
+      return (a.generation_name ?? '').localeCompare(b.generation_name ?? '');
     });
 
-  const hasVehicleSelected = selectedGeneration !== null;
+  /** Car IDs for API filter: single generation, or all for make, or all for make+model */
+  const effectiveCarIds = useMemo(
+    () =>
+      selectedGeneration
+        ? [selectedGeneration.id]
+        : selectedModel
+          ? generations.map((c) => c.id)
+          : selectedMake
+            ? availableCars.map((c) => c.id)
+            : [],
+    [
+      selectedGeneration,
+      selectedModel,
+      selectedMake,
+      generations,
+      availableCars,
+    ]
+  );
 
-  // Fetch all build lists (paginated) when no vehicle is selected
+  const hasVehicleFilter = selectedMake !== '';
+
+  /** Memoized params for BuildListCatalogList so the reference is stable and we don't refetch on every render */
+  const buildListCatalogListParams = useMemo(
+    () => ({
+      skip: (currentPage - 1) * itemsPerPage,
+      limit: itemsPerPage,
+      sort: sortBy,
+      ...(debouncedSearchTerm.trim() && {
+        search: debouncedSearchTerm.trim(),
+      }),
+      ...(costMin.trim() !== '' &&
+        !Number.isNaN(Number.parseFloat(costMin.trim())) &&
+        Number.parseFloat(costMin.trim()) >= 0 && {
+          min_cost_cents: Math.round(
+            Number.parseFloat(costMin.trim()) * 100
+          ),
+        }),
+      ...(costMax.trim() !== '' &&
+        !Number.isNaN(Number.parseFloat(costMax.trim())) &&
+        Number.parseFloat(costMax.trim()) >= 0 && {
+          max_cost_cents: Math.round(
+            Number.parseFloat(costMax.trim()) * 100
+          ),
+        }),
+    }),
+    [
+      currentPage,
+      itemsPerPage,
+      sortBy,
+      debouncedSearchTerm,
+      costMin,
+      costMax,
+    ]
+  );
+
+  // Fetch all build lists (paginated) when no vehicle filter is selected
   useEffect(() => {
-    if (!hasVehicleSelected) {
+    if (!hasVehicleFilter) {
       void fetchAllBuildLists(allBuildListsParams);
     }
-  }, [hasVehicleSelected, fetchAllBuildLists, allBuildListsParams]);
+  }, [hasVehicleFilter, fetchAllBuildLists, allBuildListsParams]);
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -477,6 +553,8 @@ const BuildListsCatalog: React.FC = () => {
           <div className="flex flex-wrap gap-2 mb-4">
             <VehicleFilterChips
               selectedGeneration={selectedGeneration}
+              selectedMake={selectedMake}
+              selectedModel={selectedModel}
               showUniversalParts={false}
               clearVehicleFilter={clearVehicleFilter}
               searchTerm={searchTerm}
@@ -502,32 +580,17 @@ const BuildListsCatalog: React.FC = () => {
             )}
           </div>
 
-          {hasVehicleSelected && selectedGeneration ? (
+          {hasVehicleFilter && effectiveCarIds.length > 0 ? (
             <BuildListCatalogList
-              carIds={[selectedGeneration.id]}
-              params={{
-                skip: (currentPage - 1) * itemsPerPage,
-                limit: itemsPerPage,
-                sort: sortBy,
-                ...(debouncedSearchTerm.trim() && {
-                  search: debouncedSearchTerm.trim(),
-                }),
-                ...(costMin.trim() !== '' &&
-                  !Number.isNaN(Number.parseFloat(costMin.trim())) &&
-                  Number.parseFloat(costMin.trim()) >= 0 && {
-                    min_cost_cents: Math.round(
-                      Number.parseFloat(costMin.trim()) * 100
-                    ),
-                  }),
-                ...(costMax.trim() !== '' &&
-                  !Number.isNaN(Number.parseFloat(costMax.trim())) &&
-                  Number.parseFloat(costMax.trim()) >= 0 && {
-                    max_cost_cents: Math.round(
-                      Number.parseFloat(costMax.trim()) * 100
-                    ),
-                  }),
-              }}
-              title={`${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`}
+              carIds={effectiveCarIds}
+              params={buildListCatalogListParams}
+              title={
+                selectedGeneration
+                  ? `${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`
+                  : selectedModel
+                    ? `${selectedMake} ${selectedModel} Build Lists`
+                    : `${selectedMake} Build Lists`
+              }
               emptyMessage="No build lists found for this car. Try adjusting your search or select a different vehicle."
               showVoteButtons={false}
               layout="card"
@@ -573,7 +636,9 @@ const BuildListsCatalog: React.FC = () => {
                 allBuildListsResponse.pagination.total_pages > 1 && (
                   <div className="mt-6">
                     <Pagination
-                      currentPage={allBuildListsResponse.pagination.current_page}
+                      currentPage={
+                        allBuildListsResponse.pagination.current_page
+                      }
                       totalPages={allBuildListsResponse.pagination.total_pages}
                       totalItems={allBuildListsResponse.pagination.total_items}
                       itemsPerPage={

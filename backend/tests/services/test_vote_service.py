@@ -6,7 +6,6 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.car import Car
 from app.api.models.global_part import GlobalPart
 from app.api.models.user import User
 from app.api.models.vote import Vote
@@ -26,16 +25,16 @@ class TestVoteService:
 
     def test_vote_on_car(self, db_session: Session, test_user: User) -> None:
         """Test voting on a car."""
-        # Create a car
-        car = Car(
+        from tests.conftest import create_car_orm_in_db
+
+        car = create_car_orm_in_db(
+            db_session,
             make="Honda",
             model="Civic",
             generation_name="10th Gen",
             start_year=2016,
             end_year=2021,
         )
-        db_session.add(car)
-        db_session.commit()
 
         # Vote on car
         service = VoteService()

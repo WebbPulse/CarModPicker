@@ -203,7 +203,10 @@ function GlobalPartList({
         'actions',
       ];
       keys.forEach((k) => {
-        if (typeof parsed[k] === 'number' && parsed[k] >= MIN_COLUMN_WIDTHS[k]) {
+        if (
+          typeof parsed[k] === 'number' &&
+          parsed[k] >= MIN_COLUMN_WIDTHS[k]
+        ) {
           out[k] = parsed[k];
         }
       });
@@ -221,7 +224,13 @@ function GlobalPartList({
     keys.push('price');
     if (showAddToBuildListButton || onEdit || onDelete) keys.push('actions');
     return keys;
-  }, [categories.length, showVoteButtons, showAddToBuildListButton, onEdit, onDelete]);
+  }, [
+    categories.length,
+    showVoteButtons,
+    showAddToBuildListButton,
+    onEdit,
+    onDelete,
+  ]);
 
   const getColumnWidth = useCallback(
     (key: TableColumnKey) => columnWidths[key] ?? DEFAULT_COLUMN_WIDTHS[key],
@@ -328,6 +337,10 @@ function GlobalPartList({
 
   // Initialize with cached data if available (for instant display)
   const cacheKey = getCacheKey(effectiveParams);
+
+  // Stable request key so we only refetch when the logical request changes (avoids duplicate fetches from re-renders)
+  const fetchRequestKey = `${refreshKey}-${cacheKey}`;
+
   const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
     () => {
       if (providedData) return providedData;
@@ -342,23 +355,17 @@ function GlobalPartList({
       return cached?.pagination ?? null;
     });
 
-  const memoizedFetchGlobalParts = useCallback(() => {
-    void fetchGlobalParts(effectiveParams);
-  }, [fetchGlobalParts, effectiveParams]);
-
-  // Only fetch if data is not provided
+  // Only fetch if data is not provided; run when fetchRequestKey changes (not on every params reference change)
   useEffect(() => {
     if (!providedData) {
-      // Check cache first - if we have cached data, show it immediately and fetch in background
       const cached = getCachedData(cacheKey);
       if (cached) {
         setDisplayData(cached.data);
         setDisplayPagination(cached.pagination);
       }
-      // Always fetch fresh data in background
-      memoizedFetchGlobalParts();
+      void fetchGlobalParts(effectiveParams);
     }
-  }, [memoizedFetchGlobalParts, refreshKey, providedData, cacheKey]);
+  }, [fetchRequestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only refetch when request key changes; effectiveParams/cacheKey used inside
 
   // Update display data when fresh data arrives
   useEffect(() => {
@@ -421,7 +428,8 @@ function GlobalPartList({
   );
 
   const formatCarName = (car: CarRead) =>
-    `${car.make} ${car.model} ${car.generation_name}`;
+    `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    'Vehicle';
 
   const getFitCell = (part: GlobalPartReadWithVotes) => {
     if (part.is_universal) return { label: 'Universal', title: undefined };
@@ -502,11 +510,7 @@ function GlobalPartList({
   ]);
 
   const totalTableWidth = useMemo(
-    () =>
-      tableColumnKeys.reduce(
-        (sum, key) => sum + getColumnWidth(key),
-        0
-      ),
+    () => tableColumnKeys.reduce((sum, key) => sum + getColumnWidth(key), 0),
     [tableColumnKeys, getColumnWidth]
   );
 
@@ -622,11 +626,7 @@ function GlobalPartList({
                   <SortableTh
                     column="part_number"
                     columnKey="part_number"
-                    nextColumnKey={
-                      categories.length > 0
-                        ? 'category'
-                        : 'fit'
-                    }
+                    nextColumnKey={categories.length > 0 ? 'category' : 'fit'}
                   >
                     Part #
                   </SortableTh>
@@ -642,9 +642,7 @@ function GlobalPartList({
                   <SortableTh
                     column="fit"
                     columnKey="fit"
-                    nextColumnKey={
-                      showVoteButtons ? 'rating' : 'price'
-                    }
+                    nextColumnKey={showVoteButtons ? 'rating' : 'price'}
                   >
                     Fit
                   </SortableTh>
@@ -684,7 +682,10 @@ function GlobalPartList({
                     className="border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group"
                   >
                     {/* Part: thumb + name */}
-                    <td className="px-4 py-2 min-w-0 overflow-hidden" title={globalPart.name}>
+                    <td
+                      className="px-4 py-2 min-w-0 overflow-hidden"
+                      title={globalPart.name}
+                    >
                       <Link
                         to={`/global-parts/${globalPart.id}`}
                         className="flex items-center gap-2 hover:no-underline"

@@ -93,6 +93,42 @@ async def get_cars_by_make_model(
 
 
 @router.get(
+    "/makes/count",
+    response_model=dict,
+    responses=standard_responses(success_description="Make count retrieved successfully"),
+)
+async def count_makes(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> dict:
+    """Get total count of Make entities (e.g. Honda, Toyota)."""
+    from app.api.models.make import Make
+
+    db = deps["db"]
+    logger = deps["logger"]
+    count = db.query(Make).count()
+    logger.info(f"Retrieved makes count: {count}")
+    return {"count": count}
+
+
+@router.get(
+    "/car-models/count",
+    response_model=dict,
+    responses=standard_responses(success_description="Car model count retrieved successfully"),
+)
+async def count_car_models(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> dict:
+    """Get total count of CarModel entities (e.g. Civic, Camry under a Make)."""
+    from app.api.models.car_model import CarModel
+
+    db = deps["db"]
+    logger = deps["logger"]
+    count = db.query(CarModel).count()
+    logger.info(f"Retrieved car models count: {count}")
+    return {"count": count}
+
+
+@router.get(
     "/stats/makes",
     response_model=dict[str, int],
     responses=standard_responses(success_description="Car make statistics retrieved successfully"),
@@ -100,20 +136,26 @@ async def get_cars_by_make_model(
 async def get_car_make_stats(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> dict[str, int]:
-    """Get statistics of cars by make."""
+    """Get statistics of cars by make (via Make entity)."""
     from sqlalchemy import func
+
+    from app.api.models.car_model import CarModel
+    from app.api.models.make import Make
 
     db = deps["db"]
     logger = deps["logger"]
 
     stats = (
-        db.query(DBCar.make, func.count(DBCar.id).label("count"))
-        .group_by(DBCar.make)
+        db.query(Make.name, func.count(DBCar.id).label("count"))
+        .select_from(DBCar)
+        .join(DBCar.car_model)
+        .join(CarModel.make)
+        .group_by(Make.name)
         .order_by(func.count(DBCar.id).desc())
         .all()
     )
 
-    result = {make: count for make, count in stats}
+    result = {row[0]: row[1] for row in stats}
     logger.info(f"Retrieved car make statistics: {len(result)} makes")
     return result
 

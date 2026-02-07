@@ -11,6 +11,8 @@ export interface GlobalPartsActiveFilterChipsProps {
   availableBrands: BrandResponse[];
   toggleBrand: (id: number) => void;
   selectedGeneration: CarRead | null;
+  selectedMake?: string;
+  selectedModel?: string;
   showUniversalParts: boolean;
   clearVehicleFilter: () => void;
   hasPriceRange: boolean;
@@ -31,6 +33,8 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
     availableBrands,
     toggleBrand,
     selectedGeneration,
+    selectedMake = '',
+    selectedModel = '',
     showUniversalParts,
     clearVehicleFilter,
     hasPriceRange,
@@ -80,11 +84,13 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
           </span>
         );
       })}
-      {(selectedGeneration || showUniversalParts) && (
+      {(selectedGeneration || showUniversalParts || selectedMake) && (
         <span className={filterChipClass}>
           {showUniversalParts
             ? 'Universal'
-            : `${selectedGeneration?.make} ${selectedGeneration?.model} ${selectedGeneration?.generation_name}`}
+            : selectedGeneration
+              ? `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim()
+              : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() || 'Vehicle'}
           <button
             type="button"
             onClick={clearVehicleFilter}

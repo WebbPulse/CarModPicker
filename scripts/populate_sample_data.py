@@ -60,7 +60,9 @@ from app.api.models.build_log import (  # pyright: ignore[reportMissingImports]
     BuildLogPost,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
+from app.api.models.make import Make  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
     GlobalPart,
 )  # pyright: ignore[reportMissingImports]
@@ -356,35 +358,59 @@ def create_sample_categories(db: Session) -> list[Category]:
 
 
 def create_sample_cars(db: Session) -> list[Car]:
-    """Create sample centrally managed car generations using the canonical data source."""
+    """Create sample centrally managed car generations using the canonical data source.
+    Uses Make and CarModel entities; same logic as init_car_generations.
+    """
     start_time = time.time()
     log_section("Creating sample car generations...")
 
-    # Use the same method as the application initialization
-    # This ensures consistency with the canonical car_generations_data.py
     cars_data = get_all_car_generations()
-
-    cars = []
+    cars: list[Car] = []
     created_count = 0
     skipped_count = 0
 
     for car_data in cars_data:
+        make_name = car_data["make"]
+        model_name = car_data["model"]
+
+        # Get or create Make
+        make_entity = db.query(Make).filter(Make.name == make_name).first()
+        if make_entity is None:
+            make_entity = Make(name=make_name)
+            db.add(make_entity)
+            db.flush()
+
+        # Get or create CarModel
+        car_model_entity = (
+            db.query(CarModel)
+            .filter(CarModel.make_id == make_entity.id, CarModel.name == model_name)
+            .first()
+        )
+        if car_model_entity is None:
+            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            db.add(car_model_entity)
+            db.flush()
+
         # Check if car generation already exists
         existing = (
             db.query(Car)
             .filter(
-                Car.make == car_data["make"],
-                Car.model == car_data["model"],
+                Car.car_model_id == car_model_entity.id,
                 Car.generation_name == car_data["generation_name"],
             )
             .first()
         )
         if existing:
-            # Skip existing cars to preserve manual edits (same behavior as init_car_generations)
             cars.append(existing)
             skipped_count += 1
         else:
-            car = Car(**car_data)
+            car = Car(
+                car_model_id=car_model_entity.id,
+                generation_name=car_data["generation_name"],
+                start_year=car_data["start_year"],
+                end_year=car_data.get("end_year"),
+                description=car_data.get("description"),
+            )
             db.add(car)
             cars.append(car)
             created_count += 1

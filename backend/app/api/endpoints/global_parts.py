@@ -303,7 +303,8 @@ async def read_global_parts_with_votes(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of global parts to return"),
     category_id: Optional[int] = Query(None, description="Filter by category ID (single; use category_ids for multi)"),
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[int]] = Query(None, description="Filter by car IDs (e.g. all generations for a make or model)"),
     brand_id: Optional[int] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
@@ -322,6 +323,8 @@ async def read_global_parts_with_votes(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
     effective_category_ids = category_ids if category_ids else ([category_id] if category_id is not None else None)
     effective_brand_ids = brand_ids if brand_ids else ([brand_id] if brand_id is not None else None)
+    # Car filter: car_ids (make/model) takes precedence over single car_id
+    effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
     has_price_filter = min_price_cents is not None or max_price_cents is not None
 
     # Create subquery for upvote counts
@@ -358,7 +361,7 @@ async def read_global_parts_with_votes(
         base_query,
         effective_category_ids,
         effective_brand_ids,
-        car_id,
+        effective_car_ids,
         search,
         user_id,
         retailer_id,
@@ -374,7 +377,7 @@ async def read_global_parts_with_votes(
         query,
         effective_category_ids,
         effective_brand_ids,
-        car_id,
+        effective_car_ids,
         search,
         user_id,
         retailer_id,
@@ -535,7 +538,7 @@ def _apply_global_parts_list_filters(
     query: Any,
     category_ids: Optional[List[int]],
     brand_ids: Optional[List[int]],
-    car_id: Optional[int],
+    car_ids: Optional[List[int]],
     search: Optional[str],
     user_id: Optional[int],
     retailer_id: Optional[int],
@@ -551,12 +554,12 @@ def _apply_global_parts_list_filters(
         query = query.filter(DBGlobalPart.category_id.in_(category_ids))
     if brand_ids:
         query = query.filter(DBGlobalPart.brand_id.in_(brand_ids))
-    if car_id is not None:
-        part_fits_car = exists().where(
+    if car_ids:
+        part_fits_any_car = exists().where(
             (global_part_cars.c.global_part_id == DBGlobalPart.id)
-            & (global_part_cars.c.car_id == car_id)
+            & (global_part_cars.c.car_id.in_(car_ids))
         )
-        query = query.filter(or_(DBGlobalPart.is_universal, part_fits_car))
+        query = query.filter(or_(DBGlobalPart.is_universal, part_fits_any_car))
     if user_id is not None:
         query = query.filter(DBGlobalPart.user_id == user_id)
     if retailer_id is not None:
@@ -571,7 +574,7 @@ def _global_parts_base_query(
     db: Session,
     category_ids: Optional[List[int]],
     brand_ids: Optional[List[int]],
-    car_id: Optional[int],
+    car_ids: Optional[List[int]],
     search: Optional[str],
     user_id: Optional[int],
     retailer_id: Optional[int],
@@ -579,7 +582,7 @@ def _global_parts_base_query(
     """Build base query for global parts list with filters applied (no pagination/sort)."""
     q = db.query(DBGlobalPart)
     return _apply_global_parts_list_filters(
-        q, category_ids, brand_ids, car_id, search, user_id, retailer_id
+        q, category_ids, brand_ids, car_ids, search, user_id, retailer_id
     )
 
 
@@ -590,7 +593,8 @@ def _global_parts_base_query(
 async def get_global_parts_filter_options(
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[int]] = Query(None, description="Filter by car IDs (e.g. all generations for a make or model)"),
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
     user_id: Optional[int] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -600,11 +604,12 @@ async def get_global_parts_filter_options(
     Use this for cascading filters: e.g. when a brand is selected, only show categories that have parts for that brand.
     """
     db = deps["db"]
+    effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
     q = _global_parts_base_query(
         db,
         category_ids=category_ids,
         brand_ids=brand_ids,
-        car_id=car_id,
+        car_ids=effective_car_ids,
         search=search,
         user_id=user_id,
         retailer_id=None,

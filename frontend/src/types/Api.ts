@@ -81,7 +81,7 @@ export interface CarRead {
   model: string;
   generation_name: string;
   start_year: number;
-  end_year: number;
+  end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
   image_url?: string | null;
 }
@@ -112,7 +112,7 @@ export interface CarGenerationRead {
   model: string;
   generation_name: string;
   start_year: number;
-  end_year: number;
+  end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
 }
 

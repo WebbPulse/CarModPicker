@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LARGE_FETCH_LIMIT } from '../constants';
-import useApiRequest from './UseApiRequest';
 import {
   brandsApi,
   carsApi,
@@ -20,6 +13,8 @@ import type {
   CategoryResponse,
   PaginationInfo,
 } from '../types/Api';
+import { normalizeCarRead, normalizeCarReadList } from '../utils/carUtils';
+import useApiRequest from './UseApiRequest';
 
 const PARTS_PER_PAGE = 100;
 
@@ -177,8 +172,11 @@ export function useGlobalPartsFilters(
   const loadCars = useCallback(async () => {
     try {
       const response = await carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+      const list = normalizeCarReadList(
+        Array.isArray(response.data) ? response.data : []
+      );
       const map: Record<number, CarRead> = {};
-      for (const car of response.data) {
+      for (const car of list) {
         map[car.id] = car;
       }
       setCarsById(map);
@@ -201,19 +199,58 @@ export function useGlobalPartsFilters(
   }, [makeStats]);
 
   useEffect(() => {
-    if (carsByMake) {
-      setAvailableCars(carsByMake);
-    }
+    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
   }, [carsByMake]);
+
+  const generations = useMemo(
+    () =>
+      availableCars
+        .filter(
+          (c) =>
+            (c.make ?? '') === selectedMake && (c.model ?? '') === selectedModel
+        )
+        .sort((a, b) => {
+          if (a.start_year !== b.start_year) return a.start_year - b.start_year;
+          return (a.generation_name ?? '').localeCompare(
+            b.generation_name ?? ''
+          );
+        }),
+    [availableCars, selectedMake, selectedModel]
+  );
+
+  /** Car IDs for API filter: single generation, or all for make, or all for make+model */
+  const effectiveCarIds = useMemo(
+    () =>
+      selectedGeneration
+        ? [selectedGeneration.id]
+        : selectedModel
+          ? generations.map((c) => c.id)
+          : selectedMake
+            ? availableCars.map((c) => c.id)
+            : [],
+    [
+      selectedGeneration,
+      selectedModel,
+      selectedMake,
+      generations,
+      availableCars,
+    ]
+  );
+
+  // Stable key so we only fetch filter-options when the logical request changes (avoids duplicate fetches from re-renders)
+  const filterOptionsRequestKey = `${selectedCategoryIds.join(',')}-${selectedBrandIds.join(',')}-${showUniversalParts}-${effectiveCarIds.join(',')}-${searchTerm}-${userId ?? ''}`;
 
   useEffect(() => {
     let cancelled = false;
-    const carId =
-      !showUniversalParts && selectedGeneration ? selectedGeneration.id : undefined;
-    const filterOptionsParams: Parameters<typeof globalPartsApi.getFilterOptions>[0] = {};
-    if (selectedCategoryIds.length > 0) filterOptionsParams.category_ids = selectedCategoryIds;
-    if (selectedBrandIds.length > 0) filterOptionsParams.brand_ids = selectedBrandIds;
-    if (carId !== undefined) filterOptionsParams.car_id = carId;
+    const filterOptionsParams: Parameters<
+      typeof globalPartsApi.getFilterOptions
+    >[0] = {};
+    if (selectedCategoryIds.length > 0)
+      filterOptionsParams.category_ids = selectedCategoryIds;
+    if (selectedBrandIds.length > 0)
+      filterOptionsParams.brand_ids = selectedBrandIds;
+    if (effectiveCarIds.length && !showUniversalParts)
+      filterOptionsParams.car_ids = effectiveCarIds;
     if (searchTerm.trim()) filterOptionsParams.search = searchTerm;
     if (userId !== undefined) filterOptionsParams.user_id = userId;
     void globalPartsApi
@@ -227,17 +264,16 @@ export function useGlobalPartsFilters(
     return () => {
       cancelled = true;
     };
-  }, [
-    selectedCategoryIds,
-    selectedBrandIds,
-    showUniversalParts,
-    selectedGeneration,
-    searchTerm,
-    userId,
-  ]);
+  }, [filterOptionsRequestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only refetch when request key changes
 
   const initializeFromUrl = useCallback(() => {
-    if (!syncToUrl || isInitializedFromUrl || !makeStats || !categories.length || !availableBrands.length) {
+    if (
+      !syncToUrl ||
+      isInitializedFromUrl ||
+      !makeStats ||
+      !categories.length ||
+      !availableBrands.length
+    ) {
       return;
     }
     const hasUrlParams = Array.from(searchParams.keys()).length > 0;
@@ -270,7 +306,9 @@ export function useGlobalPartsFilters(
       const ids = brandIdsRaw
         .map((p) => Number.parseInt(p, 10))
         .filter((id) => !Number.isNaN(id));
-      const valid = ids.filter((id) => availableBrands.some((b) => b.id === id));
+      const valid = ids.filter((id) =>
+        availableBrands.some((b) => b.id === id)
+      );
       if (valid.length > 0) setSelectedBrandIds(valid);
     }
     const carIdParam = searchParams.get('car_id');
@@ -328,11 +366,14 @@ export function useGlobalPartsFilters(
 
   useEffect(() => {
     if (carFromUrl && isInitializingFromUrlRef.current) {
-      setSelectedMake(carFromUrl.make);
-      setSelectedModel(carFromUrl.model);
-      setSelectedGeneration(carFromUrl);
-      setShowUniversalParts(false);
-      void fetchCarsByMake(carFromUrl.make);
+      const car = normalizeCarRead(carFromUrl);
+      if (car) {
+        setSelectedMake(car.make);
+        setSelectedModel(car.model);
+        setSelectedGeneration(car);
+        setShowUniversalParts(false);
+        void fetchCarsByMake(car.make);
+      }
       isInitializingFromUrlRef.current = false;
       setIsInitializedFromUrl(true);
     }
@@ -349,7 +390,9 @@ export function useGlobalPartsFilters(
       const carIdParam = searchParams.get('car_id');
       if (carIdParam) {
         const carId = Number.parseInt(carIdParam, 10);
-        const car = carsByMake.find((c) => c.id === carId);
+        const car = normalizeCarRead(
+          carsByMake.find((c) => c.id === carId) ?? null
+        );
         if (car) setSelectedGeneration(car);
       } else {
         setSelectedModel(searchParams.get('model') ?? '');
@@ -361,22 +404,33 @@ export function useGlobalPartsFilters(
   useEffect(() => {
     if (selectedMake && !isInitializingFromUrlRef.current) {
       void fetchCarsByMake(selectedMake);
-      setSelectedModel('');
-      setSelectedGeneration(null);
+      // Only clear model/generation when user changed make; preserve when restoring from URL (car_id)
+      if (
+        !selectedGeneration ||
+        (selectedGeneration.make ?? '') !== selectedMake
+      ) {
+        setSelectedModel('');
+        setSelectedGeneration(null);
+      }
     } else if (!showUniversalParts && !selectedMake) {
       setAvailableCars([]);
       setSelectedModel('');
       setSelectedGeneration(null);
     }
-  }, [selectedMake, fetchCarsByMake, showUniversalParts]);
+  }, [selectedMake, selectedGeneration, fetchCarsByMake, showUniversalParts]);
 
   const syncFiltersToUrl = useCallback(() => {
     if (!syncToUrl || !isInitializedFromUrl) return;
     const newParams = new URLSearchParams();
-    selectedCategoryIds.forEach((id) => newParams.append('category_ids', id.toString()));
-    selectedBrandIds.forEach((id) => newParams.append('brand_ids', id.toString()));
+    selectedCategoryIds.forEach((id) =>
+      newParams.append('category_ids', id.toString())
+    );
+    selectedBrandIds.forEach((id) =>
+      newParams.append('brand_ids', id.toString())
+    );
     if (showUniversalParts) newParams.set('universal', 'true');
-    else if (selectedGeneration) newParams.set('car_id', selectedGeneration.id.toString());
+    else if (selectedGeneration)
+      newParams.set('car_id', selectedGeneration.id.toString());
     else if (selectedMake) {
       newParams.set('make', selectedMake);
       if (selectedModel) newParams.set('model', selectedModel);
@@ -384,11 +438,13 @@ export function useGlobalPartsFilters(
     if (searchTerm) newParams.set('search', searchTerm);
     if (priceMin.trim() !== '') {
       const n = Number.parseFloat(priceMin.trim());
-      if (!Number.isNaN(n) && n >= 0) newParams.set('min_price', priceMin.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('min_price', priceMin.trim());
     }
     if (priceMax.trim() !== '') {
       const n = Number.parseFloat(priceMax.trim());
-      if (!Number.isNaN(n) && n >= 0) newParams.set('max_price', priceMax.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('max_price', priceMax.trim());
     }
     if (currentPage > 1) newParams.set('page', currentPage.toString());
     setSearchParams(newParams, { replace: true });
@@ -436,7 +492,7 @@ export function useGlobalPartsFilters(
     setCurrentPage(1);
   }, [
     selectedCategoryIds,
-    selectedGeneration,
+    effectiveCarIds,
     showUniversalParts,
     selectedBrandIds,
     searchTerm,
@@ -445,19 +501,11 @@ export function useGlobalPartsFilters(
   ]);
 
   const uniqueModels = useMemo(
-    () => Array.from(new Set(availableCars.map((c) => c.model))).sort(),
-    [availableCars]
-  );
-
-  const generations = useMemo(
     () =>
-      availableCars
-        .filter((c) => c.make === selectedMake && c.model === selectedModel)
-        .sort((a, b) => {
-          if (a.start_year !== b.start_year) return a.start_year - b.start_year;
-          return a.generation_name.localeCompare(b.generation_name);
-        }),
-    [availableCars, selectedMake, selectedModel]
+      Array.from(
+        new Set(availableCars.map((c) => c.model ?? '').filter(Boolean))
+      ).sort(),
+    [availableCars]
   );
 
   const activeCategories = useMemo(
@@ -469,14 +517,12 @@ export function useGlobalPartsFilters(
   );
 
   const availableCategoryIds = useMemo(
-    () =>
-      filterOptions?.category_ids ?? activeCategories.map((c) => c.id),
+    () => filterOptions?.category_ids ?? activeCategories.map((c) => c.id),
     [filterOptions?.category_ids, activeCategories]
   );
 
   const availableBrandIds = useMemo(
-    () =>
-      filterOptions?.brand_ids ?? availableBrands.map((b) => b.id),
+    () => filterOptions?.brand_ids ?? availableBrands.map((b) => b.id),
     [filterOptions?.brand_ids, availableBrands]
   );
 
@@ -491,7 +537,7 @@ export function useGlobalPartsFilters(
   const hasActiveFilters =
     selectedCategoryIds.length > 0 ||
     selectedBrandIds.length > 0 ||
-    !!selectedGeneration ||
+    effectiveCarIds.length > 0 ||
     showUniversalParts ||
     hasPriceRange;
 
@@ -557,8 +603,11 @@ export function useGlobalPartsFilters(
       skip: (currentPage - 1) * PARTS_PER_PAGE,
       limit: PARTS_PER_PAGE,
       ...(userId !== undefined && { user_id: userId }),
-      ...(selectedCategoryIds.length > 0 && { category_ids: selectedCategoryIds }),
-      ...(selectedGeneration && !showUniversalParts && { car_id: selectedGeneration.id }),
+      ...(selectedCategoryIds.length > 0 && {
+        category_ids: selectedCategoryIds,
+      }),
+      ...(effectiveCarIds.length &&
+        !showUniversalParts && { car_ids: effectiveCarIds }),
       ...(selectedBrandIds.length > 0 && { brand_ids: selectedBrandIds }),
       ...(searchTerm && { search: searchTerm }),
       ...(min_price_cents !== undefined && { min_price_cents }),
@@ -568,7 +617,7 @@ export function useGlobalPartsFilters(
     currentPage,
     userId,
     selectedCategoryIds,
-    selectedGeneration,
+    effectiveCarIds,
     showUniversalParts,
     selectedBrandIds,
     searchTerm,

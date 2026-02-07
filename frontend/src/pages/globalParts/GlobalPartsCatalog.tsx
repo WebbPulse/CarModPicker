@@ -76,6 +76,8 @@ const GlobalPartsCatalog: React.FC = () => {
     availableBrands: filters.availableBrands,
     toggleBrand: filters.toggleBrand,
     selectedGeneration: filters.selectedGeneration,
+    selectedMake: filters.selectedMake,
+    selectedModel: filters.selectedModel,
     showUniversalParts: filters.showUniversalParts,
     clearVehicleFilter: filters.clearVehicleFilter,
     hasPriceRange: filters.hasPriceRange,

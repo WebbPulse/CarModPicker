@@ -28,6 +28,8 @@ import {
 interface EntityCounts {
   users: number | null;
   cars: number | null;
+  makes: number | null;
+  carModels: number | null;
   buildLists: number | null;
   globalParts: number | null;
   categories: number | null;
@@ -46,6 +48,8 @@ function AdminDashboard() {
   const [counts, setCounts] = useState<EntityCounts>({
     users: null,
     cars: null,
+    makes: null,
+    carModels: null,
     buildLists: null,
     globalParts: null,
     categories: null,
@@ -114,6 +118,8 @@ function AdminDashboard() {
       const [
         usersCount,
         carsCount,
+        makesCount,
+        carModelsCount,
         buildListsCount,
         globalPartsCount,
         categoriesCount,
@@ -127,6 +133,8 @@ function AdminDashboard() {
       ] = await Promise.all([
         fetchCount(() => usersApi.countUsers(), 'users'),
         fetchCount(() => carsApi.countCars(), 'cars'),
+        fetchCount(() => carsApi.countMakes(), 'makes'),
+        fetchCount(() => carsApi.countCarModels(), 'car models'),
         fetchCount(() => buildListsApi.countBuildLists(), 'build lists'),
         fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
@@ -148,6 +156,8 @@ function AdminDashboard() {
       setCounts({
         users: usersCount,
         cars: carsCount,
+        makes: makesCount,
+        carModels: carModelsCount,
         buildLists: buildListsCount,
         globalParts: globalPartsCount,
         categories: categoriesCount,
@@ -164,6 +174,8 @@ function AdminDashboard() {
       const allFailed =
         usersCount === null &&
         carsCount === null &&
+        makesCount === null &&
+        carModelsCount === null &&
         buildListsCount === null &&
         globalPartsCount === null &&
         categoriesCount === null &&
@@ -379,6 +391,18 @@ function AdminDashboard() {
                 <div className="text-sm text-gray-400 mb-1">Cars</div>
                 <div className="text-3xl font-bold text-green-400">
                   {counts.cars?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Makes</div>
+                <div className="text-3xl font-bold text-sky-400">
+                  {counts.makes?.toLocaleString() ?? '—'}
+                </div>
+              </div>
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="text-sm text-gray-400 mb-1">Car Models</div>
+                <div className="text-3xl font-bold text-lime-400">
+                  {counts.carModels?.toLocaleString() ?? '—'}
                 </div>
               </div>
               <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">

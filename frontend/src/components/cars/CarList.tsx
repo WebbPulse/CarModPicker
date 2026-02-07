@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { carsApi } from '../../services/Api';
+import { normalizeCarReadList } from '../../utils/carUtils';
 import type { CarRead } from '../../types/Api';
 import AddItemTile from '../common/AddItemTile';
 import { ErrorAlert } from '../common/Alerts';
@@ -40,18 +41,21 @@ const CarList: React.FC<CarListProps> = ({
   const fetchCarsRequestFn = useCallback(() => {
     if (searchQuery) {
       return carsApi.searchCars(searchQuery, { skip, limit });
-    } else if (generationId) {
-      return carsApi.getCarsByGeneration(generationId, { skip, limit });
-    } else if (make && year) {
-      // If both make and year, we'll use search
-      return carsApi.searchCars(`${make} ${year}`, { skip, limit });
-    } else if (make) {
-      return carsApi.getCarsByMake(make, { skip, limit });
-    } else if (year) {
-      return carsApi.getCarsByYear(year, { skip, limit });
-    } else {
-      return carsApi.listCars({ skip, limit });
     }
+    if (generationId) {
+      // In the new backend, a Car is a generation; get single car by id
+      return carsApi.getCar(generationId);
+    }
+    if (make && year) {
+      return carsApi.searchCars(`${make} ${year}`, { skip, limit });
+    }
+    if (make) {
+      return carsApi.getCarsByMake(make, { skip, limit });
+    }
+    if (year) {
+      return carsApi.searchCars(String(year), { skip, limit });
+    }
+    return carsApi.listCars({ skip, limit });
   }, [searchQuery, make, year, generationId, skip, limit]);
 
   const {
@@ -66,8 +70,11 @@ const CarList: React.FC<CarListProps> = ({
   }, [fetchCars, refreshKey]);
 
   useEffect(() => {
-    if (fetchedApiCars) {
-      setInternalCars(fetchedApiCars);
+    if (fetchedApiCars != null) {
+      const list = Array.isArray(fetchedApiCars)
+        ? fetchedApiCars
+        : [fetchedApiCars];
+      setInternalCars(normalizeCarReadList(list));
     } else if (!isLoading && !error) {
       setInternalCars([]);
     }

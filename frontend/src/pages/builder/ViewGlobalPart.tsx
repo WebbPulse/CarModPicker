@@ -11,6 +11,7 @@ import {
   globalPartVotesApi,
   usersApi,
 } from '../../services/Api';
+import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type {
   BrandResponse,
   CarRead,
@@ -221,7 +222,9 @@ function ViewGlobalPart() {
     Promise.all(carIds.map((id) => carsApi.getCar(id)))
       .then((responses) => {
         if (!cancelled) {
-          setCompatibleCars(responses.map((r) => r.data));
+          setCompatibleCars(
+            normalizeCarReadList(responses.map((r) => r.data).filter(Boolean))
+          );
         }
       })
       .catch(() => {
@@ -460,8 +463,7 @@ function ViewGlobalPart() {
                               className="text-sm font-medium text-indigo-300 hover:text-indigo-200 underline transition-colors"
                             >
                               {c.make} {c.model} {c.generation_name} (
-                              {c.start_year}
-                              {c.end_year ? `-${c.end_year}` : '+'})
+                              {formatCarYearRange(c.start_year, c.end_year)})
                             </Link>
                           </li>
                         ))}
