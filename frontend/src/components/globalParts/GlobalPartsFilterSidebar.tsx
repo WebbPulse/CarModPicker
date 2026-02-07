@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Card from '../common/Card';
-import LoadingSpinner from '../common/LoadingSpinner';
+import VehicleFilterSection from '../common/VehicleFilterSection';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
 export interface GlobalPartsFilterSidebarProps {
@@ -77,12 +77,6 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
 
   const sectionTitleClass =
     'text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60';
-  const optionButtonClass = (active: boolean) =>
-    `block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-      active
-        ? 'bg-indigo-600/30 text-indigo-300 font-medium'
-        : 'text-gray-300 hover:bg-gray-700/50 hover:text-gray-100'
-    }`;
   const clearButtonClass =
     'block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-700/50 hover:text-gray-300 transition-colors';
   const inputClass =
@@ -110,109 +104,21 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
           </div>
 
           {/* Car / Vehicle Filter */}
-          <div>
-            <h3 className={sectionTitleClass}>Car / Vehicle</h3>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowUniversalParts(false);
-                  setSelectedMake('');
-                  setSelectedModel('');
-                  setSelectedGeneration(null);
-                }}
-                className={optionButtonClass(
-                  !showUniversalParts && !selectedGeneration
-                )}
-              >
-                All Vehicles
-              </button>
-
-              {!showUniversalParts && (
-                <>
-                  {isLoadingMakes ? (
-                    <div className="flex justify-center py-3">
-                      <LoadingSpinner />
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedMake}
-                      onChange={(e) => {
-                        setSelectedMake(e.target.value);
-                        setSelectedModel('');
-                        setSelectedGeneration(null);
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">Select Make</option>
-                      {availableMakes.map((make) => (
-                        <option key={make} value={make}>
-                          {make}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {selectedMake && (
-                    <>
-                      <select
-                        value={selectedModel}
-                        onChange={(e) => {
-                          setSelectedModel(e.target.value);
-                          setSelectedGeneration(null);
-                        }}
-                        className={inputClass}
-                      >
-                        <option value="">Select Model</option>
-                        {uniqueModels.map((model) => (
-                          <option key={model} value={model}>
-                            {model}
-                          </option>
-                        ))}
-                      </select>
-
-                      {selectedModel && (
-                        <div className="space-y-2">
-                          {isLoadingCars ? (
-                            <div className="flex justify-center py-3">
-                              <LoadingSpinner />
-                            </div>
-                          ) : (
-                            generations.map((car) => (
-                              <button
-                                key={car.id}
-                                type="button"
-                                onClick={() => setSelectedGeneration(car)}
-                                className={optionButtonClass(
-                                  selectedGeneration?.id === car.id
-                                )}
-                              >
-                                {car.generation_name} ({car.start_year}–
-                                {car.end_year})
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowUniversalParts(true);
-                  setSelectedMake('');
-                  setSelectedModel('');
-                  setSelectedGeneration(null);
-                }}
-                className={optionButtonClass(showUniversalParts)}
-              >
-                Universal Parts
-              </button>
-            </div>
-          </div>
+          <VehicleFilterSection
+            showUniversalParts={showUniversalParts}
+            setShowUniversalParts={setShowUniversalParts}
+            selectedMake={selectedMake}
+            selectedModel={selectedModel}
+            selectedGeneration={selectedGeneration}
+            setSelectedMake={setSelectedMake}
+            setSelectedModel={setSelectedModel}
+            setSelectedGeneration={setSelectedGeneration}
+            availableMakes={availableMakes}
+            uniqueModels={uniqueModels}
+            generations={generations}
+            isLoadingMakes={isLoadingMakes}
+            isLoadingCars={isLoadingCars}
+          />
 
           {/* Price range filter */}
           <div>

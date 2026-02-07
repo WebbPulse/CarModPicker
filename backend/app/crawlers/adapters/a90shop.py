@@ -147,10 +147,12 @@ _WIX_NON_PRODUCT_PATH = re.compile(
 
 # Known A90 Shop non-product media ids (Wix file id after prefix, before ~ or %7E)
 # Add ids here when we find logo/site assets that appear before "Related Products"
-_A90_NON_PRODUCT_MEDIA_IDS = frozenset({
-    "d186b081cecb49fe8cb18f7792c8f0f1",   # A90 shop logo
-    "6e48084c31ac47b6bccb899c400fa622",   # "S" / small site icon
-})
+_A90_NON_PRODUCT_MEDIA_IDS = frozenset(
+    {
+        "d186b081cecb49fe8cb18f7792c8f0f1",  # A90 shop logo
+        "6e48084c31ac47b6bccb899c400fa622",  # "S" / small site icon
+    }
+)
 
 
 def _wix_url_to_base(url: str) -> str:
@@ -201,17 +203,6 @@ def _is_valid_wix_product_image(url: str) -> bool:
     if _wix_media_file_id(url) in _A90_NON_PRODUCT_MEDIA_IDS:
         return False
     return True
-
-
-def _wix_media_prefix(url: str) -> str:
-    """Extract media id prefix (e.g. 0f8225_) from .../media/0f8225_xxx~mv2.webp."""
-    if "/media/" not in url:
-        return ""
-    segment = url.split("/media/")[-1]
-    # 0f8225_ad9611cdf1fd45229cca26cfc549c419~mv2.webp -> 0f8225_
-    if "_" in segment:
-        return segment.split("_")[0] + "_"
-    return segment.split("~")[0][:10] if "~" in segment else ""
 
 
 def _extract_a90_images(soup: BeautifulSoup, raw_html: str) -> List[str]:
@@ -364,9 +355,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         price_cents = _extract_dom_price(soup)
 
         part_number = None
-        sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(
-            id=re.compile(r"sku", re.I)
-        )
+        sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
         if sku_elem:
             part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:

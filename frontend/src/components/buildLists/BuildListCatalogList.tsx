@@ -11,6 +11,7 @@ import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
+import BuildListCard from './BuildListCard';
 import BuildListItem from './BuildListItem';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 
@@ -25,6 +26,8 @@ interface BuildListCatalogListProps {
   title?: string;
   emptyMessage?: string;
   showVoteButtons?: boolean;
+  /** When 'card', renders build cards with image previews (Home-style). Default 'list'. */
+  layout?: 'card' | 'list';
 }
 
 const fetchBuildListsRequestFn = (params?: {
@@ -54,6 +57,7 @@ function BuildListCatalogList({
   title = 'Build Lists Catalog',
   emptyMessage = 'No build lists found.',
   showVoteButtons = false,
+  layout = 'list',
 }: BuildListCatalogListProps) {
   const [allBuildLists, setAllBuildLists] = useState<BuildListRead[]>([]);
   const [isLoadingMultiple, setIsLoadingMultiple] = useState(false);
@@ -160,8 +164,8 @@ function BuildListCatalogList({
 
   const memoizedFetchBuildLists = useCallback(() => {
     if (carIds && carIds.length > 0) {
-      if (showVoteButtons && carIds.length === 1) {
-        // Use with-votes endpoint when showing vote buttons and single car
+      if (carIds.length === 1) {
+        // Use with-votes endpoint for single car (vote counts for cards)
         void fetchBuildLists({
           ...params,
           car_id: carIds[0] as number,
@@ -172,14 +176,9 @@ function BuildListCatalogList({
     } else {
       void fetchBuildLists(params);
     }
-  }, [
-    fetchBuildLists,
-    fetchBuildListsForCars,
-    params,
-    carIds,
-    showVoteButtons,
-  ]);
+  }, [fetchBuildLists, fetchBuildListsForCars, params, carIds]);
 
+  // Refetch when params (including search) or carIds change
   useEffect(() => {
     memoizedFetchBuildLists();
   }, [memoizedFetchBuildLists, refreshKey]);
@@ -190,11 +189,11 @@ function BuildListCatalogList({
   // or buildListsResponse for no carIds.
   let filteredBuildLists: (BuildListRead | BuildListReadWithVotes)[] = [];
   if (carIds && carIds.length > 0) {
-    if (showVoteButtons && carIds.length === 1) {
-      // Using with-votes endpoint - data is in buildListsWithVotes
+    if (carIds.length === 1) {
+      // Single car: we used with-votes endpoint - data is in buildListsWithVotes
       filteredBuildLists = buildListsWithVotes;
     } else {
-      // Using getBuildListsByCar - data is in allBuildLists
+      // Multiple cars: data is in allBuildLists
       filteredBuildLists = allBuildLists;
     }
   } else {
@@ -219,17 +218,15 @@ function BuildListCatalogList({
       )
     : filteredBuildLists;
 
-  // Determine loading state - if using with-votes endpoint for single car, use isLoading
-  // Otherwise, if multiple cars, use isLoadingMultiple
   const isLoadingState =
     carIds && carIds.length > 0
-      ? showVoteButtons && carIds.length === 1
+      ? carIds.length === 1
         ? isLoading
         : isLoadingMultiple
       : isLoading;
   const errorState =
     carIds && carIds.length > 0
-      ? showVoteButtons && carIds.length === 1
+      ? carIds.length === 1
         ? error
         : errorMultiple
       : error;
@@ -261,6 +258,12 @@ function BuildListCatalogList({
       {finalBuildLists.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
           <p>{emptyMessage}</p>
+        </div>
+      ) : layout === 'card' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {finalBuildLists.map((buildList) => (
+            <BuildListCard key={buildList.id} buildList={buildList} />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
