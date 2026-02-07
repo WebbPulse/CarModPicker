@@ -1,11 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { buildListPartsApi, categoriesApi } from '../../services/Api';
+import {
+  brandsApi,
+  buildListPartsApi,
+  carsApi,
+  categoriesApi,
+} from '../../services/Api';
 import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
+  CarRead,
 } from '../../types/Api';
+import { normalizeCarReadList } from '../../utils/carUtils';
 import ActionButton from '../buttons/ActionButton';
 import { ErrorAlert } from '../common/Alerts';
 import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
@@ -27,6 +35,11 @@ const fetchBuildListPartsRequestFn = (buildListId: number) =>
   buildListPartsApi.getBuildListParts(buildListId);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
+
+const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
+
+const fetchCarsRequestFn = () =>
+  carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 const BuildListParts: React.FC<BuildListPartsProps> = ({
   buildListId,
@@ -59,6 +72,23 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     executeRequest: fetchCategories,
   } = useApiRequest(fetchCategoriesRequestFn);
 
+  const { data: brandsData, executeRequest: fetchBrands } =
+    useApiRequest(fetchBrandsRequestFn);
+
+  const { data: carsData, executeRequest: fetchCars } =
+    useApiRequest(fetchCarsRequestFn);
+
+  const brands = brandsData ?? [];
+  const carsById = useMemo(() => {
+    const list = Array.isArray(carsData) ? carsData : [];
+    const normalized = normalizeCarReadList(list);
+    const map: Record<number, CarRead> = {};
+    for (const car of normalized) {
+      map[car.id] = car;
+    }
+    return map;
+  }, [carsData]);
+
   // Local state for optimistic updates - sync with API data
   const [localBuildListParts, setLocalBuildListParts] = useState<
     BuildListPartReadWithGlobalPart[] | null
@@ -74,7 +104,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   useEffect(() => {
     void fetchBuildListParts(buildListId);
     void fetchCategories();
-  }, [buildListId, refreshKey, fetchBuildListParts, fetchCategories]);
+    void fetchBrands();
+    void fetchCars();
+  }, [buildListId, refreshKey, fetchBuildListParts, fetchCategories, fetchBrands, fetchCars]);
 
   // Helper function to check if user can edit a specific build list part
   const canEditBuildListPart = (
@@ -301,6 +333,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       <BuildListPartList
         buildListParts={parts}
         categories={categories || []}
+        brands={brands}
+        carsById={carsById}
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
         onDelete={handleDelete}

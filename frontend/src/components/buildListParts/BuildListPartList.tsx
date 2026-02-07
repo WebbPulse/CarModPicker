@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type {
+  BrandResponse,
   BuildListPartReadWithGlobalPart,
+  CarRead,
   CategoryResponse,
 } from '../../types/Api';
 import ActionButton from '../buttons/ActionButton';
@@ -19,6 +21,8 @@ interface BuildListPartTableProps {
   group: GroupedPart;
   categoryName: string;
   categoryIcon: string;
+  brands: BrandResponse[];
+  carsById: Record<number, CarRead>;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: number) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
@@ -29,19 +33,56 @@ interface BuildListPartTableProps {
   canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
 }
 
-function getFitLabel(part: BuildListPartReadWithGlobalPart): string {
+function formatCarName(car: CarRead): string {
+  return `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() || 'Vehicle';
+}
+
+function getFitCell(
+  part: BuildListPartReadWithGlobalPart,
+  carsById: Record<number, CarRead>
+): { label: string; title?: string } {
   const gp = part.global_part;
-  if (gp.is_universal) return 'Universal';
+  if (gp.is_universal) return { label: 'Universal', title: undefined };
   const ids = gp.car_ids ?? [];
-  if (ids.length === 0) return '—';
-  if (ids.length === 1) return '1 vehicle';
-  return `${ids.length} vehicles`;
+  const n = ids.length;
+  if (n === 0) return { label: '—', title: undefined };
+  if (n === 1) {
+    const firstId = ids[0];
+    const car = firstId != null ? carsById[firstId] : undefined;
+    return {
+      label: car ? formatCarName(car) : '1 vehicle',
+      title: undefined,
+    };
+  }
+  const names = ids
+    .map((id) => carsById[id])
+    .filter((c): c is CarRead => c != null)
+    .map(formatCarName);
+  return {
+    label: `${n} vehicles`,
+    title: names.length > 0 ? names.join('\n') : undefined,
+  };
+}
+
+function getBrandName(
+  part: BuildListPartReadWithGlobalPart,
+  brands: BrandResponse[]
+): string {
+  const gp = part.global_part;
+  if (gp.brand) return gp.brand;
+  if (gp.brand_id != null && brands.length > 0) {
+    const b = brands.find((br) => br.id === gp.brand_id);
+    return b?.name ?? '—';
+  }
+  return '—';
 }
 
 const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   group,
   categoryName,
   categoryIcon,
+  brands,
+  carsById,
   onEdit,
   onDelete,
   onTogglePurchased,
@@ -73,7 +114,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
             <colgroup>
               {showCheckbox && <col style={{ width: '5rem' }} />}
               <col style={{ width: '40%' }} />
-              <col style={{ width: '5rem' }} />
+              <col style={{ width: '7rem' }} />
               <col style={{ width: '6rem' }} />
               <col style={{ width: '5rem' }} />
               <col style={{ width: '3rem' }} />
@@ -214,9 +255,11 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                     </td>
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={gp.brand ?? '—'}
+                      title={getBrandName(buildListPart, brands)}
                     >
-                      <span className="block truncate">{gp.brand ?? '—'}</span>
+                      <span className="block truncate">
+                        {getBrandName(buildListPart, brands)}
+                      </span>
                     </td>
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
@@ -226,13 +269,22 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         {gp.part_number ?? '—'}
                       </span>
                     </td>
-                    <td
-                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={getFitLabel(buildListPart)}
-                    >
-                      <span className="block truncate">
-                        {getFitLabel(buildListPart)}
-                      </span>
+                    <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
+                      {(() => {
+                        const { label, title } = getFitCell(
+                          buildListPart,
+                          carsById
+                        );
+                        const tooltip = title ?? label;
+                        return (
+                          <span
+                            title={tooltip}
+                            className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
                       {qty}
@@ -297,6 +349,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 interface BuildListPartListProps {
   buildListParts: BuildListPartReadWithGlobalPart[];
   categories: CategoryResponse[];
+  brands?: BrandResponse[];
+  carsById?: Record<number, CarRead>;
   loading?: boolean;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: number) => void;
@@ -312,6 +366,8 @@ interface BuildListPartListProps {
 const BuildListPartList: React.FC<BuildListPartListProps> = ({
   buildListParts,
   categories,
+  brands = [],
+  carsById = {},
   loading = false,
   onEdit,
   onDelete,
@@ -549,6 +605,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             group={group}
             categoryName={categoryName}
             categoryIcon={categoryIcon}
+            brands={brands}
+            carsById={carsById}
             {...(onEdit != null && { onEdit })}
             {...(onDelete != null && { onDelete })}
             {...(onTogglePurchased != null && { onTogglePurchased })}
