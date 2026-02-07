@@ -1,11 +1,298 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import type {
   BuildListPartReadWithGlobalPart,
   CategoryResponse,
 } from '../../types/Api';
+import ActionButton from '../buttons/ActionButton';
+import SecondaryButton from '../buttons/SecondaryButton';
 import Card from '../common/Card';
+import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
-import BuildListPartListItem from './BuildListPartListItem';
+
+interface GroupedPart {
+  category: CategoryResponse | null;
+  parts: BuildListPartReadWithGlobalPart[];
+}
+
+interface BuildListPartTableProps {
+  group: GroupedPart;
+  categoryName: string;
+  categoryIcon: string;
+  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onDelete?: (buildListPartId: number) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canMarkPurchased?: boolean;
+  canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+  canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+}
+
+function getFitLabel(part: BuildListPartReadWithGlobalPart): string {
+  const gp = part.global_part;
+  if (gp.is_universal) return 'Universal';
+  const ids = gp.car_ids ?? [];
+  if (ids.length === 0) return '—';
+  if (ids.length === 1) return '1 vehicle';
+  return `${ids.length} vehicles`;
+}
+
+const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
+  group,
+  categoryName,
+  categoryIcon,
+  onEdit,
+  onDelete,
+  onTogglePurchased,
+  canEdit = false,
+  canDelete = false,
+  canMarkPurchased = false,
+  canEditPart,
+  canDeletePart,
+}) => {
+  const showCheckbox = canMarkPurchased && onTogglePurchased;
+
+  return (
+    <div className="space-y-2">
+      {/* Category Header */}
+      <div className="flex items-center gap-2 px-1 py-0.5">
+        <span className="text-base">{categoryIcon}</span>
+        <h2 className="text-base font-semibold text-gray-200">
+          {categoryName}
+        </h2>
+        <span className="text-xs text-gray-400">
+          ({group.parts.length} part{group.parts.length !== 1 ? 's' : ''})
+        </span>
+      </div>
+
+      {/* Table - matching global-parts/search layout */}
+      <Card className="p-0 !overflow-visible">
+        <div className="overflow-x-auto min-w-0 rounded-inherit">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              {showCheckbox && <col style={{ width: '5rem' }} />}
+              <col style={{ width: '40%' }} />
+              <col style={{ width: '5rem' }} />
+              <col style={{ width: '6rem' }} />
+              <col style={{ width: '5rem' }} />
+              <col style={{ width: '3rem' }} />
+              <col style={{ width: '5rem' }} />
+              {(onEdit || onDelete) && <col style={{ width: '10rem' }} />}
+            </colgroup>
+            <thead>
+              <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+                {showCheckbox && (
+                  <th
+                    className="px-3 py-3 font-medium whitespace-nowrap"
+                    title="Mark as purchased"
+                  >
+                    Purchased
+                  </th>
+                )}
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Part name
+                </th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Brand
+                </th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Part #
+                </th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Fit
+                </th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Qty
+                </th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap text-right">
+                  Price
+                </th>
+                {(onEdit || onDelete) && (
+                  <th
+                    className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
+                    aria-label="Actions"
+                  />
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {group.parts.map((buildListPart) => {
+                const { global_part, notes, quantity, purchased } =
+                  buildListPart;
+                const gp = global_part;
+                const qty = quantity || 1;
+                const partPriceInCents = gp.best_price_cents;
+                const totalPriceInCents =
+                  partPriceInCents != null ? partPriceInCents * qty : null;
+                const showEdit =
+                  canEdit &&
+                  onEdit &&
+                  (!canEditPart || canEditPart(buildListPart));
+                const showDelete =
+                  canDelete &&
+                  onDelete &&
+                  (!canDeletePart || canDeletePart(buildListPart));
+
+                return (
+                  <tr
+                    key={buildListPart.id}
+                    className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
+                      purchased ? 'opacity-60' : ''
+                    }`}
+                  >
+                    {showCheckbox && (
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <label
+                          className="relative flex items-center cursor-pointer"
+                          title={
+                            purchased
+                              ? 'Mark as not purchased'
+                              : 'Mark as purchased'
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={purchased}
+                            onChange={() => onTogglePurchased?.(buildListPart)}
+                            className="sr-only peer"
+                            aria-label={
+                              purchased
+                                ? 'Mark as not purchased'
+                                : 'Mark as purchased'
+                            }
+                          />
+                          <div className="w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] aspect-square flex-shrink-0 bg-gray-700 border-2 border-gray-500 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
+                            {purchased && (
+                              <svg
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="3"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </label>
+                      </td>
+                    )}
+                    <td
+                      className="px-4 py-2 min-w-0 overflow-hidden"
+                      title={
+                        notes
+                          ? `${gp.name}${notes ? ` — ${notes}` : ''}`
+                          : gp.name
+                      }
+                    >
+                      <Link
+                        to={`/global-parts/${gp.id}`}
+                        className="flex items-center gap-2 hover:no-underline"
+                      >
+                        <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                          <ImageWithPlaceholder
+                            srcUrl={gp.image_url ?? null}
+                            altText={gp.name}
+                            imageClassName="w-full h-full object-cover"
+                            containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                            fallbackText=""
+                          />
+                        </div>
+                        <span
+                          className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
+                            purchased
+                              ? 'text-gray-400 line-through'
+                              : 'text-gray-200'
+                          }`}
+                        >
+                          {gp.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={gp.brand ?? '—'}
+                    >
+                      <span className="block truncate">{gp.brand ?? '—'}</span>
+                    </td>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
+                      title={gp.part_number ?? '—'}
+                    >
+                      <span className="block truncate">
+                        {gp.part_number ?? '—'}
+                      </span>
+                    </td>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={getFitLabel(buildListPart)}
+                    >
+                      <span className="block truncate">
+                        {getFitLabel(buildListPart)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                      {qty}
+                    </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {totalPriceInCents != null ? (
+                        <span
+                          className={
+                            purchased
+                              ? 'font-semibold text-gray-500 line-through'
+                              : 'font-semibold text-green-400'
+                          }
+                        >
+                          $
+                          {(totalPriceInCents / 100).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          {qty > 1 && (
+                            <span className="text-xs text-gray-400 block">
+                              ${(partPriceInCents! / 100).toFixed(2)} × {qty}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </td>
+                    {(onEdit || onDelete) && (
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {showEdit && (
+                            <SecondaryButton
+                              onClick={() => onEdit(buildListPart)}
+                              className="text-xs px-2 py-1"
+                            >
+                              Edit
+                            </SecondaryButton>
+                          )}
+                          {showDelete && (
+                            <ActionButton
+                              onClick={() => onDelete(buildListPart.id)}
+                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                            >
+                              Remove
+                            </ActionButton>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
 
 interface BuildListPartListProps {
   buildListParts: BuildListPartReadWithGlobalPart[];
@@ -243,7 +530,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         </div>
       </Card>
 
-      {/* Parts grouped by category */}
+      {/* Parts grouped by category - table layout matching global-parts/search */}
       {groupedParts.map((group) => {
         const categoryName =
           group.category?.display_name ||
@@ -257,40 +544,20 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
           'uncategorized';
 
         return (
-          <div key={groupKey} className="space-y-1">
-            {/* Category Header */}
-            <div className="flex items-center gap-2 px-1 py-0.5">
-              <span className="text-base">{categoryIcon}</span>
-              <h2 className="text-base font-semibold text-gray-200">
-                {categoryName}
-              </h2>
-              <span className="text-xs text-gray-400">
-                ({group.parts.length} part{group.parts.length !== 1 ? 's' : ''})
-              </span>
-            </div>
-
-            {/* Parts in this category */}
-            <div className="space-y-0.5">
-              {group.parts.map((buildListPart) => (
-                <BuildListPartListItem
-                  key={buildListPart.id}
-                  buildListPart={buildListPart}
-                  category={group.category}
-                  {...(onEdit && { onEdit })}
-                  {...(onDelete && { onDelete })}
-                  {...(onTogglePurchased && { onTogglePurchased })}
-                  canEdit={
-                    canEdit && (!canEditPart || canEditPart(buildListPart))
-                  }
-                  canDelete={
-                    canDelete &&
-                    (!canDeletePart || canDeletePart(buildListPart))
-                  }
-                  canMarkPurchased={canMarkPurchased}
-                />
-              ))}
-            </div>
-          </div>
+          <BuildListPartTable
+            key={groupKey}
+            group={group}
+            categoryName={categoryName}
+            categoryIcon={categoryIcon}
+            {...(onEdit != null && { onEdit })}
+            {...(onDelete != null && { onDelete })}
+            {...(onTogglePurchased != null && { onTogglePurchased })}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            canMarkPurchased={canMarkPurchased}
+            {...(canEditPart != null && { canEditPart })}
+            {...(canDeletePart != null && { canDeletePart })}
+          />
         );
       })}
     </div>
