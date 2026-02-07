@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.orm import Query, Session
 from sqlalchemy.sql.elements import ColumnElement
 
