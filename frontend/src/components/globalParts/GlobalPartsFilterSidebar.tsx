@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Card from '../common/Card';
-import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
@@ -76,17 +75,34 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
     setSelectedBrandIds,
   } = props;
 
+  const sectionTitleClass =
+    'text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60';
+  const optionButtonClass = (active: boolean) =>
+    `block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+      active
+        ? 'bg-indigo-600/30 text-indigo-300 font-medium'
+        : 'text-gray-300 hover:bg-gray-700/50 hover:text-gray-100'
+    }`;
+  const clearButtonClass =
+    'block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-700/50 hover:text-gray-300 transition-colors';
+  const inputClass =
+    'w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors';
+  const checkboxRowClass =
+    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer text-gray-300 hover:bg-gray-700/50 hover:text-gray-100 transition-colors';
+  const checkboxInputClass =
+    'rounded border-gray-500 bg-gray-800 text-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-gray-900';
+
   return (
     <aside className="lg:w-64 flex-shrink-0">
       <Card className="sticky top-4 overflow-hidden">
         <div className="p-4 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-200">Filters</h2>
+          <div className="flex items-center justify-between pb-2 border-b border-gray-700/60">
+            <h2 className="text-base font-semibold text-gray-100">Filters</h2>
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="text-sm text-indigo-400 hover:text-indigo-300"
+                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
               >
                 Clear all
               </button>
@@ -95,9 +111,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
 
           {/* Car / Vehicle Filter */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Car / Vehicle
-            </h3>
+            <h3 className={sectionTitleClass}>Car / Vehicle</h3>
             <div className="space-y-2">
               <button
                 type="button"
@@ -107,11 +121,9 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   setSelectedModel('');
                   setSelectedGeneration(null);
                 }}
-                className={`block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={optionButtonClass(
                   !showUniversalParts && !selectedGeneration
-                    ? 'bg-indigo-600/30 text-indigo-300 font-medium'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                }`}
+                )}
               >
                 All Vehicles
               </button>
@@ -119,7 +131,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
               {!showUniversalParts && (
                 <>
                   {isLoadingMakes ? (
-                    <div className="flex justify-center py-2">
+                    <div className="flex justify-center py-3">
                       <LoadingSpinner />
                     </div>
                   ) : (
@@ -130,7 +142,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                         setSelectedModel('');
                         setSelectedGeneration(null);
                       }}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500"
+                      className={inputClass}
                     >
                       <option value="">Select Make</option>
                       {availableMakes.map((make) => (
@@ -149,7 +161,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                           setSelectedModel(e.target.value);
                           setSelectedGeneration(null);
                         }}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500"
+                        className={inputClass}
                       >
                         <option value="">Select Model</option>
                         {uniqueModels.map((model) => (
@@ -160,22 +172,22 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                       </select>
 
                       {selectedModel && (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {isLoadingCars ? (
-                            <LoadingSpinner />
+                            <div className="flex justify-center py-3">
+                              <LoadingSpinner />
+                            </div>
                           ) : (
                             generations.map((car) => (
                               <button
                                 key={car.id}
                                 type="button"
                                 onClick={() => setSelectedGeneration(car)}
-                                className={`block w-full text-left px-3 py-1.5 rounded text-sm transition-colors ${
+                                className={optionButtonClass(
                                   selectedGeneration?.id === car.id
-                                    ? 'bg-indigo-600/30 text-indigo-300 font-medium'
-                                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                                }`}
+                                )}
                               >
-                                {car.generation_name} ({car.start_year}-
+                                {car.generation_name} ({car.start_year}–
                                 {car.end_year})
                               </button>
                             ))
@@ -195,11 +207,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   setSelectedModel('');
                   setSelectedGeneration(null);
                 }}
-                className={`block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  showUniversalParts
-                    ? 'bg-indigo-600/30 text-indigo-300 font-medium'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                }`}
+                className={optionButtonClass(showUniversalParts)}
               >
                 Universal Parts
               </button>
@@ -208,12 +216,13 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
 
           {/* Price range filter */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Price Range
-            </h3>
+            <h3 className={sectionTitleClass}>Price Range</h3>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <label htmlFor="price-min" className="text-sm text-gray-400 shrink-0">
+                <label
+                  htmlFor="price-min"
+                  className="text-sm text-gray-500 shrink-0 w-12"
+                >
                   Min ($)
                 </label>
                 <input
@@ -224,11 +233,14 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   placeholder="No min"
                   value={priceMin}
                   onChange={(e) => setPriceMin(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={inputClass}
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="price-max" className="text-sm text-gray-400 shrink-0">
+                <label
+                  htmlFor="price-max"
+                  className="text-sm text-gray-500 shrink-0 w-12"
+                >
                   Max ($)
                 </label>
                 <input
@@ -239,7 +251,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   placeholder="No max"
                   value={priceMax}
                   onChange={(e) => setPriceMax(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -247,15 +259,13 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
 
           {/* Category Filter */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Part Category
-            </h3>
-            <div className="space-y-1">
+            <h3 className={sectionTitleClass}>Part Category</h3>
+            <div className="space-y-2">
               {selectedCategoryIds.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setSelectedCategoryIds([])}
-                  className="block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                  className={clearButtonClass}
                 >
                   Clear categories
                 </button>
@@ -265,13 +275,13 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                 .map((cat) => (
                   <label
                     key={cat.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-gray-800 text-gray-300 hover:text-gray-200"
+                    className={checkboxRowClass}
                   >
                     <input
                       type="checkbox"
                       checked={selectedCategoryIds.includes(cat.id)}
                       onChange={() => toggleCategory(cat.id)}
-                      className="rounded border-gray-500 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+                      className={checkboxInputClass}
                     />
                     <span>{cat.display_name || cat.name}</span>
                   </label>
@@ -281,22 +291,20 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
 
           {/* Brand Filter */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Part Brand
-            </h3>
-            <div className="space-y-1">
-              <Input
+            <h3 className={sectionTitleClass}>Part Brand</h3>
+            <div className="space-y-2">
+              <input
                 type="text"
                 placeholder="Search brands..."
                 value={brandSearchTerm}
                 onChange={(e) => setBrandSearchTerm(e.target.value)}
-                className="w-full text-sm"
+                className={inputClass}
               />
               {selectedBrandIds.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setSelectedBrandIds([])}
-                  className="block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                  className={clearButtonClass}
                 >
                   Clear brands
                 </button>
@@ -313,13 +321,13 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                 .map((brand) => (
                   <label
                     key={brand.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-gray-800 text-gray-300 hover:text-gray-200"
+                    className={checkboxRowClass}
                   >
                     <input
                       type="checkbox"
                       checked={selectedBrandIds.includes(brand.id)}
                       onChange={() => toggleBrand(brand.id)}
-                      className="rounded border-gray-500 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+                      className={checkboxInputClass}
                     />
                     <span>{brand.name}</span>
                   </label>

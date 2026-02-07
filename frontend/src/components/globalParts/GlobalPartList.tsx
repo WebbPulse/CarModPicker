@@ -10,6 +10,7 @@ import type {
   PaginationInfo,
 } from '../../types/Api';
 
+import { CACHE_DURATION_MS } from '../../constants';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -18,7 +19,6 @@ import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
 import VoteButtons from './VoteButtons';
-import { CACHE_DURATION_MS } from '../../constants';
 
 // Simple cache for global parts data to improve UX when switching between pages
 interface CachedData {
@@ -285,7 +285,10 @@ function GlobalPartList({
     if (n === 1) {
       const firstId = ids[0];
       const car = firstId != null ? carsById[firstId] : undefined;
-      return { label: car ? formatCarName(car) : '1 vehicle', title: undefined };
+      return {
+        label: car ? formatCarName(car) : '1 vehicle',
+        title: undefined,
+      };
     }
     const names = ids
       .map((id) => carsById[id])
@@ -304,18 +307,33 @@ function GlobalPartList({
     const list = globalParts ?? [];
     if (layout !== 'table' || list.length === 0) return list;
     const mult = sortDirection === 'asc' ? 1 : -1;
-    const compare = (a: GlobalPartReadWithVotes, b: GlobalPartReadWithVotes) => {
+    const compare = (
+      a: GlobalPartReadWithVotes,
+      b: GlobalPartReadWithVotes
+    ) => {
       switch (sortColumn) {
         case 'part':
           return mult * (a.name ?? '').localeCompare(b.name ?? '');
         case 'brand':
-          return mult * (getBrandName(a) ?? '').localeCompare(getBrandName(b) ?? '');
+          return (
+            mult * (getBrandName(a) ?? '').localeCompare(getBrandName(b) ?? '')
+          );
         case 'part_number':
-          return mult * (a.part_number ?? '').localeCompare(b.part_number ?? '');
+          return (
+            mult * (a.part_number ?? '').localeCompare(b.part_number ?? '')
+          );
         case 'category':
-          return mult * (getCategoryName(a.category_id) ?? '').localeCompare(getCategoryName(b.category_id) ?? '');
+          return (
+            mult *
+            (getCategoryName(a.category_id) ?? '').localeCompare(
+              getCategoryName(b.category_id) ?? ''
+            )
+          );
         case 'fit':
-          return mult * (getFitCell(a).label ?? '').localeCompare(getFitCell(b).label ?? '');
+          return (
+            mult *
+            (getFitCell(a).label ?? '').localeCompare(getFitCell(b).label ?? '')
+          );
         case 'rating':
           return mult * (getNetVotes(a) - getNetVotes(b));
         case 'price':
@@ -394,7 +412,7 @@ function GlobalPartList({
 
   if (layout === 'table') {
     return (
-      <Card className="p-0 overflow-hidden">
+      <Card className="p-0 !overflow-visible">
         {title && (
           <div className="p-4 border-b border-gray-700">
             <SectionHeader title={title} />
@@ -406,8 +424,22 @@ function GlobalPartList({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto min-w-0 rounded-inherit">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col className="w-[min(280px,28%)]" />
+                <col className="w-[min(100px,10%)]" />
+                <col className="w-[min(100px,10%)]" />
+                {categories.length > 0 && (
+                  <col className="w-[min(120px,12%)]" />
+                )}
+                <col className="w-[min(100px,10%)]" />
+                {showVoteButtons && <col className="w-[min(100px,10%)]" />}
+                <col className="w-[min(80px,8%)]" />
+                {(showAddToBuildListButton || onEdit || onDelete) && (
+                  <col className="w-[12rem]" />
+                )}
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
                   <SortableTh column="part">Part</SortableTh>
@@ -424,7 +456,10 @@ function GlobalPartList({
                     Price
                   </SortableTh>
                   {(showAddToBuildListButton || onEdit || onDelete) && (
-                    <th className="px-4 py-3 font-medium w-24" aria-label="Actions" />
+                    <th
+                      className="px-4 py-3 font-medium whitespace-nowrap min-w-[12rem]"
+                      aria-label="Actions"
+                    />
                   )}
                 </tr>
               </thead>
@@ -449,7 +484,7 @@ function GlobalPartList({
                             fallbackText=""
                           />
                         </div>
-                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate max-w-[200px]">
+                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
                           {globalPart.name}
                         </span>
                       </Link>
@@ -520,14 +555,14 @@ function GlobalPartList({
                     </td>
                     {/* Actions */}
                     {(showAddToBuildListButton || onEdit || onDelete) && (
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-1">
                           {showAddToBuildListButton && onAddToBuildList && (
                             <ActionButton
                               onClick={() => onAddToBuildList(globalPart)}
-                              className="text-xs px-2 py-1"
+                              className="text-xs px-2 py-1 whitespace-nowrap shrink-0"
                             >
-                              Add
+                              Add to Build List
                             </ActionButton>
                           )}
                           {onEdit && (!canEdit || canEdit(globalPart)) && (
@@ -538,14 +573,15 @@ function GlobalPartList({
                               Edit
                             </SecondaryButton>
                           )}
-                          {onDelete && (!canDelete || canDelete(globalPart)) && (
-                            <ActionButton
-                              onClick={() => onDelete(globalPart)}
-                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </ActionButton>
-                          )}
+                          {onDelete &&
+                            (!canDelete || canDelete(globalPart)) && (
+                              <ActionButton
+                                onClick={() => onDelete(globalPart)}
+                                className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </ActionButton>
+                            )}
                         </div>
                       </td>
                     )}
@@ -660,7 +696,7 @@ function GlobalPartList({
                       {showAddToBuildListButton && onAddToBuildList && (
                         <ActionButton
                           onClick={() => onAddToBuildList(globalPart)}
-                          className="text-xs px-3 py-1"
+                          className="text-xs px-3 py-1 whitespace-nowrap shrink-0"
                         >
                           📋 Add to Build List
                         </ActionButton>

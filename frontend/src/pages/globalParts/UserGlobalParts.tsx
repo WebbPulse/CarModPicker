@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import LinkButton from '../../components/buttons/LinkButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
@@ -19,7 +18,6 @@ import type {
 } from '../../types/Api';
 
 const UserGlobalParts: React.FC = () => {
-  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
@@ -39,13 +37,6 @@ const UserGlobalParts: React.FC = () => {
       filters.setPaginationInfo(pagination);
     },
     [filters]
-  );
-
-  const handleEdit = useCallback(
-    (part: GlobalPartReadWithVotes) => {
-      void navigate(`/global-parts/${part.id}/edit`);
-    },
-    [navigate]
   );
 
   const handleDeleteClick = useCallback((part: GlobalPartReadWithVotes) => {
@@ -78,13 +69,6 @@ const UserGlobalParts: React.FC = () => {
       setIsDeleting(false);
     }
   }, [deletingPartId, filters]);
-
-  const canEdit = useCallback(
-    (part: GlobalPartReadWithVotes) =>
-      !!user &&
-      (part.user_id === user.id || user.is_admin || user.is_superuser),
-    [user]
-  );
 
   const canDelete = useCallback(
     (part: GlobalPartReadWithVotes) =>
@@ -184,9 +168,7 @@ const UserGlobalParts: React.FC = () => {
             emptyMessage="You haven't created any parts yet. Parts you create will appear here."
             showVoteButtons
             onVoteUpdate={() => {}}
-            onEdit={handleEdit}
             onDelete={handleDeleteClick}
-            canEdit={canEdit}
             canDelete={canDelete}
             onPaginationChange={handlePaginationChange}
             onSortChange={() => filters.setCurrentPage(1)}

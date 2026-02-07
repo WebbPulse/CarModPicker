@@ -40,21 +40,23 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
 
   if (!hasActiveFilters) return null;
 
+  const chipClass =
+    'inline-flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-full bg-gray-800 border border-gray-600/80 text-gray-200 text-sm';
+  const removeButtonClass =
+    'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors';
+
   return (
     <div className="flex flex-wrap gap-2 mb-4">
       {selectedCategoryIds.map((id) => {
         const cat = activeCategories.find((c) => c.id === id);
         if (!cat) return null;
         return (
-          <span
-            key={`cat-${id}`}
-            className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-900/50 text-indigo-300 text-sm"
-          >
+          <span key={`cat-${id}`} className={chipClass}>
             {cat.display_name || cat.name}
             <button
               type="button"
               onClick={() => toggleCategory(id)}
-              className="hover:text-white"
+              className={removeButtonClass}
               aria-label="Remove category filter"
             >
               ×
@@ -66,15 +68,12 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         const brand = availableBrands.find((b) => b.id === id);
         if (!brand) return null;
         return (
-          <span
-            key={`brand-${id}`}
-            className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-900/50 text-indigo-300 text-sm"
-          >
+          <span key={`brand-${id}`} className={chipClass}>
             {brand.name}
             <button
               type="button"
               onClick={() => toggleBrand(id)}
-              className="hover:text-white"
+              className={removeButtonClass}
               aria-label="Remove brand filter"
             >
               ×
@@ -83,14 +82,14 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         );
       })}
       {(selectedGeneration || showUniversalParts) && (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-900/50 text-indigo-300 text-sm">
+        <span className={chipClass}>
           {showUniversalParts
             ? 'Universal'
             : `${selectedGeneration?.make} ${selectedGeneration?.model} ${selectedGeneration?.generation_name}`}
           <button
             type="button"
             onClick={clearVehicleFilter}
-            className="hover:text-white"
+            className={removeButtonClass}
             aria-label="Remove vehicle filter"
           >
             ×
@@ -98,7 +97,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
         </span>
       )}
       {hasPriceRange && (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-900/50 text-indigo-300 text-sm">
+        <span className={chipClass}>
           {priceMin.trim() && priceMax.trim()
             ? `$${priceMin.trim()} – $${priceMax.trim()}`
             : priceMin.trim()
@@ -107,7 +106,7 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
           <button
             type="button"
             onClick={clearPriceRange}
-            className="hover:text-white"
+            className={removeButtonClass}
             aria-label="Remove price range filter"
           >
             ×
