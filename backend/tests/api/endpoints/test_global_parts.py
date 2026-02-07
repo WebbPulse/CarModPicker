@@ -554,3 +554,78 @@ class TestGlobalParts:
         assert "count" in data
         assert isinstance(data["count"], int)
         assert data["count"] >= 0
+
+    def test_get_global_parts_filter_options(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test getting filter options for cascading filters."""
+        # Create a part first
+        headers = get_auth_token_and_headers(client, test_user.username)
+        part_data = {
+            "name": get_unique_name("filter_options_part"),
+            "description": "Test part for filter options",
+            "category_id": test_category.id,
+            "brand_id": test_brand.id,
+        }
+        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        assert response.status_code == 200
+
+        # Get filter options (public endpoint)
+        response = client.get(f"{settings.API_STR}/global-parts/filter-options")
+        assert response.status_code == 200
+        data = response.json()
+        assert "category_ids" in data
+        assert "brand_ids" in data
+        assert isinstance(data["category_ids"], list)
+        assert isinstance(data["brand_ids"], list)
+        assert test_category.id in data["category_ids"]
+        assert test_brand.id in data["brand_ids"]
+
+    def test_get_global_parts_filter_options_with_filters(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test filter options with category/brand filters."""
+        response = client.get(
+            f"{settings.API_STR}/global-parts/filter-options"
+            f"?category_ids={test_category.id}&brand_ids={test_brand.id}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "category_ids" in data
+        assert "brand_ids" in data
+
+    def test_check_product_url_exists_empty(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test check-url with no or empty product_url returns null."""
+        response = client.get(f"{settings.API_STR}/global-parts/check-url")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["existing_part_id"] is None
+
+        response = client.get(f"{settings.API_STR}/global-parts/check-url?product_url=")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["existing_part_id"] is None
+
+    def test_check_product_url_exists_nonexistent(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test check-url with non-existent URL returns null."""
+        response = client.get(
+            f"{settings.API_STR}/global-parts/check-url" "?product_url=https://example.com/nonexistent/product"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["existing_part_id"] is None
+
+    def test_count_global_parts(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test counting total global parts (public endpoint)."""
+        response = client.get(f"{settings.API_STR}/global-parts/count")
+        assert response.status_code == 200
+        data = response.json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0

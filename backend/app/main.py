@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
     admin,
@@ -22,7 +23,6 @@ from .api.endpoints import (
     reports,
     retailers,
     search,
-    subscriptions,
     users,
     votes,
 )
@@ -32,7 +32,7 @@ from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
 from .core.init_categories import init_part_categories
-from .db.session import SessionLocal
+from .db.session import SessionLocal, check_db_ready
 
 # Configure logging for the entire application
 logging.basicConfig(
@@ -220,14 +220,6 @@ endpoint_registry.register_endpoint(
     description="User authentication and authorization",
 )
 
-# Subscription endpoint
-endpoint_registry.register_endpoint(
-    subscriptions.router,
-    prefix="/subscriptions",
-    tags=["subscriptions"],
-    description="Subscription and billing operations",
-)
-
 # Unified vote and report endpoints
 endpoint_registry.register_endpoint(
     votes.router,
@@ -283,5 +275,27 @@ def read_root() -> dict[str, str]:
 
 @app.get("/health")
 def health_check() -> dict[str, Any]:
-    """Health check endpoint for monitoring."""
+    """Health check endpoint for monitoring (liveness: app is running)."""
     return {"status": "healthy", "service": "CarModPicker API", "version": "1.0.0"}
+
+
+@app.get("/ready", response_model=None)
+def readiness_check() -> dict[str, Any] | JSONResponse:
+    """
+    Readiness check: returns 200 when DB is reachable, 503 otherwise.
+
+    Use this so load balancers or the frontend can wait until the backend
+    (and DB) have finished spooling before sending traffic. During serverless
+    cold start, poll /ready until 200, then call other endpoints.
+    """
+    if check_db_ready():
+        return {"status": "ready", "database": "up"}
+    return JSONResponse(
+        status_code=503,
+        content={
+            "success": False,
+            "message": "Service starting; database not ready. Please retry.",
+            "error_code": "SERVICE_UNAVAILABLE",
+        },
+        headers={"Retry-After": "2"},
+    )

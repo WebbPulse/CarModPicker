@@ -40,14 +40,11 @@ import type {
   ReportRead,
   ReportUpdate,
   ReportWithDetails,
-  SubscriptionResponse,
-  SubscriptionStatus,
   TOTPDisableRequest,
   TOTPLoginRequest,
   TOTPSetupResponse,
   TOTPVerifyRequest,
   TOTPVerifyResponse,
-  UpgradeRequest,
   UserCreate,
   UserRead,
   UserUpdate,
@@ -216,26 +213,28 @@ export const carsApi = {
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<CarRead[]>('/cars/search', { params: { q, ...params } }),
   getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/make/${make}`, { params }),
+    apiClient.get<CarRead[]>(`/cars/make/${encodeURIComponent(make)}`, {
+      params,
+    }),
   getCarsByMakeModel: (
     make: string,
     model: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarRead[]>(`/cars/make/${make}/model/${model}`, { params }),
-  getCarsByGeneration: (
-    generationId: number,
-    params?: { skip?: number; limit?: number }
-  ) => apiClient.get<CarRead[]>(`/cars/generation/${generationId}`, { params }),
-  getCarsByYear: (year: number, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/year/${year}`, { params }),
+    apiClient.get<CarRead[]>(
+      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+      { params }
+    ),
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
+  countMakes: () => apiClient.get<{ count: number }>('/cars/makes/count'),
+  countCarModels: () =>
+    apiClient.get<{ count: number }>('/cars/car-models/count'),
 };
 
-// Car Generation API (read-only; uses /cars endpoints)
+// Car Generation API (read-only; uses /cars endpoints; Car = generation in backend)
 export const carGenerationsApi = {
   getCarGeneration: (generationId: number) =>
     apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
@@ -248,17 +247,19 @@ export const carGenerationsApi = {
     make: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}`, {
-      params,
-    }),
+    apiClient.get<CarGenerationRead[]>(
+      `/cars/make/${encodeURIComponent(make)}`,
+      { params }
+    ),
   getCarGenerationsByMakeModel: (
     make: string,
     model: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarGenerationRead[]>(`/cars/make/${make}/model/${model}`, {
-      params,
-    }),
+    apiClient.get<CarGenerationRead[]>(
+      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+      { params }
+    ),
   countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
 };
 
@@ -284,11 +285,17 @@ export const buildListsApi = {
     limit?: number;
     search?: string;
     car_id?: number;
+    car_ids?: number[];
+    min_cost_cents?: number;
+    max_cost_cents?: number;
+    sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
   }) =>
     apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
       '/build-lists/with-votes',
       {
-        params,
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
       }
     ),
   getBuildListsByCar: (
@@ -319,6 +326,29 @@ export const buildListsApi = {
     }),
 };
 
+// Serialize params so array values become repeated keys (category_ids=1&category_ids=2) for FastAPI
+function paramsWithArrays(params: Record<string, unknown>): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      value.forEach((v) => search.append(key, String(v)));
+    } else if (typeof value === 'object') {
+      search.append(key, JSON.stringify(value));
+    } else if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    ) {
+      search.append(key, String(value));
+    } else if (typeof value === 'symbol') {
+      search.append(key, value.toString());
+    }
+  }
+  return search;
+}
+
 // Global Parts API (Global shared parts in the catalog)
 export const globalPartsApi = {
   // Get all global parts with filtering
@@ -335,14 +365,41 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    category_ids?: number[];
     car_id?: number;
+    car_ids?: number[];
     brand_id?: number;
+    brand_ids?: number[];
+    user_id?: number;
     search?: string;
+    sort?: string;
+    min_price_cents?: number;
+    max_price_cents?: number;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
       '/global-parts/with-votes',
       {
-        params,
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
+      }
+    ),
+
+  // Get available filter options given current filters (for cascading filters)
+  getFilterOptions: (params?: {
+    category_ids?: number[];
+    brand_ids?: number[];
+    car_id?: number;
+    car_ids?: number[];
+    search?: string;
+    user_id?: number;
+  }) =>
+    apiClient.get<{ category_ids: number[]; brand_ids: number[] }>(
+      '/global-parts/filter-options',
+      {
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
       }
     ),
 
@@ -613,7 +670,8 @@ export const buildListPartsApi = {
         description: globalPartData.description,
         image_url: globalPartData.image_url,
         category_id: globalPartData.category_id,
-        car_id: globalPartData.car_id,
+        car_ids: globalPartData.car_ids ?? undefined,
+        is_universal: globalPartData.is_universal ?? false,
         brand_id: globalPartData.brand_id,
         part_number: globalPartData.part_number,
         specifications: globalPartData.specifications,
@@ -677,24 +735,6 @@ export const buildListPartsApi = {
   // Count all build list parts
   countBuildListParts: () =>
     apiClient.get<{ count: number }>('/build-list-parts/count'),
-};
-
-// Subscriptions API
-export const subscriptionsApi = {
-  getStatus: () => apiClient.get<SubscriptionStatus>('/subscriptions/status'),
-  upgrade: (data: UpgradeRequest) =>
-    apiClient.post<SubscriptionResponse>('/subscriptions/upgrade', data),
-  cancel: () => apiClient.post<SubscriptionResponse>('/subscriptions/cancel'),
-  checkCreationLimits: (resourceType: string) =>
-    apiClient.get<Record<string, boolean>>('/subscriptions/limits/check', {
-      params: { resource_type: resourceType },
-    }),
-  checkGlobalPartCreationLimit: () =>
-    apiClient.get<Record<string, boolean>>(
-      '/subscriptions/limits/check/global-part'
-    ),
-  countSubscriptions: () =>
-    apiClient.get<{ count: number }>('/subscriptions/count'),
 };
 
 // Auth API

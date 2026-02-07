@@ -1,119 +1,44 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { useAuth } from '../../hooks/useAuth';
-import { buildListPartsApi, globalPartsApi } from '../../services/Api';
-import type { GlobalPartReadWithVotes } from '../../types/Api';
-
+import React, { useCallback, useState } from 'react';
 import LinkButton from '../../components/buttons/LinkButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import Input from '../../components/common/Input';
+import Pagination from '../../components/common/Pagination';
 import GlobalPartList from '../../components/globalParts/GlobalPartList';
+import GlobalPartsFilterSidebar from '../../components/globalParts/GlobalPartsFilterSidebar';
+import GlobalPartsActiveFilterChips from '../../components/globalParts/GlobalPartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
-import { CACHE_DURATION_MS, LARGE_FETCH_LIMIT } from '../../constants';
+import { useAuth } from '../../hooks/useAuth';
+import { useGlobalPartsFilters } from '../../hooks/useGlobalPartsFilters';
+import { buildListPartsApi, globalPartsApi } from '../../services/Api';
+import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
 
-// Cache for user's global parts to improve UX when switching tabs
-let cachedUserParts: GlobalPartReadWithVotes[] | null = null;
-let cachedUserPartsTimestamp = 0;
+const UserGlobalParts: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
 
-function UserGlobalParts() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
+  const [deletingPartName, setDeletingPartName] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
+  const [listRefreshKey, setListRefreshKey] = useState(0);
 
-  // Fetch global parts with votes
-  const fetchUserGlobalPartsRequestFn = useCallback(
-    () => globalPartsApi.getGlobalPartsWithVotes({ limit: LARGE_FETCH_LIMIT }),
-    []
-  );
-
-  const {
-    data: globalPartsResponse,
-    error,
-    executeRequest: fetchUserGlobalParts,
-  } = useApiRequest(fetchUserGlobalPartsRequestFn);
-
-  // Initialize with cached data if available
-  const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
-    () => {
-      if (
-        user &&
-        cachedUserParts &&
-        Date.now() - cachedUserPartsTimestamp < CACHE_DURATION_MS
-      ) {
-        return cachedUserParts.filter((part) => part.user_id === user.id);
-      }
-      return [];
-    }
-  );
-
-  useEffect(() => {
-    if (user) {
-      // Check cache first
-      if (
-        cachedUserParts &&
-        Date.now() - cachedUserPartsTimestamp < CACHE_DURATION_MS
-      ) {
-        setDisplayData(
-          cachedUserParts.filter((part) => part.user_id === user.id)
-        );
-      }
-      // Always fetch fresh data in background
-      void fetchUserGlobalParts();
-    }
-  }, [user, fetchUserGlobalParts]);
-
-  // Update display data when fresh data arrives
-  useEffect(() => {
-    if (globalPartsResponse?.data) {
-      // Update cache
-      cachedUserParts = globalPartsResponse.data;
-      cachedUserPartsTimestamp = Date.now();
-      // Update display
-      if (user) {
-        setDisplayData(
-          globalPartsResponse.data.filter((part) => part.user_id === user.id)
-        );
-      }
-    }
-  }, [globalPartsResponse?.data, user]);
-
-  // Filter parts by user_id (use displayData which may come from cache)
-  const userGlobalParts = useMemo(() => {
-    if (!user) return [];
-    // If we have fresh response data, use that, otherwise use cached displayData
-    if (globalPartsResponse?.data) {
-      return globalPartsResponse.data.filter(
-        (part) => part.user_id === user.id
-      );
-    }
-    return displayData;
-  }, [globalPartsResponse?.data, user, displayData]);
-
-  const handleDelete = async (part: GlobalPartReadWithVotes) => {
-    setIsDeleting(true);
-    try {
-      await globalPartsApi.deleteGlobalPart(part.id);
-      // Clear cache and refresh the list
-      cachedUserParts = null;
-      cachedUserPartsTimestamp = 0;
-      if (user) {
-        await fetchUserGlobalParts();
-      }
-      setDeletingPartId(null);
-    } catch {
-      // Failed to delete global part
-    } finally {
-      setIsDeleting(false);
-    }
+  const filterOptions: Parameters<typeof useGlobalPartsFilters>[0] = {
+    syncToUrl: false,
   };
+  if (user?.id !== undefined) filterOptions.user_id = user.id;
+  const filters = useGlobalPartsFilters(filterOptions);
 
-  const handleDeleteClick = (part: GlobalPartReadWithVotes) => {
+  const handlePaginationChange = useCallback(
+    (pagination: PaginationInfo | null) => {
+      filters.setPaginationInfo(pagination);
+    },
+    [filters]
+  );
+
+  const handleDeleteClick = useCallback((part: GlobalPartReadWithVotes) => {
     setDeletingPartId(part.id);
-    // Fetch build list count when opening the dialog
+    setDeletingPartName(part.name);
     void (async () => {
       try {
         const response =
@@ -123,25 +48,93 @@ function UserGlobalParts() {
         setBuildListCount(null);
       }
     })();
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!deletingPartId) return;
+    setIsDeleting(true);
+    try {
+      await globalPartsApi.deleteGlobalPart(deletingPartId);
+      setDeletingPartId(null);
+      setDeletingPartName('');
+      setBuildListCount(null);
+      filters.setCurrentPage(1);
+      setListRefreshKey((k) => k + 1);
+    } catch {
+      // Failed
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deletingPartId, filters]);
+
+  const canDelete = useCallback(
+    (part: GlobalPartReadWithVotes) =>
+      !!user &&
+      (part.user_id === user.id || user.is_admin || user.is_superuser),
+    [user]
+  );
+
+  const sidebarProps = {
+    hasActiveFilters: filters.hasActiveFilters,
+    clearAllFilters: filters.clearAllFilters,
+    showUniversalParts: filters.showUniversalParts,
+    setShowUniversalParts: filters.setShowUniversalParts,
+    selectedMake: filters.selectedMake,
+    selectedModel: filters.selectedModel,
+    selectedGeneration: filters.selectedGeneration,
+    setSelectedMake: filters.setSelectedMake,
+    setSelectedModel: filters.setSelectedModel,
+    setSelectedGeneration: filters.setSelectedGeneration,
+    availableMakes: filters.availableMakes,
+    uniqueModels: filters.uniqueModels,
+    generations: filters.generations,
+    isLoadingMakes: filters.isLoadingMakes,
+    isLoadingCars: filters.isLoadingCars,
+    priceMin: filters.priceMin,
+    priceMax: filters.priceMax,
+    setPriceMin: filters.setPriceMin,
+    setPriceMax: filters.setPriceMax,
+    activeCategories: filters.activeCategories,
+    availableCategoryIds: filters.availableCategoryIds,
+    selectedCategoryIds: filters.selectedCategoryIds,
+    toggleCategory: filters.toggleCategory,
+    setSelectedCategoryIds: filters.setSelectedCategoryIds,
+    availableBrands: filters.availableBrands,
+    availableBrandIds: filters.availableBrandIds,
+    selectedBrandIds: filters.selectedBrandIds,
+    toggleBrand: filters.toggleBrand,
+    setSelectedBrandIds: filters.setSelectedBrandIds,
   };
 
-  const handleEdit = (part: GlobalPartReadWithVotes) => {
-    void navigate(`/global-parts/${part.id}/edit`);
+  const chipsProps = {
+    hasActiveFilters: filters.hasActiveFilters,
+    selectedCategoryIds: filters.selectedCategoryIds,
+    activeCategories: filters.activeCategories,
+    toggleCategory: filters.toggleCategory,
+    selectedBrandIds: filters.selectedBrandIds,
+    availableBrands: filters.availableBrands,
+    toggleBrand: filters.toggleBrand,
+    selectedGeneration: filters.selectedGeneration,
+    showUniversalParts: filters.showUniversalParts,
+    clearVehicleFilter: filters.clearVehicleFilter,
+    hasPriceRange: filters.hasPriceRange,
+    priceMin: filters.priceMin,
+    priceMax: filters.priceMax,
+    clearPriceRange: filters.clearPriceRange,
   };
 
-  const canDeleteGlobalPart = (globalPart: GlobalPartReadWithVotes) => {
-    if (!user) return false;
-    return globalPart.user_id === user.id || user.is_admin || user.is_superuser;
-  };
-
-  const canEditGlobalPart = (globalPart: GlobalPartReadWithVotes) => {
-    if (!user) return false;
-    return globalPart.user_id === user.id || user.is_admin || user.is_superuser;
-  };
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <ErrorAlert message="You must be logged in to view your parts." />
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header with Browse All Parts button */}
+    <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="My Parts" />
         <LinkButton to="/global-parts" variant="outline" size="md">
@@ -149,52 +142,67 @@ function UserGlobalParts() {
         </LinkButton>
       </div>
 
-      {error && displayData.length === 0 ? (
-        <Card>
-          <ErrorAlert message="Failed to load your parts. Please try again." />
-        </Card>
-      ) : (
-        <GlobalPartList
-          data={userGlobalParts}
-          title="Parts I Created"
-          emptyMessage="You haven't created any parts yet. Parts you create will appear here and can be added to build lists by other users."
-          showVoteButtons={true}
-          onVoteUpdate={() => {
-            // Refresh votes if needed
-            void fetchUserGlobalParts();
-          }}
-          onEdit={handleEdit}
-          onDelete={handleDeleteClick}
-          canEdit={canEditGlobalPart}
-          canDelete={canDeleteGlobalPart}
-        />
-      )}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <GlobalPartsFilterSidebar {...sidebarProps} />
 
-      {/* Delete Confirmation Dialog */}
+        <main className="flex-1 min-w-0">
+          <div className="mb-4">
+            <Input
+              type="text"
+              placeholder="Search your parts..."
+              value={filters.searchTerm}
+              onChange={(e) => filters.setSearchTerm(e.target.value)}
+              className="w-full max-w-md"
+            />
+          </div>
+
+          <GlobalPartsActiveFilterChips {...chipsProps} />
+
+          <GlobalPartList
+            params={filters.params}
+            refreshKey={listRefreshKey}
+            title=""
+            emptyMessage="You haven't created any parts yet. Parts you create will appear here."
+            showVoteButtons
+            onVoteUpdate={() => {}}
+            onDelete={handleDeleteClick}
+            canDelete={canDelete}
+            onPaginationChange={handlePaginationChange}
+            onSortChange={() => filters.setCurrentPage(1)}
+            layout="table"
+            categories={filters.activeCategories}
+            brands={filters.availableBrands}
+            carsById={filters.carsById}
+          />
+
+          {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (
+            <Pagination
+              currentPage={filters.paginationInfo.current_page}
+              totalPages={filters.paginationInfo.total_pages}
+              totalItems={filters.paginationInfo.total_items}
+              itemsPerPage={filters.paginationInfo.items_per_page}
+              onPageChange={filters.setCurrentPage}
+            />
+          )}
+        </main>
+      </div>
+
       <DeleteConfirmationDialog
         isOpen={deletingPartId !== null}
         onClose={() => {
           setDeletingPartId(null);
+          setDeletingPartName('');
           setBuildListCount(null);
         }}
-        onConfirm={() => {
-          if (deletingPartId) {
-            const part = userGlobalParts.find((p) => p.id === deletingPartId);
-            if (part) {
-              void handleDelete(part);
-            }
-          }
-        }}
-        itemName={
-          userGlobalParts.find((p) => p.id === deletingPartId)?.name || ''
-        }
+        onConfirm={() => void handleDelete()}
+        itemName={deletingPartName}
         itemType="part"
         isProcessing={isDeleting}
         error={null}
-        buildListCount={buildListCount !== null ? buildListCount : undefined}
+        buildListCount={buildListCount ?? undefined}
       />
     </div>
   );
-}
+};
 
 export default UserGlobalParts;

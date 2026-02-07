@@ -9,11 +9,13 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.global_part_car import global_part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
@@ -49,7 +51,6 @@ from app.api.utils.authorization import (
 )
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_operations import (
-    check_subscription_limits,
     create_entity,
     delete_entity,
     update_entity,
@@ -83,7 +84,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         super().__init__(
             model=DBGlobalPart,
             entity_name="global part",
-            subscription_check_method="can_create_global_part",
         )
 
     def create(
@@ -98,8 +98,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         Create a new global part with dedup by URL, brand+part_number, and GTIN (UPC/EAN).
         If an existing part is found, create/update PartListing and return that part.
         """
-        check_subscription_limits(db, current_user, "can_create_global_part", self.entity_name, logger)
-
         part_by_url: Optional[DBGlobalPart] = None
         part_by_brand: Optional[DBGlobalPart] = None
         part_by_gtin: Optional[DBGlobalPart] = None
@@ -144,6 +142,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         entity_data.pop("price_cents", None)
         entity_data.pop("product_url", None)  # Only used for listing, not stored on part
         entity_data.pop("price", None)  # Removed: pricing is per-retailer via listings
+        entity_data.pop("car_ids", None)  # Synced via association table after create
         if additional_data:
             entity_data.update(additional_data)
         entity_data["user_id"] = current_user.id
@@ -154,13 +153,9 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         # Store normalized GTIN (digits only) for dedup
         if data.gtin:
             entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
-        # Use first gallery image as primary if image_url not set; cap gallery size
+        # Cap gallery size; do not set image_url from scraped gallery (leave null if no manual primary)
         if entity_data.get("image_urls") is not None:
             entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
-        if not entity_data.get("image_url") and entity_data.get("image_urls"):
-            urls = entity_data["image_urls"]
-            if urls:
-                entity_data["image_url"] = urls[0]
 
         part = create_entity(
             db=db,
@@ -180,6 +175,16 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
                 product_url=data.product_url,
                 price_cents=data.price_cents,
             )
+
+        # Sync car associations: part fits all cars (is_universal) or listed car_ids
+        if not part.is_universal and data.car_ids:
+            for cid in data.car_ids:
+                get_entity_or_404(db, DBCar, cid, "car")
+            part.cars = [db.get(DBCar, cid) for cid in data.car_ids]
+        else:
+            part.cars = []
+        db.commit()
+        db.refresh(part)
 
         return part
 
@@ -203,10 +208,33 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
 
         # Update the entity; cap image_urls to global limit; normalize gtin
         update_data = data.model_dump(exclude_unset=True)
+        car_ids = update_data.pop("car_ids", None)
         if update_data.get("image_urls") is not None:
             update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
         if "gtin" in update_data and update_data["gtin"] is not None:
             update_data["gtin"] = normalize_gtin(update_data["gtin"])
+        # When primary image (image_url) is set (e.g. manual upload), ensure it appears in the carousel
+        if update_data.get("image_url"):
+            new_primary = update_data["image_url"]
+            current_urls: List[str]
+            if update_data.get("image_urls") is not None:
+                current_urls = list(update_data["image_urls"])
+            else:
+                current_urls = list(entity.image_urls or []) or ([entity.image_url] if entity.image_url else [])
+            if new_primary not in current_urls:
+                merged = [new_primary] + [u for u in current_urls if u != new_primary]
+                update_data["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
+        # Sync car associations when car_ids was provided
+        if car_ids is not None:
+            is_universal_after = (
+                update_data.get("is_universal") if "is_universal" in update_data else entity.is_universal
+            )
+            if not is_universal_after and car_ids:
+                for cid in car_ids:
+                    get_entity_or_404(db, DBCar, cid, "car")
+                entity.cars = [db.get(DBCar, cid) for cid in car_ids]
+            else:
+                entity.cars = []
         return update_entity(
             db=db,
             entity=entity,
@@ -267,12 +295,20 @@ global_part_service = GlobalPartService()
 async def read_global_parts_with_votes(
     skip: int = Query(0, ge=0, description="Number of global parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of global parts to return"),
-    category_id: Optional[int] = Query(None, description="Filter by category ID"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID"),
-    brand_id: Optional[int] = Query(None, description="Filter by brand ID"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID (single; use category_ids for multi)"),
+    category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[int]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
+    brand_id: Optional[int] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
+    brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
+    user_id: Optional[int] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
     sort: Optional[str] = Query(None, description="Sort: default by votes, or 'lowest_price' by best listing price"),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
+    min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
+    max_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price <= this (cents)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
@@ -281,6 +317,11 @@ async def read_global_parts_with_votes(
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
+    effective_category_ids = category_ids if category_ids else ([category_id] if category_id is not None else None)
+    effective_brand_ids = brand_ids if brand_ids else ([brand_id] if brand_id is not None else None)
+    # Car filter: car_ids (make/model) takes precedence over single car_id
+    effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
+    has_price_filter = min_price_cents is not None or max_price_cents is not None
 
     # Create subquery for upvote counts
     upvote_counts = (
@@ -312,25 +353,15 @@ async def read_global_parts_with_votes(
 
     # Build base query for counting (without joins to avoid JSON DISTINCT issues)
     base_query = db.query(DBGlobalPart)
-    base_query = apply_standard_filters(
-        query=base_query,
-        search=search,
-        category_id=category_id,
-        search_fields=["name", "description"],
+    base_query = _apply_global_parts_list_filters(
+        base_query,
+        effective_category_ids,
+        effective_brand_ids,
+        effective_car_ids,
+        search,
+        user_id,
+        retailer_id,
     )
-    if car_id:
-        # Include both parts specific to this car AND universal parts (car_id is null)
-        base_query = base_query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
-    if brand_id:
-        base_query = base_query.filter(DBGlobalPart.brand_id == brand_id)
-    if retailer_id is not None:
-        base_query = base_query.join(DBPartListing).filter(
-            DBPartListing.global_part_id == DBGlobalPart.id,
-            DBPartListing.retailer_id == retailer_id,
-        )
-
-    # Get total count from base query (joins don't affect which parts match filters)
-    total = base_query.count()
 
     # Build main query with LEFT JOINs to vote count subqueries for sorting and retrieval
     query = (
@@ -338,37 +369,47 @@ async def read_global_parts_with_votes(
         .outerjoin(upvote_counts, DBGlobalPart.id == upvote_counts.c.entity_id)
         .outerjoin(downvote_counts, DBGlobalPart.id == downvote_counts.c.entity_id)
     )
-
-    # Apply the same filters
-    query = apply_standard_filters(
-        query=query,
-        search=search,
-        category_id=category_id,
-        search_fields=["name", "description"],
+    query = _apply_global_parts_list_filters(
+        query,
+        effective_category_ids,
+        effective_brand_ids,
+        effective_car_ids,
+        search,
+        user_id,
+        retailer_id,
     )
-    if car_id:
-        # Include both parts specific to this car AND universal parts (car_id is null)
-        query = query.filter(or_(DBGlobalPart.car_id == car_id, DBGlobalPart.car_id.is_(None)))
-    if brand_id:
-        query = query.filter(DBGlobalPart.brand_id == brand_id)
-    if retailer_id is not None:
-        query = query.join(DBPartListing).filter(
-            DBPartListing.global_part_id == DBGlobalPart.id,
-            DBPartListing.retailer_id == retailer_id,
+
+    # Subquery: best (min) price per part from listings
+    min_price_subq = (
+        db.query(
+            DBPartListing.global_part_id,
+            func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
+        .filter(DBPartListing.last_known_price_cents.isnot(None))
+        .group_by(DBPartListing.global_part_id)
+        .subquery()
+    )
+
+    # Price range filter: only parts whose best price is within [min_price_cents, max_price_cents]
+    if has_price_filter:
+        base_query = base_query.join(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
+        if min_price_cents is not None:
+            base_query = base_query.filter(min_price_subq.c.min_price >= min_price_cents)
+        if max_price_cents is not None:
+            base_query = base_query.filter(min_price_subq.c.min_price <= max_price_cents)
+        query = query.join(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
+        if min_price_cents is not None:
+            query = query.filter(min_price_subq.c.min_price >= min_price_cents)
+        if max_price_cents is not None:
+            query = query.filter(min_price_subq.c.min_price <= max_price_cents)
+
+    # Get total count from base query (after price filter)
+    total = base_query.count()
 
     # Sort: by lowest price (best listing) or by net votes (default)
     if sort == "lowest_price":
-        min_price_subq = (
-            db.query(
-                DBPartListing.global_part_id,
-                func.min(DBPartListing.last_known_price_cents).label("min_price"),
-            )
-            .filter(DBPartListing.last_known_price_cents.isnot(None))
-            .group_by(DBPartListing.global_part_id)
-            .subquery()
-        )
-        query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
+        if not has_price_filter:
+            query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
         query = query.order_by(
             min_price_subq.c.min_price.asc().nullslast(),
             DBGlobalPart.id.desc(),
@@ -487,6 +528,99 @@ async def read_global_parts_with_votes(
     return create_paginated_response(
         data=cast(List[Any], parts_data), total=total, skip=skip, limit=limit, entity_name="global parts"
     )
+
+
+def _apply_global_parts_list_filters(
+    query: Any,
+    category_ids: Optional[List[int]],
+    brand_ids: Optional[List[int]],
+    car_ids: Optional[List[int]],
+    search: Optional[str],
+    user_id: Optional[int],
+    retailer_id: Optional[int],
+):
+    """Apply list filters to a query that has DBGlobalPart as root. Returns the query."""
+    query = apply_standard_filters(
+        query=query,
+        search=search,
+        category_id=None,
+        search_fields=["name", "description"],
+    )
+    if category_ids:
+        query = query.filter(DBGlobalPart.category_id.in_(category_ids))
+    if brand_ids:
+        query = query.filter(DBGlobalPart.brand_id.in_(brand_ids))
+    if car_ids:
+        part_fits_any_car = exists().where(
+            (global_part_cars.c.global_part_id == DBGlobalPart.id) & (global_part_cars.c.car_id.in_(car_ids))
+        )
+        query = query.filter(or_(DBGlobalPart.is_universal, part_fits_any_car))
+    if user_id is not None:
+        query = query.filter(DBGlobalPart.user_id == user_id)
+    if retailer_id is not None:
+        query = query.join(DBPartListing).filter(
+            DBPartListing.global_part_id == DBGlobalPart.id,
+            DBPartListing.retailer_id == retailer_id,
+        )
+    return query
+
+
+def _global_parts_base_query(
+    db: Session,
+    category_ids: Optional[List[int]],
+    brand_ids: Optional[List[int]],
+    car_ids: Optional[List[int]],
+    search: Optional[str],
+    user_id: Optional[int],
+    retailer_id: Optional[int],
+):
+    """Build base query for global parts list with filters applied (no pagination/sort)."""
+    q = db.query(DBGlobalPart)
+    return _apply_global_parts_list_filters(q, category_ids, brand_ids, car_ids, search, user_id, retailer_id)
+
+
+@router.get(
+    "/filter-options",
+    response_model=Dict[str, Any],
+)
+async def get_global_parts_filter_options(
+    category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
+    brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
+    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[int]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
+    search: Optional[str] = Query(None, description="Search in names and descriptions"),
+    user_id: Optional[int] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, Any]:
+    """
+    Return category_ids and brand_ids that have at least one part matching the current filters.
+    Use this for cascading filters: e.g. when a brand is selected, only show categories that have parts for that brand.
+    """
+    db = deps["db"]
+    effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
+    q = _global_parts_base_query(
+        db,
+        category_ids=category_ids,
+        brand_ids=brand_ids,
+        car_ids=effective_car_ids,
+        search=search,
+        user_id=user_id,
+        retailer_id=None,
+    )
+    available_categories = [
+        row[0]
+        for row in q.with_entities(DBGlobalPart.category_id)
+        .distinct()
+        .filter(DBGlobalPart.category_id.isnot(None))
+        .all()
+    ]
+    available_brands = [
+        row[0]
+        for row in q.with_entities(DBGlobalPart.brand_id).distinct().filter(DBGlobalPart.brand_id.isnot(None)).all()
+    ]
+    return {"category_ids": available_categories, "brand_ids": available_brands}
 
 
 @router.get(
@@ -677,8 +811,7 @@ async def append_images_to_global_part(
             seen.add(fk)
 
     part.image_urls = existing[:MAX_IMAGES_PER_GLOBAL_PART]
-    if not part.image_url and existing:
-        part.image_url = existing[0]
+    # Do not set primary image from appended (scraped) images; leave image_url as-is
     db.commit()
     db.refresh(part)
     return GlobalPartRead.model_validate(part)

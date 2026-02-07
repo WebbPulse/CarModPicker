@@ -235,8 +235,8 @@ async def rate_limit_middleware(request: Request, call_next: Callable[[Request],
         response = await call_next(request)
         return response
 
-    # Skip rate limiting for health checks, static files, and documentation
-    skip_paths = ["/", "/health", "/docs", "/openapi.json", "/redoc"]
+    # Skip rate limiting for health checks, readiness, static files, and documentation
+    skip_paths = ["/", "/health", "/ready", "/docs", "/openapi.json", "/redoc"]
     if any(request.url.path.startswith(path) for path in skip_paths):
         response = await call_next(request)
         return response

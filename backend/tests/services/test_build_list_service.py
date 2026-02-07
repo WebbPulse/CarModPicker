@@ -5,9 +5,9 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.car import Car
 from app.api.models.user import User
 from app.api.services.build_list_service import BuildListService
+from tests.conftest import create_car_orm_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -22,17 +22,14 @@ class TestBuildListService:
 
     def test_get_build_lists_by_car(self, db_session: Session, test_user: User) -> None:
         """Test getting build lists by car ID."""
-        # Create a car (centrally managed, no user_id)
-        car = Car(
+        car = create_car_orm_in_db(
+            db_session,
             make="Honda",
             model="Civic",
             generation_name="10th Gen",
             start_year=2016,
             end_year=2021,
         )
-        db_session.add(car)
-        db_session.commit()
-        db_session.refresh(car)
 
         # Create build lists for the car
         build_list1 = BuildList(
@@ -59,17 +56,14 @@ class TestBuildListService:
 
     def test_get_build_lists_by_user(self, db_session: Session, test_user: User) -> None:
         """Test getting build lists by user ID."""
-        # Create a car (centrally managed, no user_id)
-        car = Car(
+        car = create_car_orm_in_db(
+            db_session,
             make="Toyota",
             model="Camry",
             generation_name="8th Gen",
             start_year=2018,
             end_year=2024,
         )
-        db_session.add(car)
-        db_session.commit()
-        db_session.refresh(car)
 
         # Create build lists for the user
         build_list = BuildList(
@@ -89,17 +83,14 @@ class TestBuildListService:
 
     def test_count_by_user(self, db_session: Session, test_user: User) -> None:
         """Test counting build lists by user."""
-        # Create a car (centrally managed, no user_id)
-        car = Car(
+        car = create_car_orm_in_db(
+            db_session,
             make="Ford",
             model="Mustang",
             generation_name="S650",
             start_year=2024,
             end_year=2024,
         )
-        db_session.add(car)
-        db_session.commit()
-        db_session.refresh(car)
 
         # Get initial count
         service = BuildListService()

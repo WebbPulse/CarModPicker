@@ -16,7 +16,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
+from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.make import Make as DBMake
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListRead
 from app.api.schemas.global_part import GlobalPartRead
@@ -83,22 +85,25 @@ async def search_all(
     search_term = q.strip()
 
     # Search build lists (name, description, and associated car make/model/generation/year range)
+    # Car.make and Car.model are properties; join CarModel and Make for DB-level search
     build_list_query = (
         db.query(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
+        .outerjoin(DBCarModel, DBCar.car_model_id == DBCarModel.id)
+        .outerjoin(DBMake, DBCarModel.make_id == DBMake.id)
         .filter(
             or_(
                 DBBuildList.name.ilike(f"%{search_term}%"),
                 DBBuildList.description.ilike(f"%{search_term}%"),
-                DBCar.make.ilike(f"%{search_term}%"),
-                DBCar.model.ilike(f"%{search_term}%"),
+                DBMake.name.ilike(f"%{search_term}%"),
+                DBCarModel.name.ilike(f"%{search_term}%"),
                 DBCar.generation_name.ilike(f"%{search_term}%"),
                 # Search years as strings to match partial year searches
                 cast(DBCar.start_year, String).ilike(f"%{search_term}%"),
                 cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
             )
         )
-        .options(joinedload(DBBuildList.car))
+        .options(joinedload(DBBuildList.car).joinedload(DBCar.car_model).joinedload(DBCarModel.make))
     )
     build_list_total = get_total_count(build_list_query)
     build_lists = build_list_query.offset(skip).limit(limit).all()

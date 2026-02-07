@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { carsApi } from '../../services/Api';
+import { normalizeCarReadList } from '../../utils/carUtils';
 import type { CarRead } from '../../types/Api';
 import AddItemTile from '../common/AddItemTile';
 import { ErrorAlert } from '../common/Alerts';
@@ -37,37 +38,45 @@ const CarList: React.FC<CarListProps> = ({
 }) => {
   const [internalCars, setInternalCars] = useState<CarRead[] | null>(null);
 
-  const fetchCarsRequestFn = useCallback(() => {
-    if (searchQuery) {
-      return carsApi.searchCars(searchQuery, { skip, limit });
-    } else if (generationId) {
-      return carsApi.getCarsByGeneration(generationId, { skip, limit });
-    } else if (make && year) {
-      // If both make and year, we'll use search
-      return carsApi.searchCars(`${make} ${year}`, { skip, limit });
-    } else if (make) {
-      return carsApi.getCarsByMake(make, { skip, limit });
-    } else if (year) {
-      return carsApi.getCarsByYear(year, { skip, limit });
-    } else {
-      return carsApi.listCars({ skip, limit });
-    }
-  }, [searchQuery, make, year, generationId, skip, limit]);
+  const fetchCarsRequestFn = useCallback(
+    // Payload unused; useApiRequest requires matching signature
+    async (payload?: unknown) => {
+      void payload;
+      let response: Awaited<ReturnType<typeof carsApi.listCars>>;
+      if (searchQuery) {
+        response = await carsApi.searchCars(searchQuery, { skip, limit });
+      } else if (generationId) {
+        // In the new backend, a Car is a generation; get single car by id
+        const single = await carsApi.getCar(generationId);
+        return { ...single, data: [single.data] };
+      } else if (make && year) {
+        response = await carsApi.searchCars(`${make} ${year}`, { skip, limit });
+      } else if (make) {
+        response = await carsApi.getCarsByMake(make, { skip, limit });
+      } else if (year) {
+        response = await carsApi.searchCars(String(year), { skip, limit });
+      } else {
+        response = await carsApi.listCars({ skip, limit });
+      }
+      return response;
+    },
+    [searchQuery, make, year, generationId, skip, limit]
+  );
 
   const {
     data: fetchedApiCars,
     isLoading,
     error,
     executeRequest: fetchCars,
-  } = useApiRequest(fetchCarsRequestFn);
+  } = useApiRequest<CarRead[]>(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchCars();
   }, [fetchCars, refreshKey]);
 
   useEffect(() => {
-    if (fetchedApiCars) {
-      setInternalCars(fetchedApiCars);
+    if (fetchedApiCars != null) {
+      setInternalCars(normalizeCarReadList(fetchedApiCars));
     } else if (!isLoading && !error) {
       setInternalCars([]);
     }

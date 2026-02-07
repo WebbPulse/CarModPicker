@@ -21,17 +21,27 @@ def _serialize_image_urls(value: Optional[List[str]]) -> Optional[List[str]]:
 class GlobalPartCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Primary image: file key (from images/upload) or external URL (e.g. scraped).",
+    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery image file keys (uploaded via images API); max 10",
+        description="Gallery: file keys (from images/upload) and/or external URLs (scraped); max 12.",
     )
     product_url: Optional[str] = Field(
         None, description="Product URL at retailer (used only with retailer_id for listing)"
     )
     category_id: int
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Car IDs this part fits. Ignored when is_universal is True.",
+    )
+    is_universal: bool = Field(
+        default=False,
+        description="When True, part fits all cars; no need to list car_ids.",
+    )
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
@@ -57,14 +67,18 @@ class GlobalPartCreate(BaseModel):
 class GlobalPartUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = Field(
+        None,
+        description="Primary image: file key or external URL.",
+    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery image file keys; max 10",
+        description="Gallery: file keys and/or external URLs; max 12.",
     )
     category_id: Optional[int] = None
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: Optional[List[int]] = None  # Car IDs this part fits; ignored when is_universal
+    is_universal: Optional[bool] = None
     brand_id: int  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = None
@@ -83,7 +97,8 @@ class GlobalPartRead(BaseModel):
     image_urls: Optional[List[str]] = None
     category_id: int
     user_id: int  # Creator
-    car_id: Optional[int] = None  # Optional car association
+    car_ids: List[int] = Field(default_factory=list, description="Car IDs this part is associated with")
+    is_universal: bool = Field(default=False, description="When True, part fits all cars")
     brand_id: Optional[int] = None  # Optional brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
@@ -120,7 +135,7 @@ class GlobalPartAppendImages(BaseModel):
     file_keys: List[str] = Field(
         ...,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="File keys to append (from images/upload API); max 10",
+        description="Image references to append: file keys (from images/upload) or external URLs (scraped); max 12.",
     )
 
 

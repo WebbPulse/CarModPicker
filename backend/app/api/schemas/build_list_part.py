@@ -58,7 +58,8 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     image_url: str | None = None
     product_url: str | None = None
     category_id: int
-    car_id: int | None = None  # Optional car association
+    car_ids: list[int] | None = None  # Car IDs this part fits; ignored when is_universal
+    is_universal: bool = False  # When True, part fits all cars
     brand_id: int  # Required brand association
     part_number: str | None = None
     gtin: str | None = Field(None, description="UPC/EAN/GTIN for dedup (digits only stored)")

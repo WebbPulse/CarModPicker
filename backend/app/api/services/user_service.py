@@ -22,7 +22,6 @@ class UserService(BaseCRUDService[DBUser, UserCreate, UserRead, UserUpdate]):
         super().__init__(
             model=DBUser,
             entity_name="user",
-            subscription_check_method=None,  # Users don't have subscription limits
         )
 
     def get_by_username(

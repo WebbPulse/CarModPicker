@@ -41,7 +41,6 @@ class BrandService(BaseCRUDService[DBBrand, BrandCreate, BrandResponse, BrandUpd
         super().__init__(
             model=DBBrand,
             entity_name="brand",
-            subscription_check_method=None,  # Brands don't require subscription
         )
 
     def get_active_brands(self, db: Session) -> List[DBBrand]:

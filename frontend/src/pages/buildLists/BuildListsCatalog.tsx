@@ -1,23 +1,39 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useSearchParams } from 'react-router-dom';
+import BuildListCard from '../../components/buildLists/BuildListCard';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
-import BuildListItem from '../../components/buildLists/BuildListItem';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
-import ImageWithPlaceholder from '../../components/common/ImageWithPlaceholder';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Pagination from '../../components/common/Pagination';
+import VehicleFilterChips, {
+  filterChipClass,
+} from '../../components/common/VehicleFilterChips';
+import VehicleFilterSection from '../../components/common/VehicleFilterSection';
 import PageHeader from '../../components/layout/PageHeader';
-import SectionHeader from '../../components/layout/SectionHeader';
 import {
+  BUILD_LISTS_ALL_PAGE_SIZE,
   BUILD_LISTS_CATALOG_ITEMS_PER_PAGE,
-  FEATURED_BUILD_LISTS_LIMIT,
   LARGE_FETCH_LIMIT,
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi, carsApi } from '../../services/Api';
-import type { CarRead } from '../../types/Api';
+import type {
+  BuildListReadWithVotes,
+  CarRead,
+  PaginatedResponse,
+} from '../../types/Api';
+import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
@@ -26,398 +42,605 @@ const BuildListsCatalog: React.FC = () => {
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [costMin, setCostMin] = useState('');
+  const [costMax, setCostMax] = useState('');
+  const [sortBy, setSortBy] = useState<
+    'votes' | 'votes_asc' | 'price_asc' | 'price_desc'
+  >('votes');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInitializedFromUrl, setIsInitializedFromUrl] = useState(false);
+  const isInitializingFromUrlRef = useRef(false);
   const itemsPerPage = BUILD_LISTS_CATALOG_ITEMS_PER_PAGE;
-  // Fetch featured build lists (top 4 voted)
-  const fetchFeaturedBuildListsFn = useCallback(
-    () =>
-      buildListsApi.getBuildListsWithVotes({
-        limit: FEATURED_BUILD_LISTS_LIMIT,
-        skip: 0,
-      }),
+
+  // Debounce search so API is called only after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // When no vehicle selected: paginated list of all build lists (search + cost + sort via API)
+  const allBuildListsParams = useMemo(() => {
+    const params: {
+      skip: number;
+      limit: number;
+      search?: string;
+      min_cost_cents?: number;
+      max_cost_cents?: number;
+      sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
+    } = {
+      skip: (currentPage - 1) * BUILD_LISTS_ALL_PAGE_SIZE,
+      limit: BUILD_LISTS_ALL_PAGE_SIZE,
+      sort: sortBy,
+    };
+    if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
+    if (
+      costMin.trim() !== '' &&
+      !Number.isNaN(Number.parseFloat(costMin.trim())) &&
+      Number.parseFloat(costMin.trim()) >= 0
+    ) {
+      params.min_cost_cents = Math.round(
+        Number.parseFloat(costMin.trim()) * 100
+      );
+    }
+    if (
+      costMax.trim() !== '' &&
+      !Number.isNaN(Number.parseFloat(costMax.trim())) &&
+      Number.parseFloat(costMax.trim()) >= 0
+    ) {
+      params.max_cost_cents = Math.round(
+        Number.parseFloat(costMax.trim()) * 100
+      );
+    }
+    return params;
+  }, [currentPage, debouncedSearchTerm, costMin, costMax, sortBy]);
+
+  const fetchAllBuildListsFn = useCallback(
+    (params: Parameters<typeof buildListsApi.getBuildListsWithVotes>[0]) =>
+      buildListsApi.getBuildListsWithVotes(params),
     []
   );
 
   const {
-    data: featuredBuildListsData,
-    isLoading: isLoadingFeatured,
-    error: featuredBuildListsError,
-    executeRequest: fetchFeaturedBuildLists,
-  } = useApiRequest(fetchFeaturedBuildListsFn);
+    data: allBuildListsResponse,
+    isLoading: isLoadingAllBuildLists,
+    error: allBuildListsError,
+    executeRequest: fetchAllBuildLists,
+  } = useApiRequest<
+    PaginatedResponse<BuildListReadWithVotes>,
+    Parameters<typeof buildListsApi.getBuildListsWithVotes>[0]
+  >(fetchAllBuildListsFn);
 
-  // Memoize request functions to prevent infinite re-renders
   const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
-
-  // Fetch available manufacturers
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
-    error: makesError,
     executeRequest: fetchMakes,
   } = useApiRequest(fetchMakeStatsFn);
 
-  // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
     (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
-
-  // Fetch cars by make when make is selected
   const {
     data: carsByMake,
     isLoading: isLoadingCars,
-    error: carsError,
     executeRequest: fetchCarsByMake,
   } = useApiRequest(fetchCarsByMakeFn);
 
+  const fetchCarByIdFn = useCallback(
+    (carId: number) => carsApi.getCar(carId),
+    []
+  );
+  const { data: carFromUrl, executeRequest: fetchCarById } =
+    useApiRequest(fetchCarByIdFn);
+
   useEffect(() => {
     void fetchMakes();
-    void fetchFeaturedBuildLists();
-  }, [fetchMakes, fetchFeaturedBuildLists]);
+  }, [fetchMakes]);
+
+  // Initialize filter state from URL (deeplinking), same param names as global-parts where applicable
+  const initializeFromUrl = useCallback(() => {
+    if (isInitializedFromUrl || !makeStats) return;
+    const hasUrlParams = Array.from(searchParams.keys()).length > 0;
+    if (!hasUrlParams) {
+      setIsInitializedFromUrl(true);
+      return;
+    }
+    isInitializingFromUrlRef.current = true;
+    const searchParam = searchParams.get('search');
+    if (searchParam) setSearchTerm(searchParam);
+    const minPriceParam = searchParams.get('min_price');
+    if (minPriceParam != null && minPriceParam !== '') {
+      const n = Number.parseFloat(minPriceParam);
+      if (!Number.isNaN(n) && n >= 0) setCostMin(minPriceParam);
+    }
+    const maxPriceParam = searchParams.get('max_price');
+    if (maxPriceParam != null && maxPriceParam !== '') {
+      const n = Number.parseFloat(maxPriceParam);
+      if (!Number.isNaN(n) && n >= 0) setCostMax(maxPriceParam);
+    }
+    const pageParam = searchParams.get('page');
+    if (pageParam) {
+      const page = Number.parseInt(pageParam, 10);
+      if (!Number.isNaN(page) && page > 0) setCurrentPage(page);
+    }
+    const sortParam = searchParams.get('sort');
+    if (
+      sortParam === 'votes' ||
+      sortParam === 'votes_asc' ||
+      sortParam === 'price_asc' ||
+      sortParam === 'price_desc'
+    ) {
+      setSortBy(sortParam);
+    }
+    const carIdParam = searchParams.get('car_id');
+    if (carIdParam) {
+      const id = Number.parseInt(carIdParam, 10);
+      if (!Number.isNaN(id)) {
+        void fetchCarById(id);
+        return;
+      }
+    }
+    // Leave isInitializingFromUrlRef true so reset-page effect skips; cleared in useEffect after tick
+    setIsInitializedFromUrl(true);
+  }, [searchParams, makeStats, isInitializedFromUrl, fetchCarById]);
+
+  useEffect(() => {
+    initializeFromUrl();
+  }, [initializeFromUrl]);
+
+  useEffect(() => {
+    if (carFromUrl && isInitializingFromUrlRef.current) {
+      const car = normalizeCarRead(carFromUrl);
+      if (car) {
+        setSelectedMake(car.make);
+        setSelectedModel(car.model);
+        setSelectedGeneration(car);
+        void fetchCarsByMake(car.make);
+      }
+      isInitializingFromUrlRef.current = false;
+      setIsInitializedFromUrl(true);
+    }
+  }, [carFromUrl, fetchCarsByMake]);
+
+  // Sync filter state to URL when filters change (after initial load from URL)
+  const syncFiltersToUrl = useCallback(() => {
+    if (!isInitializedFromUrl) return;
+    const newParams = new URLSearchParams();
+    if (searchTerm) newParams.set('search', searchTerm);
+    if (costMin.trim() !== '') {
+      const n = Number.parseFloat(costMin.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('min_price', costMin.trim());
+    }
+    if (costMax.trim() !== '') {
+      const n = Number.parseFloat(costMax.trim());
+      if (!Number.isNaN(n) && n >= 0)
+        newParams.set('max_price', costMax.trim());
+    }
+    if (selectedGeneration)
+      newParams.set('car_id', selectedGeneration.id.toString());
+    if (sortBy !== 'votes') newParams.set('sort', sortBy);
+    if (currentPage > 1) newParams.set('page', currentPage.toString());
+    setSearchParams(newParams, { replace: true });
+  }, [
+    isInitializedFromUrl,
+    searchTerm,
+    costMin,
+    costMax,
+    selectedGeneration,
+    sortBy,
+    currentPage,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    if (isInitializedFromUrl) syncFiltersToUrl();
+  }, [
+    isInitializedFromUrl,
+    searchTerm,
+    costMin,
+    costMax,
+    selectedGeneration,
+    sortBy,
+    currentPage,
+    syncFiltersToUrl,
+  ]);
+
+  // Debounce search in URL to avoid rapid updates while typing
+  useEffect(() => {
+    if (!isInitializedFromUrl) return;
+    const t = setTimeout(syncFiltersToUrl, 500);
+    return () => clearTimeout(t);
+  }, [isInitializedFromUrl, searchTerm, syncFiltersToUrl]);
+
+  // Clear "initializing" ref after first sync so page reset on filter change works
+  useEffect(() => {
+    if (!isInitializedFromUrl) return;
+    const id = setTimeout(() => {
+      isInitializingFromUrlRef.current = false;
+    }, 0);
+    return () => clearTimeout(id);
+  }, [isInitializedFromUrl]);
 
   useEffect(() => {
     if (makeStats) {
-      const makes = Object.keys(makeStats).sort();
-      setAvailableMakes(makes);
+      setAvailableMakes(Object.keys(makeStats).sort());
     }
   }, [makeStats]);
 
   useEffect(() => {
     if (selectedMake) {
       void fetchCarsByMake(selectedMake);
-      setSelectedModel(''); // Reset model when make changes
-      setSelectedGeneration(null); // Reset generation when make changes
+      // Only clear model/generation when user changed make; skip when restoring from URL
+      if (
+        !selectedGeneration ||
+        (selectedGeneration.make ?? '') !== selectedMake
+      ) {
+        setSelectedModel('');
+        setSelectedGeneration(null);
+      }
     } else {
       setAvailableCars([]);
       setSelectedModel('');
       setSelectedGeneration(null);
     }
-  }, [selectedMake, fetchCarsByMake]);
+  }, [selectedMake, selectedGeneration, fetchCarsByMake]);
 
   useEffect(() => {
-    if (carsByMake) {
-      setAvailableCars(carsByMake);
-    }
+    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
   }, [carsByMake]);
 
   useEffect(() => {
-    // Reset generation when model changes
     if (selectedModel) {
-      setSelectedGeneration(null);
+      // Only clear generation when user changed model; skip when restoring from URL
+      if (!selectedGeneration || selectedGeneration.model !== selectedModel) {
+        setSelectedGeneration(null);
+      }
     }
-  }, [selectedModel]);
+  }, [selectedModel, selectedGeneration]);
 
+  // Reset to page 1 when filters or sort change (skip during URL init so deeplink page is preserved)
   useEffect(() => {
+    if (isInitializingFromUrlRef.current) return;
     setCurrentPage(1);
-  }, [searchTerm, selectedMake, selectedModel]);
+  }, [
+    debouncedSearchTerm,
+    selectedMake,
+    selectedModel,
+    costMin,
+    costMax,
+    sortBy,
+  ]);
 
-  const clearFilters = () => {
+  const clearAllFilters = () => {
     setSearchTerm('');
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedGeneration(null);
+    setCostMin('');
+    setCostMax('');
+  };
+
+  const clearCostRange = () => {
+    setCostMin('');
+    setCostMax('');
+  };
+
+  const clearVehicleFilter = () => {
     setSelectedMake('');
     setSelectedModel('');
     setSelectedGeneration(null);
   };
 
-  // Get unique models for selected make
+  const hasCostRange =
+    (costMin.trim() !== '' &&
+      !Number.isNaN(Number.parseFloat(costMin.trim())) &&
+      Number.parseFloat(costMin.trim()) >= 0) ||
+    (costMax.trim() !== '' &&
+      !Number.isNaN(Number.parseFloat(costMax.trim())) &&
+      Number.parseFloat(costMax.trim()) >= 0);
+
+  const hasActiveFilters =
+    selectedMake !== '' || searchTerm.trim() !== '' || hasCostRange;
+
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model))
+    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
   ).sort();
 
-  // Get generations (cars) for selected make and model
   const generations = availableCars
-    .filter((car) => car.make === selectedMake && car.model === selectedModel)
+    .filter(
+      (car) =>
+        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+    )
     .sort((a, b) => {
-      // Sort by start_year, then generation_name
-      if (a.start_year !== b.start_year) {
-        return a.start_year - b.start_year;
-      }
-      return a.generation_name.localeCompare(b.generation_name);
+      if (a.start_year !== b.start_year) return a.start_year - b.start_year;
+      return (a.generation_name ?? '').localeCompare(b.generation_name ?? '');
     });
 
-  const showBuildLists = selectedGeneration !== null;
+  /** Car IDs for API filter: single generation, or all for make, or all for make+model */
+  const effectiveCarIds = useMemo(
+    () =>
+      selectedGeneration
+        ? [selectedGeneration.id]
+        : selectedModel
+          ? generations.map((c) => c.id)
+          : selectedMake
+            ? availableCars.map((c) => c.id)
+            : [],
+    [
+      selectedGeneration,
+      selectedModel,
+      selectedMake,
+      generations,
+      availableCars,
+    ]
+  );
+
+  const hasVehicleFilter = selectedMake !== '';
+
+  /** Memoized params for BuildListCatalogList so the reference is stable and we don't refetch on every render */
+  const buildListCatalogListParams = useMemo(
+    () => ({
+      skip: (currentPage - 1) * itemsPerPage,
+      limit: itemsPerPage,
+      sort: sortBy,
+      ...(debouncedSearchTerm.trim() && {
+        search: debouncedSearchTerm.trim(),
+      }),
+      ...(costMin.trim() !== '' &&
+        !Number.isNaN(Number.parseFloat(costMin.trim())) &&
+        Number.parseFloat(costMin.trim()) >= 0 && {
+          min_cost_cents: Math.round(Number.parseFloat(costMin.trim()) * 100),
+        }),
+      ...(costMax.trim() !== '' &&
+        !Number.isNaN(Number.parseFloat(costMax.trim())) &&
+        Number.parseFloat(costMax.trim()) >= 0 && {
+          max_cost_cents: Math.round(Number.parseFloat(costMax.trim()) * 100),
+        }),
+    }),
+    [currentPage, itemsPerPage, sortBy, debouncedSearchTerm, costMin, costMax]
+  );
+
+  // Fetch all build lists (paginated) when no vehicle filter is selected
+  useEffect(() => {
+    if (!hasVehicleFilter) {
+      void fetchAllBuildLists(allBuildListsParams);
+    }
+  }, [hasVehicleFilter, fetchAllBuildLists, allBuildListsParams]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <PageHeader title="Build Lists Catalog" />
-
-      {/* Information Panel */}
-      <Card className="mb-6">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold text-gray-200 mb-3">
-            Explore Build Lists
-          </h3>
-          <div className="text-sm text-gray-400">
-            <p className="mb-2">
-              Select a manufacturer and car model to browse build lists for that
-              specific vehicle.
-            </p>
-            <p>
-              Click on any build list to view its details and see what parts are
-              included.
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Car Selection Tiles - 3 Layer Selection */}
-      <div className="space-y-6 mb-6">
-        {/* Layer 1: Make Selection */}
-        <div>
-          {selectedMake ? (
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedModel) {
-                    // On generation page, go back to models
-                    setSelectedModel('');
-                    setSelectedGeneration(null);
-                  } else {
-                    // On model page, go back to manufacturers
-                    setSelectedMake('');
-                    setSelectedModel('');
-                    setSelectedGeneration(null);
-                  }
-                }}
-                className="text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                {selectedModel
-                  ? '← Back to Car Models'
-                  : '← Back to Manufacturers'}
-              </button>
-            </h3>
-          ) : (
-            <Card className="mb-6">
-              <SectionHeader title="Select Manufacturer" />
-              {isLoadingMakes ? (
-                <div className="flex items-center justify-center py-8">
-                  <LoadingSpinner />
-                </div>
-              ) : makesError ? (
-                <div className="py-8">
-                  <ErrorAlert
-                    message={`Failed to load manufacturers: ${makesError}`}
-                  />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
-                  {availableMakes.map((make) => {
-                    return (
-                      <Card
-                        key={make}
-                        onClick={() => setSelectedMake(make)}
-                        interactive
-                        className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors flex flex-col items-center justify-center min-h-[100px]"
-                      >
-                        <h4 className="text-lg font-semibold text-gray-200">
-                          {make}
-                        </h4>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          )}
-          {!selectedMake && (
-            <>
-              {/* Featured Build Lists Section - Only show when no make is selected */}
-              <Card className="mb-6 mt-6">
-                <SectionHeader title="Featured Build Lists" />
-                {isLoadingFeatured ? (
-                  <div className="flex items-center justify-center py-8">
-                    <LoadingSpinner />
-                  </div>
-                ) : featuredBuildListsError ? (
-                  <div className="py-8">
-                    <ErrorAlert
-                      message={`Failed to load featured build lists: ${featuredBuildListsError}`}
-                    />
-                  </div>
-                ) : featuredBuildListsData?.data &&
-                  featuredBuildListsData.data.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-                    {featuredBuildListsData.data.map((buildList) => (
-                      <BuildListItem
-                        key={buildList.id}
-                        buildList={buildList}
-                        showVoteButtons={false}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-400">
-                    <p>No featured build lists available.</p>
-                  </div>
-                )}
-              </Card>
-            </>
-          )}
-
-          {/* Layer 2: Model Selection */}
-          {selectedMake && !selectedModel && (
-            <>
-              <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
-                <div className="p-4">
-                  <p className="text-sm text-gray-400 mb-1">
-                    Selected Manufacturer
-                  </p>
-                  <h3 className="text-xl font-semibold text-indigo-400">
-                    {selectedMake}
-                  </h3>
-                </div>
-              </Card>
-              <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
-                Select Model
-              </h3>
-              {isLoadingCars ? (
-                <Card>
-                  <div className="flex items-center justify-center py-8">
-                    <LoadingSpinner />
-                  </div>
-                </Card>
-              ) : carsError ? (
-                <Card>
-                  <ErrorAlert
-                    message={`Failed to load car models: ${carsError}`}
-                  />
-                </Card>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {uniqueModels.map((model) => (
-                    <Card
-                      key={model}
-                      onClick={() => setSelectedModel(model)}
-                      interactive
-                      className="text-center p-4 cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
-                    >
-                      <h4 className="text-lg font-semibold text-gray-200">
-                        {model}
-                      </h4>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Layer 3: Generation Selection */}
-          {selectedMake && selectedModel && !selectedGeneration && (
-            <>
-              <Card className="mb-4 bg-indigo-900/20 border-indigo-500/50">
-                <div className="p-4">
-                  <p className="text-sm text-gray-400 mb-1">Selected Vehicle</p>
-                  <h3 className="text-xl font-semibold text-indigo-400">
-                    {selectedMake} {selectedModel}
-                  </h3>
-                </div>
-              </Card>
-              <h3 className="text-lg font-semibold text-gray-200 mb-4 mt-6">
-                Select Generation
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {generations.map((car) => (
-                  <Card
-                    key={car.id}
-                    onClick={() => setSelectedGeneration(car)}
-                    interactive
-                    className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
-                  >
-                    <h4 className="text-lg font-semibold text-indigo-400 mb-1">
-                      {car.generation_name}
-                    </h4>
-                    <p className="text-sm text-gray-400">
-                      {car.start_year} - {car.end_year}
-                    </p>
-                    {car.description && (
-                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                        {car.description}
-                      </p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Selected Generation Info */}
-          {selectedGeneration && (
-            <Card className="mb-4">
-              <div className="flex items-center gap-6">
-                <div className="flex-shrink-0">
-                  <ImageWithPlaceholder
-                    srcUrl={selectedGeneration.image_url ?? null}
-                    altText={`${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name}`}
-                    containerClassName="w-32 h-32 rounded-lg overflow-hidden"
-                    imageClassName="w-full h-full object-cover"
-                    fallbackText="No image"
-                    fallbackTextClassName="text-gray-500 text-xs"
-                  />
-                </div>
-                <div className="flex-1 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-200">
-                      Selected: {selectedGeneration.make}{' '}
-                      {selectedGeneration.model}{' '}
-                      {selectedGeneration.generation_name}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      {selectedGeneration.start_year} -{' '}
-                      {selectedGeneration.end_year}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-                  >
-                    Change Selection
-                  </button>
-                </div>
-              </div>
-            </Card>
-          )}
-        </div>
+    <div className="container mx-auto px-4 py-6">
+      <div className="mb-6">
+        <PageHeader title="Build Lists Catalog" />
       </div>
 
-      {/* Build Lists List */}
-      {showBuildLists && selectedGeneration ? (
-        <>
-          {/* Search Filter */}
-          <div className="mb-8 space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <label
-                  htmlFor="search-build-lists"
-                  className="block text-sm font-medium text-gray-300 mb-2"
+      {/* Same layout as global-parts: sidebar + main from the start */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <aside className="lg:w-64 flex-shrink-0">
+          <Card className="sticky top-4 overflow-hidden">
+            <div className="p-4 space-y-6">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-700/60">
+                <h2 className="text-base font-semibold text-gray-100">
+                  Filters
+                </h2>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+              <VehicleFilterSection
+                showUniversalParts={false}
+                setShowUniversalParts={() => {}}
+                selectedMake={selectedMake}
+                selectedModel={selectedModel}
+                selectedGeneration={selectedGeneration}
+                setSelectedMake={setSelectedMake}
+                setSelectedModel={setSelectedModel}
+                setSelectedGeneration={setSelectedGeneration}
+                availableMakes={availableMakes}
+                uniqueModels={uniqueModels}
+                generations={generations}
+                isLoadingMakes={isLoadingMakes}
+                isLoadingCars={isLoadingCars}
+                hideUniversalOption
+              />
+
+              {/* Total cost range filter */}
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60">
+                  Total Cost ($)
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="cost-min"
+                      className="text-sm text-gray-500 shrink-0 w-12"
+                    >
+                      Min ($)
+                    </label>
+                    <input
+                      id="cost-min"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="No min"
+                      value={costMin}
+                      onChange={(e) => setCostMin(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="cost-max"
+                      className="text-sm text-gray-500 shrink-0 w-12"
+                    >
+                      Max ($)
+                    </label>
+                    <input
+                      id="cost-max"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="No max"
+                      value={costMax}
+                      onChange={(e) => setCostMax(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sort by */}
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60">
+                  Sort by
+                </h3>
+                <select
+                  id="build-lists-sort"
+                  value={sortBy}
+                  onChange={(e) =>
+                    setSortBy(
+                      e.target.value as
+                        | 'votes'
+                        | 'votes_asc'
+                        | 'price_asc'
+                        | 'price_desc'
+                    )
+                  }
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
                 >
-                  Search Build Lists
-                </label>
-                <Input
-                  id="search-build-lists"
-                  type="text"
-                  placeholder="Search by name or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
+                  <option value="votes">Most votes</option>
+                  <option value="votes_asc">Least votes</option>
+                  <option value="price_asc">Price: low to high</option>
+                  <option value="price_desc">Price: high to low</option>
+                </select>
               </div>
             </div>
+          </Card>
+        </aside>
+
+        <main className="flex-1 min-w-0">
+          <div className="mb-4">
+            <Input
+              type="text"
+              placeholder="Search build lists..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full max-w-md"
+            />
           </div>
 
-          <BuildListCatalogList
-            carIds={[selectedGeneration.id]}
-            params={{
-              skip: (currentPage - 1) * itemsPerPage,
-              limit: itemsPerPage,
-              ...(searchTerm && { search: searchTerm }),
-            }}
-            title={`${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`}
-            emptyMessage="No build lists found for this car. Try adjusting your search or select a different vehicle."
-            showVoteButtons={false}
-          />
-        </>
-      ) : null}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <VehicleFilterChips
+              selectedGeneration={selectedGeneration}
+              selectedMake={selectedMake}
+              selectedModel={selectedModel}
+              showUniversalParts={false}
+              clearVehicleFilter={clearVehicleFilter}
+              searchTerm={searchTerm}
+              onClearSearch={() => setSearchTerm('')}
+              wrapInContainer={false}
+            />
+            {hasCostRange && (
+              <span className={filterChipClass}>
+                {costMin.trim() && costMax.trim()
+                  ? `$${costMin.trim()} – $${costMax.trim()}`
+                  : costMin.trim()
+                    ? `Min $${costMin.trim()}`
+                    : `Max $${costMax.trim()}`}
+                <button
+                  type="button"
+                  onClick={clearCostRange}
+                  className="p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0"
+                  aria-label="Clear cost range"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
+
+          {hasVehicleFilter && effectiveCarIds.length > 0 ? (
+            <BuildListCatalogList
+              carIds={effectiveCarIds}
+              params={buildListCatalogListParams}
+              title={
+                selectedGeneration
+                  ? `${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`
+                  : selectedModel
+                    ? `${selectedMake} ${selectedModel} Build Lists`
+                    : `${selectedMake} Build Lists`
+              }
+              emptyMessage="No build lists found for this car. Try adjusting your search or select a different vehicle."
+              showVoteButtons={false}
+              layout="card"
+            />
+          ) : (
+            <>
+              <Card>
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                    All Build Lists
+                  </h3>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Select a vehicle in the sidebar to filter by car, or browse
+                    all build lists below. Search and cost filters apply.
+                  </p>
+                  {isLoadingAllBuildLists ? (
+                    <div className="flex justify-center py-12">
+                      <LoadingSpinner />
+                    </div>
+                  ) : allBuildListsError ? (
+                    <ErrorAlert
+                      message={`Failed to load build lists: ${allBuildListsError}`}
+                    />
+                  ) : allBuildListsResponse?.data &&
+                    allBuildListsResponse.data.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {allBuildListsResponse.data.map((buildList) => (
+                        <BuildListCard
+                          key={buildList.id}
+                          buildList={buildList}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-8">
+                      No build lists found. Try adjusting your search or cost
+                      filters.
+                    </p>
+                  )}
+                </div>
+              </Card>
+              {allBuildListsResponse?.pagination &&
+                allBuildListsResponse.pagination.total_pages > 1 && (
+                  <div className="mt-6">
+                    <Pagination
+                      currentPage={
+                        allBuildListsResponse.pagination.current_page
+                      }
+                      totalPages={allBuildListsResponse.pagination.total_pages}
+                      totalItems={allBuildListsResponse.pagination.total_items}
+                      itemsPerPage={
+                        allBuildListsResponse.pagination.items_per_page
+                      }
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+                )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 };
