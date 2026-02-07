@@ -11,8 +11,10 @@ Override with CRAWLER_A90SHOP_START_URLS (comma-separated) to use a fixed list.
 import os
 import re
 import time
-import xml.etree.ElementTree as ET
 from typing import Iterator, List, Optional
+from xml.etree.ElementTree import Element
+
+import defusedxml.ElementTree as ET
 
 from bs4 import BeautifulSoup, Tag
 
@@ -46,7 +48,7 @@ def _resolve_start_urls() -> List[str]:
     return urls if urls else list(DEFAULT_START_URLS)
 
 
-def _loc_elements(root: ET.Element) -> List[ET.Element]:
+def _loc_elements(root: Element) -> List[Element]:
     """Find all <loc> elements in a sitemap (urlset or sitemap index)."""
     return root.findall(f".//{{{SITEMAP_NS}}}loc")
 
