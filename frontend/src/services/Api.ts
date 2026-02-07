@@ -319,6 +319,20 @@ export const buildListsApi = {
     }),
 };
 
+// Serialize params so array values become repeated keys (category_ids=1&category_ids=2) for FastAPI
+function paramsWithArrays(params: Record<string, unknown>): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      value.forEach((v) => search.append(key, String(v)));
+    } else {
+      search.append(key, String(value));
+    }
+  }
+  return search;
+}
+
 // Global Parts API (Global shared parts in the catalog)
 export const globalPartsApi = {
   // Get all global parts with filtering
@@ -335,14 +349,35 @@ export const globalPartsApi = {
     skip?: number;
     limit?: number;
     category_id?: number;
+    category_ids?: number[];
     car_id?: number;
     brand_id?: number;
+    brand_ids?: number[];
+    user_id?: number;
     search?: string;
+    sort?: string;
+    min_price_cents?: number;
+    max_price_cents?: number;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
       '/global-parts/with-votes',
       {
-        params,
+        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
+      }
+    ),
+
+  // Get available filter options given current filters (for cascading filters)
+  getFilterOptions: (params?: {
+    category_ids?: number[];
+    brand_ids?: number[];
+    car_id?: number;
+    search?: string;
+    user_id?: number;
+  }) =>
+    apiClient.get<{ category_ids: number[]; brand_ids: number[] }>(
+      '/global-parts/filter-options',
+      {
+        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
       }
     ),
 

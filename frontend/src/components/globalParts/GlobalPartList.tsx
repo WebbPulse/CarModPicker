@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { globalPartVotesApi, globalPartsApi } from '../../services/Api';
-import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
+import type {
+  BrandResponse,
+  CarRead,
+  CategoryResponse,
+  GlobalPartReadWithVotes,
+  PaginationInfo,
+} from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
@@ -26,8 +32,15 @@ function getCacheKey(params?: {
   skip?: number;
   limit?: number;
   category_id?: number;
+  category_ids?: number[];
   car_id?: number;
+  brand_id?: number;
+  brand_ids?: number[];
+  user_id?: number;
   search?: string;
+  sort?: string;
+  min_price_cents?: number;
+  max_price_cents?: number;
 }): string {
   return JSON.stringify(params || {});
 }
@@ -51,8 +64,15 @@ interface GlobalPartListProps {
     skip?: number;
     limit?: number;
     category_id?: number;
+    category_ids?: number[];
     car_id?: number;
+    brand_id?: number;
+    brand_ids?: number[];
+    user_id?: number;
     search?: string;
+    sort?: string;
+    min_price_cents?: number;
+    max_price_cents?: number;
   };
   data?: GlobalPartReadWithVotes[]; // Optional: pass pre-fetched data instead of fetching
   pagination?: PaginationInfo | null; // Optional: pass pagination info when using pre-fetched data
@@ -71,14 +91,29 @@ interface GlobalPartListProps {
   canEdit?: (globalPart: GlobalPartReadWithVotes) => boolean;
   canDelete?: (globalPart: GlobalPartReadWithVotes) => boolean;
   onPaginationChange?: (pagination: PaginationInfo | null) => void;
+  /** Called when sort column/direction changes (e.g. to reset pagination). */
+  onSortChange?: () => void;
+  /** Table layout: dense columns (Part | Brand | P/N | Category | Fit | Rating | Price). Requires categories for Category column, brands for Brand column lookup. */
+  layout?: 'card' | 'table';
+  categories?: CategoryResponse[];
+  brands?: BrandResponse[];
+  /** Map of car ID to CarRead for Fit column car names. */
+  carsById?: Record<number, CarRead>;
 }
 
 const fetchGlobalPartsRequestFn = (params?: {
   skip?: number;
   limit?: number;
   category_id?: number;
+  category_ids?: number[];
   car_id?: number;
+  brand_id?: number;
+  brand_ids?: number[];
+  user_id?: number;
   search?: string;
+  sort?: string;
+  min_price_cents?: number;
+  max_price_cents?: number;
 }) => globalPartsApi.getGlobalPartsWithVotes(params);
 
 function GlobalPartList({
@@ -97,7 +132,47 @@ function GlobalPartList({
   canEdit,
   canDelete,
   onPaginationChange,
+  onSortChange,
+  layout = 'card',
+  categories = [],
+  brands = [],
+  carsById = {},
 }: GlobalPartListProps) {
+  type SortColumn =
+    | 'part'
+    | 'brand'
+    | 'part_number'
+    | 'category'
+    | 'fit'
+    | 'rating'
+    | 'price';
+  const [sortColumn, setSortColumn] = useState<SortColumn>('rating');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = useCallback(
+    (column: SortColumn) => {
+      if (sortColumn === column) {
+        setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortColumn(column);
+        setSortDirection(
+          column === 'rating' || column === 'price' ? 'desc' : 'asc'
+        );
+      }
+      onSortChange?.();
+    },
+    [sortColumn, onSortChange]
+  );
+
+  const effectiveParams = useMemo(
+    () => ({
+      ...params,
+      ...(layout === 'table' &&
+        sortColumn === 'price' && { sort: 'lowest_price' as const }),
+    }),
+    [params, layout, sortColumn]
+  );
+
   const {
     data: paginatedResponse,
     isLoading,
@@ -106,7 +181,7 @@ function GlobalPartList({
   } = useApiRequest(fetchGlobalPartsRequestFn);
 
   // Initialize with cached data if available (for instant display)
-  const cacheKey = getCacheKey(params);
+  const cacheKey = getCacheKey(effectiveParams);
   const [displayData, setDisplayData] = useState<GlobalPartReadWithVotes[]>(
     () => {
       if (providedData) return providedData;
@@ -122,8 +197,8 @@ function GlobalPartList({
     });
 
   const memoizedFetchGlobalParts = useCallback(() => {
-    void fetchGlobalParts(params);
-  }, [fetchGlobalParts, params]);
+    void fetchGlobalParts(effectiveParams);
+  }, [fetchGlobalParts, effectiveParams]);
 
   // Only fetch if data is not provided
   useEffect(() => {
@@ -178,6 +253,127 @@ function GlobalPartList({
   const errorState = providedData ? null : error;
   const globalParts = providedData ?? displayData;
 
+  // Hooks must be called unconditionally, before any early returns
+  const getCategoryName = useCallback(
+    (categoryId: number) => {
+      const cat = categories.find((c) => c.id === categoryId);
+      return cat?.display_name ?? cat?.name ?? '—';
+    },
+    [categories]
+  );
+
+  const getBrandName = useCallback(
+    (part: GlobalPartReadWithVotes) => {
+      if (part.brand) return part.brand;
+      if (part.brand_id && brands.length > 0) {
+        const b = brands.find((br) => br.id === part.brand_id);
+        return b?.name ?? '—';
+      }
+      return '—';
+    },
+    [brands]
+  );
+
+  const formatCarName = (car: CarRead) =>
+    `${car.make} ${car.model} ${car.generation_name}`;
+
+  const getFitCell = (part: GlobalPartReadWithVotes) => {
+    if (part.is_universal) return { label: 'Universal', title: undefined };
+    const ids = part.car_ids ?? [];
+    const n = ids.length;
+    if (n === 0) return { label: '—', title: undefined };
+    if (n === 1) {
+      const firstId = ids[0];
+      const car = firstId != null ? carsById[firstId] : undefined;
+      return { label: car ? formatCarName(car) : '1 vehicle', title: undefined };
+    }
+    const names = ids
+      .map((id) => carsById[id])
+      .filter((c): c is CarRead => c != null)
+      .map(formatCarName);
+    return {
+      label: `${n} vehicles`,
+      title: names.length > 0 ? names.join('\n') : undefined,
+    };
+  };
+
+  const getNetVotes = (part: GlobalPartReadWithVotes) =>
+    (part.upvotes ?? 0) - (part.downvotes ?? 0);
+
+  const sortedParts = useMemo(() => {
+    const list = globalParts ?? [];
+    if (layout !== 'table' || list.length === 0) return list;
+    const mult = sortDirection === 'asc' ? 1 : -1;
+    const compare = (a: GlobalPartReadWithVotes, b: GlobalPartReadWithVotes) => {
+      switch (sortColumn) {
+        case 'part':
+          return mult * (a.name ?? '').localeCompare(b.name ?? '');
+        case 'brand':
+          return mult * (getBrandName(a) ?? '').localeCompare(getBrandName(b) ?? '');
+        case 'part_number':
+          return mult * (a.part_number ?? '').localeCompare(b.part_number ?? '');
+        case 'category':
+          return mult * (getCategoryName(a.category_id) ?? '').localeCompare(getCategoryName(b.category_id) ?? '');
+        case 'fit':
+          return mult * (getFitCell(a).label ?? '').localeCompare(getFitCell(b).label ?? '');
+        case 'rating':
+          return mult * (getNetVotes(a) - getNetVotes(b));
+        case 'price':
+          const pa = a.best_price_cents ?? 0;
+          const pb = b.best_price_cents ?? 0;
+          return mult * (pa - pb);
+        default:
+          return 0;
+      }
+    };
+    return [...list].sort(compare);
+  }, [
+    globalParts,
+    layout,
+    sortColumn,
+    sortDirection,
+    getCategoryName,
+    getBrandName,
+    carsById,
+  ]);
+
+  const SortableTh = ({
+    column,
+    children,
+    align = 'left',
+  }: {
+    column: SortColumn;
+    children: React.ReactNode;
+    align?: 'left' | 'right';
+  }) => {
+    const isActive = sortColumn === column;
+    return (
+      <th
+        className={`px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
+          align === 'right' ? 'text-right' : 'text-left'
+        } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
+        onClick={() => handleSort(column)}
+        role="columnheader"
+        aria-sort={
+          isActive
+            ? sortDirection === 'asc'
+              ? 'ascending'
+              : 'descending'
+            : undefined
+        }
+      >
+        <span className="flex items-center gap-1">
+          {children}
+          {isActive && (
+            <span className="text-indigo-400" aria-hidden>
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </span>
+          )}
+        </span>
+      </th>
+    );
+  };
+
   if (isLoadingState) {
     return (
       <Card>
@@ -196,6 +392,174 @@ function GlobalPartList({
     );
   }
 
+  if (layout === 'table') {
+    return (
+      <Card className="p-0 overflow-hidden">
+        {title && (
+          <div className="p-4 border-b border-gray-700">
+            <SectionHeader title={title} />
+          </div>
+        )}
+
+        {!globalParts || globalParts.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <p>{emptyMessage}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+                  <SortableTh column="part">Part</SortableTh>
+                  <SortableTh column="brand">Brand</SortableTh>
+                  <SortableTh column="part_number">Part #</SortableTh>
+                  {categories.length > 0 && (
+                    <SortableTh column="category">Category</SortableTh>
+                  )}
+                  <SortableTh column="fit">Fit</SortableTh>
+                  {showVoteButtons && (
+                    <SortableTh column="rating">Rating</SortableTh>
+                  )}
+                  <SortableTh column="price" align="right">
+                    Price
+                  </SortableTh>
+                  {(showAddToBuildListButton || onEdit || onDelete) && (
+                    <th className="px-4 py-3 font-medium w-24" aria-label="Actions" />
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedParts.map((globalPart: GlobalPartReadWithVotes) => (
+                  <tr
+                    key={globalPart.id}
+                    className="border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group"
+                  >
+                    {/* Part: thumb + name */}
+                    <td className="px-4 py-2">
+                      <Link
+                        to={`/global-parts/${globalPart.id}`}
+                        className="flex items-center gap-2 hover:no-underline"
+                      >
+                        <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                          <ImageWithPlaceholder
+                            srcUrl={globalPart.image_url ?? null}
+                            altText={globalPart.name}
+                            imageClassName="w-full h-full object-cover"
+                            containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                            fallbackText=""
+                          />
+                        </div>
+                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate max-w-[200px]">
+                          {globalPart.name}
+                        </span>
+                      </Link>
+                    </td>
+                    {/* Brand */}
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                      {getBrandName(globalPart)}
+                    </td>
+                    {/* Part # */}
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap font-mono text-xs">
+                      {globalPart.part_number ?? '—'}
+                    </td>
+                    {/* Category */}
+                    {categories.length > 0 && (
+                      <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                        {getCategoryName(globalPart.category_id)}
+                      </td>
+                    )}
+                    {/* Fit */}
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                      {(() => {
+                        const { label, title } = getFitCell(globalPart);
+                        return title ? (
+                          <span
+                            title={title}
+                            className="cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                          >
+                            {label}
+                          </span>
+                        ) : (
+                          label
+                        );
+                      })()}
+                    </td>
+                    {/* Rating */}
+                    {showVoteButtons && (
+                      <td className="px-4 py-2">
+                        {onVoteUpdate ? (
+                          <VoteButtons
+                            entityId={globalPart.id}
+                            upvotes={globalPart.upvotes}
+                            downvotes={globalPart.downvotes}
+                            userVote={globalPart.user_vote ?? null}
+                            onVoteUpdate={onVoteUpdate}
+                            voteApi={{
+                              voteOnEntity: (id, data) =>
+                                globalPartVotesApi.voteOnGlobalPart(id, data),
+                              removeVote: (id) =>
+                                globalPartVotesApi.removeVote(id),
+                            }}
+                          />
+                        ) : (
+                          <span className="text-gray-400">
+                            ({getNetVotes(globalPart)})
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {/* Price */}
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {globalPart.best_price_cents != null ? (
+                        <span className="font-semibold text-green-400">
+                          ${(globalPart.best_price_cents / 100).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </td>
+                    {/* Actions */}
+                    {(showAddToBuildListButton || onEdit || onDelete) && (
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-1">
+                          {showAddToBuildListButton && onAddToBuildList && (
+                            <ActionButton
+                              onClick={() => onAddToBuildList(globalPart)}
+                              className="text-xs px-2 py-1"
+                            >
+                              Add
+                            </ActionButton>
+                          )}
+                          {onEdit && (!canEdit || canEdit(globalPart)) && (
+                            <SecondaryButton
+                              onClick={() => onEdit(globalPart)}
+                              className="text-xs px-2 py-1"
+                            >
+                              Edit
+                            </SecondaryButton>
+                          )}
+                          {onDelete && (!canDelete || canDelete(globalPart)) && (
+                            <ActionButton
+                              onClick={() => onDelete(globalPart)}
+                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </ActionButton>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    );
+  }
+
+  // Card layout (default)
   return (
     <Card>
       {title && (
@@ -275,7 +639,6 @@ function GlobalPartList({
 
                   {/* Actions Row */}
                   <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-700">
-                    {/* Left side: Vote Buttons */}
                     <div className="flex items-center gap-2">
                       {showVoteButtons && onVoteUpdate && (
                         <VoteButtons
@@ -293,10 +656,7 @@ function GlobalPartList({
                         />
                       )}
                     </div>
-
-                    {/* Right side: Action Buttons */}
                     <div className="flex items-center gap-2">
-                      {/* Add to Build List Button */}
                       {showAddToBuildListButton && onAddToBuildList && (
                         <ActionButton
                           onClick={() => onAddToBuildList(globalPart)}
@@ -305,8 +665,6 @@ function GlobalPartList({
                           📋 Add to Build List
                         </ActionButton>
                       )}
-
-                      {/* Edit Button */}
                       {onEdit && (!canEdit || canEdit(globalPart)) && (
                         <SecondaryButton
                           onClick={() => onEdit(globalPart)}
@@ -315,8 +673,6 @@ function GlobalPartList({
                           Edit
                         </SecondaryButton>
                       )}
-
-                      {/* Delete Button */}
                       {onDelete && (!canDelete || canDelete(globalPart)) && (
                         <ActionButton
                           onClick={() => onDelete(globalPart)}
