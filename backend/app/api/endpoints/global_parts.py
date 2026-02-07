@@ -51,7 +51,6 @@ from app.api.utils.authorization import (
 )
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_operations import (
-    check_subscription_limits,
     create_entity,
     delete_entity,
     update_entity,
@@ -85,7 +84,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         super().__init__(
             model=DBGlobalPart,
             entity_name="global part",
-            subscription_check_method="can_create_global_part",
         )
 
     def create(
@@ -100,8 +98,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         Create a new global part with dedup by URL, brand+part_number, and GTIN (UPC/EAN).
         If an existing part is found, create/update PartListing and return that part.
         """
-        check_subscription_limits(db, current_user, "can_create_global_part", self.entity_name, logger)
-
         part_by_url: Optional[DBGlobalPart] = None
         part_by_brand: Optional[DBGlobalPart] = None
         part_by_gtin: Optional[DBGlobalPart] = None

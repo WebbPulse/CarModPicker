@@ -483,29 +483,6 @@ export interface BugReportUpdate {
   assigned_to?: number | null;
 }
 
-// New interfaces for subscription system
-export interface SubscriptionStatus {
-  tier: 'free' | 'premium';
-  status: 'active' | 'cancelled' | 'expired';
-  expires_at?: string | null;
-  limits: Record<string, number>;
-  usage: Record<string, number>;
-}
-
-export interface SubscriptionResponse {
-  tier: 'free' | 'premium';
-  status: 'active' | 'cancelled' | 'expired';
-  expires_at?: string | null;
-  id: number;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UpgradeRequest {
-  tier: 'premium';
-  payment_method?: string | null;
-}
 
 // Build list part relationship
 export interface BuildListPartCreate {

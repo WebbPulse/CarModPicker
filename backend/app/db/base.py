@@ -13,8 +13,6 @@ from app.api.models.part_listing import PartListing  # noqa: F401
 from app.api.models.part_price_history import PartPriceHistory  # noqa: F401
 from app.api.models.report import Report  # noqa: F401
 from app.api.models.retailer import Retailer  # noqa: F401
-from app.api.models.subscription import Subscription  # noqa: F401
-
 # actual models
 from app.api.models.user import User  # noqa: F401
 from app.api.models.vote import Vote  # noqa: F401

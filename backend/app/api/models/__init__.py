@@ -13,7 +13,6 @@ from .part_listing import PartListing
 from .part_price_history import PartPriceHistory
 from .report import Report
 from .retailer import Retailer
-from .subscription import Subscription
 from .user import User
 from .vote import Vote
 
@@ -25,7 +24,6 @@ __all__ = [
     "BuildList",
     "GlobalPart",
     "ImageSourceMapping",
-    "Subscription",
     "Category",
     "Brand",
     "BuildListPart",

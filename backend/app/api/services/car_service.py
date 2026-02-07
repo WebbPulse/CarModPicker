@@ -47,7 +47,6 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         super().__init__(
             model=DBCar,
             entity_name="car",
-            subscription_check_method=None,
         )
 
     def get_by_id(

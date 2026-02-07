@@ -23,7 +23,6 @@ from .api.endpoints import (
     reports,
     retailers,
     search,
-    subscriptions,
     users,
     votes,
 )
@@ -219,14 +218,6 @@ endpoint_registry.register_endpoint(
     prefix="/auth",
     tags=["authentication"],
     description="User authentication and authorization",
-)
-
-# Subscription endpoint
-endpoint_registry.register_endpoint(
-    subscriptions.router,
-    prefix="/subscriptions",
-    tags=["subscriptions"],
-    description="Subscription and billing operations",
 )
 
 # Unified vote and report endpoints

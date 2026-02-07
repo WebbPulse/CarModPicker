@@ -40,14 +40,11 @@ import type {
   ReportRead,
   ReportUpdate,
   ReportWithDetails,
-  SubscriptionResponse,
-  SubscriptionStatus,
   TOTPDisableRequest,
   TOTPLoginRequest,
   TOTPSetupResponse,
   TOTPVerifyRequest,
   TOTPVerifyResponse,
-  UpgradeRequest,
   UserCreate,
   UserRead,
   UserUpdate,
@@ -726,24 +723,6 @@ export const buildListPartsApi = {
   // Count all build list parts
   countBuildListParts: () =>
     apiClient.get<{ count: number }>('/build-list-parts/count'),
-};
-
-// Subscriptions API
-export const subscriptionsApi = {
-  getStatus: () => apiClient.get<SubscriptionStatus>('/subscriptions/status'),
-  upgrade: (data: UpgradeRequest) =>
-    apiClient.post<SubscriptionResponse>('/subscriptions/upgrade', data),
-  cancel: () => apiClient.post<SubscriptionResponse>('/subscriptions/cancel'),
-  checkCreationLimits: (resourceType: string) =>
-    apiClient.get<Record<string, boolean>>('/subscriptions/limits/check', {
-      params: { resource_type: resourceType },
-    }),
-  checkGlobalPartCreationLimit: () =>
-    apiClient.get<Record<string, boolean>>(
-      '/subscriptions/limits/check/global-part'
-    ),
-  countSubscriptions: () =>
-    apiClient.get<{ count: number }>('/subscriptions/count'),
 };
 
 // Auth API

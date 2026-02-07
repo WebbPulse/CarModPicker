@@ -54,10 +54,6 @@ const GlobalPartsCatalog = lazy(
 const UserGlobalParts = lazy(
   () => import('./pages/globalParts/UserGlobalParts.tsx')
 );
-const SubscriptionManagement = lazy(
-  () => import('./pages/subscription/SubscriptionManagement.tsx')
-);
-
 function App() {
   return (
     <ErrorBoundary>
@@ -136,10 +132,6 @@ function App() {
                 <Route element={<EmailVerifiedRoute />}>
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/builder" element={<Builder />} />
-                  <Route
-                    path="/subscription"
-                    element={<SubscriptionManagement />}
-                  />
                   <Route
                     path="/my-global-parts"
                     element={<UserGlobalParts />}

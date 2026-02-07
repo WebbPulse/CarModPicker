@@ -20,7 +20,6 @@ import {
   globalPartsApi,
   imageApi,
   reportsApi,
-  subscriptionsApi,
   usersApi,
   votesApi,
 } from '../../services/Api';
@@ -37,7 +36,6 @@ interface EntityCounts {
   buildLogPosts: number | null;
   buildListParts: number | null;
   votes: number | null;
-  subscriptions: number | null;
   reports: number | null;
   bugReports: number | null;
 }
@@ -57,7 +55,6 @@ function AdminDashboard() {
     buildLogPosts: null,
     buildListParts: null,
     votes: null,
-    subscriptions: null,
     reports: null,
     bugReports: null,
   });
@@ -127,7 +124,6 @@ function AdminDashboard() {
         buildLogPostsCount,
         buildListPartsCount,
         votesCount,
-        subscriptionsCount,
         reportsCount,
         bugReportsCount,
       ] = await Promise.all([
@@ -145,10 +141,6 @@ function AdminDashboard() {
           'build list parts'
         ),
         fetchCount(() => votesApi.countVotes(), 'votes'),
-        fetchCount(
-          () => subscriptionsApi.countSubscriptions(),
-          'subscriptions'
-        ),
         fetchCount(() => reportsApi.countReports(), 'reports'),
         fetchCount(() => bugReportsApi.countBugReports(), 'bug reports'),
       ]);
@@ -165,7 +157,6 @@ function AdminDashboard() {
         buildLogPosts: buildLogPostsCount,
         buildListParts: buildListPartsCount,
         votes: votesCount,
-        subscriptions: subscriptionsCount,
         reports: reportsCount,
         bugReports: bugReportsCount,
       });
@@ -183,7 +174,6 @@ function AdminDashboard() {
         buildLogPostsCount === null &&
         buildListPartsCount === null &&
         votesCount === null &&
-        subscriptionsCount === null &&
         reportsCount === null &&
         bugReportsCount === null;
 
@@ -449,12 +439,6 @@ function AdminDashboard() {
                 <div className="text-sm text-gray-400 mb-1">Votes</div>
                 <div className="text-3xl font-bold text-teal-400">
                   {counts.votes?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Subscriptions</div>
-                <div className="text-3xl font-bold text-emerald-400">
-                  {counts.subscriptions?.toLocaleString() ?? '—'}
                 </div>
               </div>
               <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">

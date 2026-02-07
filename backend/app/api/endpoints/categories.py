@@ -33,7 +33,6 @@ class CategoryService(BaseCRUDService[DBCategory, CategoryCreate, CategoryRespon
         super().__init__(
             model=DBCategory,
             entity_name="category",
-            subscription_check_method=None,
         )
 
     def get_active_categories(self, db: Session) -> List[DBCategory]:
