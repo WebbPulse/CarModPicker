@@ -15,7 +15,9 @@ export function formatCarYearRange(
  * Normalize a car from the API so make/model/generation_name are always strings.
  * Handles backend refactor where make/model come from related Make/CarModel entities.
  */
-export function normalizeCarRead(car: CarRead | null | undefined): CarRead | null {
+export function normalizeCarRead(
+  car: CarRead | null | undefined
+): CarRead | null {
   if (car == null) return null;
   return {
     ...car,

@@ -295,11 +295,11 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">
-                        {formatCarYearRange(
-                          selectedGeneration.start_year,
-                          selectedGeneration.end_year
-                        )}
-                      </p>
+                      {formatCarYearRange(
+                        selectedGeneration.start_year,
+                        selectedGeneration.end_year
+                      )}
+                    </p>
                   </div>
                   <button
                     type="button"

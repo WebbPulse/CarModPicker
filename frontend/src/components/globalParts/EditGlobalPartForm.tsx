@@ -409,7 +409,10 @@ function EditGlobalPartForm({
           onChange={handleUniversalChange}
           className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
         />
-        <label htmlFor="global-part-universal-edit" className="text-sm text-gray-300">
+        <label
+          htmlFor="global-part-universal-edit"
+          className="text-sm text-gray-300"
+        >
           Universal part (fits all vehicles)
         </label>
       </div>

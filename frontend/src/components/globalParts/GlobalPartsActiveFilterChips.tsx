@@ -21,9 +21,9 @@ export interface GlobalPartsActiveFilterChipsProps {
   clearPriceRange: () => void;
 }
 
-const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> = (
-  props
-) => {
+const GlobalPartsActiveFilterChips: React.FC<
+  GlobalPartsActiveFilterChipsProps
+> = (props) => {
   const {
     hasActiveFilters,
     selectedCategoryIds,
@@ -90,7 +90,8 @@ const GlobalPartsActiveFilterChips: React.FC<GlobalPartsActiveFilterChipsProps> 
             ? 'Universal'
             : selectedGeneration
               ? `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim()
-              : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() || 'Vehicle'}
+              : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() ||
+                'Vehicle'}
           <button
             type="button"
             onClick={clearVehicleFilter}

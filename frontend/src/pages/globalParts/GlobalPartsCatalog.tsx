@@ -129,16 +129,15 @@ const GlobalPartsCatalog: React.FC = () => {
             carsById={filters.carsById}
           />
 
-          {filters.paginationInfo &&
-            filters.paginationInfo.total_pages > 1 && (
-              <Pagination
-                currentPage={filters.paginationInfo.current_page}
-                totalPages={filters.paginationInfo.total_pages}
-                totalItems={filters.paginationInfo.total_items}
-                itemsPerPage={filters.paginationInfo.items_per_page}
-                onPageChange={filters.setCurrentPage}
-              />
-            )}
+          {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (
+            <Pagination
+              currentPage={filters.paginationInfo.current_page}
+              totalPages={filters.paginationInfo.total_pages}
+              totalItems={filters.paginationInfo.total_items}
+              itemsPerPage={filters.paginationInfo.items_per_page}
+              onPageChange={filters.setCurrentPage}
+            />
+          )}
         </main>
       </div>
 

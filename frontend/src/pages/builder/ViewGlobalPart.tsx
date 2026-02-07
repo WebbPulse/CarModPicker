@@ -448,11 +448,14 @@ function ViewGlobalPart() {
                       : 'Car-Specific Part'}
                   </h3>
                   {isLoadingCompatibleCars ? (
-                    <p className="text-sm text-gray-400">Loading compatible cars...</p>
+                    <p className="text-sm text-gray-400">
+                      Loading compatible cars...
+                    </p>
                   ) : compatibleCars.length > 0 ? (
                     <div className="mt-1">
                       <p className="text-sm text-gray-300 mb-2">
-                        This part fits the following {compatibleCars.length} vehicle
+                        This part fits the following {compatibleCars.length}{' '}
+                        vehicle
                         {compatibleCars.length !== 1 ? 's' : ''}:
                       </p>
                       <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
@@ -486,8 +489,8 @@ function ViewGlobalPart() {
                     No car linked yet
                   </h3>
                   <p className="text-sm text-gray-300">
-                    This part isn’t linked to specific cars yet. Mark as universal
-                    or add car fitment in edit.
+                    This part isn’t linked to specific cars yet. Mark as
+                    universal or add car fitment in edit.
                   </p>
                 </div>
               </div>

@@ -394,26 +394,15 @@ const BuildListsCatalog: React.FC = () => {
       ...(costMin.trim() !== '' &&
         !Number.isNaN(Number.parseFloat(costMin.trim())) &&
         Number.parseFloat(costMin.trim()) >= 0 && {
-          min_cost_cents: Math.round(
-            Number.parseFloat(costMin.trim()) * 100
-          ),
+          min_cost_cents: Math.round(Number.parseFloat(costMin.trim()) * 100),
         }),
       ...(costMax.trim() !== '' &&
         !Number.isNaN(Number.parseFloat(costMax.trim())) &&
         Number.parseFloat(costMax.trim()) >= 0 && {
-          max_cost_cents: Math.round(
-            Number.parseFloat(costMax.trim()) * 100
-          ),
+          max_cost_cents: Math.round(Number.parseFloat(costMax.trim()) * 100),
         }),
     }),
-    [
-      currentPage,
-      itemsPerPage,
-      sortBy,
-      debouncedSearchTerm,
-      costMin,
-      costMax,
-    ]
+    [currentPage, itemsPerPage, sortBy, debouncedSearchTerm, costMin, costMax]
   );
 
   // Fetch all build lists (paginated) when no vehicle filter is selected

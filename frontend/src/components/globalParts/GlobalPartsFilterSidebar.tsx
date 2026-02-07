@@ -179,10 +179,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
               {activeCategories
                 .filter((cat) => availableCategoryIds.includes(cat.id))
                 .map((cat) => (
-                  <label
-                    key={cat.id}
-                    className={checkboxRowClass}
-                  >
+                  <label key={cat.id} className={checkboxRowClass}>
                     <input
                       type="checkbox"
                       checked={selectedCategoryIds.includes(cat.id)}
@@ -225,10 +222,7 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                       .includes(brandSearchTerm.trim().toLowerCase())
                 )
                 .map((brand) => (
-                  <label
-                    key={brand.id}
-                    className={checkboxRowClass}
-                  >
+                  <label key={brand.id} className={checkboxRowClass}>
                     <input
                       type="checkbox"
                       checked={selectedBrandIds.includes(brand.id)}

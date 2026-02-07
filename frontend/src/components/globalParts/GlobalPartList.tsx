@@ -63,6 +63,81 @@ const MIN_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
   actions: 120,
 };
 
+const DEFAULT_CATEGORIES: CategoryResponse[] = [];
+const DEFAULT_BRANDS: BrandResponse[] = [];
+const DEFAULT_CARS_BY_ID: Record<number, CarRead> = {};
+
+type SortColumn =
+  | 'part'
+  | 'brand'
+  | 'part_number'
+  | 'category'
+  | 'fit'
+  | 'rating'
+  | 'price';
+
+interface SortableThProps {
+  column: SortColumn;
+  children: React.ReactNode;
+  align?: 'left' | 'right';
+  columnKey: TableColumnKey;
+  nextColumnKey?: TableColumnKey | undefined;
+  sortColumn: SortColumn;
+  sortDirection: 'asc' | 'desc';
+  onSort: (column: SortColumn) => void;
+  onResizeStart: (
+    leftKey: TableColumnKey,
+    rightKey: TableColumnKey
+  ) => (e: React.MouseEvent) => void;
+}
+
+function SortableTh({
+  column,
+  children,
+  align = 'left',
+  columnKey,
+  nextColumnKey,
+  sortColumn,
+  sortDirection,
+  onSort,
+  onResizeStart,
+}: SortableThProps) {
+  const isActive = sortColumn === column;
+  return (
+    <th
+      className={`relative px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
+        align === 'right' ? 'text-right' : 'text-left'
+      } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
+      onClick={() => onSort(column)}
+      role="columnheader"
+      aria-sort={
+        isActive
+          ? sortDirection === 'asc'
+            ? 'ascending'
+            : 'descending'
+          : undefined
+      }
+    >
+      <span className="flex items-center gap-1">
+        {children}
+        {isActive && (
+          <span className="text-indigo-400" aria-hidden>
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+      </span>
+      {nextColumnKey != null && (
+        <div
+          role="separator"
+          aria-label="Resize column"
+          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize touch-none hover:bg-indigo-500/50 active:bg-indigo-500/70 z-10"
+          onMouseDown={onResizeStart(columnKey, nextColumnKey)}
+        />
+      )}
+    </th>
+  );
+}
+
 function getCacheKey(params?: {
   skip?: number;
   limit?: number;
@@ -169,18 +244,10 @@ function GlobalPartList({
   onPaginationChange,
   onSortChange,
   layout = 'card',
-  categories = [],
-  brands = [],
-  carsById = {},
+  categories = DEFAULT_CATEGORIES,
+  brands = DEFAULT_BRANDS,
+  carsById = DEFAULT_CARS_BY_ID,
 }: GlobalPartListProps) {
-  type SortColumn =
-    | 'part'
-    | 'brand'
-    | 'part_number'
-    | 'category'
-    | 'fit'
-    | 'rating'
-    | 'price';
   const [sortColumn, setSortColumn] = useState<SortColumn>('rating');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -427,32 +494,38 @@ function GlobalPartList({
     [brands]
   );
 
-  const formatCarName = (car: CarRead) =>
-    `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
-    'Vehicle';
+  const formatCarName = useCallback(
+    (car: CarRead) =>
+      `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+      'Vehicle',
+    []
+  );
 
-  const getFitCell = (part: GlobalPartReadWithVotes) => {
-    if (part.is_universal) return { label: 'Universal', title: undefined };
-    const ids = part.car_ids ?? [];
-    const n = ids.length;
-    if (n === 0) return { label: '—', title: undefined };
-    if (n === 1) {
-      const firstId = ids[0];
-      const car = firstId != null ? carsById[firstId] : undefined;
+  const getFitCell = useCallback(
+    (part: GlobalPartReadWithVotes) => {
+      if (part.is_universal) return { label: 'Universal', title: undefined };
+      const ids = part.car_ids ?? [];
+      const n = ids.length;
+      if (n === 0) return { label: '—', title: undefined };
+      if (n === 1) {
+        const firstId = ids[0];
+        const car = firstId != null ? carsById[firstId] : undefined;
+        return {
+          label: car ? formatCarName(car) : '1 vehicle',
+          title: undefined,
+        };
+      }
+      const names = ids
+        .map((id) => carsById[id])
+        .filter((c): c is CarRead => c != null)
+        .map(formatCarName);
       return {
-        label: car ? formatCarName(car) : '1 vehicle',
-        title: undefined,
+        label: `${n} vehicles`,
+        title: names.length > 0 ? names.join('\n') : undefined,
       };
-    }
-    const names = ids
-      .map((id) => carsById[id])
-      .filter((c): c is CarRead => c != null)
-      .map(formatCarName);
-    return {
-      label: `${n} vehicles`,
-      title: names.length > 0 ? names.join('\n') : undefined,
-    };
-  };
+    },
+    [carsById, formatCarName]
+  );
 
   const getNetVotes = (part: GlobalPartReadWithVotes) =>
     (part.upvotes ?? 0) - (part.downvotes ?? 0);
@@ -506,7 +579,7 @@ function GlobalPartList({
     sortDirection,
     getCategoryName,
     getBrandName,
-    carsById,
+    getFitCell,
   ]);
 
   const totalTableWidth = useMemo(
@@ -514,53 +587,11 @@ function GlobalPartList({
     [tableColumnKeys, getColumnWidth]
   );
 
-  const SortableTh = ({
-    column,
-    children,
-    align = 'left',
-    columnKey,
-    nextColumnKey,
-  }: {
-    column: SortColumn;
-    children: React.ReactNode;
-    align?: 'left' | 'right';
-    columnKey: TableColumnKey;
-    nextColumnKey?: TableColumnKey | undefined;
-  }) => {
-    const isActive = sortColumn === column;
-    return (
-      <th
-        className={`relative px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
-          align === 'right' ? 'text-right' : 'text-left'
-        } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
-        onClick={() => handleSort(column)}
-        role="columnheader"
-        aria-sort={
-          isActive
-            ? sortDirection === 'asc'
-              ? 'ascending'
-              : 'descending'
-            : undefined
-        }
-      >
-        <span className="flex items-center gap-1">
-          {children}
-          {isActive && (
-            <span className="text-indigo-400" aria-hidden>
-              {sortDirection === 'asc' ? '↑' : '↓'}
-            </span>
-          )}
-        </span>
-        {nextColumnKey != null && (
-          <div
-            role="separator"
-            aria-label="Resize column"
-            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize touch-none hover:bg-indigo-500/50 active:bg-indigo-500/70 z-10"
-            onMouseDown={handleResizeStart(columnKey, nextColumnKey)}
-          />
-        )}
-      </th>
-    );
+  const sortableThProps = {
+    sortColumn,
+    sortDirection,
+    onSort: handleSort,
+    onResizeStart: handleResizeStart,
   };
 
   if (isLoadingState) {
@@ -610,6 +641,7 @@ function GlobalPartList({
               <thead>
                 <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
                   <SortableTh
+                    {...sortableThProps}
                     column="part"
                     columnKey="part"
                     nextColumnKey={tableColumnKeys[1]}
@@ -617,6 +649,7 @@ function GlobalPartList({
                     Part name
                   </SortableTh>
                   <SortableTh
+                    {...sortableThProps}
                     column="brand"
                     columnKey="brand"
                     nextColumnKey={tableColumnKeys[2]}
@@ -624,6 +657,7 @@ function GlobalPartList({
                     Brand
                   </SortableTh>
                   <SortableTh
+                    {...sortableThProps}
                     column="part_number"
                     columnKey="part_number"
                     nextColumnKey={categories.length > 0 ? 'category' : 'fit'}
@@ -632,6 +666,7 @@ function GlobalPartList({
                   </SortableTh>
                   {categories.length > 0 && (
                     <SortableTh
+                      {...sortableThProps}
                       column="category"
                       columnKey="category"
                       nextColumnKey="fit"
@@ -640,6 +675,7 @@ function GlobalPartList({
                     </SortableTh>
                   )}
                   <SortableTh
+                    {...sortableThProps}
                     column="fit"
                     columnKey="fit"
                     nextColumnKey={showVoteButtons ? 'rating' : 'price'}
@@ -648,6 +684,7 @@ function GlobalPartList({
                   </SortableTh>
                   {showVoteButtons && (
                     <SortableTh
+                      {...sortableThProps}
                       column="rating"
                       columnKey="rating"
                       nextColumnKey="price"
@@ -656,6 +693,7 @@ function GlobalPartList({
                     </SortableTh>
                   )}
                   <SortableTh
+                    {...sortableThProps}
                     column="price"
                     align="right"
                     columnKey="price"

@@ -341,129 +341,126 @@ function Search() {
 
       {/* Search Results (including "no results" state when currentQuery is set) */}
       {!isLoading && !error && currentQuery && (
-          <>
-            {/* Build Lists Results */}
-            <Card className="mb-6">
-              <SectionHeader
-                title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
-              />
-              {buildLists.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No build lists found.</p>
+        <>
+          {/* Build Lists Results */}
+          <Card className="mb-6">
+            <SectionHeader
+              title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
+            />
+            {buildLists.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No build lists found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {buildLists
+                    .slice(
+                      0,
+                      displayedCounts.build_lists ||
+                        Math.min(
+                          SEARCH_INITIAL_LIMITS.build_lists,
+                          buildLists.length
+                        )
+                    )
+                    .map((buildList) => (
+                      <BuildListItem key={buildList.id} buildList={buildList} />
+                    ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {buildLists
-                      .slice(
-                        0,
-                        displayedCounts.build_lists ||
-                          Math.min(
-                            SEARCH_INITIAL_LIMITS.build_lists,
-                            buildLists.length
-                          )
-                      )
-                      .map((buildList) => (
-                        <BuildListItem
-                          key={buildList.id}
-                          buildList={buildList}
-                        />
-                      ))}
+                {(pagination?.build_lists.has_next ||
+                  displayedCounts.build_lists < buildLists.length) && (
+                  <div className="mt-6 flex justify-center">
+                    <ActionButton
+                      onClick={() => loadMore('build_lists')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Loading...' : 'Load More Build Lists'}
+                    </ActionButton>
                   </div>
-                  {(pagination?.build_lists.has_next ||
-                    displayedCounts.build_lists < buildLists.length) && (
-                    <div className="mt-6 flex justify-center">
-                      <ActionButton
-                        onClick={() => loadMore('build_lists')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'Load More Build Lists'}
-                      </ActionButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
+                )}
+              </>
+            )}
+          </Card>
 
-            {/* Users Results */}
-            <Card className="mb-6">
-              <SectionHeader
-                title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
-              />
-              {users.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No users found.</p>
+          {/* Users Results */}
+          <Card className="mb-6">
+            <SectionHeader
+              title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
+            />
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p>No users found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {users
+                    .slice(
+                      0,
+                      displayedCounts.users ||
+                        Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
+                    )
+                    .map((user) => (
+                      <UserCard key={user.id} user={user} />
+                    ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {users
-                      .slice(
-                        0,
-                        displayedCounts.users ||
-                          Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
-                      )
-                      .map((user) => (
-                        <UserCard key={user.id} user={user} />
-                      ))}
+                {(pagination?.users.has_next ||
+                  displayedCounts.users < users.length) && (
+                  <div className="mt-6 flex justify-center">
+                    <ActionButton
+                      onClick={() => loadMore('users')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Loading...' : 'Load More Users'}
+                    </ActionButton>
                   </div>
-                  {(pagination?.users.has_next ||
-                    displayedCounts.users < users.length) && (
-                    <div className="mt-6 flex justify-center">
-                      <ActionButton
-                        onClick={() => loadMore('users')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'Load More Users'}
-                      </ActionButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
+                )}
+              </>
+            )}
+          </Card>
 
-            {/* Parts Results - table layout matching parts catalog (no filters) */}
-            <div className="mb-6">
-              <GlobalPartList
-                data={globalPartsWithVotes}
-                layout="table"
-                title={`Parts (${pagination?.global_parts ? searchResults?.global_parts.total ?? globalParts.length : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
-                emptyMessage="No parts found."
-                categories={[]}
-                brands={[]}
-                carsById={{}}
-              />
-              {(pagination?.global_parts.has_next ||
-                displayedCounts.global_parts < globalParts.length) && (
-                <div className="mt-6 flex justify-center">
-                  <ActionButton
-                    onClick={() => loadMore('global_parts')}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Loading...' : 'Load More Parts'}
-                  </ActionButton>
+          {/* Parts Results - table layout matching parts catalog (no filters) */}
+          <div className="mb-6">
+            <GlobalPartList
+              data={globalPartsWithVotes}
+              layout="table"
+              title={`Parts (${pagination?.global_parts ? (searchResults?.global_parts.total ?? globalParts.length) : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
+              emptyMessage="No parts found."
+              categories={[]}
+              brands={[]}
+              carsById={{}}
+            />
+            {(pagination?.global_parts.has_next ||
+              displayedCounts.global_parts < globalParts.length) && (
+              <div className="mt-6 flex justify-center">
+                <ActionButton
+                  onClick={() => loadMore('global_parts')}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Load More Parts'}
+                </ActionButton>
+              </div>
+            )}
+          </div>
+
+          {/* No Results Message */}
+          {buildLists.length === 0 &&
+            users.length === 0 &&
+            globalParts.length === 0 &&
+            currentQuery && (
+              <Card>
+                <div className="text-center py-12">
+                  <p className="text-xl text-gray-400 mb-2">
+                    No results found for "{currentQuery}"
+                  </p>
+                  <p className="text-gray-500">
+                    Try different search terms or check your spelling.
+                  </p>
                 </div>
-              )}
-            </div>
-
-            {/* No Results Message */}
-            {buildLists.length === 0 &&
-              users.length === 0 &&
-              globalParts.length === 0 &&
-              currentQuery && (
-                <Card>
-                  <div className="text-center py-12">
-                    <p className="text-xl text-gray-400 mb-2">
-                      No results found for "{currentQuery}"
-                    </p>
-                    <p className="text-gray-500">
-                      Try different search terms or check your spelling.
-                    </p>
-                  </div>
-                </Card>
-              )}
-          </>
-        )}
+              </Card>
+            )}
+        </>
+      )}
 
       {/* Initial State (no search performed yet or search cleared) */}
       {!isLoading && !error && !currentQuery && (

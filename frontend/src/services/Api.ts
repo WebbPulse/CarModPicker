@@ -230,7 +230,8 @@ export const carsApi = {
     apiClient.get<Record<string, number>>('/cars/stats/makes'),
   countCars: () => apiClient.get<{ count: number }>('/cars/count'),
   countMakes: () => apiClient.get<{ count: number }>('/cars/makes/count'),
-  countCarModels: () => apiClient.get<{ count: number }>('/cars/car-models/count'),
+  countCarModels: () =>
+    apiClient.get<{ count: number }>('/cars/car-models/count'),
 };
 
 // Car Generation API (read-only; uses /cars endpoints; Car = generation in backend)
@@ -292,7 +293,9 @@ export const buildListsApi = {
     apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
       '/build-lists/with-votes',
       {
-        params: params ? paramsWithArrays(params as Record<string, unknown>) : undefined,
+        params: params
+          ? paramsWithArrays(params as Record<string, unknown>)
+          : undefined,
       }
     ),
   getBuildListsByCar: (
@@ -330,8 +333,17 @@ function paramsWithArrays(params: Record<string, unknown>): URLSearchParams {
     if (value === undefined || value === null) continue;
     if (Array.isArray(value)) {
       value.forEach((v) => search.append(key, String(v)));
-    } else {
+    } else if (typeof value === 'object') {
+      search.append(key, JSON.stringify(value));
+    } else if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    ) {
       search.append(key, String(value));
+    } else if (typeof value === 'symbol') {
+      search.append(key, value.toString());
     }
   }
   return search;

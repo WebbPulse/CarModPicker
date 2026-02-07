@@ -12,7 +12,7 @@ interface BuildListCardProps {
 function hasVoteData(
   bl: BuildListRead | BuildListReadWithVotes
 ): bl is BuildListReadWithVotes {
-  return 'total_votes' in bl && typeof (bl as BuildListReadWithVotes).total_votes === 'number';
+  return 'total_votes' in bl && typeof bl.total_votes === 'number';
 }
 
 function formatTotalCost(cents: number): string {
@@ -26,9 +26,8 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
   const showVoteBadge = hasVoteData(buildList);
   const totalVotes = showVoteBadge ? buildList.total_votes : 0;
   const totalCostCents =
-    'total_cost_cents' in buildList &&
-    typeof (buildList as BuildListReadWithVotes).total_cost_cents === 'number'
-      ? (buildList as BuildListReadWithVotes).total_cost_cents
+    hasVoteData(buildList) && typeof buildList.total_cost_cents === 'number'
+      ? buildList.total_cost_cents
       : null;
 
   return (

@@ -12,10 +12,7 @@ import PageHeader from '../../components/layout/PageHeader';
 import { useAuth } from '../../hooks/useAuth';
 import { useGlobalPartsFilters } from '../../hooks/useGlobalPartsFilters';
 import { buildListPartsApi, globalPartsApi } from '../../services/Api';
-import type {
-  GlobalPartReadWithVotes,
-  PaginationInfo,
-} from '../../types/Api';
+import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
 
 const UserGlobalParts: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -178,16 +175,15 @@ const UserGlobalParts: React.FC = () => {
             carsById={filters.carsById}
           />
 
-          {filters.paginationInfo &&
-            filters.paginationInfo.total_pages > 1 && (
-              <Pagination
-                currentPage={filters.paginationInfo.current_page}
-                totalPages={filters.paginationInfo.total_pages}
-                totalItems={filters.paginationInfo.total_items}
-                itemsPerPage={filters.paginationInfo.items_per_page}
-                onPageChange={filters.setCurrentPage}
-              />
-            )}
+          {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (
+            <Pagination
+              currentPage={filters.paginationInfo.current_page}
+              totalPages={filters.paginationInfo.total_pages}
+              totalItems={filters.paginationInfo.total_items}
+              itemsPerPage={filters.paginationInfo.items_per_page}
+              onPageChange={filters.setCurrentPage}
+            />
+          )}
         </main>
       </div>
 
@@ -198,7 +194,7 @@ const UserGlobalParts: React.FC = () => {
           setDeletingPartName('');
           setBuildListCount(null);
         }}
-        onConfirm={handleDelete}
+        onConfirm={() => void handleDelete()}
         itemName={deletingPartName}
         itemType="part"
         isProcessing={isDeleting}

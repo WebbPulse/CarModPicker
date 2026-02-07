@@ -483,7 +483,6 @@ export interface BugReportUpdate {
   assigned_to?: number | null;
 }
 
-
 // Build list part relationship
 export interface BuildListPartCreate {
   global_part_id?: number | null;

@@ -38,32 +38,37 @@ const CarList: React.FC<CarListProps> = ({
 }) => {
   const [internalCars, setInternalCars] = useState<CarRead[] | null>(null);
 
-  const fetchCarsRequestFn = useCallback(() => {
-    if (searchQuery) {
-      return carsApi.searchCars(searchQuery, { skip, limit });
-    }
-    if (generationId) {
-      // In the new backend, a Car is a generation; get single car by id
-      return carsApi.getCar(generationId);
-    }
-    if (make && year) {
-      return carsApi.searchCars(`${make} ${year}`, { skip, limit });
-    }
-    if (make) {
-      return carsApi.getCarsByMake(make, { skip, limit });
-    }
-    if (year) {
-      return carsApi.searchCars(String(year), { skip, limit });
-    }
-    return carsApi.listCars({ skip, limit });
-  }, [searchQuery, make, year, generationId, skip, limit]);
+  const fetchCarsRequestFn = useCallback(
+    // Payload unused; useApiRequest requires matching signature
+    async (payload?: unknown) => {
+      void payload;
+      let response: Awaited<ReturnType<typeof carsApi.listCars>>;
+      if (searchQuery) {
+        response = await carsApi.searchCars(searchQuery, { skip, limit });
+      } else if (generationId) {
+        // In the new backend, a Car is a generation; get single car by id
+        const single = await carsApi.getCar(generationId);
+        return { ...single, data: [single.data] };
+      } else if (make && year) {
+        response = await carsApi.searchCars(`${make} ${year}`, { skip, limit });
+      } else if (make) {
+        response = await carsApi.getCarsByMake(make, { skip, limit });
+      } else if (year) {
+        response = await carsApi.searchCars(String(year), { skip, limit });
+      } else {
+        response = await carsApi.listCars({ skip, limit });
+      }
+      return response;
+    },
+    [searchQuery, make, year, generationId, skip, limit]
+  );
 
   const {
     data: fetchedApiCars,
     isLoading,
     error,
     executeRequest: fetchCars,
-  } = useApiRequest(fetchCarsRequestFn);
+  } = useApiRequest<CarRead[]>(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchCars();
@@ -71,10 +76,7 @@ const CarList: React.FC<CarListProps> = ({
 
   useEffect(() => {
     if (fetchedApiCars != null) {
-      const list = Array.isArray(fetchedApiCars)
-        ? fetchedApiCars
-        : [fetchedApiCars];
-      setInternalCars(normalizeCarReadList(list));
+      setInternalCars(normalizeCarReadList(fetchedApiCars));
     } else if (!isLoading && !error) {
       setInternalCars([]);
     }

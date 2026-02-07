@@ -764,7 +764,10 @@ function CreateBuildListPartForm({
               onChange={handleUniversalChange}
               className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
             />
-            <label htmlFor="create-part-universal" className="text-sm text-gray-300">
+            <label
+              htmlFor="create-part-universal"
+              className="text-sm text-gray-300"
+            >
               Universal part (fits all vehicles)
             </label>
           </div>

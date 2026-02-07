@@ -27,9 +27,13 @@ function vehicleChipLabel(
 ): string {
   if (showUniversalParts) return 'Universal';
   if (selectedGeneration)
-    return `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() || 'Vehicle';
+    return (
+      `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() ||
+      'Vehicle'
+    );
   if (selectedMake) {
-    const makeModel = `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim();
+    const makeModel =
+      `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim();
     return makeModel || 'Vehicle';
   }
   return 'Vehicle';
