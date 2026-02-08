@@ -394,8 +394,12 @@ export const globalPartsApi = {
     search?: string;
     user_id?: number;
   }) =>
-    apiClient.get<{ category_ids: number[]; brand_ids: number[] }>(
-      '/global-parts/filter-options',
+    apiClient.get<{
+      category_ids: number[];
+      brand_ids: number[];
+      car_ids?: number[];
+      make_names?: string[];
+    }>('/global-parts/filter-options',
       {
         params: params
           ? paramsWithArrays(params as Record<string, unknown>)

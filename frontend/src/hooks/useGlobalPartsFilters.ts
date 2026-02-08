@@ -72,7 +72,12 @@ export interface UseGlobalPartsFiltersReturn {
   activeCategories: CategoryResponse[];
   uniqueModels: string[];
   generations: CarRead[];
-  filterOptions: { category_ids: number[]; brand_ids: number[] } | null;
+  filterOptions: {
+    category_ids: number[];
+    brand_ids: number[];
+    car_ids?: number[];
+    make_names?: string[];
+  } | null;
 
   // Derived
   availableCategoryIds: number[];
@@ -113,6 +118,8 @@ export function useGlobalPartsFilters(
   const [filterOptions, setFilterOptions] = useState<{
     category_ids: number[];
     brand_ids: number[];
+    car_ids?: number[];
+    make_names?: string[];
   } | null>(null);
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
@@ -192,15 +199,39 @@ export function useGlobalPartsFilters(
     void loadCars();
   }, [fetchMakes, loadCategories, loadBrands, loadCars]);
 
+  // When brand/category/search filters are applied, filter-options returns make_names;
+  // otherwise use all makes from makeStats.
   useEffect(() => {
-    if (makeStats) {
+    if (filterOptions?.make_names?.length) {
+      setAvailableMakes([...filterOptions.make_names].sort());
+    } else if (makeStats) {
       setAvailableMakes(Object.keys(makeStats).sort());
     }
-  }, [makeStats]);
+  }, [makeStats, filterOptions?.make_names]);
 
+  // When vehicle options are scoped by filters, clear vehicle selection if selected make is no longer valid
   useEffect(() => {
-    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
-  }, [carsByMake]);
+    if (
+      filterOptions?.make_names?.length &&
+      selectedMake &&
+      !filterOptions.make_names.includes(selectedMake)
+    ) {
+      setSelectedMake('');
+      setSelectedModel('');
+      setSelectedGeneration(null);
+    }
+  }, [filterOptions?.make_names, selectedMake]);
+
+  // Restrict to car_ids from filter-options when brand/category/search filters are applied
+  useEffect(() => {
+    const list = normalizeCarReadList(carsByMake ?? undefined);
+    if (filterOptions?.car_ids?.length) {
+      const allowed = new Set(filterOptions.car_ids);
+      setAvailableCars(list.filter((c) => c.id != null && allowed.has(c.id)));
+    } else {
+      setAvailableCars(list);
+    }
+  }, [carsByMake, filterOptions?.car_ids]);
 
   const generations = useMemo(
     () =>

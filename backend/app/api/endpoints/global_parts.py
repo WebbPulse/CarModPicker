@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.car import Car as DBCar
+from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.global_part_car import global_part_cars
+from app.api.models.make import Make as DBMake
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
@@ -620,7 +622,45 @@ async def get_global_parts_filter_options(
         row[0]
         for row in q.with_entities(DBGlobalPart.brand_id).distinct().filter(DBGlobalPart.brand_id.isnot(None)).all()
     ]
-    return {"category_ids": available_categories, "brand_ids": available_brands}
+    result: Dict[str, Any] = {"category_ids": available_categories, "brand_ids": available_brands}
+
+    # When brand/category/search filters are applied, return vehicle options (car_ids, make_names)
+    # so the frontend can restrict make/model/generation dropdowns to vehicles that have matching parts.
+    has_scoping_filters = bool(category_ids or brand_ids or (search and search.strip()))
+    if has_scoping_filters:
+        q_no_car = _global_parts_base_query(
+            db,
+            category_ids=category_ids,
+            brand_ids=brand_ids,
+            car_ids=None,
+            search=search,
+            user_id=user_id,
+            retailer_id=None,
+        )
+        available_car_ids = [
+            row[0]
+            for row in q_no_car.join(
+                global_part_cars, DBGlobalPart.id == global_part_cars.c.global_part_id
+            )
+            .with_entities(global_part_cars.c.car_id)
+            .distinct()
+            .all()
+        ]
+        result["car_ids"] = available_car_ids
+        if available_car_ids:
+            make_rows = (
+                db.query(DBMake.name)
+                .join(DBCarModel, DBCarModel.make_id == DBMake.id)
+                .join(DBCar, DBCar.car_model_id == DBCarModel.id)
+                .filter(DBCar.id.in_(available_car_ids))
+                .distinct()
+                .all()
+            )
+            result["make_names"] = sorted({row[0] for row in make_rows if row[0]})
+        else:
+            result["make_names"] = []
+
+    return result
 
 
 @router.get(
