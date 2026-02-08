@@ -38,8 +38,7 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
 
-const fetchCarsRequestFn = () =>
-  carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 const BuildListParts: React.FC<BuildListPartsProps> = ({
   buildListId,
@@ -106,7 +105,14 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     void fetchCategories();
     void fetchBrands();
     void fetchCars();
-  }, [buildListId, refreshKey, fetchBuildListParts, fetchCategories, fetchBrands, fetchCars]);
+  }, [
+    buildListId,
+    refreshKey,
+    fetchBuildListParts,
+    fetchCategories,
+    fetchBrands,
+    fetchCars,
+  ]);
 
   // Helper function to check if user can edit a specific build list part
   const canEditBuildListPart = (
