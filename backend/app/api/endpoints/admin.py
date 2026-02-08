@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_admin_user
-from app.db.session import get_db
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.car import Car as DBCar
 from app.api.models.category import Category as DBCategory
@@ -32,7 +31,7 @@ from app.core.init_categories import init_part_categories
 from app.crawlers.adapters import ADAPTER_REGISTRY
 from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC
 from app.crawlers.runner import run_crawlers
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, get_db
 
 logger = logging.getLogger(__name__)
 
