@@ -399,13 +399,11 @@ export const globalPartsApi = {
       brand_ids: number[];
       car_ids?: number[];
       make_names?: string[];
-    }>('/global-parts/filter-options',
-      {
-        params: params
-          ? paramsWithArrays(params as Record<string, unknown>)
-          : undefined,
-      }
-    ),
+    }>('/global-parts/filter-options', {
+      params: params
+        ? paramsWithArrays(params as Record<string, unknown>)
+        : undefined,
+    }),
 
   // Filter by category
   getGlobalPartsByCategory: (
@@ -1045,7 +1043,10 @@ export const adminApi = {
 
   /** Rerun category, car, and optionally brand inference on all global parts (admin only). */
   rerunInference: (body: RerunInferenceRequest) =>
-    apiClient.post<RerunInferenceResponse>('/admin/global-parts/rerun-inference', body),
+    apiClient.post<RerunInferenceResponse>(
+      '/admin/global-parts/rerun-inference',
+      body
+    ),
 
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllGlobalParts: () =>

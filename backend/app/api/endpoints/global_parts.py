@@ -413,10 +413,7 @@ async def read_global_parts_with_votes(
     # Get total count from base query (after price filter)
     total = base_query.count()
 
-    net_votes = (
-        func.coalesce(upvote_counts.c.upvote_count, 0)
-        - func.coalesce(downvote_counts.c.downvote_count, 0)
-    )
+    net_votes = func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
 
     # Sort: apply server-side order so pagination returns globally sorted results
     if sort == "lowest_price":
@@ -680,9 +677,7 @@ async def get_global_parts_filter_options(
         )
         available_car_ids = [
             row[0]
-            for row in q_no_car.join(
-                global_part_cars, DBGlobalPart.id == global_part_cars.c.global_part_id
-            )
+            for row in q_no_car.join(global_part_cars, DBGlobalPart.id == global_part_cars.c.global_part_id)
             .with_entities(global_part_cars.c.car_id)
             .distinct()
             .all()

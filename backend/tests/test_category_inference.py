@@ -82,10 +82,7 @@ class TestInferCategory:
             == "suspension"
         )
         assert infer_category("Cusco Front Power Brace MKV Supra GR A90 / A91", None) == "suspension"
-        assert (
-            infer_category("HKS - Full Carbon Strut Brace, MKV A90 Supra", "Carbon strut brace.")
-            == "suspension"
-        )
+        assert infer_category("HKS - Full Carbon Strut Brace, MKV A90 Supra", "Carbon strut brace.") == "suspension"
 
     def test_fuel_pressure_gauge_engine(self) -> None:
         # Fuel pressure gauge → engine (not interior)
@@ -109,29 +106,17 @@ class TestInferCategory:
 
     def test_door_garnish_and_tow_hook_body(self) -> None:
         # Door garnish, tow hook → body
-        assert (
-            infer_category("Rexpeed V1 Forged Carbon Side Door Garnish MKV Supra GR", None)
-            == "body"
-        )
-        assert (
-            infer_category("Perrin Performance Front Tow Hook, MKV Supra GR", "Tow hook for show.")
-            == "body"
-        )
+        assert infer_category("Rexpeed V1 Forged Carbon Side Door Garnish MKV Supra GR", None) == "body"
+        assert infer_category("Perrin Performance Front Tow Hook, MKV Supra GR", "Tow hook for show.") == "body"
 
     def test_engine_cover_and_ignition_engine(self) -> None:
         # Engine cover, ignition coil → engine (not other)
         assert infer_category("Eventuri Toyota A90 Supra Black Carbon Engine Cover", None) == "engine"
-        assert (
-            infer_category("Dinan - Ignition Coil B Series Red MKV Supra A90", "Ignition coils.")
-            == "engine"
-        )
+        assert infer_category("Dinan - Ignition Coil B Series Red MKV Supra A90", "Ignition coils.") == "engine"
 
     def test_storage_compartment_interior(self) -> None:
         # Storage compartment cover → interior (not other)
-        assert (
-            infer_category("Rexpeed Dry Carbon Storage Compartment Cover, MKV Supra", None)
-            == "interior"
-        )
+        assert infer_category("Rexpeed Dry Carbon Storage Compartment Cover, MKV Supra", None) == "interior"
 
     def test_door_switch_panel_interior(self) -> None:
         # Door switch panel → interior (not body)
@@ -144,16 +129,10 @@ class TestInferCategory:
         )
 
     def test_lug_bolt_wheels(self) -> None:
-        assert (
-            infer_category("Dinan Lug Bolts M14X1.25 33MM MKV Supra A90", "Lug bolts for spacers.")
-            == "wheels"
-        )
+        assert infer_category("Dinan Lug Bolts M14X1.25 33MM MKV Supra A90", "Lug bolts for spacers.") == "wheels"
 
     def test_wind_buffeting_body(self) -> None:
-        assert (
-            infer_category("AMS Performance Anti-Wind Buffeting Kit - MKV Supra", "Fixes wind noise.")
-            == "body"
-        )
+        assert infer_category("AMS Performance Anti-Wind Buffeting Kit - MKV Supra", "Fixes wind noise.") == "body"
 
     def test_other_export_engine_lighting_body_drivetrain(self) -> None:
         """Parts from 'other' export that should infer to engine, lighting, body, suspension, drivetrain, exhaust."""
@@ -172,10 +151,7 @@ class TestInferCategory:
             == "engine"
         )
         # Air filter -> engine
-        assert (
-            infer_category("aFe MKV Supra GR Magnum FLOW Pro 5R Air Filter", "Pro 5R air filter media.")
-            == "engine"
-        )
+        assert infer_category("aFe MKV Supra GR Magnum FLOW Pro 5R Air Filter", "Pro 5R air filter media.") == "engine"
         # Rod set -> engine
         assert infer_category("Boost Logic MK5 Supra Rod Set", None) == "engine"
         # Reverse light cover -> lighting
@@ -189,11 +165,17 @@ class TestInferCategory:
             == "interior"
         )
         # Rock guards -> body
-        assert infer_category("Rexpeed Dry Carbon Rock Guards (4pcs) Toyota Supra GR A90", "4 pcs for 2020+ Supra.") == "body"
+        assert (
+            infer_category("Rexpeed Dry Carbon Rock Guards (4pcs) Toyota Supra GR A90", "4 pcs for 2020+ Supra.")
+            == "body"
+        )
         # GR Badge -> body
         assert infer_category('JDC Titanium "GR" Badge (GR Supra/GR 86/GR Corolla)', "Replacement GR badge.") == "body"
         # Reflector set -> lighting
-        assert infer_category("Rexpeed Painted Front & Rear Reflector Set", "Painted reflectors, 3M adhesive.") == "lighting"
+        assert (
+            infer_category("Rexpeed Painted Front & Rear Reflector Set", "Painted reflectors, 3M adhesive.")
+            == "lighting"
+        )
         # LPFP line, throttle booster -> engine
         assert infer_category("PFS - Upgraded LPFP Line MKV Supra A90", "Upgraded LPFP line plug-and-play.") == "engine"
         assert infer_category("Dinan - Throttle Booster MKV Supra A90", "Custom throttle curve.") == "engine"
@@ -207,12 +189,16 @@ class TestInferCategory:
         )
         # Short shift kit -> drivetrain
         assert (
-            infer_category("Rogue Engineering - Short Shift Kit A90 Toyota Supra", "Short shift lever kit for MKV Supra.")
+            infer_category(
+                "Rogue Engineering - Short Shift Kit A90 Toyota Supra", "Short shift lever kit for MKV Supra."
+            )
             == "drivetrain"
         )
         # Exhaust conversion kit -> exhaust
         assert (
-            infer_category("AWE Track-to-Non-Resonated-Touring Edition Conversion Kit - 2020+ A90 Supra", "Conversion kit.")
+            infer_category(
+                "AWE Track-to-Non-Resonated-Touring Edition Conversion Kit - 2020+ A90 Supra", "Conversion kit."
+            )
             == "exhaust"
         )
 

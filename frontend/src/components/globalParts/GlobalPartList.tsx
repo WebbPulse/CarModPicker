@@ -160,7 +160,10 @@ function sortParamToColumnAndDirection(sortParam: string): {
   sortColumn: SortColumn;
   sortDirection: 'asc' | 'desc';
 } {
-  const map: Record<string, { sortColumn: SortColumn; sortDirection: 'asc' | 'desc' }> = {
+  const map: Record<
+    string,
+    { sortColumn: SortColumn; sortDirection: 'asc' | 'desc' }
+  > = {
     votes_desc: { sortColumn: 'rating', sortDirection: 'desc' },
     votes_asc: { sortColumn: 'rating', sortDirection: 'asc' },
     lowest_price: { sortColumn: 'price', sortDirection: 'asc' },
@@ -301,7 +304,9 @@ function GlobalPartList({
   carsById = DEFAULT_CARS_BY_ID,
 }: GlobalPartListProps) {
   const [localSortColumn, setLocalSortColumn] = useState<SortColumn>('rating');
-  const [localSortDirection, setLocalSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [localSortDirection, setLocalSortDirection] = useState<'asc' | 'desc'>(
+    'desc'
+  );
 
   const isControlledSort = controlledSortParam != null && onSortChange != null;
   const { sortColumn, sortDirection } = isControlledSort
@@ -439,7 +444,10 @@ function GlobalPartList({
             : column === 'rating' || column === 'price'
               ? 'desc'
               : 'asc';
-        const newSortParam = columnAndDirectionToSortParam(column, nextDirection);
+        const newSortParam = columnAndDirectionToSortParam(
+          column,
+          nextDirection
+        );
         onSortChange(newSortParam);
       } else {
         if (localSortColumn === column) {
@@ -453,13 +461,7 @@ function GlobalPartList({
         onSortChange?.();
       }
     },
-    [
-      isControlledSort,
-      onSortChange,
-      sortColumn,
-      sortDirection,
-      localSortColumn,
-    ]
+    [isControlledSort, onSortChange, sortColumn, sortDirection, localSortColumn]
   );
 
   const effectiveParams = useMemo(() => {

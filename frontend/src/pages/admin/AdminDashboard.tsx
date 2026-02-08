@@ -138,7 +138,9 @@ function AdminDashboard() {
   const [isRerunningInference, setIsRerunningInference] = useState(false);
   const [rerunInferenceResult, setRerunInferenceResult] =
     useState<RerunInferenceResponse | null>(null);
-  const [rerunInferenceError, setRerunInferenceError] = useState<string | null>(null);
+  const [rerunInferenceError, setRerunInferenceError] = useState<string | null>(
+    null
+  );
   const [reassignBrand, setReassignBrand] = useState(true);
 
   // Redirect non-admin users
@@ -932,8 +934,9 @@ function AdminDashboard() {
                 Re-run inference logic on every global part and reassign
                 category, car associations, and optionally brand. Uses part
                 name, description, and product URL (from first listing) to infer
-                category and cars; brand is inferred from &quot;Brand - Product&quot;
-                name prefix when enabled (matches existing brands only).
+                category and cars; brand is inferred from &quot;Brand -
+                Product&quot; name prefix when enabled (matches existing brands
+                only).
               </p>
               <p className="text-sm text-neutral-400 mb-4">
                 Global parts:{' '}
@@ -951,7 +954,8 @@ function AdminDashboard() {
                   className="rounded border-gray-600 bg-gray-700 text-violet-500 focus:ring-violet-500"
                 />
                 <span className="text-neutral-300">
-                  Reassign brand from name (e.g. &quot;MST Performance - Intake&quot; → MST Performance)
+                  Reassign brand from name (e.g. &quot;MST Performance -
+                  Intake&quot; → MST Performance)
                 </span>
               </label>
             </div>

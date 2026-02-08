@@ -27,7 +27,7 @@ from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
-from .core.logging import ColorizedFormatter, LOG_FORMAT
+from .core.logging import LOG_FORMAT, ColorizedFormatter
 from .db.session import check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)

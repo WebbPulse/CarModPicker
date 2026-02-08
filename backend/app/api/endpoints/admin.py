@@ -499,12 +499,7 @@ def _rerun_inference_impl(db: Session, reassign_brand: bool) -> Dict[str, Any]:
     Rerun category, car, and optionally brand inference on all global parts.
     Returns dict with updated_count, error_count, errors (list of first 20 messages).
     """
-    parts = (
-        db.query(DBGlobalPart)
-        .options(joinedload(DBGlobalPart.part_listings))
-        .order_by(DBGlobalPart.id)
-        .all()
-    )
+    parts = db.query(DBGlobalPart).options(joinedload(DBGlobalPart.part_listings)).order_by(DBGlobalPart.id).all()
     # Resolve category by name (cache); always have "other" fallback
     categories_by_name: Dict[str, int] = {}
     other_cat = db.query(DBCategory).filter(DBCategory.name == "other", DBCategory.is_active).first()
@@ -588,7 +583,11 @@ async def rerun_global_parts_inference(
     """
     db = SessionLocal()
     try:
-        logger.info("Admin %s triggered rerun inference on all global parts (reassign_brand=%s)", current_user.id, body.reassign_brand)
+        logger.info(
+            "Admin %s triggered rerun inference on all global parts (reassign_brand=%s)",
+            current_user.id,
+            body.reassign_brand,
+        )
         result = await asyncio.to_thread(_rerun_inference_impl, db, body.reassign_brand)
         return RerunInferenceResponse(**result)
     except Exception as e:

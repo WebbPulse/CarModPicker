@@ -303,7 +303,7 @@ class TestInferCarGenerations:
     def test_afe_takeda_supra_exhaust(self) -> None:
         """aFe Takeda exhaust 'off your Supra' should infer Toyota Supra A90."""
         result = infer_car_generations(
-            "aFe Takeda 3-1/2\" Cat-Back Single Exit Exhaust",
+            'aFe Takeda 3-1/2" Cat-Back Single Exit Exhaust',
             "Weight reduction: shaves 26 pounds off your Supra. Direct bolt-on.",
         )
         assert ("Toyota", "Supra", "A90") in result

@@ -71,42 +71,28 @@ def _get_crawler_user(db: Session) -> DBUser:
     return user
 
 
-def _resolve_crawler_user(
-    db: Session, user_id_override: Optional[int] = None
-) -> DBUser:
+def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
     """
     Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
     """
     if user_id_override is not None:
         user = db.query(DBUser).filter(DBUser.id == user_id_override).first()
         if not user:
-            raise CrawlerConfigError(
-                f"Crawler user_id={user_id_override}: no user found."
-            )
+            raise CrawlerConfigError(f"Crawler user_id={user_id_override}: no user found.")
         if user.disabled:
-            raise CrawlerConfigError(
-                f"Crawler user_id={user_id_override}: user is disabled."
-            )
+            raise CrawlerConfigError(f"Crawler user_id={user_id_override}: user is disabled.")
         return user
     return _get_crawler_user(db)
 
 
-def _resolve_default_category_id(
-    db: Session, category_id_override: Optional[int] = None
-) -> int:
+def _resolve_default_category_id(db: Session, category_id_override: Optional[int] = None) -> int:
     """
     Resolve default category. Uses category_id_override if provided, else env vars.
     """
     if category_id_override is not None:
-        cat = (
-            db.query(DBCategory)
-            .filter(DBCategory.id == category_id_override)
-            .first()
-        )
+        cat = db.query(DBCategory).filter(DBCategory.id == category_id_override).first()
         if not cat or not cat.is_active:
-            raise CrawlerConfigError(
-                f"Default category_id={category_id_override}: not found or inactive."
-            )
+            raise CrawlerConfigError(f"Default category_id={category_id_override}: not found or inactive.")
         return cat.id
     return _get_default_category_id(db)
 

@@ -486,7 +486,8 @@ export function useGlobalPartsFilters(
         newParams.set('max_price', priceMax.trim());
     }
     if (currentPage > 1) newParams.set('page', currentPage.toString());
-    if (sortParam && sortParam !== 'votes_desc') newParams.set('sort', sortParam);
+    if (sortParam && sortParam !== 'votes_desc')
+      newParams.set('sort', sortParam);
     const next = newParams.toString();
     if (searchParams.toString() === next) return;
     setSearchParams(newParams, { replace: true });
