@@ -6,9 +6,12 @@ import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import type { CategoryResponse } from '../../types/Api';
+import type { CrawlerRunResponse } from '../../services/Api';
 import {
   adminApi,
   bugReportsApi,
@@ -90,6 +93,27 @@ function AdminDashboard() {
     success: boolean;
     message: string;
   } | null>(null);
+
+  // Crawler tools
+  const [crawlerAdapters, setCrawlerAdapters] = useState<string[]>([]);
+  const [selectedCrawlers, setSelectedCrawlers] = useState<Set<string>>(
+    new Set()
+  );
+  const [crawlerLimits, setCrawlerLimits] = useState<Record<string, string>>(
+    {}
+  );
+  const [globalCrawlerLimit, setGlobalCrawlerLimit] = useState<string>('');
+  const [crawlerUserId, setCrawlerUserId] = useState<string>('');
+  const [crawlerDefaultCategoryId, setCrawlerDefaultCategoryId] =
+    useState<string>('');
+  const [crawlerCategories, setCrawlerCategories] = useState<
+    CategoryResponse[]
+  >([]);
+  const [isLoadingCrawlers, setIsLoadingCrawlers] = useState(false);
+  const [isRunningCrawlers, setIsRunningCrawlers] = useState(false);
+  const [crawlerResult, setCrawlerResult] =
+    useState<CrawlerRunResponse | null>(null);
+  const [crawlerError, setCrawlerError] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -209,11 +233,30 @@ function AdminDashboard() {
     }
   }, [user]);
 
-  // Fetch entity counts on mount
+  // Fetch entity counts and crawlers on mount
   useEffect(() => {
     void fetchCounts();
     void fetchCurrentRevision();
+    void fetchCrawlers();
   }, [fetchCounts]);
+
+  const fetchCrawlers = async () => {
+    if (!user?.is_admin) return;
+    setIsLoadingCrawlers(true);
+    try {
+      const [adaptersRes, categoriesRes] = await Promise.all([
+        adminApi.getCrawlers(),
+        categoriesApi.getCategories(),
+      ]);
+      setCrawlerAdapters(adaptersRes.data.adapters);
+      setCrawlerCategories(categoriesRes.data);
+    } catch {
+      setCrawlerAdapters([]);
+      setCrawlerCategories([]);
+    } finally {
+      setIsLoadingCrawlers(false);
+    }
+  };
 
   const fetchCurrentRevision = async () => {
     setIsLoadingRevision(true);
@@ -318,6 +361,97 @@ function AdminDashboard() {
       );
     } finally {
       setIsPurgingOrphaned(false);
+    }
+  };
+
+  const toggleCrawlerSelection = (adapter: string) => {
+    setSelectedCrawlers((prev) => {
+      const next = new Set(prev);
+      if (next.has(adapter)) {
+        next.delete(adapter);
+      } else {
+        next.add(adapter);
+      }
+      return next;
+    });
+  };
+
+  const selectAllCrawlers = () => {
+    setSelectedCrawlers(new Set(crawlerAdapters));
+  };
+
+  const deselectAllCrawlers = () => {
+    setSelectedCrawlers(new Set());
+  };
+
+  const handleRunSelectedCrawlers = async () => {
+    const adapters = Array.from(selectedCrawlers);
+    if (adapters.length === 0) {
+      setCrawlerError('Select at least one crawler.');
+      return;
+    }
+    await runCrawlersWithAdapters(adapters);
+  };
+
+  const handleRunAllCrawlers = async () => {
+    await runCrawlersWithAdapters(['all']);
+  };
+
+  const runCrawlersWithAdapters = async (adapters: string[]) => {
+    const userIdNum = parseInt(crawlerUserId, 10);
+    const categoryIdNum = parseInt(crawlerDefaultCategoryId, 10);
+    if (isNaN(userIdNum) || userIdNum < 1) {
+      setCrawlerError('Enter a valid crawler user ID.');
+      return;
+    }
+    if (isNaN(categoryIdNum) || categoryIdNum < 1) {
+      setCrawlerError('Select a default category.');
+      return;
+    }
+
+    setIsRunningCrawlers(true);
+    setCrawlerError(null);
+    setCrawlerResult(null);
+
+    const limits: Record<string, number> = {};
+    const globalLimitNum =
+      globalCrawlerLimit.trim() === ''
+        ? null
+        : parseInt(globalCrawlerLimit, 10);
+    const useGlobalLimit =
+      globalLimitNum != null &&
+      !isNaN(globalLimitNum) &&
+      globalLimitNum > 0;
+
+    if (adapters[0] !== 'all') {
+      for (const adapter of adapters) {
+        const val = crawlerLimits[adapter]?.trim();
+        if (val) {
+          const n = parseInt(val, 10);
+          if (!isNaN(n) && n > 0) {
+            limits[adapter] = n;
+          }
+        }
+      }
+    }
+
+    try {
+      const response = await adminApi.runCrawlers({
+        adapters,
+        crawler_user_id: userIdNum,
+        crawler_default_category_id: categoryIdNum,
+        limits: Object.keys(limits).length > 0 ? limits : undefined,
+        global_limit: useGlobalLimit ? globalLimitNum ?? undefined : undefined,
+        parallel: true,
+      });
+      setCrawlerResult(response.data);
+      void fetchCounts();
+    } catch (error) {
+      setCrawlerError(
+        error instanceof Error ? error.message : 'Failed to run crawlers.'
+      );
+    } finally {
+      setIsRunningCrawlers(false);
     }
   };
 
@@ -804,6 +938,218 @@ function AdminDashboard() {
                   </details>
                 )}
               </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Crawler Tools" />
+          <div className="p-6 bg-emerald-900/20 border-2 border-emerald-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-emerald-400 mb-2">
+                Retailer crawlers
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Run crawlers to scrape part information from retailer sites. You
+                can run individual crawlers or combinations. When running more
+                than one crawler, they run in parallel. Set per-crawler limits or
+                a global limit for all crawlers.
+              </p>
+            </div>
+
+            {isLoadingCrawlers ? (
+              <div className="flex justify-center items-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Crawler user ID
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 1"
+                      value={crawlerUserId}
+                      onChange={(e) => setCrawlerUserId(e.target.value)}
+                      className="max-w-[150px]"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      User that will own crawler-created parts
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Default category
+                    </label>
+                    <select
+                      value={crawlerDefaultCategoryId}
+                      onChange={(e) =>
+                        setCrawlerDefaultCategoryId(e.target.value)
+                      }
+                      className="w-full max-w-[250px] min-h-[44px] px-5 rounded-xl border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                    >
+                      <option value="">Select category...</option>
+                      {crawlerCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Category for new parts
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Global limit (applies to all crawlers when set)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 50"
+                    value={globalCrawlerLimit}
+                    onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
+                    className="max-w-[150px]"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-neutral-300">
+                      Select crawlers
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllCrawlers}
+                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                      >
+                        Select all
+                      </button>
+                      <span className="text-neutral-500">|</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllCrawlers}
+                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                      >
+                        Deselect all
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {crawlerAdapters.map((adapter) => (
+                      <div
+                        key={adapter}
+                        className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedCrawlers.has(adapter)}
+                            onChange={() => toggleCrawlerSelection(adapter)}
+                            className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className="font-mono text-neutral-200">
+                            {adapter}
+                          </span>
+                        </label>
+                        <div className="flex items-center gap-2 w-32">
+                          <span className="text-xs text-neutral-400">
+                            Limit:
+                          </span>
+                          <Input
+                            type="number"
+                            min="1"
+                            placeholder="—"
+                            value={crawlerLimits[adapter] ?? ''}
+                            onChange={(e) =>
+                              setCrawlerLimits((prev) => ({
+                                ...prev,
+                                [adapter]: e.target.value,
+                              }))
+                            }
+                            className="w-20"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-4 mb-4">
+                  <ActionButton
+                    onClick={() => void handleRunSelectedCrawlers()}
+                    disabled={isRunningCrawlers}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isRunningCrawlers ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Running...
+                      </span>
+                    ) : (
+                      'Run selected crawlers'
+                    )}
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => void handleRunAllCrawlers()}
+                    disabled={isRunningCrawlers}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Run all crawlers
+                  </ActionButton>
+                </div>
+
+                {crawlerError && (
+                  <div className="mb-4">
+                    <ErrorAlert message={crawlerError} />
+                  </div>
+                )}
+
+                {crawlerResult && (
+                  <div className="p-4 rounded-lg border-2 border-emerald-700 bg-gray-900/50">
+                    <div className="mb-2 font-semibold text-emerald-400">
+                      Crawl complete
+                    </div>
+                    <div className="text-sm text-neutral-300 mb-3">
+                      Ingested: {crawlerResult.summary.total_ingested} | Skipped:{' '}
+                      {crawlerResult.summary.total_skipped} | Errors:{' '}
+                      {crawlerResult.summary.total_errors}
+                    </div>
+                    {crawlerResult.results.length > 0 && (
+                      <details className="mb-2">
+                        <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                          Per-crawler results
+                        </summary>
+                        <ul className="mt-2 space-y-1 text-sm text-neutral-300">
+                          {crawlerResult.results.map((r) => (
+                            <li key={r.adapter} className="font-mono">
+                              {`${r.adapter}: ingested=${r.ingested} skipped=${r.skipped} errors=${r.errors} total=${r.total}`}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                    {crawlerResult.failed.length > 0 && (
+                      <div className="text-sm text-red-400">
+                        Failed:{' '}
+                        {crawlerResult.failed
+                          .map((f) => `${f.adapter}: ${f.error}`)
+                          .join('; ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </Card>

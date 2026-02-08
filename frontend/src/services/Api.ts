@@ -996,6 +996,33 @@ export interface InitDataResult {
   message: string;
 }
 
+export interface CrawlerRunResult {
+  adapter: string;
+  ingested: number;
+  skipped: number;
+  errors: number;
+  total: number;
+}
+
+export interface CrawlerRunResponse {
+  results: CrawlerRunResult[];
+  summary: {
+    total_ingested: number;
+    total_skipped: number;
+    total_errors: number;
+  };
+  failed: Array<{ adapter: string; error: string }>;
+}
+
+export interface CrawlerRunRequest {
+  adapters: string[];
+  crawler_user_id: number;
+  crawler_default_category_id: number;
+  limits?: Record<string, number>;
+  global_limit?: number | null;
+  parallel?: boolean;
+}
+
 export const adminApi = {
   runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
   getCurrentRevision: () =>
@@ -1004,6 +1031,14 @@ export const adminApi = {
     apiClient.post<InitDataResult>('/admin/init/car-generations'),
   initPartCategories: () =>
     apiClient.post<InitDataResult>('/admin/init/part-categories'),
+
+  // Crawlers
+  getCrawlers: () =>
+    apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  runCrawlers: (body: CrawlerRunRequest) =>
+    apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body, {
+      timeout: 600000, // 10 minutes - crawlers can run long
+    }),
 };
 
 export default apiClient;

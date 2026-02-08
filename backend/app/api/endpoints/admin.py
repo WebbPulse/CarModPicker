@@ -2,23 +2,27 @@
 Admin endpoints for system management operations.
 
 This module provides admin-only endpoints for system maintenance tasks
-such as running database migrations and initializing seed data (car
-generations, part categories).
+such as running database migrations, initializing seed data (car
+generations, part categories), and running retailer crawlers.
 """
 
+import asyncio
 import logging
 import os
 import subprocess  # nosec B404 - Used safely for running database migrations
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.user import User as DBUser
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
+from app.crawlers.adapters import ADAPTER_REGISTRY
+from app.crawlers.runner import run_crawlers
 from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -283,6 +287,115 @@ async def init_part_categories_endpoint(
             db.close()
     except Exception as e:
         logger.exception("Part categories init failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+# --- Crawler admin endpoints ---
+
+
+class CrawlerRunRequest(BaseModel):
+    """Request body for running crawlers."""
+
+    adapters: list[str] = Field(
+        ...,
+        description="Adapter names to run (e.g. ['a90shop']). Use ['all'] to run all adapters.",
+    )
+    crawler_user_id: int = Field(
+        ...,
+        description="User ID to attribute crawler-created parts to (must have create permission).",
+    )
+    crawler_default_category_id: int = Field(
+        ...,
+        description="Category ID for new parts.",
+    )
+    limits: Optional[Dict[str, int]] = Field(
+        default=None,
+        description="Per-adapter crawl limits: {'a90shop': 10}. Overrides global_limit when set.",
+    )
+    global_limit: Optional[int] = Field(
+        default=None,
+        description="Crawl limit applied to all adapters when no per-adapter limit is set.",
+    )
+    parallel: bool = Field(
+        default=True,
+        description="If True and more than one adapter, run crawlers in parallel threads.",
+    )
+
+
+@router.get(
+    "/crawlers",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Available crawlers retrieved",
+        forbidden=True,
+    ),
+)
+async def list_crawlers(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    List available crawler adapters (admin only).
+    """
+    adapters = list(ADAPTER_REGISTRY.keys())
+    return {"adapters": adapters}
+
+
+@router.post(
+    "/crawlers/run",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Crawlers executed",
+        forbidden=True,
+    ),
+)
+async def run_crawlers_endpoint(
+    body: CrawlerRunRequest,
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Run retailer crawlers (admin only).
+
+    - Run individual crawlers or desired combinations.
+    - Run all crawlers with adapters: ["all"].
+    - Set per-crawler limits via limits: {"a90shop": 10, "example": 5}.
+    - Set a global limit for all crawlers via global_limit.
+    - When running more than one crawler, they run in parallel by default.
+    """
+    adapters = body.adapters
+    if adapters == ["all"]:
+        adapters = list(ADAPTER_REGISTRY.keys())
+    elif not adapters:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="adapters cannot be empty. Use ['all'] to run all crawlers.",
+        )
+
+    invalid = [a for a in adapters if a not in ADAPTER_REGISTRY]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown adapter(s): {invalid}. Available: {list(ADAPTER_REGISTRY.keys())}",
+        )
+
+    logger.info(f"Admin {current_user.id} triggering crawlers: {adapters}")
+
+    try:
+        # Run blocking crawlers in thread pool to avoid blocking event loop
+        result = await asyncio.to_thread(
+            run_crawlers,
+            adapters,
+            limits=body.limits,
+            global_limit=body.global_limit,
+            parallel=body.parallel,
+            user_id=body.crawler_user_id,
+            default_category_id=body.crawler_default_category_id,
+        )
+        return result
+    except Exception as e:
+        logger.exception("Crawlers run failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
