@@ -32,5 +32,5 @@ class BuildListPart(Base):
 
     # Relationships
     build_list: Mapped["BuildList"] = relationship("BuildList", back_populates="build_list_parts")
-    global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="build_lists")
+    global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="build_list_parts")
     user: Mapped["User"] = relationship("User", back_populates="build_list_parts")

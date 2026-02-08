@@ -127,3 +127,44 @@ class TestAdminMigrations:
         assert "output" in data
         assert data["current_revision"] == "abc123 (head)"
         mock_run.assert_called_once()
+
+
+class TestAdminRerunInference:
+    """Test cases for admin rerun-inference endpoint."""
+
+    def test_rerun_inference_unauthorized(self, client: TestClient) -> None:
+        """Test rerun inference without auth returns 401."""
+        response = client.post(
+            f"{settings.API_STR}/admin/global-parts/rerun-inference",
+            json={"reassign_brand": True},
+        )
+        assert response.status_code == 401
+
+    def test_rerun_inference_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        """Test rerun inference as non-admin returns 403."""
+        token = create_and_login_user(client, db_session, "rerun_forbidden")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(
+            f"{settings.API_STR}/admin/global-parts/rerun-inference",
+            json={"reassign_brand": True},
+            headers=headers,
+        )
+        assert response.status_code == 403
+
+    def test_rerun_inference_success_admin(self, client: TestClient, db_session: Session) -> None:
+        """Test rerun inference as admin returns 200 with updated_count and error_count."""
+        token = create_and_login_admin_user(client, db_session, "rerun_success")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(
+            f"{settings.API_STR}/admin/global-parts/rerun-inference",
+            json={"reassign_brand": False},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "updated_count" in data
+        assert "error_count" in data
+        assert "errors" in data
+        assert isinstance(data["updated_count"], int)
+        assert isinstance(data["error_count"], int)
+        assert isinstance(data["errors"], list)

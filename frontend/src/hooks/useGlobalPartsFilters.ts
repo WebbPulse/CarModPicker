@@ -26,7 +26,7 @@ export interface UseGlobalPartsFiltersOptions {
 }
 
 export interface UseGlobalPartsFiltersReturn {
-  // List API params
+  // List API params (include sort so server sorts full result set; pagination then returns correct page)
   params: {
     skip: number;
     limit: number;
@@ -34,6 +34,7 @@ export interface UseGlobalPartsFiltersReturn {
     car_id?: number;
     brand_ids?: number[];
     search?: string;
+    sort?: string;
     min_price_cents?: number;
     max_price_cents?: number;
     user_id?: number;
@@ -63,6 +64,10 @@ export interface UseGlobalPartsFiltersReturn {
   setPriceMin: (s: string) => void;
   setPriceMax: (s: string) => void;
 
+  // Sort (server-side; included in params and URL so page 2+ respects sort)
+  sortParam: string;
+  setSortParam: (s?: string) => void;
+
   // Data
   categories: CategoryResponse[];
   availableMakes: string[];
@@ -72,7 +77,12 @@ export interface UseGlobalPartsFiltersReturn {
   activeCategories: CategoryResponse[];
   uniqueModels: string[];
   generations: CarRead[];
-  filterOptions: { category_ids: number[]; brand_ids: number[] } | null;
+  filterOptions: {
+    category_ids: number[];
+    brand_ids: number[];
+    car_ids?: number[];
+    make_names?: string[];
+  } | null;
 
   // Derived
   availableCategoryIds: number[];
@@ -110,9 +120,12 @@ export function useGlobalPartsFilters(
   const [searchTerm, setSearchTerm] = useState('');
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
+  const [sortParam, setSortParamState] = useState<string>('votes_desc');
   const [filterOptions, setFilterOptions] = useState<{
     category_ids: number[];
     brand_ids: number[];
+    car_ids?: number[];
+    make_names?: string[];
   } | null>(null);
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
@@ -192,15 +205,39 @@ export function useGlobalPartsFilters(
     void loadCars();
   }, [fetchMakes, loadCategories, loadBrands, loadCars]);
 
+  // When brand/category/search filters are applied, filter-options returns make_names;
+  // otherwise use all makes from makeStats.
   useEffect(() => {
-    if (makeStats) {
+    if (filterOptions?.make_names?.length) {
+      setAvailableMakes([...filterOptions.make_names].sort());
+    } else if (makeStats) {
       setAvailableMakes(Object.keys(makeStats).sort());
     }
-  }, [makeStats]);
+  }, [makeStats, filterOptions?.make_names]);
 
+  // When vehicle options are scoped by filters, clear vehicle selection if selected make is no longer valid
   useEffect(() => {
-    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
-  }, [carsByMake]);
+    if (
+      filterOptions?.make_names?.length &&
+      selectedMake &&
+      !filterOptions.make_names.includes(selectedMake)
+    ) {
+      setSelectedMake('');
+      setSelectedModel('');
+      setSelectedGeneration(null);
+    }
+  }, [filterOptions?.make_names, selectedMake]);
+
+  // Restrict to car_ids from filter-options when brand/category/search filters are applied
+  useEffect(() => {
+    const list = normalizeCarReadList(carsByMake ?? undefined);
+    if (filterOptions?.car_ids?.length) {
+      const allowed = new Set(filterOptions.car_ids);
+      setAvailableCars(list.filter((c) => c.id != null && allowed.has(c.id)));
+    } else {
+      setAvailableCars(list);
+    }
+  }, [carsByMake, filterOptions?.car_ids]);
 
   const generations = useMemo(
     () =>
@@ -347,6 +384,8 @@ export function useGlobalPartsFilters(
       const page = Number.parseInt(pageParam, 10);
       if (!Number.isNaN(page) && page > 0) setCurrentPage(page);
     }
+    const sortParamFromUrl = searchParams.get('sort');
+    if (sortParamFromUrl) setSortParamState(sortParamFromUrl);
     setIsInitializedFromUrl(true);
   }, [
     syncToUrl,
@@ -447,6 +486,10 @@ export function useGlobalPartsFilters(
         newParams.set('max_price', priceMax.trim());
     }
     if (currentPage > 1) newParams.set('page', currentPage.toString());
+    if (sortParam && sortParam !== 'votes_desc')
+      newParams.set('sort', sortParam);
+    const next = newParams.toString();
+    if (searchParams.toString() === next) return;
     setSearchParams(newParams, { replace: true });
   }, [
     syncToUrl,
@@ -461,6 +504,8 @@ export function useGlobalPartsFilters(
     priceMin,
     priceMax,
     currentPage,
+    sortParam,
+    searchParams,
     setSearchParams,
   ]);
 
@@ -479,6 +524,7 @@ export function useGlobalPartsFilters(
     priceMin,
     priceMax,
     currentPage,
+    sortParam,
     syncFiltersToUrl,
   ]);
 
@@ -498,6 +544,7 @@ export function useGlobalPartsFilters(
     searchTerm,
     priceMin,
     priceMax,
+    sortParam,
   ]);
 
   const uniqueModels = useMemo(
@@ -582,6 +629,13 @@ export function useGlobalPartsFilters(
     setPriceMax('');
   }, []);
 
+  const setSortParam = useCallback((s?: string) => {
+    if (s !== undefined) {
+      setSortParamState(s);
+      setCurrentPage(1);
+    }
+  }, []);
+
   const params = useMemo(() => {
     const minCents =
       priceMin.trim() !== ''
@@ -610,6 +664,7 @@ export function useGlobalPartsFilters(
         !showUniversalParts && { car_ids: effectiveCarIds }),
       ...(selectedBrandIds.length > 0 && { brand_ids: selectedBrandIds }),
       ...(searchTerm && { search: searchTerm }),
+      ...(sortParam && { sort: sortParam }),
       ...(min_price_cents !== undefined && { min_price_cents }),
       ...(max_price_cents !== undefined && { max_price_cents }),
     };
@@ -621,6 +676,7 @@ export function useGlobalPartsFilters(
     showUniversalParts,
     selectedBrandIds,
     searchTerm,
+    sortParam,
     priceMin,
     priceMax,
   ]);
@@ -649,6 +705,8 @@ export function useGlobalPartsFilters(
     priceMax,
     setPriceMin,
     setPriceMax,
+    sortParam,
+    setSortParam,
     categories,
     availableMakes,
     availableCars,

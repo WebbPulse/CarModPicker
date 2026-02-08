@@ -96,7 +96,9 @@ def upgrade() -> None:
     op.drop_index(op.f("ix_cars_make"), table_name="cars")
     op.drop_index(op.f("ix_cars_model"), table_name="cars")
     op.create_index(op.f("ix_cars_car_model_id"), "cars", ["car_model_id"], unique=False)
-    op.create_foreign_key(op.f("cars_car_model_id_fkey"), "cars", "car_models", ["car_model_id"], ["id"], ondelete="CASCADE")
+    op.create_foreign_key(
+        op.f("cars_car_model_id_fkey"), "cars", "car_models", ["car_model_id"], ["id"], ondelete="CASCADE"
+    )
     op.drop_column("cars", "make")
     op.drop_column("cars", "model")
     # ### end Alembic commands ###
@@ -111,11 +113,13 @@ def downgrade() -> None:
     # Backfill: populate make/model from car_models and makes before dropping car_model_id
     conn = op.get_bind()
     conn.execute(
-        text("""
+        text(
+            """
             UPDATE cars SET
                 make = (SELECT m.name FROM car_models cm JOIN makes m ON cm.make_id = m.id WHERE cm.id = cars.car_model_id),
                 model = (SELECT cm.name FROM car_models cm WHERE cm.id = cars.car_model_id)
-        """)
+        """
+        )
     )
     # Now set NOT NULL
     op.alter_column("cars", "model", existing_type=sa.VARCHAR(), nullable=False)

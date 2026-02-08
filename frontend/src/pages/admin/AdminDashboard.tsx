@@ -6,9 +6,16 @@ import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
+import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import type {
+  CrawlerRunRequest,
+  CrawlerRunResponse,
+  RerunInferenceRequest,
+  RerunInferenceResponse,
+} from '../../services/Api';
 import {
   adminApi,
   bugReportsApi,
@@ -23,6 +30,7 @@ import {
   usersApi,
   votesApi,
 } from '../../services/Api';
+import type { CategoryResponse } from '../../types/Api';
 
 interface EntityCounts {
   users: number | null;
@@ -80,6 +88,60 @@ function AdminDashboard() {
   const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] =
     useState(false);
   const [purgeOrphanError, setPurgeOrphanError] = useState<string | null>(null);
+  const [
+    isDeleteAllGlobalPartsConfirmOpen,
+    setIsDeleteAllGlobalPartsConfirmOpen,
+  ] = useState(false);
+  const [isDeletingAllGlobalParts, setIsDeletingAllGlobalParts] =
+    useState(false);
+  const [deleteAllGlobalPartsError, setDeleteAllGlobalPartsError] = useState<
+    string | null
+  >(null);
+  const [deleteAllGlobalPartsResult, setDeleteAllGlobalPartsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
+  const [isInitCarGenerations, setIsInitCarGenerations] = useState(false);
+  const [initCarGenerationsResult, setInitCarGenerationsResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [isInitPartCategories, setIsInitPartCategories] = useState(false);
+  const [initPartCategoriesResult, setInitPartCategoriesResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  // Crawler tools
+  const [crawlerAdapters, setCrawlerAdapters] = useState<string[]>([]);
+  const [selectedCrawlers, setSelectedCrawlers] = useState<Set<string>>(
+    new Set()
+  );
+  const [crawlerLimits, setCrawlerLimits] = useState<Record<string, string>>(
+    {}
+  );
+  const [globalCrawlerLimit, setGlobalCrawlerLimit] = useState<string>('');
+  const [crawlerUserId, setCrawlerUserId] = useState<string>('');
+  const [crawlerDefaultCategoryId, setCrawlerDefaultCategoryId] =
+    useState<string>('');
+  const [crawlerCategories, setCrawlerCategories] = useState<
+    CategoryResponse[]
+  >([]);
+  const [isLoadingCrawlers, setIsLoadingCrawlers] = useState(false);
+  const [isRunningCrawlers, setIsRunningCrawlers] = useState(false);
+  const [crawlerResult, setCrawlerResult] = useState<CrawlerRunResponse | null>(
+    null
+  );
+  const [crawlerError, setCrawlerError] = useState<string | null>(null);
+  const [crawlerDelaySec, setCrawlerDelaySec] = useState<number>(5);
+
+  // Rerun inference
+  const [isRerunningInference, setIsRerunningInference] = useState(false);
+  const [rerunInferenceResult, setRerunInferenceResult] =
+    useState<RerunInferenceResponse | null>(null);
+  const [rerunInferenceError, setRerunInferenceError] = useState<string | null>(
+    null
+  );
+  const [reassignBrand, setReassignBrand] = useState(true);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -199,11 +261,30 @@ function AdminDashboard() {
     }
   }, [user]);
 
-  // Fetch entity counts on mount
+  const fetchCrawlers = useCallback(async () => {
+    if (!user?.is_admin) return;
+    setIsLoadingCrawlers(true);
+    try {
+      const [adaptersRes, categoriesRes] = await Promise.all([
+        adminApi.getCrawlers(),
+        categoriesApi.getCategories(),
+      ]);
+      setCrawlerAdapters(adaptersRes.data.adapters);
+      setCrawlerCategories(categoriesRes.data);
+    } catch {
+      setCrawlerAdapters([]);
+      setCrawlerCategories([]);
+    } finally {
+      setIsLoadingCrawlers(false);
+    }
+  }, [user?.is_admin]);
+
+  // Fetch entity counts and crawlers on mount
   useEffect(() => {
     void fetchCounts();
     void fetchCurrentRevision();
-  }, [fetchCounts]);
+    void fetchCrawlers();
+  }, [fetchCounts, fetchCrawlers]);
 
   const fetchCurrentRevision = async () => {
     setIsLoadingRevision(true);
@@ -239,6 +320,46 @@ function AdminDashboard() {
     }
   };
 
+  const handleInitCarGenerations = async () => {
+    setIsInitCarGenerations(true);
+    setInitCarGenerationsResult(null);
+    try {
+      const response = await adminApi.initCarGenerations();
+      setInitCarGenerationsResult(response.data);
+      if (response.data.success) void fetchCounts();
+    } catch (error) {
+      setInitCarGenerationsResult({
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize car generations',
+      });
+    } finally {
+      setIsInitCarGenerations(false);
+    }
+  };
+
+  const handleInitPartCategories = async () => {
+    setIsInitPartCategories(true);
+    setInitPartCategoriesResult(null);
+    try {
+      const response = await adminApi.initPartCategories();
+      setInitPartCategoriesResult(response.data);
+      if (response.data.success) void fetchCounts();
+    } catch (error) {
+      setInitPartCategoriesResult({
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize part categories',
+      });
+    } finally {
+      setIsInitPartCategories(false);
+    }
+  };
+
   const handleListOrphaned = async () => {
     setIsListingOrphaned(true);
     setOrphanedResult(null);
@@ -268,6 +389,138 @@ function AdminDashboard() {
       );
     } finally {
       setIsPurgingOrphaned(false);
+    }
+  };
+
+  const handleConfirmDeleteAllGlobalParts = async () => {
+    setIsDeletingAllGlobalParts(true);
+    setDeleteAllGlobalPartsError(null);
+    try {
+      const response = await adminApi.deleteAllGlobalParts();
+      setDeleteAllGlobalPartsResult(response.data);
+      setIsDeleteAllGlobalPartsConfirmOpen(false);
+      await fetchCounts();
+    } catch (error) {
+      setDeleteAllGlobalPartsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all global parts.'
+      );
+    } finally {
+      setIsDeletingAllGlobalParts(false);
+    }
+  };
+
+  const handleRerunInference = async () => {
+    setIsRerunningInference(true);
+    setRerunInferenceResult(null);
+    setRerunInferenceError(null);
+    try {
+      const body: RerunInferenceRequest = { reassign_brand: reassignBrand };
+      const response = await adminApi.rerunInference(body);
+      setRerunInferenceResult(response.data);
+      void fetchCounts();
+    } catch (error) {
+      setRerunInferenceError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to rerun inference on global parts.'
+      );
+    } finally {
+      setIsRerunningInference(false);
+    }
+  };
+
+  const toggleCrawlerSelection = (adapter: string) => {
+    setSelectedCrawlers((prev) => {
+      const next = new Set(prev);
+      if (next.has(adapter)) {
+        next.delete(adapter);
+      } else {
+        next.add(adapter);
+      }
+      return next;
+    });
+  };
+
+  const selectAllCrawlers = () => {
+    setSelectedCrawlers(new Set(crawlerAdapters));
+  };
+
+  const deselectAllCrawlers = () => {
+    setSelectedCrawlers(new Set());
+  };
+
+  const handleRunSelectedCrawlers = async () => {
+    const adapters = Array.from(selectedCrawlers);
+    if (adapters.length === 0) {
+      setCrawlerError('Select at least one crawler.');
+      return;
+    }
+    await runCrawlersWithAdapters(adapters);
+  };
+
+  const handleRunAllCrawlers = async () => {
+    await runCrawlersWithAdapters(['all']);
+  };
+
+  const runCrawlersWithAdapters = async (adapters: string[]) => {
+    const userIdNum = parseInt(crawlerUserId, 10);
+    const categoryIdNum = parseInt(crawlerDefaultCategoryId, 10);
+    if (isNaN(userIdNum) || userIdNum < 1) {
+      setCrawlerError('Enter a valid crawler user ID.');
+      return;
+    }
+    if (isNaN(categoryIdNum) || categoryIdNum < 1) {
+      setCrawlerError('Select a default category.');
+      return;
+    }
+
+    setIsRunningCrawlers(true);
+    setCrawlerError(null);
+    setCrawlerResult(null);
+
+    const limits: Record<string, number> = {};
+    const globalLimitNum =
+      globalCrawlerLimit.trim() === ''
+        ? null
+        : parseInt(globalCrawlerLimit, 10);
+    const useGlobalLimit =
+      globalLimitNum != null && !isNaN(globalLimitNum) && globalLimitNum > 0;
+
+    if (adapters[0] !== 'all') {
+      for (const adapter of adapters) {
+        const val = crawlerLimits[adapter]?.trim();
+        if (val) {
+          const n = parseInt(val, 10);
+          if (!isNaN(n) && n > 0) {
+            limits[adapter] = n;
+          }
+        }
+      }
+    }
+
+    try {
+      const body: CrawlerRunRequest = {
+        adapters,
+        crawler_user_id: userIdNum,
+        crawler_default_category_id: categoryIdNum,
+        parallel: true,
+        delay_sec: crawlerDelaySec,
+      };
+      if (Object.keys(limits).length > 0) body.limits = limits;
+      if (useGlobalLimit && globalLimitNum != null && globalLimitNum > 0)
+        body.global_limit = globalLimitNum;
+      const response = await adminApi.runCrawlers(body);
+      setCrawlerResult(response.data);
+      setCrawlerError(null);
+      void fetchCounts();
+    } catch (error) {
+      setCrawlerError(
+        error instanceof Error ? error.message : 'Failed to run crawlers.'
+      );
+    } finally {
+      setIsRunningCrawlers(false);
     }
   };
 
@@ -571,6 +824,256 @@ function AdminDashboard() {
 
       <div className="mt-6">
         <Card>
+          <SectionHeader title="Data Initialization" />
+          <div className="p-6 bg-amber-900/20 border-2 border-amber-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-amber-400 mb-2">
+                Seed data (car generations & part categories)
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Sync makes, car models, car generations, and part categories
+                from the application source of truth into the database. Run
+                these after deploying or when seed data has been updated.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => void handleInitCarGenerations()}
+                disabled={isInitCarGenerations}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isInitCarGenerations ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Initializing...
+                  </span>
+                ) : (
+                  '🚗 Init Car Generations'
+                )}
+              </ActionButton>
+              <ActionButton
+                onClick={() => void handleInitPartCategories()}
+                disabled={isInitPartCategories}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isInitPartCategories ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Initializing...
+                  </span>
+                ) : (
+                  '📦 Init Part Categories'
+                )}
+              </ActionButton>
+            </div>
+            {(initCarGenerationsResult || initPartCategoriesResult) && (
+              <div className="space-y-3">
+                {initCarGenerationsResult && (
+                  <div
+                    className={`p-4 rounded-lg border-2 ${
+                      initCarGenerationsResult.success
+                        ? 'bg-green-900/20 border-green-700'
+                        : 'bg-red-900/20 border-red-700'
+                    }`}
+                  >
+                    <span
+                      className={
+                        initCarGenerationsResult.success
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }
+                    >
+                      Car generations:{' '}
+                      {initCarGenerationsResult.success
+                        ? initCarGenerationsResult.message
+                        : initCarGenerationsResult.message}
+                    </span>
+                  </div>
+                )}
+                {initPartCategoriesResult && (
+                  <div
+                    className={`p-4 rounded-lg border-2 ${
+                      initPartCategoriesResult.success
+                        ? 'bg-green-900/20 border-green-700'
+                        : 'bg-red-900/20 border-red-700'
+                    }`}
+                  >
+                    <span
+                      className={
+                        initPartCategoriesResult.success
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }
+                    >
+                      Part categories:{' '}
+                      {initPartCategoriesResult.success
+                        ? initPartCategoriesResult.message
+                        : initPartCategoriesResult.message}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Rerun inference on global parts" />
+          <div className="p-6 bg-violet-900/20 border-2 border-violet-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-violet-400 mb-2">
+                Rerun category, car & brand inference
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Re-run inference logic on every global part and reassign
+                category, car associations, and optionally brand. Uses part
+                name, description, and product URL (from first listing) to infer
+                category and cars; brand is inferred from &quot;Brand -
+                Product&quot; name prefix when enabled (matches existing brands
+                only).
+              </p>
+              <p className="text-sm text-neutral-400 mb-4">
+                Global parts:{' '}
+                <span className="font-semibold text-white">
+                  {counts.globalParts?.toLocaleString() ?? '—'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reassignBrand}
+                  onChange={(e) => setReassignBrand(e.target.checked)}
+                  className="rounded border-gray-600 bg-gray-700 text-violet-500 focus:ring-violet-500"
+                />
+                <span className="text-neutral-300">
+                  Reassign brand from name (e.g. &quot;MST Performance -
+                  Intake&quot; → MST Performance)
+                </span>
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => void handleRerunInference()}
+                disabled={isRerunningInference}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {isRerunningInference ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Rerunning inference...
+                  </span>
+                ) : (
+                  'Rerun inference on all global parts'
+                )}
+              </ActionButton>
+            </div>
+            {rerunInferenceError && (
+              <div className="mb-4">
+                <ErrorAlert message={rerunInferenceError} />
+              </div>
+            )}
+            {rerunInferenceResult && (
+              <div
+                className={`p-4 rounded-lg border-2 ${
+                  rerunInferenceResult.error_count > 0
+                    ? 'bg-amber-900/20 border-amber-700'
+                    : 'bg-green-900/20 border-green-700'
+                }`}
+              >
+                <p className="font-semibold text-green-400">
+                  Updated {rerunInferenceResult.updated_count.toLocaleString()}{' '}
+                  part(s).
+                </p>
+                {rerunInferenceResult.error_count > 0 && (
+                  <p className="text-amber-400 mt-1">
+                    {rerunInferenceResult.error_count} part(s) failed to update.
+                  </p>
+                )}
+                {rerunInferenceResult.errors.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                      Show errors (first {rerunInferenceResult.errors.length})
+                    </summary>
+                    <ul className="mt-2 list-disc list-inside text-xs text-neutral-300 space-y-1">
+                      {rerunInferenceResult.errors.map((err) => (
+                        <li key={err}>{err}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Global parts" />
+          <div className="p-6 bg-red-900/20 border-2 border-red-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-red-400 mb-2">
+                Delete all global parts
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Permanently remove every global part from the catalog. This also
+                removes their part listings, votes, reports, and build list part
+                associations. This action cannot be undone.
+              </p>
+              <p className="text-sm text-neutral-400 mb-4">
+                Current global parts:{' '}
+                <span className="font-semibold text-white">
+                  {counts.globalParts?.toLocaleString() ?? '—'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => {
+                  setDeleteAllGlobalPartsError(null);
+                  setDeleteAllGlobalPartsResult(null);
+                  setIsDeleteAllGlobalPartsConfirmOpen(true);
+                }}
+                disabled={isDeletingAllGlobalParts}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeletingAllGlobalParts ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete all global parts'
+                )}
+              </ActionButton>
+            </div>
+            {deleteAllGlobalPartsResult && (
+              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
+                <p className="text-green-400 font-semibold">
+                  Deleted{' '}
+                  {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
+                  global part(s).
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
           <SectionHeader title="Storage / Bucket" />
           <div className="p-6 bg-cyan-900/20 border-2 border-cyan-700 rounded-xl">
             <div className="mb-4">
@@ -659,6 +1162,225 @@ function AdminDashboard() {
         </Card>
       </div>
 
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Crawler Tools" />
+          <div className="p-6 bg-emerald-900/20 border-2 border-emerald-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-emerald-400 mb-2">
+                Retailer crawlers
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Run crawlers to scrape part information from retailer sites. You
+                can run individual crawlers or combinations. When running more
+                than one crawler, they run in parallel. Set per-crawler limits
+                or a global limit for all crawlers.
+              </p>
+            </div>
+
+            {isLoadingCrawlers ? (
+              <div className="flex justify-center items-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Crawler user ID
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 1"
+                      value={crawlerUserId}
+                      onChange={(e) => setCrawlerUserId(e.target.value)}
+                      className="max-w-[150px]"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      User that will own crawler-created parts
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Default category
+                    </label>
+                    <select
+                      value={crawlerDefaultCategoryId}
+                      onChange={(e) =>
+                        setCrawlerDefaultCategoryId(e.target.value)
+                      }
+                      className="w-full max-w-[250px] min-h-[44px] px-5 rounded-xl border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                    >
+                      <option value="">Select category...</option>
+                      {crawlerCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Category for new parts
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Delay between requests
+                    </label>
+                    <select
+                      value={crawlerDelaySec}
+                      onChange={(e) =>
+                        setCrawlerDelaySec(Number(e.target.value))
+                      }
+                      className="max-w-[180px] min-h-[44px] px-4 rounded-xl border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                    >
+                      <option value={2.5}>2.5 s (lighter runs)</option>
+                      <option value={5}>5 s (default)</option>
+                      <option value={10}>10 s</option>
+                      <option value={15}>15 s</option>
+                      <option value={30}>30 s (heavy runs)</option>
+                    </select>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Seconds between requests per crawler; default 5 for polite
+                      crawling.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Global limit (applies to all crawlers when set)
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 50"
+                      value={globalCrawlerLimit}
+                      onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
+                      className="max-w-[150px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-neutral-300">
+                      Select crawlers
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllCrawlers}
+                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                      >
+                        Select all
+                      </button>
+                      <span className="text-neutral-500">|</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllCrawlers}
+                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                      >
+                        Deselect all
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {crawlerAdapters.map((adapter) => (
+                      <div
+                        key={adapter}
+                        className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedCrawlers.has(adapter)}
+                            onChange={() => toggleCrawlerSelection(adapter)}
+                            className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className="font-mono text-neutral-200">
+                            {adapter}
+                          </span>
+                        </label>
+                        <div className="flex items-center gap-2 w-32">
+                          <span className="text-xs text-neutral-400">
+                            Limit:
+                          </span>
+                          <Input
+                            type="number"
+                            min="1"
+                            placeholder="—"
+                            value={crawlerLimits[adapter] ?? ''}
+                            onChange={(e) =>
+                              setCrawlerLimits((prev) => ({
+                                ...prev,
+                                [adapter]: e.target.value,
+                              }))
+                            }
+                            className="w-20"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-4 mb-4">
+                  <ActionButton
+                    onClick={() => void handleRunSelectedCrawlers()}
+                    disabled={isRunningCrawlers}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isRunningCrawlers ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Running...
+                      </span>
+                    ) : (
+                      'Run selected crawlers'
+                    )}
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => void handleRunAllCrawlers()}
+                    disabled={isRunningCrawlers}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Run all crawlers
+                  </ActionButton>
+                </div>
+
+                {crawlerError && (
+                  <div className="mb-4">
+                    <ErrorAlert message={crawlerError} />
+                  </div>
+                )}
+
+                {crawlerResult && (
+                  <div className="p-4 rounded-lg border-2 border-emerald-700 bg-gray-900/50">
+                    <div className="mb-2 font-semibold text-emerald-400">
+                      {crawlerResult.status === 'started'
+                        ? 'Crawler job started'
+                        : 'Crawler'}
+                    </div>
+                    <p className="text-sm text-neutral-300 mb-2">
+                      {crawlerResult.message}
+                    </p>
+                    {crawlerResult.adapters.length > 0 && (
+                      <p className="text-sm text-neutral-400 font-mono">
+                        Adapters: {crawlerResult.adapters.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </Card>
+      </div>
+
       <DeleteConfirmationDialog
         isOpen={isPurgeOrphanConfirmOpen}
         onClose={() => {
@@ -670,6 +1392,18 @@ function AdminDashboard() {
         itemType="storage"
         isProcessing={isPurgingOrphaned}
         error={purgeOrphanError}
+      />
+      <DeleteConfirmationDialog
+        isOpen={isDeleteAllGlobalPartsConfirmOpen}
+        onClose={() => {
+          setIsDeleteAllGlobalPartsConfirmOpen(false);
+          setDeleteAllGlobalPartsError(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteAllGlobalParts()}
+        itemName="all global parts"
+        itemType="catalog"
+        isProcessing={isDeletingAllGlobalParts}
+        error={deleteAllGlobalPartsError}
       />
     </div>
   );
