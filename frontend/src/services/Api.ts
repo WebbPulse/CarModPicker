@@ -991,10 +991,19 @@ export interface CurrentRevisionResult {
   output: string;
 }
 
+export interface InitDataResult {
+  success: boolean;
+  message: string;
+}
+
 export const adminApi = {
   runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
   getCurrentRevision: () =>
     apiClient.get<CurrentRevisionResult>('/admin/migrations/current'),
+  initCarGenerations: () =>
+    apiClient.post<InitDataResult>('/admin/init/car-generations'),
+  initPartCategories: () =>
+    apiClient.post<InitDataResult>('/admin/init/part-categories'),
 };
 
 export default apiClient;

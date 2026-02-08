@@ -80,6 +80,16 @@ function AdminDashboard() {
   const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] =
     useState(false);
   const [purgeOrphanError, setPurgeOrphanError] = useState<string | null>(null);
+  const [isInitCarGenerations, setIsInitCarGenerations] = useState(false);
+  const [initCarGenerationsResult, setInitCarGenerationsResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [isInitPartCategories, setIsInitPartCategories] = useState(false);
+  const [initPartCategoriesResult, setInitPartCategoriesResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -236,6 +246,46 @@ function AdminDashboard() {
       });
     } finally {
       setIsRunningMigrations(false);
+    }
+  };
+
+  const handleInitCarGenerations = async () => {
+    setIsInitCarGenerations(true);
+    setInitCarGenerationsResult(null);
+    try {
+      const response = await adminApi.initCarGenerations();
+      setInitCarGenerationsResult(response.data);
+      if (response.data.success) void fetchCounts();
+    } catch (error) {
+      setInitCarGenerationsResult({
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize car generations',
+      });
+    } finally {
+      setIsInitCarGenerations(false);
+    }
+  };
+
+  const handleInitPartCategories = async () => {
+    setIsInitPartCategories(true);
+    setInitPartCategoriesResult(null);
+    try {
+      const response = await adminApi.initPartCategories();
+      setInitPartCategoriesResult(response.data);
+      if (response.data.success) void fetchCounts();
+    } catch (error) {
+      setInitPartCategoriesResult({
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize part categories',
+      });
+    } finally {
+      setIsInitPartCategories(false);
     }
   };
 
@@ -561,6 +611,106 @@ function AdminDashboard() {
                     <pre className="p-2 bg-gray-900 rounded text-xs text-red-300 overflow-x-auto max-h-60 overflow-y-auto">
                       {migrationResult.error}
                     </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <SectionHeader title="Data Initialization" />
+          <div className="p-6 bg-amber-900/20 border-2 border-amber-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-amber-400 mb-2">
+                Seed data (car generations & part categories)
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Sync makes, car models, car generations, and part categories
+                from the application source of truth into the database. Run
+                these after deploying or when seed data has been updated.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => void handleInitCarGenerations()}
+                disabled={isInitCarGenerations}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isInitCarGenerations ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Initializing...
+                  </span>
+                ) : (
+                  '🚗 Init Car Generations'
+                )}
+              </ActionButton>
+              <ActionButton
+                onClick={() => void handleInitPartCategories()}
+                disabled={isInitPartCategories}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isInitPartCategories ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Initializing...
+                  </span>
+                ) : (
+                  '📦 Init Part Categories'
+                )}
+              </ActionButton>
+            </div>
+            {(initCarGenerationsResult || initPartCategoriesResult) && (
+              <div className="space-y-3">
+                {initCarGenerationsResult && (
+                  <div
+                    className={`p-4 rounded-lg border-2 ${
+                      initCarGenerationsResult.success
+                        ? 'bg-green-900/20 border-green-700'
+                        : 'bg-red-900/20 border-red-700'
+                    }`}
+                  >
+                    <span
+                      className={
+                        initCarGenerationsResult.success
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }
+                    >
+                      Car generations:{' '}
+                      {initCarGenerationsResult.success
+                        ? initCarGenerationsResult.message
+                        : initCarGenerationsResult.message}
+                    </span>
+                  </div>
+                )}
+                {initPartCategoriesResult && (
+                  <div
+                    className={`p-4 rounded-lg border-2 ${
+                      initPartCategoriesResult.success
+                        ? 'bg-green-900/20 border-green-700'
+                        : 'bg-red-900/20 border-red-700'
+                    }`}
+                  >
+                    <span
+                      className={
+                        initPartCategoriesResult.success
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }
+                    >
+                      Part categories:{' '}
+                      {initPartCategoriesResult.success
+                        ? initPartCategoriesResult.message
+                        : initPartCategoriesResult.message}
+                    </span>
                   </div>
                 )}
               </div>

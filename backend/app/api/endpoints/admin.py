@@ -2,7 +2,8 @@
 Admin endpoints for system management operations.
 
 This module provides admin-only endpoints for system maintenance tasks
-such as running database migrations.
+such as running database migrations and initializing seed data (car
+generations, part categories).
 """
 
 import logging
@@ -16,6 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.user import User as DBUser
 from app.api.utils.endpoint_decorators import standard_responses
+from app.core.init_cars import init_car_generations
+from app.core.init_categories import init_part_categories
+from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -210,4 +214,76 @@ async def get_current_migration_revision(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg,
+        )
+
+
+def _init_result(success: bool, message: str) -> Dict[str, Any]:
+    """Standard response for init endpoints."""
+    return {"success": success, "message": message}
+
+
+@router.post(
+    "/init/car-generations",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Car generations initialized successfully",
+        forbidden=True,
+    ),
+)
+async def init_car_generations_endpoint(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Initialize car generations from source of truth (admin only).
+
+    Syncs makes, car models, and car generations from car_generations_data
+    into the database. Run this manually after deploying or when seed data
+    has been updated.
+    """
+    try:
+        logger.info(f"Admin {current_user.id} triggered car generations init")
+        db = SessionLocal()
+        try:
+            init_car_generations(db)
+            return _init_result(True, "Car generations initialized successfully")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.exception("Car generations init failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/init/part-categories",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Part categories initialized successfully",
+        forbidden=True,
+    ),
+)
+async def init_part_categories_endpoint(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Initialize part categories from source of truth (admin only).
+
+    Syncs part categories from part_categories_data into the database.
+    Run this manually after deploying or when seed data has been updated.
+    """
+    try:
+        logger.info(f"Admin {current_user.id} triggered part categories init")
+        db = SessionLocal()
+        try:
+            init_part_categories(db)
+            return _init_result(True, "Part categories initialized successfully")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.exception("Part categories init failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
