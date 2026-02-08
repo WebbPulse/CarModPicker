@@ -12,6 +12,9 @@ import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 
+const DEFAULT_BRANDS: BrandResponse[] = [];
+const DEFAULT_CARS_BY_ID: Record<number, CarRead> = {};
+
 interface GroupedPart {
   category: CategoryResponse | null;
   parts: BuildListPartReadWithGlobalPart[];
@@ -34,7 +37,10 @@ interface BuildListPartTableProps {
 }
 
 function formatCarName(car: CarRead): string {
-  return `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() || 'Vehicle';
+  return (
+    `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    'Vehicle'
+  );
 }
 
 function getFitCell(
@@ -42,26 +48,23 @@ function getFitCell(
   carsById: Record<number, CarRead>
 ): { label: string; title?: string } {
   const gp = part.global_part;
-  if (gp.is_universal) return { label: 'Universal', title: undefined };
+  if (gp.is_universal) return { label: 'Universal' };
   const ids = gp.car_ids ?? [];
   const n = ids.length;
-  if (n === 0) return { label: '—', title: undefined };
+  if (n === 0) return { label: '—' };
   if (n === 1) {
     const firstId = ids[0];
     const car = firstId != null ? carsById[firstId] : undefined;
-    return {
-      label: car ? formatCarName(car) : '1 vehicle',
-      title: undefined,
-    };
+    return { label: car ? formatCarName(car) : '1 vehicle' };
   }
   const names = ids
     .map((id) => carsById[id])
     .filter((c): c is CarRead => c != null)
     .map(formatCarName);
-  return {
-    label: `${n} vehicles`,
-    title: names.length > 0 ? names.join('\n') : undefined,
-  };
+  const title = names.length > 0 ? names.join('\n') : undefined;
+  return title != null
+    ? { label: `${n} vehicles`, title }
+    : { label: `${n} vehicles` };
 }
 
 function getBrandName(
@@ -366,8 +369,8 @@ interface BuildListPartListProps {
 const BuildListPartList: React.FC<BuildListPartListProps> = ({
   buildListParts,
   categories,
-  brands = [],
-  carsById = {},
+  brands = DEFAULT_BRANDS,
+  carsById = DEFAULT_CARS_BY_ID,
   loading = false,
   onEdit,
   onDelete,
