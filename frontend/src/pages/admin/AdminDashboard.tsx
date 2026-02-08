@@ -110,6 +110,15 @@ function AdminDashboard() {
     success: boolean;
     message: string;
   } | null>(null);
+  const [isDeleteAllCarsConfirmOpen, setIsDeleteAllCarsConfirmOpen] =
+    useState(false);
+  const [isDeletingAllCars, setIsDeletingAllCars] = useState(false);
+  const [deleteAllCarsError, setDeleteAllCarsError] = useState<string | null>(
+    null
+  );
+  const [deleteAllCarsResult, setDeleteAllCarsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
 
   // Crawler tools
   const [crawlerAdapters, setCrawlerAdapters] = useState<string[]>([]);
@@ -357,6 +366,23 @@ function AdminDashboard() {
       });
     } finally {
       setIsInitPartCategories(false);
+    }
+  };
+
+  const handleConfirmDeleteAllCars = async () => {
+    setIsDeletingAllCars(true);
+    setDeleteAllCarsError(null);
+    try {
+      const response = await adminApi.deleteAllCars();
+      setDeleteAllCarsResult(response.data);
+      setIsDeleteAllCarsConfirmOpen(false);
+      await fetchCounts();
+    } catch (error) {
+      setDeleteAllCarsError(
+        error instanceof Error ? error.message : 'Failed to delete all cars.'
+      );
+    } finally {
+      setIsDeletingAllCars(false);
     }
   };
 
@@ -924,6 +950,61 @@ function AdminDashboard() {
 
       <div className="mt-6">
         <Card>
+          <SectionHeader title="Cars" />
+          <div className="p-6 bg-orange-900/20 border-2 border-orange-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-orange-400 mb-2">
+                Delete all cars (generations)
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Permanently remove every car generation from the catalog. Build
+                lists are unlinked from cars (not deleted). Makes and car models
+                stay so you can run &quot;Init Car Generations&quot; to
+                repopulate. This action cannot be undone.
+              </p>
+              <p className="text-sm text-neutral-400 mb-4">
+                Current cars:{' '}
+                <span className="font-semibold text-white">
+                  {counts.cars?.toLocaleString() ?? '—'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => {
+                  setDeleteAllCarsError(null);
+                  setDeleteAllCarsResult(null);
+                  setIsDeleteAllCarsConfirmOpen(true);
+                }}
+                disabled={isDeletingAllCars}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isDeletingAllCars ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete all cars'
+                )}
+              </ActionButton>
+            </div>
+            {deleteAllCarsResult && (
+              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
+                <p className="text-green-400 font-semibold">
+                  Deleted {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
+                  car(s).
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
           <SectionHeader title="Rerun inference on global parts" />
           <div className="p-6 bg-violet-900/20 border-2 border-violet-700 rounded-xl">
             <div className="mb-4">
@@ -1404,6 +1485,18 @@ function AdminDashboard() {
         itemType="catalog"
         isProcessing={isDeletingAllGlobalParts}
         error={deleteAllGlobalPartsError}
+      />
+      <DeleteConfirmationDialog
+        isOpen={isDeleteAllCarsConfirmOpen}
+        onClose={() => {
+          setIsDeleteAllCarsConfirmOpen(false);
+          setDeleteAllCarsError(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteAllCars()}
+        itemName="all cars (generations)"
+        itemType="catalog"
+        isProcessing={isDeletingAllCars}
+        error={deleteAllCarsError}
       />
     </div>
   );

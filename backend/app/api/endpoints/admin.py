@@ -19,10 +19,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.brand import Brand as DBBrand
+from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
+from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
@@ -303,6 +305,55 @@ async def init_part_categories_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+class DeleteAllCarsResponse(BaseModel):
+    """Response for delete-all cars (admin only)."""
+
+    deleted_count: int = Field(..., description="Number of cars (generations) deleted")
+
+
+@router.post(
+    "/cars/delete-all",
+    response_model=DeleteAllCarsResponse,
+    responses=standard_responses(
+        success_description="All cars deleted",
+        forbidden=True,
+    ),
+)
+async def delete_all_cars(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> DeleteAllCarsResponse:
+    """
+    Delete all cars / car generations (admin only).
+
+    Unlinks build lists from cars (sets car_id to null), removes car votes and
+    global_part_cars links, then deletes all Car rows. Makes and CarModels are
+    left intact so you can re-run Init Car Generations to repopulate.
+    This action cannot be undone.
+    """
+    db = SessionLocal()
+    try:
+        # Unlink build lists from cars so we can delete cars (FK has no ON DELETE)
+        db.query(DBBuildList).filter(DBBuildList.car_id.isnot(None)).update(
+            {DBBuildList.car_id: None}, synchronize_session=False
+        )
+        # Remove votes that reference cars
+        db.query(DBVote).filter(DBVote.entity_type == "car").delete(synchronize_session=False)
+        count = db.query(DBCar).count()
+        db.query(DBCar).delete(synchronize_session=False)
+        db.commit()
+        logger.info("Admin %s deleted all %s cars", current_user.id, count)
+        return DeleteAllCarsResponse(deleted_count=count)
+    except Exception as e:
+        db.rollback()
+        logger.exception("Delete all cars failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    finally:
+        db.close()
 
 
 # --- Crawler admin endpoints ---
