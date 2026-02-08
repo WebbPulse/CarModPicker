@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.db.session import get_db
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.car import Car as DBCar
 from app.api.models.category import Category as DBCategory
@@ -572,6 +573,7 @@ def _rerun_inference_impl(db: Session, reassign_brand: bool) -> Dict[str, Any]:
 async def rerun_global_parts_inference(
     body: RerunInferenceRequest,
     current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
 ) -> RerunInferenceResponse:
     """
     Rerun category, car, and optionally brand inference on all global parts (admin only).
@@ -581,7 +583,6 @@ async def rerun_global_parts_inference(
     - car associations and is_universal (from infer_car_generations + resolve)
     - brand_id (optional): if reassign_brand is True, infers from 'Brand - Product' name prefix using existing brands only.
     """
-    db = SessionLocal()
     try:
         logger.info(
             "Admin %s triggered rerun inference on all global parts (reassign_brand=%s)",
@@ -597,8 +598,6 @@ async def rerun_global_parts_inference(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-    finally:
-        db.close()
 
 
 class DeleteAllGlobalPartsResponse(BaseModel):
