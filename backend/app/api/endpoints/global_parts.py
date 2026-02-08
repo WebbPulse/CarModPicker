@@ -13,8 +13,10 @@ from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.brand import Brand as DBBrand
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
+from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.global_part_car import global_part_cars
 from app.api.models.make import Make as DBMake
@@ -307,7 +309,10 @@ async def read_global_parts_with_votes(
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
     user_id: Optional[int] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
-    sort: Optional[str] = Query(None, description="Sort: default by votes, or 'lowest_price' by best listing price"),
+    sort: Optional[str] = Query(
+        None,
+        description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, brand_asc, brand_desc, category_asc, category_desc",
+    ),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
     max_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price <= this (cents)"),
@@ -408,7 +413,12 @@ async def read_global_parts_with_votes(
     # Get total count from base query (after price filter)
     total = base_query.count()
 
-    # Sort: by lowest price (best listing) or by net votes (default)
+    net_votes = (
+        func.coalesce(upvote_counts.c.upvote_count, 0)
+        - func.coalesce(downvote_counts.c.downvote_count, 0)
+    )
+
+    # Sort: apply server-side order so pagination returns globally sorted results
     if sort == "lowest_price":
         if not has_price_filter:
             query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
@@ -416,13 +426,44 @@ async def read_global_parts_with_votes(
             min_price_subq.c.min_price.asc().nullslast(),
             DBGlobalPart.id.desc(),
         )
-    else:
+    elif sort == "highest_price":
+        if not has_price_filter:
+            query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
         query = query.order_by(
-            (
-                func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
-            ).desc(),
+            min_price_subq.c.min_price.desc().nullslast(),
             DBGlobalPart.id.desc(),
         )
+    elif sort == "votes_asc":
+        query = query.order_by(net_votes.asc(), DBGlobalPart.id.desc())
+    elif sort == "name_asc":
+        query = query.order_by(DBGlobalPart.name.asc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "name_desc":
+        query = query.order_by(DBGlobalPart.name.desc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "part_number_asc":
+        query = query.order_by(DBGlobalPart.part_number.asc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "part_number_desc":
+        query = query.order_by(DBGlobalPart.part_number.desc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "brand_asc":
+        query = query.outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id).order_by(
+            DBBrand.name.asc().nullslast(), DBGlobalPart.id.desc()
+        )
+    elif sort == "brand_desc":
+        query = query.outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id).order_by(
+            DBBrand.name.desc().nullslast(), DBGlobalPart.id.desc()
+        )
+    elif sort == "category_asc":
+        query = query.join(DBCategory, DBGlobalPart.category_id == DBCategory.id).order_by(
+            func.coalesce(DBCategory.display_name, DBCategory.name).asc().nullslast(),
+            DBGlobalPart.id.desc(),
+        )
+    elif sort == "category_desc":
+        query = query.join(DBCategory, DBGlobalPart.category_id == DBCategory.id).order_by(
+            func.coalesce(DBCategory.display_name, DBCategory.name).desc().nullslast(),
+            DBGlobalPart.id.desc(),
+        )
+    else:
+        # default: votes_desc
+        query = query.order_by(net_votes.desc(), DBGlobalPart.id.desc())
 
     # Get paginated results
     # Since joins are one-to-one, we can get IDs in order, then fetch full objects

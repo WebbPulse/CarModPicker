@@ -26,7 +26,7 @@ export interface UseGlobalPartsFiltersOptions {
 }
 
 export interface UseGlobalPartsFiltersReturn {
-  // List API params
+  // List API params (include sort so server sorts full result set; pagination then returns correct page)
   params: {
     skip: number;
     limit: number;
@@ -34,6 +34,7 @@ export interface UseGlobalPartsFiltersReturn {
     car_id?: number;
     brand_ids?: number[];
     search?: string;
+    sort?: string;
     min_price_cents?: number;
     max_price_cents?: number;
     user_id?: number;
@@ -62,6 +63,10 @@ export interface UseGlobalPartsFiltersReturn {
   priceMax: string;
   setPriceMin: (s: string) => void;
   setPriceMax: (s: string) => void;
+
+  // Sort (server-side; included in params and URL so page 2+ respects sort)
+  sortParam: string;
+  setSortParam: (s: string) => void;
 
   // Data
   categories: CategoryResponse[];
@@ -115,6 +120,7 @@ export function useGlobalPartsFilters(
   const [searchTerm, setSearchTerm] = useState('');
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
+  const [sortParam, setSortParamState] = useState<string>('votes_desc');
   const [filterOptions, setFilterOptions] = useState<{
     category_ids: number[];
     brand_ids: number[];
@@ -378,6 +384,8 @@ export function useGlobalPartsFilters(
       const page = Number.parseInt(pageParam, 10);
       if (!Number.isNaN(page) && page > 0) setCurrentPage(page);
     }
+    const sortParamFromUrl = searchParams.get('sort');
+    if (sortParamFromUrl) setSortParamState(sortParamFromUrl);
     setIsInitializedFromUrl(true);
   }, [
     syncToUrl,
@@ -478,6 +486,7 @@ export function useGlobalPartsFilters(
         newParams.set('max_price', priceMax.trim());
     }
     if (currentPage > 1) newParams.set('page', currentPage.toString());
+    if (sortParam && sortParam !== 'votes_desc') newParams.set('sort', sortParam);
     setSearchParams(newParams, { replace: true });
   }, [
     syncToUrl,
@@ -492,6 +501,7 @@ export function useGlobalPartsFilters(
     priceMin,
     priceMax,
     currentPage,
+    sortParam,
     setSearchParams,
   ]);
 
@@ -510,6 +520,7 @@ export function useGlobalPartsFilters(
     priceMin,
     priceMax,
     currentPage,
+    sortParam,
     syncFiltersToUrl,
   ]);
 
@@ -529,6 +540,7 @@ export function useGlobalPartsFilters(
     searchTerm,
     priceMin,
     priceMax,
+    sortParam,
   ]);
 
   const uniqueModels = useMemo(
@@ -613,6 +625,11 @@ export function useGlobalPartsFilters(
     setPriceMax('');
   }, []);
 
+  const setSortParam = useCallback((s: string) => {
+    setSortParamState(s);
+    setCurrentPage(1);
+  }, []);
+
   const params = useMemo(() => {
     const minCents =
       priceMin.trim() !== ''
@@ -641,6 +658,7 @@ export function useGlobalPartsFilters(
         !showUniversalParts && { car_ids: effectiveCarIds }),
       ...(selectedBrandIds.length > 0 && { brand_ids: selectedBrandIds }),
       ...(searchTerm && { search: searchTerm }),
+      ...(sortParam && { sort: sortParam }),
       ...(min_price_cents !== undefined && { min_price_cents }),
       ...(max_price_cents !== undefined && { max_price_cents }),
     };
@@ -652,6 +670,7 @@ export function useGlobalPartsFilters(
     showUniversalParts,
     selectedBrandIds,
     searchTerm,
+    sortParam,
     priceMin,
     priceMax,
   ]);
@@ -680,6 +699,8 @@ export function useGlobalPartsFilters(
     priceMax,
     setPriceMin,
     setPriceMax,
+    sortParam,
+    setSortParam,
     categories,
     availableMakes,
     availableCars,

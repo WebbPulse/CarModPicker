@@ -155,6 +155,55 @@ function getCacheKey(params?: {
   return JSON.stringify(params || {});
 }
 
+/** Map API sort param to (sortColumn, sortDirection) for table header display */
+function sortParamToColumnAndDirection(sortParam: string): {
+  sortColumn: SortColumn;
+  sortDirection: 'asc' | 'desc';
+} {
+  const map: Record<string, { sortColumn: SortColumn; sortDirection: 'asc' | 'desc' }> = {
+    votes_desc: { sortColumn: 'rating', sortDirection: 'desc' },
+    votes_asc: { sortColumn: 'rating', sortDirection: 'asc' },
+    lowest_price: { sortColumn: 'price', sortDirection: 'asc' },
+    highest_price: { sortColumn: 'price', sortDirection: 'desc' },
+    name_asc: { sortColumn: 'part', sortDirection: 'asc' },
+    name_desc: { sortColumn: 'part', sortDirection: 'desc' },
+    part_number_asc: { sortColumn: 'part_number', sortDirection: 'asc' },
+    part_number_desc: { sortColumn: 'part_number', sortDirection: 'desc' },
+    brand_asc: { sortColumn: 'brand', sortDirection: 'asc' },
+    brand_desc: { sortColumn: 'brand', sortDirection: 'desc' },
+    category_asc: { sortColumn: 'category', sortDirection: 'asc' },
+    category_desc: { sortColumn: 'category', sortDirection: 'desc' },
+    fit_asc: { sortColumn: 'fit', sortDirection: 'asc' },
+    fit_desc: { sortColumn: 'fit', sortDirection: 'desc' },
+  };
+  return map[sortParam] ?? { sortColumn: 'rating', sortDirection: 'desc' };
+}
+
+/** Map (sortColumn, sortDirection) to API sort param when user clicks column */
+function columnAndDirectionToSortParam(
+  column: SortColumn,
+  direction: 'asc' | 'desc'
+): string {
+  const key = `${column}_${direction}`;
+  const map: Record<string, string> = {
+    part_asc: 'name_asc',
+    part_desc: 'name_desc',
+    brand_asc: 'brand_asc',
+    brand_desc: 'brand_desc',
+    part_number_asc: 'part_number_asc',
+    part_number_desc: 'part_number_desc',
+    category_asc: 'category_asc',
+    category_desc: 'category_desc',
+    fit_asc: 'fit_asc',
+    fit_desc: 'fit_desc',
+    rating_asc: 'votes_asc',
+    rating_desc: 'votes_desc',
+    price_asc: 'lowest_price',
+    price_desc: 'highest_price',
+  };
+  return map[key] ?? 'votes_desc';
+}
+
 function getCachedData(cacheKey: string): CachedData | null {
   const cached = globalPartsCache.get(cacheKey);
   if (!cached) return null;
@@ -201,8 +250,10 @@ interface GlobalPartListProps {
   canEdit?: (globalPart: GlobalPartReadWithVotes) => boolean;
   canDelete?: (globalPart: GlobalPartReadWithVotes) => boolean;
   onPaginationChange?: (pagination: PaginationInfo | null) => void;
-  /** Called when sort column/direction changes (e.g. to reset pagination). */
-  onSortChange?: () => void;
+  /** When provided with onSortChange, sort is controlled: parent passes sortParam (API value) and is notified on change. Enables server-side sort for full result set. */
+  sortParam?: string;
+  /** When controlled: called with new API sort param. When uncontrolled: called with no args when sort changes (e.g. to reset pagination). */
+  onSortChange?: (newSortParam?: string) => void;
   /** Table layout: dense columns (Part | Brand | P/N | Category | Fit | Rating | Price). Requires categories for Category column, brands for Brand column lookup. */
   layout?: 'card' | 'table';
   categories?: CategoryResponse[];
@@ -243,13 +294,19 @@ function GlobalPartList({
   canDelete,
   onPaginationChange,
   onSortChange,
+  sortParam: controlledSortParam,
   layout = 'card',
   categories = DEFAULT_CATEGORIES,
   brands = DEFAULT_BRANDS,
   carsById = DEFAULT_CARS_BY_ID,
 }: GlobalPartListProps) {
-  const [sortColumn, setSortColumn] = useState<SortColumn>('rating');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [localSortColumn, setLocalSortColumn] = useState<SortColumn>('rating');
+  const [localSortDirection, setLocalSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const isControlledSort = controlledSortParam != null && onSortChange != null;
+  const { sortColumn, sortDirection } = isControlledSort
+    ? sortParamToColumnAndDirection(controlledSortParam)
+    : { sortColumn: localSortColumn, sortDirection: localSortDirection };
 
   const [columnWidths, setColumnWidths] = useState<
     Partial<Record<TableColumnKey, number>>
@@ -373,27 +430,49 @@ function GlobalPartList({
 
   const handleSort = useCallback(
     (column: SortColumn) => {
-      if (sortColumn === column) {
-        setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      if (isControlledSort && onSortChange) {
+        const nextDirection =
+          sortColumn === column
+            ? sortDirection === 'asc'
+              ? 'desc'
+              : 'asc'
+            : column === 'rating' || column === 'price'
+              ? 'desc'
+              : 'asc';
+        const newSortParam = columnAndDirectionToSortParam(column, nextDirection);
+        onSortChange(newSortParam);
       } else {
-        setSortColumn(column);
-        setSortDirection(
-          column === 'rating' || column === 'price' ? 'desc' : 'asc'
-        );
+        if (localSortColumn === column) {
+          setLocalSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+        } else {
+          setLocalSortColumn(column);
+          setLocalSortDirection(
+            column === 'rating' || column === 'price' ? 'desc' : 'asc'
+          );
+        }
+        onSortChange?.();
       }
-      onSortChange?.();
     },
-    [sortColumn, onSortChange]
+    [
+      isControlledSort,
+      onSortChange,
+      sortColumn,
+      sortDirection,
+      localSortColumn,
+    ]
   );
 
-  const effectiveParams = useMemo(
-    () => ({
+  const effectiveParams = useMemo(() => {
+    if (params == null) return undefined;
+    if (isControlledSort) {
+      return params;
+    }
+    return {
       ...params,
       ...(layout === 'table' &&
-        sortColumn === 'price' && { sort: 'lowest_price' as const }),
-    }),
-    [params, layout, sortColumn]
-  );
+        localSortColumn === 'price' && { sort: 'lowest_price' as const }),
+    };
+  }, [params, layout, isControlledSort, localSortColumn]);
 
   const {
     data: paginatedResponse,
@@ -582,6 +661,14 @@ function GlobalPartList({
     getFitCell,
   ]);
 
+  // Server-side sort: use API order unless sort is by "fit" (no server support), then client-sort current page
+  const displayParts =
+    isControlledSort &&
+    controlledSortParam !== 'fit_asc' &&
+    controlledSortParam !== 'fit_desc'
+      ? (globalParts ?? [])
+      : sortedParts;
+
   const totalTableWidth = useMemo(
     () => tableColumnKeys.reduce((sum, key) => sum + getColumnWidth(key), 0),
     [tableColumnKeys, getColumnWidth]
@@ -714,7 +801,7 @@ function GlobalPartList({
                 </tr>
               </thead>
               <tbody>
-                {sortedParts.map((globalPart: GlobalPartReadWithVotes) => (
+                {displayParts.map((globalPart: GlobalPartReadWithVotes) => (
                   <tr
                     key={globalPart.id}
                     className="border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group"
