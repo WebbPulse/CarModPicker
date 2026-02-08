@@ -27,14 +27,25 @@ from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.logging import ColourizedFormatter, LOG_FORMAT
 from .db.session import check_db_ready
 
-# Configure logging for the entire application
+# Configure logging for the entire application (single format, colourised levels)
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=LOG_FORMAT,
     handlers=[logging.StreamHandler()],
 )
+_coloured = ColourizedFormatter(LOG_FORMAT)
+_root = logging.getLogger()
+for _h in _root.handlers:
+    _h.setFormatter(_coloured)
+
+# Apply same format and colours to uvicorn loggers
+for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+    _log = logging.getLogger(_name)
+    for _h in _log.handlers:
+        _h.setFormatter(_coloured)
 
 logger = logging.getLogger(__name__)
 
