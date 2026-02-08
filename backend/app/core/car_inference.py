@@ -75,6 +75,10 @@ def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
     return triples
 
 
+# Built once at import; sort by phrase length descending so longer matches win.
+PHRASE_TRIPLES: list[tuple[str, str, str, str]] = sorted(_build_phrase_triples(), key=lambda x: -len(x[0]))
+
+
 # Aliases: phrase -> (make, model, generation_name). Used when product text uses
 # nicknames (MKV Supra, GR Supra, G82, etc.). Order: longer phrases first for specificity.
 CAR_ALIASES: list[tuple[str, str, str, str]] = [
@@ -317,11 +321,8 @@ def infer_car_generations(
             seen.add((make, model, gen_name))
             result.append((make, model, gen_name))
 
-    # Then canonical phrases (from get_all_car_generations); prefer longer matches
-    phrase_triples = _build_phrase_triples()
-    # Sort by phrase length descending so "toyota supra a90" matches before "supra a90" before "a90"
-    phrase_triples.sort(key=lambda x: -len(x[0]))
-    for phrase, make, model, gen_name in phrase_triples:
+    # Then canonical phrases (from CAR_GENERATIONS); prefer longer matches (PHRASE_TRIPLES is pre-sorted)
+    for phrase, make, model, gen_name in PHRASE_TRIPLES:
         if (make, model, gen_name) in seen:
             continue
         if _phrase_matches(combined, phrase):

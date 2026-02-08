@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Strong references to fire-and-forget tasks so they are not garbage-collected
+# mid-execution. Tasks remove themselves on completion via add_done_callback.
+_background_tasks: set[asyncio.Task[None]] = set()
+
 
 def _get_alembic_directory() -> str:
     """
@@ -409,6 +413,7 @@ async def _run_crawlers_background(
 async def run_crawlers_endpoint(
     body: CrawlerRunRequest,
     current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Start retailer crawlers (admin only). Returns immediately after enqueueing the job.
@@ -420,6 +425,25 @@ async def run_crawlers_endpoint(
     - When running more than one crawler, they run in parallel by default.
     - A completion report can be sent when the job finishes (e.g. via SendGrid).
     """
+    # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
+    crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+    if not crawler_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
+        )
+    if crawler_user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
+        )
+    cat = db.query(DBCategory).filter(DBCategory.id == body.crawler_default_category_id).first()
+    if not cat or not cat.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"crawler_default_category_id={body.crawler_default_category_id}: not found or inactive.",
+        )
+
     adapters = body.adapters
     if adapters == ["all"]:
         adapters = list(ADAPTER_REGISTRY.keys())
@@ -439,7 +463,7 @@ async def run_crawlers_endpoint(
     logger.info("Admin %s starting crawler job: %s", current_user.id, adapters)
 
     delay_sec = body.delay_sec if body.delay_sec is not None else DEFAULT_REQUEST_DELAY_SEC
-    asyncio.create_task(
+    task = asyncio.create_task(
         _run_crawlers_background(
             adapters,
             limits=body.limits,
@@ -451,6 +475,8 @@ async def run_crawlers_endpoint(
             triggered_by_user_id=current_user.id,
         )
     )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return {
         "status": "started",
@@ -549,6 +575,7 @@ def _rerun_inference_impl(db: Session, reassign_brand: bool) -> Dict[str, Any]:
             updated_count += 1
         except Exception as e:
             error_count += 1
+            db.refresh(part)  # Discard partial ORM mutations so they are not committed
             if len(errors) < max_errors:
                 errors.append(f"Part id={part.id} ({part.name[:50]}...): {e!s}")
 
