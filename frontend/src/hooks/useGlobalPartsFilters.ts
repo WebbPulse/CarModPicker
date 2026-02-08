@@ -66,7 +66,7 @@ export interface UseGlobalPartsFiltersReturn {
 
   // Sort (server-side; included in params and URL so page 2+ respects sort)
   sortParam: string;
-  setSortParam: (s: string) => void;
+  setSortParam: (s?: string) => void;
 
   // Data
   categories: CategoryResponse[];
@@ -487,6 +487,8 @@ export function useGlobalPartsFilters(
     }
     if (currentPage > 1) newParams.set('page', currentPage.toString());
     if (sortParam && sortParam !== 'votes_desc') newParams.set('sort', sortParam);
+    const next = newParams.toString();
+    if (searchParams.toString() === next) return;
     setSearchParams(newParams, { replace: true });
   }, [
     syncToUrl,
@@ -502,6 +504,7 @@ export function useGlobalPartsFilters(
     priceMax,
     currentPage,
     sortParam,
+    searchParams,
     setSearchParams,
   ]);
 
@@ -625,9 +628,11 @@ export function useGlobalPartsFilters(
     setPriceMax('');
   }, []);
 
-  const setSortParam = useCallback((s: string) => {
-    setSortParamState(s);
-    setCurrentPage(1);
+  const setSortParam = useCallback((s?: string) => {
+    if (s !== undefined) {
+      setSortParamState(s);
+      setCurrentPage(1);
+    }
   }, []);
 
   const params = useMemo(() => {

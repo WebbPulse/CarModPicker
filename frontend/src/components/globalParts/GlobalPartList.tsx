@@ -714,7 +714,7 @@ function GlobalPartList({
           </div>
         ) : (
           <div className="overflow-x-auto min-w-0 rounded-inherit">
-            <table className="w-full text-sm table-fixed">
+            <table className="global-parts-table-scroll-layer w-full text-sm table-fixed">
               <colgroup>
                 {tableColumnKeys.map((key) => (
                   <col
@@ -804,7 +804,7 @@ function GlobalPartList({
                 {displayParts.map((globalPart: GlobalPartReadWithVotes) => (
                   <tr
                     key={globalPart.id}
-                    className="border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group"
+                    className="border-b border-gray-700/70 hover:bg-gray-800/50 group"
                   >
                     {/* Part: thumb + name */}
                     <td
@@ -822,6 +822,7 @@ function GlobalPartList({
                             imageClassName="w-full h-full object-cover"
                             containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
                             fallbackText=""
+                            loading="lazy"
                           />
                         </div>
                         <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">

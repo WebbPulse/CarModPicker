@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Card from '../common/Card';
 import VehicleFilterSection from '../common/VehicleFilterSection';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
+
+const MAX_BRANDS_VISIBLE = 40;
+const MAX_CATEGORIES_VISIBLE = 20;
 
 export interface GlobalPartsFilterSidebarProps {
   hasActiveFilters: boolean;
@@ -43,6 +46,8 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
   props
 ) => {
   const [brandSearchTerm, setBrandSearchTerm] = useState('');
+  const [brandsExpanded, setBrandsExpanded] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const {
     hasActiveFilters,
     clearAllFilters,
@@ -85,6 +90,49 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer text-gray-300 hover:bg-gray-700/50 hover:text-gray-100 transition-colors';
   const checkboxInputClass =
     'rounded border-gray-500 bg-gray-800 text-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-gray-900';
+
+  const allowedCategoryIds = useMemo(
+    () => new Set(availableCategoryIds),
+    [availableCategoryIds]
+  );
+  const allowedBrandIds = useMemo(
+    () => new Set(availableBrandIds),
+    [availableBrandIds]
+  );
+  const selectedCategoryIdsSet = useMemo(
+    () => new Set(selectedCategoryIds),
+    [selectedCategoryIds]
+  );
+  const selectedBrandIdsSet = useMemo(
+    () => new Set(selectedBrandIds),
+    [selectedBrandIds]
+  );
+
+  const visibleCategories = useMemo(
+    () =>
+      activeCategories.filter((cat) => allowedCategoryIds.has(cat.id)),
+    [activeCategories, allowedCategoryIds]
+  );
+  const visibleBrands = useMemo(() => {
+    const byAllowed = availableBrands.filter((b) => allowedBrandIds.has(b.id));
+    const bySearch = brandSearchTerm.trim()
+      ? byAllowed.filter((b) =>
+          b.name
+            .toLowerCase()
+            .includes(brandSearchTerm.trim().toLowerCase())
+        )
+      : byAllowed;
+    return bySearch;
+  }, [availableBrands, allowedBrandIds, brandSearchTerm]);
+
+  const categoriesToRender = categoriesExpanded
+    ? visibleCategories
+    : visibleCategories.slice(0, MAX_CATEGORIES_VISIBLE);
+  const categoriesHasMore = visibleCategories.length > MAX_CATEGORIES_VISIBLE;
+  const brandsToRender = brandsExpanded
+    ? visibleBrands
+    : visibleBrands.slice(0, MAX_BRANDS_VISIBLE);
+  const brandsHasMore = visibleBrands.length > MAX_BRANDS_VISIBLE;
 
   return (
     <aside className="lg:w-64 flex-shrink-0">
@@ -176,19 +224,28 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   Clear categories
                 </button>
               )}
-              {activeCategories
-                .filter((cat) => availableCategoryIds.includes(cat.id))
-                .map((cat) => (
-                  <label key={cat.id} className={checkboxRowClass}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCategoryIds.includes(cat.id)}
-                      onChange={() => toggleCategory(cat.id)}
-                      className={checkboxInputClass}
-                    />
-                    <span>{cat.display_name || cat.name}</span>
-                  </label>
-                ))}
+              {categoriesToRender.map((cat) => (
+                <label key={cat.id} className={checkboxRowClass}>
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIdsSet.has(cat.id)}
+                    onChange={() => toggleCategory(cat.id)}
+                    className={checkboxInputClass}
+                  />
+                  <span>{cat.display_name || cat.name}</span>
+                </label>
+              ))}
+              {categoriesHasMore && (
+                <button
+                  type="button"
+                  onClick={() => setCategoriesExpanded((e) => !e)}
+                  className={clearButtonClass}
+                >
+                  {categoriesExpanded
+                    ? 'Show less'
+                    : `Show ${visibleCategories.length - MAX_CATEGORIES_VISIBLE} more`}
+                </button>
+              )}
             </div>
           </div>
 
@@ -212,26 +269,30 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
                   Clear brands
                 </button>
               )}
-              {availableBrands
-                .filter((b) => availableBrandIds.includes(b.id))
-                .filter(
-                  (b) =>
-                    !brandSearchTerm.trim() ||
-                    b.name
-                      .toLowerCase()
-                      .includes(brandSearchTerm.trim().toLowerCase())
-                )
-                .map((brand) => (
+              <div className="max-h-60 overflow-y-auto">
+                {brandsToRender.map((brand) => (
                   <label key={brand.id} className={checkboxRowClass}>
                     <input
                       type="checkbox"
-                      checked={selectedBrandIds.includes(brand.id)}
+                      checked={selectedBrandIdsSet.has(brand.id)}
                       onChange={() => toggleBrand(brand.id)}
                       className={checkboxInputClass}
                     />
                     <span>{brand.name}</span>
                   </label>
                 ))}
+              </div>
+              {brandsHasMore && (
+                <button
+                  type="button"
+                  onClick={() => setBrandsExpanded((e) => !e)}
+                  className={clearButtonClass}
+                >
+                  {brandsExpanded
+                    ? 'Show less'
+                    : `Show ${visibleBrands.length - MAX_BRANDS_VISIBLE} more`}
+                </button>
+              )}
             </div>
           </div>
         </div>

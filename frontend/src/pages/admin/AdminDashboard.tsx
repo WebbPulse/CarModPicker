@@ -259,14 +259,7 @@ function AdminDashboard() {
     }
   }, [user]);
 
-  // Fetch entity counts and crawlers on mount
-  useEffect(() => {
-    void fetchCounts();
-    void fetchCurrentRevision();
-    void fetchCrawlers();
-  }, [fetchCounts]);
-
-  const fetchCrawlers = async () => {
+  const fetchCrawlers = useCallback(async () => {
     if (!user?.is_admin) return;
     setIsLoadingCrawlers(true);
     try {
@@ -282,7 +275,14 @@ function AdminDashboard() {
     } finally {
       setIsLoadingCrawlers(false);
     }
-  };
+  }, [user?.is_admin]);
+
+  // Fetch entity counts and crawlers on mount
+  useEffect(() => {
+    void fetchCounts();
+    void fetchCurrentRevision();
+    void fetchCrawlers();
+  }, [fetchCounts, fetchCrawlers]);
 
   const fetchCurrentRevision = async () => {
     setIsLoadingRevision(true);
@@ -1001,8 +1001,8 @@ function AdminDashboard() {
                       Show errors (first {rerunInferenceResult.errors.length})
                     </summary>
                     <ul className="mt-2 list-disc list-inside text-xs text-neutral-300 space-y-1">
-                      {rerunInferenceResult.errors.map((err, i) => (
-                        <li key={i}>{err}</li>
+                      {rerunInferenceResult.errors.map((err) => (
+                        <li key={err}>{err}</li>
                       ))}
                     </ul>
                   </details>

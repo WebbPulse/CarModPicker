@@ -476,6 +476,13 @@ body {
   );
 }
 
+/* Table scroll performance: promote table to its own compositor layer so vertical scroll
+   is GPU-composited instead of triggering main-thread layout/paint on every frame. */
+.global-parts-table-scroll-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 /* Card variant for table layout: same look as .card but overflow visible so inner scroll works */
 .card-table-container {
   background: var(--gradient-glass);
