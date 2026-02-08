@@ -394,14 +394,16 @@ export const globalPartsApi = {
     search?: string;
     user_id?: number;
   }) =>
-    apiClient.get<{ category_ids: number[]; brand_ids: number[] }>(
-      '/global-parts/filter-options',
-      {
-        params: params
-          ? paramsWithArrays(params as Record<string, unknown>)
-          : undefined,
-      }
-    ),
+    apiClient.get<{
+      category_ids: number[];
+      brand_ids: number[];
+      car_ids?: number[];
+      make_names?: string[];
+    }>('/global-parts/filter-options', {
+      params: params
+        ? paramsWithArrays(params as Record<string, unknown>)
+        : undefined,
+    }),
 
   // Filter by category
   getGlobalPartsByCategory: (
@@ -991,10 +993,64 @@ export interface CurrentRevisionResult {
   output: string;
 }
 
+export interface InitDataResult {
+  success: boolean;
+  message: string;
+}
+
+/** Response when starting a crawler job (returns immediately; job runs in background). */
+export interface CrawlerRunResponse {
+  status: 'started';
+  adapters: string[];
+  message: string;
+}
+
+export interface CrawlerRunRequest {
+  adapters: string[];
+  crawler_user_id: number;
+  crawler_default_category_id: number;
+  limits?: Record<string, number>;
+  global_limit?: number | null;
+  parallel?: boolean;
+  /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
+  delay_sec?: number | null;
+}
+
+export interface RerunInferenceRequest {
+  /** If true, infer brand from part name (e.g. "Brand - Product" -> Brand). Only matches existing brands. */
+  reassign_brand?: boolean;
+}
+
+export interface RerunInferenceResponse {
+  updated_count: number;
+  error_count: number;
+  errors: string[];
+}
+
 export const adminApi = {
   runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
   getCurrentRevision: () =>
     apiClient.get<CurrentRevisionResult>('/admin/migrations/current'),
+  initCarGenerations: () =>
+    apiClient.post<InitDataResult>('/admin/init/car-generations'),
+  initPartCategories: () =>
+    apiClient.post<InitDataResult>('/admin/init/part-categories'),
+
+  // Crawlers
+  getCrawlers: () => apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  runCrawlers: (body: CrawlerRunRequest) =>
+    apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
+
+  /** Rerun category, car, and optionally brand inference on all global parts (admin only). */
+  rerunInference: (body: RerunInferenceRequest) =>
+    apiClient.post<RerunInferenceResponse>(
+      '/admin/global-parts/rerun-inference',
+      body
+    ),
+
+  /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
+  deleteAllGlobalParts: () =>
+    apiClient.post<{ deleted_count: number }>('/admin/global-parts/delete-all'),
 };
 
 export default apiClient;

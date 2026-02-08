@@ -122,7 +122,8 @@ const GlobalPartsCatalog: React.FC = () => {
             showAddToBuildListButton
             onAddToBuildList={handleAddToBuildList}
             onPaginationChange={handlePaginationChange}
-            onSortChange={() => filters.setCurrentPage(1)}
+            sortParam={filters.sortParam}
+            onSortChange={filters.setSortParam}
             layout="table"
             categories={filters.activeCategories}
             brands={filters.availableBrands}

@@ -7,10 +7,8 @@ Register new adapters in ADAPTER_REGISTRY so the runner can run them by name.
 
 from app.crawlers.adapters.a90shop import A90ShopAdapter
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
-from app.crawlers.adapters.example import ExampleRetailerAdapter
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
-    "example": ExampleRetailerAdapter,
     "a90shop": A90ShopAdapter,
 }
 

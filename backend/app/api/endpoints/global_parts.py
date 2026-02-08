@@ -13,9 +13,13 @@ from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.brand import Brand as DBBrand
 from app.api.models.car import Car as DBCar
+from app.api.models.car_model import CarModel as DBCarModel
+from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.global_part_car import global_part_cars
+from app.api.models.make import Make as DBMake
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
@@ -305,7 +309,10 @@ async def read_global_parts_with_votes(
     brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
     retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
     user_id: Optional[int] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
-    sort: Optional[str] = Query(None, description="Sort: default by votes, or 'lowest_price' by best listing price"),
+    sort: Optional[str] = Query(
+        None,
+        description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, brand_asc, brand_desc, category_asc, category_desc",
+    ),
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
     max_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price <= this (cents)"),
@@ -406,7 +413,9 @@ async def read_global_parts_with_votes(
     # Get total count from base query (after price filter)
     total = base_query.count()
 
-    # Sort: by lowest price (best listing) or by net votes (default)
+    net_votes = func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
+
+    # Sort: apply server-side order so pagination returns globally sorted results
     if sort == "lowest_price":
         if not has_price_filter:
             query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
@@ -414,13 +423,44 @@ async def read_global_parts_with_votes(
             min_price_subq.c.min_price.asc().nullslast(),
             DBGlobalPart.id.desc(),
         )
-    else:
+    elif sort == "highest_price":
+        if not has_price_filter:
+            query = query.outerjoin(min_price_subq, DBGlobalPart.id == min_price_subq.c.global_part_id)
         query = query.order_by(
-            (
-                func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
-            ).desc(),
+            min_price_subq.c.min_price.desc().nullslast(),
             DBGlobalPart.id.desc(),
         )
+    elif sort == "votes_asc":
+        query = query.order_by(net_votes.asc(), DBGlobalPart.id.desc())
+    elif sort == "name_asc":
+        query = query.order_by(DBGlobalPart.name.asc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "name_desc":
+        query = query.order_by(DBGlobalPart.name.desc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "part_number_asc":
+        query = query.order_by(DBGlobalPart.part_number.asc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "part_number_desc":
+        query = query.order_by(DBGlobalPart.part_number.desc().nullslast(), DBGlobalPart.id.desc())
+    elif sort == "brand_asc":
+        query = query.outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id).order_by(
+            DBBrand.name.asc().nullslast(), DBGlobalPart.id.desc()
+        )
+    elif sort == "brand_desc":
+        query = query.outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id).order_by(
+            DBBrand.name.desc().nullslast(), DBGlobalPart.id.desc()
+        )
+    elif sort == "category_asc":
+        query = query.join(DBCategory, DBGlobalPart.category_id == DBCategory.id).order_by(
+            func.coalesce(DBCategory.display_name, DBCategory.name).asc().nullslast(),
+            DBGlobalPart.id.desc(),
+        )
+    elif sort == "category_desc":
+        query = query.join(DBCategory, DBGlobalPart.category_id == DBCategory.id).order_by(
+            func.coalesce(DBCategory.display_name, DBCategory.name).desc().nullslast(),
+            DBGlobalPart.id.desc(),
+        )
+    else:
+        # default: votes_desc
+        query = query.order_by(net_votes.desc(), DBGlobalPart.id.desc())
 
     # Get paginated results
     # Since joins are one-to-one, we can get IDs in order, then fetch full objects
@@ -620,7 +660,43 @@ async def get_global_parts_filter_options(
         row[0]
         for row in q.with_entities(DBGlobalPart.brand_id).distinct().filter(DBGlobalPart.brand_id.isnot(None)).all()
     ]
-    return {"category_ids": available_categories, "brand_ids": available_brands}
+    result: Dict[str, Any] = {"category_ids": available_categories, "brand_ids": available_brands}
+
+    # When brand/category/search filters are applied, return vehicle options (car_ids, make_names)
+    # so the frontend can restrict make/model/generation dropdowns to vehicles that have matching parts.
+    has_scoping_filters = bool(category_ids or brand_ids or (search and search.strip()))
+    if has_scoping_filters:
+        q_no_car = _global_parts_base_query(
+            db,
+            category_ids=category_ids,
+            brand_ids=brand_ids,
+            car_ids=None,
+            search=search,
+            user_id=user_id,
+            retailer_id=None,
+        )
+        available_car_ids = [
+            row[0]
+            for row in q_no_car.join(global_part_cars, DBGlobalPart.id == global_part_cars.c.global_part_id)
+            .with_entities(global_part_cars.c.car_id)
+            .distinct()
+            .all()
+        ]
+        result["car_ids"] = available_car_ids
+        if available_car_ids:
+            make_rows = (
+                db.query(DBMake.name)
+                .join(DBCarModel, DBCarModel.make_id == DBMake.id)
+                .join(DBCar, DBCar.car_model_id == DBCarModel.id)
+                .filter(DBCar.id.in_(available_car_ids))
+                .distinct()
+                .all()
+            )
+            result["make_names"] = sorted({row[0] for row in make_rows if row[0]})
+        else:
+            result["make_names"] = []
+
+    return result
 
 
 @router.get(

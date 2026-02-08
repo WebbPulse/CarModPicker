@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
     DEFAULT_USER_AGENT,
+    apply_delay_jitter,
     can_fetch_url,
     fetch_page,
     get_crawl_delay_sec,
@@ -41,29 +43,65 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class CrawlerConfigError(ValueError):
+    """Raised when crawler env/config is invalid (CRAWLER_USER_ID, category, etc)."""
+
+    pass
+
+
 def _get_crawler_user(db: Session) -> DBUser:
-    """Load crawler user by CRAWLER_USER_ID. Exits with message if not set or not found."""
+    """
+    Load crawler user by CRAWLER_USER_ID.
+    Raises CrawlerConfigError if not set or not found (API-safe; does not sys.exit).
+    """
     raw = os.environ.get("CRAWLER_USER_ID")
     if not raw:
-        logger.error("CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts.")
-        sys.exit(1)
+        raise CrawlerConfigError(
+            "CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts."
+        )
     try:
         user_id = int(raw)
     except ValueError:
-        logger.error("CRAWLER_USER_ID must be an integer.")
-        sys.exit(1)
+        raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if not user:
-        logger.error("CRAWLER_USER_ID=%s: no user found.", user_id)
-        sys.exit(1)
+        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
     if user.disabled:
-        logger.error("CRAWLER_USER_ID=%s: user is disabled.", user_id)
-        sys.exit(1)
+        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: user is disabled.")
     return user
 
 
+def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
+    """
+    Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
+    """
+    if user_id_override is not None:
+        user = db.query(DBUser).filter(DBUser.id == user_id_override).first()
+        if not user:
+            raise CrawlerConfigError(f"Crawler user_id={user_id_override}: no user found.")
+        if user.disabled:
+            raise CrawlerConfigError(f"Crawler user_id={user_id_override}: user is disabled.")
+        return user
+    return _get_crawler_user(db)
+
+
+def _resolve_default_category_id(db: Session, category_id_override: Optional[int] = None) -> int:
+    """
+    Resolve default category. Uses category_id_override if provided, else env vars.
+    """
+    if category_id_override is not None:
+        cat = db.query(DBCategory).filter(DBCategory.id == category_id_override).first()
+        if not cat or not cat.is_active:
+            raise CrawlerConfigError(f"Default category_id={category_id_override}: not found or inactive.")
+        return cat.id
+    return _get_default_category_id(db)
+
+
 def _get_default_category_id(db: Session) -> int:
-    """Resolve default category from CRAWLER_DEFAULT_CATEGORY_ID or CRAWLER_DEFAULT_CATEGORY_NAME."""
+    """
+    Resolve default category from CRAWLER_DEFAULT_CATEGORY_ID or CRAWLER_DEFAULT_CATEGORY_NAME.
+    Raises CrawlerConfigError if no category can be resolved (API-safe; does not sys.exit).
+    """
     raw_id = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
     if raw_id:
         try:
@@ -89,11 +127,10 @@ def _get_default_category_id(db: Session) -> int:
         logger.info("Using first active category: id=%s name=%s", first.id, first.name)
         return first.id
 
-    logger.error(
+    raise CrawlerConfigError(
         "No default category. Set CRAWLER_DEFAULT_CATEGORY_ID or CRAWLER_DEFAULT_CATEGORY_NAME, "
         "or ensure categories are seeded."
     )
-    sys.exit(1)
 
 
 def run_crawler(
@@ -101,14 +138,19 @@ def run_crawler(
     *,
     limit: Optional[int] = None,
     delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
-) -> None:
+    user_id: Optional[int] = None,
+    default_category_id: Optional[int] = None,
+) -> dict:
     """
     Run one adapter: discover URLs, fetch, parse, ingest. Optionally cap at `limit` URLs.
+    If user_id or default_category_id are provided, use them; otherwise fall back to env vars.
+    Returns a dict: {"adapter": name, "ingested": int, "skipped": int, "errors": int, "total": int}.
+    Raises CrawlerConfigError or KeyError (unknown adapter) on setup failure.
     """
     db: Session = SessionLocal()
     try:
-        user = _get_crawler_user(db)
-        default_category_id = _get_default_category_id(db)
+        user = _resolve_crawler_user(db, user_id)
+        cat_id = _resolve_default_category_id(db, default_category_id)
         adapter = get_adapter(adapter_name)
 
         urls = list(adapter.discover_product_urls())
@@ -126,7 +168,8 @@ def run_crawler(
                 if i > 1:
                     # Honor robots.txt Crawl-delay if set; use the larger of --delay and directive
                     crawl_delay = get_crawl_delay_sec(url, DEFAULT_USER_AGENT)
-                    actual_delay = max(delay_sec, crawl_delay or 0)
+                    base_delay = max(delay_sec, crawl_delay or 0)
+                    actual_delay = apply_delay_jitter(base_delay)
                     time.sleep(actual_delay)
                 if not can_fetch_url(url, DEFAULT_USER_AGENT):
                     skipped += 1
@@ -152,7 +195,7 @@ def run_crawler(
                     db,
                     payload,
                     current_user=user,
-                    default_category_id=default_category_id,
+                    default_category_id=cat_id,
                     logger=logger,
                     source="scraped",
                 )
@@ -169,8 +212,100 @@ def run_crawler(
             skipped,
             errors,
         )
+        return {
+            "adapter": adapter_name,
+            "ingested": ingested,
+            "skipped": skipped,
+            "errors": errors,
+            "total": total,
+        }
     finally:
         db.close()
+
+
+def run_crawlers(
+    adapter_names: list[str],
+    *,
+    limits: Optional[dict[str, int]] = None,
+    global_limit: Optional[int] = None,
+    delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
+    parallel: bool = True,
+    user_id: Optional[int] = None,
+    default_category_id: Optional[int] = None,
+) -> dict:
+    """
+    Run one or more adapters. If multiple adapters, runs them in parallel threads by default.
+
+    Args:
+        adapter_names: List of adapter names (e.g. ["a90shop", "example"]).
+        limits: Per-adapter limits: {"a90shop": 10, "example": 5}. Overrides global_limit when set.
+        global_limit: Limit applied to all adapters when no per-adapter limit is set.
+        delay_sec: Delay between requests per crawler.
+        parallel: If True and len(adapter_names) > 1, run in parallel threads.
+
+    Returns:
+        {
+            "results": [{"adapter": str, "ingested": int, "skipped": int, "errors": int, "total": int}, ...],
+            "summary": {"total_ingested": int, "total_skipped": int, "total_errors": int},
+            "failed": [{"adapter": str, "error": str}, ...],
+        }
+    """
+    limits = limits or {}
+    results: list[dict] = []
+    failed: list[dict] = []
+
+    def run_one(name: str) -> dict | None:
+        limit = limits.get(name)
+        if limit is None and global_limit is not None:
+            limit = global_limit
+        try:
+            return run_crawler(
+                name,
+                limit=limit,
+                delay_sec=delay_sec,
+                user_id=user_id,
+                default_category_id=default_category_id,
+            )
+        except (CrawlerConfigError, KeyError) as e:
+            return {"_error": str(e), "_adapter": name}
+        except Exception as e:
+            logger.exception("Crawler %s failed: %s", name, e)
+            return {"_error": str(e), "_adapter": name}
+
+    if len(adapter_names) > 1 and parallel:
+        with ThreadPoolExecutor(max_workers=len(adapter_names)) as executor:
+            futures = {executor.submit(run_one, name): name for name in adapter_names}
+            for future in as_completed(futures):
+                r = future.result()
+                if r is None:
+                    continue
+                if "_error" in r:
+                    failed.append({"adapter": r["_adapter"], "error": r["_error"]})
+                else:
+                    results.append(r)
+    else:
+        for name in adapter_names:
+            r = run_one(name)
+            if r is None:
+                continue
+            if "_error" in r:
+                failed.append({"adapter": r["_adapter"], "error": r["_error"]})
+            else:
+                results.append(r)
+
+    total_ingested = sum(r.get("ingested", 0) for r in results)
+    total_skipped = sum(r.get("skipped", 0) for r in results)
+    total_errors = sum(r.get("errors", 0) for r in results)
+
+    return {
+        "results": results,
+        "summary": {
+            "total_ingested": total_ingested,
+            "total_skipped": total_skipped,
+            "total_errors": total_errors,
+        },
+        "failed": failed,
+    }
 
 
 def main() -> None:
@@ -197,7 +332,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay)
+    try:
+        run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay)
+    except CrawlerConfigError as e:
+        logger.error("%s", e)
+        sys.exit(1)
+    except KeyError as e:
+        logger.error("Unknown adapter: %s", e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,8 @@ interface ImageWithPlaceholderProps {
   containerClassName?: string;
   /** CSS classes for the fallback text paragraph. */
   fallbackTextClassName?: string;
+  /** img loading: "lazy" defers off-screen images (better scroll perf in long lists). */
+  loading?: 'lazy' | 'eager';
 }
 
 const DEFAULT_FALLBACK_TEXT = 'No image set';
@@ -24,6 +26,7 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
   imageClassName = '',
   containerClassName = '',
   fallbackTextClassName = 'text-gray-400',
+  loading = 'eager',
 }) => {
   const [showFallback, setShowFallback] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | undefined>(undefined);
@@ -59,6 +62,7 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
         src={imageSrc}
         alt={altText}
         className={imageClassName}
+        loading={loading}
         onError={handleError}
       />
     </div>

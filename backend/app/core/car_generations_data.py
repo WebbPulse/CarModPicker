@@ -462,16 +462,27 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             ],
         },
         {
+            "model": "GR Corolla",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2022,
+                    "end_year": None,
+                    "description": "Toyota's hot hatch based on the E210 Corolla platform. Turbocharged 1.6L 3-cylinder (G16E-GTS) producing 300 horsepower. GR-Four AWD, available in Core, Circuit, and Morizo editions. Sold as GR Corolla in North America and Japan. Strong aftermarket support for exhaust, suspension, and tuning.",
+                },
+            ],
+        },
+        {
             "model": "Camry",
             "generations": [
                 {
-                    "generation_name": "V10",
+                    "generation_name": "1st Gen",
                     "start_year": 1982,
                     "end_year": 1986,
                     "description": "First generation Camry, establishing it as a reliable mid-size sedan. Featured efficient engines and helped Toyota compete in the American market.",
                 },
                 {
-                    "generation_name": "V20",
+                    "generation_name": "2nd Gen",
                     "start_year": 1987,
                     "end_year": 1991,
                     "description": "Larger platform with improved interior space. Introduced V6 engine option and became known for smooth ride and reliability.",
@@ -2494,6 +2505,29 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             ],
         },
         {
+            "model": "Z4",
+            "generations": [
+                {
+                    "generation_name": "E85/E86",
+                    "start_year": 2003,
+                    "end_year": 2008,
+                    "description": "First generation Z4 roadster and coupe. Featured inline-6 engines. E85 roadster and E86 coupe. Shared platform with Z4 M.",
+                },
+                {
+                    "generation_name": "E89",
+                    "start_year": 2009,
+                    "end_year": 2016,
+                    "description": "Second generation Z4 with retractable hardtop. Featured N20/N52/N54 engines. More refined than E85/E86.",
+                },
+                {
+                    "generation_name": "G29",
+                    "start_year": 2019,
+                    "end_year": None,
+                    "description": "Third generation Z4 roadster. Shares B58/S58 engines and platform with Toyota Supra. Popular for B58 tuning and shared aftermarket parts.",
+                },
+            ],
+        },
+        {
             "model": "Z4 M",
             "generations": [
                 {
@@ -2882,13 +2916,13 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "R8",
             "generations": [
                 {
-                    "generation_name": "42",
+                    "generation_name": "Mk1",
                     "start_year": 2007,
                     "end_year": 2015,
                     "description": "Audi's mid-engine supercar with 4.2L V8 or 5.2L V10 engines. Available as coupe and Spyder. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Strong aftermarket support for modifications.",
                 },
                 {
-                    "generation_name": "4S",
+                    "generation_name": "Mk2",
                     "start_year": 2016,
                     "end_year": 2024,
                     "description": "Second generation R8 with updated styling and technology. Featured 5.2L V10 producing 532-602 horsepower. Available as coupe and Spyder. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Strong aftermarket support.",
@@ -2899,7 +2933,7 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "RS2 Avant",
             "generations": [
                 {
-                    "generation_name": "B4",
+                    "generation_name": "1st Gen",
                     "start_year": 1994,
                     "end_year": 1995,
                     "description": "First Audi RS model, co-developed with Porsche. Turbocharged 5-cylinder engine producing 315 horsepower. All-wheel drive standard. Limited production high-performance wagon. Highly sought after by enthusiasts.",
@@ -4063,7 +4097,7 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "description": "Refined Charger with updated styling and technology. Featured updated V6 and V8 engines. SRT and Hellcat variants with supercharged V8 produced 700+ horsepower.",
                 },
                 {
-                    "generation_name": "LB",
+                    "generation_name": "2024+",
                     "start_year": 2024,
                     "end_year": 2024,
                     "description": "Latest Charger with updated design and technology. Featured updated engines and improved efficiency. SRT and Hellcat variants available.",
@@ -5567,13 +5601,13 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "G90",
             "generations": [
                 {
-                    "generation_name": "HI",
+                    "generation_name": "1st Gen",
                     "start_year": 2017,
                     "end_year": 2020,
                     "description": "Genesis' flagship luxury sedan. Featured 3.3L twin-turbo V6 and 5.0L V8 engines. Ultimate luxury and refinement. Competes with Mercedes S-Class and BMW 7 Series.",
                 },
                 {
-                    "generation_name": "RS4",
+                    "generation_name": "2nd Gen",
                     "start_year": 2021,
                     "end_year": 2024,
                     "description": "Redesigned G90 flagship sedan with advanced technology and luxury. Featured 3.5T twin-turbo V6 and e-Supercharger hybrid variant producing up to 409 horsepower. Ultimate luxury with cutting-edge features and exceptional performance.",
@@ -5985,7 +6019,7 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "FF",
             "generations": [
                 {
-                    "generation_name": "FF",
+                    "generation_name": "1st Gen",
                     "start_year": 2011,
                     "end_year": 2016,
                     "description": "Front-engine V12 shooting brake with 6.3L engine producing 651 horsepower. Unique four-seat layout with all-wheel drive. Popular for exhaust upgrades, ECU tuning, and subtle modifications while preserving the FF's unique character. Niche but enthusiastic owner community.",
@@ -6207,7 +6241,7 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "P1",
             "generations": [
                 {
-                    "generation_name": "P1",
+                    "generation_name": "1st Gen",
                     "start_year": 2013,
                     "end_year": 2015,
                     "description": "McLaren's hybrid hypercar with 3.8L twin-turbo V8 and electric motor producing 903 horsepower. Part of Ultimate Series. Limited production extreme performance machine. Modifications are extremely rare due to collector value and limited numbers. Exhaust upgrades and suspension tuning available from specialist tuners. Highly collectible.",

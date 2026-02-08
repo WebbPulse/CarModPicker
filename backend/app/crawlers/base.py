@@ -38,14 +38,19 @@ from app.api.services.part_listing_service import (
     get_or_create_retailer,
     normalize_gtin,
 )
+from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
 
 logger = logging.getLogger(__name__)
 
-# Default delay between requests (seconds) to be polite to retailers
-DEFAULT_REQUEST_DELAY_SEC = 1.5
+# Default delay between requests (seconds) to be polite to retailers.
+# Conservative for price monitoring; Scrapy AutoThrottle defaults to 5s; 2.5s is a balance.
+DEFAULT_REQUEST_DELAY_SEC = 2.5
 DEFAULT_TIMEOUT_SEC = 30
 DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.webbpulse.com)"
+
+# Jitter on normal request delay (±20%) so traffic doesn't look robotic; best practice for polite crawlers.
+REQUEST_DELAY_JITTER_FRACTION = 0.2
 
 # Rate-limit backoff: we retry on these status codes (staying unbanned over speed)
 RATE_LIMIT_STATUS_CODES = (429, 503)
@@ -166,6 +171,15 @@ def _rate_limit_backoff_sec(retry_after_sec: float, attempt: int) -> float:
     return min(retry_after_sec * jitter, BACKOFF_MAX_SEC)
 
 
+def apply_delay_jitter(delay_sec: float, jitter_fraction: float = REQUEST_DELAY_JITTER_FRACTION) -> float:
+    """
+    Apply ±jitter to a delay so request spacing isn't perfectly regular (polite crawler best practice).
+    Returns delay_sec * (1 ± jitter_fraction), clamped to at least 0.5s.
+    """
+    jitter = 1.0 + random.uniform(-jitter_fraction, jitter_fraction)
+    return max(0.5, delay_sec * jitter)
+
+
 def _retailer_name_from_domain(domain: str) -> str:
     """Derive a display name from domain (e.g. www.a90shop.com -> A90shop)."""
     if not domain or not domain.strip():
@@ -276,6 +290,16 @@ def ingest_payload(
             category_id = cat.id
             logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
 
+    # Infer car make/model/generation from name/description/URL when possible
+    triples = infer_car_generations(payload.name, payload.description, payload.product_url)
+    inferred_car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
+    if inferred_car_ids:
+        logger.debug(
+            "Inferred cars %s for part %s",
+            inferred_car_ids,
+            (payload.name or "")[:50],
+        )
+
     create_data = GlobalPartCreate(
         name=payload.name,
         description=payload.description,
@@ -283,6 +307,8 @@ def ingest_payload(
         image_urls=payload.image_urls[:12] if payload.image_urls else None,
         product_url=payload.product_url,
         category_id=category_id,
+        car_ids=inferred_car_ids if inferred_car_ids else [],
+        is_universal=not inferred_car_ids,
         brand_id=brand.id,
         part_number=payload.part_number,
         gtin=payload.gtin,
