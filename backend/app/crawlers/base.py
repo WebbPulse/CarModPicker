@@ -38,6 +38,7 @@ from app.api.services.part_listing_service import (
     get_or_create_retailer,
     normalize_gtin,
 )
+from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
 
 logger = logging.getLogger(__name__)
@@ -276,6 +277,16 @@ def ingest_payload(
             category_id = cat.id
             logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
 
+    # Infer car make/model/generation from name/description/URL when possible
+    triples = infer_car_generations(payload.name, payload.description, payload.product_url)
+    inferred_car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
+    if inferred_car_ids:
+        logger.debug(
+            "Inferred cars %s for part %s",
+            inferred_car_ids,
+            (payload.name or "")[:50],
+        )
+
     create_data = GlobalPartCreate(
         name=payload.name,
         description=payload.description,
@@ -283,6 +294,8 @@ def ingest_payload(
         image_urls=payload.image_urls[:12] if payload.image_urls else None,
         product_url=payload.product_url,
         category_id=category_id,
+        car_ids=inferred_car_ids if inferred_car_ids else [],
+        is_universal=not inferred_car_ids,
         brand_id=brand.id,
         part_number=payload.part_number,
         gtin=payload.gtin,

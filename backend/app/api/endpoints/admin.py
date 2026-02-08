@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
@@ -400,3 +401,46 @@ async def run_crawlers_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+class DeleteAllGlobalPartsResponse(BaseModel):
+    """Response for delete-all global parts (admin only)."""
+
+    deleted_count: int = Field(..., description="Number of global parts deleted")
+
+
+@router.post(
+    "/global-parts/delete-all",
+    response_model=DeleteAllGlobalPartsResponse,
+    responses=standard_responses(
+        success_description="All global parts deleted",
+        forbidden=True,
+    ),
+)
+async def delete_all_global_parts(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> DeleteAllGlobalPartsResponse:
+    """
+    Delete all global parts (admin only).
+
+    Cascades to part listings, votes, reports, build list parts, and car associations.
+    This action cannot be undone.
+    """
+    db = SessionLocal()
+    try:
+        parts = db.query(DBGlobalPart).all()
+        count = len(parts)
+        for part in parts:
+            db.delete(part)
+        db.commit()
+        logger.info("Admin %s deleted all %s global parts", current_user.id, count)
+        return DeleteAllGlobalPartsResponse(deleted_count=count)
+    except Exception as e:
+        db.rollback()
+        logger.exception("Delete all global parts failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    finally:
+        db.close()

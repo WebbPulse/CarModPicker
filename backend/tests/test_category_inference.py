@@ -66,3 +66,74 @@ class TestInferCategory:
     def test_name_weighted_higher(self) -> None:
         # "wheel" in name should win over "exhaust" in description
         assert infer_category("Gram Lights Wheel", "Exhaust tip included.") == "wheels"
+
+    def test_chassis_and_power_brace_suspension(self) -> None:
+        # Chassis / power braces → suspension (not exhaust or other)
+        assert (
+            infer_category(
+                "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
+                "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90 connects multiple mounting points under the car to maximize stability and rigidity.",
+            )
+            == "suspension"
+        )
+        assert infer_category("Cusco Front Power Brace MKV Supra GR A90 / A91", None) == "suspension"
+        assert (
+            infer_category("HKS - Full Carbon Strut Brace, MKV A90 Supra", "Carbon strut brace.")
+            == "suspension"
+        )
+
+    def test_fuel_pressure_gauge_engine(self) -> None:
+        # Fuel pressure gauge → engine (not interior)
+        assert (
+            infer_category(
+                "Radium Engineering 0-100 PSI Fuel Pressure Gauge",
+                "This high-accuracy fuel pressure gauge is suitable for all fueling applications.",
+            )
+            == "engine"
+        )
+
+    def test_tubing_kit_engine(self) -> None:
+        # Boost/vacuum tubing kit → engine
+        assert (
+            infer_category(
+                "P3 - Tubing Kit MKV Supra A90",
+                "Tubing Kit for N54 engines. Does NOT include boost tap.",
+            )
+            == "engine"
+        )
+
+    def test_door_garnish_and_tow_hook_body(self) -> None:
+        # Door garnish, tow hook → body
+        assert (
+            infer_category("Rexpeed V1 Forged Carbon Side Door Garnish MKV Supra GR", None)
+            == "body"
+        )
+        assert (
+            infer_category("Perrin Performance Front Tow Hook, MKV Supra GR", "Tow hook for show.")
+            == "body"
+        )
+
+    def test_engine_cover_and_ignition_engine(self) -> None:
+        # Engine cover, ignition coil → engine (not other)
+        assert infer_category("Eventuri Toyota A90 Supra Black Carbon Engine Cover", None) == "engine"
+        assert (
+            infer_category("Dinan - Ignition Coil B Series Red MKV Supra A90", "Ignition coils.")
+            == "engine"
+        )
+
+    def test_storage_compartment_interior(self) -> None:
+        # Storage compartment cover → interior (not other)
+        assert (
+            infer_category("Rexpeed Dry Carbon Storage Compartment Cover, MKV Supra", None)
+            == "interior"
+        )
+
+    def test_door_switch_panel_interior(self) -> None:
+        # Door switch panel → interior (not body)
+        assert (
+            infer_category(
+                "Revel GT Dry Carbon Door Switch Panel - Toyota GR Supra A90 2020+",
+                "Dry carbon overlays for interior. Door switch panel.",
+            )
+            == "interior"
+        )

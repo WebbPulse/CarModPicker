@@ -1039,6 +1039,12 @@ export const adminApi = {
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body, {
       timeout: 600000, // 10 minutes - crawlers can run long
     }),
+
+  /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
+  deleteAllGlobalParts: () =>
+    apiClient.post<{ deleted_count: number }>(
+      '/admin/global-parts/delete-all'
+    ),
 };
 
 export default apiClient;

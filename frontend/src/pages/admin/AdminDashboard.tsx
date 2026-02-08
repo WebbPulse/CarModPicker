@@ -83,6 +83,14 @@ function AdminDashboard() {
   const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] =
     useState(false);
   const [purgeOrphanError, setPurgeOrphanError] = useState<string | null>(null);
+  const [isDeleteAllGlobalPartsConfirmOpen, setIsDeleteAllGlobalPartsConfirmOpen] =
+    useState(false);
+  const [isDeletingAllGlobalParts, setIsDeletingAllGlobalParts] = useState(false);
+  const [deleteAllGlobalPartsError, setDeleteAllGlobalPartsError] =
+    useState<string | null>(null);
+  const [deleteAllGlobalPartsResult, setDeleteAllGlobalPartsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
   const [isInitCarGenerations, setIsInitCarGenerations] = useState(false);
   const [initCarGenerationsResult, setInitCarGenerationsResult] = useState<{
     success: boolean;
@@ -361,6 +369,25 @@ function AdminDashboard() {
       );
     } finally {
       setIsPurgingOrphaned(false);
+    }
+  };
+
+  const handleConfirmDeleteAllGlobalParts = async () => {
+    setIsDeletingAllGlobalParts(true);
+    setDeleteAllGlobalPartsError(null);
+    try {
+      const response = await adminApi.deleteAllGlobalParts();
+      setDeleteAllGlobalPartsResult(response.data);
+      setIsDeleteAllGlobalPartsConfirmOpen(false);
+      await fetchCounts();
+    } catch (error) {
+      setDeleteAllGlobalPartsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all global parts.'
+      );
+    } finally {
+      setIsDeletingAllGlobalParts(false);
     }
   };
 
@@ -855,6 +882,60 @@ function AdminDashboard() {
 
       <div className="mt-6">
         <Card>
+          <SectionHeader title="Global parts" />
+          <div className="p-6 bg-red-900/20 border-2 border-red-700 rounded-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-red-400 mb-2">
+                Delete all global parts
+              </h3>
+              <p className="text-neutral-300 mb-4">
+                Permanently remove every global part from the catalog. This
+                also removes their part listings, votes, reports, and build list
+                part associations. This action cannot be undone.
+              </p>
+              <p className="text-sm text-neutral-400 mb-4">
+                Current global parts:{' '}
+                <span className="font-semibold text-white">
+                  {counts.globalParts?.toLocaleString() ?? '—'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <ActionButton
+                onClick={() => {
+                  setDeleteAllGlobalPartsError(null);
+                  setDeleteAllGlobalPartsResult(null);
+                  setIsDeleteAllGlobalPartsConfirmOpen(true);
+                }}
+                disabled={isDeletingAllGlobalParts}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeletingAllGlobalParts ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete all global parts'
+                )}
+              </ActionButton>
+            </div>
+            {deleteAllGlobalPartsResult && (
+              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
+                <p className="text-green-400 font-semibold">
+                  Deleted {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
+                  global part(s).
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
           <SectionHeader title="Storage / Bucket" />
           <div className="p-6 bg-cyan-900/20 border-2 border-cyan-700 rounded-xl">
             <div className="mb-4">
@@ -1166,6 +1247,18 @@ function AdminDashboard() {
         itemType="storage"
         isProcessing={isPurgingOrphaned}
         error={purgeOrphanError}
+      />
+      <DeleteConfirmationDialog
+        isOpen={isDeleteAllGlobalPartsConfirmOpen}
+        onClose={() => {
+          setIsDeleteAllGlobalPartsConfirmOpen(false);
+          setDeleteAllGlobalPartsError(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteAllGlobalParts()}
+        itemName="all global parts"
+        itemType="catalog"
+        isProcessing={isDeletingAllGlobalParts}
+        error={deleteAllGlobalPartsError}
       />
     </div>
   );
