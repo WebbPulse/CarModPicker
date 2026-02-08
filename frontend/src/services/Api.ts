@@ -996,22 +996,11 @@ export interface InitDataResult {
   message: string;
 }
 
-export interface CrawlerRunResult {
-  adapter: string;
-  ingested: number;
-  skipped: number;
-  errors: number;
-  total: number;
-}
-
+/** Response when starting a crawler job (returns immediately; job runs in background). */
 export interface CrawlerRunResponse {
-  results: CrawlerRunResult[];
-  summary: {
-    total_ingested: number;
-    total_skipped: number;
-    total_errors: number;
-  };
-  failed: Array<{ adapter: string; error: string }>;
+  status: 'started';
+  adapters: string[];
+  message: string;
 }
 
 export interface CrawlerRunRequest {
@@ -1021,6 +1010,19 @@ export interface CrawlerRunRequest {
   limits?: Record<string, number>;
   global_limit?: number | null;
   parallel?: boolean;
+  /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
+  delay_sec?: number | null;
+}
+
+export interface RerunInferenceRequest {
+  /** If true, infer brand from part name (e.g. "Brand - Product" -> Brand). Only matches existing brands. */
+  reassign_brand?: boolean;
+}
+
+export interface RerunInferenceResponse {
+  updated_count: number;
+  error_count: number;
+  errors: string[];
 }
 
 export const adminApi = {
@@ -1033,18 +1035,17 @@ export const adminApi = {
     apiClient.post<InitDataResult>('/admin/init/part-categories'),
 
   // Crawlers
-  getCrawlers: () =>
-    apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  getCrawlers: () => apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
   runCrawlers: (body: CrawlerRunRequest) =>
-    apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body, {
-      timeout: 600000, // 10 minutes - crawlers can run long
-    }),
+    apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
+
+  /** Rerun category, car, and optionally brand inference on all global parts (admin only). */
+  rerunInference: (body: RerunInferenceRequest) =>
+    apiClient.post<RerunInferenceResponse>('/admin/global-parts/rerun-inference', body),
 
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllGlobalParts: () =>
-    apiClient.post<{ deleted_count: number }>(
-      '/admin/global-parts/delete-all'
-    ),
+    apiClient.post<{ deleted_count: number }>('/admin/global-parts/delete-all'),
 };
 
 export default apiClient;

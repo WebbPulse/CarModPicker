@@ -18,7 +18,12 @@ import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
-from app.crawlers.base import ScrapedPayload, fetch_page
+from app.crawlers.base import (
+    DEFAULT_REQUEST_DELAY_SEC,
+    ScrapedPayload,
+    apply_delay_jitter,
+    fetch_page,
+)
 from app.crawlers.parsing import (
     extract_json_ld_product,
     extract_sku_from_text,
@@ -86,7 +91,7 @@ def _discover_product_urls_via_sitemap() -> List[str]:
             child_sitemap_urls = [loc.text.strip() for loc in _loc_elements(root) if loc.text and loc.text.strip()]
             for i, child_url in enumerate(child_sitemap_urls):
                 if i > 0:
-                    time.sleep(1)
+                    time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
                 try:
                     child_text = fetch_page(child_url, timeout=15)
                     parse_urlset_locs(child_text, seen, product_urls)

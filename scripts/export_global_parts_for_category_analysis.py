@@ -11,10 +11,14 @@ source, and related fields so you can:
 
 Usage:
     cd backend
-    python ../scripts/export_global_parts_for_category_analysis.py [--output-dir DIR] [--format json|csv|both]
+    python ../scripts/export_global_parts_for_category_analysis.py [--output-dir DIR]
 
-Output:
-    - global_parts_export.<timestamp>.json (and/or .csv) in --output-dir (default: scripts/output)
+Output (all CSV in --output-dir, default: scripts/output):
+    - global_parts_export_all.<timestamp>.csv — all parts
+    - global_parts_export_other.<timestamp>.csv — parts in category "other"
+    - global_parts_export_universal_or_unassociated.<timestamp>.csv — is_universal or car_count == 0
+    - global_parts_export_multi_car.<timestamp>.csv — parts associated with more than one car
+    - global_parts_export_no_brand.<timestamp>.csv — parts without a brand
     - Summary printed to stdout (counts by category, by source, data quality hints)
 """
 
@@ -38,12 +42,39 @@ if env_path.exists():
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import GlobalPart  # pyright: ignore[reportMissingImports]
 from app.db.session import SessionLocal  # pyright: ignore[reportMissingImports]
 
+# Optional display-friendly names for export (make, model, generation_name) -> label without years.
+# Only used when the default "Make Model Generation" format needs tweaking (e.g. add "GR", parentheses).
+# Generation names are kept user-friendly in the source of truth (car_generations_data.py).
+CAR_GENERATION_DISPLAY_OVERRIDES: dict[tuple[str, str, str], str] = {
+    ("Toyota", "Supra", "A90"): "Toyota GR Supra (A90)",
+    ("BMW", "M4", "G82/G83"): "BMW M4 (G82/G83)",
+    ("BMW", "M3", "G80"): "BMW M3 (G80)",
+}
+
+
+def car_to_generation_display(c: Car) -> str:
+    """Format a Car (generation) as 'Make Model Generation (start-end)'."""
+    make = c.car_model.make.name if c.car_model and c.car_model.make else "?"
+    model = c.car_model.name if c.car_model else "?"
+    gen = (c.generation_name or "").strip()
+    end = str(c.end_year) if c.end_year else ""
+    years = f"({c.start_year}-{end})" if end else f"({c.start_year}-)"
+    key = (make, model, gen)
+    if key in CAR_GENERATION_DISPLAY_OVERRIDES:
+        base = CAR_GENERATION_DISPLAY_OVERRIDES[key]
+    else:
+        parts = [p for p in [make, model, gen] if p]
+        base = " ".join(parts)
+    return base + " " + years
+
 
 def serialize_specs(specs: dict | None) -> str | None:
-    """Convert specifications dict to a string for CSV; keep as dict for JSON."""
+    """Convert specifications dict to a string for CSV."""
     if specs is None:
         return None
     if isinstance(specs, dict):
@@ -71,16 +102,40 @@ def part_to_record(p: GlobalPart) -> dict:
         "is_verified": p.is_verified,
         "is_universal": p.is_universal,
         "car_count": len(p.cars) if p.cars is not None else 0,
+        "car_generations": (
+            [car_to_generation_display(c) for c in p.cars] if p.cars else []
+        ),
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
 
 
 def part_to_csv_row(record: dict) -> dict:
-    """One record as CSV-friendly row (specs as JSON string)."""
+    """One record as CSV-friendly row (specs as JSON string, car_generations as pipe-separated)."""
     row = dict(record)
     row["specifications"] = serialize_specs(record.get("specifications"))
+    # Serialize car_generations list as pipe-separated string for CSV
+    gens = record.get("car_generations") or []
+    row["car_generations"] = " | ".join(gens) if isinstance(gens, list) else str(gens)
     return row
+
+
+def write_subset(
+    records: list[dict],
+    out_dir: Path,
+    base_name: str,
+    ts: str,
+) -> None:
+    """Write a subset of records to CSV using the same schema as main export."""
+    if not records:
+        return
+    out_csv = out_dir / f"{base_name}.{ts}.csv"
+    rows = [part_to_csv_row(r) for r in records]
+    with open(out_csv, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=rows[0].keys())
+        w.writeheader()
+        w.writerows(rows)
+    print(f"Wrote {out_csv} ({len(records):,} parts)")
 
 
 def print_summary(records: list[dict]) -> None:
@@ -122,10 +177,22 @@ def print_summary(records: list[dict]) -> None:
         if not r.get("specifications"):
             no_specs += 1
 
+    other_count = sum(1 for r in records if (r.get("category_name") or "").strip().lower() == "other")
+    universal_or_unassociated_count = sum(
+        1 for r in records
+        if r.get("is_universal") is True or (r.get("car_count") or 0) == 0
+    )
+    multi_car_count = sum(1 for r in records if (r.get("car_count") or 0) > 1)
+    no_brand_count = sum(1 for r in records if r.get("brand_id") is None or not (r.get("brand_name") or "").strip())
+
     print("\n" + "=" * 60)
     print("EXPORT SUMMARY (for category assumption improvements)")
     print("=" * 60)
     print(f"Total global parts: {n:,}")
+    print(f"  In 'other' category: {other_count:,}")
+    print(f"  Universal or unassociated (car_count=0): {universal_or_unassociated_count:,}")
+    print(f"  Associated with >1 car: {multi_car_count:,}")
+    print(f"  Without a brand: {no_brand_count:,}")
     print()
     print("By category:")
     for cat in sorted(by_category.keys()):
@@ -157,16 +224,16 @@ def main() -> None:
         default=None,
         help="Directory for output files (default: scripts/output)",
     )
-    parser.add_argument(
-        "--format",
-        choices=["json", "csv", "both"],
-        default="both",
-        help="Output format (default: both)",
-    )
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir) if args.output_dir else Path(__file__).parent / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove any existing export files before creating new ones
+    for pattern in ("global_parts_export*.csv",):
+        for f in out_dir.glob(pattern):
+            f.unlink()
+            print(f"Removed {f}")
 
     db: Session = SessionLocal()
     try:
@@ -175,7 +242,9 @@ def main() -> None:
             .options(
                 joinedload(GlobalPart.category),
                 joinedload(GlobalPart.brand),
-                joinedload(GlobalPart.cars),
+                joinedload(GlobalPart.cars)
+                .joinedload(Car.car_model)
+                .joinedload(CarModel.make),
             )
             .order_by(GlobalPart.id)
             .all()
@@ -183,27 +252,38 @@ def main() -> None:
 
         records = [part_to_record(p) for p in parts]
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        base = out_dir / f"global_parts_export.{ts}"
+        out_csv = out_dir / f"global_parts_export_all.{ts}.csv"
+        if not records:
+            with open(out_csv, "w", encoding="utf-8", newline="") as f:
+                f.write("id,name,description,part_number,gtin,category_id,category_name,category_display_name,brand_id,brand_name,specifications,source,is_verified,is_universal,car_count,car_generations,created_at,updated_at\n")
+        else:
+            rows = [part_to_csv_row(r) for r in records]
+            with open(out_csv, "w", encoding="utf-8", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=rows[0].keys())
+                w.writeheader()
+                w.writerows(rows)
+        print(f"Wrote {out_csv} ({len(records):,} parts)")
 
-        if args.format in ("json", "both"):
-            # JSON: keep specifications as dict
-            out_json = base.with_suffix(".json")
-            with open(out_json, "w", encoding="utf-8") as f:
-                json.dump(records, f, indent=2, ensure_ascii=False)
-            print(f"Wrote {out_json} ({len(records):,} parts)")
+        # Dedicated exports: other category, universal/unassociated, multi-car, no brand
+        other_records = [r for r in records if (r.get("category_name") or "").strip().lower() == "other"]
+        write_subset(other_records, out_dir, "global_parts_export_other", ts)
 
-        if args.format in ("csv", "both"):
-            out_csv = base.with_suffix(".csv")
-            if not records:
-                with open(out_csv, "w", encoding="utf-8", newline="") as f:
-                    f.write("id,name,description,part_number,gtin,category_id,category_name,category_display_name,brand_id,brand_name,specifications,source,is_verified,is_universal,car_count,created_at,updated_at\n")
-            else:
-                rows = [part_to_csv_row(r) for r in records]
-                with open(out_csv, "w", encoding="utf-8", newline="") as f:
-                    w = csv.DictWriter(f, fieldnames=rows[0].keys())
-                    w.writeheader()
-                    w.writerows(rows)
-            print(f"Wrote {out_csv} ({len(records):,} parts)")
+        universal_or_unassociated = [
+            r for r in records
+            if r.get("is_universal") is True or (r.get("car_count") or 0) == 0
+        ]
+        write_subset(
+            universal_or_unassociated,
+            out_dir,
+            "global_parts_export_universal_or_unassociated",
+            ts,
+        )
+
+        multi_car = [r for r in records if (r.get("car_count") or 0) > 1]
+        write_subset(multi_car, out_dir, "global_parts_export_multi_car", ts)
+
+        no_brand = [r for r in records if r.get("brand_id") is None or not (r.get("brand_name") or "").strip()]
+        write_subset(no_brand, out_dir, "global_parts_export_no_brand", ts)
 
         print_summary(records)
     finally:

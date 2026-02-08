@@ -19,7 +19,9 @@ python -m app.crawlers --adapter <name> [--limit N] [--delay SEC]
 
 - `--adapter` – Adapter name (e.g. `example`). Required.
 - `--limit` – Max product URLs to process (default: no limit).
-- `--delay` – Seconds between requests (default: 1.5). If the site sets a higher **Crawl-delay** in robots.txt, that value is used.
+- `--delay` – Seconds between requests (default: 2.5). If the site sets a higher **Crawl-delay** in robots.txt, that value is used. Jitter (±20%) is applied so traffic doesn't look robotic.
+
+**Heavy runs:** A run is considered heavy when you're hitting a lot of pages in one go—e.g. no `--limit` (or a high limit), running all adapters, or a full sitemap. For heavy runs, use a higher delay (e.g. `--delay 5` or `delay_sec: 5` in the admin API) to stay well within polite-crawler norms and reduce the chance of rate limits or blocks.
 
 **Robots.txt:** The crawler respects robots.txt per origin: before each product-page request it checks that the configured user agent is allowed to fetch the URL. Disallowed URLs are skipped (and logged). If a site specifies **Crawl-delay**, we use the larger of `--delay` and that value. If robots.txt is unreachable or errors, we allow the request (we do not block the crawl).
 

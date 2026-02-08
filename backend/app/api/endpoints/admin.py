@@ -11,18 +11,25 @@ import logging
 import os
 import subprocess  # nosec B404 - Used safely for running database migrations
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.models.brand import Brand as DBBrand
+from app.api.models.car import Car as DBCar
+from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.utils.endpoint_decorators import standard_responses
+from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
+from app.core.category_inference import infer_category
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
 from app.crawlers.adapters import ADAPTER_REGISTRY
+from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC
 from app.crawlers.runner import run_crawlers
 from app.db.session import SessionLocal
 
@@ -324,6 +331,12 @@ class CrawlerRunRequest(BaseModel):
         default=True,
         description="If True and more than one adapter, run crawlers in parallel threads.",
     )
+    delay_sec: Optional[float] = Field(
+        default=None,
+        ge=0.5,
+        le=60.0,
+        description="Seconds between requests per crawler (default: 2.5). Use 5+ for conservative/large runs.",
+    )
 
 
 @router.get(
@@ -344,11 +357,52 @@ async def list_crawlers(
     return {"adapters": adapters}
 
 
+async def _run_crawlers_background(
+    adapters: list[str],
+    *,
+    limits: Optional[Dict[str, int]] = None,
+    global_limit: Optional[int] = None,
+    parallel: bool,
+    delay_sec: float,
+    user_id: int,
+    default_category_id: int,
+    triggered_by_user_id: int,
+) -> None:
+    """
+    Run crawlers in a background thread. Logs completion or failure.
+    Can be extended to send a completion report (e.g. via SendGrid).
+    """
+    try:
+        result = await asyncio.to_thread(
+            run_crawlers,
+            adapters,
+            limits=limits,
+            global_limit=global_limit,
+            parallel=parallel,
+            delay_sec=delay_sec,
+            user_id=user_id,
+            default_category_id=default_category_id,
+        )
+        logger.info(
+            "Crawler job completed (triggered by user %s): %s",
+            triggered_by_user_id,
+            result,
+        )
+        # TODO: Send completion report (e.g. SendGrid) with result summary
+    except Exception as e:
+        logger.exception(
+            "Crawler job failed (triggered by user %s): %s",
+            triggered_by_user_id,
+            e,
+        )
+        # TODO: Send failure notification (e.g. SendGrid)
+
+
 @router.post(
     "/crawlers/run",
     response_model=Dict[str, Any],
     responses=standard_responses(
-        success_description="Crawlers executed",
+        success_description="Crawler job started",
         forbidden=True,
     ),
 )
@@ -357,13 +411,14 @@ async def run_crawlers_endpoint(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> Dict[str, Any]:
     """
-    Run retailer crawlers (admin only).
+    Start retailer crawlers (admin only). Returns immediately after enqueueing the job.
 
     - Run individual crawlers or desired combinations.
     - Run all crawlers with adapters: ["all"].
     - Set per-crawler limits via limits: {"a90shop": 10, "example": 5}.
     - Set a global limit for all crawlers via global_limit.
     - When running more than one crawler, they run in parallel by default.
+    - A completion report can be sent when the job finishes (e.g. via SendGrid).
     """
     adapters = body.adapters
     if adapters == ["all"]:
@@ -381,26 +436,170 @@ async def run_crawlers_endpoint(
             detail=f"Unknown adapter(s): {invalid}. Available: {list(ADAPTER_REGISTRY.keys())}",
         )
 
-    logger.info(f"Admin {current_user.id} triggering crawlers: {adapters}")
+    logger.info("Admin %s starting crawler job: %s", current_user.id, adapters)
 
-    try:
-        # Run blocking crawlers in thread pool to avoid blocking event loop
-        result = await asyncio.to_thread(
-            run_crawlers,
+    delay_sec = body.delay_sec if body.delay_sec is not None else DEFAULT_REQUEST_DELAY_SEC
+    asyncio.create_task(
+        _run_crawlers_background(
             adapters,
             limits=body.limits,
             global_limit=body.global_limit,
             parallel=body.parallel,
+            delay_sec=delay_sec,
             user_id=body.crawler_user_id,
             default_category_id=body.crawler_default_category_id,
+            triggered_by_user_id=current_user.id,
         )
-        return result
+    )
+
+    return {
+        "status": "started",
+        "adapters": adapters,
+        "message": "Crawler job has been started. A completion report will be sent when finished.",
+    }
+
+
+class RerunInferenceRequest(BaseModel):
+    """Request body for rerunning inference on global parts."""
+
+    reassign_brand: bool = Field(
+        default=True,
+        description="If True, try to infer brand from part name (e.g. 'Brand - Product' -> Brand). Only matches existing brands.",
+    )
+
+
+class RerunInferenceResponse(BaseModel):
+    """Response for rerun-inference on global parts (admin only)."""
+
+    updated_count: int = Field(..., description="Number of global parts updated")
+    error_count: int = Field(..., description="Number of parts that failed to update")
+    errors: List[str] = Field(default_factory=list, description="First 20 error messages if any")
+
+
+def _infer_brand_from_name(db: Session, name: Optional[str]) -> Optional[int]:
+    """
+    Try to infer brand_id from part name. Looks for 'Brand - ' or 'Brand – ' prefix
+    and matches against existing brands (case-insensitive). Returns brand id or None.
+    """
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    for sep in (" - ", " – ", " — "):
+        if sep in name:
+            prefix = name.split(sep)[0].strip()
+            if prefix:
+                brand = db.query(DBBrand).filter(DBBrand.name.ilike(prefix)).first()
+                if brand:
+                    return brand.id
+    return None
+
+
+def _rerun_inference_impl(db: Session, reassign_brand: bool) -> Dict[str, Any]:
+    """
+    Rerun category, car, and optionally brand inference on all global parts.
+    Returns dict with updated_count, error_count, errors (list of first 20 messages).
+    """
+    parts = (
+        db.query(DBGlobalPart)
+        .options(joinedload(DBGlobalPart.part_listings))
+        .order_by(DBGlobalPart.id)
+        .all()
+    )
+    # Resolve category by name (cache); always have "other" fallback
+    categories_by_name: Dict[str, int] = {}
+    other_cat = db.query(DBCategory).filter(DBCategory.name == "other", DBCategory.is_active).first()
+    if other_cat:
+        categories_by_name["other"] = other_cat.id
+
+    updated_count = 0
+    error_count = 0
+    errors: List[str] = []
+    max_errors = 20
+
+    for part in parts:
+        try:
+            product_url: Optional[str] = None
+            if part.part_listings:
+                first_listing = next((pl for pl in part.part_listings if pl.product_url), None)
+                if first_listing:
+                    product_url = first_listing.product_url
+
+            # Category
+            inferred_cat = infer_category(part.name, part.description)
+            cat_name = inferred_cat if inferred_cat else "other"
+            if cat_name not in categories_by_name:
+                cat = db.query(DBCategory).filter(DBCategory.name == cat_name, DBCategory.is_active).first()
+                if cat:
+                    categories_by_name[cat_name] = cat.id
+                else:
+                    cat_name = "other"
+            if cat_name in categories_by_name:
+                part.category_id = categories_by_name[cat_name]
+
+            # Cars
+            triples = infer_car_generations(part.name, part.description, product_url)
+            car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
+            part.is_universal = not car_ids
+            if car_ids:
+                part.cars = [db.get(DBCar, cid) for cid in car_ids]
+            else:
+                part.cars = []
+
+            # Brand (optional)
+            if reassign_brand:
+                inferred_brand_id = _infer_brand_from_name(db, part.name)
+                if inferred_brand_id is not None:
+                    part.brand_id = inferred_brand_id
+
+            updated_count += 1
+        except Exception as e:
+            error_count += 1
+            if len(errors) < max_errors:
+                errors.append(f"Part id={part.id} ({part.name[:50]}...): {e!s}")
+
+    if updated_count > 0:
+        db.commit()
+    return {
+        "updated_count": updated_count,
+        "error_count": error_count,
+        "errors": errors,
+    }
+
+
+@router.post(
+    "/global-parts/rerun-inference",
+    response_model=RerunInferenceResponse,
+    responses=standard_responses(
+        success_description="Inference rerun completed",
+        forbidden=True,
+    ),
+)
+async def rerun_global_parts_inference(
+    body: RerunInferenceRequest,
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> RerunInferenceResponse:
+    """
+    Rerun category, car, and optionally brand inference on all global parts (admin only).
+
+    For each part, uses name + description (+ product_url from first listing) to infer:
+    - category_id (from infer_category)
+    - car associations and is_universal (from infer_car_generations + resolve)
+    - brand_id (optional): if reassign_brand is True, infers from 'Brand - Product' name prefix using existing brands only.
+    """
+    db = SessionLocal()
+    try:
+        logger.info("Admin %s triggered rerun inference on all global parts (reassign_brand=%s)", current_user.id, body.reassign_brand)
+        result = await asyncio.to_thread(_rerun_inference_impl, db, body.reassign_brand)
+        return RerunInferenceResponse(**result)
     except Exception as e:
-        logger.exception("Crawlers run failed: %s", e)
+        db.rollback()
+        logger.exception("Rerun inference failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+    finally:
+        db.close()
 
 
 class DeleteAllGlobalPartsResponse(BaseModel):

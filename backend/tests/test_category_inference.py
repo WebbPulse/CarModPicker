@@ -32,6 +32,11 @@ class TestInferCategory:
         assert infer_category("Carbon Fiber Lip", "Front lip spoiler.") == "body"
         assert infer_category("Widebody Kit", None) == "body"
 
+    def test_door_decals_body(self) -> None:
+        """Door decals / cosmetic decals should be body, not suspension or other."""
+        assert infer_category("Street Hunter - Door Decals, GR 86 ZN8 BRZ ZD8", None) == "body"
+        assert infer_category("Racing Decals Pack", "Vinyl decals for exterior.") == "body"
+
     def test_interior(self) -> None:
         assert infer_category("Recaro Seat", "Bucket seat.") == "interior"
         assert infer_category("Shift Knob", "Weighted shift knob.") == "interior"
@@ -135,5 +140,118 @@ class TestInferCategory:
                 "Revel GT Dry Carbon Door Switch Panel - Toyota GR Supra A90 2020+",
                 "Dry carbon overlays for interior. Door switch panel.",
             )
+            == "interior"
+        )
+
+    def test_lug_bolt_wheels(self) -> None:
+        assert (
+            infer_category("Dinan Lug Bolts M14X1.25 33MM MKV Supra A90", "Lug bolts for spacers.")
+            == "wheels"
+        )
+
+    def test_wind_buffeting_body(self) -> None:
+        assert (
+            infer_category("AMS Performance Anti-Wind Buffeting Kit - MKV Supra", "Fixes wind noise.")
+            == "body"
+        )
+
+    def test_other_export_engine_lighting_body_drivetrain(self) -> None:
+        """Parts from 'other' export that should infer to engine, lighting, body, suspension, drivetrain, exhaust."""
+        # OBD/flash adapter -> engine
+        assert (
+            infer_category(
+                "Bootmod3 - Wireless OBDII WIFI Enet Canbus Flash Adapter",
+                "Wireless connection for BMW F and G series and 2020+ Toyota Supra.",
+            )
+            == "engine"
+        )
+        # Oil cap, fluid cap, engine bay -> engine
+        assert infer_category("Verus Engineering MKV Supra GR Oil Cap", "Aluminum cap for engine bay.") == "engine"
+        assert (
+            infer_category("Verus Engineering MKV Supra GR Engine Bay Fluid Cap Kit", "Fluid caps for Toyota Supra.")
+            == "engine"
+        )
+        # Air filter -> engine
+        assert (
+            infer_category("aFe MKV Supra GR Magnum FLOW Pro 5R Air Filter", "Pro 5R air filter media.")
+            == "engine"
+        )
+        # Rod set -> engine
+        assert infer_category("Boost Logic MK5 Supra Rod Set", None) == "engine"
+        # Reverse light cover -> lighting
+        assert (
+            infer_category("Rexpeed MKV Supra GR Forged Carbon Reverse Light Cover", "Reverse light cover.")
+            == "lighting"
+        )
+        # Door sill cover -> interior
+        assert (
+            infer_category("Rexpeed Forged Carbon Door Sill Cover - MKV Supra", "Sill cover with 3M adhesive.")
+            == "interior"
+        )
+        # Rock guards -> body
+        assert infer_category("Rexpeed Dry Carbon Rock Guards (4pcs) Toyota Supra GR A90", "4 pcs for 2020+ Supra.") == "body"
+        # GR Badge -> body
+        assert infer_category('JDC Titanium "GR" Badge (GR Supra/GR 86/GR Corolla)', "Replacement GR badge.") == "body"
+        # Reflector set -> lighting
+        assert infer_category("Rexpeed Painted Front & Rear Reflector Set", "Painted reflectors, 3M adhesive.") == "lighting"
+        # LPFP line, throttle booster -> engine
+        assert infer_category("PFS - Upgraded LPFP Line MKV Supra A90", "Upgraded LPFP line plug-and-play.") == "engine"
+        assert infer_category("Dinan - Throttle Booster MKV Supra A90", "Custom throttle curve.") == "engine"
+        # Damping delete / error canceller -> suspension
+        assert (
+            infer_category(
+                "Nitron Electronic Damping Delete Kit (Error Canceller) - 2020+ Toyota A90 Supra",
+                "Remove OE electronic suspension worry-free.",
+            )
+            == "suspension"
+        )
+        # Short shift kit -> drivetrain
+        assert (
+            infer_category("Rogue Engineering - Short Shift Kit A90 Toyota Supra", "Short shift lever kit for MKV Supra.")
+            == "drivetrain"
+        )
+        # Exhaust conversion kit -> exhaust
+        assert (
+            infer_category("AWE Track-to-Non-Resonated-Touring Edition Conversion Kit - 2020+ A90 Supra", "Conversion kit.")
+            == "exhaust"
+        )
+
+    def test_universal_export_category_fixes(self) -> None:
+        """Parts from universal/unassociated export: fix injectors→engine, intake muffler→engine, rocker→body."""
+        # Fuel injectors -> engine (not exhaust; "tip" in Extended Tip was matching exhaust)
+        assert (
+            infer_category(
+                "Bosch - 980cc (1000cc) Fuel Injectors",
+                "Bosch EV14 high precision injector. Nozzle Extended Tip. Fuel injection.",
+            )
+            == "engine"
+        )
+        # Intake muffler delete -> engine (not exhaust; intake resonator/muffler is engine bay)
+        assert (
+            infer_category(
+                "Burger Motorsports - BMS Intake Muffler Delete",
+                "Delete the factory intake muffler (resonator) for better sound. B58 engines.",
+            )
+            == "engine"
+        )
+        # Side rocker extensions -> body (not engine)
+        assert (
+            infer_category(
+                "APR Performance - Side Rocker Extensions - Toyota GR86",
+                "Carbon fiber side rocker extensions. Reduce lift at high speeds.",
+            )
+            == "body"
+        )
+        # HKS filter replacement / power flow -> engine (not interior)
+        assert (
+            infer_category(
+                "HKS Super Power Flow Assembly - Full Mushroom Cage & Filter Replacement",
+                "Replacement of mushroom filter and cage. Air filter. Air intake efficiency.",
+            )
+            == "engine"
+        )
+        # Center console covers -> interior
+        assert (
+            infer_category("Rexpeed Dry Carbon Center Console Covers (2pcs)", "Carbon fiber center console cover.")
             == "interior"
         )

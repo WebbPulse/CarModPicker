@@ -27,6 +27,7 @@ from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
     DEFAULT_USER_AGENT,
+    apply_delay_jitter,
     can_fetch_url,
     fetch_page,
     get_crawl_delay_sec,
@@ -181,7 +182,8 @@ def run_crawler(
                 if i > 1:
                     # Honor robots.txt Crawl-delay if set; use the larger of --delay and directive
                     crawl_delay = get_crawl_delay_sec(url, DEFAULT_USER_AGENT)
-                    actual_delay = max(delay_sec, crawl_delay or 0)
+                    base_delay = max(delay_sec, crawl_delay or 0)
+                    actual_delay = apply_delay_jitter(base_delay)
                     time.sleep(actual_delay)
                 if not can_fetch_url(url, DEFAULT_USER_AGENT):
                     skipped += 1
