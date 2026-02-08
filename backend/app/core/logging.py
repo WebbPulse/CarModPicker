@@ -19,10 +19,10 @@ LEVEL_NAME_COLORS = {
 }
 
 
-class ColourizedFormatter(logging.Formatter):
+class ColorizedFormatter(logging.Formatter):
     """
-    Formatter that colourises the log level name (like uvicorn).
-    Only enables colours when stdout is a TTY.
+    Formatter that colorizes the log level name (like uvicorn).
+    Only enables colors when stdout is a TTY.
     """
 
     def __init__(
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.DEBUG)
-formatter = ColourizedFormatter(LOG_FORMAT)
+formatter = ColorizedFormatter(LOG_FORMAT)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
