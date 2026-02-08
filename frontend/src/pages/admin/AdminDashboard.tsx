@@ -118,6 +118,8 @@ function AdminDashboard() {
   );
   const [deleteAllCarsResult, setDeleteAllCarsResult] = useState<{
     deleted_count: number;
+    deleted_car_models_count: number;
+    deleted_makes_count: number;
   } | null>(null);
 
   // Crawler tools
@@ -957,10 +959,10 @@ function AdminDashboard() {
                 Delete all cars (generations)
               </h3>
               <p className="text-neutral-300 mb-4">
-                Permanently remove every car generation from the catalog. Build
-                lists are unlinked from cars (not deleted). Makes and car models
-                stay so you can run &quot;Init Car Generations&quot; to
-                repopulate. This action cannot be undone.
+                Permanently remove every car generation, car model, and make
+                from the catalog. Build lists are unlinked from cars (not
+                deleted). Run &quot;Init Car Generations&quot; afterward to
+                repopulate from a clean slate. This action cannot be undone.
               </p>
               <p className="text-sm text-neutral-400 mb-4">
                 Current cars:{' '}
@@ -995,7 +997,9 @@ function AdminDashboard() {
               <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
                 <p className="text-green-400 font-semibold">
                   Deleted {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
-                  car(s).
+                  car(s), {deleteAllCarsResult.deleted_car_models_count.toLocaleString()}{' '}
+                  car model(s), and {deleteAllCarsResult.deleted_makes_count.toLocaleString()}{' '}
+                  make(s). Run Init Car Generations to repopulate.
                 </p>
               </div>
             )}

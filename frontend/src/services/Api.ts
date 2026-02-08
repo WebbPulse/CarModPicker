@@ -1052,9 +1052,13 @@ export const adminApi = {
   deleteAllGlobalParts: () =>
     apiClient.post<{ deleted_count: number }>('/admin/global-parts/delete-all'),
 
-  /** Delete all cars / car generations (admin only). Unlinks build lists; run Init Car Generations to repopulate. */
+  /** Delete all cars / car generations (admin only). Also deletes car models and makes for a clean init. */
   deleteAllCars: () =>
-    apiClient.post<{ deleted_count: number }>('/admin/cars/delete-all'),
+    apiClient.post<{
+      deleted_count: number;
+      deleted_car_models_count: number;
+      deleted_makes_count: number;
+    }>('/admin/cars/delete-all'),
 };
 
 export default apiClient;

@@ -21,7 +21,9 @@ from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
+from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
+from app.api.models.make import Make as DBMake
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
@@ -311,6 +313,8 @@ class DeleteAllCarsResponse(BaseModel):
     """Response for delete-all cars (admin only)."""
 
     deleted_count: int = Field(..., description="Number of cars (generations) deleted")
+    deleted_car_models_count: int = Field(..., description="Number of car models deleted")
+    deleted_makes_count: int = Field(..., description="Number of makes deleted")
 
 
 @router.post(
@@ -328,8 +332,8 @@ async def delete_all_cars(
     Delete all cars / car generations (admin only).
 
     Unlinks build lists from cars (sets car_id to null), removes car votes and
-    global_part_cars links, then deletes all Car rows. Makes and CarModels are
-    left intact so you can re-run Init Car Generations to repopulate.
+    global_part_cars links, then deletes all Car, CarModel, and Make rows so
+    Init Car Generations can repopulate from a clean slate.
     This action cannot be undone.
     """
     db = SessionLocal()
@@ -342,9 +346,23 @@ async def delete_all_cars(
         db.query(DBVote).filter(DBVote.entity_type == "car").delete(synchronize_session=False)
         count = db.query(DBCar).count()
         db.query(DBCar).delete(synchronize_session=False)
+        car_models_count = db.query(DBCarModel).count()
+        db.query(DBCarModel).delete(synchronize_session=False)
+        makes_count = db.query(DBMake).count()
+        db.query(DBMake).delete(synchronize_session=False)
         db.commit()
-        logger.info("Admin %s deleted all %s cars", current_user.id, count)
-        return DeleteAllCarsResponse(deleted_count=count)
+        logger.info(
+            "Admin %s deleted all cars: %s cars, %s car models, %s makes",
+            current_user.id,
+            count,
+            car_models_count,
+            makes_count,
+        )
+        return DeleteAllCarsResponse(
+            deleted_count=count,
+            deleted_car_models_count=car_models_count,
+            deleted_makes_count=makes_count,
+        )
     except Exception as e:
         db.rollback()
         logger.exception("Delete all cars failed: %s", e)
