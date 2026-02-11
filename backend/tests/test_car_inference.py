@@ -334,3 +334,24 @@ class TestInferCarGenerations:
         assert ("Toyota", "Supra", "A90") in result
         assert ("BMW", "M3", "G80") in result
         assert ("BMW", "M4", "G82/G83") in result
+
+    def test_e46_m3_only_m3_not_330i_or_3_series(self) -> None:
+        """E46 is ambiguous standalone; 'E46 M3' should match only BMW M3 E46, not 330i or 3 Series."""
+        result = infer_car_generations(
+            "E46 M3 VF570 Supercharger System",
+            "Machined from 6061-T6 aircraft grade aluminum... E46 M3 throttle bodies.",
+        )
+        assert ("BMW", "M3", "E46") in result
+        assert ("BMW", "330i", "E46") not in result
+        assert ("BMW", "3 Series", "E46") not in result
+        assert len(result) == 1
+
+    def test_e46_m3_e36_m3_only_two_chassis(self) -> None:
+        """Part for E46 M3 and E36 M3 should infer only M3 E46 and M3 E36, not 6 cars (no 330i/3 Series)."""
+        result = infer_car_generations(
+            "Rogue Engineering Adjustable Rear Control Arm - BMW E46 M3, E36 M3",
+            "ARCA for rear camber. E46 M3 and E36 M3.",
+        )
+        assert ("BMW", "M3", "E46") in result
+        assert ("BMW", "M3", "E36") in result
+        assert len(result) == 2

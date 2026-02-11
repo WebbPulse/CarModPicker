@@ -316,6 +316,7 @@ async def read_global_parts_with_votes(
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
     max_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price <= this (cents)"),
+    universal: Optional[bool] = Query(None, description="When true, return only parts that fit all cars (is_universal)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
@@ -368,6 +369,7 @@ async def read_global_parts_with_votes(
         search,
         user_id,
         retailer_id,
+        universal=universal,
     )
 
     # Build main query with LEFT JOINs to vote count subqueries for sorting and retrieval
@@ -384,6 +386,7 @@ async def read_global_parts_with_votes(
         search,
         user_id,
         retailer_id,
+        universal=universal,
     )
 
     # Subquery: best (min) price per part from listings
@@ -578,6 +581,8 @@ def _apply_global_parts_list_filters(
     search: Optional[str],
     user_id: Optional[int],
     retailer_id: Optional[int],
+    *,
+    universal: Optional[bool] = None,
 ):
     """Apply list filters to a query that has DBGlobalPart as root. Returns the query."""
     query = apply_standard_filters(
@@ -590,7 +595,9 @@ def _apply_global_parts_list_filters(
         query = query.filter(DBGlobalPart.category_id.in_(category_ids))
     if brand_ids:
         query = query.filter(DBGlobalPart.brand_id.in_(brand_ids))
-    if car_ids:
+    if universal is True:
+        query = query.filter(DBGlobalPart.is_universal == True)  # noqa: E712
+    elif car_ids:
         part_fits_any_car = exists().where(
             (global_part_cars.c.global_part_id == DBGlobalPart.id) & (global_part_cars.c.car_id.in_(car_ids))
         )
@@ -613,10 +620,14 @@ def _global_parts_base_query(
     search: Optional[str],
     user_id: Optional[int],
     retailer_id: Optional[int],
+    *,
+    universal: Optional[bool] = None,
 ):
     """Build base query for global parts list with filters applied (no pagination/sort)."""
     q = db.query(DBGlobalPart)
-    return _apply_global_parts_list_filters(q, category_ids, brand_ids, car_ids, search, user_id, retailer_id)
+    return _apply_global_parts_list_filters(
+        q, category_ids, brand_ids, car_ids, search, user_id, retailer_id, universal=universal
+    )
 
 
 @router.get(
@@ -632,6 +643,7 @@ async def get_global_parts_filter_options(
     ),
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
     user_id: Optional[int] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
+    universal: Optional[bool] = Query(None, description="When true, scope to parts that fit all cars (is_universal)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
     """
@@ -648,6 +660,7 @@ async def get_global_parts_filter_options(
         search=search,
         user_id=user_id,
         retailer_id=None,
+        universal=universal,
     )
     available_categories = [
         row[0]
@@ -674,6 +687,7 @@ async def get_global_parts_filter_options(
             search=search,
             user_id=user_id,
             retailer_id=None,
+            universal=universal,
         )
         available_car_ids = [
             row[0]

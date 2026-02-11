@@ -334,6 +334,56 @@ class TestGlobalParts:
             assert "downvotes" in part
             assert "user_vote" in part
 
+    def test_get_global_parts_with_votes_universal_filter(
+        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+    ) -> None:
+        """Test that universal=true returns only parts with is_universal=True."""
+        headers = get_auth_token_and_headers(client, test_user.username)
+
+        # Create a universal part
+        universal_data = {
+            "name": get_unique_name("universal_part"),
+            "description": "Universal part",
+            "category_id": test_category.id,
+            "brand_id": test_brand.id,
+            "is_universal": True,
+        }
+        r1 = client.post(f"{settings.API_STR}/global-parts/", json=universal_data, headers=headers)
+        assert r1.status_code == 200
+        universal_id = r1.json()["id"]
+
+        # Create a non-universal part
+        non_universal_data = {
+            "name": get_unique_name("car_specific_part"),
+            "description": "Car-specific part",
+            "category_id": test_category.id,
+            "brand_id": test_brand.id,
+            "is_universal": False,
+        }
+        r2 = client.post(f"{settings.API_STR}/global-parts/", json=non_universal_data, headers=headers)
+        assert r2.status_code == 200
+        non_universal_id = r2.json()["id"]
+
+        # Without filter: both parts can appear
+        response = client.get(f"{settings.API_STR}/global-parts/with-votes", headers=headers)
+        assert response.status_code == 200
+        all_data = response.json()["data"]
+        all_ids = {p["id"] for p in all_data}
+        assert universal_id in all_ids
+        assert non_universal_id in all_ids
+
+        # With universal=true: only universal part
+        response = client.get(
+            f"{settings.API_STR}/global-parts/with-votes?universal=true", headers=headers
+        )
+        assert response.status_code == 200
+        result = response.json()
+        universal_only = result["data"]
+        universal_only_ids = {p["id"] for p in universal_only}
+        assert universal_id in universal_only_ids
+        assert non_universal_id not in universal_only_ids
+        assert all(p["is_universal"] for p in universal_only)
+
     def test_create_global_part_with_invalid_price_cents(
         self, client: TestClient, test_user: Any, test_category: Any, test_brand: Brand
     ) -> None:

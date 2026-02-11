@@ -9,6 +9,10 @@ Requires env:
     CRAWLER_USER_ID: user ID to attribute created parts to (must have create permission).
     CRAWLER_DEFAULT_CATEGORY_ID: category ID for new parts (optional if CRAWLER_DEFAULT_CATEGORY_NAME set).
     CRAWLER_DEFAULT_CATEGORY_NAME: category name (e.g. exhaust) for new parts (used if category_id not set).
+
+Optional (full-page archive for post-processing):
+    CRAWL_HTML_SAVE_DIR: directory path to save full page HTML (new URLs only unless CRAWL_HTML_SAVE_ON_RECRAWL=1).
+    CRAWL_HTML_SAVE_ON_RECRAWL: set to 1/true/yes to also overwrite saved HTML when recrawling known URLs.
 """
 
 import argparse
@@ -17,6 +21,7 @@ import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -32,6 +37,8 @@ from app.crawlers.base import (
     fetch_page,
     get_crawl_delay_sec,
     ingest_payload,
+    save_crawl_page_html,
+    url_is_known,
 )
 from app.db.session import SessionLocal
 
@@ -140,10 +147,14 @@ def run_crawler(
     delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
     user_id: Optional[int] = None,
     default_category_id: Optional[int] = None,
+    crawl_html_save_dir: Optional[str] = None,
+    crawl_html_save_on_recrawl: Optional[bool] = None,
 ) -> dict:
     """
     Run one adapter: discover URLs, fetch, parse, ingest. Optionally cap at `limit` URLs.
     If user_id or default_category_id are provided, use them; otherwise fall back to env vars.
+    When crawl_html_save_dir is set (or CRAWL_HTML_SAVE_DIR env), saves full page HTML for new URLs
+    (or all URLs if crawl_html_save_on_recrawl / CRAWL_HTML_SAVE_ON_RECRAWL is True).
     Returns a dict: {"adapter": name, "ingested": int, "skipped": int, "errors": int, "total": int}.
     Raises CrawlerConfigError or KeyError (unknown adapter) on setup failure.
     """
@@ -163,6 +174,20 @@ def run_crawler(
         skipped = 0
         errors = 0
 
+        # Optional: save full page HTML for new URLs (or all if save_on_recrawl)
+        save_dir_str = (
+            (crawl_html_save_dir or "").strip()
+            or os.environ.get("CRAWL_HTML_SAVE_DIR", "").strip()
+        )
+        save_on_recrawl = crawl_html_save_on_recrawl
+        if save_on_recrawl is None:
+            save_on_recrawl = os.environ.get("CRAWL_HTML_SAVE_ON_RECRAWL", "0").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+        save_dir: Optional[Path] = Path(save_dir_str) if save_dir_str else None
+
         for i, url in enumerate(urls, 1):
             try:
                 if i > 1:
@@ -180,6 +205,7 @@ def run_crawler(
                         url,
                     )
                     continue
+                url_known = url_is_known(db, url)
                 html = fetch_page(url)
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
@@ -191,6 +217,15 @@ def run_crawler(
                         url,
                     )
                     continue
+                # Save full page copy for new URLs, or for all if save_on_recrawl is set
+                if save_dir and (not url_known or save_on_recrawl):
+                    save_crawl_page_html(
+                        adapter_name,
+                        url,
+                        html,
+                        save_dir,
+                        logger_instance=logger,
+                    )
                 ingest_payload(
                     db,
                     payload,
@@ -232,6 +267,8 @@ def run_crawlers(
     parallel: bool = True,
     user_id: Optional[int] = None,
     default_category_id: Optional[int] = None,
+    crawl_html_save_dir: Optional[str] = None,
+    crawl_html_save_on_recrawl: Optional[bool] = None,
 ) -> dict:
     """
     Run one or more adapters. If multiple adapters, runs them in parallel threads by default.
@@ -242,6 +279,8 @@ def run_crawlers(
         global_limit: Limit applied to all adapters when no per-adapter limit is set.
         delay_sec: Delay between requests per crawler.
         parallel: If True and len(adapter_names) > 1, run in parallel threads.
+        crawl_html_save_dir: If set, save full page HTML (new URLs only unless crawl_html_save_on_recrawl).
+        crawl_html_save_on_recrawl: If True and crawl_html_save_dir set, also overwrite HTML on recrawl.
 
     Returns:
         {
@@ -265,6 +304,8 @@ def run_crawlers(
                 delay_sec=delay_sec,
                 user_id=user_id,
                 default_category_id=default_category_id,
+                crawl_html_save_dir=crawl_html_save_dir,
+                crawl_html_save_on_recrawl=crawl_html_save_on_recrawl,
             )
         except (CrawlerConfigError, KeyError) as e:
             return {"_error": str(e), "_adapter": name}

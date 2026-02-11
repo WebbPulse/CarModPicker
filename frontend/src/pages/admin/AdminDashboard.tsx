@@ -24,6 +24,7 @@ import {
   buildLogsApi,
   carsApi,
   categoriesApi,
+  brandsApi,
   globalPartsApi,
   imageApi,
   reportsApi,
@@ -40,6 +41,7 @@ interface EntityCounts {
   buildLists: number | null;
   globalParts: number | null;
   categories: number | null;
+  brands: number | null;
   bucketObjects: number | null;
   buildLogPosts: number | null;
   buildListParts: number | null;
@@ -59,6 +61,7 @@ function AdminDashboard() {
     buildLists: null,
     globalParts: null,
     categories: null,
+    brands: null,
     bucketObjects: null,
     buildLogPosts: null,
     buildListParts: null,
@@ -98,6 +101,17 @@ function AdminDashboard() {
     string | null
   >(null);
   const [deleteAllGlobalPartsResult, setDeleteAllGlobalPartsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
+  const [
+    isDeleteAllBrandsConfirmOpen,
+    setIsDeleteAllBrandsConfirmOpen,
+  ] = useState(false);
+  const [isDeletingAllBrands, setIsDeletingAllBrands] = useState(false);
+  const [deleteAllBrandsError, setDeleteAllBrandsError] = useState<
+    string | null
+  >(null);
+  const [deleteAllBrandsResult, setDeleteAllBrandsResult] = useState<{
     deleted_count: number;
   } | null>(null);
   const [isInitCarGenerations, setIsInitCarGenerations] = useState(false);
@@ -144,6 +158,9 @@ function AdminDashboard() {
   );
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
   const [crawlerDelaySec, setCrawlerDelaySec] = useState<number>(5);
+  const [crawlerHtmlSaveDir, setCrawlerHtmlSaveDir] = useState<string>('');
+  const [crawlerHtmlSaveOnRecrawl, setCrawlerHtmlSaveOnRecrawl] =
+    useState<boolean>(false);
 
   // Rerun inference
   const [isRerunningInference, setIsRerunningInference] = useState(false);
@@ -193,6 +210,7 @@ function AdminDashboard() {
         buildListsCount,
         globalPartsCount,
         categoriesCount,
+        brandsCount,
         bucketObjectsCount,
         buildLogPostsCount,
         buildListPartsCount,
@@ -207,6 +225,7 @@ function AdminDashboard() {
         fetchCount(() => buildListsApi.countBuildLists(), 'build lists'),
         fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
+        fetchCount(() => brandsApi.countBrands(), 'brands'),
         fetchCount(() => imageApi.countBucketObjects(), 'bucket objects'),
         fetchCount(() => buildLogsApi.countBuildLogPosts(), 'build log posts'),
         fetchCount(
@@ -226,6 +245,7 @@ function AdminDashboard() {
         buildLists: buildListsCount,
         globalParts: globalPartsCount,
         categories: categoriesCount,
+        brands: brandsCount,
         bucketObjects: bucketObjectsCount,
         buildLogPosts: buildLogPostsCount,
         buildListParts: buildListPartsCount,
@@ -243,6 +263,7 @@ function AdminDashboard() {
         buildListsCount === null &&
         globalPartsCount === null &&
         categoriesCount === null &&
+        brandsCount === null &&
         bucketObjectsCount === null &&
         buildLogPostsCount === null &&
         buildListPartsCount === null &&
@@ -439,6 +460,25 @@ function AdminDashboard() {
     }
   };
 
+  const handleConfirmDeleteAllBrands = async () => {
+    setIsDeletingAllBrands(true);
+    setDeleteAllBrandsError(null);
+    try {
+      const response = await adminApi.deleteAllBrands();
+      setDeleteAllBrandsResult(response.data);
+      setIsDeleteAllBrandsConfirmOpen(false);
+      await fetchCounts();
+    } catch (error) {
+      setDeleteAllBrandsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all part brands.'
+      );
+    } finally {
+      setIsDeletingAllBrands(false);
+    }
+  };
+
   const handleRerunInference = async () => {
     setIsRerunningInference(true);
     setRerunInferenceResult(null);
@@ -539,6 +579,10 @@ function AdminDashboard() {
       if (Object.keys(limits).length > 0) body.limits = limits;
       if (useGlobalLimit && globalLimitNum != null && globalLimitNum > 0)
         body.global_limit = globalLimitNum;
+      if (crawlerHtmlSaveDir.trim()) {
+        body.crawl_html_save_dir = crawlerHtmlSaveDir.trim();
+        body.crawl_html_save_on_recrawl = crawlerHtmlSaveOnRecrawl;
+      }
       const response = await adminApi.runCrawlers(body);
       setCrawlerResult(response.data);
       setCrawlerError(null);
@@ -1120,6 +1164,11 @@ function AdminDashboard() {
                 <span className="font-semibold text-white">
                   {counts.globalParts?.toLocaleString() ?? '—'}
                 </span>
+                {' · '}
+                Current brands:{' '}
+                <span className="font-semibold text-white">
+                  {counts.brands?.toLocaleString() ?? '—'}
+                </span>
               </p>
             </div>
             <div className="flex flex-wrap gap-4 mb-4">
@@ -1143,14 +1192,48 @@ function AdminDashboard() {
                   'Delete all global parts'
                 )}
               </ActionButton>
+              <ActionButton
+                onClick={() => {
+                  setDeleteAllBrandsError(null);
+                  setDeleteAllBrandsResult(null);
+                  setIsDeleteAllBrandsConfirmOpen(true);
+                }}
+                disabled={isDeletingAllBrands}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeletingAllBrands ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete all part brands'
+                )}
+              </ActionButton>
             </div>
-            {deleteAllGlobalPartsResult && (
-              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
-                <p className="text-green-400 font-semibold">
-                  Deleted{' '}
-                  {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
-                  global part(s).
-                </p>
+            {(deleteAllGlobalPartsResult || deleteAllBrandsResult) && (
+              <div className="space-y-2">
+                {deleteAllGlobalPartsResult && (
+                  <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
+                    <p className="text-green-400 font-semibold">
+                      Deleted{' '}
+                      {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
+                      global part(s).
+                    </p>
+                  </div>
+                )}
+                {deleteAllBrandsResult && (
+                  <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
+                    <p className="text-green-400 font-semibold">
+                      Deleted{' '}
+                      {deleteAllBrandsResult.deleted_count.toLocaleString()}{' '}
+                      part brand(s). Parts keep their data; brand references were
+                      cleared.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1306,6 +1389,44 @@ function AdminDashboard() {
                     </select>
                     <p className="text-xs text-neutral-400 mt-1">
                       Category for new parts
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Save page HTML (optional)
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. /data/crawl_cache or ./crawl_cache"
+                      value={crawlerHtmlSaveDir}
+                      onChange={(e) => setCrawlerHtmlSaveDir(e.target.value)}
+                      className="max-w-md"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Directory to save full page copies (new URLs only unless
+                      &quot;Overwrite on recrawl&quot; is checked).
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={crawlerHtmlSaveOnRecrawl}
+                        onChange={(e) =>
+                          setCrawlerHtmlSaveOnRecrawl(e.target.checked)
+                        }
+                        className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm text-neutral-300">
+                        Overwrite saved HTML on recrawl
+                      </span>
+                    </label>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      When saving HTML, also overwrite for known URLs (price
+                      refresh).
                     </p>
                   </div>
                 </div>
@@ -1489,6 +1610,18 @@ function AdminDashboard() {
         itemType="catalog"
         isProcessing={isDeletingAllGlobalParts}
         error={deleteAllGlobalPartsError}
+      />
+      <DeleteConfirmationDialog
+        isOpen={isDeleteAllBrandsConfirmOpen}
+        onClose={() => {
+          setIsDeleteAllBrandsConfirmOpen(false);
+          setDeleteAllBrandsError(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteAllBrands()}
+        itemName="all part brands"
+        itemType="catalog"
+        isProcessing={isDeletingAllBrands}
+        error={deleteAllBrandsError}
       />
       <DeleteConfirmationDialog
         isOpen={isDeleteAllCarsConfirmOpen}
