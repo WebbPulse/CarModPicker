@@ -187,6 +187,14 @@ def run_crawler(
                 "yes",
             )
         save_dir: Optional[Path] = Path(save_dir_str) if save_dir_str else None
+        if save_dir is not None:
+            logger.info(
+                "Saving full page HTML (prefix: %s; overwrite on recrawl: %s)",
+                save_dir_str,
+                save_on_recrawl,
+            )
+        else:
+            logger.debug("Crawl HTML save disabled (no directory/prefix set)")
 
         for i, url in enumerate(urls, 1):
             try:

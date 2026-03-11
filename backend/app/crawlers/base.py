@@ -66,6 +66,9 @@ def _get_crawl_s3_client() -> tuple[Optional[object], Optional[str]]:
 
         bucket = (settings.BUCKET or "").strip()
         if not bucket or not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+            logger.info(
+                "Crawl HTML bucket not configured (BUCKET or AWS credentials missing); will use local path if save enabled"
+            )
             return None, None
         import boto3
 
@@ -79,7 +82,7 @@ def _get_crawl_s3_client() -> tuple[Optional[object], Optional[str]]:
         _crawl_bucket_name = bucket
         return _crawl_s3_client, _crawl_bucket_name
     except Exception as e:
-        logger.debug("Crawl HTML bucket not available: %s", e)
+        logger.info("Crawl HTML bucket not available (will use local path if save enabled): %s", e)
         return None, None
 
 
@@ -125,12 +128,12 @@ def save_crawl_page_html(
                 Body=product_url.encode("utf-8"),
                 ContentType="text/plain; charset=utf-8",
             )
-            log.debug("Saved page copy to bucket: %s", html_key)
+            log.info("Saved page copy to bucket: %s", html_key)
         except Exception as e:
             log.warning("Could not save page copy to bucket %s: %s", html_key, e)
         return
 
-    # Fallback: local filesystem
+    # Fallback: local filesystem (bucket not configured or client failed)
     base_path = Path(base_dir) if base_dir else Path("crawl_html")
     if not base_path.is_absolute() and not base_path.exists():
         base_path.mkdir(parents=True, exist_ok=True)
@@ -141,7 +144,7 @@ def save_crawl_page_html(
     try:
         html_path.write_text(html, encoding="utf-8", errors="replace")
         url_path.write_text(product_url, encoding="utf-8")
-        log.debug("Saved page copy: %s", html_path)
+        log.info("Saved page copy to local (bucket not configured): %s", html_path)
     except OSError as e:
         log.warning("Could not save page copy to %s: %s", html_path, e)
 
