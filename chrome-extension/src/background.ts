@@ -21,12 +21,12 @@ import {
 } from "./utils/imageUrlUtils";
 
 // API base URL - defaults to production (backend is at api subdomain + /api path)
-const DEFAULT_API_URL = "https://api.carmodpicker.webbpulse.com/api";
+const DEFAULT_API_URL = "https://api.carmodpicker.com/api";
 
 /** Old prod URLs to migrate to DEFAULT_API_URL when seen */
 const LEGACY_PROD_API_URLS = [
-  "https://carmodpicker.webbpulse.com/api", // frontend origin + /api
-  "https://api.carmodpicker.webbpulse.com", // api host without /api path
+  "https://carmodpicker.com/api", // frontend origin + /api
+  "https://api.carmodpicker.com", // api host without /api path
 ];
 
 /**
@@ -69,7 +69,7 @@ async function removeToken(): Promise<void> {
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
   const apiUrl = await getApiUrl();
   const token = await getToken();
@@ -115,7 +115,7 @@ async function apiRequest<T>(
  */
 async function login(
   username: string,
-  password: string
+  password: string,
 ): Promise<ApiResponse<User> & { requires2FA?: boolean }> {
   const apiUrl = await getApiUrl();
   const loginUrl = `${apiUrl}/auth/token`;
@@ -202,7 +202,7 @@ async function login(
 async function loginWith2FA(
   username: string,
   password: string,
-  otp: string
+  otp: string,
 ): Promise<ApiResponse<User> & { requires2FA?: boolean }> {
   const apiUrl = await getApiUrl();
   const loginUrl = `${apiUrl}/auth/token/2fa`;
@@ -271,11 +271,11 @@ async function getCars(limit: number = 1000): Promise<ApiResponse<Car[]>> {
  */
 async function searchCars(
   searchTerm: string,
-  limit: number = 100
+  limit: number = 100,
 ): Promise<ApiResponse<Car[]>> {
   return apiRequest<Car[]>(
     `/cars/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -283,7 +283,7 @@ async function searchCars(
  * Get brands (optionally filtered to active only)
  */
 async function getBrands(
-  activeOnly: boolean = true
+  activeOnly: boolean = true,
 ): Promise<ApiResponse<Brand[]>> {
   return apiRequest<Brand[]>(`/brands/?active_only=${activeOnly}`, {
     method: "GET",
@@ -295,11 +295,11 @@ async function getBrands(
  */
 async function searchBrands(
   searchTerm: string,
-  limit: number = 100
+  limit: number = 100,
 ): Promise<ApiResponse<Brand[]>> {
   return apiRequest<Brand[]>(
     `/brands/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -317,7 +317,7 @@ async function createBrand(name: string): Promise<ApiResponse<Brand>> {
  * Get retailers (optionally filtered to active only)
  */
 async function getRetailers(
-  activeOnly: boolean = true
+  activeOnly: boolean = true,
 ): Promise<ApiResponse<Retailer[]>> {
   return apiRequest<Retailer[]>(`/retailers/?active_only=${activeOnly}`, {
     method: "GET",
@@ -330,7 +330,7 @@ async function getRetailers(
 async function getOrCreateRetailerByDomain(
   domain: string,
   name?: string,
-  baseUrl?: string
+  baseUrl?: string,
 ): Promise<ApiResponse<Retailer>> {
   const body: { domain: string; name?: string; base_url?: string } = {
     domain: domain.trim().toLowerCase(),
@@ -347,11 +347,11 @@ async function getOrCreateRetailerByDomain(
  * Check if product URL already exists in catalog
  */
 async function checkProductUrl(
-  productUrl: string
+  productUrl: string,
 ): Promise<ApiResponse<{ existing_part_id: number | null }>> {
   return apiRequest<{ existing_part_id: number | null }>(
     `/global-parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -359,7 +359,7 @@ async function checkProductUrl(
  * Get global part by ID (with listings for display)
  */
 async function getGlobalPart(
-  partId: number
+  partId: number,
 ): Promise<ApiResponse<GlobalPartRead>> {
   return apiRequest<GlobalPartRead>(`/global-parts/${partId}`, {
     method: "GET",
@@ -372,14 +372,14 @@ async function getGlobalPart(
  */
 async function findExistingPartByBrandAndPartNumber(
   brandId: number,
-  partNumber: string
+  partNumber: string,
 ): Promise<ApiResponse<GlobalPartRead>> {
   const trimmed = partNumber?.trim();
   if (!trimmed) {
     return { success: false, error: "Part number required" };
   }
   const url = `/global-parts/find-by-brand-and-part-number?brand_id=${encodeURIComponent(
-    brandId
+    brandId,
   )}&part_number=${encodeURIComponent(trimmed)}`;
   return apiRequest<GlobalPartRead>(url, { method: "GET" });
 }
@@ -389,7 +389,7 @@ async function findExistingPartByBrandAndPartNumber(
  */
 async function appendImagesToGlobalPart(
   partId: number,
-  fileKeys: string[]
+  fileKeys: string[],
 ): Promise<ApiResponse<GlobalPartRead>> {
   return apiRequest<GlobalPartRead>(`/global-parts/${partId}/append-images`, {
     method: "POST",
@@ -406,7 +406,7 @@ const MAX_IMAGES_PER_GLOBAL_PART = 12;
  * Only considers up to MAX_IMAGES_PER_GLOBAL_PART URLs.
  */
 async function checkUncachedImageUrls(
-  sourceUrls: string[]
+  sourceUrls: string[],
 ): Promise<ApiResponse<{ uncachedUrls: string[] }>> {
   const urls = sourceUrls.slice(0, MAX_IMAGES_PER_GLOBAL_PART);
   const byCanonical = new Map<string, string>();
@@ -432,7 +432,7 @@ async function checkUncachedImageUrls(
       if (!res.success || !res.data?.fileKey) {
         uncached.push(getHighResImageUrl(url));
       }
-    })
+    }),
   );
   return { success: true, data: { uncachedUrls: uncached } };
 }
@@ -441,7 +441,7 @@ async function checkUncachedImageUrls(
  * Add or update part listing (creates PartListing and PartPriceHistory)
  */
 async function addPartListing(
-  data: PartListingCreate
+  data: PartListingCreate,
 ): Promise<ApiResponse<unknown>> {
   return apiRequest(`/global-parts/${data.global_part_id}/listings`, {
     method: "POST",
@@ -453,7 +453,7 @@ async function addPartListing(
  * Create global part
  */
 async function createGlobalPart(
-  partData: GlobalPartCreate
+  partData: GlobalPartCreate,
 ): Promise<ApiResponse<unknown>> {
   return apiRequest("/global-parts/", {
     method: "POST",
@@ -465,11 +465,11 @@ async function createGlobalPart(
  * Check if we already have this image cached by source URL (deduplication)
  */
 async function getImageBySourceUrl(
-  sourceUrl: string
+  sourceUrl: string,
 ): Promise<ApiResponse<{ fileKey: string }>> {
   const res = await apiRequest<{ file_key: string }>(
     `/images/by-source-url?source_url=${encodeURIComponent(sourceUrl)}`,
-    { method: "GET" }
+    { method: "GET" },
   );
   if (res.success && res.data) {
     return { success: true, data: { fileKey: res.data.file_key } };
@@ -485,7 +485,7 @@ async function getImageBySourceUrl(
  */
 async function uploadImage(
   imageUrl: string,
-  entityId?: number
+  entityId?: number,
 ): Promise<ApiResponse<{ fileKey: string }>> {
   try {
     const apiUrl = await getApiUrl();
@@ -571,7 +571,7 @@ chrome.runtime.onMessage.addListener(
       listingData?: PartListingCreate;
     },
     _sender,
-    sendResponse: (response: unknown) => void
+    sendResponse: (response: unknown) => void,
   ) => {
     if (request.action === "login") {
       if (request.username && request.password) {
@@ -589,7 +589,7 @@ chrome.runtime.onMessage.addListener(
     if (request.action === "loginWith2FA") {
       if (request.username && request.password && request.otp) {
         loginWith2FA(request.username, request.password, request.otp).then(
-          sendResponse
+          sendResponse,
         );
         return true;
       } else {
@@ -684,7 +684,7 @@ chrome.runtime.onMessage.addListener(
       ) {
         findExistingPartByBrandAndPartNumber(
           Number(request.brandId),
-          String(request.partNumber)
+          String(request.partNumber),
         ).then(sendResponse);
         return true;
       }
@@ -715,7 +715,7 @@ chrome.runtime.onMessage.addListener(
       if (request.partId != null && request.fileKeys) {
         appendImagesToGlobalPart(
           request.partId,
-          request.fileKeys as string[]
+          request.fileKeys as string[],
         ).then(sendResponse);
         return true;
       }
@@ -724,12 +724,12 @@ chrome.runtime.onMessage.addListener(
     if (request.action === "checkUncachedImageUrls") {
       if (request.sourceUrls) {
         checkUncachedImageUrls(request.sourceUrls as string[]).then(
-          sendResponse
+          sendResponse,
         );
         return true;
       }
     }
 
     return false;
-  }
+  },
 );

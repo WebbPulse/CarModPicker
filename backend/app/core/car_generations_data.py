@@ -2128,6 +2128,47 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             ],
         },
         {
+            "model": "3 Series",
+            "generations": [
+                {
+                    "generation_name": "E30",
+                    "start_year": 1975,
+                    "end_year": 1990,
+                    "description": "BMW's compact executive sedan with inline-6 engines. Featured excellent handling and build quality. Established 3 Series reputation for sporty luxury.",
+                },
+                {
+                    "generation_name": "E36",
+                    "start_year": 1991,
+                    "end_year": 1998,
+                    "description": "More refined 3 Series with improved technology. Featured updated inline-6 engines and better handling. Popular among enthusiasts for modification potential.",
+                },
+                {
+                    "generation_name": "E46",
+                    "start_year": 1999,
+                    "end_year": 2005,
+                    "description": "Widely considered one of the best 3 Series generations. Featured updated inline-6 engines and excellent handling. Balance of performance and daily usability.",
+                },
+                {
+                    "generation_name": "E90/E91/E92/E93",
+                    "start_year": 2006,
+                    "end_year": 2011,
+                    "description": "3 Series sedan (E90), touring/wagon (E91), coupe (E92), convertible (E93). Turbocharged engines in 335i; 328i/330i with inline-6. Popular for modifications and daily driving.",
+                },
+                {
+                    "generation_name": "F30/F31/F34",
+                    "start_year": 2012,
+                    "end_year": 2018,
+                    "description": "Complete redesign with turbocharged engines standard. Featured improved fuel economy and technology. More refined while maintaining sporty character.",
+                },
+                {
+                    "generation_name": "G20/G21",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Latest 3 Series with improved technology and handling. Featured updated turbocharged engines and advanced safety features. More premium positioning.",
+                },
+            ],
+        },
+        {
             "model": "330i",
             "generations": [
                 {

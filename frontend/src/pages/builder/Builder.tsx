@@ -8,15 +8,15 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { useAuth } from '../../hooks/useAuth';
-import { buildListsApi } from '../../services/Api';
-import type { BuildListRead } from '../../types/Api';
 import {
   BUILDER_FIRST_PAGE_BUILD_LISTS,
   BUILDER_ITEMS_PER_PAGE,
   BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS,
 } from '../../constants';
+import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
+import { buildListsApi } from '../../services/Api';
+import type { BuildListRead } from '../../types/Api';
 
 function Builder() {
   const { user } = useAuth();
@@ -131,7 +131,7 @@ function Builder() {
       ) : (
         <div className="mt-8">
           <SectionHeader title="My Build Lists" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          <div className="tile-grid-compact mt-4">
             {isFirstPage && (
               <AddItemTile
                 title="Create New Build List"

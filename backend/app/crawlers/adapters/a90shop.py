@@ -25,10 +25,15 @@ from app.crawlers.base import (
     fetch_page,
 )
 from app.crawlers.parsing import (
+    brand_fallback_from_title,
+    brand_from_description,
+    brand_from_title,
+    extract_dom_price,
     extract_json_ld_product,
+    extract_part_number_candidate_from_title,
     extract_sku_from_text,
+    meta_content,
     normalize_part_number,
-    parse_price_cents,
     scraped_payload_from_json_ld,
 )
 
@@ -103,40 +108,6 @@ def _discover_product_urls_via_sitemap() -> List[str]:
         return []
 
     return product_urls
-
-
-def _meta_content(tag: Optional[Tag]) -> Optional[str]:
-    """Get meta tag content as string; bs4 can return list for multi-valued attrs."""
-    if not isinstance(tag, Tag):
-        return None
-    content = tag.get("content")
-    return content if isinstance(content, str) else None
-
-
-def _extract_dom_price(soup: BeautifulSoup) -> Optional[int]:
-    """Extract price in cents from DOM (og:price or 'From $...' in body)."""
-    og_price = soup.find("meta", property="product:price:amount")
-    if isinstance(og_price, Tag):
-        p = _meta_content(og_price)
-        if p:
-            return parse_price_cents(p)
-    body_text = soup.get_text()
-    price_match = re.search(r"(?:From\s*)?\$[\s,]?\d+\.?\d*", body_text)
-    if price_match:
-        return parse_price_cents(price_match.group(0))
-    return None
-
-
-def _brand_from_title(title: str) -> Optional[str]:
-    """
-    Heuristic: first word of product title is often the brand (e.g. "Rays Gram Lights...", "HKS ...").
-    """
-    if not title or len(title) < 2:
-        return None
-    first = title.split()[0] if title.split() else ""
-    if first and len(first) >= 2 and first[0].isupper():
-        return first
-    return None
 
 
 # Wix image URL pattern: only product media from wixstatic (excludes tracking, placeholders)
@@ -248,7 +219,7 @@ def _extract_a90_images(soup: BeautifulSoup, raw_html: str) -> List[str]:
     # 1. og:image (in head, always before related)
     og_img = soup.find("meta", property="og:image")
     if isinstance(og_img, Tag):
-        content = _meta_content(og_img)
+        content = meta_content(og_img)
         if content and content.strip():
             add_url(content.strip())
 
@@ -300,7 +271,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         """
         soup = BeautifulSoup(html, "html.parser")
         dom_images = _extract_a90_images(soup, html)
-        dom_price = _extract_dom_price(soup)
+        dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD (same strategy as chrome-extension)
         item = extract_json_ld_product(html)
@@ -326,7 +297,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         # 2. DOM fallback: og:meta, h1, SKU, price, description
         name = None
         og_title = soup.find("meta", property="og:title")
-        content_title = _meta_content(og_title) if isinstance(og_title, Tag) else None
+        content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
         if content_title and content_title.strip():
             name = content_title.strip()
         if not name:
@@ -341,13 +312,13 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         description = None
         og_desc = soup.find("meta", property="og:description")
         if isinstance(og_desc, Tag):
-            d = _meta_content(og_desc)
+            d = meta_content(og_desc)
             if d and d.strip():
                 description = d.strip()[:2000]
         if not description:
             meta_desc = soup.find("meta", attrs={"name": "description"})
             if isinstance(meta_desc, Tag):
-                d = _meta_content(meta_desc)
+                d = meta_content(meta_desc)
                 if d and d.strip():
                     description = d.strip()[:2000]
         if not description:
@@ -358,7 +329,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
                     description = t[:2000]
                     break
 
-        price_cents = _extract_dom_price(soup)
+        price_cents = extract_dom_price(soup)
 
         part_number = None
         sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
@@ -366,8 +337,14 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
             part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
             part_number = extract_sku_from_text(soup.get_text())
+        if not part_number:
+            part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
-        brand = _brand_from_title(str(name))
+        brand = brand_from_title(str(name))
+        if not brand and description:
+            brand = brand_from_description(description, product_name=str(name))
+        if not brand:
+            brand = brand_fallback_from_title(str(name))
 
         image_url = dom_images[0] if dom_images else None
         image_urls = dom_images[:12] if dom_images else None

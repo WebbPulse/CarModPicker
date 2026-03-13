@@ -605,7 +605,7 @@ const BuildListsCatalog: React.FC = () => {
                     />
                   ) : allBuildListsResponse?.data &&
                     allBuildListsResponse.data.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="tile-grid">
                       {allBuildListsResponse.data.map((buildList) => (
                         <BuildListCard
                           key={buildList.id}

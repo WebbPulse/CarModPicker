@@ -110,12 +110,12 @@ const PartDialog: React.FC<PartDialogProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [imagePreview, setImagePreview] = useState(
-    scrapedData.image_url || (scrapedData.image_urls?.[0] ?? "")
+    scrapedData.image_url || (scrapedData.image_urls?.[0] ?? ""),
   );
 
   // Match retailer by product URL domain (for create flow - from preloaded list or get-or-create)
   const [resolvedRetailer, setResolvedRetailer] = useState<Retailer | null>(
-    null
+    null,
   );
   const matchedRetailerFromList = useMemo(() => {
     const domain = domainFromUrl(formData.url || scrapedData.product_url || "");
@@ -123,11 +123,11 @@ const PartDialog: React.FC<PartDialogProps> = ({
     const normalized = normalizeDomain(domain);
     return (
       retailers.find(
-        (r) => r.domain && normalizeDomain(r.domain) === normalized
+        (r) => r.domain && normalizeDomain(r.domain) === normalized,
       ) ??
       retailers.find(
         (r) =>
-          r.domain?.includes(normalized) || normalized.includes(r.domain || "")
+          r.domain?.includes(normalized) || normalized.includes(r.domain || ""),
       ) ??
       null
     );
@@ -246,8 +246,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       description: existingPartByBrandAndPartNumber.description ?? "",
       categoryId:
         existingPartByBrandAndPartNumber.category_id ?? prev.categoryId,
-      carId:
-        existingPartByBrandAndPartNumber.car_ids?.[0] ?? prev.carId,
+      carId: existingPartByBrandAndPartNumber.car_ids?.[0] ?? prev.carId,
     }));
   }, [existingPartByBrandAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
 
@@ -261,7 +260,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       return;
     hasInitializedBrand.current = true;
     const match = brands.find(
-      (b) => b.name.toLowerCase() === scrapedData.brand!.toLowerCase()
+      (b) => b.name.toLowerCase() === scrapedData.brand!.toLowerCase(),
     );
     if (match) {
       setFormData((prev) => ({ ...prev, brandId: match.id }));
@@ -447,9 +446,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         product_url: formData.url.trim() || null,
         category_id: parseInt(formData.categoryId.toString()),
         is_universal: false,
-        car_ids: formData.carId
-          ? [parseInt(formData.carId.toString())]
-          : [],
+        car_ids: formData.carId ? [parseInt(formData.carId.toString())] : [],
         brand_id: brandId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
         image_url: null,
@@ -463,8 +460,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
       const scrapedImageUrls = [
         ...new Set(
           [formData.imageUrl.trim() || null, ...formData.imageUrls].filter(
-            Boolean
-          ) as string[]
+            Boolean,
+          ) as string[],
         ),
       ].slice(0, MAX_IMAGES_PER_GLOBAL_PART);
 
@@ -506,7 +503,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
           if (!listingResponse.success) {
             console.warn(
               "Part created but failed to record price:",
-              listingResponse.error
+              listingResponse.error,
             );
           }
         }
@@ -522,8 +519,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
               // Get frontend URL based on API environment
               const apiUrl =
                 (settings["apiUrl"] as string) ||
-                "https://api.carmodpicker.webbpulse.com/api";
-              let frontendUrl = "https://carmodpicker.webbpulse.com";
+                "https://api.carmodpicker.com/api";
+              let frontendUrl = "https://carmodpicker.com";
 
               if (
                 apiUrl.includes("localhost") ||
@@ -545,11 +542,11 @@ const PartDialog: React.FC<PartDialogProps> = ({
                     if (tabs[0]?.id) {
                       chrome.tabs.update(tabs[0].id, { url: partUrl });
                     }
-                  }
+                  },
                 );
               }
             }
-          }
+          },
         );
 
         onPartCreated();
@@ -558,7 +555,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       }
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Failed to create part"
+        error instanceof Error ? error.message : "Failed to create part",
       );
     } finally {
       setIsLoading(false);
@@ -578,7 +575,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         label: b.name,
         value: b.id,
       })),
-    [brands]
+    [brands],
   );
 
   const carOptions = cars.map((car) => ({
@@ -916,8 +913,8 @@ const PartDialog: React.FC<PartDialogProps> = ({
                     ? "Adding listing..."
                     : "Creating..."
                   : isUpdateMode
-                  ? "Add listing"
-                  : "Create Part"}
+                    ? "Add listing"
+                    : "Create Part"}
               </button>
             </div>
           </form>

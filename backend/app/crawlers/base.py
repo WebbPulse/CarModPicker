@@ -10,13 +10,15 @@ Rate limiting: on 429/503 we retry with exponential backoff, honor Retry-After,
 and add jitter. Staying unbanned is prioritized over speed.
 """
 
+import hashlib
 import logging
 import random
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Dict, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Protocol
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -43,11 +45,131 @@ from app.core.category_inference import infer_category
 
 logger = logging.getLogger(__name__)
 
+# Optional: save full page HTML for post-processing. Set CRAWL_HTML_SAVE_DIR (or pass via API) to enable.
+# When bucket is configured (Railway/S3), we upload to the bucket; otherwise we write to local path.
+# When set, we save HTML for new URLs only by default; set CRAWL_HTML_SAVE_ON_RECRAWL=1 to overwrite on recrawl too.
+CRAWL_HTML_HASH_BYTES = 16  # filename = <sha256(url)>[:16].html so re-crawls overwrite same file
+
+
+class _S3PutObjectProtocol(Protocol):
+    def put_object(
+        self,
+        *,
+        Bucket: str,
+        Key: str,
+        Body: bytes,
+        ContentType: str,
+    ) -> object: ...
+
+
+# Lazy S3 client for crawl HTML uploads. Uses the same Railway/S3 bucket and credentials as image uploads
+# (StorageService / app.core.config BUCKET, AWS_ACCESS_KEY_ID, etc.). None if bucket not configured.
+_crawl_s3_client: Optional[_S3PutObjectProtocol] = None
+_crawl_bucket_name: Optional[str] = None
+
+
+def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]]:
+    """Return (s3_client, bucket_name) for the app's existing bucket (same as images); else (None, None)."""
+    global _crawl_s3_client, _crawl_bucket_name
+    if _crawl_s3_client is not None or _crawl_bucket_name is not None:
+        return _crawl_s3_client, _crawl_bucket_name
+    try:
+        from app.core.config import settings
+
+        bucket = (settings.BUCKET or "").strip()
+        if not bucket or not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+            logger.info(
+                "Crawl HTML bucket not configured (BUCKET or AWS credentials missing); will use local path if save enabled"
+            )
+            return None, None
+        import boto3
+
+        _crawl_s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION or "auto",
+            endpoint_url=settings.S3_ENDPOINT_URL or None,
+        )
+        _crawl_bucket_name = bucket
+        return _crawl_s3_client, _crawl_bucket_name
+    except Exception as e:
+        logger.info("Crawl HTML bucket not available (will use local path if save enabled): %s", e)
+        return None, None
+
+
+def url_is_known(db: Session, product_url: str) -> bool:
+    """True if we already have a part listing with this product_url (i.e. recrawl, not first visit)."""
+    if not product_url or not product_url.strip():
+        return False
+    return find_part_by_product_url(db, product_url) is not None
+
+
+def save_crawl_page_html(
+    adapter_name: str,
+    product_url: str,
+    html: str,
+    base_dir: str | Path,
+    *,
+    logger_instance: Optional[logging.Logger] = None,
+) -> None:
+    """
+    Save a full page HTML copy for post-processing. When the app's bucket is configured (e.g. Railway
+    Storage), uploads to the bucket under key prefix base_dir (e.g. "crawl_html"). Otherwise writes
+    to local path base_dir. Filename is hash of URL so recrawls overwrite. Also writes a .url sidecar
+    so we can re-parse later (know which URL the HTML came from).
+    """
+    log = logger_instance or logger
+    key_prefix = str(base_dir).strip() if base_dir else ""
+    url_hash = hashlib.sha256(product_url.encode()).hexdigest()[:CRAWL_HTML_HASH_BYTES]
+    html_key = (
+        f"{key_prefix}/{adapter_name}/{url_hash}.html" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.html"
+    )
+    url_key = (
+        f"{key_prefix}/{adapter_name}/{url_hash}.url" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.url"
+    )
+
+    s3_client, bucket_name = _get_crawl_s3_client()
+    if s3_client is not None and bucket_name is not None:
+        try:
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=html_key,
+                Body=html.encode("utf-8", errors="replace"),
+                ContentType="text/html; charset=utf-8",
+            )
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=url_key,
+                Body=product_url.encode("utf-8"),
+                ContentType="text/plain; charset=utf-8",
+            )
+            log.info("Saved page copy to bucket: %s", html_key)
+        except Exception as e:
+            log.warning("Could not save page copy to bucket %s: %s", html_key, e)
+        return
+
+    # Fallback: local filesystem (bucket not configured or client failed)
+    base_path = Path(base_dir) if base_dir else Path("crawl_html")
+    if not base_path.is_absolute() and not base_path.exists():
+        base_path.mkdir(parents=True, exist_ok=True)
+    dir_path = base_path / adapter_name
+    dir_path.mkdir(parents=True, exist_ok=True)
+    html_path = dir_path / f"{url_hash}.html"
+    url_path = dir_path / f"{url_hash}.url"
+    try:
+        html_path.write_text(html, encoding="utf-8", errors="replace")
+        url_path.write_text(product_url, encoding="utf-8")
+        log.info("Saved page copy to local (bucket not configured): %s", html_path)
+    except OSError as e:
+        log.warning("Could not save page copy to %s: %s", html_path, e)
+
+
 # Default delay between requests (seconds) to be polite to retailers.
 # Conservative for price monitoring; Scrapy AutoThrottle defaults to 5s; 2.5s is a balance.
 DEFAULT_REQUEST_DELAY_SEC = 2.5
 DEFAULT_TIMEOUT_SEC = 30
-DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.webbpulse.com)"
+DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.com)"
 
 # Jitter on normal request delay (±20%) so traffic doesn't look robotic; best practice for polite crawlers.
 REQUEST_DELAY_JITTER_FRACTION = 0.2
@@ -58,6 +180,10 @@ MAX_RATE_LIMIT_RETRIES = 5
 BACKOFF_BASE_SEC = 2.0
 BACKOFF_MAX_SEC = 300.0
 BACKOFF_JITTER_FRACTION = 0.2  # ±20% jitter to avoid thundering herd
+
+# Transient network errors (timeouts, connection failures): retry a few times with backoff
+MAX_TIMEOUT_RETRIES = 2  # 2 retries = 3 total attempts per URL
+TIMEOUT_BACKOFF_BASE_SEC = 3.0
 
 # Cache of robots.txt parsers per origin (scheme + netloc)
 _robots_cache: Dict[str, RobotFileParser] = {}
@@ -166,8 +292,8 @@ def _parse_retry_after(value: Optional[str], attempt: int) -> float:
 
 
 def _rate_limit_backoff_sec(retry_after_sec: float, attempt: int) -> float:
-    """Apply jitter to backoff time to avoid synchronized retries."""
-    jitter = 1.0 + random.uniform(-BACKOFF_JITTER_FRACTION, BACKOFF_JITTER_FRACTION)
+    """Apply upward-only jitter so we never wait less than Retry-After."""
+    jitter = 1.0 + random.uniform(0, BACKOFF_JITTER_FRACTION)  # [1.0, 1.2]
     return min(retry_after_sec * jitter, BACKOFF_MAX_SEC)
 
 
@@ -196,6 +322,16 @@ def _retailer_name_from_domain(domain: str) -> str:
     return d.title() if d else "Unknown"
 
 
+def _timeout_backoff_sec(attempt: int) -> float:
+    """Exponential backoff with jitter for timeout/connection retries."""
+    backoff = min(
+        TIMEOUT_BACKOFF_BASE_SEC * (2**attempt),
+        BACKOFF_MAX_SEC,
+    )
+    jitter = backoff * BACKOFF_JITTER_FRACTION * (2 * random.random() - 1)
+    return max(1.0, backoff + jitter)
+
+
 def fetch_page(
     url: str,
     *,
@@ -209,38 +345,61 @@ def fetch_page(
     On 429 (Too Many Requests) or 503 (Service Unavailable): retries with exponential
     backoff, honors Retry-After when present, and adds jitter. After MAX_RATE_LIMIT_RETRIES
     retries, re-raises the last response. Other non-2xx responses raise immediately.
+
+    On ReadTimeout, ConnectTimeout, or ConnectionError: retries up to MAX_TIMEOUT_RETRIES
+    times with backoff, then re-raises.
     """
     req_session = session or requests.Session()
     headers = {"User-Agent": user_agent, "Accept": "text/html,application/xhtml+xml"}
+    timeout_errors = (requests.ReadTimeout, requests.ConnectTimeout, requests.ConnectionError)
 
-    for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+    for timeout_attempt in range(MAX_TIMEOUT_RETRIES + 1):
         try:
-            resp = req_session.get(url, headers=headers, timeout=timeout)
-            if resp.status_code in RATE_LIMIT_STATUS_CODES:
-                if attempt >= MAX_RATE_LIMIT_RETRIES:
-                    resp.raise_for_status()
-                retry_after_raw = resp.headers.get("Retry-After")
-                backoff = _parse_retry_after(retry_after_raw, attempt)
-                backoff = _rate_limit_backoff_sec(backoff, attempt)
-                logger.warning(
-                    "Rate limited (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
-                    resp.status_code,
-                    url,
-                    retry_after_raw,
-                    backoff,
-                    attempt + 1,
-                    MAX_RATE_LIMIT_RETRIES + 1,
-                )
-                time.sleep(backoff)
-                continue
-            resp.raise_for_status()
-            resp.encoding = resp.encoding or "utf-8"
-            return resp.text
+            for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+                try:
+                    resp = req_session.get(url, headers=headers, timeout=timeout)
+                except timeout_errors as e:
+                    # Let outer loop handle timeout/connection retries
+                    raise
+                if resp.status_code in RATE_LIMIT_STATUS_CODES:
+                    if attempt >= MAX_RATE_LIMIT_RETRIES:
+                        resp.raise_for_status()
+                    retry_after_raw = resp.headers.get("Retry-After")
+                    backoff = _parse_retry_after(retry_after_raw, attempt)
+                    backoff = _rate_limit_backoff_sec(backoff, attempt)
+                    logger.warning(
+                        "Rate limited (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
+                        resp.status_code,
+                        url,
+                        retry_after_raw,
+                        backoff,
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES + 1,
+                    )
+                    time.sleep(backoff)
+                    continue
+                resp.raise_for_status()
+                resp.encoding = resp.encoding or "utf-8"
+                return resp.text
+            raise RuntimeError("fetch_page: unexpected exit from rate-limit retry loop")
         except requests.HTTPError:
-            # Non–rate-limit 4xx/5xx: raise immediately
+            # Non–rate-limit 4xx/5xx: raise immediately (no retry)
             raise
+        except timeout_errors as e:
+            if timeout_attempt >= MAX_TIMEOUT_RETRIES:
+                raise
+            backoff = _timeout_backoff_sec(timeout_attempt)
+            logger.warning(
+                "Timeout/connection error for %s (attempt %s/%s), retrying in %.1fs: %s",
+                url,
+                timeout_attempt + 1,
+                MAX_TIMEOUT_RETRIES + 1,
+                backoff,
+                e,
+            )
+            time.sleep(backoff)
 
-    raise RuntimeError("fetch_page: unexpected exit from retry loop")
+    raise RuntimeError("fetch_page: unexpected exit from timeout retry loop")
 
 
 def ingest_payload(

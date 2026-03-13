@@ -40,7 +40,7 @@ defusedxml==0.7.1
 # Image storage and processing (for Railway Storage Buckets)
 boto3==1.35.0
 boto3-stubs[s3]==1.35.0  # Type stubs for boto3 S3 client
-Pillow==10.4.0
+Pillow==12.1.1
 
 # Testing dependencies
 pytest==8.4.1

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 const API_URLS = {
-  prod: "https://api.carmodpicker.webbpulse.com/api",
+  prod: "https://api.carmodpicker.com/api",
   staging: "https://api.carmodpicker.staging.webbpulse.com/api",
   localhost: "http://localhost:4000/api",
 } as const;
@@ -33,7 +33,7 @@ function Options() {
         if (result["openInNewTab"] !== undefined) {
           setOpenInNewTab(result["openInNewTab"] as boolean);
         }
-      }
+      },
     );
   }, []);
 

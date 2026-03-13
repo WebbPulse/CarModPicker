@@ -38,6 +38,7 @@ export interface UseGlobalPartsFiltersReturn {
     min_price_cents?: number;
     max_price_cents?: number;
     user_id?: number;
+    universal?: boolean;
   };
   currentPage: number;
   setCurrentPage: (page: number) => void;
@@ -288,6 +289,7 @@ export function useGlobalPartsFilters(
       filterOptionsParams.brand_ids = selectedBrandIds;
     if (effectiveCarIds.length && !showUniversalParts)
       filterOptionsParams.car_ids = effectiveCarIds;
+    if (showUniversalParts) filterOptionsParams.universal = true;
     if (searchTerm.trim()) filterOptionsParams.search = searchTerm;
     if (userId !== undefined) filterOptionsParams.user_id = userId;
     void globalPartsApi
@@ -662,6 +664,7 @@ export function useGlobalPartsFilters(
       }),
       ...(effectiveCarIds.length &&
         !showUniversalParts && { car_ids: effectiveCarIds }),
+      ...(showUniversalParts && { universal: true }),
       ...(selectedBrandIds.length > 0 && { brand_ids: selectedBrandIds }),
       ...(searchTerm && { search: searchTerm }),
       ...(sortParam && { sort: sortParam }),

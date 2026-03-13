@@ -14,17 +14,19 @@ Usage:
     python ../scripts/export_global_parts_for_category_analysis.py [--output-dir DIR]
 
 Output (all CSV in --output-dir, default: scripts/output):
-    - global_parts_export_all.<timestamp>.csv — all parts
+    - global_parts_export_all.<timestamp>.csv — all parts (includes brand_attribution_issue column)
     - global_parts_export_other.<timestamp>.csv — parts in category "other"
     - global_parts_export_universal_or_unassociated.<timestamp>.csv — is_universal or car_count == 0
     - global_parts_export_multi_car.<timestamp>.csv — parts associated with more than one car
     - global_parts_export_no_brand.<timestamp>.csv — parts without a brand
-    - Summary printed to stdout (counts by category, by source, data quality hints)
+    - global_parts_export_suspicious_brand.<timestamp>.csv — parts where brand looks wrong (chassis code or part code, e.g. E46, VF540)
+    - Summary printed to stdout (counts by category, by source, brand attribution issues, data quality hints)
 """
 
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -46,6 +48,42 @@ from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import GlobalPart  # pyright: ignore[reportMissingImports]
 from app.db.session import SessionLocal  # pyright: ignore[reportMissingImports]
+
+# Brand names that look like chassis/platform codes (E46, E9x, F80) — likely wrong attributions.
+CHASSIS_LIKE_BRAND_PATTERN = re.compile(
+    r"^[A-Z][0-9]{1,3}x?$|^[A-Z][0-9]{2,}$",
+    re.IGNORECASE,
+)
+
+# Brand names that look like part/model codes (VF540, VF570) — should be part_number, not brand.
+PART_CODE_LIKE_BRAND_PATTERN = re.compile(
+    r"^[A-Za-z]{2,}[0-9]{2,}$|^[A-Za-z]+[0-9]+[A-Za-z]*$",
+    re.IGNORECASE,
+)
+
+
+def is_chassis_like_brand(brand_name: str | None) -> bool:
+    """True if brand_name looks like a chassis code (E46, E9x) rather than a real brand."""
+    if not brand_name or not brand_name.strip():
+        return False
+    return bool(CHASSIS_LIKE_BRAND_PATTERN.match(brand_name.strip()))
+
+
+def is_part_code_like_brand(brand_name: str | None) -> bool:
+    """True if brand_name looks like a part/model code (VF540, VF570) — should be part_number."""
+    if not brand_name or len(brand_name.strip()) < 3:
+        return False
+    return bool(PART_CODE_LIKE_BRAND_PATTERN.match(brand_name.strip()))
+
+
+def brand_attribution_issue(brand_name: str | None) -> str | None:
+    """Return issue code if brand looks wrong (chassis or part code), else None."""
+    if is_chassis_like_brand(brand_name):
+        return "chassis_code_as_brand"
+    if is_part_code_like_brand(brand_name):
+        return "part_code_as_brand"
+    return None
+
 
 # Optional display-friendly names for export (make, model, generation_name) -> label without years.
 # Only used when the default "Make Model Generation" format needs tweaking (e.g. add "GR", parentheses).
@@ -86,6 +124,8 @@ def part_to_record(p: GlobalPart) -> dict:
     """Turn a GlobalPart (with category and brand loaded) into a flat record for export."""
     category = p.category
     brand = p.brand
+    brand_name = brand.name if brand else None
+    brand_issue = brand_attribution_issue(brand_name)
     return {
         "id": p.id,
         "name": p.name or "",
@@ -96,7 +136,8 @@ def part_to_record(p: GlobalPart) -> dict:
         "category_name": category.name if category else None,
         "category_display_name": category.display_name if category else None,
         "brand_id": p.brand_id,
-        "brand_name": brand.name if brand else None,
+        "brand_name": brand_name,
+        "brand_attribution_issue": brand_issue,
         "specifications": p.specifications,
         "source": p.source or None,
         "is_verified": p.is_verified,
@@ -184,6 +225,8 @@ def print_summary(records: list[dict]) -> None:
     )
     multi_car_count = sum(1 for r in records if (r.get("car_count") or 0) > 1)
     no_brand_count = sum(1 for r in records if r.get("brand_id") is None or not (r.get("brand_name") or "").strip())
+    chassis_as_brand_count = sum(1 for r in records if r.get("brand_attribution_issue") == "chassis_code_as_brand")
+    part_code_as_brand_count = sum(1 for r in records if r.get("brand_attribution_issue") == "part_code_as_brand")
 
     print("\n" + "=" * 60)
     print("EXPORT SUMMARY (for category assumption improvements)")
@@ -193,6 +236,8 @@ def print_summary(records: list[dict]) -> None:
     print(f"  Universal or unassociated (car_count=0): {universal_or_unassociated_count:,}")
     print(f"  Associated with >1 car: {multi_car_count:,}")
     print(f"  Without a brand: {no_brand_count:,}")
+    print(f"  Brand attribution issue (chassis code as brand): {chassis_as_brand_count:,}")
+    print(f"  Brand attribution issue (part code as brand, e.g. VF540): {part_code_as_brand_count:,}")
     print()
     print("By category:")
     for cat in sorted(by_category.keys()):
@@ -255,7 +300,7 @@ def main() -> None:
         out_csv = out_dir / f"global_parts_export_all.{ts}.csv"
         if not records:
             with open(out_csv, "w", encoding="utf-8", newline="") as f:
-                f.write("id,name,description,part_number,gtin,category_id,category_name,category_display_name,brand_id,brand_name,specifications,source,is_verified,is_universal,car_count,car_generations,created_at,updated_at\n")
+                f.write("id,name,description,part_number,gtin,category_id,category_name,category_display_name,brand_id,brand_name,brand_attribution_issue,specifications,source,is_verified,is_universal,car_count,car_generations,created_at,updated_at\n")
         else:
             rows = [part_to_csv_row(r) for r in records]
             with open(out_csv, "w", encoding="utf-8", newline="") as f:
@@ -284,6 +329,9 @@ def main() -> None:
 
         no_brand = [r for r in records if r.get("brand_id") is None or not (r.get("brand_name") or "").strip()]
         write_subset(no_brand, out_dir, "global_parts_export_no_brand", ts)
+
+        suspicious_brand = [r for r in records if r.get("brand_attribution_issue")]
+        write_subset(suspicious_brand, out_dir, "global_parts_export_suspicious_brand", ts)
 
         print_summary(records)
     finally:

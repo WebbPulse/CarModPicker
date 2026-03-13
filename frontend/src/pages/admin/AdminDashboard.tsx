@@ -18,6 +18,7 @@ import type {
 } from '../../services/Api';
 import {
   adminApi,
+  brandsApi,
   bugReportsApi,
   buildListPartsApi,
   buildListsApi,
@@ -40,6 +41,7 @@ interface EntityCounts {
   buildLists: number | null;
   globalParts: number | null;
   categories: number | null;
+  brands: number | null;
   bucketObjects: number | null;
   buildLogPosts: number | null;
   buildListParts: number | null;
@@ -59,6 +61,7 @@ function AdminDashboard() {
     buildLists: null,
     globalParts: null,
     categories: null,
+    brands: null,
     bucketObjects: null,
     buildLogPosts: null,
     buildListParts: null,
@@ -98,6 +101,15 @@ function AdminDashboard() {
     string | null
   >(null);
   const [deleteAllGlobalPartsResult, setDeleteAllGlobalPartsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
+  const [isDeleteAllBrandsConfirmOpen, setIsDeleteAllBrandsConfirmOpen] =
+    useState(false);
+  const [isDeletingAllBrands, setIsDeletingAllBrands] = useState(false);
+  const [deleteAllBrandsError, setDeleteAllBrandsError] = useState<
+    string | null
+  >(null);
+  const [deleteAllBrandsResult, setDeleteAllBrandsResult] = useState<{
     deleted_count: number;
   } | null>(null);
   const [isInitCarGenerations, setIsInitCarGenerations] = useState(false);
@@ -144,6 +156,9 @@ function AdminDashboard() {
   );
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
   const [crawlerDelaySec, setCrawlerDelaySec] = useState<number>(5);
+  const [crawlerHtmlSaveDir, setCrawlerHtmlSaveDir] = useState<string>('');
+  const [crawlerHtmlSaveOnRecrawl, setCrawlerHtmlSaveOnRecrawl] =
+    useState<boolean>(false);
 
   // Rerun inference
   const [isRerunningInference, setIsRerunningInference] = useState(false);
@@ -193,6 +208,7 @@ function AdminDashboard() {
         buildListsCount,
         globalPartsCount,
         categoriesCount,
+        brandsCount,
         bucketObjectsCount,
         buildLogPostsCount,
         buildListPartsCount,
@@ -207,6 +223,7 @@ function AdminDashboard() {
         fetchCount(() => buildListsApi.countBuildLists(), 'build lists'),
         fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
+        fetchCount(() => brandsApi.countBrands(), 'brands'),
         fetchCount(() => imageApi.countBucketObjects(), 'bucket objects'),
         fetchCount(() => buildLogsApi.countBuildLogPosts(), 'build log posts'),
         fetchCount(
@@ -226,6 +243,7 @@ function AdminDashboard() {
         buildLists: buildListsCount,
         globalParts: globalPartsCount,
         categories: categoriesCount,
+        brands: brandsCount,
         bucketObjects: bucketObjectsCount,
         buildLogPosts: buildLogPostsCount,
         buildListParts: buildListPartsCount,
@@ -243,6 +261,7 @@ function AdminDashboard() {
         buildListsCount === null &&
         globalPartsCount === null &&
         categoriesCount === null &&
+        brandsCount === null &&
         bucketObjectsCount === null &&
         buildLogPostsCount === null &&
         buildListPartsCount === null &&
@@ -439,6 +458,25 @@ function AdminDashboard() {
     }
   };
 
+  const handleConfirmDeleteAllBrands = async () => {
+    setIsDeletingAllBrands(true);
+    setDeleteAllBrandsError(null);
+    try {
+      const response = await adminApi.deleteAllBrands();
+      setDeleteAllBrandsResult(response.data);
+      setIsDeleteAllBrandsConfirmOpen(false);
+      await fetchCounts();
+    } catch (error) {
+      setDeleteAllBrandsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all part brands.'
+      );
+    } finally {
+      setIsDeletingAllBrands(false);
+    }
+  };
+
   const handleRerunInference = async () => {
     setIsRerunningInference(true);
     setRerunInferenceResult(null);
@@ -539,6 +577,10 @@ function AdminDashboard() {
       if (Object.keys(limits).length > 0) body.limits = limits;
       if (useGlobalLimit && globalLimitNum != null && globalLimitNum > 0)
         body.global_limit = globalLimitNum;
+      if (crawlerHtmlSaveDir.trim()) {
+        body.crawl_html_save_dir = crawlerHtmlSaveDir.trim();
+        body.crawl_html_save_on_recrawl = crawlerHtmlSaveOnRecrawl;
+      }
       const response = await adminApi.runCrawlers(body);
       setCrawlerResult(response.data);
       setCrawlerError(null);
@@ -739,29 +781,27 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Database Migrations" />
-          <div className="p-6 bg-blue-900/20 border-2 border-blue-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-blue-400 mb-2">
-                Run Database Migrations
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Manually run database migrations to update the database schema.
-                This is useful if automatic migrations fail or need to be run
-                on-demand.
-              </p>
+      <div className="mt-3">
+        <Card padding="sm">
+          <div className="mb-2">
+            <h2 className="text-lg font-semibold text-white mb-1">
+              Database Migrations
+            </h2>
+            <p className="text-sm text-neutral-400">
+              Run migrations to update the database schema on-demand.
               {currentRevision && (
-                <p className="text-sm text-neutral-400 mb-4">
-                  Current revision:{' '}
-                  <span className="font-mono font-semibold text-white">
-                    {currentRevision || 'Unknown'}
+                <>
+                  {' '}
+                  Current:{' '}
+                  <span className="font-mono text-white">
+                    {currentRevision}
                   </span>
-                </p>
+                </>
               )}
-            </div>
-            <div className="flex gap-4 mb-4">
+            </p>
+          </div>
+          <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
               <ActionButton
                 onClick={() => void handleRunMigrations()}
                 disabled={isRunningMigrations}
@@ -797,13 +837,13 @@ function AdminDashboard() {
             </div>
             {migrationResult && (
               <div
-                className={`p-4 rounded-lg border-2 ${
+                className={`p-3 rounded-lg border text-sm ${
                   migrationResult.success
                     ? 'bg-green-900/20 border-green-700'
                     : 'bg-red-900/20 border-red-700'
                 }`}
               >
-                <div className="mb-2">
+                <div className="mb-1">
                   <span
                     className={`font-semibold ${
                       migrationResult.success
@@ -817,7 +857,7 @@ function AdminDashboard() {
                   </span>
                 </div>
                 {migrationResult.current_revision && (
-                  <div className="text-sm text-neutral-300 mb-2">
+                  <div className="text-neutral-300 mb-1">
                     <span className="font-semibold">New revision:</span>{' '}
                     <span className="font-mono">
                       {migrationResult.current_revision}
@@ -850,21 +890,16 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Data Initialization" />
-          <div className="p-6 bg-amber-900/20 border-2 border-amber-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-amber-400 mb-2">
-                Seed data (car generations & part categories)
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Sync makes, car models, car generations, and part categories
-                from the application source of truth into the database. Run
-                these after deploying or when seed data has been updated.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
+      <div className="mt-3">
+        <Card padding="sm">
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Data Initialization
+          </h2>
+          <p className="text-sm text-neutral-400 mb-3">
+            Sync car generations and part categories from source of truth.
+          </p>
+          <div className="p-3 bg-amber-900/20 border border-amber-700 rounded-lg">
+            <div className="flex flex-wrap gap-3 mb-2">
               <ActionButton
                 onClick={() => void handleInitCarGenerations()}
                 disabled={isInitCarGenerations}
@@ -899,13 +934,13 @@ function AdminDashboard() {
               </ActionButton>
             </div>
             {(initCarGenerationsResult || initPartCategoriesResult) && (
-              <div className="space-y-3">
+              <div className="space-y-2 mt-2">
                 {initCarGenerationsResult && (
                   <div
-                    className={`p-4 rounded-lg border-2 ${
+                    className={`p-2 rounded border text-sm ${
                       initCarGenerationsResult.success
-                        ? 'bg-green-900/20 border-green-700'
-                        : 'bg-red-900/20 border-red-700'
+                        ? 'bg-green-900/20 border-green-700 text-green-400'
+                        : 'bg-red-900/20 border-red-700 text-red-400'
                     }`}
                   >
                     <span
@@ -924,19 +959,13 @@ function AdminDashboard() {
                 )}
                 {initPartCategoriesResult && (
                   <div
-                    className={`p-4 rounded-lg border-2 ${
+                    className={`p-2 rounded border text-sm ${
                       initPartCategoriesResult.success
-                        ? 'bg-green-900/20 border-green-700'
-                        : 'bg-red-900/20 border-red-700'
+                        ? 'bg-green-900/20 border-green-700 text-green-400'
+                        : 'bg-red-900/20 border-red-700 text-red-400'
                     }`}
                   >
-                    <span
-                      className={
-                        initPartCategoriesResult.success
-                          ? 'text-green-400'
-                          : 'text-red-400'
-                      }
-                    >
+                    <span>
                       Part categories:{' '}
                       {initPartCategoriesResult.success
                         ? initPartCategoriesResult.message
@@ -950,126 +979,294 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Cars" />
-          <div className="p-6 bg-orange-900/20 border-2 border-orange-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-orange-400 mb-2">
-                Delete all cars (generations)
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Permanently remove every car generation, car model, and make
-                from the catalog. Build lists are unlinked from cars (not
-                deleted). Run &quot;Init Car Generations&quot; afterward to
-                repopulate from a clean slate. This action cannot be undone.
-              </p>
-              <p className="text-sm text-neutral-400 mb-4">
-                Current cars:{' '}
-                <span className="font-semibold text-white">
-                  {counts.cars?.toLocaleString() ?? '—'}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <ActionButton
-                onClick={() => {
-                  setDeleteAllCarsError(null);
-                  setDeleteAllCarsResult(null);
-                  setIsDeleteAllCarsConfirmOpen(true);
-                }}
-                disabled={isDeletingAllCars}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isDeletingAllCars ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Deleting...
-                  </span>
-                ) : (
-                  'Delete all cars'
-                )}
-              </ActionButton>
-            </div>
-            {deleteAllCarsResult && (
-              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
-                <p className="text-green-400 font-semibold">
-                  Deleted {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
-                  car(s), {deleteAllCarsResult.deleted_car_models_count.toLocaleString()}{' '}
-                  car model(s), and {deleteAllCarsResult.deleted_makes_count.toLocaleString()}{' '}
-                  make(s). Run Init Car Generations to repopulate.
+      <div className="mt-3">
+        <Card padding="sm">
+          <details className="group border border-red-800/50 rounded-lg overflow-hidden">
+            <summary className="cursor-pointer list-none px-3 py-2 bg-red-900/20 hover:bg-red-900/30 transition-colors flex items-center justify-between text-sm">
+              <span className="font-semibold text-red-400">
+                Deletion options (cars, global parts, brands, bucket)
+              </span>
+              <span className="text-red-400/80 group-open:rotate-180 transition-transform inline-block">
+                ▼
+              </span>
+            </summary>
+            <div className="divide-y divide-gray-700">
+              <div className="p-3 bg-orange-900/20 border-t border-orange-700/50">
+                <h3 className="text-base font-semibold text-orange-400 mb-1">
+                  Delete all cars (generations)
+                </h3>
+                <p className="text-neutral-400 mb-2 text-xs">
+                  Permanently remove every car generation, car model, and make
+                  from the catalog. Build lists are unlinked from cars (not
+                  deleted). Run &quot;Init Car Generations&quot; afterward to
+                  repopulate from a clean slate. This action cannot be undone.
                 </p>
+                <p className="text-xs text-neutral-400 mb-2">
+                  Cars:{' '}
+                  <span className="font-semibold text-white">
+                    {counts.cars?.toLocaleString() ?? '—'}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <ActionButton
+                    onClick={() => {
+                      setDeleteAllCarsError(null);
+                      setDeleteAllCarsResult(null);
+                      setIsDeleteAllCarsConfirmOpen(true);
+                    }}
+                    disabled={isDeletingAllCars}
+                    className="bg-orange-600 hover:bg-orange-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isDeletingAllCars ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Deleting...
+                      </span>
+                    ) : (
+                      'Delete all cars'
+                    )}
+                  </ActionButton>
+                </div>
+                {deleteAllCarsResult && (
+                  <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                    <p className="font-semibold">
+                      Deleted{' '}
+                      {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
+                      car(s),{' '}
+                      {deleteAllCarsResult.deleted_car_models_count.toLocaleString()}{' '}
+                      car model(s), and{' '}
+                      {deleteAllCarsResult.deleted_makes_count.toLocaleString()}{' '}
+                      make(s). Run Init Car Generations to repopulate.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              <div className="p-3 bg-red-900/20 border-t border-red-700/50">
+                <h3 className="text-base font-semibold text-red-400 mb-1">
+                  Delete all global parts / part brands
+                </h3>
+                <p className="text-neutral-400 mb-2 text-xs">
+                  Permanently remove every global part from the catalog (also
+                  removes their part listings, votes, reports, and build list
+                  part associations). Or remove only part brands (parts keep
+                  their data; brand references are cleared). These actions
+                  cannot be undone.
+                </p>
+                <p className="text-xs text-neutral-400 mb-2">
+                  Parts:{' '}
+                  <span className="font-semibold text-white">
+                    {counts.globalParts?.toLocaleString() ?? '—'}
+                  </span>
+                  {' · '}
+                  Brands:{' '}
+                  <span className="font-semibold text-white">
+                    {counts.brands?.toLocaleString() ?? '—'}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <ActionButton
+                    onClick={() => {
+                      setDeleteAllGlobalPartsError(null);
+                      setDeleteAllGlobalPartsResult(null);
+                      setIsDeleteAllGlobalPartsConfirmOpen(true);
+                    }}
+                    disabled={isDeletingAllGlobalParts}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isDeletingAllGlobalParts ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Deleting...
+                      </span>
+                    ) : (
+                      'Delete all global parts'
+                    )}
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => {
+                      setDeleteAllBrandsError(null);
+                      setDeleteAllBrandsResult(null);
+                      setIsDeleteAllBrandsConfirmOpen(true);
+                    }}
+                    disabled={isDeletingAllBrands}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isDeletingAllBrands ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Deleting...
+                      </span>
+                    ) : (
+                      'Delete all part brands'
+                    )}
+                  </ActionButton>
+                </div>
+                {(deleteAllGlobalPartsResult || deleteAllBrandsResult) && (
+                  <div className="space-y-1 mt-2">
+                    {deleteAllGlobalPartsResult && (
+                      <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                        <p className="font-semibold">
+                          Deleted{' '}
+                          {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
+                          global part(s).
+                        </p>
+                      </div>
+                    )}
+                    {deleteAllBrandsResult && (
+                      <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                        <p className="font-semibold">
+                          Deleted{' '}
+                          {deleteAllBrandsResult.deleted_count.toLocaleString()}{' '}
+                          part brand(s). Parts keep their data; brand references
+                          were cleared.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 bg-cyan-900/20 border-t border-cyan-700/50">
+                <h3 className="text-base font-semibold text-cyan-400 mb-1">
+                  Bucket orphan cleanup
+                </h3>
+                <p className="text-neutral-400 mb-2 text-xs">
+                  Bucket objects that are not referenced by any entity (global
+                  parts, users, cars, build lists, image cache) can be safely
+                  removed to free space. Only orphaned objects are deleted; no
+                  entity loses its images.
+                </p>
+                <p className="text-xs text-neutral-400 mb-2">
+                  Bucket:{' '}
+                  <span className="font-semibold text-white">
+                    {counts.bucketObjects?.toLocaleString() ?? '—'}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <ActionButton
+                    onClick={() => void handleListOrphaned()}
+                    disabled={isListingOrphaned}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isListingOrphaned ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Listing...
+                      </span>
+                    ) : (
+                      'List orphaned (dry run)'
+                    )}
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => {
+                      setPurgeOrphanError(null);
+                      setIsPurgeOrphanConfirmOpen(true);
+                    }}
+                    disabled={isPurgingOrphaned}
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isPurgingOrphaned ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Purging...
+                      </span>
+                    ) : (
+                      'Purge orphaned objects'
+                    )}
+                  </ActionButton>
+                </div>
+                {orphanedResult && (
+                  <div className="p-2 rounded border border-cyan-700 bg-gray-900/50 text-sm text-neutral-300">
+                    <p className="mb-1">
+                      <span className="font-semibold text-cyan-400">
+                        {orphanedResult.count.toLocaleString()}
+                      </span>{' '}
+                      orphaned object(s) of{' '}
+                      <span className="font-semibold">
+                        {orphanedResult.total_bucket.toLocaleString()}
+                      </span>{' '}
+                      total in bucket (
+                      {orphanedResult.total_referenced.toLocaleString()}{' '}
+                      referenced by entities).
+                    </p>
+                    {orphanedResult.orphaned_keys.length > 0 && (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-xs text-neutral-400 hover:text-neutral-300">
+                          Show key list (first 50)
+                        </summary>
+                        <pre className="mt-2 p-2 bg-gray-800 rounded text-xs text-neutral-300 overflow-x-auto max-h-48 overflow-y-auto">
+                          {orphanedResult.orphaned_keys.slice(0, 50).join('\n')}
+                          {orphanedResult.orphaned_keys.length > 50 &&
+                            `\n... and ${orphanedResult.orphaned_keys.length - 50} more`}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </details>
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Rerun inference on global parts" />
-          <div className="p-6 bg-violet-900/20 border-2 border-violet-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-violet-400 mb-2">
-                Rerun category, car & brand inference
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Re-run inference logic on every global part and reassign
-                category, car associations, and optionally brand. Uses part
-                name, description, and product URL (from first listing) to infer
-                category and cars; brand is inferred from &quot;Brand -
-                Product&quot; name prefix when enabled (matches existing brands
-                only).
-              </p>
-              <p className="text-sm text-neutral-400 mb-4">
-                Global parts:{' '}
-                <span className="font-semibold text-white">
-                  {counts.globalParts?.toLocaleString() ?? '—'}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
+      <div className="mt-3">
+        <Card padding="sm">
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Rerun inference on global parts
+          </h2>
+          <p className="text-sm text-neutral-400 mb-2">
+            Re-run category, car & brand inference on all parts. Parts:{' '}
+            <span className="font-semibold text-white">
+              {counts.globalParts?.toLocaleString() ?? '—'}
+            </span>
+          </p>
+          <div className="p-3 bg-violet-900/20 border border-violet-700 rounded-lg">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-300">
                 <input
                   type="checkbox"
                   checked={reassignBrand}
                   onChange={(e) => setReassignBrand(e.target.checked)}
                   className="rounded border-gray-600 bg-gray-700 text-violet-500 focus:ring-violet-500"
                 />
-                <span className="text-neutral-300">
-                  Reassign brand from name (e.g. &quot;MST Performance -
-                  Intake&quot; → MST Performance)
-                </span>
+                Reassign brand from name
               </label>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
               <ActionButton
                 onClick={() => void handleRerunInference()}
                 disabled={isRerunningInference}
-                className="bg-violet-600 hover:bg-violet-700 text-white"
+                className="bg-violet-600 hover:bg-violet-700 text-white text-sm py-1.5 px-3"
               >
                 {isRerunningInference ? (
                   <span className="flex items-center">
                     <span className="mr-2">
                       <LoadingSpinner size="sm" inline />
                     </span>
-                    Rerunning inference...
+                    Rerunning...
                   </span>
                 ) : (
-                  'Rerun inference on all global parts'
+                  'Rerun inference'
                 )}
               </ActionButton>
             </div>
             {rerunInferenceError && (
-              <div className="mb-4">
+              <div className="mt-2">
                 <ErrorAlert message={rerunInferenceError} />
               </div>
             )}
             {rerunInferenceResult && (
               <div
-                className={`p-4 rounded-lg border-2 ${
+                className={`p-2 rounded border text-sm mt-2 ${
                   rerunInferenceResult.error_count > 0
                     ? 'bg-amber-900/20 border-amber-700'
                     : 'bg-green-900/20 border-green-700'
@@ -1080,13 +1277,13 @@ function AdminDashboard() {
                   part(s).
                 </p>
                 {rerunInferenceResult.error_count > 0 && (
-                  <p className="text-amber-400 mt-1">
-                    {rerunInferenceResult.error_count} part(s) failed to update.
+                  <p className="text-amber-400 mt-0.5 text-xs">
+                    {rerunInferenceResult.error_count} failed.
                   </p>
                 )}
                 {rerunInferenceResult.errors.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs text-neutral-400 hover:text-neutral-300">
                       Show errors (first {rerunInferenceResult.errors.length})
                     </summary>
                     <ul className="mt-2 list-disc list-inside text-xs text-neutral-300 space-y-1">
@@ -1102,176 +1299,24 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Global parts" />
-          <div className="p-6 bg-red-900/20 border-2 border-red-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-red-400 mb-2">
-                Delete all global parts
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Permanently remove every global part from the catalog. This also
-                removes their part listings, votes, reports, and build list part
-                associations. This action cannot be undone.
-              </p>
-              <p className="text-sm text-neutral-400 mb-4">
-                Current global parts:{' '}
-                <span className="font-semibold text-white">
-                  {counts.globalParts?.toLocaleString() ?? '—'}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <ActionButton
-                onClick={() => {
-                  setDeleteAllGlobalPartsError(null);
-                  setDeleteAllGlobalPartsResult(null);
-                  setIsDeleteAllGlobalPartsConfirmOpen(true);
-                }}
-                disabled={isDeletingAllGlobalParts}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isDeletingAllGlobalParts ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Deleting...
-                  </span>
-                ) : (
-                  'Delete all global parts'
-                )}
-              </ActionButton>
-            </div>
-            {deleteAllGlobalPartsResult && (
-              <div className="p-4 rounded-lg border border-green-700 bg-green-900/20">
-                <p className="text-green-400 font-semibold">
-                  Deleted{' '}
-                  {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
-                  global part(s).
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Storage / Bucket" />
-          <div className="p-6 bg-cyan-900/20 border-2 border-cyan-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-cyan-400 mb-2">
-                Railway bucket orphan cleanup
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Bucket objects that are not referenced by any entity (global
-                parts, users, cars, build lists, image cache) can be safely
-                removed to free space. This is non-destructive: only orphaned
-                objects are deleted; no entity loses its images.
-              </p>
-              <p className="text-sm text-neutral-400 mb-4">
-                Total bucket objects:{' '}
-                <span className="font-semibold text-white">
-                  {counts.bucketObjects?.toLocaleString() ?? '—'}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <ActionButton
-                onClick={() => void handleListOrphaned()}
-                disabled={isListingOrphaned}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                {isListingOrphaned ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Listing...
-                  </span>
-                ) : (
-                  'List orphaned (dry run)'
-                )}
-              </ActionButton>
-              <ActionButton
-                onClick={() => {
-                  setPurgeOrphanError(null);
-                  setIsPurgeOrphanConfirmOpen(true);
-                }}
-                disabled={isPurgingOrphaned}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-              >
-                {isPurgingOrphaned ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Purging...
-                  </span>
-                ) : (
-                  'Purge orphaned objects'
-                )}
-              </ActionButton>
-            </div>
-            {orphanedResult && (
-              <div className="p-4 rounded-lg border border-cyan-700 bg-gray-900/50">
-                <p className="text-neutral-300 mb-2">
-                  <span className="font-semibold text-cyan-400">
-                    {orphanedResult.count.toLocaleString()}
-                  </span>{' '}
-                  orphaned object(s) of{' '}
-                  <span className="font-semibold">
-                    {orphanedResult.total_bucket.toLocaleString()}
-                  </span>{' '}
-                  total in bucket (
-                  {orphanedResult.total_referenced.toLocaleString()} referenced
-                  by entities).
-                </p>
-                {orphanedResult.orphaned_keys.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
-                      Show key list (first 50)
-                    </summary>
-                    <pre className="mt-2 p-2 bg-gray-800 rounded text-xs text-neutral-300 overflow-x-auto max-h-48 overflow-y-auto">
-                      {orphanedResult.orphaned_keys.slice(0, 50).join('\n')}
-                      {orphanedResult.orphaned_keys.length > 50 &&
-                        `\n... and ${orphanedResult.orphaned_keys.length - 50} more`}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="mt-6">
-        <Card>
-          <SectionHeader title="Crawler Tools" />
-          <div className="p-6 bg-emerald-900/20 border-2 border-emerald-700 rounded-xl">
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-emerald-400 mb-2">
-                Retailer crawlers
-              </h3>
-              <p className="text-neutral-300 mb-4">
-                Run crawlers to scrape part information from retailer sites. You
-                can run individual crawlers or combinations. When running more
-                than one crawler, they run in parallel. Set per-crawler limits
-                or a global limit for all crawlers.
-              </p>
-            </div>
-
+      <div className="mt-3">
+        <Card padding="sm">
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Crawler Tools
+          </h2>
+          <p className="text-sm text-neutral-400 mb-3">
+            Run retailer crawlers; set user, category, and limits below.
+          </p>
+          <div className="p-3 bg-emerald-900/20 border border-emerald-700 rounded-lg">
             {isLoadingCrawlers ? (
-              <div className="flex justify-center items-center py-8">
+              <div className="flex justify-center items-center py-4">
                 <LoadingSpinner />
               </div>
             ) : (
               <>
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
                       Crawler user ID
                     </label>
                     <Input
@@ -1280,14 +1325,11 @@ function AdminDashboard() {
                       placeholder="e.g. 1"
                       value={crawlerUserId}
                       onChange={(e) => setCrawlerUserId(e.target.value)}
-                      className="max-w-[150px]"
+                      className="max-w-[120px] min-h-[36px] text-sm"
                     />
-                    <p className="text-xs text-neutral-400 mt-1">
-                      User that will own crawler-created parts
-                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
                       Default category
                     </label>
                     <select
@@ -1295,7 +1337,7 @@ function AdminDashboard() {
                       onChange={(e) =>
                         setCrawlerDefaultCategoryId(e.target.value)
                       }
-                      className="w-full max-w-[250px] min-h-[44px] px-5 rounded-xl border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="w-full max-w-[220px] min-h-[36px] px-3 py-1.5 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
                     >
                       <option value="">Select category...</option>
                       {crawlerCategories.map((c) => (
@@ -1304,78 +1346,88 @@ function AdminDashboard() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Category for new parts
-                    </p>
                   </div>
-                </div>
-
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Delay between requests
+                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                      Delay
                     </label>
                     <select
                       value={crawlerDelaySec}
                       onChange={(e) =>
                         setCrawlerDelaySec(Number(e.target.value))
                       }
-                      className="max-w-[180px] min-h-[44px] px-4 rounded-xl border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="max-w-[120px] min-h-[36px] px-2 py-1 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
                     >
-                      <option value={2.5}>2.5 s (lighter runs)</option>
-                      <option value={5}>5 s (default)</option>
+                      <option value={2.5}>2.5 s</option>
+                      <option value={5}>5 s</option>
                       <option value={10}>10 s</option>
                       <option value={15}>15 s</option>
-                      <option value={30}>30 s (heavy runs)</option>
+                      <option value={30}>30 s</option>
                     </select>
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Seconds between requests per crawler; default 5 for polite
-                      crawling.
-                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Global limit (applies to all crawlers when set)
+                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                      Global limit
                     </label>
                     <Input
                       type="number"
                       min="1"
-                      placeholder="e.g. 50"
+                      placeholder="—"
                       value={globalCrawlerLimit}
                       onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
-                      className="max-w-[150px]"
+                      className="max-w-[80px] min-h-[36px] text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-400">
+                      <input
+                        type="checkbox"
+                        checked={crawlerHtmlSaveOnRecrawl}
+                        onChange={(e) =>
+                          setCrawlerHtmlSaveOnRecrawl(e.target.checked)
+                        }
+                        className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      Overwrite HTML on recrawl
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="HTML save dir (optional)"
+                      value={crawlerHtmlSaveDir}
+                      onChange={(e) => setCrawlerHtmlSaveDir(e.target.value)}
+                      className="max-w-[180px] min-h-[36px] text-sm"
                     />
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium text-neutral-300">
-                      Select crawlers
-                    </label>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-neutral-400">
+                      Crawlers
+                    </span>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={selectAllCrawlers}
-                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                        className="text-xs text-emerald-400 hover:text-emerald-300"
                       >
-                        Select all
+                        All
                       </button>
                       <span className="text-neutral-500">|</span>
                       <button
                         type="button"
                         onClick={deselectAllCrawlers}
-                        className="text-sm text-emerald-400 hover:text-emerald-300"
+                        className="text-xs text-emerald-400 hover:text-emerald-300"
                       >
-                        Deselect all
+                        None
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {crawlerAdapters.map((adapter) => (
                       <div
                         key={adapter}
-                        className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700"
+                        className="flex items-center gap-2 py-1.5 px-2 bg-gray-800/50 rounded border border-gray-700"
                       >
                         <label className="flex items-center gap-2 cursor-pointer flex-1">
                           <input
@@ -1388,9 +1440,9 @@ function AdminDashboard() {
                             {adapter}
                           </span>
                         </label>
-                        <div className="flex items-center gap-2 w-32">
-                          <span className="text-xs text-neutral-400">
-                            Limit:
+                        <div className="flex items-center gap-1 w-24">
+                          <span className="text-xs text-neutral-500">
+                            Limit
                           </span>
                           <Input
                             type="number"
@@ -1403,7 +1455,7 @@ function AdminDashboard() {
                                 [adapter]: e.target.value,
                               }))
                             }
-                            className="w-20"
+                            className="w-16 min-h-[28px] text-sm"
                           />
                         </div>
                       </div>
@@ -1411,51 +1463,47 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex flex-wrap gap-2 mb-2">
                   <ActionButton
                     onClick={() => void handleRunSelectedCrawlers()}
                     disabled={isRunningCrawlers}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 px-3"
                   >
                     {isRunningCrawlers ? (
                       <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Running...
+                        <LoadingSpinner size="sm" inline />
+                        <span className="ml-1">Running...</span>
                       </span>
                     ) : (
-                      'Run selected crawlers'
+                      'Run selected'
                     )}
                   </ActionButton>
                   <ActionButton
                     onClick={() => void handleRunAllCrawlers()}
                     disabled={isRunningCrawlers}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 px-3"
                   >
-                    Run all crawlers
+                    Run all
                   </ActionButton>
                 </div>
 
                 {crawlerError && (
-                  <div className="mb-4">
+                  <div className="mb-2">
                     <ErrorAlert message={crawlerError} />
                   </div>
                 )}
 
                 {crawlerResult && (
-                  <div className="p-4 rounded-lg border-2 border-emerald-700 bg-gray-900/50">
-                    <div className="mb-2 font-semibold text-emerald-400">
+                  <div className="p-2 rounded border border-emerald-700 bg-gray-900/50 text-sm">
+                    <div className="font-semibold text-emerald-400">
                       {crawlerResult.status === 'started'
                         ? 'Crawler job started'
                         : 'Crawler'}
                     </div>
-                    <p className="text-sm text-neutral-300 mb-2">
-                      {crawlerResult.message}
-                    </p>
+                    <p className="text-neutral-300">{crawlerResult.message}</p>
                     {crawlerResult.adapters.length > 0 && (
-                      <p className="text-sm text-neutral-400 font-mono">
-                        Adapters: {crawlerResult.adapters.join(', ')}
+                      <p className="text-xs text-neutral-400 font-mono mt-0.5">
+                        {crawlerResult.adapters.join(', ')}
                       </p>
                     )}
                   </div>
@@ -1489,6 +1537,18 @@ function AdminDashboard() {
         itemType="catalog"
         isProcessing={isDeletingAllGlobalParts}
         error={deleteAllGlobalPartsError}
+      />
+      <DeleteConfirmationDialog
+        isOpen={isDeleteAllBrandsConfirmOpen}
+        onClose={() => {
+          setIsDeleteAllBrandsConfirmOpen(false);
+          setDeleteAllBrandsError(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteAllBrands()}
+        itemName="all part brands"
+        itemType="catalog"
+        isProcessing={isDeletingAllBrands}
+        error={deleteAllBrandsError}
       />
       <DeleteConfirmationDialog
         isOpen={isDeleteAllCarsConfirmOpen}

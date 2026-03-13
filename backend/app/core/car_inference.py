@@ -35,6 +35,12 @@ AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
         "V10",  # Rexpeed V10; require "camry" for Toyota Camry V10
         "HI",  # HKS Hi Power; require "g90" / "genesis" for Genesis G90 1st Gen
         "NA",  # CTEK MXS 5.0 NA battery charger etc.; require "miata" / "mx-5" for Mazda Miata NA
+        "E90",  # Toyota Corolla E90 vs BMW E90 M3; require "m3" / "bmw" or "corolla" for disambiguation
+        "E92",
+        "E93",
+        "E9x",
+        "E46",  # BMW E46 shared by M3, 3 Series, 330i; require "e46 m3" / "e46 3 series" / "e46 330i"
+        "E36",  # BMW E36 shared by M3, 3 Series, 330i; require "e36 m3" / "e36 3 series" / "e36 330i"
         "S",
         "D2",
         "8S",  # Subaru WRX, VW Golf, Audi A4/S4, D2 Racing, Audi TT 8S vs "8s"
@@ -117,6 +123,25 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("m3 g80", "BMW", "M3", "G80"),
     ("m4 g8x", "BMW", "M4", "G82/G83"),
     ("m3 g8x", "BMW", "M3", "G80"),
+    # BMW M3 E90/E92/E93 (E9x) — product text: "E9x M3", "BMW E90 M3"; avoid matching Toyota Corolla E90
+    ("e9x m3", "BMW", "M3", "E90/E92/E93"),
+    ("e90 m3", "BMW", "M3", "E90/E92/E93"),
+    ("e92 m3", "BMW", "M3", "E90/E92/E93"),
+    ("e93 m3", "BMW", "M3", "E90/E92/E93"),
+    ("bmw e9x m3", "BMW", "M3", "E90/E92/E93"),
+    ("bmw e90 m3", "BMW", "M3", "E90/E92/E93"),
+    ("bmw e92 m3", "BMW", "M3", "E90/E92/E93"),
+    ("bmw e93 m3", "BMW", "M3", "E90/E92/E93"),
+    ("e90/e92/e93 m3", "BMW", "M3", "E90/E92/E93"),
+    ("m3 e9x", "BMW", "M3", "E90/E92/E93"),
+    ("m3 e90", "BMW", "M3", "E90/E92/E93"),
+    ("m3 e92", "BMW", "M3", "E90/E92/E93"),
+    ("m3 e93", "BMW", "M3", "E90/E92/E93"),
+    # BMW 3 Series E90/E91/E92/E93 (E91 = wagon/touring)
+    ("e91 3 series", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("bmw e91", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e91 3 series xi", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("3 series e91", "BMW", "3 Series", "E90/E91/E92/E93"),
     # BMW M2 G87 (S58; product text often groups "M2, M3, M4 G8X S58")
     ("bmw m2 g87", "BMW", "M2", "G87"),
     ("m2 g87", "BMW", "M2", "G87"),
@@ -237,6 +262,61 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("ff ferrari", "Ferrari", "FF", "1st Gen"),
     ("mclaren p1", "McLaren", "P1", "1st Gen"),
     ("p1 mclaren", "McLaren", "P1", "1st Gen"),
+    # BMW M6 F12/F13/F06 (product titles: "BMW F12 M6", "Brake Lines - BMW F12 M6")
+    ("bmw f12 m6", "BMW", "M6", "F12/F13/F06"),
+    ("f12 m6", "BMW", "M6", "F12/F13/F06"),
+    ("m6 f12", "BMW", "M6", "F12/F13/F06"),
+    ("f13 m6", "BMW", "M6", "F12/F13/F06"),
+    ("m6 f13", "BMW", "M6", "F12/F13/F06"),
+    # BMW M3 E90/E92/E93 when in parentheses (e.g. "BMW M3 ( E90 / E92 )")
+    ("m3 ( e90 / e92", "BMW", "M3", "E90/E92/E93"),
+    ("m3 ( e90", "BMW", "M3", "E90/E92/E93"),
+    ("m3 ( e92", "BMW", "M3", "E90/E92/E93"),
+    ("m3 ( e93", "BMW", "M3", "E90/E92/E93"),
+    # BMW E46 / E36 (ambiguous standalone; require chassis+model so we don't match all three models)
+    ("e46 m3", "BMW", "M3", "E46"),
+    ("m3 e46", "BMW", "M3", "E46"),
+    ("e46 3 series", "BMW", "3 Series", "E46"),
+    ("3 series e46", "BMW", "3 Series", "E46"),
+    ("e46 330i", "BMW", "330i", "E46"),
+    ("330i e46", "BMW", "330i", "E46"),
+    ("e36 m3", "BMW", "M3", "E36"),
+    ("m3 e36", "BMW", "M3", "E36"),
+    ("e36 3 series", "BMW", "3 Series", "E36"),
+    ("3 series e36", "BMW", "3 Series", "E36"),
+    ("e36 330i", "BMW", "330i", "E36"),
+    ("330i e36", "BMW", "330i", "E36"),
+    # BMW Z4 M E85/E86 (product titles: "E46 M3 / E8x Z4M"; E8x is retailer typo for E85)
+    ("e8x z4m", "BMW", "Z4 M", "E85/E86"),
+    ("e8x z4 m", "BMW", "Z4 M", "E85/E86"),
+    ("e85 z4m", "BMW", "Z4 M", "E85/E86"),
+    ("e86 z4m", "BMW", "Z4 M", "E85/E86"),
+    ("e85 z4 m", "BMW", "Z4 M", "E85/E86"),
+    ("e86 z4 m", "BMW", "Z4 M", "E85/E86"),
+    ("z4m e85", "BMW", "Z4 M", "E85/E86"),
+    ("z4m e86", "BMW", "Z4 M", "E85/E86"),
+    ("z4 m e85", "BMW", "Z4 M", "E85/E86"),
+    ("z4 m e86", "BMW", "Z4 M", "E85/E86"),
+    ("bmw z4m", "BMW", "Z4 M", "E85/E86"),
+    # BMW M6 E63/E64 (product titles: "E60 M5 / E6x M6", "BMW M6 E63")
+    ("e6x m6", "BMW", "M6", "E63/E64"),
+    ("m6 e63", "BMW", "M6", "E63/E64"),
+    ("m6 e64", "BMW", "M6", "E63/E64"),
+    ("e63 m6", "BMW", "M6", "E63/E64"),
+    ("e64 m6", "BMW", "M6", "E63/E64"),
+    ("bmw m6 e63", "BMW", "M6", "E63/E64"),
+    # BMW M6 F12/F13/F06 when in parentheses (e.g. "M5 / M6 (F10 / F12 / F13)")
+    ("m6 (f10 / f12", "BMW", "M6", "F12/F13/F06"),
+    ("m6 (f10 / f13", "BMW", "M6", "F12/F13/F06"),
+    # BMW M3 F80 / M4 F82 (product titles: "F80 M3 / F82 M4")
+    ("f80 m3", "BMW", "M3", "F80"),
+    ("m3 f80", "BMW", "M3", "F80"),
+    ("bmw f80 m3", "BMW", "M3", "F80"),
+    ("f82 m4", "BMW", "M4", "F82/F83"),
+    ("m4 f82", "BMW", "M4", "F82/F83"),
+    ("bmw f82 m4", "BMW", "M4", "F82/F83"),
+    ("m3 f80 / f82 m4", "BMW", "M3", "F80"),
+    ("m3 f80 / f82 m4", "BMW", "M4", "F82/F83"),
 ]
 
 # Word-boundary for short codes so "A90" doesn't match inside "BA90", and "nd" not inside "random"
