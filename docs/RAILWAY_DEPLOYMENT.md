@@ -129,5 +129,5 @@ The project uses Railway's native Node.js builder (NIXPACKS) which:
 Ensure your backend's `ALLOWED_ORIGINS` includes your frontend's Railway URL:
 
 ```
-ALLOWED_ORIGINS=["https://your-frontend.railway.app", "https://carmodpicker.webbpulse.com"]
+ALLOWED_ORIGINS=["https://your-frontend.railway.app", "https://carmodpicker.com"]
 ```

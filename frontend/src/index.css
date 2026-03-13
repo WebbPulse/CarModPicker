@@ -665,6 +665,23 @@ body {
   color: white;
 }
 
+/* Main content between ad columns: let container use full width so content fills up to ad margins */
+.main-content .container {
+  max-width: 100%;
+}
+
+/* Tile grids: column count from available space (min tile width). Use for card/tile layouts app-wide. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 1.5rem;
+}
+.tile-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 1rem;
+}
+
 /* Utility Classes */
 .text-gradient {
   background: var(--gradient-primary);

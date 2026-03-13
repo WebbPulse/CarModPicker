@@ -1,4 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import {
+  BUILDER_FIRST_PAGE_BUILD_LISTS,
+  BUILDER_ITEMS_PER_PAGE,
+  BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS,
+} from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi } from '../../services/Api';
 import AddItemTile from '../common/AddItemTile';
@@ -7,11 +12,6 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Pagination from '../common/Pagination';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
-import {
-  BUILDER_FIRST_PAGE_BUILD_LISTS,
-  BUILDER_ITEMS_PER_PAGE,
-  BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS,
-} from '../../constants';
 
 interface BuildListListProps {
   carId: number;
@@ -108,7 +108,7 @@ const BuildListList: React.FC<BuildListListProps> = ({
   return (
     <div>
       <SectionHeader title={title} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+      <div className="tile-grid-compact mt-4">
         {canAddBuildList && isFirstPage && (
           <AddItemTile
             title="Create New Build List"

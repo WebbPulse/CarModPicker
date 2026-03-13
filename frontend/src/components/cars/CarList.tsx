@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { carsApi } from '../../services/Api';
-import { normalizeCarReadList } from '../../utils/carUtils';
 import type { CarRead } from '../../types/Api';
+import { normalizeCarReadList } from '../../utils/carUtils';
 import AddItemTile from '../common/AddItemTile';
 import { ErrorAlert } from '../common/Alerts';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -105,7 +105,7 @@ const CarList: React.FC<CarListProps> = ({
   return (
     <div>
       <SectionHeader title={title} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+      <div className="tile-grid-compact mt-4">
         {showAddCarTile && onAddCarClick && (
           <AddItemTile
             title="Add a New Car"

@@ -23,8 +23,8 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
-from app.api.models.make import Make as DBMake
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.make import Make as DBMake
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
@@ -410,6 +410,14 @@ class CrawlerRunRequest(BaseModel):
         le=60.0,
         description="Seconds between requests per crawler (default: 2.5). Use 5+ for conservative/large runs.",
     )
+    crawl_html_save_dir: Optional[str] = Field(
+        default=None,
+        description="If set, save full page HTML for post-processing (new URLs only unless crawl_html_save_on_recrawl is True).",
+    )
+    crawl_html_save_on_recrawl: Optional[bool] = Field(
+        default=None,
+        description="If True and crawl_html_save_dir is set, also overwrite saved HTML when recrawling known URLs.",
+    )
 
 
 @router.get(
@@ -440,6 +448,8 @@ async def _run_crawlers_background(
     user_id: int,
     default_category_id: int,
     triggered_by_user_id: int,
+    crawl_html_save_dir: Optional[str] = None,
+    crawl_html_save_on_recrawl: Optional[bool] = None,
 ) -> None:
     """
     Run crawlers in a background thread. Logs completion or failure.
@@ -455,6 +465,8 @@ async def _run_crawlers_background(
             delay_sec=delay_sec,
             user_id=user_id,
             default_category_id=default_category_id,
+            crawl_html_save_dir=crawl_html_save_dir,
+            crawl_html_save_on_recrawl=crawl_html_save_on_recrawl,
         )
         logger.info(
             "Crawler job completed (triggered by user %s): %s",
@@ -542,6 +554,8 @@ async def run_crawlers_endpoint(
             user_id=body.crawler_user_id,
             default_category_id=body.crawler_default_category_id,
             triggered_by_user_id=current_user.id,
+            crawl_html_save_dir=body.crawl_html_save_dir,
+            crawl_html_save_on_recrawl=body.crawl_html_save_on_recrawl,
         )
     )
     _background_tasks.add(task)
@@ -736,3 +750,48 @@ async def delete_all_global_parts(
         )
     finally:
         db.close()
+
+
+class DeleteAllBrandsResponse(BaseModel):
+    """Response for delete-all part brands (admin only)."""
+
+    deleted_count: int = Field(..., description="Number of part brands deleted")
+
+
+@router.post(
+    "/brands/delete-all",
+    response_model=DeleteAllBrandsResponse,
+    responses=standard_responses(
+        success_description="All part brands deleted",
+        forbidden=True,
+    ),
+)
+async def delete_all_brands(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> DeleteAllBrandsResponse:
+    """
+    Delete all part brands (admin only).
+
+    First nullifies brand_id on all global parts, then deletes all brands.
+    This action cannot be undone.
+    """
+    try:
+        # Nullify brand_id on all global parts so we can delete brands
+        db.query(DBGlobalPart).filter(DBGlobalPart.brand_id.isnot(None)).update(
+            {DBGlobalPart.brand_id: None}, synchronize_session=False
+        )
+        brands = db.query(DBBrand).all()
+        count = len(brands)
+        for brand in brands:
+            db.delete(brand)
+        db.commit()
+        logger.info("Admin %s deleted all %s part brands", current_user.id, count)
+        return DeleteAllBrandsResponse(deleted_count=count)
+    except Exception as e:
+        db.rollback()
+        logger.exception("Delete all part brands failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

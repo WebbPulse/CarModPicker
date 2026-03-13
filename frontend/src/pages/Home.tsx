@@ -199,7 +199,7 @@ export default function HomePage() {
                 />
               </Card>
             ) : featuredBuildLists.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="tile-grid">
                 {featuredBuildLists.map((buildList) => (
                   <BuildListCard key={buildList.id} buildList={buildList} />
                 ))}

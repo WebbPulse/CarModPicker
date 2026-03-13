@@ -375,6 +375,7 @@ export const globalPartsApi = {
     sort?: string;
     min_price_cents?: number;
     max_price_cents?: number;
+    universal?: boolean;
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
       '/global-parts/with-votes',
@@ -393,6 +394,7 @@ export const globalPartsApi = {
     car_ids?: number[];
     search?: string;
     user_id?: number;
+    universal?: boolean;
   }) =>
     apiClient.get<{
       category_ids: number[];
@@ -1014,6 +1016,10 @@ export interface CrawlerRunRequest {
   parallel?: boolean;
   /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
   delay_sec?: number | null;
+  /** If set, save full page HTML for post-processing (new URLs only unless crawl_html_save_on_recrawl). */
+  crawl_html_save_dir?: string | null;
+  /** If true and crawl_html_save_dir set, also overwrite saved HTML when recrawling known URLs. */
+  crawl_html_save_on_recrawl?: boolean | null;
 }
 
 export interface RerunInferenceRequest {
@@ -1059,6 +1065,10 @@ export const adminApi = {
       deleted_car_models_count: number;
       deleted_makes_count: number;
     }>('/admin/cars/delete-all'),
+
+  /** Delete all part brands (admin only). Nullifies brand on parts first, then deletes all brands. */
+  deleteAllBrands: () =>
+    apiClient.post<{ deleted_count: number }>('/admin/brands/delete-all'),
 };
 
 export default apiClient;

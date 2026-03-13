@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react-swc';
+import { defineConfig } from 'vite';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -20,48 +20,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Group node_modules dependencies
+          // Single vendor chunk for all node_modules to avoid circular chunks
+          // (e.g. vendor <-> vendor-react when other libs depend on React)
           if (id.includes('node_modules')) {
-            // Separate React and React DOM into their own chunk
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor-react';
-            }
-            // Separate React Router into its own chunk
-            if (id.includes('react-router')) {
-              return 'vendor-router';
-            }
-            // Group other large dependencies
-            if (id.includes('axios')) {
-              return 'vendor-axios';
-            }
-            // All other node_modules go into vendor chunk
             return 'vendor';
           }
-
-          // Group admin pages together
-          if (id.includes('/pages/admin/')) {
-            return 'admin';
-          }
-
-          // Group authentication pages together
-          if (id.includes('/pages/authentication/')) {
-            return 'auth';
-          }
-
-          // Group builder pages together
-          if (id.includes('/pages/builder/')) {
-            return 'builder';
-          }
-
-          // Group global parts pages together
-          if (id.includes('/pages/globalParts/')) {
-            return 'global-parts';
-          }
-
-          // Group build lists pages together
-          if (id.includes('/pages/buildLists/')) {
-            return 'build-lists';
-          }
+          // App code: no manual chunks; Rollup splits by lazy() routes in App.tsx
         },
       },
     },
