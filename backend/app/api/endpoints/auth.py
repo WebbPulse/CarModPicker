@@ -162,7 +162,7 @@ async def verify_email(
     if settings.DEBUG:
         verify_url = f"http://localhost:8000/api/auth/verify-email/confirm?token={token}"
     else:
-        verify_url = f"https://api.carmodpicker.webbpulse.com/api/auth/verify-email/confirm?token={token}"
+        verify_url = f"https://api.carmodpicker.com/api/auth/verify-email/confirm?token={token}"
 
     try:
         send_email(
@@ -187,7 +187,7 @@ async def verify_email_confirm(
     if settings.DEBUG:
         frontend_base_url = "http://localhost:4000/verify-email/confirm"
     else:
-        frontend_base_url = "https://carmodpicker.webbpulse.com/verify-email/confirm"
+        frontend_base_url = "https://carmodpicker.com/verify-email/confirm"
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
@@ -241,7 +241,7 @@ async def reset_password(
     if settings.DEBUG:
         reset_url = f"http://localhost:4000/reset-password?token={token}"
     else:
-        reset_url = f"https://carmodpicker.webbpulse.com/reset-password?token={token}"
+        reset_url = f"https://carmodpicker.com/reset-password?token={token}"
 
     try:
         send_email(

@@ -153,7 +153,7 @@ def save_crawl_page_html(
 # Conservative for price monitoring; Scrapy AutoThrottle defaults to 5s; 2.5s is a balance.
 DEFAULT_REQUEST_DELAY_SEC = 2.5
 DEFAULT_TIMEOUT_SEC = 30
-DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.webbpulse.com)"
+DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.com)"
 
 # Jitter on normal request delay (±20%) so traffic doesn't look robotic; best practice for polite crawlers.
 REQUEST_DELAY_JITTER_FRACTION = 0.2

@@ -75,8 +75,8 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = Field(
         default=(
             "http://localhost,http://localhost:3000,http://localhost:4000,"
-            "https://carmodpicker.webbpulse.com,"
-            "https://api.carmodpicker.webbpulse.com,"
+            "https://carmodpicker.com,"
+            "https://api.carmodpicker.com,"
             "https://carmodpicker.staging.webbpulse.com,"
             "https://api.carmodpicker.staging.webbpulse.com"
         ),

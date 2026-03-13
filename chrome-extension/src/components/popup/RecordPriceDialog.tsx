@@ -54,19 +54,18 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
     const existing = existingPart.image_urls ?? [];
     const existingCanonicals = new Set(
       existing
-        .filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+        .filter(
+          (u): u is string => typeof u === "string" && u.startsWith("http"),
+        )
         .map(getCanonicalImageUrl)
-        .filter(Boolean)
+        .filter(Boolean),
     );
     const newUrls = scraped.filter((url) => {
       if (existing.includes(url)) return false;
       const c = getCanonicalImageUrl(url);
       return !c || !existingCanonicals.has(c);
     });
-    const slotsLeft = Math.max(
-      0,
-      MAX_IMAGES_PER_GLOBAL_PART - existing.length
-    );
+    const slotsLeft = Math.max(0, MAX_IMAGES_PER_GLOBAL_PART - existing.length);
     const capped = newUrls.slice(0, slotsLeft);
     setNewImageUrls(capped);
     setSelectedUrls(capped);
@@ -74,7 +73,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
 
   const toggleImage = useCallback((url: string) => {
     setSelectedUrls((prev) =>
-      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]
+      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url],
     );
   }, []);
 
@@ -96,10 +95,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
     try {
       // Append selected scraped images as external URL references (no upload)
       const currentCount = existingPart.image_urls?.length ?? 0;
-      const slotsLeft = Math.max(
-        0,
-        MAX_IMAGES_PER_GLOBAL_PART - currentCount
-      );
+      const slotsLeft = Math.max(0, MAX_IMAGES_PER_GLOBAL_PART - currentCount);
 
       if (selectedUrls.length > 0 && slotsLeft > 0) {
         const refsToAppend = selectedUrls.slice(0, slotsLeft);
@@ -142,8 +138,8 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
             if (shouldOpen) {
               const apiUrl =
                 (settings["apiUrl"] as string) ||
-                "https://api.carmodpicker.webbpulse.com/api";
-              let frontendUrl = "https://carmodpicker.webbpulse.com";
+                "https://api.carmodpicker.com/api";
+              let frontendUrl = "https://carmodpicker.com";
               if (
                 apiUrl.includes("localhost") ||
                 apiUrl.includes("127.0.0.1")
@@ -162,11 +158,11 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
                     if (tabs[0]?.id) {
                       chrome.tabs.update(tabs[0].id, { url: partUrl });
                     }
-                  }
+                  },
                 );
               }
             }
-          }
+          },
         );
         onPriceRecorded();
       } else {
@@ -270,38 +266,38 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
               </div>
               <div className="flex flex-wrap gap-2">
                 {newImageUrls.map((url) => (
-                    <div
-                      key={url}
-                      className={`relative group ${
-                        selectedUrls.includes(url) ? "" : "opacity-40"
+                  <div
+                    key={url}
+                    className={`relative group ${
+                      selectedUrls.includes(url) ? "" : "opacity-40"
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-16 h-16 object-cover rounded border border-white/20"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleImage(url)}
+                      className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-neutral-800 border border-white/30 flex items-center justify-center text-white text-sm hover:bg-red-600 transition-colors ${
+                        selectedUrls.includes(url)
+                          ? "opacity-100"
+                          : "opacity-50 line-through"
                       }`}
+                      title={
+                        selectedUrls.includes(url)
+                          ? "Exclude from adding"
+                          : "Include"
+                      }
                     >
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-16 h-16 object-cover rounded border border-white/20"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => toggleImage(url)}
-                        className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-neutral-800 border border-white/30 flex items-center justify-center text-white text-sm hover:bg-red-600 transition-colors ${
-                          selectedUrls.includes(url)
-                            ? "opacity-100"
-                            : "opacity-50 line-through"
-                        }`}
-                        title={
-                          selectedUrls.includes(url)
-                            ? "Exclude from adding"
-                            : "Include"
-                        }
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
