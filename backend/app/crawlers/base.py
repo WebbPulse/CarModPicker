@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Protocol
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -50,13 +50,25 @@ logger = logging.getLogger(__name__)
 # When set, we save HTML for new URLs only by default; set CRAWL_HTML_SAVE_ON_RECRAWL=1 to overwrite on recrawl too.
 CRAWL_HTML_HASH_BYTES = 16  # filename = <sha256(url)>[:16].html so re-crawls overwrite same file
 
+
+class _S3PutObjectProtocol(Protocol):
+    def put_object(
+        self,
+        *,
+        Bucket: str,
+        Key: str,
+        Body: bytes,
+        ContentType: str,
+    ) -> object: ...
+
+
 # Lazy S3 client for crawl HTML uploads. Uses the same Railway/S3 bucket and credentials as image uploads
 # (StorageService / app.core.config BUCKET, AWS_ACCESS_KEY_ID, etc.). None if bucket not configured.
-_crawl_s3_client: Optional[object] = None
+_crawl_s3_client: Optional[_S3PutObjectProtocol] = None
 _crawl_bucket_name: Optional[str] = None
 
 
-def _get_crawl_s3_client() -> tuple[Optional[object], Optional[str]]:
+def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]]:
     """Return (s3_client, bucket_name) for the app's existing bucket (same as images); else (None, None)."""
     global _crawl_s3_client, _crawl_bucket_name
     if _crawl_s3_client is not None or _crawl_bucket_name is not None:

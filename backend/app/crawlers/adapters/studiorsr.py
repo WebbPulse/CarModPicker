@@ -26,7 +26,6 @@ from app.crawlers.base import (
     fetch_page,
 )
 from app.crawlers.parsing import (
-    _normalize_description_text,
     brand_fallback_from_title,
     brand_from_description,
     brand_from_title,
@@ -35,6 +34,7 @@ from app.crawlers.parsing import (
     extract_part_number_candidate_from_title,
     extract_sku_from_text,
     meta_content,
+    normalize_description_text,
     normalize_part_number,
     scraped_payload_from_json_ld,
 )
@@ -177,7 +177,7 @@ def _extract_full_description_from_dom(soup: BeautifulSoup, max_len: int = 2000)
         return None
     # Prefer longest reasonable block (full description)
     best = max(candidates, key=len)
-    normalized = _normalize_description_text(best, max_len=max_len)
+    normalized = normalize_description_text(best, max_len=max_len)
     return _strip_studiorsr_boilerplate(normalized) if normalized else None
 
 
@@ -291,7 +291,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
                 d = meta_content(og_desc)
                 if d and d.strip():
                     description = _strip_studiorsr_boilerplate(
-                        _normalize_description_text(d, max_len=2000) or d.strip()[:2000]
+                        normalize_description_text(d, max_len=2000) or d.strip()[:2000]
                     )
         if not description:
             meta_desc = soup.find("meta", attrs={"name": "description"})
@@ -299,13 +299,13 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
                 d = meta_content(meta_desc)
                 if d and d.strip():
                     description = _strip_studiorsr_boilerplate(
-                        _normalize_description_text(d, max_len=2000) or d.strip()[:2000]
+                        normalize_description_text(d, max_len=2000) or d.strip()[:2000]
                     )
         if not description:
             for p in soup.find_all("p"):
                 t = p.get_text(strip=True)
                 if t and len(t) > 80:
-                    description = _strip_studiorsr_boilerplate(_normalize_description_text(t, max_len=2000))
+                    description = _strip_studiorsr_boilerplate(normalize_description_text(t, max_len=2000))
                     break
 
         price_cents = extract_dom_price(soup)

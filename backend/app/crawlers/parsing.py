@@ -324,7 +324,7 @@ def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Opti
     desc = item.get("description")
     description = None
     if isinstance(desc, str) and len(desc.strip()) > 10:
-        description = _normalize_description_text(desc, max_len=2000)
+        description = normalize_description_text(desc, max_len=2000)
     brand = _brand_from_json_ld(item)
     sku_val = item.get("sku") or item.get("mpn")
     part_number: Optional[str] = None
@@ -400,7 +400,7 @@ _PART_NUMBER_CAR_MODEL_BLACKLIST = frozenset(
 )
 
 
-def _normalize_description_text(raw: Optional[str], max_len: int = 2000) -> Optional[str]:
+def normalize_description_text(raw: Optional[str], max_len: int = 2000) -> Optional[str]:
     """
     Normalize description: decode HTML entities, strip HTML tags to plain text, and cap length.
     """
