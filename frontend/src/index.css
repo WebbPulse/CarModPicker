@@ -665,6 +665,11 @@ body {
   color: white;
 }
 
+/* Main content between ad columns: let container use full width so content fills up to ad margins */
+.main-content .container {
+  max-width: 100%;
+}
+
 /* Utility Classes */
 .text-gradient {
   background: var(--gradient-primary);

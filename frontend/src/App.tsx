@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 
+import AdBanner from './components/ads/AdBanner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import Footer from './components/layout/globalFooter/Footer.tsx';
@@ -55,6 +56,8 @@ const UserGlobalParts = lazy(
   () => import('./pages/globalParts/UserGlobalParts.tsx')
 );
 function App() {
+  const location = useLocation();
+
   return (
     <ErrorBoundary>
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
@@ -71,102 +74,125 @@ function App() {
 
         <Header />
 
-        <main className="flex-grow relative z-10">
-          <Suspense
-            fallback={
-              <div className="container mx-auto px-4 py-20">
-                <LoadingSpinner size="lg" text="Loading page..." />
-              </div>
+        <main className="flex-grow relative z-10 flex w-full">
+          {/* Left margin ad - new ad on each route (key forces remount) */}
+          <AdBanner
+            key={`left-${location.pathname}`}
+            side="left"
+            slotId={
+              import.meta.env.VITE_ADSENSE_SLOT_LEFT as string | undefined
             }
-          >
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Home />} />
+          />
 
-              {/* Guest Routes (redirect if logged in) */}
-              <Route element={<GuestRoute />}>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-              </Route>
+          <div className="main-content flex-1 min-w-0 w-full">
+            <Suspense
+              fallback={
+                <div className="container mx-auto px-4 py-20">
+                  <LoadingSpinner size="lg" text="Loading page..." />
+                </div>
+              }
+            >
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
 
-              {/* Public Info Pages */}
-              <Route path="/about" element={<About />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/contact-us" element={<ContactUs />} />
-              <Route path="/support" element={<Support />} />
-              <Route path="/bug-report" element={<BugReport />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/user/:userId" element={<ViewUser />} />
-              <Route
-                path="/verify-email/confirm"
-                element={<VerifyEmailConfirm />}
-              />
-              <Route
-                path="/forgot-password/confirm"
-                element={<ForgotPasswordConfirm />}
-              />
-              <Route path="/cars/:carId" element={<ViewCar />} />
-              <Route
-                path="/build-lists/:buildListId"
-                element={<ViewBuildList />}
-              />
-              <Route
-                path="/build-lists/:buildListId/build-log"
-                element={<ViewBuildLog />}
-              />
-              <Route path="/build-lists" element={<BuildListsCatalog />} />
-              <Route
-                path="/global-parts/:partId/edit"
-                element={<EditGlobalPart />}
-              />
-              <Route
-                path="/global-parts/:partId"
-                element={<ViewGlobalPart />}
-              />
-              <Route path="/global-parts" element={<GlobalPartsCatalog />} />
-
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/verify-email" element={<VerifyEmail />} />
-                <Route element={<EmailVerifiedRoute />}>
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/builder" element={<Builder />} />
-                  <Route
-                    path="/my-global-parts"
-                    element={<UserGlobalParts />}
-                  />
+                {/* Guest Routes (redirect if logged in) */}
+                <Route element={<GuestRoute />}>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
                 </Route>
-              </Route>
 
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/reports" element={<ReportReview />} />
-              <Route path="/admin/bug-reports" element={<BugReportReview />} />
-              <Route path="/admin/users" element={<UserManagement />} />
+                {/* Public Info Pages */}
+                <Route path="/about" element={<About />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/contact-us" element={<ContactUs />} />
+                <Route path="/support" element={<Support />} />
+                <Route path="/bug-report" element={<BugReport />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/user/:userId" element={<ViewUser />} />
+                <Route
+                  path="/verify-email/confirm"
+                  element={<VerifyEmailConfirm />}
+                />
+                <Route
+                  path="/forgot-password/confirm"
+                  element={<ForgotPasswordConfirm />}
+                />
+                <Route path="/cars/:carId" element={<ViewCar />} />
+                <Route
+                  path="/build-lists/:buildListId"
+                  element={<ViewBuildList />}
+                />
+                <Route
+                  path="/build-lists/:buildListId/build-log"
+                  element={<ViewBuildLog />}
+                />
+                <Route path="/build-lists" element={<BuildListsCatalog />} />
+                <Route
+                  path="/global-parts/:partId/edit"
+                  element={<EditGlobalPart />}
+                />
+                <Route
+                  path="/global-parts/:partId"
+                  element={<ViewGlobalPart />}
+                />
+                <Route path="/global-parts" element={<GlobalPartsCatalog />} />
 
-              {/* 404 Catch-all - Must be last */}
-              <Route
-                path="*"
-                element={
-                  <div className="container mx-auto px-4 py-20 text-center">
-                    <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
-                      <h1 className="text-4xl font-bold text-gradient mb-4">
-                        404
-                      </h1>
-                      <p className="text-neutral-400 mb-6">Page not found</p>
-                      <a
-                        href="/"
-                        className="btn-primary inline-flex items-center"
-                      >
-                        Go Home
-                      </a>
+                {/* Protected Routes */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/verify-email" element={<VerifyEmail />} />
+                  <Route element={<EmailVerifiedRoute />}>
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/builder" element={<Builder />} />
+                    <Route
+                      path="/my-global-parts"
+                      element={<UserGlobalParts />}
+                    />
+                  </Route>
+                </Route>
+
+                {/* Admin Routes */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/reports" element={<ReportReview />} />
+                <Route
+                  path="/admin/bug-reports"
+                  element={<BugReportReview />}
+                />
+                <Route path="/admin/users" element={<UserManagement />} />
+
+                {/* 404 Catch-all - Must be last */}
+                <Route
+                  path="*"
+                  element={
+                    <div className="container mx-auto px-4 py-20 text-center">
+                      <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
+                        <h1 className="text-4xl font-bold text-gradient mb-4">
+                          404
+                        </h1>
+                        <p className="text-neutral-400 mb-6">Page not found</p>
+                        <a
+                          href="/"
+                          className="btn-primary inline-flex items-center"
+                        >
+                          Go Home
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                }
-              />
-            </Routes>
-          </Suspense>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </div>
+
+          {/* Right margin ad - new ad on each route (key forces remount) */}
+          <AdBanner
+            key={`right-${location.pathname}`}
+            side="right"
+            slotId={
+              import.meta.env.VITE_ADSENSE_SLOT_RIGHT as string | undefined
+            }
+          />
         </main>
 
         <Footer />
