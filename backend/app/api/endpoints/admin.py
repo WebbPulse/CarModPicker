@@ -23,8 +23,8 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
-from app.api.models.make import Make as DBMake
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.make import Make as DBMake
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
