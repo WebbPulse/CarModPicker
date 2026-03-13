@@ -373,9 +373,7 @@ class TestGlobalParts:
         assert non_universal_id in all_ids
 
         # With universal=true: only universal part
-        response = client.get(
-            f"{settings.API_STR}/global-parts/with-votes?universal=true", headers=headers
-        )
+        response = client.get(f"{settings.API_STR}/global-parts/with-votes?universal=true", headers=headers)
         assert response.status_code == 200
         result = response.json()
         universal_only = result["data"]

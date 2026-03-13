@@ -316,7 +316,9 @@ async def read_global_parts_with_votes(
     search: Optional[str] = Query(None, description="Search in global part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
     max_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price <= this (cents)"),
-    universal: Optional[bool] = Query(None, description="When true, return only parts that fit all cars (is_universal)"),
+    universal: Optional[bool] = Query(
+        None, description="When true, return only parts that fit all cars (is_universal)"
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:

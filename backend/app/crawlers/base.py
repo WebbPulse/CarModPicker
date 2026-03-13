@@ -110,8 +110,12 @@ def save_crawl_page_html(
     log = logger_instance or logger
     key_prefix = str(base_dir).strip() if base_dir else ""
     url_hash = hashlib.sha256(product_url.encode()).hexdigest()[:CRAWL_HTML_HASH_BYTES]
-    html_key = f"{key_prefix}/{adapter_name}/{url_hash}.html" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.html"
-    url_key = f"{key_prefix}/{adapter_name}/{url_hash}.url" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.url"
+    html_key = (
+        f"{key_prefix}/{adapter_name}/{url_hash}.html" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.html"
+    )
+    url_key = (
+        f"{key_prefix}/{adapter_name}/{url_hash}.url" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.url"
+    )
 
     s3_client, bucket_name = _get_crawl_s3_client()
     if s3_client is not None and bucket_name is not None:

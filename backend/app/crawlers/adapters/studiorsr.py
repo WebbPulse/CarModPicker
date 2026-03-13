@@ -107,11 +107,7 @@ def _discover_product_urls_via_sitemap() -> List[str]:
         root = ET.fromstring(index_text)
         tag = root.tag
         if tag == f"{{{SITEMAP_NS}}}sitemapindex" or "sitemapindex" in tag:
-            child_sitemap_urls = [
-                loc.text.strip()
-                for loc in _loc_elements(root)
-                if loc.text and loc.text.strip()
-            ]
+            child_sitemap_urls = [loc.text.strip() for loc in _loc_elements(root) if loc.text and loc.text.strip()]
             for i, child_url in enumerate(child_sitemap_urls):
                 if i > 0:
                     time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
@@ -171,7 +167,7 @@ def _extract_full_description_from_dom(soup: BeautifulSoup, max_len: int = 2000)
     # Also first long paragraph(s) in main content
     main = soup.find("main") or soup.find(attrs={"role": "main"})
     if main:
-        for p in (main.find_all("p") if isinstance(main, Tag) else []):
+        for p in main.find_all("p") if isinstance(main, Tag) else []:
             if not isinstance(p, Tag):
                 continue
             t = p.get_text(strip=True)
@@ -309,9 +305,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
             for p in soup.find_all("p"):
                 t = p.get_text(strip=True)
                 if t and len(t) > 80:
-                    description = _strip_studiorsr_boilerplate(
-                        _normalize_description_text(t, max_len=2000)
-                    )
+                    description = _strip_studiorsr_boilerplate(_normalize_description_text(t, max_len=2000))
                     break
 
         price_cents = extract_dom_price(soup)
@@ -321,9 +315,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
             if sku_elem:
                 part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
-            part_number = normalize_part_number(
-                extract_part_number_candidate_from_title(str(name))
-            )
+            part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
         brand = brand_from_title(str(name))
         if not brand and description:
             brand = brand_from_description(description, product_name=str(name))

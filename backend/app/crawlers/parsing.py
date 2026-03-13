@@ -83,11 +83,34 @@ def _looks_like_part_or_model_code(word: str) -> bool:
 
 
 # Generic product-type words that must never be used as brand (Supercharger, Oil, System, etc.).
-_GENERIC_PRODUCT_WORDS = frozenset({
-    "supercharger", "cooler", "oil", "system", "intake", "performance", "software",
-    "kit", "kits", "exhaust", "radiator", "radiators", "brake", "brakes", "wheel", "wheels",
-    "suspension", "turbo", "turbocharger", "intercooler", "cold", "air", "flash", "na",
-})
+_GENERIC_PRODUCT_WORDS = frozenset(
+    {
+        "supercharger",
+        "cooler",
+        "oil",
+        "system",
+        "intake",
+        "performance",
+        "software",
+        "kit",
+        "kits",
+        "exhaust",
+        "radiator",
+        "radiators",
+        "brake",
+        "brakes",
+        "wheel",
+        "wheels",
+        "suspension",
+        "turbo",
+        "turbocharger",
+        "intercooler",
+        "cold",
+        "air",
+        "flash",
+        "na",
+    }
+)
 
 
 def brand_from_title(title: str) -> Optional[str]:
@@ -171,10 +194,7 @@ def brand_from_description(
     text = description.strip()
     # Limit to main product description; avoid suggested-product / footer boilerplate
     search_text = text[:max_chars] if len(text) > max_chars else text
-    name_has_vf = bool(
-        product_name
-        and re.search(r"\bVF\b", product_name, re.IGNORECASE)
-    )
+    name_has_vf = bool(product_name and re.search(r"\bVF\b", product_name, re.IGNORECASE))
     # Order: VF-Engineering first so we prefer it when both appear
     patterns = [
         (r"\bVF-?Engineering\b", "VF-Engineering"),
@@ -357,10 +377,27 @@ _PART_NUMBER_PREFIXES = [
 
 # Car/model codes that look like part numbers but should not be stored as SKU (e.g. Z4M, 1M, E8x).
 # Check uses space-stripped key so "Z4 M" and "Z4M" both match.
-_PART_NUMBER_CAR_MODEL_BLACKLIST = frozenset({
-    "z4m", "1m", "e8x", "e9x", "e46", "e90", "e92", "e82", "e85", "e86",
-    "f80", "f82", "f10", "f12", "e60", "e63", "e64",
-})
+_PART_NUMBER_CAR_MODEL_BLACKLIST = frozenset(
+    {
+        "z4m",
+        "1m",
+        "e8x",
+        "e9x",
+        "e46",
+        "e90",
+        "e92",
+        "e82",
+        "e85",
+        "e86",
+        "f80",
+        "f82",
+        "f10",
+        "f12",
+        "e60",
+        "e63",
+        "e64",
+    }
+)
 
 
 def _normalize_description_text(raw: Optional[str], max_len: int = 2000) -> Optional[str]:

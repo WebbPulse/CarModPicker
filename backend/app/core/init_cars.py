@@ -40,7 +40,9 @@ def init_car_generations(db: Session) -> None:
     # Sync sequences so new inserts get ids above existing max (avoids UniqueViolation
     # when the sequence was never advanced, e.g. after migration backfill with explicit ids).
     db.execute(text("SELECT setval(pg_get_serial_sequence('makes', 'id'), COALESCE((SELECT MAX(id) FROM makes), 1))"))
-    db.execute(text("SELECT setval(pg_get_serial_sequence('car_models', 'id'), COALESCE((SELECT MAX(id) FROM car_models), 1))"))
+    db.execute(
+        text("SELECT setval(pg_get_serial_sequence('car_models', 'id'), COALESCE((SELECT MAX(id) FROM car_models), 1))")
+    )
     db.execute(text("SELECT setval(pg_get_serial_sequence('cars', 'id'), COALESCE((SELECT MAX(id) FROM cars), 1))"))
 
     all_generations = get_all_car_generations()

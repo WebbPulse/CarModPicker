@@ -175,10 +175,7 @@ def run_crawler(
         errors = 0
 
         # Optional: save full page HTML for new URLs (or all if save_on_recrawl)
-        save_dir_str = (
-            (crawl_html_save_dir or "").strip()
-            or os.environ.get("CRAWL_HTML_SAVE_DIR", "").strip()
-        )
+        save_dir_str = (crawl_html_save_dir or "").strip() or os.environ.get("CRAWL_HTML_SAVE_DIR", "").strip()
         save_on_recrawl = crawl_html_save_on_recrawl
         if save_on_recrawl is None:
             save_on_recrawl = os.environ.get("CRAWL_HTML_SAVE_ON_RECRAWL", "0").strip().lower() in (

@@ -180,9 +180,7 @@ class TestAdminDeleteAllBrands:
         response = client.post(f"{settings.API_STR}/admin/brands/delete-all")
         assert response.status_code == 401
 
-    def test_delete_all_brands_forbidden_non_admin(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_delete_all_brands_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         """Test delete all brands as non-admin returns 403."""
         token = create_and_login_user(client, db_session, "delete_brands_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
@@ -254,9 +252,7 @@ class TestAdminDeleteAllBrands:
         assert part_after is not None
         assert part_after.brand_id is None
 
-    def test_delete_all_brands_empty_success(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_delete_all_brands_empty_success(self, client: TestClient, db_session: Session) -> None:
         """Test delete all brands when no brands exist returns 200 with deleted_count=0."""
         token = create_and_login_admin_user(client, db_session, "delete_brands_empty")
         headers = {"Authorization": f"Bearer {token}"}

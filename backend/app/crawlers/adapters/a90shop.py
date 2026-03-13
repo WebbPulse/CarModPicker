@@ -338,9 +338,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         if not part_number:
             part_number = extract_sku_from_text(soup.get_text())
         if not part_number:
-            part_number = normalize_part_number(
-                extract_part_number_candidate_from_title(str(name))
-            )
+            part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
         brand = brand_from_title(str(name))
         if not brand and description:
