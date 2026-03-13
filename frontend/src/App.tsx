@@ -80,7 +80,7 @@ function App() {
             key={`left-${location.pathname}`}
             side="left"
             slotId={
-              import.meta.env.VITE_ADSENSE_SLOT_LEFT as string | undefined
+              import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as string | undefined
             }
           />
 
@@ -190,7 +190,7 @@ function App() {
             key={`right-${location.pathname}`}
             side="right"
             slotId={
-              import.meta.env.VITE_ADSENSE_SLOT_RIGHT as string | undefined
+              import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as string | undefined
             }
           />
         </main>

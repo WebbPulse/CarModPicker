@@ -19,7 +19,7 @@ interface AdBannerProps {
    * Optional AdSense slot ID (e.g. "1234567890").
    * Set VITE_ADSENSE_CLIENT_ID in .env to enable real ads; otherwise a placeholder is shown.
    */
-  slotId?: string;
+  slotId?: string | undefined;
 }
 
 declare global {
