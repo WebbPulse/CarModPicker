@@ -122,7 +122,7 @@ function ViewUser() {
         {isLoadingBuildLists ? (
           <LoadingSpinner />
         ) : buildLists.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          <div className="tile-grid-compact mt-4">
             {buildLists.map((buildList) => (
               <BuildListItem key={buildList.id} buildList={buildList} />
             ))}

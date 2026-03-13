@@ -4,11 +4,16 @@ import BuildListItem from '../components/buildLists/BuildListItem';
 import ActionButton from '../components/buttons/ActionButton';
 import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
-import GlobalPartList from '../components/globalParts/GlobalPartList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import GlobalPartList from '../components/globalParts/GlobalPartList';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import UserCard from '../components/users/UserCard';
+import {
+  SEARCH_INITIAL_LIMITS,
+  SEARCH_LOAD_MORE_INCREMENT,
+  SEARCH_RESULTS_LIMIT,
+} from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { searchApi } from '../services/Api';
 import type {
@@ -17,11 +22,6 @@ import type {
   GlobalPartReadWithVotes,
   UserRead,
 } from '../types/Api';
-import {
-  SEARCH_INITIAL_LIMITS,
-  SEARCH_LOAD_MORE_INCREMENT,
-  SEARCH_RESULTS_LIMIT,
-} from '../constants';
 
 const fetchSearchResultsRequestFn = (params: {
   q: string;
@@ -353,7 +353,7 @@ function Search() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div className="tile-grid-compact">
                   {buildLists
                     .slice(
                       0,
@@ -393,7 +393,7 @@ function Search() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div className="tile-grid-compact">
                   {users
                     .slice(
                       0,
