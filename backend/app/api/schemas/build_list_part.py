@@ -11,6 +11,7 @@ class BuildListPartCreate(BaseModel):
     global_part_id: Optional[int] = None
     quantity: int = Field(1, ge=1, description="Quantity of the part")
     notes: Optional[str] = None
+    build_list_phase_id: Optional[int] = None
 
 
 # Schema for request body when updating a part in a build list
@@ -18,6 +19,7 @@ class BuildListPartUpdate(BaseModel):
     quantity: Optional[int] = Field(None, ge=1, description="Quantity of the part")
     notes: Optional[str] = None
     purchased: Optional[bool] = None
+    build_list_phase_id: Optional[int] = None
 
 
 # Schema for response body when reading a build list part
@@ -30,6 +32,7 @@ class BuildListPartRead(BaseModel):
     notes: Optional[str] = None
     purchased: bool
     added_at: datetime
+    build_list_phase_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,6 +47,8 @@ class BuildListPartReadWithGlobalPart(BaseModel):
     notes: Optional[str] = None
     purchased: bool
     added_at: datetime
+    build_list_phase_id: Optional[int] = None
+    phase_name: Optional[str] = None
     global_part: GlobalPartRead
 
     model_config = ConfigDict(from_attributes=True)
@@ -71,6 +76,7 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     # Build list part fields
     quantity: int = Field(1, ge=1, description="Quantity of the part")
     notes: str | None = None
+    build_list_phase_id: int | None = None
 
     @field_validator("price_cents")
     @classmethod

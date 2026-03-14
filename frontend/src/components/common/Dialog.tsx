@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface DialogProps {
   isOpen: boolean;
@@ -27,8 +28,8 @@ const Dialog: React.FC<DialogProps> = ({
     '6xl': 'max-w-6xl',
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300 ease-in-out">
+  const dialog = (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-in-out">
       <div
         className={`bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full ${maxWidthClasses[maxWidth]} transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-fadeInScale flex flex-col max-h-[90vh]`}
       >
@@ -53,6 +54,8 @@ const Dialog: React.FC<DialogProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 };
 
 export default Dialog;

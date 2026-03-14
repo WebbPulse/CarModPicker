@@ -134,6 +134,49 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
+    def test_create_build_list_free_user_limit_402(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Free users are limited to 1 build list; second create returns 402."""
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+        car = create_car_in_db(db_session)
+        build_list_data = {
+            "name": get_unique_name("first_build_list"),
+            "description": "First",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        second_data = {
+            "name": get_unique_name("second_build_list"),
+            "description": "Second",
+            "car_id": car["id"],
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=second_data, headers=headers)
+        assert response.status_code == 402
+        data = response.json()
+        msg = data.get("detail") or data.get("message") or ""
+        if isinstance(msg, list):
+            msg = msg[0].get("msg", "") if msg else ""
+        assert "free" in str(msg).lower() or "limit" in str(msg).lower()
+
+    def test_create_build_list_premium_user_unlimited(
+        self, client: TestClient, premium_test_user: User, db_session: Session
+    ) -> None:
+        """Premium users can create multiple build lists."""
+        token = get_auth_token(client, premium_test_user.username)
+        headers = get_auth_headers(token)
+        car = create_car_in_db(db_session)
+        for i in range(3):
+            build_list_data = {
+                "name": get_unique_name(f"premium_build_list_{i}"),
+                "description": f"Build list {i}",
+                "car_id": car["id"],
+            }
+            response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+            assert response.status_code == 200, f"Premium user should create build list {i + 1}"
+
     def test_get_build_list_by_id(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving a specific build list by ID."""
         # Login and get token
@@ -910,11 +953,11 @@ class TestBuildLists:
         assert "data" in data
 
     def test_get_build_lists_with_votes_pagination(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Session
     ) -> None:
         """Test pagination with build lists with votes."""
-        # Login as test user and get token
-        token = get_auth_token(client, test_user.username)
+        # Use premium user so we can create multiple build lists
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -972,11 +1015,11 @@ class TestBuildLists:
         assert found
 
     def test_get_build_lists_with_votes_filter_by_car(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Session
     ) -> None:
         """Test filtering by car_id with build lists with votes."""
-        # Login as test user and get token
-        token = get_auth_token(client, test_user.username)
+        # Use premium user so we can create multiple build lists
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create two cars in DB (cars are seeded from backend source; tests use create_car_in_db)

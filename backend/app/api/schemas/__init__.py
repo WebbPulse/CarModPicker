@@ -16,6 +16,11 @@ from .bug_report import (
 )
 from .build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from .build_list_part import BuildListPartCreate, BuildListPartRead, BuildListPartUpdate
+from .build_list_phase import (
+    BuildListPhaseCreate,
+    BuildListPhaseRead,
+    BuildListPhaseUpdate,
+)
 from .car import CarCreate, CarRead, CarUpdate
 from .category import CategoryCreate, CategoryInDB, CategoryResponse, CategoryUpdate
 from .global_part import (
@@ -82,6 +87,9 @@ __all__ = [
     "BuildListPartRead",
     "BuildListPartCreate",
     "BuildListPartUpdate",
+    "BuildListPhaseRead",
+    "BuildListPhaseCreate",
+    "BuildListPhaseUpdate",
     "CategoryInDB",
     "CategoryCreate",
     "CategoryUpdate",

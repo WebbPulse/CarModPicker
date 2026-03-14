@@ -11,6 +11,7 @@ from .api.endpoints import (
     brands,
     bug_reports,
     build_list_parts,
+    build_list_phases,
     build_lists,
     build_logs,
     cars,
@@ -110,6 +111,12 @@ endpoint_registry.register_crud_endpoint(
     build_list_parts.router,
     entity_name="build-list-parts",
     description="Build list part management operations",
+)
+
+endpoint_registry.register_crud_endpoint(
+    build_list_phases.router,
+    entity_name="build-list-phases",
+    description="Build list phase update/delete operations",
 )
 
 endpoint_registry.register_crud_endpoint(
