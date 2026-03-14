@@ -103,6 +103,26 @@ class AdminUserUpdate(BaseModel):
     subscription_status: Optional[str] = None  # 'active', 'cancelled', or 'expired'
     subscription_expires_at: Optional[datetime] = None
 
+    @field_validator("subscription_tier", mode="before")
+    @classmethod
+    def validate_subscription_tier(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip().lower() if isinstance(v, str) else v
+        if s not in ("free", "premium"):
+            raise ValueError("subscription_tier must be 'free' or 'premium'")
+        return s
+
+    @field_validator("subscription_status", mode="before")
+    @classmethod
+    def validate_subscription_status(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip().lower() if isinstance(v, str) else v
+        if s not in ("active", "cancelled", "expired"):
+            raise ValueError("subscription_status must be 'active', 'cancelled', or 'expired'")
+        return s
+
 
 # Schema for public user data (excludes sensitive fields like email_verified and totp_enabled)
 class PublicUserRead(BaseModel):

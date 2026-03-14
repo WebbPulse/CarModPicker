@@ -13,6 +13,8 @@ extend-exclude = '''
   | \.venv
   | build
   | dist
+  # alembic migrations: exclude so format-on-save and CI use same result (avoid Black version drift)
+  | alembic/versions
 )/
 '''
 

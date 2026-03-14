@@ -16,6 +16,9 @@ import type {
   BuildListPartRead,
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
+  BuildListPhaseCreate,
+  BuildListPhaseRead,
+  BuildListPhaseUpdate,
   BuildListRead,
   BuildListReadWithVotes,
   BuildListUpdate,
@@ -324,6 +327,23 @@ export const buildListsApi = {
     apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
       new_name: newName || null,
     }),
+
+  // Phases (priority groups) for a build list
+  getPhases: (buildListId: number) =>
+    apiClient.get<BuildListPhaseRead[]>(`/build-lists/${buildListId}/phases`),
+  createPhase: (buildListId: number, data: BuildListPhaseCreate) =>
+    apiClient.post<BuildListPhaseRead>(
+      `/build-lists/${buildListId}/phases`,
+      data
+    ),
+};
+
+// Build list phases API (update/delete by phase ID)
+export const buildListPhasesApi = {
+  updatePhase: (phaseId: number, data: BuildListPhaseUpdate) =>
+    apiClient.put<BuildListPhaseRead>(`/build-list-phases/${phaseId}`, data),
+  deletePhase: (phaseId: number) =>
+    apiClient.delete<BuildListPhaseRead>(`/build-list-phases/${phaseId}`),
 };
 
 // Serialize params so array values become repeated keys (category_ids=1&category_ids=2) for FastAPI
@@ -684,6 +704,7 @@ export const buildListPartsApi = {
         product_url: globalPartData.product_url,
         quantity: buildListPartData.quantity ?? 1,
         notes: buildListPartData.notes,
+        build_list_phase_id: buildListPartData.build_list_phase_id ?? undefined,
       }
     ),
   // Add an existing global part to a build list as a build list part
@@ -694,7 +715,10 @@ export const buildListPartsApi = {
   ) =>
     apiClient.post<BuildListPartRead>(
       `/build-list-parts/${buildListId}/global-parts/${globalPartId}`,
-      data
+      {
+        ...data,
+        build_list_phase_id: data.build_list_phase_id ?? undefined,
+      }
     ),
   // Update a build list part (notes, etc.) by build list and global part IDs
   updateBuildListPart: (

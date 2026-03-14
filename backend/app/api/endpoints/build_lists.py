@@ -14,6 +14,7 @@ from sqlalchemy import func
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.car import Car as DBCar
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.user import User as DBUser
@@ -24,6 +25,7 @@ from app.api.schemas.build_list import (
     BuildListReadWithVotes,
     BuildListUpdate,
 )
+from app.api.schemas.build_list_phase import BuildListPhaseCreate, BuildListPhaseRead
 from app.api.services.build_list_service import BuildListService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_operations import verify_entity_exists
@@ -33,6 +35,7 @@ from app.api.utils.common_patterns import (
     get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
+    verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import (
     pagination_responses,
@@ -357,6 +360,78 @@ async def read_build_list(
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     logger.info(f"{user_info} retrieved build list {build_list_id}")
     return BuildListRead.model_validate(build_list)
+
+
+@router.get(
+    "/{build_list_id}/phases",
+    response_model=List[BuildListPhaseRead],
+    responses=standard_responses(
+        success_description="Build list phases retrieved successfully",
+        not_found=True,
+    ),
+)
+async def list_build_list_phases(
+    build_list_id: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> List[BuildListPhaseRead]:
+    """List phases for a build list. Public read access."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    phases = (
+        db.query(DBBuildListPhase)
+        .filter(DBBuildListPhase.build_list_id == build_list_id)
+        .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+        .all()
+    )
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(phases)} phases for build list {build_list_id}")
+    return [BuildListPhaseRead.model_validate(p) for p in phases]
+
+
+@router.post(
+    "/{build_list_id}/phases",
+    response_model=BuildListPhaseRead,
+    responses=standard_responses(
+        success_description="Build list phase created successfully",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def create_build_list_phase(
+    build_list_id: int,
+    body: BuildListPhaseCreate,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListPhaseRead:
+    """Create a phase for a build list. Only build list owner or admin."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+
+    # Next sort_order: max + 1
+    max_order = (
+        db.query(func.coalesce(func.max(DBBuildListPhase.sort_order), -1))
+        .filter(DBBuildListPhase.build_list_id == build_list_id)
+        .scalar()
+    )
+    sort_order = (max_order + 1) if max_order is not None else 0
+
+    db_phase = DBBuildListPhase(
+        build_list_id=build_list_id,
+        name=body.name,
+        sort_order=body.sort_order if body.sort_order != 0 else sort_order,
+    )
+    db.add(db_phase)
+    db.commit()
+    db.refresh(db_phase)
+
+    logger.info(f"User {current_user.id} created phase {db_phase.id} for build list {build_list_id}")
+    return BuildListPhaseRead.model_validate(db_phase)
 
 
 # Add custom endpoints specific to build lists

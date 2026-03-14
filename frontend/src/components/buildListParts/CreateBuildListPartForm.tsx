@@ -4,6 +4,7 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import {
   brandsApi,
   buildListPartsApi,
+  buildListsApi,
   carsApi,
   categoriesApi,
   globalPartsApi,
@@ -12,6 +13,7 @@ import type {
   BrandCreate,
   BrandResponse,
   BuildListPartCreate,
+  BuildListPhaseRead,
   CarRead,
   CategoryResponse,
   GlobalPartCreate,
@@ -21,11 +23,11 @@ import { LARGE_FETCH_LIMIT } from '../../constants';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
+import CarModelMultiSelect from '../common/CarModelMultiSelect';
 import ImageUpload from '../common/ImageUpload';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
-import CarModelMultiSelect from '../common/CarModelMultiSelect';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
@@ -38,6 +40,8 @@ interface CreateBuildListPartFormProps {
 
 const fetchGlobalPartsRequestFn = () => globalPartsApi.getGlobalParts();
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchPhasesRequestFn = (buildListId: number) =>
+  buildListsApi.getPhases(buildListId);
 
 function CreateBuildListPartForm({
   buildListId,
@@ -60,6 +64,7 @@ function CreateBuildListPartForm({
     notes: '',
     quantity: 1,
   });
+  const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [duplicatePartId, setDuplicatePartId] = useState<number | null>(null);
@@ -92,6 +97,8 @@ function CreateBuildListPartForm({
   const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
   const { data: brandsData, executeRequest: fetchBrands } =
     useApiRequest(fetchBrandsRequestFn);
+  const { data: phasesData, executeRequest: fetchPhases } =
+    useApiRequest(fetchPhasesRequestFn);
 
   useEffect(() => {
     void fetchGlobalParts();
@@ -100,6 +107,10 @@ function CreateBuildListPartForm({
     void fetchBrands();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch once on mount - request functions are stable
+
+  useEffect(() => {
+    if (buildListId) void fetchPhases(buildListId);
+  }, [buildListId, fetchPhases]);
 
   useEffect(() => {
     if (carsData && Array.isArray(carsData)) {
@@ -441,6 +452,7 @@ function CreateBuildListPartForm({
         const buildListPartData: BuildListPartCreate = {
           quantity: Math.max(1, formData.quantity),
           notes: formData.notes.trim() || null,
+          build_list_phase_id: selectedPhaseId,
         };
 
         await buildListPartsApi.createGlobalPartAndAddToBuildList(
@@ -474,6 +486,7 @@ function CreateBuildListPartForm({
         const buildListPartData: BuildListPartCreate = {
           quantity: Math.max(1, formData.quantity),
           notes: formData.notes.trim() || null,
+          build_list_phase_id: selectedPhaseId,
         };
 
         await buildListPartsApi.addGlobalPartToBuildList(
@@ -955,6 +968,34 @@ function CreateBuildListPartForm({
             className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           />
         </div>
+        {(phasesData?.length ?? 0) > 0 && (
+          <div>
+            <label
+              htmlFor="build-list-part-phase"
+              className="block text-sm font-medium text-gray-300 mb-1"
+            >
+              Phase
+            </label>
+            <select
+              id="build-list-part-phase"
+              value={selectedPhaseId ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSelectedPhaseId(v === '' ? null : parseInt(v, 10));
+              }}
+              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="">None</option>
+              {(phasesData ?? [])
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((phase: BuildListPhaseRead) => (
+                  <option key={phase.id} value={phase.id}>
+                    {phase.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
         <Input
           label="Notes (Optional)"
           id="build-list-part-notes"

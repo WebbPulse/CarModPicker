@@ -2,6 +2,7 @@ from .brand import Brand
 from .bug_report import BugReport
 from .build_list import BuildList
 from .build_list_part import BuildListPart
+from .build_list_phase import BuildListPhase
 from .build_log import BuildLog, BuildLogPost
 from .car import Car
 from .car_model import CarModel
@@ -27,6 +28,7 @@ __all__ = [
     "Category",
     "Brand",
     "BuildListPart",
+    "BuildListPhase",
     "Vote",
     "Report",
     "BugReport",

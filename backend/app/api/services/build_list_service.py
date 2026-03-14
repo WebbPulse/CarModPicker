@@ -5,16 +5,19 @@ Build list service that extends the base CRUD service.
 import logging
 from typing import Any, Dict, List, Optional
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import verify_entity_exists
+from app.api.utils.subscription_utils import is_user_premium
 from app.core.logging import get_logger
 
 logger = get_logger()
@@ -51,10 +54,19 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             The created build list
 
         Raises:
-            HTTPException: If car not found or creation fails
+            HTTPException: If car not found, creation fails, or free user limit reached (402)
         """
         # Verify the car exists
         verify_entity_exists(db, DBCar, data.car_id, "car")
+
+        # Enforce build list cap for free users (premium = unlimited)
+        if not is_user_premium(current_user):
+            count = self.count_by_user(db, current_user.id, logger=logger)
+            if count >= 1:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
+                )
 
         # Call parent create method
         build_list = super().create(
@@ -266,6 +278,24 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         db.add(build_log)
         db.flush()
 
+        # Copy phases: create new phases for the new build list in sort_order
+        original_phases = (
+            db.query(DBBuildListPhase)
+            .filter(DBBuildListPhase.build_list_id == build_list_id)
+            .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+            .all()
+        )
+        phase_id_mapping: Dict[int, int] = {}  # old_phase_id -> new_phase_id
+        for orig_phase in original_phases:
+            new_phase = DBBuildListPhase(
+                build_list_id=new_build_list.id,
+                name=orig_phase.name,
+                sort_order=orig_phase.sort_order,
+            )
+            db.add(new_phase)
+            db.flush()
+            phase_id_mapping[orig_phase.id] = new_phase.id
+
         # Get all build list parts from the original build list
         original_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
 
@@ -274,6 +304,11 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # They reference the same GlobalPart entities (by global_part_id) but are
         # independent relationship entities, ensuring separate dependency chains
         for original_part in original_parts:
+            new_phase_id = (
+                phase_id_mapping.get(original_part.build_list_phase_id)
+                if original_part.build_list_phase_id is not None
+                else None
+            )
             # Create a new BuildListPart entity (new primary key, independent from original)
             new_part = DBBuildListPart(
                 build_list_id=new_build_list.id,  # Points to the new build list
@@ -281,6 +316,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
                 added_by=current_user.id,  # New owner
                 quantity=original_part.quantity,  # Copy the quantity value
                 notes=original_part.notes,  # Copy the notes value
+                build_list_phase_id=new_phase_id,
                 # added_at will be set automatically by the model's default
             )
             db.add(new_part)

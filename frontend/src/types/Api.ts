@@ -483,11 +483,30 @@ export interface BugReportUpdate {
   assigned_to?: number | null;
 }
 
+// Build list phase (priority group) per build list
+export interface BuildListPhaseRead {
+  id: number;
+  build_list_id: number;
+  name: string;
+  sort_order: number;
+}
+
+export interface BuildListPhaseCreate {
+  name: string;
+  sort_order?: number;
+}
+
+export interface BuildListPhaseUpdate {
+  name?: string | null;
+  sort_order?: number | null;
+}
+
 // Build list part relationship
 export interface BuildListPartCreate {
   global_part_id?: number | null;
   quantity?: number;
   notes?: string | null;
+  build_list_phase_id?: number | null;
 }
 
 export interface BuildListPartRead {
@@ -499,9 +518,11 @@ export interface BuildListPartRead {
   notes?: string | null;
   purchased: boolean;
   added_at: string;
+  build_list_phase_id?: number | null;
 }
 
 export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
+  phase_name?: string | null;
   global_part: GlobalPartRead;
 }
 
@@ -509,6 +530,7 @@ export interface BuildListPartUpdate {
   quantity?: number | null;
   notes?: string | null;
   purchased?: boolean | null;
+  build_list_phase_id?: number | null;
 }
 
 // Auth interfaces

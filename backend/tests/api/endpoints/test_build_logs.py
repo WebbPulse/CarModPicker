@@ -1104,14 +1104,14 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_multiple_posts_same_author_different_build_logs(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, premium_test_user: DBUser, db_session: Session
     ) -> None:
         """Test that author info is correctly populated for posts across different build logs."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
 
-        # Create two build lists
-        token = get_auth_token(client, test_user.username)
+        # Use premium user so we can create multiple build lists
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         build_list_data1 = {
@@ -1141,7 +1141,7 @@ class TestBuildLogs:
         )
         assert response.status_code == 201
         post1_data = response.json()
-        assert post1_data["author_username"] == test_user.username
+        assert post1_data["author_username"] == premium_test_user.username
 
         post_data2 = {"content": "Post in second build log"}
         response = client.post(
@@ -1151,9 +1151,9 @@ class TestBuildLogs:
         )
         assert response.status_code == 201
         post2_data = response.json()
-        assert post2_data["author_username"] == test_user.username
+        assert post2_data["author_username"] == premium_test_user.username
 
         # Verify both posts have correct author info
-        assert post1_data["author_username"] == test_user.username
-        assert post2_data["author_username"] == test_user.username
+        assert post1_data["author_username"] == premium_test_user.username
+        assert post2_data["author_username"] == premium_test_user.username
         # Both should have the same author since they're from the same user

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
+import AdColumnSpacer from './components/ads/AdColumnSpacer';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import Footer from './components/layout/globalFooter/Footer.tsx';
@@ -9,6 +10,8 @@ import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { useAuth } from './hooks/useAuth';
+import { isPremium } from './utils/subscription';
 
 // Lazy load all page components for code splitting
 const Home = lazy(() => import('./pages/Home.tsx'));
@@ -55,8 +58,28 @@ const GlobalPartsCatalog = lazy(
 const UserGlobalParts = lazy(
   () => import('./pages/globalParts/UserGlobalParts.tsx')
 );
+
+/** Paths where ad banners are not shown (landing + auth). */
+const AD_BANNER_EXCLUDED_PATHS = new Set([
+  '/',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/forgot-password/confirm',
+  '/verify-email',
+  '/verify-email/confirm',
+]);
+
+/** Side margin on landing page (lg+): 180px = AdBanner 20px outer + 160px ad. Keep in sync with lg:pl-[180px] lg:pr-[180px] in main-content. */
+
 function App() {
   const location = useLocation();
+  const { user } = useAuth();
+  // On non-excluded paths: show ads for free users, or a same-size spacer for premium (keeps layout consistent).
+  // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
+  const showAdSpace = !AD_BANNER_EXCLUDED_PATHS.has(location.pathname);
+  const showAds = showAdSpace && !isPremium(user);
+  const isLandingPage = location.pathname === '/';
 
   return (
     <ErrorBoundary>
@@ -75,16 +98,25 @@ function App() {
         <Header />
 
         <main className="flex-grow relative z-10 flex w-full">
-          {/* Left margin ad - new ad on each route (key forces remount) */}
-          <AdBanner
-            key={`left-${location.pathname}`}
-            side="left"
-            slotId={
-              import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as string | undefined
-            }
-          />
+          {/* Left margin: ad or spacer (spacer keeps layout when premium hides ads) */}
+          {showAdSpace &&
+            (showAds ? (
+              <AdBanner
+                key={`left-${location.pathname}`}
+                side="left"
+                slotId={
+                  import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as
+                    | string
+                    | undefined
+                }
+              />
+            ) : (
+              <AdColumnSpacer side="left" />
+            ))}
 
-          <div className="main-content flex-1 min-w-0 w-full">
+          <div
+            className={`main-content flex-1 min-w-0 w-full ${isLandingPage ? 'lg:pl-[180px] lg:pr-[180px]' : ''}`}
+          >
             <Suspense
               fallback={
                 <div className="container mx-auto px-4 py-20">
@@ -185,14 +217,21 @@ function App() {
             </Suspense>
           </div>
 
-          {/* Right margin ad - new ad on each route (key forces remount) */}
-          <AdBanner
-            key={`right-${location.pathname}`}
-            side="right"
-            slotId={
-              import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as string | undefined
-            }
-          />
+          {/* Right margin: ad or spacer (spacer keeps layout when premium hides ads) */}
+          {showAdSpace &&
+            (showAds ? (
+              <AdBanner
+                key={`right-${location.pathname}`}
+                side="right"
+                slotId={
+                  import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as
+                    | string
+                    | undefined
+                }
+              />
+            ) : (
+              <AdColumnSpacer side="right" />
+            ))}
         </main>
 
         <Footer />

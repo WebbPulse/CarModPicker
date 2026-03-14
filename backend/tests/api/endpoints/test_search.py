@@ -256,13 +256,13 @@ class TestSearch:
         # Should find results (case-insensitive)
         assert len(data["build_lists"]["data"]) > 0
 
-    def test_search_with_pagination(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_with_pagination(self, client: TestClient, premium_test_user: DBUser, db_session: Session) -> None:
         """Test search with pagination parameters."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create multiple build lists
-        token = get_auth_token(client, test_user.username)
+        # Use premium user so we can create multiple build lists
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
         base_name = get_unique_name("paginated")
         for i in range(5):

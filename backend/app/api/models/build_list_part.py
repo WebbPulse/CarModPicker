@@ -8,6 +8,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
+    from .build_list_phase import BuildListPhase
     from .global_part import GlobalPart
     from .user import User
 
@@ -29,8 +30,14 @@ class BuildListPart(Base):
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
     purchased: Mapped[bool] = mapped_column(default=False, nullable=False)
     added_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    build_list_phase_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("build_list_phases.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     build_list: Mapped["BuildList"] = relationship("BuildList", back_populates="build_list_parts")
+    build_list_phase: Mapped[Optional["BuildListPhase"]] = relationship(
+        "BuildListPhase", back_populates="build_list_parts", foreign_keys=[build_list_phase_id]
+    )
     global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="build_list_parts")
     user: Mapped["User"] = relationship("User", back_populates="build_list_parts")
