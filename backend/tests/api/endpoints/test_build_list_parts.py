@@ -1291,11 +1291,16 @@ class TestBuildListParts:
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand, db_session: Session
+        self,
+        client: TestClient,
+        premium_test_user: User,
+        test_category: Category,
+        test_brand: Brand,
+        db_session: Session,
     ) -> None:
         """Test counting build lists containing a global part when it exists in multiple build lists."""
-        # Login as test user and get token
-        token = login_user(client, test_user.username)
+        # Use premium user so we can create multiple build lists
+        token = login_user(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create a car first (requires admin)

@@ -5,6 +5,7 @@ Build list service that extends the base CRUD service.
 import logging
 from typing import Any, Dict, List, Optional
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -16,6 +17,7 @@ from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import verify_entity_exists
+from app.api.utils.subscription_utils import is_user_premium
 from app.core.logging import get_logger
 
 logger = get_logger()
@@ -52,10 +54,19 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             The created build list
 
         Raises:
-            HTTPException: If car not found or creation fails
+            HTTPException: If car not found, creation fails, or free user limit reached (402)
         """
         # Verify the car exists
         verify_entity_exists(db, DBCar, data.car_id, "car")
+
+        # Enforce build list cap for free users (premium = unlimited)
+        if not is_user_premium(current_user):
+            count = self.count_by_user(db, current_user.id, logger=logger)
+            if count >= 1:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
+                )
 
         # Call parent create method
         build_list = super().create(

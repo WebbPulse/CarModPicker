@@ -196,6 +196,27 @@ def test_user(db_session: Session) -> User:
 
 
 @pytest.fixture(scope="function")
+def premium_test_user(db_session: Session) -> User:
+    """Create a test user with premium subscription (unlimited build lists)."""
+    user = User(
+        username=f"premium_user_{os.getpid()}_{id(db_session)}",
+        email=f"premium_user_{os.getpid()}_{id(db_session)}@example.com",
+        hashed_password=get_password_hash("testpassword"),
+        email_verified=True,
+        disabled=False,
+        is_admin=False,
+        is_superuser=False,
+        subscription_tier="premium",
+        subscription_status="active",
+        subscription_expires_at=None,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture(scope="function")
 def test_category(db_session: Session) -> Category:
     """Create a test category for testing."""
     category = Category(

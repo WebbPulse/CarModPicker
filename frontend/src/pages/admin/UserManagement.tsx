@@ -55,6 +55,9 @@ function UserManagement() {
     is_superuser: null,
     is_admin: null,
     email_verified: null,
+    subscription_tier: null,
+    subscription_status: null,
+    subscription_expires_at: null,
   });
 
   const {
@@ -172,6 +175,9 @@ function UserManagement() {
       is_superuser: formData.is_superuser ?? null,
       email_verified: formData.email_verified ?? null,
       image_url: formData.image_url || null,
+      subscription_tier: formData.subscription_tier ?? null,
+      subscription_status: formData.subscription_status ?? null,
+      subscription_expires_at: formData.subscription_expires_at || null,
     };
 
     // Only include password if it was changed
@@ -195,6 +201,9 @@ function UserManagement() {
         is_superuser: null,
         is_admin: null,
         email_verified: null,
+        subscription_tier: null,
+        subscription_status: null,
+        subscription_expires_at: null,
       });
       void fetchUsers({
         skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
@@ -228,6 +237,9 @@ function UserManagement() {
       is_superuser: user.is_superuser,
       is_admin: user.is_admin,
       email_verified: user.email_verified,
+      subscription_tier: user.subscription_tier ?? null,
+      subscription_status: user.subscription_status ?? null,
+      subscription_expires_at: user.subscription_expires_at ?? null,
     });
     setIsEditDialogOpen(true);
   };
@@ -250,6 +262,9 @@ function UserManagement() {
       is_superuser: null,
       is_admin: null,
       email_verified: null,
+      subscription_tier: null,
+      subscription_status: null,
+      subscription_expires_at: null,
     });
   };
 
@@ -338,6 +353,7 @@ function UserManagement() {
                   <th className="p-2 text-gray-300">Status</th>
                   <th className="p-2 text-gray-300">Email Verified</th>
                   <th className="p-2 text-gray-300">2FA</th>
+                  <th className="p-2 text-gray-300">Subscription</th>
                   <th className="p-2 text-gray-300">Admin</th>
                   <th className="p-2 text-gray-300">Superuser</th>
                   <th className="p-2 text-gray-300">Actions</th>
@@ -381,6 +397,25 @@ function UserManagement() {
                       >
                         {user.totp_enabled ? 'Enabled' : 'Disabled'}
                       </span>
+                    </td>
+                    <td className="p-2">
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          user.subscription_tier === 'premium'
+                            ? 'bg-amber-600 text-amber-100'
+                            : 'bg-gray-600 text-gray-100'
+                        }`}
+                      >
+                        {user.subscription_tier === 'premium'
+                          ? 'Premium'
+                          : 'Free'}
+                      </span>
+                      {user.subscription_tier === 'premium' &&
+                        user.subscription_status !== 'active' && (
+                          <span className="ml-1 text-xs text-gray-400">
+                            ({user.subscription_status})
+                          </span>
+                        )}
                     </td>
                     <td className="p-2">
                       {user.is_admin ? (
@@ -574,6 +609,62 @@ function UserManagement() {
                 </span>
               )}
             </div>
+          </div>
+          <div className="border-t border-gray-700 pt-4 space-y-2">
+            <label className="block text-sm text-gray-300">
+              Subscription tier
+            </label>
+            <select
+              id="edit-subscription-tier"
+              value={formData.subscription_tier ?? 'free'}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  subscription_tier: e.target.value as 'free' | 'premium',
+                })
+              }
+              className="w-full rounded bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2"
+            >
+              <option value="free">Free</option>
+              <option value="premium">Premium</option>
+            </select>
+            <label className="block text-sm text-gray-300 mt-2">
+              Subscription status
+            </label>
+            <select
+              id="edit-subscription-status"
+              value={formData.subscription_status ?? 'active'}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  subscription_status: e.target
+                    .value as 'active' | 'cancelled' | 'expired',
+                })
+              }
+              className="w-full rounded bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2"
+            >
+              <option value="active">Active</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="expired">Expired</option>
+            </select>
+            <Input
+              id="edit-subscription-expires"
+              label="Subscription expires at (leave empty for no expiry)"
+              type="date"
+              value={
+                formData.subscription_expires_at
+                  ? formData.subscription_expires_at.slice(0, 10)
+                  : ''
+              }
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  subscription_expires_at: e.target.value
+                    ? e.target.value
+                    : null,
+                })
+              }
+            />
           </div>
           {updateError && <ErrorAlert message={updateError} />}
           <div className="flex justify-end space-x-2">
