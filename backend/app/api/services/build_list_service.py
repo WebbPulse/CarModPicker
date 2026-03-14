@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.car import Car as DBCar
 from app.api.models.user import User as DBUser
@@ -266,6 +267,24 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         db.add(build_log)
         db.flush()
 
+        # Copy phases: create new phases for the new build list in sort_order
+        original_phases = (
+            db.query(DBBuildListPhase)
+            .filter(DBBuildListPhase.build_list_id == build_list_id)
+            .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+            .all()
+        )
+        phase_id_mapping: Dict[int, int] = {}  # old_phase_id -> new_phase_id
+        for orig_phase in original_phases:
+            new_phase = DBBuildListPhase(
+                build_list_id=new_build_list.id,
+                name=orig_phase.name,
+                sort_order=orig_phase.sort_order,
+            )
+            db.add(new_phase)
+            db.flush()
+            phase_id_mapping[orig_phase.id] = new_phase.id
+
         # Get all build list parts from the original build list
         original_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
 
@@ -274,6 +293,11 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # They reference the same GlobalPart entities (by global_part_id) but are
         # independent relationship entities, ensuring separate dependency chains
         for original_part in original_parts:
+            new_phase_id = (
+                phase_id_mapping.get(original_part.build_list_phase_id)
+                if original_part.build_list_phase_id is not None
+                else None
+            )
             # Create a new BuildListPart entity (new primary key, independent from original)
             new_part = DBBuildListPart(
                 build_list_id=new_build_list.id,  # Points to the new build list
@@ -281,6 +305,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
                 added_by=current_user.id,  # New owner
                 quantity=original_part.quantity,  # Copy the quantity value
                 notes=original_part.notes,  # Copy the notes value
+                build_list_phase_id=new_phase_id,
                 # added_at will be set automatically by the model's default
             )
             db.add(new_part)

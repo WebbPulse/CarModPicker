@@ -5,17 +5,22 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   brandsApi,
   buildListPartsApi,
+  buildListPhasesApi,
+  buildListsApi,
   carsApi,
   categoriesApi,
 } from '../../services/Api';
 import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
+  BuildListPhaseRead,
   CarRead,
 } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
 import ActionButton from '../buttons/ActionButton';
+import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
+import Card from '../common/Card';
 import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListPartList from './BuildListPartList';
@@ -40,6 +45,9 @@ const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
 
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
+const fetchPhasesRequestFn = (buildListId: number) =>
+  buildListsApi.getPhases(buildListId);
+
 const BuildListParts: React.FC<BuildListPartsProps> = ({
   buildListId,
   buildListCarId,
@@ -57,6 +65,13 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'category' | 'phase'>('category');
+  const [newPhaseName, setNewPhaseName] = useState('');
+  const [isAddingPhase, setIsAddingPhase] = useState(false);
+  const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
+  const [editingPhaseName, setEditingPhaseName] = useState('');
+  const [deletingPhaseId, setDeletingPhaseId] = useState<number | null>(null);
+  const [phaseError, setPhaseError] = useState<string | null>(null);
 
   const {
     data: buildListParts,
@@ -76,6 +91,11 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
+
+  const {
+    data: phases,
+    executeRequest: fetchPhases,
+  } = useApiRequest(fetchPhasesRequestFn);
 
   const brands = brandsData ?? [];
   const carsById = useMemo(() => {
@@ -105,6 +125,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     void fetchCategories();
     void fetchBrands();
     void fetchCars();
+    void fetchPhases(buildListId);
   }, [
     buildListId,
     refreshKey,
@@ -112,6 +133,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     fetchCategories,
     fetchBrands,
     fetchCars,
+    fetchPhases,
   ]);
 
   // Helper function to check if user can edit a specific build list part
@@ -221,6 +243,72 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     setEditingPart(null);
   };
 
+  const handleAddPhase = async () => {
+    const name = newPhaseName.trim();
+    if (!name) return;
+    setPhaseError(null);
+    setIsAddingPhase(true);
+    try {
+      await buildListsApi.createPhase(buildListId, { name });
+      setNewPhaseName('');
+      void fetchPhases(buildListId);
+    } catch (err) {
+      setPhaseError(
+        err instanceof Error ? err.message : 'Failed to add phase'
+      );
+    } finally {
+      setIsAddingPhase(false);
+    }
+  };
+
+  const handleStartEditPhase = (phase: BuildListPhaseRead) => {
+    setEditingPhaseId(phase.id);
+    setEditingPhaseName(phase.name);
+    setPhaseError(null);
+  };
+
+  const handleSaveEditPhase = async () => {
+    if (editingPhaseId == null) return;
+    const name = editingPhaseName.trim();
+    if (!name) return;
+    setPhaseError(null);
+    try {
+      await buildListPhasesApi.updatePhase(editingPhaseId, { name });
+      setEditingPhaseId(null);
+      setEditingPhaseName('');
+      void fetchPhases(buildListId);
+    } catch (err) {
+      setPhaseError(
+        err instanceof Error ? err.message : 'Failed to update phase'
+      );
+    }
+  };
+
+  const handleCancelEditPhase = () => {
+    setEditingPhaseId(null);
+    setEditingPhaseName('');
+    setPhaseError(null);
+  };
+
+  const handleDeletePhase = async () => {
+    if (deletingPhaseId == null) return;
+    try {
+      await buildListPhasesApi.deletePhase(deletingPhaseId);
+      setDeletingPhaseId(null);
+      void fetchPhases(buildListId);
+      void fetchBuildListParts(buildListId);
+    } catch (err) {
+      setPhaseError(
+        err instanceof Error ? err.message : 'Failed to delete phase'
+      );
+    }
+  };
+
+  const handleCloseDeletePhaseDialog = () => {
+    setDeletingPhaseId(null);
+    setPhaseError(null);
+  };
+
   const handleTogglePurchased = useCallback(
     async (buildListPart: BuildListPartReadWithGlobalPart) => {
       if (!canManageParts) return;
@@ -295,16 +383,147 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     );
   }
 
+  const phasesList: BuildListPhaseRead[] = phases ?? [];
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <SectionHeader title={title} />
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-4 flex-wrap">
+          <SectionHeader title={title} />
+          {/* View mode: By category | By phase */}
+          <div className="flex gap-2 pb-2">
+            <button
+              type="button"
+              onClick={() => setViewMode('category')}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                viewMode === 'category'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              By category
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('phase')}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                viewMode === 'phase'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              By phase
+            </button>
+          </div>
+        </div>
         {canManageParts && onAddPartClick && (
           <ActionButton onClick={() => void onAddPartClick()}>
             Add Part
           </ActionButton>
         )}
       </div>
+
+      {canManageParts && (
+        <Card className="p-4">
+          <h3 className="text-base font-semibold text-gray-200 mb-2">
+            Phases
+          </h3>
+          <p className="text-sm text-gray-400 mb-3">
+            Organize parts into phases or priority groups. Assign phases when
+            adding or editing parts.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <input
+              type="text"
+              value={newPhaseName}
+              onChange={(e) => setNewPhaseName(e.target.value)}
+              placeholder="New phase name"
+              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm w-48 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <ActionButton
+              onClick={() => void handleAddPhase()}
+              disabled={!newPhaseName.trim() || isAddingPhase}
+            >
+              {isAddingPhase ? 'Adding...' : 'Add phase'}
+            </ActionButton>
+          </div>
+          {phaseError && (
+            <div className="text-red-400 text-sm mb-2">{phaseError}</div>
+          )}
+          {phasesList.length > 0 ? (
+            <ul className="space-y-2">
+              {[...phasesList]
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((phase) => (
+                  <li
+                    key={phase.id}
+                    className="flex items-center gap-2 py-1 border-b border-gray-700 last:border-0"
+                  >
+                    {editingPhaseId === phase.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingPhaseName}
+                          onChange={(e) =>
+                            setEditingPhaseName(e.target.value)
+                          }
+                          className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                        />
+                        <SecondaryButton
+                          type="button"
+                          onClick={handleCancelEditPhase}
+                        >
+                          Cancel
+                        </SecondaryButton>
+                        <ActionButton
+                          type="button"
+                          onClick={() => void handleSaveEditPhase()}
+                        >
+                          Save
+                        </ActionButton>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-200 flex-1">
+                          {phase.name}
+                        </span>
+                        <SecondaryButton
+                          type="button"
+                          onClick={() => handleStartEditPhase(phase)}
+                        >
+                          Edit
+                        </SecondaryButton>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingPhaseId(phase.id)}
+                          className="text-red-400 hover:text-red-300 text-sm"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">
+              No phases yet. Add one above to group parts by phase.
+            </p>
+          )}
+        </Card>
+      )}
+
+      <DeleteConfirmationDialog
+        isOpen={deletingPhaseId !== null}
+        onClose={handleCloseDeletePhaseDialog}
+        onConfirm={() => void handleDeletePhase()}
+        itemName={
+          phasesList.find((p) => p.id === deletingPhaseId)?.name ?? 'phase'
+        }
+        itemType="phase"
+        isProcessing={false}
+        error={null}
+      />
 
       {hasCarMismatchParts && (
         <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
@@ -339,6 +558,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       <BuildListPartList
         buildListParts={parts}
         categories={categories || []}
+        viewMode={viewMode}
+        phases={phasesList}
         brands={brands}
         carsById={carsById}
         loading={isLoading || isLoadingCategories}
@@ -359,6 +580,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       {editingPart && (
         <EditBuildListPartForm
           buildListPart={editingPart}
+          phases={phasesList}
           isOpen={isEditFormOpen}
           onClose={handleCloseEditForm}
           onSubmit={handleEditSubmit}

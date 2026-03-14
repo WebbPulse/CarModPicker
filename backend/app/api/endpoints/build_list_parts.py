@@ -14,6 +14,7 @@ from sqlalchemy.orm import joinedload
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.category import Category as DBCategory
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.part_listing import PartListing as DBPartListing
@@ -50,6 +51,19 @@ from app.api.utils.response_patterns import ResponsePatterns
 
 # Create router
 router = APIRouter()
+
+
+def _validate_phase_belongs_to_build_list(
+    db, phase_id: Optional[int], build_list_id: int
+) -> None:
+    """If phase_id is set, verify the phase exists and belongs to the build list. Raises 404/400."""
+    if phase_id is None:
+        return
+    phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
+    if phase.build_list_id != build_list_id:
+        ResponsePatterns.raise_not_found(
+            "Build list phase does not belong to this build list"
+        )
 
 
 @router.get(
@@ -115,6 +129,10 @@ async def add_global_part_to_build_list(
     if existing_relationship:
         ResponsePatterns.raise_conflict("Global part already exists in build list")
 
+    _validate_phase_belongs_to_build_list(
+        db, getattr(build_list_part, "build_list_phase_id", None), build_list_id
+    )
+
     # Create the relationship
     db_build_list_part = DBBuildListPart(
         build_list_id=build_list_id,
@@ -122,6 +140,7 @@ async def add_global_part_to_build_list(
         added_by=current_user.id,
         quantity=build_list_part.quantity,
         notes=build_list_part.notes,
+        build_list_phase_id=getattr(build_list_part, "build_list_phase_id", None),
     )
 
     db.add(db_build_list_part)
@@ -197,6 +216,12 @@ async def update_build_list_part(
 
     # Update the fields
     update_data = build_list_part.model_dump(exclude_unset=True)
+    if "build_list_phase_id" in update_data:
+        _validate_phase_belongs_to_build_list(
+            db,
+            update_data["build_list_phase_id"],
+            db_build_list_part.build_list_id,
+        )
     for key, value in update_data.items():
         setattr(db_build_list_part, key, value)
 
@@ -272,6 +297,10 @@ async def create_global_part_and_add_to_build_list(
     # Verify category exists
     _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
+    _validate_phase_belongs_to_build_list(
+        db, getattr(request, "build_list_phase_id", None), build_list_id
+    )
+
     # Dedup: find existing part by URL, brand+part_number, or GTIN
     part_by_url: Optional[DBGlobalPart] = None
     part_by_brand: Optional[DBGlobalPart] = None
@@ -313,6 +342,7 @@ async def create_global_part_and_add_to_build_list(
             added_by=current_user.id,
             quantity=request.quantity,
             notes=request.notes,
+            build_list_phase_id=getattr(request, "build_list_phase_id", None),
         )
         db.add(db_build_list_part)
         db.commit()
@@ -325,6 +355,10 @@ async def create_global_part_and_add_to_build_list(
         best = get_best_listing_for_part(db, existing_part.id)
         global_part_dict = GlobalPartRead.model_validate(existing_part).model_dump()
         global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+        phase_name = None
+        if db_build_list_part.build_list_phase_id:
+            ph = db.get(DBBuildListPhase, db_build_list_part.build_list_phase_id)
+            phase_name = ph.name if ph else None
         return BuildListPartReadWithGlobalPart(
             id=db_build_list_part.id,
             build_list_id=db_build_list_part.build_list_id,
@@ -334,6 +368,8 @@ async def create_global_part_and_add_to_build_list(
             notes=db_build_list_part.notes,
             purchased=db_build_list_part.purchased,
             added_at=db_build_list_part.added_at,
+            build_list_phase_id=db_build_list_part.build_list_phase_id,
+            phase_name=phase_name,
             global_part=GlobalPartRead(**global_part_dict),
         )
 
@@ -383,6 +419,7 @@ async def create_global_part_and_add_to_build_list(
         added_by=current_user.id,
         quantity=request.quantity,
         notes=request.notes,
+        build_list_phase_id=getattr(request, "build_list_phase_id", None),
     )
     db.add(db_build_list_part)
     db.commit()
@@ -396,6 +433,10 @@ async def create_global_part_and_add_to_build_list(
     best = get_best_listing_for_part(db, db_global_part.id)
     global_part_dict = GlobalPartRead.model_validate(db_global_part).model_dump()
     global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+    phase_name = None
+    if db_build_list_part.build_list_phase_id:
+        ph = db.get(DBBuildListPhase, db_build_list_part.build_list_phase_id)
+        phase_name = ph.name if ph else None
     return BuildListPartReadWithGlobalPart(
         id=db_build_list_part.id,
         build_list_id=db_build_list_part.build_list_id,
@@ -405,6 +446,8 @@ async def create_global_part_and_add_to_build_list(
         notes=db_build_list_part.notes,
         purchased=db_build_list_part.purchased,
         added_at=db_build_list_part.added_at,
+        build_list_phase_id=db_build_list_part.build_list_phase_id,
+        phase_name=phase_name,
         global_part=GlobalPartRead(**global_part_dict),
     )
 
@@ -434,7 +477,10 @@ async def get_global_parts_in_build_list(
 
     db_build_list_parts = (
         db.query(DBBuildListPart)
-        .options(joinedload(DBBuildListPart.global_part))
+        .options(
+            joinedload(DBBuildListPart.global_part),
+            joinedload(DBBuildListPart.build_list_phase),
+        )
         .filter(DBBuildListPart.build_list_id == build_list_id)
         .all()
     )
@@ -472,6 +518,8 @@ async def get_global_parts_in_build_list(
             notes=part.notes,
             purchased=part.purchased,
             added_at=part.added_at,
+            build_list_phase_id=part.build_list_phase_id,
+            phase_name=part.build_list_phase.name if part.build_list_phase else None,
             global_part=global_part_read_with_best_price(part.global_part),
         )
         for part in db_build_list_parts
@@ -520,8 +568,12 @@ async def update_global_part_in_build_list(
     # Check authorization - user who added the part, build list owner, or admin can edit it
     require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
 
-    # Update the notes
+    # Update the notes (and optionally phase)
     update_data = build_list_part.model_dump(exclude_unset=True)
+    if "build_list_phase_id" in update_data:
+        _validate_phase_belongs_to_build_list(
+            db, update_data["build_list_phase_id"], build_list_id
+        )
     for key, value in update_data.items():
         setattr(db_build_list_part, key, value)
 

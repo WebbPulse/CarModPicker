@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type {
   BrandResponse,
   BuildListPartReadWithGlobalPart,
+  BuildListPhaseRead,
   CarRead,
   CategoryResponse,
 } from '../../types/Api';
@@ -352,6 +353,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 interface BuildListPartListProps {
   buildListParts: BuildListPartReadWithGlobalPart[];
   categories: CategoryResponse[];
+  viewMode?: 'category' | 'phase';
+  phases?: BuildListPhaseRead[];
   brands?: BrandResponse[];
   carsById?: Record<number, CarRead>;
   loading?: boolean;
@@ -366,9 +369,15 @@ interface BuildListPartListProps {
   emptyMessage?: string;
 }
 
+const PHASE_ICON = '📋';
+const UNASSIGNED_LABEL = 'Unassigned';
+const DEFAULT_PHASES: BuildListPhaseRead[] = [];
+
 const BuildListPartList: React.FC<BuildListPartListProps> = ({
   buildListParts,
   categories,
+  viewMode = 'category',
+  phases = DEFAULT_PHASES,
   brands = DEFAULT_BRANDS,
   carsById = DEFAULT_CARS_BY_ID,
   loading = false,
@@ -427,6 +436,72 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       return nameA.localeCompare(nameB);
     });
   }, [buildListParts, categoryMap]);
+
+  // Phase map: id -> sort_order and id -> name
+  const phaseOrderMap = useMemo(() => {
+    const map = new Map<number, number>();
+    phases.forEach((p) => map.set(p.id, p.sort_order));
+    return map;
+  }, [phases]);
+  const phaseNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    phases.forEach((p) => map.set(p.id, p.name));
+    return map;
+  }, [phases]);
+
+  // Group and sort parts by phase (build_list_phase_id; null = Unassigned)
+  const groupedByPhase = useMemo(() => {
+    const groups = new Map<
+      number | 'unassigned',
+      { phaseName: string; phaseSortOrder: number; parts: BuildListPartReadWithGlobalPart[] }
+    >();
+
+    buildListParts.forEach((part) => {
+      const phaseId = part.build_list_phase_id ?? 'unassigned';
+      const phaseName =
+        phaseId === 'unassigned'
+          ? UNASSIGNED_LABEL
+          : phaseNameMap.get(phaseId) ?? part.phase_name ?? UNASSIGNED_LABEL;
+      const phaseSortOrder =
+        phaseId === 'unassigned'
+          ? 999999
+          : phaseOrderMap.get(phaseId) ?? 999999;
+      if (!groups.has(phaseId)) {
+        groups.set(phaseId, { phaseName, phaseSortOrder, parts: [] });
+      }
+      const g = groups.get(phaseId)!;
+      if (phaseId !== 'unassigned') g.phaseName = phaseName;
+      g.parts.push(part);
+    });
+
+    groups.forEach((group) => {
+      group.parts.sort((a, b) =>
+        a.global_part.name.localeCompare(b.global_part.name)
+      );
+    });
+
+    return Array.from(groups.values()).sort(
+      (a, b) => a.phaseSortOrder - b.phaseSortOrder
+    );
+  }, [buildListParts, phaseOrderMap, phaseNameMap]);
+
+  const displayGroups = useMemo(() => {
+    if (viewMode === 'phase') {
+      return groupedByPhase.map((g) => ({
+        category: null as CategoryResponse | null,
+        parts: g.parts,
+        groupLabel: g.phaseName,
+        groupIcon: PHASE_ICON,
+      }));
+    }
+    return groupedParts.map((g) => ({
+      category: g.category,
+      parts: g.parts,
+      groupLabel:
+        g.category?.display_name || g.category?.name || 'Uncategorized',
+      groupIcon: g.category?.icon || '📦',
+    }));
+  }, [viewMode, groupedParts, groupedByPhase]);
 
   // Calculate total price (from best_price_cents when available)
   const totalPrice = useMemo(() => {
@@ -589,25 +664,22 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         </div>
       </Card>
 
-      {/* Parts grouped by category - table layout matching global-parts/search */}
-      {groupedParts.map((group) => {
-        const categoryName =
-          group.category?.display_name ||
-          group.category?.name ||
-          'Uncategorized';
-        const categoryIcon = group.category?.icon || '📦';
-        // Use category ID as key, or fallback to first part's category_id for uncategorized items
+      {/* Parts grouped by category or phase - table layout matching global-parts/search */}
+      {displayGroups.map((group, index) => {
         const groupKey =
-          group.category?.id ??
-          group.parts[0]?.global_part.category_id ??
-          'uncategorized';
-
+          viewMode === 'phase'
+            ? `phase-${group.groupLabel}-${index}`
+            : String(
+                group.category?.id ??
+                  group.parts[0]?.global_part.category_id ??
+                  'uncategorized'
+              );
         return (
           <BuildListPartTable
             key={groupKey}
             group={group}
-            categoryName={categoryName}
-            categoryIcon={categoryIcon}
+            categoryName={group.groupLabel}
+            categoryIcon={group.groupIcon}
             brands={brands}
             carsById={carsById}
             {...(onEdit != null && { onEdit })}

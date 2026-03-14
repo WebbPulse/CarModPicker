@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type {
   BuildListPartReadWithGlobalPart,
   BuildListPartUpdate,
+  BuildListPhaseRead,
 } from '../../types/Api';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
@@ -9,6 +10,7 @@ import Dialog from '../common/Dialog';
 
 interface EditBuildListPartFormProps {
   buildListPart: BuildListPartReadWithGlobalPart;
+  phases: BuildListPhaseRead[];
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (
@@ -20,6 +22,7 @@ interface EditBuildListPartFormProps {
 
 const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
   buildListPart,
+  phases,
   isOpen,
   onClose,
   onSubmit,
@@ -27,15 +30,24 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
 }) => {
   const [notes, setNotes] = useState(buildListPart.notes || '');
   const [quantity, setQuantity] = useState(buildListPart.quantity ?? 1);
+  const [phaseId, setPhaseId] = useState<number | null>(
+    buildListPart.build_list_phase_id ?? null
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setNotes(buildListPart.notes || '');
       setQuantity(buildListPart.quantity ?? 1);
+      setPhaseId(buildListPart.build_list_phase_id ?? null);
       setError(null);
     }
-  }, [isOpen, buildListPart.notes, buildListPart.quantity]);
+  }, [
+    isOpen,
+    buildListPart.notes,
+    buildListPart.quantity,
+    buildListPart.build_list_phase_id,
+  ]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +56,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
     void onSubmit(buildListPart.id, {
       notes: notes || null,
       quantity: Math.max(1, quantity),
+      build_list_phase_id: phaseId,
     })
       .then(() => onClose())
       .catch((err) => {
@@ -54,6 +67,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
   const handleClose = () => {
     setNotes(buildListPart.notes || '');
     setQuantity(buildListPart.quantity ?? 1);
+    setPhaseId(buildListPart.build_list_phase_id ?? null);
     setError(null);
     onClose();
   };
@@ -90,6 +104,35 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
             className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           />
         </div>
+
+        {phases.length > 0 && (
+          <div>
+            <label
+              htmlFor="edit-part-phase"
+              className="block text-sm font-medium text-gray-300 mb-2"
+            >
+              Phase
+            </label>
+            <select
+              id="edit-part-phase"
+              value={phaseId ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPhaseId(v === '' ? null : parseInt(v, 10));
+              }}
+              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="">None</option>
+              {phases
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((phase) => (
+                  <option key={phase.id} value={phase.id}>
+                    {phase.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label

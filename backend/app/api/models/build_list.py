@@ -8,6 +8,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list_part import BuildListPart
+    from .build_list_phase import BuildListPhase
     from .build_log import BuildLog
     from .car import Car
     from .report import Report
@@ -35,6 +36,12 @@ class BuildList(Base):
         "BuildListPart",
         back_populates="build_list",
         cascade="all, delete-orphan",
+    )
+    build_list_phases: Mapped[List["BuildListPhase"]] = relationship(
+        "BuildListPhase",
+        back_populates="build_list",
+        cascade="all, delete-orphan",
+        order_by="BuildListPhase.sort_order",
     )
     # votes and reports
     votes: Mapped[List["Vote"]] = relationship(
