@@ -637,8 +637,10 @@ function UserManagement() {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  subscription_status: e.target
-                    .value as 'active' | 'cancelled' | 'expired',
+                  subscription_status: e.target.value as
+                    | 'active'
+                    | 'cancelled'
+                    | 'expired',
                 })
               }
               className="w-full rounded bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2"

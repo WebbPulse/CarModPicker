@@ -100,11 +100,46 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   const showActions = Boolean(onEdit || onDelete);
 
   // Percentages that sum to 100% so the table fills horizontal space (checkbox, part, brand, part#, fit, qty, price, actions).
-  const columnWidths = (() => {
-    if (showCheckbox && showActions) return [4, 28, 12, 12, 10, 8, 12, 14];
-    if (showCheckbox && !showActions) return [4, 38, 14, 14, 12, 10, 8];
-    if (!showCheckbox && showActions) return [30, 12, 12, 10, 10, 12, 14];
-    return [35, 15, 15, 12, 10, 13];
+  const columnWidths = ((): { key: string; width: number }[] => {
+    if (showCheckbox && showActions)
+      return [
+        { key: 'cb', width: 4 },
+        { key: 'part', width: 28 },
+        { key: 'brand', width: 12 },
+        { key: 'partNum', width: 12 },
+        { key: 'fit', width: 10 },
+        { key: 'qty', width: 8 },
+        { key: 'price', width: 12 },
+        { key: 'actions', width: 14 },
+      ];
+    if (showCheckbox && !showActions)
+      return [
+        { key: 'cb', width: 4 },
+        { key: 'part', width: 38 },
+        { key: 'brand', width: 14 },
+        { key: 'partNum', width: 14 },
+        { key: 'fit', width: 12 },
+        { key: 'qty', width: 10 },
+        { key: 'price', width: 8 },
+      ];
+    if (!showCheckbox && showActions)
+      return [
+        { key: 'part', width: 30 },
+        { key: 'brand', width: 12 },
+        { key: 'partNum', width: 12 },
+        { key: 'fit', width: 10 },
+        { key: 'qty', width: 10 },
+        { key: 'price', width: 12 },
+        { key: 'actions', width: 14 },
+      ];
+    return [
+      { key: 'part', width: 35 },
+      { key: 'brand', width: 15 },
+      { key: 'partNum', width: 15 },
+      { key: 'fit', width: 12 },
+      { key: 'qty', width: 10 },
+      { key: 'price', width: 13 },
+    ];
   })();
 
   return (
@@ -125,8 +160,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
         <div className="overflow-x-auto min-w-0 rounded-inherit">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              {columnWidths.map((pct, i) => (
-                <col key={i} style={{ width: `${pct}%` }} />
+              {columnWidths.map((col) => (
+                <col key={col.key} style={{ width: `${col.width}%` }} />
               ))}
             </colgroup>
             <thead>

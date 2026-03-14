@@ -92,10 +92,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
 
-  const {
-    data: phases,
-    executeRequest: fetchPhases,
-  } = useApiRequest(fetchPhasesRequestFn);
+  const { data: phases, executeRequest: fetchPhases } =
+    useApiRequest(fetchPhasesRequestFn);
 
   const brands = brandsData ?? [];
   const carsById = useMemo(() => {
@@ -253,9 +251,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       setNewPhaseName('');
       void fetchPhases(buildListId);
     } catch (err) {
-      setPhaseError(
-        err instanceof Error ? err.message : 'Failed to add phase'
-      );
+      setPhaseError(err instanceof Error ? err.message : 'Failed to add phase');
     } finally {
       setIsAddingPhase(false);
     }
@@ -425,9 +421,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
       {canManageParts && (
         <Card className="p-4">
-          <h3 className="text-base font-semibold text-gray-200 mb-2">
-            Phases
-          </h3>
+          <h3 className="text-base font-semibold text-gray-200 mb-2">Phases</h3>
           <p className="text-sm text-gray-400 mb-3">
             Organize parts into phases or priority groups. Assign phases when
             adding or editing parts.
@@ -464,9 +458,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
                         <input
                           type="text"
                           value={editingPhaseName}
-                          onChange={(e) =>
-                            setEditingPhaseName(e.target.value)
-                          }
+                          onChange={(e) => setEditingPhaseName(e.target.value)}
                           className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
                         />
                         <SecondaryButton
