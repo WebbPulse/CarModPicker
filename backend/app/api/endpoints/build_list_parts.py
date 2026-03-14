@@ -53,17 +53,13 @@ from app.api.utils.response_patterns import ResponsePatterns
 router = APIRouter()
 
 
-def _validate_phase_belongs_to_build_list(
-    db, phase_id: Optional[int], build_list_id: int
-) -> None:
+def _validate_phase_belongs_to_build_list(db, phase_id: Optional[int], build_list_id: int) -> None:
     """If phase_id is set, verify the phase exists and belongs to the build list. Raises 404/400."""
     if phase_id is None:
         return
     phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
     if phase.build_list_id != build_list_id:
-        ResponsePatterns.raise_not_found(
-            "Build list phase does not belong to this build list"
-        )
+        ResponsePatterns.raise_not_found("Build list phase does not belong to this build list")
 
 
 @router.get(
@@ -129,9 +125,7 @@ async def add_global_part_to_build_list(
     if existing_relationship:
         ResponsePatterns.raise_conflict("Global part already exists in build list")
 
-    _validate_phase_belongs_to_build_list(
-        db, getattr(build_list_part, "build_list_phase_id", None), build_list_id
-    )
+    _validate_phase_belongs_to_build_list(db, getattr(build_list_part, "build_list_phase_id", None), build_list_id)
 
     # Create the relationship
     db_build_list_part = DBBuildListPart(
@@ -297,9 +291,7 @@ async def create_global_part_and_add_to_build_list(
     # Verify category exists
     _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
-    _validate_phase_belongs_to_build_list(
-        db, getattr(request, "build_list_phase_id", None), build_list_id
-    )
+    _validate_phase_belongs_to_build_list(db, getattr(request, "build_list_phase_id", None), build_list_id)
 
     # Dedup: find existing part by URL, brand+part_number, or GTIN
     part_by_url: Optional[DBGlobalPart] = None
@@ -571,9 +563,7 @@ async def update_global_part_in_build_list(
     # Update the notes (and optionally phase)
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
-        _validate_phase_belongs_to_build_list(
-            db, update_data["build_list_phase_id"], build_list_id
-        )
+        _validate_phase_belongs_to_build_list(db, update_data["build_list_phase_id"], build_list_id)
     for key, value in update_data.items():
         setattr(db_build_list_part, key, value)
 
