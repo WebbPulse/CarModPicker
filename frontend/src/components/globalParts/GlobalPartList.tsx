@@ -40,22 +40,22 @@ type TableColumnKey =
   | 'price'
   | 'actions';
 
-// Part ~25 chars + thumb; price/rating/actions get more space; part_number truncated more; fit less.
+// Rebalanced so part name and part_number get more share; table fills container via % of this total.
 const DEFAULT_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
-  part: 200,
-  brand: 50,
-  part_number: 24,
-  category: 60,
+  part: 300,
+  brand: 75,
+  part_number: 90,
+  category: 80,
   fit: 80,
   rating: 120,
   price: 100,
-  actions: 192,
+  actions: 195,
 };
 
 const MIN_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
-  part: 100,
-  brand: 40,
-  part_number: 20,
+  part: 120,
+  brand: 50,
+  part_number: 40,
   category: 50,
   fit: 56,
   rating: 80,

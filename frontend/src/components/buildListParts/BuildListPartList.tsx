@@ -97,6 +97,15 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   canDeletePart,
 }) => {
   const showCheckbox = canMarkPurchased && onTogglePurchased;
+  const showActions = Boolean(onEdit || onDelete);
+
+  // Percentages that sum to 100% so the table fills horizontal space (checkbox, part, brand, part#, fit, qty, price, actions).
+  const columnWidths = (() => {
+    if (showCheckbox && showActions) return [4, 28, 12, 12, 10, 8, 12, 14];
+    if (showCheckbox && !showActions) return [4, 38, 14, 14, 12, 10, 8];
+    if (!showCheckbox && showActions) return [30, 12, 12, 10, 10, 12, 14];
+    return [35, 15, 15, 12, 10, 13];
+  })();
 
   return (
     <div className="space-y-2">
@@ -111,19 +120,14 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
         </span>
       </div>
 
-      {/* Table - matching global-parts/search layout */}
+      {/* Table - matching global-parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
         <div className="overflow-x-auto min-w-0 rounded-inherit">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              {showCheckbox && <col style={{ width: '5rem' }} />}
-              <col style={{ width: '40%' }} />
-              <col style={{ width: '7rem' }} />
-              <col style={{ width: '6rem' }} />
-              <col style={{ width: '5rem' }} />
-              <col style={{ width: '3rem' }} />
-              <col style={{ width: '5rem' }} />
-              {(onEdit || onDelete) && <col style={{ width: '10rem' }} />}
+              {columnWidths.map((pct, i) => (
+                <col key={i} style={{ width: `${pct}%` }} />
+              ))}
             </colgroup>
             <thead>
               <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
@@ -453,7 +457,11 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const groupedByPhase = useMemo(() => {
     const groups = new Map<
       number | 'unassigned',
-      { phaseName: string; phaseSortOrder: number; parts: BuildListPartReadWithGlobalPart[] }
+      {
+        phaseName: string;
+        phaseSortOrder: number;
+        parts: BuildListPartReadWithGlobalPart[];
+      }
     >();
 
     buildListParts.forEach((part) => {
@@ -461,11 +469,11 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       const phaseName =
         phaseId === 'unassigned'
           ? UNASSIGNED_LABEL
-          : phaseNameMap.get(phaseId) ?? part.phase_name ?? UNASSIGNED_LABEL;
+          : (phaseNameMap.get(phaseId) ?? part.phase_name ?? UNASSIGNED_LABEL);
       const phaseSortOrder =
         phaseId === 'unassigned'
           ? 999999
-          : phaseOrderMap.get(phaseId) ?? 999999;
+          : (phaseOrderMap.get(phaseId) ?? 999999);
       if (!groups.has(phaseId)) {
         groups.set(phaseId, { phaseName, phaseSortOrder, parts: [] });
       }
