@@ -35,7 +35,13 @@ jobs:
       - name: Run linting
         run: |
           cd backend
-          black --check --diff .
+          echo "=== Black and Python version (CI) ==="
+          black --version
+          python --version
+          echo "=== CWD ==="
+          pwd
+          echo "=== Run Black with explicit config (match backend pyproject.toml) ==="
+          black --config pyproject.toml --line-length 120 --target-version py311 --check --diff .
 
       - name: Check import sorting
         run: |
