@@ -55,8 +55,25 @@ const GlobalPartsCatalog = lazy(
 const UserGlobalParts = lazy(
   () => import('./pages/globalParts/UserGlobalParts.tsx')
 );
+
+/** Paths where ad banners are not shown (landing + auth). */
+const AD_BANNER_EXCLUDED_PATHS = new Set([
+  '/',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/forgot-password/confirm',
+  '/verify-email',
+  '/verify-email/confirm',
+]);
+
+/** Side margin on landing page (lg+) to match ad column width (AdBanner: 20px outer + 160px ad). Keep in sync with lg:pl-[180px] lg:pr-[180px] below. */
+const LANDING_PAGE_SIDE_MARGIN_PX = 180;
+
 function App() {
   const location = useLocation();
+  const showAds = !AD_BANNER_EXCLUDED_PATHS.has(location.pathname);
+  const isLandingPage = location.pathname === '/';
 
   return (
     <ErrorBoundary>
@@ -76,15 +93,19 @@ function App() {
 
         <main className="flex-grow relative z-10 flex w-full">
           {/* Left margin ad - new ad on each route (key forces remount) */}
-          <AdBanner
-            key={`left-${location.pathname}`}
-            side="left"
-            slotId={
-              import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as string | undefined
-            }
-          />
+          {showAds && (
+            <AdBanner
+              key={`left-${location.pathname}`}
+              side="left"
+              slotId={
+                import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as string | undefined
+              }
+            />
+          )}
 
-          <div className="main-content flex-1 min-w-0 w-full">
+          <div
+            className={`main-content flex-1 min-w-0 w-full ${isLandingPage ? 'lg:pl-[180px] lg:pr-[180px]' : ''}`}
+          >
             <Suspense
               fallback={
                 <div className="container mx-auto px-4 py-20">
@@ -186,13 +207,15 @@ function App() {
           </div>
 
           {/* Right margin ad - new ad on each route (key forces remount) */}
-          <AdBanner
-            key={`right-${location.pathname}`}
-            side="right"
-            slotId={
-              import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as string | undefined
-            }
-          />
+          {showAds && (
+            <AdBanner
+              key={`right-${location.pathname}`}
+              side="right"
+              slotId={
+                import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as string | undefined
+              }
+            />
+          )}
         </main>
 
         <Footer />
