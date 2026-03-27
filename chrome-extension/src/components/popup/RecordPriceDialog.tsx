@@ -146,7 +146,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
               ) {
                 frontendUrl = "http://localhost:4000";
               } else if (apiUrl.includes("staging")) {
-                frontendUrl = "https://carmodpicker.staging.webbpulse.com";
+                frontendUrl = "https://staging.carmodpicker.com";
               }
               const partUrl = `${frontendUrl}/global-parts/${existingPart.id}`;
               if (openInNewTab) {
