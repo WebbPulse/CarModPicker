@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const API_URLS = {
   prod: "https://api.carmodpicker.com/api",
-  staging: "https://api.carmodpicker.staging.webbpulse.com/api",
+  staging: "https://api.staging.carmodpicker.com/api",
   localhost: "http://localhost:4000/api",
 } as const;
 

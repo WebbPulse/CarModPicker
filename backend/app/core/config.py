@@ -77,8 +77,8 @@ class Settings(BaseSettings):
             "http://localhost,http://localhost:3000,http://localhost:4000,"
             "https://carmodpicker.com,"
             "https://api.carmodpicker.com,"
-            "https://carmodpicker.staging.webbpulse.com,"
-            "https://api.carmodpicker.staging.webbpulse.com"
+            "https://staging.carmodpicker.com,"
+            "https://api.staging.carmodpicker.com"
         ),
         description="Comma-separated list of allowed origins",
     )
