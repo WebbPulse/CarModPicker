@@ -14,10 +14,6 @@
     "usernamehw.errorlens",
 
     // General productivity
-    "eamodio.gitlens",
-
-    // Optional but helpful
-    "gruntfuggly.todo-tree",
-    "yzhang.markdown-all-in-one"
+    "eamodio.gitlens"
   ]
 }
