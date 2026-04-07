@@ -111,3 +111,19 @@ coverage/
 # Kubernetes secrets
 *-secrets.yaml
 scripts/output
+
+# ===========================================
+# Terraform
+# ===========================================
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
