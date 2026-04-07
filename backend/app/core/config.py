@@ -76,6 +76,7 @@ class Settings(BaseSettings):
         default=(
             "http://localhost,http://localhost:3000,http://localhost:4000,"
             "https://carmodpicker.com,"
+            "https://www.carmodpicker.com,"
             "https://api.carmodpicker.com,"
             "https://carmodpicker.staging.webbpulse.com,"
             "https://api.carmodpicker.staging.webbpulse.com"
