@@ -4,8 +4,7 @@
   // ============================================
 
   // Python Language Server & Type Checking
-  // "None" uses Cursor's built-in
-  "python.languageServer": "None",
+  "python.languageServer": "Default",
 
   // Pyright Analysis Settings
   "python.analysis.typeCheckingMode": "standard",
