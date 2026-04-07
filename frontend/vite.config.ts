@@ -16,6 +16,9 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: ['www.carmodpicker.com', 'carmodpicker.com'],
+  },
   build: {
     rollupOptions: {
       output: {
