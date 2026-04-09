@@ -65,9 +65,8 @@ class Settings(BaseSettings):
                 object.__setattr__(self, "AWS_REGION", "auto")
 
         # Handle endpoint URL
-        if not self.S3_ENDPOINT_URL or self.S3_ENDPOINT_URL == "https://storage.railway.app":
-            if self.AWS_ENDPOINT_URL:
-                object.__setattr__(self, "S3_ENDPOINT_URL", self.AWS_ENDPOINT_URL)
+        if not self.S3_ENDPOINT_URL and self.AWS_ENDPOINT_URL:
+            object.__setattr__(self, "S3_ENDPOINT_URL", self.AWS_ENDPOINT_URL)
 
         return self
 
@@ -162,8 +161,8 @@ class Settings(BaseSettings):
         description="Alternative name for region (maps to AWS_REGION if AWS_REGION is not set)",
     )
     S3_ENDPOINT_URL: str = Field(
-        default="https://storage.railway.app",
-        description="Railway Storage Bucket endpoint URL. Also accepts AWS_ENDPOINT_URL.",
+        default="",
+        description="S3 endpoint URL. Leave empty for native AWS S3. Set to Railway endpoint for Railway deployments.",
     )
     AWS_ENDPOINT_URL: str = Field(
         default="",

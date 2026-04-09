@@ -15,36 +15,43 @@ resource "aws_route53_record" "apex_a" {
   }
 }
 
-# www → Railway frontend
+# www → CloudFront distribution
+# NOTE: CloudFront alias records must use type A with an alias block (not CNAME).
 resource "aws_route53_record" "www" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
   name    = "www.carmodpicker.com"
-  type    = "CNAME"
-  ttl     = 300
-  records = ["jo3zzwr7.up.railway.app"]
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
 }
 
-resource "aws_route53_record" "railway_verify_www" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "_railway-verify.www.carmodpicker.com"
-  type    = "TXT"
-  ttl     = 300
-  records = ["railway-verify=ea13a6f8d9a24d8af26da62167f9c217c8b88294ee24d1fdd1a0b9a129d34664"]
-}
-
-# api → Railway backend
+# api → App Runner custom domain
+# App Runner provisions its own certificate for the custom domain; we just need
+# the CNAME record pointing to the App Runner service URL.
 resource "aws_route53_record" "api" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
   name    = "api.carmodpicker.com"
   type    = "CNAME"
-  ttl     = 300
-  records = ["8lx3zk49.up.railway.app"]
+  ttl     = 60
+  records = [aws_apprunner_service.backend.service_url]
 }
 
-resource "aws_route53_record" "railway_verify_api" {
+# App Runner custom domain validation records
+# aws_apprunner_custom_domain_association exposes certificate_validation_records
+# that must be added to DNS for App Runner to activate the custom domain.
+resource "aws_route53_record" "apprunner_validation" {
+  for_each = {
+    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
+    r.name => r
+  }
+
   zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "_railway-verify.api.carmodpicker.com"
-  type    = "TXT"
-  ttl     = 300
-  records = ["railway-verify=bd2396189656a92092ba7bdc8c8a1e3ecae3fc523fa11d3eaa670c309e018a2a"]
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 60
+  records = [each.value.value]
 }
