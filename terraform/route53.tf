@@ -9,8 +9,8 @@ resource "aws_route53_record" "apex_a" {
   type    = "A"
 
   alias {
-    name                   = "s3-website-us-west-1.amazonaws.com"
-    zone_id                = "Z2F56UZL2M1ACD" # S3 hosted zone ID for us-west-1
+    name                   = "s3-website-us-west-2.amazonaws.com"
+    zone_id                = "Z3BJ6K6RIION7M" # S3 hosted zone ID for us-west-2
     evaluate_target_health = false
   }
 }

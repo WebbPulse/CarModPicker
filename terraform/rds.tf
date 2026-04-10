@@ -1,6 +1,6 @@
 resource "aws_db_subnet_group" "main" {
   name       = "${local.prefix}-db-subnet-group"
-  subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+  subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   tags = { Name = "${local.prefix}-db-subnet-group" }
 }

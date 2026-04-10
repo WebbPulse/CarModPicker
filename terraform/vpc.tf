@@ -12,25 +12,23 @@ resource "aws_internet_gateway" "main" {
   tags = { Name = "${local.prefix}-igw" }
 }
 
-# us-west-1 has two AZs: us-west-1b and us-west-1c.
-# us-west-1a was retired and is unavailable to most accounts.
 # RDS subnet groups require subnets in at least two AZs.
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+
+  tags = { Name = "${local.prefix}-public-a" }
+}
+
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
   availability_zone       = "${var.aws_region}b"
   map_public_ip_on_launch = true
 
   tags = { Name = "${local.prefix}-public-b" }
-}
-
-resource "aws_subnet" "public_c" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "${var.aws_region}c"
-  map_public_ip_on_launch = true
-
-  tags = { Name = "${local.prefix}-public-c" }
 }
 
 resource "aws_route_table" "public" {
@@ -49,7 +47,7 @@ resource "aws_route_table_association" "public_a" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "public_c" {
-  subnet_id      = aws_subnet.public_c.id
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
