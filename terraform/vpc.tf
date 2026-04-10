@@ -21,7 +21,7 @@ resource "aws_subnet" "public_a" {
   availability_zone       = "${var.aws_region}b"
   map_public_ip_on_launch = true
 
-  tags = { Name = "${local.prefix}-public-a" }
+  tags = { Name = "${local.prefix}-public-b" }
 }
 
 resource "aws_subnet" "public_c" {
