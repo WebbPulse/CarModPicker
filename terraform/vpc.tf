@@ -12,12 +12,13 @@ resource "aws_internet_gateway" "main" {
   tags = { Name = "${local.prefix}-igw" }
 }
 
-# us-west-1 has two AZs: us-west-1a and us-west-1c.
+# us-west-1 has two AZs: us-west-1b and us-west-1c.
+# us-west-1a was retired and is unavailable to most accounts.
 # RDS subnet groups require subnets in at least two AZs.
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.aws_region}a"
+  availability_zone       = "${var.aws_region}b"
   map_public_ip_on_launch = true
 
   tags = { Name = "${local.prefix}-public-a" }

@@ -57,13 +57,13 @@ variable "sendgrid_api_key" {
 variable "sendgrid_verify_email_template_id" {
   description = "SendGrid template ID for email verification"
   type        = string
-  default     = ""
+  default     = "d-91e5943cbda84ed8945e83bd6fe781e5"
 }
 
 variable "sendgrid_reset_password_template_id" {
   description = "SendGrid template ID for password reset"
   type        = string
-  default     = ""
+  default     = "d-20d2121876084bb6a3ed25ef22fd9ad1"
 }
 
 variable "email_from" {
