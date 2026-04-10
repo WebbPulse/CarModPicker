@@ -52,15 +52,16 @@ resource "aws_route53_record" "api" {
 #
 
 
-resource "aws_route53_record" "apprunner_validation" {
-  for_each = {
-    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
-    r.name => r
-  }
 
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  ttl     = 60
-  records = [each.value.value]
-}
+#resource "aws_route53_record" "apprunner_validation" {
+#  for_each = {
+#    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
+#    r.name => r
+#  }
+#
+#  zone_id = aws_route53_zone.carmodpicker.zone_id
+#  name    = each.value.name
+#  type    = each.value.type
+#  ttl     = 60
+#  records = [each.value.value]
+#}
