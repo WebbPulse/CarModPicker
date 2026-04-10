@@ -74,22 +74,20 @@ class StorageService:
             return
 
         try:
-            self.s3_client = boto3.client(  # type: ignore[redundant-cast]
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_REGION,
-                endpoint_url=settings.S3_ENDPOINT_URL,
-            )
+            # Pass None for empty strings so boto3 falls back to the IAM role
+            # credential chain (used on App Runner / EC2 / ECS). Explicit non-empty
+            # values take precedence (used on Railway with static bucket keys).
+            client_kwargs = {
+                "aws_access_key_id": settings.AWS_ACCESS_KEY_ID or None,
+                "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY or None,
+                "region_name": settings.AWS_REGION or None,
+                "endpoint_url": settings.S3_ENDPOINT_URL or None,
+            }
+
+            self.s3_client = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
 
             # Create presigner client for generating presigned URLs
-            self.s3_client_presigner = boto3.client(  # type: ignore[redundant-cast]
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_REGION,
-                endpoint_url=settings.S3_ENDPOINT_URL,
-            )
+            self.s3_client_presigner = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
 
             # Verify bucket exists and is accessible
             try:
