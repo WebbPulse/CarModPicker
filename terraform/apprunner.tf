@@ -105,6 +105,7 @@ resource "aws_apprunner_service" "backend" {
 
         # Non-sensitive runtime configuration
         runtime_environment_variables = {
+          DEBUG               = "false"
           RAILWAY_ENVIRONMENT = "production"
           PORT                = "8000"
           BUCKET              = aws_s3_bucket.user_images.bucket
@@ -115,10 +116,10 @@ resource "aws_apprunner_service" "backend" {
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
-          DATABASE_URL                       = aws_secretsmanager_secret_version.database_url.arn
-          SECRET_KEY                         = aws_secretsmanager_secret_version.secret_key.arn
-          SENDGRID_API_KEY                   = aws_secretsmanager_secret_version.sendgrid_api_key.arn
-          SENDGRID_VERIFY_EMAIL_TEMPLATE_ID  = aws_secretsmanager_secret_version.sendgrid_verify_template.arn
+          DATABASE_URL                        = aws_secretsmanager_secret_version.database_url.arn
+          SECRET_KEY                          = aws_secretsmanager_secret_version.secret_key.arn
+          SENDGRID_API_KEY                    = aws_secretsmanager_secret_version.sendgrid_api_key.arn
+          SENDGRID_VERIFY_EMAIL_TEMPLATE_ID   = aws_secretsmanager_secret_version.sendgrid_verify_template.arn
           SENDGRID_RESET_PASSWORD_TEMPLATE_ID = aws_secretsmanager_secret_version.sendgrid_reset_template.arn
         }
       }
