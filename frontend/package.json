@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.7",
-    "axios": "^1.9.0",
+    "axios": "^1.15.0",
     "eslint-plugin-react-dom": "^2.12.4",
     "eslint-plugin-react-x": "^2.12.4",
     "react": "^19.1.0",
