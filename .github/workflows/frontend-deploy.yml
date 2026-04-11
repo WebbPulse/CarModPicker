@@ -39,7 +39,7 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          VITE_PROD_API_URL: https://api.carmodpicker.com
+          VITE_API_URL: https://api.carmodpicker.com
         run: npm run build
 
       - name: Configure AWS credentials via OIDC
