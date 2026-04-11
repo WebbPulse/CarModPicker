@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:staging": "VITE_BACKEND=staging vite",
-    "dev:prod": "VITE_BACKEND=prod vite",
+    "dev:production": "VITE_BACKEND=production vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

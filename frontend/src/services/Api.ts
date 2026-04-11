@@ -80,7 +80,7 @@ const getApiBaseUrl = () => {
         return normalizeApiUrl(stagingUrl.trim());
       }
     }
-    if (backend === 'prod') {
+    if (backend === 'production') {
       const prodUrl = import.meta.env['VITE_PROD_API_URL'] as
         | string
         | undefined;

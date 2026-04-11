@@ -57,9 +57,8 @@ resource "aws_db_instance" "main" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:00-sun:05:00"
 
-  deletion_protection     = true
-  skip_final_snapshot     = false
-  final_snapshot_identifier = "${local.prefix}-postgres-final"
+  deletion_protection     = false
+  skip_final_snapshot     = true
 
   tags = { Name = "${local.prefix}-postgres" }
 }
