@@ -13,11 +13,10 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.backend.repository_url
 }
 
-# BLOCKED: depends on aws_apprunner_service.backend (blocked in apprunner.tf).
-#output "app_runner_service_url" {
-#  description = "Default App Runner service URL (before custom domain is active)"
-#  value       = "https://${aws_apprunner_service.backend.service_url}"
-#}
+output "app_runner_service_url" {
+  description = "Default App Runner service URL (before custom domain is active)"
+  value       = "https://${aws_apprunner_service.backend.service_url}"
+}
 
 output "rds_endpoint" {
   description = "RDS PostgreSQL endpoint (host:port)"

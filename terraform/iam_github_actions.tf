@@ -30,63 +30,60 @@ resource "aws_iam_role" "github_actions_deploy" {
   })
 }
 
-# BLOCKED: references aws_apprunner_service.backend.arn and
-# aws_cloudfront_distribution.frontend.arn, both of which are blocked.
-# Uncomment once App Runner and CloudFront are deployed.
-#resource "aws_iam_role_policy" "github_actions_deploy" {
-#  name = "deploy-permissions"
-#  role = aws_iam_role.github_actions_deploy.id
-#
-#  policy = jsonencode({
-#    Version = "2012-10-17"
-#    Statement = [
-#      # ECR — push backend images
-#      {
-#        Effect = "Allow"
-#        Action = [
-#          "ecr:GetAuthorizationToken",
-#        ]
-#        Resource = "*"
-#      },
-#      {
-#        Effect = "Allow"
-#        Action = [
-#          "ecr:BatchCheckLayerAvailability",
-#          "ecr:CompleteLayerUpload",
-#          "ecr:InitiateLayerUpload",
-#          "ecr:PutImage",
-#          "ecr:UploadLayerPart",
-#          "ecr:BatchGetImage",
-#          "ecr:GetDownloadUrlForLayer",
-#        ]
-#        Resource = aws_ecr_repository.backend.arn
-#      },
-#      # App Runner — trigger redeployment after new image is pushed
-#      {
-#        Effect   = "Allow"
-#        Action   = ["apprunner:StartDeployment"]
-#        Resource = aws_apprunner_service.backend.arn
-#      },
-#      # S3 — sync frontend build artefacts
-#      {
-#        Effect = "Allow"
-#        Action = [
-#          "s3:PutObject",
-#          "s3:GetObject",
-#          "s3:DeleteObject",
-#          "s3:ListBucket",
-#        ]
-#        Resource = [
-#          aws_s3_bucket.frontend.arn,
-#          "${aws_s3_bucket.frontend.arn}/*",
-#        ]
-#      },
-#      # CloudFront — invalidate the cache after a frontend deploy
-#      {
-#        Effect   = "Allow"
-#        Action   = ["cloudfront:CreateInvalidation"]
-#        Resource = aws_cloudfront_distribution.frontend.arn
-#      },
-#    ]
-#  })
-#}
+# NOTE: CloudFront statement uses a placeholder ARN until aws_cloudfront_distribution.frontend
+# is uncommented in cloudfront.tf. Update the Resource to the real distribution ARN after that apply.
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name = "deploy-permissions"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # ECR — push backend images
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = aws_ecr_repository.backend.arn
+      },
+      # App Runner — trigger redeployment after new image is pushed
+      {
+        Effect   = "Allow"
+        Action   = ["apprunner:StartDeployment"]
+        Resource = aws_apprunner_service.backend.arn
+      },
+      # S3 — sync frontend build artefacts
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resource = [
+          aws_s3_bucket.frontend.arn,
+          "${aws_s3_bucket.frontend.arn}/*",
+        ]
+      },
+      # CloudFront — invalidate the cache after a frontend deploy
+      # BLOCKED: aws_cloudfront_distribution.frontend not yet deployed.
+      # Uncomment cloudfront.tf, apply, then this reference will resolve.
+      # For now this statement is omitted; re-apply after CloudFront exists.
+    ]
+  })
+}

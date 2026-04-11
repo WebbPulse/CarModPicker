@@ -30,16 +30,14 @@ resource "aws_route53_record" "apex_a" {
 #  }
 #}
 
-# api → App Runner custom domain
-# BLOCKED: depends on aws_apprunner_service.backend (blocked in apprunner.tf).
-# Uncomment once a Docker image is pushed to ECR and App Runner is deployed.
-#resource "aws_route53_record" "api" {
-#  zone_id = aws_route53_zone.carmodpicker.zone_id
-#  name    = "api.carmodpicker.com"
-#  type    = "CNAME"
-#  ttl     = 60
-#  records = [aws_apprunner_service.backend.service_url]
-#}
+# api → App Runner service URL
+resource "aws_route53_record" "api" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "api.carmodpicker.com"
+  type    = "CNAME"
+  ttl     = 60
+  records = [aws_apprunner_service.backend.service_url]
+}
 
 # App Runner custom domain validation records
 # aws_apprunner_custom_domain_association exposes certificate_validation_records
