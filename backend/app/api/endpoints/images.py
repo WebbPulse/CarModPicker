@@ -1,5 +1,5 @@
 """
-Image upload endpoint for Railway Storage Buckets.
+Image upload endpoint for S3.
 Handles secure image uploads with validation and authentication.
 Supports source URL tracking for deduplication (avoid re-downloading same images).
 """
@@ -56,10 +56,10 @@ async def upload_image(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
-    Upload an image file to Railway Storage Bucket.
+    Upload an image file to S3 bucket.
 
     The file is validated for security (type, size, content) and stored
-    in Railway Storage Bucket. Returns the file key which should be stored
+    in S3 bucket. Returns the file key which should be stored
     in your database. Use the /presigned-url endpoint to get a URL for displaying.
 
     Args:
@@ -162,7 +162,7 @@ async def upload_image(
                     "message": "Image already cached; reused existing",
                 }
 
-        # Upload image to Railway Storage Bucket
+        # Upload image to S3 bucket
         # Force square aspect ratio for user profile pictures
         force_square = entity_type == "user"
         file_key = storage_service.upload_image(
@@ -217,9 +217,9 @@ async def get_presigned_url(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
-    Generate a presigned URL for accessing an image in Railway Storage Bucket.
+    Generate a presigned URL for accessing an image in S3 bucket.
 
-    Since Railway buckets are private, presigned URLs are required to access images.
+    The S3 bucket is private; presigned URLs are required to access images.
     These URLs are temporary and expire after the specified time (default: 24 hours).
 
     For security, if a user is authenticated, we verify they own the image.
@@ -274,7 +274,7 @@ async def delete_image(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
-    Delete an image from Railway Storage Bucket.
+    Delete an image from S3 bucket.
 
     Only the owner of the image can delete it. Ownership is verified by checking
     the user_hash embedded in the file_key.
@@ -329,7 +329,7 @@ async def get_bucket_object_count(
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """
-    Get the total count of objects in the Railway Storage Bucket (admin only).
+    Get the total count of objects in the S3 bucket (admin only).
 
     Args:
         current_user: Authenticated admin user (from JWT token)

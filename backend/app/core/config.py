@@ -15,16 +15,14 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = "sqlite:///./test.db"  # will load url from env but will fallback to this if not found
 
-    # Railway-specific database URL (Railway provides this automatically)
-    # This will override DATABASE_URL if present
+    # DATABASE_URL is injected at runtime (Secrets Manager on App Runner, .env locally).
+    # This validator ensures the env value takes precedence over the Pydantic default.
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: Any) -> str:
-        # If there's a Railway DATABASE_URL in environment, use it
-        railway_db_url = os.getenv("DATABASE_URL")
-        if railway_db_url:
-            # Railway's DATABASE_URL already includes connection parameters
-            return railway_db_url
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            return db_url
         return str(v)
 
     # JWT Auth
@@ -41,7 +39,7 @@ class Settings(BaseSettings):
     def validate_and_normalize_settings(self) -> "Settings":
         """Validate settings and normalize storage variable names."""
         # Validate SECRET_KEY in production
-        is_prod = not self.DEBUG and self.RAILWAY_ENVIRONMENT.lower() != "development"
+        is_prod = not self.DEBUG and self.APP_ENVIRONMENT.lower() != "development"
         if not self.SECRET_KEY and is_prod:
             # In production, SECRET_KEY must be set
             import warnings
@@ -96,15 +94,15 @@ class Settings(BaseSettings):
 
         return origins
 
-    # Railway deployment settings
+    # Runtime environment settings
     PORT: int = 8000
-    RAILWAY_ENVIRONMENT: str = "development"
+    APP_ENVIRONMENT: str = "development"  # Set to "production" on App Runner via Terraform
 
     # Security settings
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
-        return not self.DEBUG and self.RAILWAY_ENVIRONMENT.lower() != "development"
+        return not self.DEBUG and self.APP_ENVIRONMENT.lower() != "development"
 
     @property
     def secure_cookies(self) -> bool:
@@ -132,13 +130,13 @@ class Settings(BaseSettings):
     RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE: int = 30
     RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR: int = 300
 
-    # Railway Storage Bucket settings for image uploads
-    # These variables are automatically provided by Railway when you reference the bucket
-    # See: https://docs.railway.com/guides/storage-buckets#railway-provided-variables
-    # Accepts both Railway's variable names and alternative names for flexibility
+    # S3 image storage settings (carmodpicker-prod-user-images bucket on AWS).
+    # On App Runner, BUCKET and AWS_REGION are set via Terraform env vars; credentials
+    # come from the App Runner instance IAM role (AWS_ACCESS_KEY_ID/SECRET left empty).
+    # Accepts alternative variable names for local dev flexibility.
     BUCKET: str = Field(
         default="",
-        description="Railway bucket name (from Railway Storage Bucket variable reference). Also accepts S3_BUCKET_NAME.",
+        description="S3 bucket name for image uploads. Also accepts S3_BUCKET_NAME.",
     )
     S3_BUCKET_NAME: str = Field(
         default="",
@@ -146,15 +144,15 @@ class Settings(BaseSettings):
     )
     AWS_ACCESS_KEY_ID: str = Field(
         default="",
-        description="Railway bucket access key ID (from Railway Storage Bucket variable reference)",
+        description="AWS access key ID. Leave empty on App Runner to use the instance IAM role.",
     )
     AWS_SECRET_ACCESS_KEY: str = Field(
         default="",
-        description="Railway bucket secret access key (from Railway Storage Bucket variable reference)",
+        description="AWS secret access key. Leave empty on App Runner to use the instance IAM role.",
     )
     AWS_REGION: str = Field(
         default="auto",
-        description="Railway bucket region (typically 'auto' for Railway buckets). Also accepts AWS_DEFAULT_REGION.",
+        description="AWS region for the S3 bucket. Also accepts AWS_DEFAULT_REGION.",
     )
     AWS_DEFAULT_REGION: str = Field(
         default="",
@@ -162,7 +160,7 @@ class Settings(BaseSettings):
     )
     S3_ENDPOINT_URL: str = Field(
         default="",
-        description="S3 endpoint URL. Leave empty for native AWS S3. Set to Railway endpoint for Railway deployments.",
+        description="S3 endpoint URL. Leave empty for native AWS S3.",
     )
     AWS_ENDPOINT_URL: str = Field(
         default="",
@@ -174,10 +172,9 @@ class Settings(BaseSettings):
         default="jpg,jpeg,png,gif,webp",
         description="Comma-separated list of allowed image file extensions",
     )
-    # Presigned URL expiration (in seconds) - Railway allows up to 90 days (7776000 seconds)
     PRESIGNED_URL_EXPIRATION: int = Field(
         default=86400,
-        description="Presigned URL expiration time in seconds (default: 24 hours, max: 90 days)",
+        description="Presigned URL expiration time in seconds (default: 24 hours)",
     )
 
     @property

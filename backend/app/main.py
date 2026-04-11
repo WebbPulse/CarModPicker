@@ -181,7 +181,7 @@ endpoint_registry.register_endpoint(
     images.router,
     prefix="/images",
     tags=["images"],
-    description="Image upload and management operations using Railway Storage Buckets",
+    description="Image upload and management operations using S3",
 )
 
 # Build logs endpoint

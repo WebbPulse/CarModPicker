@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def is_file_key(value: Optional[str]) -> bool:
     """
-    Check if a string is a file key (stored in Railway Storage Bucket) vs a regular URL.
+    Check if a string is an S3 file key vs a regular URL.
 
     File keys typically have the format: entity_type/user_hash/entity_id-unique_id.extension
     Regular URLs start with http:// or https://
