@@ -33,7 +33,7 @@ qrcode[pil]==7.4.2
 
 # Email service
 sendgrid==6.11.0
-requests==2.32.4
+requests==2.33.0
 beautifulsoup4==4.12.3
 defusedxml==0.7.1
 
