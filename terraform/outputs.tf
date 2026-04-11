@@ -23,16 +23,15 @@ output "rds_endpoint" {
   value       = aws_db_instance.main.endpoint
 }
 
-# BLOCKED: depends on aws_cloudfront_distribution.frontend (blocked in cloudfront.tf).
-#output "cloudfront_domain" {
-#  description = "CloudFront distribution domain name"
-#  value       = aws_cloudfront_distribution.frontend.domain_name
-#}
-#
-#output "cloudfront_distribution_id" {
-#  description = "CloudFront distribution ID (needed for cache invalidations)"
-#  value       = aws_cloudfront_distribution.frontend.id
-#}
+output "cloudfront_domain" {
+  description = "CloudFront distribution domain name"
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID (needed for cache invalidations)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
 
 output "frontend_bucket" {
   description = "S3 bucket name for the frontend SPA"

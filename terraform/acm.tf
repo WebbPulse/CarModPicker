@@ -31,11 +31,8 @@ resource "aws_route53_record" "acm_validation" {
   allow_overwrite = true
 }
 
-# BLOCKED: cert stays PENDING_VALIDATION until the domain registrar NS records
-# are updated to Route53's name servers (ns-517.awsdns-00.net etc.).
-# Uncomment once the ACM certificate status moves to ISSUED.
-#resource "aws_acm_certificate_validation" "carmodpicker" {
-#  provider                = aws.us_east_1
-#  certificate_arn         = aws_acm_certificate.carmodpicker.arn
-#  validation_record_fqdns = [for record in aws_route53_record.acm_validation : record.fqdn]
-#}
+resource "aws_acm_certificate_validation" "carmodpicker" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.carmodpicker.arn
+  validation_record_fqdns = [for record in aws_route53_record.acm_validation : record.fqdn]
+}
