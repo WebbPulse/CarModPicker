@@ -24,7 +24,22 @@ resource "aws_sns_topic_subscription" "alarms_tyler_gmail" {
 #
 # App Runner automatically writes to these paths; no extra IAM config needed.
 # The service_id is resolved from existing Terraform state.
+#
+# App Runner auto-created both log groups when the service first started.
+# The import blocks below adopt them into Terraform state instead of trying
+# to create them (which would fail with ResourceAlreadyExistsException).
+# After import, Terraform applies the 14-day retention as an in-place update.
 # ---------------------------------------------------------------------------
+import {
+  to = aws_cloudwatch_log_group.apprunner_application
+  id = "/aws/apprunner/${local.prefix}-backend/${aws_apprunner_service.backend.service_id}/application"
+}
+
+import {
+  to = aws_cloudwatch_log_group.apprunner_system
+  id = "/aws/apprunner/${local.prefix}-backend/${aws_apprunner_service.backend.service_id}/system"
+}
+
 resource "aws_cloudwatch_log_group" "apprunner_application" {
   name              = "/aws/apprunner/${local.prefix}-backend/${aws_apprunner_service.backend.service_id}/application"
   retention_in_days = 14
