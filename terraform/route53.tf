@@ -39,15 +39,14 @@ resource "aws_route53_record" "api" {
 
 # App Runner custom domain validation records (Stage 2 — now active)
 # These CNAMEs let App Runner verify ownership of api.carmodpicker.com.
+# count=2 because App Runner always emits exactly 2 validation records; using
+# for_each here is blocked by Terraform since the keys are unknown until apply.
 resource "aws_route53_record" "apprunner_validation" {
-  for_each = {
-    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
-    r.name => r
-  }
+  count = 2
 
   zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = each.value.name
-  type    = each.value.type
+  name    = tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].name
+  type    = tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].type
   ttl     = 60
-  records = [each.value.value]
+  records = [tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].value]
 }
