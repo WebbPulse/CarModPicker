@@ -77,10 +77,10 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         ]
         Resource = aws_ecr_repository.backend.arn
       },
-      # App Runner — trigger redeployment after new image is pushed
+      # App Runner — trigger redeployment and poll readiness before deploying
       {
         Effect   = "Allow"
-        Action   = ["apprunner:StartDeployment"]
+        Action   = ["apprunner:StartDeployment", "apprunner:DescribeService"]
         Resource = aws_apprunner_service.backend.arn
       },
       # S3 — sync frontend build artefacts
