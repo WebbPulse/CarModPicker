@@ -13,25 +13,27 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.backend.repository_url
 }
 
-output "app_runner_service_url" {
-  description = "Default App Runner service URL (before custom domain is active)"
-  value       = "https://${aws_apprunner_service.backend.service_url}"
-}
+# BLOCKED: depends on aws_apprunner_service.backend (blocked in apprunner.tf).
+#output "app_runner_service_url" {
+#  description = "Default App Runner service URL (before custom domain is active)"
+#  value       = "https://${aws_apprunner_service.backend.service_url}"
+#}
 
 output "rds_endpoint" {
   description = "RDS PostgreSQL endpoint (host:port)"
   value       = aws_db_instance.main.endpoint
 }
 
-output "cloudfront_domain" {
-  description = "CloudFront distribution domain name"
-  value       = aws_cloudfront_distribution.frontend.domain_name
-}
-
-output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID (needed for cache invalidations)"
-  value       = aws_cloudfront_distribution.frontend.id
-}
+# BLOCKED: depends on aws_cloudfront_distribution.frontend (blocked in cloudfront.tf).
+#output "cloudfront_domain" {
+#  description = "CloudFront distribution domain name"
+#  value       = aws_cloudfront_distribution.frontend.domain_name
+#}
+#
+#output "cloudfront_distribution_id" {
+#  description = "CloudFront distribution ID (needed for cache invalidations)"
+#  value       = aws_cloudfront_distribution.frontend.id
+#}
 
 output "frontend_bucket" {
   description = "S3 bucket name for the frontend SPA"
