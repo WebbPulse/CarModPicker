@@ -33,8 +33,6 @@ resource "aws_iam_role_policy" "apprunner_access_secrets" {
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
         aws_secretsmanager_secret.sendgrid_api_key.arn,
-        aws_secretsmanager_secret.sendgrid_verify_template.arn,
-        aws_secretsmanager_secret.sendgrid_reset_template.arn,
       ]
     }]
   })
@@ -71,8 +69,6 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
         aws_secretsmanager_secret.sendgrid_api_key.arn,
-        aws_secretsmanager_secret.sendgrid_verify_template.arn,
-        aws_secretsmanager_secret.sendgrid_reset_template.arn,
       ]
     }]
   })
@@ -150,11 +146,9 @@ resource "aws_apprunner_service" "backend" {
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
-          DATABASE_URL                        = aws_secretsmanager_secret_version.database_url.arn
-          SECRET_KEY                          = aws_secretsmanager_secret_version.secret_key.arn
-          SENDGRID_API_KEY                    = aws_secretsmanager_secret_version.sendgrid_api_key.arn
-          SENDGRID_VERIFY_EMAIL_TEMPLATE_ID   = aws_secretsmanager_secret_version.sendgrid_verify_template.arn
-          SENDGRID_RESET_PASSWORD_TEMPLATE_ID = aws_secretsmanager_secret_version.sendgrid_reset_template.arn
+          DATABASE_URL     = aws_secretsmanager_secret_version.database_url.arn
+          SECRET_KEY       = aws_secretsmanager_secret_version.secret_key.arn
+          SENDGRID_API_KEY = aws_secretsmanager_secret_version.sendgrid_api_key.arn
         }
       }
     }
