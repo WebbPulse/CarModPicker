@@ -75,7 +75,7 @@ jobs:
           TERMINAL="applied planned_and_finished discarded errored canceled force_canceled"
           echo "Polling HCP Terraform workspace $TFC_WORKSPACE_ID for active runs..."
           for i in $(seq 1 40); do
-            RESPONSE=$(curl -sf \
+            RESPONSE=$(curl -sfg \
               -H "Authorization: Bearer $TFC_API_TOKEN" \
               -H "Content-Type: application/vnd.api+json" \
               "https://app.terraform.io/api/v2/workspaces/$TFC_WORKSPACE_ID/runs?page[size]=1")
