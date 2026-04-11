@@ -106,3 +106,24 @@ resource "aws_budgets_budget" "critical" {
     subscriber_email_addresses = ["tyler@webbpulse.com", "tylert2610@gmail.com"]
   }
 }
+
+# ---------------------------------------------------------------------------
+# AppRegistry Attribute Group — enriches the myApplications console view
+# with owner and technology metadata.
+# ---------------------------------------------------------------------------
+resource "aws_servicecatalogappregistry_attribute_group" "carmodpicker" {
+  name        = "${local.prefix}-metadata"
+  description = "Application metadata for CarModPicker"
+
+  attributes = jsonencode({
+    owner      = "Tyler Webb"
+    email      = "tyler@webbpulse.com"
+    repository = "https://github.com/WebbPulse/CarModPicker"
+    technology = "FastAPI, PostgreSQL, React"
+  })
+}
+
+resource "aws_servicecatalogappregistry_attribute_group_association" "carmodpicker" {
+  application_id     = aws_servicecatalogappregistry_application.carmodpicker.id
+  attribute_group_id = aws_servicecatalogappregistry_attribute_group.carmodpicker.id
+}
