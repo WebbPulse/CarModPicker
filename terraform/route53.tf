@@ -16,19 +16,17 @@ resource "aws_route53_record" "apex_a" {
 }
 
 # www → CloudFront distribution
-# BLOCKED: depends on aws_cloudfront_distribution.frontend (blocked in cloudfront.tf).
-# Uncomment once the ACM cert is ISSUED and CloudFront is deployed.
-#resource "aws_route53_record" "www" {
-#  zone_id = aws_route53_zone.carmodpicker.zone_id
-#  name    = "www.carmodpicker.com"
-#  type    = "A"
-#
-#  alias {
-#    name                   = aws_cloudfront_distribution.frontend.domain_name
-#    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
-#    evaluate_target_health = false
-#  }
-#}
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "www.carmodpicker.com"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
 
 # api → App Runner service URL
 resource "aws_route53_record" "api" {

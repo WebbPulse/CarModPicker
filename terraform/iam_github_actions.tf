@@ -49,8 +49,6 @@ resource "aws_iam_role" "github_actions_deploy" {
   })
 }
 
-# NOTE: CloudFront statement uses a placeholder ARN until aws_cloudfront_distribution.frontend
-# is uncommented in cloudfront.tf. Update the Resource to the real distribution ARN after that apply.
 resource "aws_iam_role_policy" "github_actions_deploy" {
   name = "deploy-permissions"
   role = aws_iam_role.github_actions_deploy.id
@@ -100,9 +98,14 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         ]
       },
       # CloudFront — invalidate the cache after a frontend deploy
-      # BLOCKED: aws_cloudfront_distribution.frontend not yet deployed.
-      # Uncomment cloudfront.tf, apply, then this reference will resolve.
-      # For now this statement is omitted; re-apply after CloudFront exists.
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ]
+        Resource = aws_cloudfront_distribution.frontend.arn
+      },
     ]
   })
 }
