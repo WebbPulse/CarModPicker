@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 const API_URLS = {
-  prod: "https://api.carmodpicker.com/api",
+  production: "https://api.carmodpicker.com/api",
   staging: "https://api.staging.carmodpicker.com/api",
   localhost: "http://localhost:4000/api",
 } as const;
@@ -9,7 +9,7 @@ const API_URLS = {
 type ApiEnvironment = keyof typeof API_URLS;
 
 function Options() {
-  const [environment, setEnvironment] = useState<ApiEnvironment>("prod");
+  const [environment, setEnvironment] = useState<ApiEnvironment>("production");
   const [openPartAfterCreation, setOpenPartAfterCreation] = useState(true);
   const [openInNewTab, setOpenInNewTab] = useState(true);
   const [status, setStatus] = useState<{
@@ -44,7 +44,7 @@ function Options() {
     if (apiUrl.includes("staging")) {
       return "staging";
     }
-    return "prod";
+    return "production";
   };
 
   const handleSave = async () => {
@@ -144,7 +144,7 @@ function Options() {
                 paddingRight: "2.5rem",
               }}
             >
-              <option value="prod" className="bg-neutral-900 text-white">
+              <option value="production" className="bg-neutral-900 text-white">
                 Production
               </option>
               <option value="staging" className="bg-neutral-900 text-white">
