@@ -39,28 +39,17 @@ resource "aws_route53_record" "api" {
   records = [aws_apprunner_service.backend.service_url]
 }
 
-# App Runner custom domain validation records
-# aws_apprunner_custom_domain_association exposes certificate_validation_records
-# that must be added to DNS for App Runner to activate the custom domain.
-#
-# IMPORTANT: These records use for_each keys derived from App Runner's certificate
-# validation records, which are unknown until after aws_apprunner_custom_domain_association
-# is created. In a VCS-driven workflow this requires two applies:
-#   Stage 1: Push with this block commented out → apply creates the association
-#   Stage 2: Uncomment this block → push → apply adds the DNS validation records
-#
+# App Runner custom domain validation records (Stage 2 — now active)
+# These CNAMEs let App Runner verify ownership of api.carmodpicker.com.
+resource "aws_route53_record" "apprunner_validation" {
+  for_each = {
+    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
+    r.name => r
+  }
 
-
-
-#resource "aws_route53_record" "apprunner_validation" {
-#  for_each = {
-#    for r in aws_apprunner_custom_domain_association.api.certificate_validation_records :
-#    r.name => r
-#  }
-#
-#  zone_id = aws_route53_zone.carmodpicker.zone_id
-#  name    = each.value.name
-#  type    = each.value.type
-#  ttl     = 60
-#  records = [each.value.value]
-#}
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 60
+  records = [each.value.value]
+}
