@@ -1,10 +1,14 @@
+# Pushes matching paths below build and sync the frontend. S3/CloudFront must match Terraform
+# state. Terraform Cloud applies when your HCP workspace is set up for VCS triggers; this
+# workflow does not run terraform apply.
 name: Frontend Deploy
 
 on:
-  workflow_run:
-    workflows: [Frontend CI]
+  push:
     branches: [main]
-    types: [completed]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
 
 permissions:
   id-token: write
@@ -12,18 +16,18 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    environment: prod
 
     env:
-      AWS_REGION: us-west-1
+      AWS_REGION: us-west-2
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -40,18 +44,19 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Sync to S3
         env:
-          FRONTEND_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
         run: |
           aws s3 sync frontend/dist/ s3://$FRONTEND_BUCKET/ --delete
 
       - name: Invalidate CloudFront cache
+        if: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID != '' }}
         env:
-          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
