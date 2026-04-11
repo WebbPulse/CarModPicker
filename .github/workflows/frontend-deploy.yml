@@ -1,10 +1,14 @@
+# Pushes matching paths below build and sync the frontend. S3/CloudFront must match Terraform
+# state. Terraform Cloud applies when your HCP workspace is set up for VCS triggers; this
+# workflow does not run terraform apply.
 name: Frontend Deploy
 
 on:
-  workflow_run:
-    workflows: [Frontend CI]
+  push:
     branches: [main]
-    types: [completed]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
 
 permissions:
   id-token: write
@@ -12,7 +16,6 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     environment: prod
 
