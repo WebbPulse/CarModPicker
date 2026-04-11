@@ -37,6 +37,15 @@ resource "aws_route53_record" "api" {
   records = [aws_apprunner_service.backend.service_url]
 }
 
+# MX record for Google Workspace email
+resource "aws_route53_record" "mx" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "carmodpicker.com"
+  type    = "MX"
+  ttl     = 60
+  records = ["1 SMTP.GOOGLE.COM."]
+}
+
 # App Runner custom domain validation records (Stage 2 — now active)
 # These CNAMEs let App Runner verify ownership of api.carmodpicker.com.
 # count=2 because App Runner always emits exactly 2 validation records; using
