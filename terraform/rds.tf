@@ -1,3 +1,10 @@
+# The subnet group was created by a previously canceled TFC run. Import it so
+# Terraform can manage it. Remove this block after the first successful apply.
+import {
+  to = aws_db_subnet_group.main
+  id = "carmodpicker-prod-db-subnet-group"
+}
+
 resource "aws_db_subnet_group" "main" {
   name       = "${local.prefix}-db-subnet-group"
   subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
