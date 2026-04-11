@@ -57,6 +57,27 @@ resource "aws_iam_role" "apprunner_instance" {
   })
 }
 
+# App Runner uses the instance role to inject runtime_environment_secrets.
+resource "aws_iam_role_policy" "apprunner_instance_secrets" {
+  name = "secrets-manager-read"
+  role = aws_iam_role.apprunner_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      Resource = [
+        aws_secretsmanager_secret.database_url.arn,
+        aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.sendgrid_api_key.arn,
+        aws_secretsmanager_secret.sendgrid_verify_template.arn,
+        aws_secretsmanager_secret.sendgrid_reset_template.arn,
+      ]
+    }]
+  })
+}
+
 resource "aws_iam_role_policy" "apprunner_instance_s3" {
   name = "s3-user-images"
   role = aws_iam_role.apprunner_instance.id
