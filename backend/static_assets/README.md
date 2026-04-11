@@ -16,6 +16,6 @@ Supported extensions: `.svg`, `.png`, `.webp` (tried in that order when syncing 
 1. On app startup, after DB init, the app runs `sync_static_assets_to_bucket()`.
 2. For each manufacturer (from `car_generations_data.CAR_GENERATIONS`) and each category (from `part_categories_data`), it checks if an object already exists in the bucket at `assets/manufacturers/<slug>.<ext>` or `assets/categories/<slug>.<ext>`.
 3. If **not** in the bucket, it looks for a local file in this directory and uploads it. If multiple extensions exist locally, it uses the first found (svg, png, webp).
-4. If the bucket is not configured (e.g. local dev without Railway), sync is skipped.
+4. If the bucket is not configured (e.g. local dev without S3), sync is skipped.
 
 Result: add or replace files in this directory, (re)deploy or restart the backend; only missing objects are uploaded.

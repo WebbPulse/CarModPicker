@@ -46,7 +46,7 @@ from app.core.category_inference import infer_category
 logger = logging.getLogger(__name__)
 
 # Optional: save full page HTML for post-processing. Set CRAWL_HTML_SAVE_DIR (or pass via API) to enable.
-# When bucket is configured (Railway/S3), we upload to the bucket; otherwise we write to local path.
+# When bucket is configured (S3), we upload to the bucket; otherwise we write to local path.
 # When set, we save HTML for new URLs only by default; set CRAWL_HTML_SAVE_ON_RECRAWL=1 to overwrite on recrawl too.
 CRAWL_HTML_HASH_BYTES = 16  # filename = <sha256(url)>[:16].html so re-crawls overwrite same file
 
@@ -62,7 +62,7 @@ class _S3PutObjectProtocol(Protocol):
     ) -> object: ...
 
 
-# Lazy S3 client for crawl HTML uploads. Uses the same Railway/S3 bucket and credentials as image uploads
+# Lazy S3 client for crawl HTML uploads. Uses the same S3 bucket and credentials as image uploads
 # (StorageService / app.core.config BUCKET, AWS_ACCESS_KEY_ID, etc.). None if bucket not configured.
 _crawl_s3_client: Optional[_S3PutObjectProtocol] = None
 _crawl_bucket_name: Optional[str] = None
@@ -114,8 +114,8 @@ def save_crawl_page_html(
     logger_instance: Optional[logging.Logger] = None,
 ) -> None:
     """
-    Save a full page HTML copy for post-processing. When the app's bucket is configured (e.g. Railway
-    Storage), uploads to the bucket under key prefix base_dir (e.g. "crawl_html"). Otherwise writes
+    Save a full page HTML copy for post-processing. When the app's bucket is configured,
+    uploads to S3 under key prefix base_dir (e.g. "crawl_html"). Otherwise writes
     to local path base_dir. Filename is hash of URL so recrawls overwrite. Also writes a .url sidecar
     so we can re-parse later (know which URL the HTML came from).
     """

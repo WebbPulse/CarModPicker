@@ -1,7 +1,6 @@
 """
-Secure image storage service using Railway Storage Buckets.
-Railway buckets are private, so we use presigned URLs for serving images.
-Designed for Railway deployment with ephemeral filesystem.
+Secure image storage service using AWS S3.
+The S3 bucket is private; presigned URLs are used for serving images.
 """
 
 import hashlib
@@ -44,7 +43,7 @@ def _is_test_environment() -> bool:
 
 
 class StorageService:
-    """Service for handling secure image uploads to Railway Storage Buckets."""
+    """Service for handling secure image uploads to S3."""
 
     s3_client: Optional[S3Client]
     s3_client_presigner: Optional[S3Client]
@@ -54,14 +53,14 @@ class StorageService:
     presigned_url_expiration: int
 
     def __init__(self) -> None:
-        """Initialize S3 client with Railway Storage Bucket configuration."""
+        """Initialize S3 client with S3 bucket configuration."""
         self.bucket_name = settings.BUCKET
         self.max_size_bytes = settings.max_image_size_bytes
         self.allowed_extensions = settings.allowed_image_extensions_list
         self.presigned_url_expiration = min(settings.PRESIGNED_URL_EXPIRATION, 7776000)  # Max 90 days
 
         if not self.bucket_name:
-            logger.warning("Railway BUCKET not configured. Image uploads will be disabled.")
+            logger.warning("BUCKET not configured. Image uploads will be disabled.")
             self.s3_client = None
             self.s3_client_presigner = None
             return
@@ -76,7 +75,7 @@ class StorageService:
         try:
             # Pass None for empty strings so boto3 falls back to the IAM role
             # credential chain (used on App Runner / EC2 / ECS). Explicit non-empty
-            # values take precedence (used on Railway with static bucket keys).
+            # values take precedence over the IAM role credential chain.
             client_kwargs = {
                 "aws_access_key_id": settings.AWS_ACCESS_KEY_ID or None,
                 "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY or None,
@@ -92,27 +91,27 @@ class StorageService:
             # Verify bucket exists and is accessible
             try:
                 self.s3_client.head_bucket(Bucket=self.bucket_name)  # type: ignore[attr-defined]
-                logger.info(f"Railway Storage Bucket '{self.bucket_name}' is accessible")
+                logger.info(f"S3 bucket '{self.bucket_name}' is accessible")
             except ClientError as e:
                 error_code = e.response.get("Error", {}).get("Code", "")
                 if error_code == "404":
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Railway Storage Bucket '{self.bucket_name}' not found. Ensure the bucket is created and variables are referenced correctly.",
+                        detail=f"S3 bucket '{self.bucket_name}' not found. Ensure the bucket is created and variables are referenced correctly.",
                     )
                 elif error_code == "403":
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Access denied to Railway Storage Bucket '{self.bucket_name}'. Check bucket credentials.",
+                        detail=f"Access denied to S3 bucket '{self.bucket_name}'. Check bucket credentials.",
                     )
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Error accessing Railway Storage Bucket: {str(e)}",
+                        detail=f"Error accessing S3 bucket: {str(e)}",
                     )
 
         except Exception as e:
-            logger.error(f"Failed to initialize Railway Storage Bucket client: {str(e)}")
+            logger.error(f"Failed to initialize S3 bucket client: {str(e)}")
             # In test environments, don't raise exceptions - just disable the service
             if _is_test_environment():
                 logger.warning("Test environment detected during error handling. Storage service disabled.")
@@ -245,7 +244,7 @@ class StorageService:
 
     def _generate_file_key(self, entity_type: str, entity_id: Optional[int], user_id: int, file_extension: str) -> str:
         """
-        Generate a unique, secure file key for Railway Storage Bucket.
+        Generate a unique, secure file key for S3 bucket.
 
         Args:
             entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
@@ -363,9 +362,9 @@ class StorageService:
         force_square: bool = False,
     ) -> str:
         """
-        Upload an image file to Railway Storage Bucket and return a presigned URL.
+        Upload an image file to S3 bucket and return a presigned URL.
 
-        Since Railway buckets are private, we store the file key in the database
+        The S3 bucket is private; we store the file key in the database
         and generate presigned URLs when serving images.
 
         Args:
@@ -399,7 +398,7 @@ class StorageService:
         file_key = self._generate_file_key(entity_type, entity_id, user_id, file_extension)
 
         try:
-            # Upload to Railway Storage Bucket
+            # Upload to S3 bucket
             content_type = f"image/{file_extension}" if file_extension != "jpg" else "image/jpeg"
 
             # Type narrowing: we've checked bucket_name is not None above
@@ -411,13 +410,13 @@ class StorageService:
                 ContentType=content_type,
             )
 
-            logger.info(f"Successfully uploaded image to Railway Storage Bucket: {file_key}")
+            logger.info(f"Successfully uploaded image to S3 bucket: {file_key}")
             # Return the file key (not a URL) - we'll generate presigned URLs when serving
             return file_key
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
-            logger.error(f"Railway Storage Bucket upload error ({error_code}): {str(e)}")
+            logger.error(f"S3 bucket upload error ({error_code}): {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to upload image: {error_code}",
@@ -437,9 +436,9 @@ class StorageService:
 
     def get_presigned_url(self, file_key: str, expiration: Optional[int] = None) -> str:
         """
-        Generate a presigned URL for accessing a file in Railway Storage Bucket.
+        Generate a presigned URL for accessing a file in S3 bucket.
 
-        Since Railway buckets are private, we use presigned URLs to serve images.
+        The S3 bucket is private; presigned URLs are used to serve images.
         These URLs are temporary and expire after the specified time.
 
         Args:
@@ -481,7 +480,7 @@ class StorageService:
 
     def delete_image(self, file_key: str) -> bool:
         """
-        Delete an image from Railway Storage Bucket.
+        Delete an image from S3 bucket.
 
         Args:
             file_key: The S3 object key to delete
@@ -490,7 +489,7 @@ class StorageService:
             bool: True if deletion was successful, False otherwise
         """
         if not self.s3_client or not self.bucket_name:
-            logger.warning("Railway Storage Bucket client not initialized, cannot delete image")
+            logger.warning("S3 bucket client not initialized, cannot delete image")
             return False
 
         if not file_key:
@@ -500,16 +499,16 @@ class StorageService:
             # Type narrowing: we've checked bucket_name is not None above
             assert self.bucket_name is not None
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=file_key)
-            logger.info(f"Successfully deleted image from Railway Storage Bucket: {file_key}")
+            logger.info(f"Successfully deleted image from S3 bucket: {file_key}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to delete image from Railway Storage Bucket: {str(e)}")
+            logger.error(f"Failed to delete image from S3 bucket: {str(e)}")
             return False
 
     def count_bucket_objects(self) -> int:
         """
-        Count the total number of objects in the Railway Storage Bucket.
+        Count the total number of objects in the S3 bucket.
 
         Uses list_objects_v2 with pagination to handle buckets with many objects.
 
@@ -550,12 +549,12 @@ class StorageService:
                 else:
                     break
 
-            logger.info(f"Counted {total_count} objects in Railway Storage Bucket '{self.bucket_name}'")
+            logger.info(f"Counted {total_count} objects in S3 bucket '{self.bucket_name}'")
             return total_count
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
-            logger.error(f"Railway Storage Bucket count error ({error_code}): {str(e)}")
+            logger.error(f"S3 bucket count error ({error_code}): {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to count bucket objects: {error_code}",
@@ -575,7 +574,7 @@ class StorageService:
 
     def list_bucket_object_keys(self) -> list[str]:
         """
-        List all object keys in the Railway Storage Bucket (for admin orphan cleanup).
+        List all object keys in the S3 bucket (for admin orphan cleanup).
 
         Uses list_objects_v2 with pagination. Use with care on large buckets.
 
@@ -617,7 +616,7 @@ class StorageService:
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
-            logger.error(f"Railway Storage Bucket list error ({error_code}): {str(e)}")
+            logger.error(f"S3 bucket list error ({error_code}): {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list bucket objects: {error_code}",

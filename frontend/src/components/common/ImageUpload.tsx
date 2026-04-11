@@ -5,7 +5,7 @@ import ImageWithPlaceholder from './ImageWithPlaceholder';
 import LoadingSpinner from './LoadingSpinner';
 
 interface ImageUploadProps {
-  /** Current image URL or file key (if using Railway Storage Buckets) */
+  /** Current image URL or file key (S3 object key from upload endpoint) */
   currentImageUrl?: string | null;
   /** Entity type for organizing uploads (e.g., 'build_list', 'global_part', 'user', 'car') */
   entityType: string;

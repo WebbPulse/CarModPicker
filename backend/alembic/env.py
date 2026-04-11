@@ -72,7 +72,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     # Use NullPool for migrations to avoid connection pool issues
-    # Add connect_args for better Railway compatibility
+    # Add connect_args for PostgreSQL timeouts
     # Only use PostgreSQL-specific args if using PostgreSQL
     from urllib.parse import urlparse
 

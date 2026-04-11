@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CarModPicker is a full-stack web application for managing car modifications. Users can track their cars, create build lists with parts, browse a global parts catalog, and log their builds in forum-style threads. A companion Chrome extension scrapes parts from retailer pages.
 
-**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend + PostgreSQL, deployed on Railway.
+**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend + PostgreSQL, deployed on AWS (App Runner + RDS).
 
 ---
 
@@ -69,7 +69,7 @@ npm run watch   # auto-rebuild on change
 Browser / Chrome Extension
     → React frontend (port 4000, dev proxy /api → 8000)
     → FastAPI backend (port 8000, prefix /api)
-    → PostgreSQL (Docker locally, Railway managed in prod)
+    → PostgreSQL (Docker locally, RDS PostgreSQL 16 in prod)
 ```
 
 ### Backend (`backend/app/`)
@@ -86,7 +86,7 @@ Browser / Chrome Extension
 
 **Auth:** JWT (HS256, configurable expiry 15 min–7 days) + bcrypt passwords + optional TOTP 2FA. Email verification via SendGrid.
 
-**Images:** Uploaded to Railway Storage Buckets via boto3 S3-compatible API; Pillow used for processing.
+**Images:** Uploaded to S3 (`carmodpicker-prod-user-images`, private) via boto3; presigned URLs used for serving. Pillow used for processing.
 
 ### Frontend (`frontend/src/`)
 

@@ -127,7 +127,7 @@ resource "aws_apprunner_service" "backend" {
         # Non-sensitive runtime configuration
         runtime_environment_variables = {
           DEBUG               = "false"
-          RAILWAY_ENVIRONMENT = "production"
+          APP_ENVIRONMENT = "production"
           PORT                = "8000"
           BUCKET              = aws_s3_bucket.user_images.bucket
           AWS_REGION          = var.aws_region
