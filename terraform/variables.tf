@@ -10,7 +10,7 @@ variable "environment" {
   default     = "production"
 
   validation {
-    condition     = contains(["production", "staging"], var.environment)
+    condition     = contains(["prod", "production", "staging"], var.environment)
     error_message = "environment must be 'production' or 'staging'"
   }
 }
