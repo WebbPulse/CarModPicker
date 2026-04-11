@@ -32,24 +32,3 @@ resource "aws_secretsmanager_secret_version" "sendgrid_api_key" {
   secret_string = var.sendgrid_api_key
 }
 
-resource "aws_secretsmanager_secret" "sendgrid_verify_template" {
-  name                    = "${local.prefix}/sendgrid-verify-email-template-id"
-  description             = "SendGrid template ID for email verification"
-  recovery_window_in_days = 0
-}
-
-resource "aws_secretsmanager_secret_version" "sendgrid_verify_template" {
-  secret_id     = aws_secretsmanager_secret.sendgrid_verify_template.id
-  secret_string = var.sendgrid_verify_email_template_id
-}
-
-resource "aws_secretsmanager_secret" "sendgrid_reset_template" {
-  name                    = "${local.prefix}/sendgrid-reset-password-template-id"
-  description             = "SendGrid template ID for password reset"
-  recovery_window_in_days = 0
-}
-
-resource "aws_secretsmanager_secret_version" "sendgrid_reset_template" {
-  secret_id     = aws_secretsmanager_secret.sendgrid_reset_template.id
-  secret_string = var.sendgrid_reset_password_template_id
-}

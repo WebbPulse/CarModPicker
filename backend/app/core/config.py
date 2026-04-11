@@ -112,10 +112,6 @@ class Settings(BaseSettings):
     # Email settings
     SENDGRID_API_KEY: str = Field(default="")
     EMAIL_FROM: str = Field(default="")
-    SENDGRID_VERIFY_EMAIL_TEMPLATE_ID: str = Field(default="")
-    SENDGRID_RESET_PASSWORD_TEMPLATE_ID: str = Field(default="")
-    # Hashing settings
-    HASH_ALGORITHM: str = "HS256"
 
     # Rate limiting settings
     ENABLE_RATE_LIMITING: bool = True

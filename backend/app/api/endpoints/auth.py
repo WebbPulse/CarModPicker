@@ -20,6 +20,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
+    ALGORITHM,
     create_access_token,
     get_access_token_expires_delta_for_user,
     get_current_user,
@@ -38,7 +39,7 @@ from app.api.schemas.auth import (
 from app.api.schemas.user import UserRead
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.core.email import send_email
+from app.core.email import RESET_PASSWORD_TEMPLATE_ID, VERIFY_EMAIL_TEMPLATE_ID, send_email
 from app.core.logging import get_logger
 from app.db.session import get_db
 
@@ -167,7 +168,7 @@ async def verify_email(
     try:
         send_email(
             user.email,
-            settings.SENDGRID_VERIFY_EMAIL_TEMPLATE_ID,
+            VERIFY_EMAIL_TEMPLATE_ID,
             {"verify_email_link": verify_url},
         )
         logger.info(f"Verification email sent to: {email}")
@@ -190,7 +191,7 @@ async def verify_email_confirm(
         frontend_base_url = "https://carmodpicker.com/verify-email/confirm"
 
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
         purpose = payload.get("purpose")
 
@@ -246,7 +247,7 @@ async def reset_password(
     try:
         send_email(
             user.email,
-            settings.SENDGRID_RESET_PASSWORD_TEMPLATE_ID,
+            RESET_PASSWORD_TEMPLATE_ID,
             {"reset_password_link": reset_url},
         )
         logger.info(f"Password reset email sent to: {email}")
@@ -265,7 +266,7 @@ async def reset_password_confirm(
 ) -> dict[str, str]:
     """Confirm password reset with token and new password."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.HASH_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
         purpose = payload.get("purpose")
 
