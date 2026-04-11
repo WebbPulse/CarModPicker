@@ -1,6 +1,7 @@
 resource "aws_secretsmanager_secret" "database_url" {
-  name        = "${local.prefix}/database-url"
-  description = "PostgreSQL connection string for the FastAPI backend"
+  name                    = "${local.prefix}/database-url"
+  description             = "PostgreSQL connection string for the FastAPI backend"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "database_url" {
@@ -10,8 +11,9 @@ resource "aws_secretsmanager_secret_version" "database_url" {
 }
 
 resource "aws_secretsmanager_secret" "secret_key" {
-  name        = "${local.prefix}/secret-key"
-  description = "JWT signing key for the FastAPI backend"
+  name                    = "${local.prefix}/secret-key"
+  description             = "JWT signing key for the FastAPI backend"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "secret_key" {
@@ -20,8 +22,9 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
 }
 
 resource "aws_secretsmanager_secret" "sendgrid_api_key" {
-  name        = "${local.prefix}/sendgrid-api-key"
-  description = "SendGrid API key for transactional email"
+  name                    = "${local.prefix}/sendgrid-api-key"
+  description             = "SendGrid API key for transactional email"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "sendgrid_api_key" {
@@ -30,8 +33,9 @@ resource "aws_secretsmanager_secret_version" "sendgrid_api_key" {
 }
 
 resource "aws_secretsmanager_secret" "sendgrid_verify_template" {
-  name        = "${local.prefix}/sendgrid-verify-email-template-id"
-  description = "SendGrid template ID for email verification"
+  name                    = "${local.prefix}/sendgrid-verify-email-template-id"
+  description             = "SendGrid template ID for email verification"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "sendgrid_verify_template" {
@@ -40,8 +44,9 @@ resource "aws_secretsmanager_secret_version" "sendgrid_verify_template" {
 }
 
 resource "aws_secretsmanager_secret" "sendgrid_reset_template" {
-  name        = "${local.prefix}/sendgrid-reset-password-template-id"
-  description = "SendGrid template ID for password reset"
+  name                    = "${local.prefix}/sendgrid-reset-password-template-id"
+  description             = "SendGrid template ID for password reset"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "sendgrid_reset_template" {
