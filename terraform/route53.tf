@@ -46,6 +46,40 @@ resource "aws_route53_record" "mx" {
   records = ["1 SMTP.GOOGLE.COM."]
 }
 
+# SES DKIM verification records
+resource "aws_route53_record" "ses_dkim_1" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "whak5n4x5w7sfqfrp5rfpcuzseee6i6r._domainkey.carmodpicker.com"
+  type    = "CNAME"
+  ttl     = 60
+  records = ["whak5n4x5w7sfqfrp5rfpcuzseee6i6r.dkim.amazonses.com"]
+}
+
+resource "aws_route53_record" "ses_dkim_2" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "pgc356f5j4c6v6efvxocs73gtmklyv6g._domainkey.carmodpicker.com"
+  type    = "CNAME"
+  ttl     = 60
+  records = ["pgc356f5j4c6v6efvxocs73gtmklyv6g.dkim.amazonses.com"]
+}
+
+resource "aws_route53_record" "ses_dkim_3" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "4manrayokzig5dbsj5j2yncnrveannx7._domainkey.carmodpicker.com"
+  type    = "CNAME"
+  ttl     = 60
+  records = ["4manrayokzig5dbsj5j2yncnrveannx7.dkim.amazonses.com"]
+}
+
+# DMARC policy record
+resource "aws_route53_record" "dmarc" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "_dmarc.carmodpicker.com"
+  type    = "TXT"
+  ttl     = 60
+  records = ["v=DMARC1; p=none;"]
+}
+
 # App Runner custom domain validation records (Stage 2 — now active)
 # These CNAMEs let App Runner verify ownership of api.carmodpicker.com.
 # count=2 because App Runner always emits exactly 2 validation records; using
