@@ -57,8 +57,21 @@ resource "aws_db_instance" "main" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:00-sun:05:00"
 
-  deletion_protection     = false
-  skip_final_snapshot     = true
+  auto_minor_version_upgrade = true
+
+  # deletion_protection blocks accidental terraform destroy.
+  # To tear down this instance: set deletion_protection = false, apply, then destroy.
+  deletion_protection       = true
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${local.prefix}-final-snapshot"
+
+  # Performance Insights — 7-day retention is free for all supported instance types.
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+
+  # Stream PostgreSQL and upgrade logs to CloudWatch (log groups pre-created in monitoring.tf).
+  # Applied during the next maintenance window unless apply_immediately = true is also set.
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
   tags = { Name = "${local.prefix}-postgres" }
 }

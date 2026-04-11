@@ -105,6 +105,19 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
 }
 
 # ---------------------------------------------------------------------------
+# App Runner Auto-Scaling Configuration
+# min_size=1 / max_size=2 / max_concurrency=50 means a second instance only
+# spins up when one instance is handling 50+ simultaneous requests.
+# For a hobby project the second instance will rarely (if ever) run.
+# ---------------------------------------------------------------------------
+resource "aws_apprunner_auto_scaling_configuration_version" "backend" {
+  auto_scaling_configuration_name = "${local.prefix}-backend"
+  min_size        = 1
+  max_size        = 2
+  max_concurrency = 50
+}
+
+# ---------------------------------------------------------------------------
 # App Runner Service
 # ---------------------------------------------------------------------------
 resource "aws_apprunner_service" "backend" {
@@ -161,6 +174,8 @@ resource "aws_apprunner_service" "backend" {
     healthy_threshold   = 1
     unhealthy_threshold = 5
   }
+
+  auto_scaling_configuration_arn = aws_apprunner_auto_scaling_configuration_version.backend.arn
 
   tags = { Name = "${local.prefix}-backend" }
 }
