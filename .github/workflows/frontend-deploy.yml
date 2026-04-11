@@ -1,6 +1,12 @@
-# Pushes matching paths below build and sync the frontend. S3/CloudFront must match Terraform
-# state. Terraform Cloud applies when your HCP workspace is set up for VCS triggers; this
-# workflow does not run terraform apply.
+# Pushes matching paths below build and sync the frontend to S3/CloudFront.
+# S3/CloudFront resources must already exist in Terraform state.
+#
+# Ordering guarantee: the npm build runs immediately (no conflict with Terraform), but
+# before syncing to S3 the job waits for any active HCP Terraform run on the
+# CarModPicker workspace to reach a terminal state. This prevents partial deploys
+# against infrastructure that is mid-update.
+#
+# Requires GitHub Actions secret: TFC_API_TOKEN (a Terraform Cloud user/team token).
 name: Frontend Deploy
 
 on:
@@ -22,6 +28,8 @@ jobs:
     env:
       AWS_REGION: us-west-2
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      # HCP Terraform workspace — update if the workspace is ever renamed.
+      TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD
 
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +44,7 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # Build runs in parallel with any active Terraform run — it is purely local.
       - name: Build
         working-directory: frontend
         env:
@@ -47,6 +56,36 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # Wait for HCP Terraform to finish before touching S3/CloudFront.
+      # Polls every 15 s for up to 10 min (40 attempts).
+      - name: Wait for Terraform run to complete
+        env:
+          TFC_API_TOKEN: ${{ secrets.TFC_API_TOKEN }}
+        run: |
+          TERMINAL="applied planned_and_finished discarded errored canceled force_canceled"
+          echo "Polling HCP Terraform workspace $TFC_WORKSPACE_ID for active runs..."
+          for i in $(seq 1 40); do
+            RESPONSE=$(curl -sf \
+              -H "Authorization: Bearer $TFC_API_TOKEN" \
+              -H "Content-Type: application/vnd.api+json" \
+              "https://app.terraform.io/api/v2/workspaces/$TFC_WORKSPACE_ID/runs?page[size]=1")
+            STATUS=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          runs = json.load(sys.stdin).get('data', [])
+          print(runs[0]['attributes']['status'] if runs else 'no_runs')
+          ")
+            echo "  Attempt $i/40 — Terraform run status: $STATUS"
+            if echo "$TERMINAL" | grep -qw "$STATUS" || [ "$STATUS" = "no_runs" ]; then
+              echo "Terraform is idle. Proceeding."
+              break
+            fi
+            if [ "$i" -eq 40 ]; then
+              echo "Timed out waiting for Terraform (last status: $STATUS)."
+              exit 1
+            fi
+            sleep 15
+          done
 
       - name: Sync to S3
         env:
