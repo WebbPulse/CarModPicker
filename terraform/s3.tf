@@ -39,26 +39,28 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
-resource "aws_s3_bucket_policy" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid    = "AllowCloudFrontOAC"
-      Effect = "Allow"
-      Principal = {
-        Service = "cloudfront.amazonaws.com"
-      }
-      Action   = "s3:GetObject"
-      Resource = "${aws_s3_bucket.frontend.arn}/*"
-      Condition = {
-        StringEquals = {
-          "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
-        }
-      }
-    }]
-  })
-}
+# BLOCKED: references aws_cloudfront_distribution.frontend.arn (blocked in cloudfront.tf).
+# Uncomment once CloudFront is deployed.
+#resource "aws_s3_bucket_policy" "frontend" {
+#  bucket = aws_s3_bucket.frontend.id
+#  policy = jsonencode({
+#    Version = "2012-10-17"
+#    Statement = [{
+#      Sid    = "AllowCloudFrontOAC"
+#      Effect = "Allow"
+#      Principal = {
+#        Service = "cloudfront.amazonaws.com"
+#      }
+#      Action   = "s3:GetObject"
+#      Resource = "${aws_s3_bucket.frontend.arn}/*"
+#      Condition = {
+#        StringEquals = {
+#          "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+#        }
+#      }
+#    }]
+#  })
+#}
 
 # ---------------------------------------------------------------------------
 # Apex redirect — carmodpicker.com → https://www.carmodpicker.com

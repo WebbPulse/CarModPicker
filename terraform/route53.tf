@@ -16,29 +16,30 @@ resource "aws_route53_record" "apex_a" {
 }
 
 # www → CloudFront distribution
-# NOTE: CloudFront alias records must use type A with an alias block (not CNAME).
-resource "aws_route53_record" "www" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "www.carmodpicker.com"
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.frontend.domain_name
-    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
+# BLOCKED: depends on aws_cloudfront_distribution.frontend (blocked in cloudfront.tf).
+# Uncomment once the ACM cert is ISSUED and CloudFront is deployed.
+#resource "aws_route53_record" "www" {
+#  zone_id = aws_route53_zone.carmodpicker.zone_id
+#  name    = "www.carmodpicker.com"
+#  type    = "A"
+#
+#  alias {
+#    name                   = aws_cloudfront_distribution.frontend.domain_name
+#    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+#    evaluate_target_health = false
+#  }
+#}
 
 # api → App Runner custom domain
-# App Runner provisions its own certificate for the custom domain; we just need
-# the CNAME record pointing to the App Runner service URL.
-resource "aws_route53_record" "api" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "api.carmodpicker.com"
-  type    = "CNAME"
-  ttl     = 60
-  records = [aws_apprunner_service.backend.service_url]
-}
+# BLOCKED: depends on aws_apprunner_service.backend (blocked in apprunner.tf).
+# Uncomment once a Docker image is pushed to ECR and App Runner is deployed.
+#resource "aws_route53_record" "api" {
+#  zone_id = aws_route53_zone.carmodpicker.zone_id
+#  name    = "api.carmodpicker.com"
+#  type    = "CNAME"
+#  ttl     = 60
+#  records = [aws_apprunner_service.backend.service_url]
+#}
 
 # App Runner custom domain validation records
 # aws_apprunner_custom_domain_association exposes certificate_validation_records
