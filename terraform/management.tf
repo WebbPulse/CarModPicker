@@ -35,9 +35,16 @@ resource "aws_resourcegroups_group" "carmodpicker" {
 # Monitors per AWS service; daily digest when any anomaly >= $10.
 # ---------------------------------------------------------------------------
 resource "aws_ce_anomaly_monitor" "carmodpicker" {
-  name              = local.prefix
-  monitor_type      = "DIMENSIONAL"
-  monitor_dimension = "SERVICE"
+  name         = local.prefix
+  monitor_type = "CUSTOM"
+
+  monitor_specification = jsonencode({
+    Tags = {
+      Key          = "Project"
+      Values       = ["carmodpicker"]
+      MatchOptions = ["EQUALS"]
+    }
+  })
 }
 
 resource "aws_ce_anomaly_subscription" "carmodpicker" {
