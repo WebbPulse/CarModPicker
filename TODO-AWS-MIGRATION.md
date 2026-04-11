@@ -36,9 +36,8 @@ Go to HCP Terraform → workspace `CarModPicker` → Variables. Add these as **s
 |-----|------|-------|
 | `db_password` | terraform | Strong random password for RDS master user |
 | `secret_key` | terraform | JWT signing key for FastAPI (generate with `openssl rand -hex 32`) |
-| `sendgrid_api_key` | terraform | SendGrid API key |
-| `sendgrid_verify_email_template_id` | terraform | SendGrid email verification template ID |
-| `sendgrid_reset_password_template_id` | terraform | SendGrid password reset template ID |
+
+**Email:** Transactional email is sent via AWS SES using the App Runner instance IAM role — no API key needed. The `carmodpicker.com` domain identity and `carmodpicker-transactional` configuration set are managed in `terraform/ses.tf`.
 
 ### Step 2: Run `terraform apply`
 

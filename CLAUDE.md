@@ -84,7 +84,7 @@ Browser / Chrome Extension
 - **`alembic/versions/`** — Migration history (never edit manually).
 - **`static_assets/`** — Seed data (manufacturers, categories).
 
-**Auth:** JWT (HS256, configurable expiry 15 min–7 days) + bcrypt passwords + optional TOTP 2FA. Email verification via SendGrid.
+**Auth:** JWT (HS256, configurable expiry 15 min–7 days) + bcrypt passwords + optional TOTP 2FA. Email verification and password reset via AWS SES (boto3, IAM role auth, React Email HTML templates in `backend/app/core/email_templates/`).
 
 **Images:** Uploaded to S3 (`carmodpicker-prod-user-images`, private) via boto3; presigned URLs used for serving. Pillow used for processing.
 

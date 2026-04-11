@@ -110,7 +110,6 @@ class Settings(BaseSettings):
         return self.is_production
 
     # Email settings
-    SENDGRID_API_KEY: str = Field(default="")
     EMAIL_FROM: str = Field(default="")
 
     # Rate limiting settings

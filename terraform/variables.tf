@@ -48,12 +48,6 @@ variable "secret_key" {
   sensitive   = true
 }
 
-variable "sendgrid_api_key" {
-  description = "SendGrid API key for transactional email"
-  type        = string
-  sensitive   = true
-}
-
 variable "email_from" {
   description = "Sender address for transactional email"
   type        = string

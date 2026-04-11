@@ -55,7 +55,6 @@ module = [
     "alembic.*",
     "pytest.*",
     "httpx.*",
-    "sendgrid.*",
     "bcrypt.*",
     "jose.*"
 ]
