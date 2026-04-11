@@ -58,9 +58,9 @@ resource "aws_ce_anomaly_subscription" "carmodpicker" {
 
   threshold_expression {
     dimension {
-      key            = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
-      match_operator = "GREATER_THAN_OR_EQUAL"
-      values         = ["10"]
+      key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
+      match_options = ["GREATER_THAN_OR_EQUAL"]
+      values        = ["10"]
     }
   }
 }
