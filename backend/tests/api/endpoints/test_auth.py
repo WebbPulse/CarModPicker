@@ -153,17 +153,17 @@ def test_verify_email_send_success(client: TestClient, db_session: Session) -> N
     create_response = client.post(f"{settings.API_STR}/users/", json=user_data)
     assert create_response.status_code == 200
 
-    # Request email verification (this will fail in tests without actual SendGrid, but tests the flow)
+    # Request email verification (SES call will fail in tests without IAM credentials, but tests the flow)
     # We'll mock or expect the endpoint to return appropriately
     response = client.post(f"{settings.API_STR}/auth/verify-email", json={"email": email})
 
     # In test environment, user is created with email_verified=True by default
-    # So we expect either 409 (already verified), 200 (success), or 500 (SendGrid error)
+    # So we expect either 409 (already verified), 200 (success), or 500 (SES error in CI)
     assert response.status_code in [
         200,
         409,
         500,
-    ]  # Either success, already verified, or internal error (no SendGrid)
+    ]  # Either success, already verified, or internal error (no SES credentials in CI)
     if response.status_code == 200:
         assert "message" in response.json()
     elif response.status_code == 409:
@@ -294,7 +294,7 @@ def test_reset_password_send_success(client: TestClient, db_session: Session) ->
     response = client.post(f"{settings.API_STR}/auth/reset-password", json={"email": email})
 
     # Should return success message regardless of email existence (security)
-    assert response.status_code in [200, 500]  # Success or internal error (no SendGrid)
+    assert response.status_code in [200, 500]  # Success or internal error (no SES credentials in CI)
     if response.status_code == 200:
         assert "message" in response.json()
 

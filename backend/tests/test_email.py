@@ -1,144 +1,97 @@
 """Tests for email sending functionality."""
 
 import os
-from unittest.mock import MagicMock, Mock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Disable rate limiting for tests
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
-from app.core.email import send_email  # noqa: E402
+from app.core.email import send_reset_password_email, send_verify_email  # noqa: E402
 
 
-@pytest.mark.skip(reason="SendGrid subscription is currently disabled")
 class TestEmailService:
-    """Test cases for email service."""
+    """Test cases for the SES-based email service."""
 
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_success(self, mock_sendgrid_client: Mock) -> None:
-        """Test successful email sending."""
-        # Mock the SendGrid client and response
-        mock_response = MagicMock()
-        mock_response.status_code = 202  # SendGrid success code
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.return_value = mock_response
-        mock_sendgrid_client.return_value = mock_sg_instance
+    @patch("app.core.email.boto3.client")
+    def test_send_verify_email_success(self, mock_boto_client: MagicMock) -> None:
+        """send_verify_email returns True and calls SES send_email on success."""
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
 
-        # Test sending email
-        to_email = "test@example.com"
-        template_id = "d-template123"
-        dynamic_data = {"verify_email_link": "https://example.com/verify"}
+        result = send_verify_email("user@example.com", "https://example.com/verify?token=abc")
 
-        result = send_email(to_email, template_id, dynamic_data)
+        assert result is True
+        mock_ses.send_email.assert_called_once()
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["Destination"] == {"ToAddresses": ["user@example.com"]}
+        assert "https://example.com/verify?token=abc" in call_kwargs["Content"]["Simple"]["Body"]["Html"]["Data"]
 
-        # Verify result
-        assert result == 202
-        mock_sendgrid_client.assert_called_once()
-        mock_sg_instance.send.assert_called_once()
+    @patch("app.core.email.boto3.client")
+    def test_send_reset_password_email_success(self, mock_boto_client: MagicMock) -> None:
+        """send_reset_password_email returns True and calls SES send_email on success."""
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
 
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_api_error(self, mock_sendgrid_client: Mock) -> None:
-        """Test email sending with API error."""
-        # Mock the SendGrid client to raise an exception
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.side_effect = Exception("SendGrid API Error")
-        mock_sendgrid_client.return_value = mock_sg_instance
+        result = send_reset_password_email("user@example.com", "https://example.com/reset?token=xyz")
 
-        # Test sending email with error
-        to_email = "test@example.com"
-        template_id = "d-template123"
-        dynamic_data = {"verify_email_link": "https://example.com/verify"}
+        assert result is True
+        mock_ses.send_email.assert_called_once()
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["Destination"] == {"ToAddresses": ["user@example.com"]}
+        assert "https://example.com/reset?token=xyz" in call_kwargs["Content"]["Simple"]["Body"]["Html"]["Data"]
 
-        result = send_email(to_email, template_id, dynamic_data)
+    @patch("app.core.email.boto3.client")
+    def test_send_verify_email_ses_error(self, mock_boto_client: MagicMock) -> None:
+        """send_verify_email returns False when SES raises an error."""
+        from botocore.exceptions import ClientError
 
-        # Should return None on error
-        assert result is None
-        mock_sendgrid_client.assert_called_once()
-
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_with_complex_template_data(self, mock_sendgrid_client: Mock) -> None:
-        """Test sending email with complex template data."""
-        mock_response = MagicMock()
-        mock_response.status_code = 202
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.return_value = mock_response
-        mock_sendgrid_client.return_value = mock_sg_instance
-
-        # Test with complex template data
-        to_email = "user@example.com"
-        template_id = "d-complex-template"
-        dynamic_data = {
-            "username": "testuser",
-            "action_url": "https://example.com/action",
-            "support_email": "support@example.com",
-        }
-
-        result = send_email(to_email, template_id, dynamic_data)
-
-        assert result == 202
-        mock_sg_instance.send.assert_called_once()
-
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_network_error(self, mock_sendgrid_client: Mock) -> None:
-        """Test email sending with network error."""
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.side_effect = ConnectionError("Network error")
-        mock_sendgrid_client.return_value = mock_sg_instance
-
-        result = send_email(
-            "test@example.com",
-            "d-template123",
-            {"data": "value"},
+        mock_ses = MagicMock()
+        mock_ses.send_email.side_effect = ClientError(
+            {"Error": {"Code": "MessageRejected", "Message": "Email address not verified"}},
+            "SendEmail",
         )
+        mock_boto_client.return_value = mock_ses
 
-        assert result is None
+        result = send_verify_email("unverified@example.com", "https://example.com/verify")
 
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_invalid_template(self, mock_sendgrid_client: Mock) -> None:
-        """Test email sending with invalid template."""
-        mock_response = MagicMock()
-        mock_response.status_code = 400  # Bad request
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.return_value = mock_response
-        mock_sendgrid_client.return_value = mock_sg_instance
+        assert result is False
 
-        # Should still return the status code even if it's an error
-        result = send_email(
-            "test@example.com",
-            "d-invalid-template",
-            {"data": "value"},
-        )
+    @patch("app.core.email.boto3.client")
+    def test_send_reset_password_email_ses_error(self, mock_boto_client: MagicMock) -> None:
+        """send_reset_password_email returns False when SES raises an error."""
+        from botocore.exceptions import BotoCoreError
 
-        assert result == 400
+        mock_ses = MagicMock()
+        mock_ses.send_email.side_effect = BotoCoreError()
+        mock_boto_client.return_value = mock_ses
 
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_creates_proper_from_and_to(self, mock_sendgrid_client: Mock) -> None:
-        """Test that email properly sets from and to addresses."""
-        mock_response = MagicMock()
-        mock_response.status_code = 202
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.return_value = mock_response
-        mock_sendgrid_client.return_value = mock_sg_instance
+        result = send_reset_password_email("user@example.com", "https://example.com/reset")
 
-        to_email = "recipient@example.com"
-        result = send_email(to_email, "d-template", {})
+        assert result is False
 
-        assert result == 202
+    def test_verify_email_template_contains_placeholder(self) -> None:
+        """Rendered verify_email.html template file contains the placeholder token."""
+        from app.core.email import _TEMPLATES_DIR
 
-        # Verify send was called
-        mock_sg_instance.send.assert_called_once()
+        html = (_TEMPLATES_DIR / "verify_email.html").read_text()
+        assert "{{VERIFY_EMAIL_LINK}}" in html
 
-    @patch("app.core.email.SendGridAPIClient")
-    def test_send_email_with_empty_dynamic_data(self, mock_sendgrid_client: Mock) -> None:
-        """Test email sending with empty dynamic template data."""
-        mock_response = MagicMock()
-        mock_response.status_code = 202
-        mock_sg_instance = MagicMock()
-        mock_sg_instance.send.return_value = mock_response
-        mock_sendgrid_client.return_value = mock_sg_instance
+    def test_reset_password_template_contains_placeholder(self) -> None:
+        """Rendered reset_password.html template file contains the placeholder token."""
+        from app.core.email import _TEMPLATES_DIR
 
-        result = send_email("test@example.com", "d-template", {})
+        html = (_TEMPLATES_DIR / "reset_password.html").read_text()
+        assert "{{RESET_PASSWORD_LINK}}" in html
 
-        assert result == 202
-        mock_sg_instance.send.assert_called_once()
+    @patch("app.core.email.boto3.client")
+    def test_config_set_name_passed_to_ses(self, mock_boto_client: MagicMock) -> None:
+        """SES calls include the carmodpicker-transactional configuration set."""
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
+
+        send_verify_email("user@example.com", "https://example.com/verify")
+
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["ConfigurationSetName"] == "carmodpicker-transactional"

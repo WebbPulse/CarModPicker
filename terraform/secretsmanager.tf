@@ -21,14 +21,4 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
   secret_string = var.secret_key
 }
 
-resource "aws_secretsmanager_secret" "sendgrid_api_key" {
-  name                    = "${local.prefix}/sendgrid-api-key"
-  description             = "SendGrid API key for transactional email"
-  recovery_window_in_days = 0
-}
-
-resource "aws_secretsmanager_secret_version" "sendgrid_api_key" {
-  secret_id     = aws_secretsmanager_secret.sendgrid_api_key.id
-  secret_string = var.sendgrid_api_key
-}
 

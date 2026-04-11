@@ -39,7 +39,7 @@ from app.api.schemas.auth import (
 from app.api.schemas.user import UserRead
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.core.email import RESET_PASSWORD_TEMPLATE_ID, VERIFY_EMAIL_TEMPLATE_ID, send_email
+from app.core.email import send_reset_password_email, send_verify_email
 from app.core.logging import get_logger
 from app.db.session import get_db
 
@@ -165,17 +165,10 @@ async def verify_email(
     else:
         verify_url = f"https://api.carmodpicker.com/api/auth/verify-email/confirm?token={token}"
 
-    try:
-        send_email(
-            user.email,
-            VERIFY_EMAIL_TEMPLATE_ID,
-            {"verify_email_link": verify_url},
-        )
-        logger.info(f"Verification email sent to: {email}")
-        return {"message": "Verification email sent"}
-    except Exception as e:
-        logger.error(f"Failed to send verification email to {email}: {e}")
+    if not send_verify_email(user.email, verify_url):
         ResponsePatterns.raise_internal_server_error("Failed to send verification email")
+    logger.info(f"Verification email sent to: {email}")
+    return {"message": "Verification email sent"}
 
 
 @router.get("/verify-email/confirm")
@@ -244,17 +237,10 @@ async def reset_password(
     else:
         reset_url = f"https://carmodpicker.com/reset-password?token={token}"
 
-    try:
-        send_email(
-            user.email,
-            RESET_PASSWORD_TEMPLATE_ID,
-            {"reset_password_link": reset_url},
-        )
-        logger.info(f"Password reset email sent to: {email}")
-        return {"message": "If the email exists, a password reset link has been sent"}
-    except Exception as e:
-        logger.error(f"Failed to send password reset email to {email}: {e}")
+    if not send_reset_password_email(user.email, reset_url):
         ResponsePatterns.raise_internal_server_error("Failed to send password reset email")
+    logger.info(f"Password reset email sent to: {email}")
+    return {"message": "If the email exists, a password reset link has been sent"}
 
 
 @router.post("/reset-password/confirm")

@@ -32,7 +32,6 @@ resource "aws_iam_role_policy" "apprunner_access_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
-        aws_secretsmanager_secret.sendgrid_api_key.arn,
       ]
     }]
   })
@@ -68,7 +67,23 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
-        aws_secretsmanager_secret.sendgrid_api_key.arn,
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "apprunner_instance_ses" {
+  name = "ses-send"
+  role = aws_iam_role.apprunner_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["ses:SendEmail", "ses:SendRawMessage"]
+      Resource = [
+        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/carmodpicker.com",
+        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/carmodpicker-transactional",
       ]
     }]
   })
@@ -146,9 +161,8 @@ resource "aws_apprunner_service" "backend" {
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
-          DATABASE_URL     = aws_secretsmanager_secret_version.database_url.arn
-          SECRET_KEY       = aws_secretsmanager_secret_version.secret_key.arn
-          SENDGRID_API_KEY = aws_secretsmanager_secret_version.sendgrid_api_key.arn
+          DATABASE_URL = aws_secretsmanager_secret_version.database_url.arn
+          SECRET_KEY   = aws_secretsmanager_secret_version.secret_key.arn
         }
       }
     }

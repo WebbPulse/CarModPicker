@@ -453,7 +453,7 @@ async def _run_crawlers_background(
 ) -> None:
     """
     Run crawlers in a background thread. Logs completion or failure.
-    Can be extended to send a completion report (e.g. via SendGrid).
+    Can be extended to send a completion report (e.g. via SES).
     """
     try:
         result = await asyncio.to_thread(
@@ -473,14 +473,14 @@ async def _run_crawlers_background(
             triggered_by_user_id,
             result,
         )
-        # TODO: Send completion report (e.g. SendGrid) with result summary
+        # TODO: Send completion report (e.g. SES) with result summary
     except Exception as e:
         logger.exception(
             "Crawler job failed (triggered by user %s): %s",
             triggered_by_user_id,
             e,
         )
-        # TODO: Send failure notification (e.g. SendGrid)
+        # TODO: Send failure notification (e.g. SES)
 
 
 @router.post(
@@ -504,7 +504,7 @@ async def run_crawlers_endpoint(
     - Set per-crawler limits via limits: {"a90shop": 10, "example": 5}.
     - Set a global limit for all crawlers via global_limit.
     - When running more than one crawler, they run in parallel by default.
-    - A completion report can be sent when the job finishes (e.g. via SendGrid).
+    - A completion report can be sent when the job finishes (e.g. via SES).
     """
     # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
     crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
