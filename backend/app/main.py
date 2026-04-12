@@ -213,7 +213,13 @@ endpoint_registry.register_endpoint(
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"Hello": "World"}
+    return {
+        "name": "CarModPicker API",
+        "version": "1.0.0",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @app.get("/health")
