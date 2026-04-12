@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol, cast
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -78,9 +78,9 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
         from app.core.config import settings
 
         bucket = (settings.CRAWL_BUCKET or "").strip()
-        if not bucket or not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+        if not bucket:
             logger.info(
-                "Crawl HTML bucket not configured (CRAWL_BUCKET or AWS credentials missing); will use local path if save enabled"
+                "Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback"
             )
             return None, None
         import boto3
@@ -94,7 +94,7 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
         if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
             client_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
             client_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
-        _crawl_s3_client = boto3.client("s3", **client_kwargs)
+        _crawl_s3_client = cast(_S3PutObjectProtocol, boto3.client("s3", **client_kwargs))
         _crawl_bucket_name = bucket
         return _crawl_s3_client, _crawl_bucket_name
     except Exception as e:

@@ -480,6 +480,57 @@ def create_car_orm_in_db(
     return car
 
 
+@pytest.fixture
+def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
+    """
+    Fake in-memory S3 using moto.
+
+    Patches both the StorageService singleton (USER_IMAGES_BUCKET) and the lazy
+    crawl client globals (CRAWL_BUCKET) so tests can write to and read from S3
+    without touching any real cloud service or running MinIO.
+
+    Yields a dict with keys:
+      client            — moto boto3 S3 client (for assertions)
+      user_images_bucket — "test-user-images"
+      crawl_bucket       — "test-crawl-data"
+    """
+    from moto import mock_aws
+
+    with mock_aws():
+        import boto3
+        import app.api.services.storage_service as ss_module
+        import app.crawlers.base as base_module
+        from app.core.config import settings as app_settings
+
+        # Single moto client shared by both buckets
+        s3 = boto3.client("s3", region_name="us-east-1")
+        s3.create_bucket(Bucket="test-user-images")
+        s3.create_bucket(Bucket="test-crawl-data")
+
+        # Patch settings so any path that reads settings.* gets test values
+        monkeypatch.setattr(app_settings, "USER_IMAGES_BUCKET", "test-user-images")
+        monkeypatch.setattr(app_settings, "CRAWL_BUCKET", "test-crawl-data")
+
+        # Inject moto client directly into StorageService singleton.
+        # (The singleton was initialized with s3_client=None because _is_test_environment()
+        # returned True at module load.  We bypass re-init by patching the attributes.)
+        monkeypatch.setattr(ss_module.storage_service, "s3_client", s3)
+        monkeypatch.setattr(ss_module.storage_service, "s3_client_presigner", s3)
+        monkeypatch.setattr(ss_module.storage_service, "bucket_name", "test-user-images")
+
+        # Inject moto client directly into the lazy crawl client globals.
+        # _get_crawl_s3_client() sees non-None values and returns them immediately,
+        # so no new boto3.client() call is made (endpoint_url irrelevant).
+        monkeypatch.setattr(base_module, "_crawl_s3_client", s3)
+        monkeypatch.setattr(base_module, "_crawl_bucket_name", "test-crawl-data")
+
+        yield {
+            "client": s3,
+            "user_images_bucket": "test-user-images",
+            "crawl_bucket": "test-crawl-data",
+        }
+
+
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""
     from app.core.config import settings
