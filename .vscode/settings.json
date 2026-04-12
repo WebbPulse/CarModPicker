@@ -155,12 +155,19 @@
     }
   },
 
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
   "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
 
   "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
 
   // ============================================
@@ -190,6 +197,10 @@
   "files.associations": {
     "*.mdc": "markdown"
   },
+
+  // Prettier: only format when a config file exists — prevents accidental formatting
+  // of files outside frontend/ with wrong defaults
+  "prettier.requireConfig": true,
 
   // Git
   "git.enableSmartCommit": false,

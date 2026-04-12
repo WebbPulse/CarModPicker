@@ -13,9 +13,13 @@ from app.core.email import send_reset_password_email, send_verify_email  # noqa:
 class TestEmailService:
     """Test cases for the SES-based email service."""
 
+    @patch("app.core.email.settings")
     @patch("app.core.email.boto3.client")
-    def test_send_verify_email_success(self, mock_boto_client: MagicMock) -> None:
+    def test_send_verify_email_success(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
         """send_verify_email returns True and calls SES send_email on success."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
         mock_ses = MagicMock()
         mock_boto_client.return_value = mock_ses
 
@@ -27,9 +31,13 @@ class TestEmailService:
         assert call_kwargs["Destination"] == {"ToAddresses": ["user@example.com"]}
         assert "https://example.com/verify?token=abc" in call_kwargs["Content"]["Simple"]["Body"]["Html"]["Data"]
 
+    @patch("app.core.email.settings")
     @patch("app.core.email.boto3.client")
-    def test_send_reset_password_email_success(self, mock_boto_client: MagicMock) -> None:
+    def test_send_reset_password_email_success(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
         """send_reset_password_email returns True and calls SES send_email on success."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
         mock_ses = MagicMock()
         mock_boto_client.return_value = mock_ses
 
@@ -84,9 +92,13 @@ class TestEmailService:
         html = (_TEMPLATES_DIR / "reset_password.html").read_text()
         assert "{{RESET_PASSWORD_LINK}}" in html
 
+    @patch("app.core.email.settings")
     @patch("app.core.email.boto3.client")
-    def test_config_set_name_passed_to_ses(self, mock_boto_client: MagicMock) -> None:
+    def test_config_set_name_passed_to_ses(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
         """SES calls include the carmodpicker-transactional configuration set."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
         mock_ses = MagicMock()
         mock_boto_client.return_value = mock_ses
 

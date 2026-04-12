@@ -12,6 +12,7 @@ import type {
   BackgroundJob,
   BackgroundJobList,
   CrawlerCronStatus,
+  CrawlerCronUpdate,
   CrawlerRunRequest,
   CrawlerRunResponse,
   CrawlerServiceAccount,
@@ -145,11 +146,7 @@ function CrawlerAdmin() {
     setIsSavingCron(true);
     setCronSaveError(null);
     try {
-      const body: {
-        enabled?: boolean;
-        preset?: string;
-        schedule_expression?: string;
-      } = {};
+      const body: CrawlerCronUpdate = {};
       if (patch.enabled !== undefined) body.enabled = patch.enabled;
       if (patch.preset && patch.preset !== 'custom') {
         body.preset = patch.preset as 'monthly' | 'weekly' | 'daily';

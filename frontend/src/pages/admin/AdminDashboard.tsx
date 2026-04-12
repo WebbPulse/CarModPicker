@@ -101,8 +101,8 @@ function StatRowWithDetail({
   label: string;
   value: number | null;
   /** Optional secondary value shown below the main count (e.g. "1.23 GB"). */
-  subValue?: string;
-  detail?: ReactNode;
+  subValue?: string | undefined;
+  detail?: ReactNode | undefined;
 }) {
   return (
     <>

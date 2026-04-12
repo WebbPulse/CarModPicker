@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 def test_read_root(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"Hello": "World"}
+    data = response.json()
+    assert data["name"] == "CarModPicker API"
+    assert data["status"] == "running"
 
 
 def test_health_check(client: TestClient) -> None:
