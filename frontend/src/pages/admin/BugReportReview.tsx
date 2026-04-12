@@ -300,18 +300,24 @@ function BugReportReview() {
             </ActionButton>
             <ActionButton
               onClick={() => setSelectedStatus('all')}
-              className={selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'}
+              className={
+                selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'
+              }
             >
               All
             </ActionButton>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-400 shrink-0">Priority:</span>
+            <span className="text-sm font-medium text-gray-400 shrink-0">
+              Priority:
+            </span>
             {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
               <ActionButton
                 key={p}
                 onClick={() => setSelectedPriority(p)}
-                className={selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'}
+                className={
+                  selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'
+                }
               >
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </ActionButton>

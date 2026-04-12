@@ -1060,9 +1060,17 @@ export interface CrawlerRunResponse {
   message: string;
 }
 
+export interface CrawlerServiceAccount {
+  id: number;
+  username: string;
+  email: string;
+  is_service_account: true;
+  created_at: string;
+}
+
 export interface CrawlerRunRequest {
   adapters: string[];
-  crawler_user_id: number;
+  crawler_user_id?: number;
   crawler_default_category_id: number;
   limits?: Record<string, number>;
   global_limit?: number | null;
@@ -1074,7 +1082,7 @@ export interface CrawlerRunRequest {
 
 /** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
 export interface RescrapeArchivesRequest {
-  crawler_user_id: number;
+  crawler_user_id?: number;
   default_category_id: number;
 }
 
@@ -1141,6 +1149,8 @@ export const adminApi = {
 
   // Crawlers
   getCrawlers: () => apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  getCrawlerServiceAccount: () =>
+    apiClient.get<CrawlerServiceAccount>('/admin/service-accounts/crawler'),
   runCrawlers: (body: CrawlerRunRequest) =>
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
 
@@ -1172,10 +1182,16 @@ export const adminApi = {
     apiClient.get<AdminTableCountsResponse>('/admin/stats/table-counts'),
 
   // Background jobs
-  listJobs: (params?: { status?: string; job_type?: string; limit?: number; offset?: number }) =>
-    apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
-  getJob: (jobId: number) => apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
-  cancelJob: (jobId: number) => apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
+  listJobs: (params?: {
+    status?: string;
+    job_type?: string;
+    limit?: number;
+    offset?: number;
+  }) => apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
+  getJob: (jobId: number) =>
+    apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
+  cancelJob: (jobId: number) =>
+    apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
 
   // Cron schedule management
   getCrawlerCron: () => apiClient.get<CrawlerCronStatus>('/admin/cron/crawler'),

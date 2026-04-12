@@ -75,13 +75,7 @@ function StatPanel({
 }
 
 /** One metric row: must be direct children of StatPanel's grid (fragment = two cells). */
-function StatRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | null;
-}) {
+function StatRow({ label, value }: { label: string; value: number | null }) {
   return (
     <>
       <span
@@ -123,7 +117,9 @@ function StatRowWithDetail({
           {formatStatCount(value)}
         </div>
         {subValue !== undefined && (
-          <div className="text-[10px] tabular-nums text-gray-500">{subValue}</div>
+          <div className="text-[10px] tabular-nums text-gray-500">
+            {subValue}
+          </div>
         )}
       </div>
       {detail ? (
@@ -426,13 +422,15 @@ function AdminDashboard() {
     },
     {
       title: 'Crawler & Jobs',
-      description: 'Run crawlers, manage archives, schedule, and background jobs',
+      description:
+        'Run crawlers, manage archives, schedule, and background jobs',
       icon: '🕷️',
       path: '/admin/crawler',
     },
     {
       title: 'System & Database',
-      description: 'Migrations, data initialization, and destructive operations',
+      description:
+        'Migrations, data initialization, and destructive operations',
       icon: '⚙️',
       path: '/admin/system',
     },
@@ -460,7 +458,9 @@ function AdminDashboard() {
                   {section.title}
                 </h3>
               </div>
-              <p className="text-gray-400 mb-3 text-sm">{section.description}</p>
+              <p className="text-gray-400 mb-3 text-sm">
+                {section.description}
+              </p>
               <ActionButton
                 onClick={() => void navigate(section.path)}
                 className="w-full"
@@ -506,7 +506,10 @@ function AdminDashboard() {
 
               <StatPanel title="Builds & logs">
                 <StatRow label="Build lists" value={counts.buildLists} />
-                <StatRow label="Build list parts" value={counts.buildListParts} />
+                <StatRow
+                  label="Build list parts"
+                  value={counts.buildListParts}
+                />
                 <StatRow
                   label="Build list phases"
                   value={counts.buildListPhases}
@@ -552,7 +555,8 @@ function AdminDashboard() {
                         </div>
                         <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
                           {BUCKET_ENTITY_TYPE_ORDER.map((prefix) => {
-                            const n = bucketEntitySummary.by_entity_type[prefix];
+                            const n =
+                              bucketEntitySummary.by_entity_type[prefix];
                             if (!n) return null;
                             return (
                               <div
@@ -601,8 +605,9 @@ function AdminDashboard() {
                       </div>
                     ) : (
                       <p className="text-[10px] text-gray-600 leading-snug">
-                        Uploads from the app/extension (USER_IMAGES_BUCKET). Scraped
-                        part photos are usually remote URLs, not counted here.
+                        Uploads from the app/extension (USER_IMAGES_BUCKET).
+                        Scraped part photos are usually remote URLs, not counted
+                        here.
                       </p>
                     )
                   }
@@ -628,11 +633,16 @@ function AdminDashboard() {
                     !adminTableCounts.crawl_bucket_configured ? (
                       <p className="text-[10px] text-gray-600 leading-snug">
                         Bucket not configured: scraped page HTML is saved under{' '}
-                        <span className="font-mono text-gray-500">crawl_html/</span>{' '}
+                        <span className="font-mono text-gray-500">
+                          crawl_html/
+                        </span>{' '}
                         on disk instead. Set{' '}
-                        <span className="font-mono text-gray-500">CRAWL_BUCKET</span>{' '}
-                        (and AWS / LocalStack) to store archives in S3—then counts
-                        appear here (about two objects per archived page: .html + .url).
+                        <span className="font-mono text-gray-500">
+                          CRAWL_BUCKET
+                        </span>{' '}
+                        (and AWS / LocalStack) to store archives in S3—then
+                        counts appear here (about two objects per archived page:
+                        .html + .url).
                       </p>
                     ) : adminTableCounts?.crawl_bucket_error ? (
                       <p className="text-[10px] text-red-400/90">
@@ -640,14 +650,16 @@ function AdminDashboard() {
                       </p>
                     ) : adminTableCounts &&
                       adminTableCounts.crawl_bucket_configured &&
-                      Object.keys(adminTableCounts.crawl_bucket_by_prefix).length >
-                        0 ? (
+                      Object.keys(adminTableCounts.crawl_bucket_by_prefix)
+                        .length > 0 ? (
                       <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
                         <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
                           By top-level prefix
                         </div>
                         <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                          {Object.entries(adminTableCounts.crawl_bucket_by_prefix)
+                          {Object.entries(
+                            adminTableCounts.crawl_bucket_by_prefix
+                          )
                             .sort(([a], [b]) => a.localeCompare(b))
                             .map(([prefix, n]) => (
                               <div
@@ -664,7 +676,8 @@ function AdminDashboard() {
                       </div>
                     ) : adminTableCounts?.crawl_bucket_configured ? (
                       <p className="text-[10px] text-gray-600 leading-snug">
-                        Bucket is configured but empty (no archived HTML keys yet).
+                        Bucket is configured but empty (no archived HTML keys
+                        yet).
                       </p>
                     ) : undefined
                   }
@@ -709,9 +722,7 @@ function AdminDashboard() {
                     Object.keys(adminTableCounts.reports_by_entity_type)
                       .length > 0 ? (
                       <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                        {Object.entries(
-                          adminTableCounts.reports_by_entity_type
-                        )
+                        {Object.entries(adminTableCounts.reports_by_entity_type)
                           .sort(([a], [b]) => a.localeCompare(b))
                           .map(([entityType, n]) => (
                             <div

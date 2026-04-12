@@ -38,18 +38,24 @@ function SystemAdmin() {
   } | null>(null);
 
   // Deletions
-  const [isDeleteAllCarsConfirmOpen, setIsDeleteAllCarsConfirmOpen] = useState(false);
+  const [isDeleteAllCarsConfirmOpen, setIsDeleteAllCarsConfirmOpen] =
+    useState(false);
   const [isDeletingAllCars, setIsDeletingAllCars] = useState(false);
-  const [deleteAllCarsError, setDeleteAllCarsError] = useState<string | null>(null);
+  const [deleteAllCarsError, setDeleteAllCarsError] = useState<string | null>(
+    null
+  );
   const [deleteAllCarsResult, setDeleteAllCarsResult] = useState<{
     deleted_count: number;
     deleted_car_models_count: number;
     deleted_makes_count: number;
   } | null>(null);
 
-  const [isDeleteAllGlobalPartsConfirmOpen, setIsDeleteAllGlobalPartsConfirmOpen] =
+  const [
+    isDeleteAllGlobalPartsConfirmOpen,
+    setIsDeleteAllGlobalPartsConfirmOpen,
+  ] = useState(false);
+  const [isDeletingAllGlobalParts, setIsDeletingAllGlobalParts] =
     useState(false);
-  const [isDeletingAllGlobalParts, setIsDeletingAllGlobalParts] = useState(false);
   const [deleteAllGlobalPartsError, setDeleteAllGlobalPartsError] = useState<
     string | null
   >(null);
@@ -60,7 +66,9 @@ function SystemAdmin() {
   const [isDeleteAllBrandsConfirmOpen, setIsDeleteAllBrandsConfirmOpen] =
     useState(false);
   const [isDeletingAllBrands, setIsDeletingAllBrands] = useState(false);
-  const [deleteAllBrandsError, setDeleteAllBrandsError] = useState<string | null>(null);
+  const [deleteAllBrandsError, setDeleteAllBrandsError] = useState<
+    string | null
+  >(null);
   const [deleteAllBrandsResult, setDeleteAllBrandsResult] = useState<{
     deleted_count: number;
   } | null>(null);
@@ -74,7 +82,8 @@ function SystemAdmin() {
   } | null>(null);
   const [isListingOrphaned, setIsListingOrphaned] = useState(false);
   const [isPurgingOrphaned, setIsPurgingOrphaned] = useState(false);
-  const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] = useState(false);
+  const [isPurgeOrphanConfirmOpen, setIsPurgeOrphanConfirmOpen] =
+    useState(false);
   const [purgeOrphanError, setPurgeOrphanError] = useState<string | null>(null);
 
   // Redirect non-admin users
@@ -111,7 +120,8 @@ function SystemAdmin() {
       setMigrationResult({
         success: false,
         output: '',
-        error: error instanceof Error ? error.message : 'Failed to run migrations',
+        error:
+          error instanceof Error ? error.message : 'Failed to run migrations',
         current_revision: null,
       });
     } finally {
@@ -129,7 +139,9 @@ function SystemAdmin() {
       setInitCarGenerationsResult({
         success: false,
         message:
-          error instanceof Error ? error.message : 'Failed to initialize car generations',
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize car generations',
       });
     } finally {
       setIsInitCarGenerations(false);
@@ -180,7 +192,9 @@ function SystemAdmin() {
       setIsDeleteAllGlobalPartsConfirmOpen(false);
     } catch (error) {
       setDeleteAllGlobalPartsError(
-        error instanceof Error ? error.message : 'Failed to delete all global parts.'
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all global parts.'
       );
     } finally {
       setIsDeletingAllGlobalParts(false);
@@ -196,7 +210,9 @@ function SystemAdmin() {
       setIsDeleteAllBrandsConfirmOpen(false);
     } catch (error) {
       setDeleteAllBrandsError(
-        error instanceof Error ? error.message : 'Failed to delete all part brands.'
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete all part brands.'
       );
     } finally {
       setIsDeletingAllBrands(false);
@@ -270,108 +286,115 @@ function SystemAdmin() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-
-      {/* Database Migrations */}
-      <Card padding="sm">
-        <div className="mb-2">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Database Migrations
-          </h2>
-          <p className="text-sm text-neutral-400">
-            Run migrations to update the database schema on-demand.
-            {currentRevision && (
-              <>
-                {' '}
-                Current:{' '}
-                <span className="font-mono text-white">{currentRevision}</span>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
-          <div className="flex flex-wrap items-center gap-3 mb-2">
-            <ActionButton
-              onClick={() => void handleRunMigrations()}
-              disabled={isRunningMigrations}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-            >
-              {isRunningMigrations ? (
-                <span className="flex items-center">
-                  <span className="mr-2">
-                    <LoadingSpinner size="sm" inline />
+        {/* Database Migrations */}
+        <Card padding="sm">
+          <div className="mb-2">
+            <h2 className="text-lg font-semibold text-white mb-1">
+              Database Migrations
+            </h2>
+            <p className="text-sm text-neutral-400">
+              Run migrations to update the database schema on-demand.
+              {currentRevision && (
+                <>
+                  {' '}
+                  Current:{' '}
+                  <span className="font-mono text-white">
+                    {currentRevision}
                   </span>
-                  Running Migrations...
-                </span>
-              ) : (
-                '🔄 Run Migrations'
+                </>
               )}
-            </ActionButton>
-            <ActionButton
-              onClick={() => void fetchCurrentRevision()}
-              disabled={isLoadingRevision}
-              className="text-sm"
-            >
-              {isLoadingRevision ? (
-                <span className="flex items-center">
-                  <span className="mr-2">
-                    <LoadingSpinner size="sm" inline />
-                  </span>
-                  Loading...
-                </span>
-              ) : (
-                '🔄 Refresh Revision'
-              )}
-            </ActionButton>
+            </p>
           </div>
-          {migrationResult && (
-            <div
-              className={`p-3 rounded-lg border text-sm ${
-                migrationResult.success
-                  ? 'bg-green-900/20 border-green-700'
-                  : 'bg-red-900/20 border-red-700'
-              }`}
-            >
-              <div className="mb-1">
-                <span
-                  className={`font-semibold ${
-                    migrationResult.success ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {migrationResult.success
-                    ? '✓ Migrations completed successfully'
-                    : '✗ Migration failed'}
-                </span>
-              </div>
-              {migrationResult.current_revision && (
-                <div className="text-neutral-300 mb-1">
-                  <span className="font-semibold">New revision:</span>{' '}
-                  <span className="font-mono">{migrationResult.current_revision}</span>
-                </div>
-              )}
-              {migrationResult.output && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
-                    View output
-                  </summary>
-                  <pre className="mt-2 p-2 bg-gray-900 rounded text-xs text-neutral-300 overflow-x-auto max-h-60 overflow-y-auto">
-                    {migrationResult.output}
-                  </pre>
-                </details>
-              )}
-              {migrationResult.error && (
-                <div className="mt-2">
-                  <p className="text-sm font-semibold text-red-400 mb-1">Error:</p>
-                  <pre className="p-2 bg-gray-900 rounded text-xs text-red-300 overflow-x-auto max-h-60 overflow-y-auto">
-                    {migrationResult.error}
-                  </pre>
-                </div>
-              )}
+          <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <ActionButton
+                onClick={() => void handleRunMigrations()}
+                disabled={isRunningMigrations}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                {isRunningMigrations ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Running Migrations...
+                  </span>
+                ) : (
+                  '🔄 Run Migrations'
+                )}
+              </ActionButton>
+              <ActionButton
+                onClick={() => void fetchCurrentRevision()}
+                disabled={isLoadingRevision}
+                className="text-sm"
+              >
+                {isLoadingRevision ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">
+                      <LoadingSpinner size="sm" inline />
+                    </span>
+                    Loading...
+                  </span>
+                ) : (
+                  '🔄 Refresh Revision'
+                )}
+              </ActionButton>
             </div>
-          )}
-        </div>
-      </Card>
+            {migrationResult && (
+              <div
+                className={`p-3 rounded-lg border text-sm ${
+                  migrationResult.success
+                    ? 'bg-green-900/20 border-green-700'
+                    : 'bg-red-900/20 border-red-700'
+                }`}
+              >
+                <div className="mb-1">
+                  <span
+                    className={`font-semibold ${
+                      migrationResult.success
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    }`}
+                  >
+                    {migrationResult.success
+                      ? '✓ Migrations completed successfully'
+                      : '✗ Migration failed'}
+                  </span>
+                </div>
+                {migrationResult.current_revision && (
+                  <div className="text-neutral-300 mb-1">
+                    <span className="font-semibold">New revision:</span>{' '}
+                    <span className="font-mono">
+                      {migrationResult.current_revision}
+                    </span>
+                  </div>
+                )}
+                {migrationResult.output && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                      View output
+                    </summary>
+                    <pre className="mt-2 p-2 bg-gray-900 rounded text-xs text-neutral-300 overflow-x-auto max-h-60 overflow-y-auto">
+                      {migrationResult.output}
+                    </pre>
+                  </details>
+                )}
+                {migrationResult.error && (
+                  <div className="mt-2">
+                    <p className="text-sm font-semibold text-red-400 mb-1">
+                      Error:
+                    </p>
+                    <pre className="p-2 bg-gray-900 rounded text-xs text-red-300 overflow-x-auto max-h-60 overflow-y-auto">
+                      {migrationResult.error}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
 
-      {/* Data Initialization */}
+        {/* Data Initialization */}
         <Card padding="sm">
           <h2 className="text-lg font-semibold text-white mb-1">
             Data Initialization
@@ -442,8 +465,8 @@ function SystemAdmin() {
             )}
           </div>
         </Card>
-
-      </div>{/* end grid */}
+      </div>
+      {/* end grid */}
 
       {/* Destructive operations */}
       <div className="mt-4">
@@ -464,10 +487,10 @@ function SystemAdmin() {
                   Delete all cars (generations)
                 </h3>
                 <p className="text-neutral-400 mb-2 text-xs">
-                  Permanently remove every car generation, car model, and make from the
-                  catalog. Build lists are unlinked from cars (not deleted). Run &quot;Init
-                  Car Generations&quot; afterward to repopulate from a clean slate. This
-                  action cannot be undone.
+                  Permanently remove every car generation, car model, and make
+                  from the catalog. Build lists are unlinked from cars (not
+                  deleted). Run &quot;Init Car Generations&quot; afterward to
+                  repopulate from a clean slate. This action cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
                   <ActionButton
@@ -494,11 +517,13 @@ function SystemAdmin() {
                 {deleteAllCarsResult && (
                   <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
                     <p className="font-semibold">
-                      Deleted {deleteAllCarsResult.deleted_count.toLocaleString()} car(s),{' '}
-                      {deleteAllCarsResult.deleted_car_models_count.toLocaleString()} car
-                      model(s), and{' '}
-                      {deleteAllCarsResult.deleted_makes_count.toLocaleString()} make(s).
-                      Run Init Car Generations to repopulate.
+                      Deleted{' '}
+                      {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
+                      car(s),{' '}
+                      {deleteAllCarsResult.deleted_car_models_count.toLocaleString()}{' '}
+                      car model(s), and{' '}
+                      {deleteAllCarsResult.deleted_makes_count.toLocaleString()}{' '}
+                      make(s). Run Init Car Generations to repopulate.
                     </p>
                   </div>
                 )}
@@ -510,10 +535,11 @@ function SystemAdmin() {
                   Delete all global parts / part brands
                 </h3>
                 <p className="text-neutral-400 mb-2 text-xs">
-                  Permanently remove every global part from the catalog (also removes
-                  their part listings, votes, reports, and build list part associations).
-                  Or remove only part brands (parts keep their data; brand references are
-                  cleared). These actions cannot be undone.
+                  Permanently remove every global part from the catalog (also
+                  removes their part listings, votes, reports, and build list
+                  part associations). Or remove only part brands (parts keep
+                  their data; brand references are cleared). These actions
+                  cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
                   <ActionButton
@@ -571,9 +597,10 @@ function SystemAdmin() {
                     {deleteAllBrandsResult && (
                       <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
                         <p className="font-semibold">
-                          Deleted {deleteAllBrandsResult.deleted_count.toLocaleString()}{' '}
-                          part brand(s). Parts keep their data; brand references were
-                          cleared.
+                          Deleted{' '}
+                          {deleteAllBrandsResult.deleted_count.toLocaleString()}{' '}
+                          part brand(s). Parts keep their data; brand references
+                          were cleared.
                         </p>
                       </div>
                     )}
@@ -593,9 +620,10 @@ function SystemAdmin() {
                   Bucket orphan cleanup
                 </h3>
                 <p className="text-neutral-400 mb-2 text-xs">
-                  Bucket objects that are not referenced by any entity (global parts,
-                  users, cars, build lists, image cache) can be safely removed to free
-                  space. Only orphaned objects are deleted; no entity loses its images.
+                  Bucket objects that are not referenced by any entity (global
+                  parts, users, cars, build lists, image cache) can be safely
+                  removed to free space. Only orphaned objects are deleted; no
+                  entity loses its images.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
                   <ActionButton
@@ -645,8 +673,8 @@ function SystemAdmin() {
                         {orphanedResult.total_bucket.toLocaleString()}
                       </span>{' '}
                       total in bucket (
-                      {orphanedResult.total_referenced.toLocaleString()} referenced by
-                      entities).
+                      {orphanedResult.total_referenced.toLocaleString()}{' '}
+                      referenced by entities).
                     </p>
                     {orphanedResult.orphaned_keys.length > 0 && (
                       <details className="mt-1">
