@@ -233,9 +233,9 @@ async def reset_password(
     )
 
     if settings.DEBUG:
-        reset_url = f"http://localhost:4000/reset-password?token={token}"
+        reset_url = f"http://localhost:4000/forgot-password/confirm?token={token}"
     else:
-        reset_url = f"https://www.carmodpicker.com/reset-password?token={token}"
+        reset_url = f"https://www.carmodpicker.com/forgot-password/confirm?token={token}"
 
     if not send_reset_password_email(user.email, reset_url):
         ResponsePatterns.raise_internal_server_error("Failed to send password reset email")
