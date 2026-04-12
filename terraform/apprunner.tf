@@ -32,6 +32,7 @@ resource "aws_iam_role_policy" "apprunner_access_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.cron_secret_key.arn,
       ]
     }]
   })
@@ -67,7 +68,26 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.cron_secret_key.arn,
       ]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "apprunner_instance_scheduler" {
+  name = "eventbridge-scheduler-manage"
+  role = aws_iam_role.apprunner_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "scheduler:GetSchedule",
+        "scheduler:UpdateSchedule",
+      ]
+      # Scoped to only the crawler schedule managed by this deployment.
+      Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-run"
     }]
   })
 }
@@ -110,8 +130,8 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:ListBucket", "s3:HeadBucket"]
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:HeadBucket"]
         Resource = [
           aws_s3_bucket.user_images.arn,
           aws_s3_bucket.crawl_data.arn,
@@ -129,9 +149,9 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
 # ---------------------------------------------------------------------------
 resource "aws_apprunner_auto_scaling_configuration_version" "backend" {
   auto_scaling_configuration_name = "${local.prefix}-backend"
-  min_size        = 1
-  max_size        = 2
-  max_concurrency = 50
+  min_size                        = 1
+  max_size                        = 2
+  max_concurrency                 = 50
 }
 
 # ---------------------------------------------------------------------------
@@ -156,20 +176,22 @@ resource "aws_apprunner_service" "backend" {
 
         # Non-sensitive runtime configuration
         runtime_environment_variables = {
-          DEBUG               = "false"
-          APP_ENVIRONMENT = "production"
-          PORT                = "8000"
-          USER_IMAGES_BUCKET  = aws_s3_bucket.user_images.bucket
-          CRAWL_BUCKET        = aws_s3_bucket.crawl_data.bucket
-          AWS_REGION          = var.aws_region
-          S3_ENDPOINT_URL     = "" # Empty → boto3 uses native AWS S3
-          EMAIL_FROM          = var.email_from
+          DEBUG              = "false"
+          APP_ENVIRONMENT    = "production"
+          PORT               = "8000"
+          USER_IMAGES_BUCKET = aws_s3_bucket.user_images.bucket
+          CRAWL_BUCKET       = aws_s3_bucket.crawl_data.bucket
+          AWS_REGION         = var.aws_region
+          S3_ENDPOINT_URL    = "" # Empty → boto3 uses native AWS S3
+          EMAIL_FROM         = var.email_from
+          EMAIL_ENABLED      = "true"
         }
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
-          DATABASE_URL = aws_secretsmanager_secret_version.database_url.arn
-          SECRET_KEY   = aws_secretsmanager_secret_version.secret_key.arn
+          DATABASE_URL    = aws_secretsmanager_secret_version.database_url.arn
+          SECRET_KEY      = aws_secretsmanager_secret_version.secret_key.arn
+          CRON_SECRET_KEY = aws_secretsmanager_secret_version.cron_secret_key.arn
         }
       }
     }

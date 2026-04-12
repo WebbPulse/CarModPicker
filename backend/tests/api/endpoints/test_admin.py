@@ -131,45 +131,47 @@ class TestAdminMigrations:
         mock_run.assert_called_once()
 
 
-class TestAdminRerunInference:
-    """Test cases for admin rerun-inference endpoint."""
+class TestAdminRescrapeArchives:
+    """Test cases for admin rescrape-archives endpoint."""
 
-    def test_rerun_inference_unauthorized(self, client: TestClient) -> None:
-        """Test rerun inference without auth returns 401."""
+    def test_rescrape_archives_unauthorized(self, client: TestClient) -> None:
+        """Test rescrape archives without auth returns 401."""
         response = client.post(
-            f"{settings.API_STR}/admin/global-parts/rerun-inference",
-            json={"reassign_brand": True},
+            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            json={"crawler_user_id": 1, "default_category_id": 1},
         )
         assert response.status_code == 401
 
-    def test_rerun_inference_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
-        """Test rerun inference as non-admin returns 403."""
-        token = create_and_login_user(client, db_session, "rerun_forbidden")
+    def test_rescrape_archives_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        """Test rescrape archives as non-admin returns 403."""
+        token = create_and_login_user(client, db_session, "rescrape_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/global-parts/rerun-inference",
-            json={"reassign_brand": True},
+            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            json={"crawler_user_id": 1, "default_category_id": 1},
             headers=headers,
         )
         assert response.status_code == 403
 
-    def test_rerun_inference_success_admin(self, client: TestClient, db_session: Session) -> None:
-        """Test rerun inference as admin returns 200 with updated_count and error_count."""
-        token = create_and_login_admin_user(client, db_session, "rerun_success")
+    def test_rescrape_archives_success_admin(self, client: TestClient, db_session: Session) -> None:
+        """Test rescrape archives as admin returns 200 with status started."""
+        from tests.conftest import get_default_category_id
+
+        suffix = "rescrape_ok"
+        token = create_and_login_admin_user(client, db_session, suffix)
+        admin = db_session.query(DBUser).filter(DBUser.username == f"admin_ep_test_{suffix}").first()
+        assert admin is not None
+        cat_id = get_default_category_id(db_session)
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/global-parts/rerun-inference",
-            json={"reassign_brand": False},
+            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            json={"crawler_user_id": admin.id, "default_category_id": cat_id},
             headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
-        assert "updated_count" in data
-        assert "error_count" in data
-        assert "errors" in data
-        assert isinstance(data["updated_count"], int)
-        assert isinstance(data["error_count"], int)
-        assert isinstance(data["errors"], list)
+        assert data.get("status") == "started"
+        assert "message" in data
 
 
 class TestAdminDeleteAllBrands:
@@ -263,3 +265,41 @@ class TestAdminDeleteAllBrands:
         assert response.status_code == 200
         data = response.json()
         assert data["deleted_count"] == 0
+
+
+class TestAdminTableCounts:
+    """GET /admin/stats/table-counts — supplemental DB counts (admin only)."""
+
+    def test_table_counts_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        token = create_and_login_user(client, db_session, "table_counts_forbidden")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)
+        assert response.status_code == 403
+
+    def test_table_counts_admin_ok(self, client: TestClient, db_session: Session) -> None:
+        token = create_and_login_admin_user(client, db_session, "table_counts_ok")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        for key in (
+            "build_list_phases",
+            "crawled_pages",
+            "part_listings",
+            "part_price_histories",
+            "image_source_mappings",
+            "build_logs",
+            "global_part_cars",
+            "votes_by_entity_type",
+            "reports_by_entity_type",
+            "crawl_bucket_configured",
+            "crawl_bucket_total",
+            "crawl_bucket_by_prefix",
+        ):
+            assert key in data
+        assert isinstance(data["build_list_phases"], int)
+        assert isinstance(data["votes_by_entity_type"], dict)
+        assert isinstance(data["reports_by_entity_type"], dict)
+        assert isinstance(data["crawl_bucket_configured"], bool)
+        assert isinstance(data["crawl_bucket_total"], int)
+        assert isinstance(data["crawl_bucket_by_prefix"], dict)

@@ -16,12 +16,15 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (response: {
       success: boolean;
       data: ScrapedProductData;
+      html?: string;
     }) => void
   ) => {
     if (request.action === "scrapePage") {
       try {
+        // Capture raw HTML before scraping so any DOM mutations don't affect it
+        const pageHtml = document.documentElement.outerHTML;
         const scrapedData = scrapeProductData();
-        sendResponse({ success: true, data: scrapedData });
+        sendResponse({ success: true, data: scrapedData, html: pageHtml });
       } catch (err) {
         // Always respond so popup doesn't get chrome.runtime.lastError
         const fallback: ScrapedProductData = {
@@ -34,7 +37,7 @@ chrome.runtime.onMessage.addListener(
           brand: null,
           part_number: null,
         };
-        sendResponse({ success: true, data: fallback });
+        sendResponse({ success: true, data: fallback, html: "" });
       }
       return true; // Keep channel open for async response
     }

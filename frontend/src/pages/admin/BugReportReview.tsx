@@ -258,66 +258,71 @@ function BugReportReview() {
         subtitle="Review and manage bug reports"
       />
 
-      <div className="flex justify-between items-center mb-4">
-        <ActionButton onClick={() => void navigate('/admin')}>
-          ← Back to Admin Dashboard
-        </ActionButton>
-        <div className="flex space-x-2">
-          <ActionButton
-            onClick={() => setSelectedStatus('pending')}
-            className={
-              selectedStatus === 'pending' ? 'bg-blue-600' : 'bg-gray-600'
-            }
-          >
-            Pending ({pendingCount})
-          </ActionButton>
-          <ActionButton
-            onClick={() => setSelectedStatus('in_progress')}
-            className={
-              selectedStatus === 'in_progress' ? 'bg-blue-600' : 'bg-gray-600'
-            }
-          >
-            In Progress
-          </ActionButton>
-          <ActionButton
-            onClick={() => setSelectedStatus('resolved')}
-            className={
-              selectedStatus === 'resolved' ? 'bg-blue-600' : 'bg-gray-600'
-            }
-          >
-            Resolved
-          </ActionButton>
-          <ActionButton
-            onClick={() => setSelectedStatus('dismissed')}
-            className={
-              selectedStatus === 'dismissed' ? 'bg-blue-600' : 'bg-gray-600'
-            }
-          >
-            Dismissed
-          </ActionButton>
-          <ActionButton
-            onClick={() => setSelectedStatus('all')}
-            className={selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'}
-          >
-            All
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
+        <div className="shrink-0">
+          <ActionButton onClick={() => void navigate('/admin')}>
+            ← Back to Admin Dashboard
           </ActionButton>
         </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Filter by Priority
-        </label>
-        <div className="flex space-x-2">
-          {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
             <ActionButton
-              key={p}
-              onClick={() => setSelectedPriority(p)}
-              className={selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'}
+              onClick={() => setSelectedStatus('pending')}
+              className={
+                selectedStatus === 'pending' ? 'bg-blue-600' : 'bg-gray-600'
+              }
             >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
+              Pending ({pendingCount})
             </ActionButton>
-          ))}
+            <ActionButton
+              onClick={() => setSelectedStatus('in_progress')}
+              className={
+                selectedStatus === 'in_progress' ? 'bg-blue-600' : 'bg-gray-600'
+              }
+            >
+              In Progress
+            </ActionButton>
+            <ActionButton
+              onClick={() => setSelectedStatus('resolved')}
+              className={
+                selectedStatus === 'resolved' ? 'bg-blue-600' : 'bg-gray-600'
+              }
+            >
+              Resolved
+            </ActionButton>
+            <ActionButton
+              onClick={() => setSelectedStatus('dismissed')}
+              className={
+                selectedStatus === 'dismissed' ? 'bg-blue-600' : 'bg-gray-600'
+              }
+            >
+              Dismissed
+            </ActionButton>
+            <ActionButton
+              onClick={() => setSelectedStatus('all')}
+              className={
+                selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'
+              }
+            >
+              All
+            </ActionButton>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-400 shrink-0">
+              Priority:
+            </span>
+            {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
+              <ActionButton
+                key={p}
+                onClick={() => setSelectedPriority(p)}
+                className={
+                  selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'
+                }
+              >
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </ActionButton>
+            ))}
+          </div>
         </div>
       </div>
 

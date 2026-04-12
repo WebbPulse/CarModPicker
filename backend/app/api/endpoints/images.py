@@ -5,7 +5,7 @@ Supports source URL tracking for deduplication (avoid re-downloading same images
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
@@ -353,6 +353,29 @@ async def get_bucket_object_count(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while counting bucket objects",
+        )
+
+
+@router.get("/admin/count-by-entity-type")
+async def get_bucket_object_count_by_entity_type(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> dict[str, Any]:
+    """
+    Admin-only: one S3 list pass returning total keys, counts by standard upload prefix
+    (entity_type segment), and keys that do not match the expected layout under ``other``.
+    """
+    try:
+        summary = storage_service.count_bucket_objects_by_entity_prefix()
+        logger.info(f"Admin {current_user.id} retrieved bucket object counts by entity prefix")
+        return summary
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get bucket object counts by entity type: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while summarizing bucket objects",
         )
 
 

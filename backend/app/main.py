@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -16,6 +17,7 @@ from .api.endpoints import (
     build_logs,
     cars,
     categories,
+    crawled_pages,
     global_parts,
     images,
     reports,
@@ -28,8 +30,9 @@ from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.init_service_accounts import init_crawler_service_account
 from .core.logging import LOG_FORMAT, ColorizedFormatter
-from .db.session import check_db_ready
+from .db.session import SessionLocal, check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -50,10 +53,24 @@ for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # type: ignore[type-arg]
+    db = SessionLocal()
+    try:
+        init_crawler_service_account(db)
+    except Exception:
+        logger.exception("Failed to initialize service accounts on startup")
+    finally:
+        db.close()
+    yield
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_STR}/openapi.json",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -76,6 +93,7 @@ app.add_middleware(
         "Accept",
         "Origin",
         "X-Requested-With",
+        "X-Admin-Cron-Key",
     ],  # Restrict to needed headers
     expose_headers=["*"],  # Expose all headers for debugging
 )
@@ -184,6 +202,14 @@ endpoint_registry.register_endpoint(
     description="Image upload and management operations using S3",
 )
 
+# Crawled pages HTML archival
+endpoint_registry.register_endpoint(
+    crawled_pages.router,
+    prefix="/crawled-pages",
+    tags=["crawled-pages"],
+    description="HTML archival for crawled pages (extension upload and admin re-parse)",
+)
+
 # Build logs endpoint
 endpoint_registry.register_endpoint(
     build_logs.router,
@@ -203,7 +229,13 @@ endpoint_registry.register_endpoint(
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"Hello": "World"}
+    return {
+        "name": "CarModPicker API",
+        "version": "1.0.0",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @app.get("/health")

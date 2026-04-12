@@ -216,11 +216,11 @@ function ReportReview() {
         subtitle="Review and manage reports for all entities"
       />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <ActionButton onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
         </ActionButton>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <ActionButton
             onClick={() => setSelectedStatus('pending')}
             className={

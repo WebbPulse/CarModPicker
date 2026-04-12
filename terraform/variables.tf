@@ -53,3 +53,38 @@ variable "email_from" {
   type        = string
   default     = "no-reply@carmodpicker.com"
 }
+
+# ---------------------------------------------------------------------------
+# Cron / EventBridge Scheduler
+# ---------------------------------------------------------------------------
+
+variable "cron_secret_key" {
+  description = "Shared secret injected as X-Admin-Cron-Key header by EventBridge Scheduler. Must match CRON_SECRET_KEY in App Runner."
+  type        = string
+  sensitive   = true
+}
+
+variable "crawler_default_category_id" {
+  description = "Fallback category ID when part inference cannot determine a category"
+  type        = number
+  default     = 1
+}
+
+variable "crawler_delay_sec" {
+  description = "Seconds between requests per crawler adapter (passed in the schedule input)"
+  type        = number
+  default     = 5
+}
+
+# Crawler run schedule
+# State is always DISABLED on first apply; use the admin UI to enable it.
+# The expression set here is the initial value; it can also be changed from
+# the admin UI without a Terraform apply (lifecycle.ignore_changes in scheduler.tf).
+variable "crawler_cron_schedule" {
+  description = "Initial EventBridge Scheduler cron expression for crawler runs (UTC). Editable from the admin UI after first apply."
+  type        = string
+  default     = "cron(0 2 1 * ? *)" # 2 AM UTC on the 1st of each month
+}
+
+# Archive rescrape is intentionally excluded — it is always triggered manually
+# from the admin UI and should never run on a schedule.

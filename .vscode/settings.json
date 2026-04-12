@@ -37,17 +37,9 @@
   "python.testing.pytestArgs": ["backend/tests", "-n", "auto"],
 
   // isort Configuration
-  // The isort extension automatically reads from backend/pyproject.toml [tool.isort] when working on backend files
-  // These args match pyproject.toml settings and serve as a fallback for consistency
-  // CI runs: isort . --check-only --diff from backend/ (uses pyproject.toml automatically)
-  "isort.args": [
-    "--profile",
-    "black",
-    "--line-length",
-    "120",
-    "--multi-line-output",
-    "3"
-  ],
+  // Points to backend/pyproject.toml [tool.isort] — same config CI uses (isort . from backend/)
+  // This ensures known_first_party, known_third_party, and all other settings match CI exactly
+  "isort.args": ["--settings-path", "${workspaceFolder}/backend"],
   // Enable isort to run on save (needed when python.languageServer is "None")
 
   // ============================================
@@ -130,12 +122,9 @@
     "editor.rulers": [120],
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
-    "black-formatter.args": [
-      "--line-length",
-      "120",
-      "--target-version",
-      "py311"
-    ]
+    // Points to backend/pyproject.toml — same config CI uses (black --config pyproject.toml from backend/)
+    // Avoids duplicating line-length, target-version, and extend-exclude (alembic/versions) here
+    "black-formatter.args": ["--config", "${workspaceFolder}/backend/pyproject.toml"]
   },
 
   "[typescript]": {
@@ -166,12 +155,19 @@
     }
   },
 
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
   "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
 
   "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
 
   // ============================================
@@ -201,6 +197,10 @@
   "files.associations": {
     "*.mdc": "markdown"
   },
+
+  // Prettier: only format when a config file exists — prevents accidental formatting
+  // of files outside frontend/ with wrong defaults
+  "prettier.requireConfig": true,
 
   // Git
   "git.enableSmartCommit": false,

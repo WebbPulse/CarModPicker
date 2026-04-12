@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-push hook: run type checks before pushing to catch errors that
+# wouldn't be caught by format-on-save. Mirrors the CI build step.
+#
+# Setup (one-time per clone):
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# ─── Frontend: TypeScript type check ─────────────────────────────────────────
+# Runs tsc --noEmit (same as `npm run type-check` in CI).
+# This catches exactOptionalPropertyTypes, missing imports, etc. before the
+# full CI build would catch them.
+
+if [ -d "$REPO_ROOT/frontend/node_modules" ]; then
+  echo "▶ tsc type-check (frontend)"
+  (cd "$REPO_ROOT/frontend" && npx tsc --noEmit)
+  echo "✓ TypeScript OK"
+else
+  echo "⚠ frontend/node_modules not found — skipping tsc (run 'npm ci' in frontend/)"
+fi
+
+# ─── Backend: pyright type check ─────────────────────────────────────────────
+
+if command -v pyright &>/dev/null; then
+  echo "▶ pyright (backend)"
+  (cd "$REPO_ROOT/backend" && pyright)
+  echo "✓ Pyright OK"
+else
+  echo "⚠ pyright not found in PATH — skipping (run: pip install pyright)"
+fi
+
+echo "✓ pre-push checks passed"

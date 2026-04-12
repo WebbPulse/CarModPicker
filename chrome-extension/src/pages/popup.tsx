@@ -98,7 +98,9 @@ function Popup() {
         tab.id,
         { action: "scrapePage" },
         (
-          response: { success: boolean; data: ScrapedProductData } | undefined
+          response:
+            | { success: boolean; data: ScrapedProductData; html?: string }
+            | undefined
         ) => {
           if (chrome.runtime.lastError) {
             showStatus(
@@ -110,6 +112,15 @@ function Popup() {
           if (response && response.success && response.data) {
             setScrapedData(response.data);
             setShowPartDialog(true);
+            // Archive full page HTML in background — fire-and-forget, does not block UX
+            if (response.html && tab.url) {
+              chrome.runtime.sendMessage(
+                { action: "archiveHtml", url: tab.url, html: response.html },
+                () => {
+                  void chrome.runtime.lastError; // suppress unchecked error warning
+                }
+              );
+            }
           } else {
             showStatus(
               "Failed to scrape page data. Make sure you are on a product page.",

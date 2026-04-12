@@ -1,3 +1,4 @@
+from .background_job import BackgroundJob
 from .brand import Brand
 from .bug_report import BugReport
 from .build_list import BuildList
@@ -18,6 +19,7 @@ from .user import User
 from .vote import Vote
 
 __all__ = [
+    "BackgroundJob",
     "User",
     "Car",
     "CarModel",
