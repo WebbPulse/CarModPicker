@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from app.crawlers.base import CRAWL_HTML_HASH_BYTES
 from tests.conftest import login_user
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -103,29 +102,23 @@ class TestSaveCrawlPageHtml:
 
     def test_local_filesystem_fallback_when_no_bucket(self, tmp_path: Any) -> None:
         """Without mock_s3, falls back to writing HTML to local filesystem."""
+        from unittest.mock import patch
+
         import app.crawlers.base as base_module
-
-        # Ensure crawl client globals are None (no S3 configured)
-        original_client = base_module._crawl_s3_client
-        original_bucket = base_module._crawl_bucket_name
-        base_module._crawl_s3_client = None
-        base_module._crawl_bucket_name = None
-
         from app.crawlers.base import save_crawl_page_html
 
         url = "https://example.com/product/wheels"
         html = "<html><body>Wheels</body></html>"
 
-        try:
+        # Patch the S3 client factory to simulate no bucket configured, bypassing
+        # any CRAWL_BUCKET env var that may be set in the local .env file.
+        with patch.object(base_module, "_get_crawl_s3_client", return_value=(None, None)):
             key = save_crawl_page_html("test_adapter", url, html, str(tmp_path))
 
             assert key is not None
             assert key.startswith("/"), "Expected absolute local path"
             assert os.path.exists(key)
             assert open(key).read() == html
-        finally:
-            base_module._crawl_s3_client = original_client
-            base_module._crawl_bucket_name = original_bucket
 
 
 # ---------------------------------------------------------------------------
@@ -202,9 +195,7 @@ class TestHtmlUploadEndpoint:
         )
         assert resp.status_code == 401
 
-    def test_rejects_empty_url(
-        self, mock_s3: Dict[str, Any], client: TestClient, test_user: Any
-    ) -> None:
+    def test_rejects_empty_url(self, mock_s3: Dict[str, Any], client: TestClient, test_user: Any) -> None:
         headers = _auth(client, test_user.username)
         resp = client.post(
             "/api/crawled-pages/html",
@@ -221,8 +212,9 @@ class TestHtmlUploadEndpoint:
 
 class TestListCrawledPages:
     def _seed_page(self, db_session: Session, url: str, source: str = "chrome_extension") -> Any:
-        from app.api.models.crawled_page import CrawledPage
         from datetime import datetime, timezone
+
+        from app.api.models.crawled_page import CrawledPage
 
         page = CrawledPage(url=url, source=source, crawled_at=datetime.now(timezone.utc), parse_status="pending")
         db_session.add(page)
@@ -230,9 +222,7 @@ class TestListCrawledPages:
         db_session.refresh(page)
         return page
 
-    def test_admin_can_list_pages(
-        self, client: TestClient, test_admin_user: Any, db_session: Session
-    ) -> None:
+    def test_admin_can_list_pages(self, client: TestClient, test_admin_user: Any, db_session: Session) -> None:
         self._seed_page(db_session, "https://a.com/1")
         self._seed_page(db_session, "https://a.com/2")
         headers = _auth(client, test_admin_user.username)
@@ -240,17 +230,13 @@ class TestListCrawledPages:
         assert resp.status_code == 200
         assert len(resp.json()) >= 2
 
-    def test_non_admin_is_forbidden(
-        self, client: TestClient, test_user: Any, db_session: Session
-    ) -> None:
+    def test_non_admin_is_forbidden(self, client: TestClient, test_user: Any, db_session: Session) -> None:
         self._seed_page(db_session, "https://b.com/1")
         headers = _auth(client, test_user.username)
         resp = client.get("/api/crawled-pages/", headers=headers)
         assert resp.status_code == 403
 
-    def test_filter_by_source(
-        self, client: TestClient, test_admin_user: Any, db_session: Session
-    ) -> None:
+    def test_filter_by_source(self, client: TestClient, test_admin_user: Any, db_session: Session) -> None:
         self._seed_page(db_session, "https://c.com/crawler", source="a90shop")
         self._seed_page(db_session, "https://c.com/ext", source="chrome_extension")
         headers = _auth(client, test_admin_user.username)
@@ -260,14 +246,14 @@ class TestListCrawledPages:
         for item in resp.json():
             assert item["source"] == "a90shop"
 
-    def test_filter_by_parse_status(
-        self, client: TestClient, test_admin_user: Any, db_session: Session
-    ) -> None:
-        from app.api.models.crawled_page import CrawledPage
+    def test_filter_by_parse_status(self, client: TestClient, test_admin_user: Any, db_session: Session) -> None:
         from datetime import datetime, timezone
 
-        page = CrawledPage(url="https://d.com/parsed", source="a90shop",
-                           crawled_at=datetime.now(timezone.utc), parse_status="parsed")
+        from app.api.models.crawled_page import CrawledPage
+
+        page = CrawledPage(
+            url="https://d.com/parsed", source="a90shop", crawled_at=datetime.now(timezone.utc), parse_status="parsed"
+        )
         db_session.add(page)
         db_session.commit()
 
@@ -287,13 +273,15 @@ class TestReparseCrawledPage:
     def _seed_page_with_html(
         self, mock_s3: Dict[str, Any], db_session: Session, url: str, html: str, source: str = "a90shop"
     ) -> Any:
-        from app.crawlers.base import save_crawl_page_html
-        from app.api.models.crawled_page import CrawledPage
         from datetime import datetime, timezone
 
+        from app.api.models.crawled_page import CrawledPage
+        from app.crawlers.base import save_crawl_page_html
+
         s3_key = save_crawl_page_html(source, url, html, "")
-        page = CrawledPage(url=url, source=source, html_s3_key=s3_key,
-                           crawled_at=datetime.now(timezone.utc), parse_status="pending")
+        page = CrawledPage(
+            url=url, source=source, html_s3_key=s3_key, crawled_at=datetime.now(timezone.utc), parse_status="pending"
+        )
         db_session.add(page)
         db_session.commit()
         db_session.refresh(page)
@@ -306,9 +294,7 @@ class TestReparseCrawledPage:
         test_admin_user: Any,
         db_session: Session,
     ) -> None:
-        page = self._seed_page_with_html(
-            mock_s3, db_session, "https://e.com/ext", "<html/>", source="chrome_extension"
-        )
+        page = self._seed_page_with_html(mock_s3, db_session, "https://e.com/ext", "<html/>", source="chrome_extension")
         headers = _auth(client, test_admin_user.username)
         resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
         assert resp.status_code == 422
@@ -330,11 +316,13 @@ class TestReparseCrawledPage:
         test_admin_user: Any,
         db_session: Session,
     ) -> None:
-        from app.api.models.crawled_page import CrawledPage
         from datetime import datetime, timezone
 
-        page = CrawledPage(url="https://f.com/no-html", source="a90shop",
-                           crawled_at=datetime.now(timezone.utc), parse_status="pending")
+        from app.api.models.crawled_page import CrawledPage
+
+        page = CrawledPage(
+            url="https://f.com/no-html", source="a90shop", crawled_at=datetime.now(timezone.utc), parse_status="pending"
+        )
         db_session.add(page)
         db_session.commit()
         db_session.refresh(page)
@@ -372,8 +360,10 @@ class TestReparseCrawledPage:
 
         os.environ["CRAWLER_USER_ID"] = "1"  # won't be reached but avoid KeyError
 
-        with patch("app.crawlers.adapters.ADAPTER_REGISTRY", {"a90shop": mock_adapter}), \
-             patch("app.crawlers.adapters.get_adapter", return_value=mock_adapter):
+        with (
+            patch("app.crawlers.adapters.ADAPTER_REGISTRY", {"a90shop": mock_adapter}),
+            patch("app.crawlers.adapters.get_adapter", return_value=mock_adapter),
+        ):
             headers = _auth(client, test_admin_user.username)
             resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
 

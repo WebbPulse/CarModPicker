@@ -498,6 +498,7 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
 
     with mock_aws():
         import boto3
+
         import app.api.services.storage_service as ss_module
         import app.crawlers.base as base_module
         from app.core.config import settings as app_settings

@@ -63,6 +63,7 @@ class _S3PutObjectProtocol(Protocol):
 
     def get_object(self, *, Bucket: str, Key: str) -> dict: ...
 
+
 # Lazy S3 client for crawl HTML uploads. Uses CRAWL_BUCKET (separate from user images).
 # Falls back to local filesystem if CRAWL_BUCKET is not configured.
 _crawl_s3_client: Optional[_S3PutObjectProtocol] = None
@@ -79,9 +80,7 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
 
         bucket = (settings.CRAWL_BUCKET or "").strip()
         if not bucket:
-            logger.info(
-                "Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback"
-            )
+            logger.info("Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback")
             return None, None
         import boto3
 
