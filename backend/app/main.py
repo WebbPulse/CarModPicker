@@ -16,6 +16,7 @@ from .api.endpoints import (
     build_logs,
     cars,
     categories,
+    crawled_pages,
     global_parts,
     images,
     reports,
@@ -182,6 +183,14 @@ endpoint_registry.register_endpoint(
     prefix="/images",
     tags=["images"],
     description="Image upload and management operations using S3",
+)
+
+# Crawled pages HTML archival
+endpoint_registry.register_endpoint(
+    crawled_pages.router,
+    prefix="/crawled-pages",
+    tags=["crawled-pages"],
+    description="HTML archival for crawled pages (extension upload and admin re-parse)",
 )
 
 # Build logs endpoint

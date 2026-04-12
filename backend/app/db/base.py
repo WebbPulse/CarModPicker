@@ -16,5 +16,6 @@ from app.api.models.retailer import Retailer  # noqa: F401
 
 # actual models
 from app.api.models.user import User  # noqa: F401
+from app.api.models.crawled_page import CrawledPage  # noqa: F401
 from app.api.models.vote import Vote  # noqa: F401
 from app.db.base_class import Base  # noqa: F401

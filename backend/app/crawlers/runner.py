@@ -21,12 +21,14 @@ import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
+from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
@@ -140,6 +142,43 @@ def _get_default_category_id(db: Session) -> int:
     )
 
 
+def _upsert_crawled_page(
+    db: Session,
+    *,
+    url: str,
+    source: str,
+    storage_key: Optional[str],
+    part_id: Optional[int],
+) -> None:
+    """
+    Create or update a CrawledPage record for the given URL.
+    storage_key is an S3 key (no leading "/") or an absolute local path (starts with "/").
+    part_id, when provided, marks the parse as successful.
+    Calls db.flush() — caller is responsible for the surrounding commit.
+    """
+    page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+    now = datetime.now(timezone.utc)
+    if page is None:
+        page = DBCrawledPage(
+            url=url,
+            source=source,
+            crawled_at=now,
+            parse_status="pending",
+        )
+        db.add(page)
+    # Refresh storage key on every (re)crawl
+    if storage_key:
+        if storage_key.startswith("/"):
+            page.html_local_path = storage_key
+        else:
+            page.html_s3_key = storage_key
+    if part_id is not None:
+        page.global_part_id = part_id
+        page.parse_status = "parsed"
+        page.last_parsed_at = now
+    db.flush()
+
+
 def run_crawler(
     adapter_name: str,
     *,
@@ -174,8 +213,8 @@ def run_crawler(
         skipped = 0
         errors = 0
 
-        # Optional: save full page HTML for new URLs (or all if save_on_recrawl)
-        save_dir_str = (crawl_html_save_dir or "").strip() or os.environ.get("CRAWL_HTML_SAVE_DIR", "").strip()
+        # HTML archival: always save for new URLs; optionally overwrite on recrawl.
+        # crawl_html_save_dir is kept for backward compat but no longer required to enable saving.
         save_on_recrawl = crawl_html_save_on_recrawl
         if save_on_recrawl is None:
             save_on_recrawl = os.environ.get("CRAWL_HTML_SAVE_ON_RECRAWL", "0").strip().lower() in (
@@ -183,15 +222,6 @@ def run_crawler(
                 "true",
                 "yes",
             )
-        save_dir: Optional[Path] = Path(save_dir_str) if save_dir_str else None
-        if save_dir is not None:
-            logger.info(
-                "Saving full page HTML (prefix: %s; overwrite on recrawl: %s)",
-                save_dir_str,
-                save_on_recrawl,
-            )
-        else:
-            logger.debug("Crawl HTML save disabled (no directory/prefix set)")
 
         for i, url in enumerate(urls, 1):
             try:
@@ -222,16 +252,17 @@ def run_crawler(
                         url,
                     )
                     continue
-                # Save full page copy for new URLs, or for all if save_on_recrawl is set
-                if save_dir and (not url_known or save_on_recrawl):
-                    save_crawl_page_html(
+                # Always archive raw HTML for new URLs; respect save_on_recrawl for known ones
+                storage_key: Optional[str] = None
+                if not url_known or save_on_recrawl:
+                    storage_key = save_crawl_page_html(
                         adapter_name,
                         url,
                         html,
-                        save_dir,
+                        "",
                         logger_instance=logger,
                     )
-                ingest_payload(
+                part = ingest_payload(
                     db,
                     payload,
                     current_user=user,
@@ -239,6 +270,7 @@ def run_crawler(
                     logger=logger,
                     source="scraped",
                 )
+                _upsert_crawled_page(db, url=url, source=adapter_name, storage_key=storage_key, part_id=part.id)
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
             except Exception as e:

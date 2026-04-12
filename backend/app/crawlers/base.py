@@ -61,6 +61,8 @@ class _S3PutObjectProtocol(Protocol):
         ContentType: str,
     ) -> object: ...
 
+    def get_object(self, *, Bucket: str, Key: str) -> dict: ...
+
 
 # Lazy S3 client for crawl HTML uploads. Uses CRAWL_BUCKET (separate from user images).
 # Falls back to local filesystem if CRAWL_BUCKET is not configured.
@@ -77,20 +79,23 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
         from app.core.config import settings
 
         bucket = (settings.CRAWL_BUCKET or "").strip()
-        if not bucket or not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+        if not bucket:
             logger.info(
-                "Crawl HTML bucket not configured (CRAWL_BUCKET or AWS credentials missing); will use local path if save enabled"
+                "Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback"
             )
             return None, None
         import boto3
 
-        _crawl_s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION or "auto",
-            endpoint_url=settings.S3_ENDPOINT_URL or None,
-        )
+        # Pass explicit credentials only when provided; otherwise boto3 uses its default
+        # credential chain (IAM role, env vars, ~/.aws/credentials, etc.)
+        client_kwargs: dict = {
+            "region_name": settings.AWS_REGION or None,
+            "endpoint_url": settings.S3_ENDPOINT_URL or None,
+        }
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            client_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+            client_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+        _crawl_s3_client = boto3.client("s3", **client_kwargs)
         _crawl_bucket_name = bucket
         return _crawl_s3_client, _crawl_bucket_name
     except Exception as e:
@@ -112,12 +117,15 @@ def save_crawl_page_html(
     base_dir: str | Path,
     *,
     logger_instance: Optional[logging.Logger] = None,
-) -> None:
+) -> Optional[str]:
     """
     Save a full page HTML copy for post-processing. When the app's bucket is configured,
     uploads to S3 under key prefix base_dir (e.g. "crawl_html"). Otherwise writes
     to local path base_dir. Filename is hash of URL so recrawls overwrite. Also writes a .url sidecar
     so we can re-parse later (know which URL the HTML came from).
+
+    Returns the S3 key (e.g. "crawl_html/a90shop/abc123.html") on S3 success,
+    the absolute local path string on local success, or None on failure.
     """
     log = logger_instance or logger
     key_prefix = str(base_dir).strip() if base_dir else ""
@@ -145,9 +153,10 @@ def save_crawl_page_html(
                 ContentType="text/plain; charset=utf-8",
             )
             log.info("Saved page copy to bucket: %s", html_key)
+            return html_key
         except Exception as e:
             log.warning("Could not save page copy to bucket %s: %s", html_key, e)
-        return
+            return None
 
     # Fallback: local filesystem (bucket not configured or client failed)
     base_path = Path(base_dir) if base_dir else Path("crawl_html")
@@ -161,8 +170,10 @@ def save_crawl_page_html(
         html_path.write_text(html, encoding="utf-8", errors="replace")
         url_path.write_text(product_url, encoding="utf-8")
         log.info("Saved page copy to local (bucket not configured): %s", html_path)
+        return str(html_path.resolve())
     except OSError as e:
         log.warning("Could not save page copy to %s: %s", html_path, e)
+        return None
 
 
 # Default delay between requests (seconds) to be polite to retailers.
