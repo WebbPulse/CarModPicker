@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -29,8 +30,9 @@ from .api.middleware import rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.init_service_accounts import init_crawler_service_account
 from .core.logging import LOG_FORMAT, ColorizedFormatter
-from .db.session import check_db_ready
+from .db.session import SessionLocal, check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -51,10 +53,24 @@ for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # type: ignore[type-arg]
+    db = SessionLocal()
+    try:
+        init_crawler_service_account(db)
+    except Exception:
+        logger.exception("Failed to initialize service accounts on startup")
+    finally:
+        db.close()
+    yield
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_STR}/openapi.json",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # Add CORS middleware

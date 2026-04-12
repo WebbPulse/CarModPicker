@@ -113,11 +113,17 @@ class Settings(BaseSettings):
     EMAIL_ENABLED: bool = Field(
         default=False,
         description=(
-            "Enable email sending via SES. Set to true in production. "
-            "When false, email calls are silently skipped."
+            "Enable email sending via SES. Set to true in production. " "When false, email calls are silently skipped."
         ),
     )
     EMAIL_FROM: str = Field(default="")
+
+    # Crawler service account — machine identity used as the default author for all
+    # crawler-created parts. Created automatically on startup.
+    CRAWLER_SERVICE_ACCOUNT_USERNAME: str = Field(
+        default="crawler",
+        description="Username for the crawler service account (created on startup if absent).",
+    )
 
     # Cron / EventBridge scheduler auth.
     # EventBridge API Destination connections send this secret in the X-Admin-Cron-Key header.
