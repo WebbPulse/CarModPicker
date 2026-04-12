@@ -361,9 +361,7 @@ class TestImages:
         s3.put_object(Bucket=bucket, Key="user/000000000000000g/4.bin", Body=b"d")
         s3.put_object(Bucket=bucket, Key="not-standard-root-key", Body=b"e")
 
-        _, admin_token = create_and_login_admin_user(
-            client, db_session, get_unique_name("admin_bucket_prefix")
-        )
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("admin_bucket_prefix"))
         r2 = client.get(
             f"{settings.API_STR}/images/admin/count-by-entity-type",
             headers=get_auth_headers(admin_token),

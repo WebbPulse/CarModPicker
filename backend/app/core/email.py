@@ -87,11 +87,7 @@ def send_job_report_email(job: "BackgroundJob", recipients: list[str]) -> int:
     completed_str = _fmt_dt(job.completed_at) if job.completed_at else "—"
     duration_str = _fmt_duration(job.started_at, job.completed_at)
 
-    result_text = (
-        json.dumps(job.result_summary, indent=2, default=str)
-        if job.result_summary
-        else "(none)"
-    )
+    result_text = json.dumps(job.result_summary, indent=2, default=str) if job.result_summary else "(none)"
 
     error_block = ""
     if job.error_message:
@@ -153,9 +149,4 @@ def _fmt_duration(started_at: datetime, completed_at: Optional[datetime]) -> str
 
 
 def _escape_html(text: str) -> str:
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")

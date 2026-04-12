@@ -31,7 +31,9 @@ const fetchSearchResultsRequestFn = (params: {
 
 function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [searchTerm, setSearchTerm] = useState(
+    () => searchParams.get('q') || ''
+  );
 
   // Track accumulated results and pagination state for each category
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
@@ -51,7 +53,9 @@ function Search() {
     users: { has_next: boolean; skip: number };
     global_parts: { has_next: boolean; skip: number };
   } | null>(null);
-  const [currentQuery, setCurrentQuery] = useState<string>(() => searchParams.get('q') || '');
+  const [currentQuery, setCurrentQuery] = useState<string>(
+    () => searchParams.get('q') || ''
+  );
 
   // Convert GlobalPartRead to GlobalPartReadWithVotes for GlobalPartList (adds vote defaults)
   const globalPartsWithVotes = useMemo((): GlobalPartReadWithVotes[] => {

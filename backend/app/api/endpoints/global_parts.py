@@ -105,11 +105,7 @@ def _log_dedupe_metadata_refresh_apply(
         ("name", existing_part.name, udict.get("name")),
         ("car_ids", before_car_ids, after_car_ids),
     ]
-    changed = [
-        f"{label} {_clip_log_text(old)} → {_clip_log_text(new)}"
-        for label, old, new in checks
-        if old != new
-    ]
+    changed = [f"{label} {_clip_log_text(old)} → {_clip_log_text(new)}" for label, old, new in checks if old != new]
     if changed:
         _module_log.info(
             "Rescrape global_part id=%s: %s",
@@ -303,9 +299,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
                 merged = [new_primary] + [u for u in current_urls if u != new_primary]
                 udict["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
         if car_ids is not None:
-            is_universal_after = (
-                udict.get("is_universal") if "is_universal" in udict else existing_part.is_universal
-            )
+            is_universal_after = udict.get("is_universal") if "is_universal" in udict else existing_part.is_universal
             if not is_universal_after and car_ids:
                 for cid in car_ids:
                     get_entity_or_404(db, DBCar, cid, "car")

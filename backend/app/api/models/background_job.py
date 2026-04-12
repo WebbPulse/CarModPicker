@@ -31,9 +31,7 @@ class BackgroundJob(Base):
     result_summary: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    started_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC), nullable=False
-    )
+    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     created_by_user_id: Mapped[Optional[int]] = mapped_column(
