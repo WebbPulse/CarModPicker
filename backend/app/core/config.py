@@ -52,8 +52,8 @@ class Settings(BaseSettings):
 
         # Normalize storage settings to handle both variable naming conventions
         # Handle bucket name
-        if not self.BUCKET and self.S3_BUCKET_NAME:
-            object.__setattr__(self, "BUCKET", self.S3_BUCKET_NAME)
+        if not self.USER_IMAGES_BUCKET and self.S3_BUCKET_NAME:
+            object.__setattr__(self, "USER_IMAGES_BUCKET", self.S3_BUCKET_NAME)
 
         # Handle region
         if not self.AWS_REGION or self.AWS_REGION == "auto":
@@ -125,17 +125,20 @@ class Settings(BaseSettings):
     RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE: int = 30
     RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR: int = 300
 
-    # S3 image storage settings (carmodpicker-prod-user-images bucket on AWS).
-    # On App Runner, BUCKET and AWS_REGION are set via Terraform env vars; credentials
+    # S3 storage settings. On App Runner, these are set via Terraform env vars; credentials
     # come from the App Runner instance IAM role (AWS_ACCESS_KEY_ID/SECRET left empty).
     # Accepts alternative variable names for local dev flexibility.
-    BUCKET: str = Field(
+    USER_IMAGES_BUCKET: str = Field(
         default="",
-        description="S3 bucket name for image uploads. Also accepts S3_BUCKET_NAME.",
+        description="S3 bucket name for user image uploads. Also accepts S3_BUCKET_NAME.",
+    )
+    CRAWL_BUCKET: str = Field(
+        default="",
+        description="S3 bucket name for crawler HTML snapshots. Separate from user images.",
     )
     S3_BUCKET_NAME: str = Field(
         default="",
-        description="Alternative name for bucket (maps to BUCKET if BUCKET is not set)",
+        description="Alternative name for USER_IMAGES_BUCKET (maps to USER_IMAGES_BUCKET if not set)",
     )
     AWS_ACCESS_KEY_ID: str = Field(
         default="",
