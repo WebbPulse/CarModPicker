@@ -84,11 +84,13 @@ function CrawlerAdmin() {
     if (!user?.is_admin) return;
     setIsLoadingCrawlers(true);
     try {
-      const [adaptersRes, categoriesRes, serviceAccountRes] = await Promise.all([
-        adminApi.getCrawlers(),
-        categoriesApi.getCategories(),
-        adminApi.getCrawlerServiceAccount(),
-      ]);
+      const [adaptersRes, categoriesRes, serviceAccountRes] = await Promise.all(
+        [
+          adminApi.getCrawlers(),
+          categoriesApi.getCategories(),
+          adminApi.getCrawlerServiceAccount(),
+        ]
+      );
       setCrawlerAdapters(adaptersRes.data.adapters);
       setCrawlerCategories(categoriesRes.data);
       setCrawlerServiceAccount(serviceAccountRes.data);

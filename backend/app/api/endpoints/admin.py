@@ -9,6 +9,7 @@ generations, part categories), and running retailer crawlers.
 import asyncio
 import logging
 import os
+import secrets
 import subprocess  # nosec B404 - Used safely for running database migrations
 import threading
 import traceback
@@ -16,9 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import boto3
-import secrets
 from botocore.exceptions import BotoCoreError, ClientError
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
