@@ -71,11 +71,7 @@ _job_stop_events: dict[int, threading.Event] = {}
 
 def _get_superadmin_emails(db: Session) -> List[str]:
     """Return email addresses of all active superusers for job notification."""
-    users = (
-        db.query(DBUser.email)
-        .filter(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False))
-        .all()
-    )
+    users = db.query(DBUser.email).filter(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)).all()
     return [row.email for row in users]
 
 
@@ -493,9 +489,9 @@ class CrawlerRunRequest(BaseModel):
         ...,
         description="Adapter names to run (e.g. ['a90shop']). Use ['all'] to run all adapters.",
     )
-    crawler_user_id: int = Field(
-        ...,
-        description="User ID to attribute crawler-created parts to (must have create permission).",
+    crawler_user_id: Optional[int] = Field(
+        default=None,
+        description="User ID to attribute crawler-created parts to. Defaults to the crawler service account.",
     )
     crawler_default_category_id: int = Field(
         ...,
@@ -643,17 +639,26 @@ async def run_crawlers_endpoint(
     acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
 
     # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
-    crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
-    if not crawler_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
-        )
-    if crawler_user.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
-        )
+    if body.crawler_user_id is not None:
+        crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+        if not crawler_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
+            )
+        if crawler_user.disabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
+            )
+    else:
+        # Ensure service account exists before kicking off the job
+        crawler_user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+        if not crawler_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No crawler service account found. Restart the app to create it.",
+            )
     cat = db.query(DBCategory).filter(DBCategory.id == body.crawler_default_category_id).first()
     if not cat or not cat.is_active:
         raise HTTPException(
@@ -696,7 +701,7 @@ async def run_crawlers_endpoint(
             "global_limit": body.global_limit,
             "parallel": body.parallel,
             "delay_sec": delay_sec,
-            "crawler_user_id": body.crawler_user_id,
+            "crawler_user_id": crawler_user.id,
             "default_category_id": body.crawler_default_category_id,
         },
         created_by_user_id=acting_user_id,
@@ -710,7 +715,7 @@ async def run_crawlers_endpoint(
             global_limit=body.global_limit,
             parallel=body.parallel,
             delay_sec=delay_sec,
-            user_id=body.crawler_user_id,
+            user_id=crawler_user.id,
             default_category_id=body.crawler_default_category_id,
             triggered_by_user_id=acting_user_id,
             triggered_by=triggered_by,
@@ -736,9 +741,9 @@ async def run_crawlers_endpoint(
 class RescrapeArchivesRequest(BaseModel):
     """Request body for re-parsing all archived HTML into global parts (same as crawler ingest)."""
 
-    crawler_user_id: int = Field(
-        ...,
-        description="User ID to attribute created/updated parts to (must exist and not be disabled).",
+    crawler_user_id: Optional[int] = Field(
+        default=None,
+        description="User ID to attribute created/updated parts to. Defaults to the crawler service account.",
     )
     default_category_id: int = Field(
         ...,
@@ -826,17 +831,25 @@ async def rescrape_all_archived_crawled_pages(
     triggered_by = "scheduled" if is_scheduled else "manual"
     acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
 
-    crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
-    if not crawler_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
-        )
-    if crawler_user.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
-        )
+    if body.crawler_user_id is not None:
+        crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+        if not crawler_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
+            )
+        if crawler_user.disabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
+            )
+    else:
+        crawler_user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+        if not crawler_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No crawler service account found. Restart the app to create it.",
+            )
     cat = db.query(DBCategory).filter(DBCategory.id == body.default_category_id).first()
     if not cat or not cat.is_active:
         raise HTTPException(
@@ -855,7 +868,7 @@ async def rescrape_all_archived_crawled_pages(
         job_type="archive_rescrape",
         triggered_by=triggered_by,
         params={
-            "crawler_user_id": body.crawler_user_id,
+            "crawler_user_id": crawler_user.id,
             "default_category_id": body.default_category_id,
         },
         created_by_user_id=acting_user_id,
@@ -865,7 +878,7 @@ async def rescrape_all_archived_crawled_pages(
     task = asyncio.create_task(
         asyncio.to_thread(
             _rescrape_archives_background,
-            crawler_user_id=body.crawler_user_id,
+            crawler_user_id=crawler_user.id,
             default_category_id=body.default_category_id,
             triggered_by_user_id=acting_user_id,
             triggered_by=triggered_by,
@@ -894,9 +907,9 @@ async def rescrape_all_archived_crawled_pages(
 # ---------------------------------------------------------------------------
 
 _CRON_PRESETS: Dict[str, str] = {
-    "monthly": "cron(0 2 1 * ? *)",   # 2 AM UTC on the 1st of each month
+    "monthly": "cron(0 2 1 * ? *)",  # 2 AM UTC on the 1st of each month
     "weekly": "cron(0 2 ? * MON *)",  # 2 AM UTC every Monday
-    "daily": "cron(0 2 * * ? *)",     # 2 AM UTC every day
+    "daily": "cron(0 2 * * ? *)",  # 2 AM UTC every day
 }
 
 
@@ -1069,6 +1082,44 @@ async def update_crawler_cron(
         return _get_crawler_schedule()
 
     return await asyncio.to_thread(_do_update)
+
+
+# ---------------------------------------------------------------------------
+# Service account endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/service-accounts/crawler",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Crawler service account info",
+        forbidden=True,
+    ),
+)
+async def get_crawler_service_account(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Return the crawler service account (admin only).
+
+    This account is created on startup and is used as the default author for all
+    crawler-created parts when no explicit user ID is provided.
+    """
+    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Crawler service account not found. Restart the app to create it.",
+        )
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_service_account": user.is_service_account,
+        "created_at": user.created_at.isoformat(),
+    }
 
 
 # ---------------------------------------------------------------------------

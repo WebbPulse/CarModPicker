@@ -59,24 +59,32 @@ class CrawlerConfigError(ValueError):
 
 def _get_crawler_user(db: Session) -> DBUser:
     """
-    Load crawler user by CRAWLER_USER_ID.
-    Raises CrawlerConfigError if not set or not found (API-safe; does not sys.exit).
+    Return the crawler service account (is_service_account=True).
+    Falls back to CRAWLER_USER_ID env var for backwards compatibility with local/CLI usage.
+    Raises CrawlerConfigError when neither resolves (API-safe; does not sys.exit).
     """
+    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    if user:
+        return user
+
+    # Fallback: legacy env-var path (CLI / local dev before service account is seeded)
     raw = os.environ.get("CRAWLER_USER_ID")
-    if not raw:
-        raise CrawlerConfigError(
-            "CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts."
-        )
-    try:
-        user_id = int(raw)
-    except ValueError:
-        raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
-    if not user:
-        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
-    if user.disabled:
-        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: user is disabled.")
-    return user
+    if raw:
+        try:
+            user_id = int(raw)
+        except ValueError:
+            raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
+        user = db.query(DBUser).filter(DBUser.id == user_id).first()
+        if not user:
+            raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
+        if user.disabled:
+            raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: user is disabled.")
+        return user
+
+    raise CrawlerConfigError(
+        "No crawler service account found and CRAWLER_USER_ID is not set. "
+        "Ensure the app has run its startup initialisation (which creates the service account)."
+    )
 
 
 def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
