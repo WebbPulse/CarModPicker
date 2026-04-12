@@ -190,28 +190,46 @@ async def verify_email_confirm(
 
         if not email or purpose != "verify_email":
             logger.warning("Invalid email verification token")
-            return RedirectResponse(url=f"{frontend_base_url}?error=invalid_token", status_code=302)
+            return RedirectResponse(
+                url=f"{frontend_base_url}?status=error&message=Invalid+or+expired+verification+link",
+                status_code=302,
+            )
 
         user = db.query(DBUser).filter(DBUser.email == email).first()
         if not user:
             logger.warning(f"Email verification attempted for non-existent user: {email}")
-            return RedirectResponse(url=f"{frontend_base_url}?error=user_not_found", status_code=302)
+            return RedirectResponse(
+                url=f"{frontend_base_url}?status=error&message=User+not+found",
+                status_code=302,
+            )
 
         if user.email_verified:
             logger.info(f"Email verification attempted for already verified user: {email}")
-            return RedirectResponse(url=f"{frontend_base_url}?error=already_verified", status_code=302)
+            return RedirectResponse(
+                url=f"{frontend_base_url}?status=info&message=Email+already+verified",
+                status_code=302,
+            )
 
         user.email_verified = True
         db.commit()
         logger.info(f"Email verified successfully for user: {email}")
-        return RedirectResponse(url=f"{frontend_base_url}?success=true", status_code=302)
+        return RedirectResponse(
+            url=f"{frontend_base_url}?status=success&message=Email+verified+successfully",
+            status_code=302,
+        )
 
     except JWTError as e:
         logger.warning(f"JWT error during email verification: {e}")
-        return RedirectResponse(url=f"{frontend_base_url}?error=invalid_token", status_code=302)
+        return RedirectResponse(
+            url=f"{frontend_base_url}?status=error&message=Invalid+or+expired+verification+link",
+            status_code=302,
+        )
     except Exception as e:
         logger.error(f"Unexpected error during email verification: {e}")
-        return RedirectResponse(url=f"{frontend_base_url}?error=server_error", status_code=302)
+        return RedirectResponse(
+            url=f"{frontend_base_url}?status=error&message=Something+went+wrong.+Please+try+again.",
+            status_code=302,
+        )
 
 
 @router.post("/reset-password")

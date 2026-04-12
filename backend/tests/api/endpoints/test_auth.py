@@ -232,7 +232,7 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
         follow_redirects=False,
     )
     assert response.status_code == 302  # Redirect
-    assert "success=true" in response.headers["location"]
+    assert "status=success" in response.headers["location"]
 
     # Verify user is now verified
     db_session.refresh(user)
@@ -246,7 +246,7 @@ def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Sess
         follow_redirects=False,
     )
     assert response.status_code == 302  # Redirect
-    assert "error=invalid_token" in response.headers["location"]
+    assert "status=error" in response.headers["location"]
 
 
 def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
@@ -268,7 +268,7 @@ def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Sess
         follow_redirects=False,
     )
     assert response.status_code == 302  # Redirect
-    assert "error=invalid_token" in response.headers["location"]
+    assert "status=error" in response.headers["location"]
 
 
 # --- Password Reset Tests ---
