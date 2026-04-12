@@ -181,7 +181,7 @@ async def verify_email_confirm(
     if settings.DEBUG:
         frontend_base_url = "http://localhost:4000/verify-email/confirm"
     else:
-        frontend_base_url = "https://carmodpicker.com/verify-email/confirm"
+        frontend_base_url = "https://www.carmodpicker.com/verify-email/confirm"
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
