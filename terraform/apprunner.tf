@@ -184,6 +184,7 @@ resource "aws_apprunner_service" "backend" {
           AWS_REGION          = var.aws_region
           S3_ENDPOINT_URL     = "" # Empty → boto3 uses native AWS S3
           EMAIL_FROM          = var.email_from
+          EMAIL_ENABLED       = "true"
         }
 
         # Sensitive values pulled from Secrets Manager at startup

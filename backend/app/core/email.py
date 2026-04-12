@@ -35,6 +35,9 @@ def _load_template(name: str) -> str:
 
 def _send(to_email: str, subject: str, html_body: str) -> bool:
     """Send a single transactional email via SES. Returns True on success."""
+    if not settings.EMAIL_ENABLED:
+        logger.debug(f"Email disabled — skipping send to {to_email} (subject: {subject!r})")
+        return False
     try:
         client = boto3.client("sesv2", region_name=settings.AWS_REGION)
         client.send_email(

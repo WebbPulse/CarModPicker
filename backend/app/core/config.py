@@ -110,6 +110,13 @@ class Settings(BaseSettings):
         return self.is_production
 
     # Email settings
+    EMAIL_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Enable email sending via SES. Set to true in production. "
+            "When false, email calls are silently skipped."
+        ),
+    )
     EMAIL_FROM: str = Field(default="")
 
     # Cron / EventBridge scheduler auth.
