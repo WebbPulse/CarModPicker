@@ -111,10 +111,13 @@ function StatRow({
 function StatRowWithDetail({
   label,
   value,
+  subValue,
   detail,
 }: {
   label: string;
   value: number | null;
+  /** Optional secondary value shown below the main count (e.g. "1.23 GB"). */
+  subValue?: string;
   detail?: ReactNode;
 }) {
   return (
@@ -125,9 +128,14 @@ function StatRowWithDetail({
       >
         {label}
       </span>
-      <span className="text-xs font-semibold tabular-nums text-gray-100 text-right leading-tight">
-        {formatStatCount(value)}
-      </span>
+      <div className="text-right leading-tight">
+        <div className="text-xs font-semibold tabular-nums text-gray-100">
+          {formatStatCount(value)}
+        </div>
+        {subValue !== undefined && (
+          <div className="text-[10px] tabular-nums text-gray-500">{subValue}</div>
+        )}
+      </div>
       {detail ? (
         <div className="col-span-2 min-w-0 -mt-0.5 mb-0.5">{detail}</div>
       ) : null}
@@ -1026,6 +1034,11 @@ function AdminDashboard() {
                 <StatRowWithDetail
                   label="User images S3 (total)"
                   value={counts.bucketObjects}
+                  subValue={
+                    bucketEntitySummary?.size_gb != null
+                      ? `${bucketEntitySummary.size_gb.toFixed(3)} GB`
+                      : undefined
+                  }
                   detail={
                     bucketEntitySummary ? (
                       <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
@@ -1097,6 +1110,13 @@ function AdminDashboard() {
                       : adminTableCounts.crawl_bucket_configured
                         ? adminTableCounts.crawl_bucket_total
                         : null
+                  }
+                  subValue={
+                    adminTableCounts?.crawl_bucket_configured &&
+                    adminTableCounts.crawl_bucket_size_gb != null &&
+                    !adminTableCounts.crawl_bucket_error
+                      ? `${adminTableCounts.crawl_bucket_size_gb.toFixed(3)} GB`
+                      : undefined
                   }
                   detail={
                     adminTableCounts &&

@@ -122,6 +122,7 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
         }
 
     total = 0
+    total_bytes = 0
     by_prefix: dict[str, int] = defaultdict(int)
     continuation_token: str | None = None
 
@@ -138,6 +139,7 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
                 if not key:
                     continue
                 total += 1
+                total_bytes += obj.get("Size", 0)
                 first = key.split("/", 1)[0] if "/" in key else "(root)"
                 by_prefix[first] += 1
 
@@ -146,15 +148,18 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
             else:
                 break
 
+        size_gb = round(total_bytes / (1024**3), 3)
         logger.info(
-            "Crawl bucket %r object summary: total=%s prefixes=%s",
+            "Crawl bucket %r object summary: total=%s prefixes=%s size_gb=%s",
             bucket_name,
             total,
             len(by_prefix),
+            size_gb,
         )
         return {
             "crawl_bucket_configured": True,
             "crawl_bucket_total": total,
+            "crawl_bucket_size_gb": size_gb,
             "crawl_bucket_by_prefix": dict(by_prefix),
         }
     except Exception as e:
@@ -162,6 +167,7 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
         return {
             "crawl_bucket_configured": True,
             "crawl_bucket_total": 0,
+            "crawl_bucket_size_gb": 0.0,
             "crawl_bucket_by_prefix": {},
             "crawl_bucket_error": str(e),
         }

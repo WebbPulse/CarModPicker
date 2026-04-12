@@ -596,6 +596,7 @@ class StorageService:
             assert self.bucket_name is not None
 
             total = 0
+            total_bytes = 0
             other = 0
             by_prefix: dict[str, int] = defaultdict(int)
             continuation_token = None
@@ -613,6 +614,7 @@ class StorageService:
                         if not key:
                             continue
                         total += 1
+                        total_bytes += obj.get("Size", 0)
                         m = _STANDARD_IMAGE_OBJECT_KEY.match(key)
                         if m:
                             by_prefix[m.group(1)] += 1
@@ -624,14 +626,16 @@ class StorageService:
                 else:
                     break
 
+            size_gb = round(total_bytes / (1024**3), 3)
             logger.info(
                 f"Bucket '{self.bucket_name}' prefix summary: total={total}, "
-                f"prefixes={len(by_prefix)}, other={other}"
+                f"prefixes={len(by_prefix)}, other={other}, size_gb={size_gb}"
             )
             return {
                 "total": total,
                 "by_entity_type": dict(by_prefix),
                 "other": other,
+                "size_gb": size_gb,
             }
 
         except ClientError as e:

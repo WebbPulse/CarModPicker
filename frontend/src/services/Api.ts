@@ -1090,6 +1090,8 @@ export interface BucketEntityTypeCountResponse {
   total: number;
   by_entity_type: Record<string, number>;
   other: number;
+  /** Total stored data in GB (sum of all object sizes). */
+  size_gb?: number;
 }
 
 /** Admin-only: supplemental DB table row counts plus votes/reports by entity_type. */
@@ -1107,6 +1109,8 @@ export interface AdminTableCountsResponse {
   crawl_bucket_configured: boolean;
   crawl_bucket_total: number;
   crawl_bucket_by_prefix: Record<string, number>;
+  /** Total data stored in the crawl bucket in GB (sum of all object sizes). */
+  crawl_bucket_size_gb?: number;
   /** Present when listing the crawl bucket failed after configuration. */
   crawl_bucket_error?: string;
 }
