@@ -130,8 +130,8 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:ListBucket", "s3:HeadBucket"]
+        Effect = "Allow"
+        Action = ["s3:ListBucket", "s3:HeadBucket"]
         Resource = [
           aws_s3_bucket.user_images.arn,
           aws_s3_bucket.crawl_data.arn,
@@ -149,9 +149,9 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
 # ---------------------------------------------------------------------------
 resource "aws_apprunner_auto_scaling_configuration_version" "backend" {
   auto_scaling_configuration_name = "${local.prefix}-backend"
-  min_size        = 1
-  max_size        = 2
-  max_concurrency = 50
+  min_size                        = 1
+  max_size                        = 2
+  max_concurrency                 = 50
 }
 
 # ---------------------------------------------------------------------------
@@ -176,15 +176,15 @@ resource "aws_apprunner_service" "backend" {
 
         # Non-sensitive runtime configuration
         runtime_environment_variables = {
-          DEBUG               = "false"
-          APP_ENVIRONMENT = "production"
-          PORT                = "8000"
-          USER_IMAGES_BUCKET  = aws_s3_bucket.user_images.bucket
-          CRAWL_BUCKET        = aws_s3_bucket.crawl_data.bucket
-          AWS_REGION          = var.aws_region
-          S3_ENDPOINT_URL     = "" # Empty → boto3 uses native AWS S3
-          EMAIL_FROM          = var.email_from
-          EMAIL_ENABLED       = "true"
+          DEBUG              = "false"
+          APP_ENVIRONMENT    = "production"
+          PORT               = "8000"
+          USER_IMAGES_BUCKET = aws_s3_bucket.user_images.bucket
+          CRAWL_BUCKET       = aws_s3_bucket.crawl_data.bucket
+          AWS_REGION         = var.aws_region
+          S3_ENDPOINT_URL    = "" # Empty → boto3 uses native AWS S3
+          EMAIL_FROM         = var.email_from
+          EMAIL_ENABLED      = "true"
         }
 
         # Sensitive values pulled from Secrets Manager at startup
