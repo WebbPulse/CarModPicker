@@ -105,10 +105,10 @@ resource "aws_scheduler_schedule" "crawler_run" {
     arn      = aws_cloudwatch_event_api_destination.crawler_run.arn
     role_arn = aws_iam_role.eventbridge_scheduler.arn
 
-    # JSON body posted to /api/admin/crawlers/run
+    # JSON body posted to /api/admin/crawlers/run.
+    # crawler_user_id is omitted — the backend defaults to the crawler service account.
     input = jsonencode({
       adapters                    = ["all"]
-      crawler_user_id             = var.crawler_user_id
       crawler_default_category_id = var.crawler_default_category_id
       parallel                    = true
       delay_sec                   = var.crawler_delay_sec

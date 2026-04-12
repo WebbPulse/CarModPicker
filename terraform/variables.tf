@@ -64,14 +64,6 @@ variable "cron_secret_key" {
   sensitive   = true
 }
 
-# Crawler service-account user + fallback category (used in the schedule input JSON).
-# Set these to real IDs in the HCP Terraform workspace variables.
-variable "crawler_user_id" {
-  description = "User ID of the crawler service account (attributed as the part creator)"
-  type        = number
-  default     = 1
-}
-
 variable "crawler_default_category_id" {
   description = "Fallback category ID when part inference cannot determine a category"
   type        = number
