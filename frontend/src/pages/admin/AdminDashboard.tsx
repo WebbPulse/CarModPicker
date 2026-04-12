@@ -13,7 +13,10 @@ import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 import type {
   AdminTableCountsResponse,
+  BackgroundJob,
+  BackgroundJobList,
   BucketEntityTypeCountResponse,
+  CrawlerCronStatus,
   CrawlerRunRequest,
   CrawlerRunResponse,
   RescrapeArchivesQueuedResponse,
@@ -276,9 +279,6 @@ function AdminDashboard() {
   const [crawlerError, setCrawlerError] = useState<string | null>(null);
   const [crawlerDelaySec, setCrawlerDelaySec] = useState<number>(5);
   const [crawlerHtmlSaveDir, setCrawlerHtmlSaveDir] = useState<string>('');
-  const [crawlerHtmlSaveOnRecrawl, setCrawlerHtmlSaveOnRecrawl] =
-    useState<boolean>(false);
-
   // Rescrape archived HTML (batch re-parse + ingest)
   const [isRescrapingArchives, setIsRescrapingArchives] = useState(false);
   const [rescrapeArchivesResult, setRescrapeArchivesResult] =
@@ -286,6 +286,21 @@ function AdminDashboard() {
   const [rescrapeArchivesError, setRescrapeArchivesError] = useState<
     string | null
   >(null);
+
+  // Background jobs panel
+  const [jobsList, setJobsList] = useState<BackgroundJobList | null>(null);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+
+  // Cron schedule management
+  const [cronStatus, setCronStatus] = useState<CrawlerCronStatus | null>(null);
+  const [cronDraft, setCronDraft] = useState<{
+    preset: string;
+    customExpression: string;
+  }>({ preset: 'monthly', customExpression: '' });
+  const [isCronUnavailable, setIsCronUnavailable] = useState(false);
+  const [isSavingCron, setIsSavingCron] = useState(false);
+  const [cronSaveError, setCronSaveError] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -498,12 +513,83 @@ function AdminDashboard() {
     }
   }, [user?.is_admin]);
 
-  // Fetch entity counts and crawlers on mount
+  const fetchJobs = useCallback(async () => {
+    if (!user?.is_admin) return;
+    setIsLoadingJobs(true);
+    try {
+      const res = await adminApi.listJobs({ limit: 20 });
+      setJobsList(res.data);
+    } catch {
+      // silently fail — jobs panel is supplementary
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  }, [user?.is_admin]);
+
+  const fetchCronStatus = useCallback(async () => {
+    if (!user?.is_admin) return;
+    try {
+      const res = await adminApi.getCrawlerCron();
+      setCronStatus(res.data);
+      setCronDraft({
+        preset: res.data.preset === 'custom' ? 'custom' : res.data.preset,
+        customExpression:
+          res.data.preset === 'custom' ? res.data.schedule_expression : '',
+      });
+      setIsCronUnavailable(false);
+    } catch {
+      // 404 / 503 = scheduler not configured in this environment — hide the panel
+      setIsCronUnavailable(true);
+    }
+  }, [user?.is_admin]);
+
+  const handleSaveCron = async (patch: {
+    enabled?: boolean;
+    preset?: string;
+    customExpression?: string;
+  }) => {
+    setIsSavingCron(true);
+    setCronSaveError(null);
+    try {
+      const body: { enabled?: boolean; preset?: string; schedule_expression?: string } = {};
+      if (patch.enabled !== undefined) body.enabled = patch.enabled;
+      if (patch.preset && patch.preset !== 'custom') {
+        body.preset = patch.preset as 'monthly' | 'weekly' | 'daily';
+      } else if (patch.customExpression) {
+        body.schedule_expression = patch.customExpression;
+      }
+      const res = await adminApi.updateCrawlerCron(body);
+      setCronStatus(res.data);
+      setCronDraft({
+        preset: res.data.preset === 'custom' ? 'custom' : res.data.preset,
+        customExpression:
+          res.data.preset === 'custom' ? res.data.schedule_expression : '',
+      });
+    } catch (e) {
+      setCronSaveError(e instanceof Error ? e.message : 'Failed to update schedule.');
+    } finally {
+      setIsSavingCron(false);
+    }
+  };
+
+  // Fetch entity counts, crawlers, jobs, and cron status on mount
   useEffect(() => {
     void fetchCounts();
     void fetchCurrentRevision();
     void fetchCrawlers();
-  }, [fetchCounts, fetchCrawlers]);
+    void fetchJobs();
+    void fetchCronStatus();
+  }, [fetchCounts, fetchCrawlers, fetchJobs, fetchCronStatus]);
+
+  // Poll jobs every 5 s while any job is running
+  useEffect(() => {
+    const hasRunning = jobsList?.items.some((j) => j.status === 'running');
+    if (!hasRunning) return;
+    const id = setInterval(() => {
+      void fetchJobs();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [jobsList, fetchJobs]);
 
   const fetchCurrentRevision = async () => {
     setIsLoadingRevision(true);
@@ -689,6 +775,7 @@ function AdminDashboard() {
       const response = await adminApi.rescrapeArchives(body);
       setRescrapeArchivesResult(response.data);
       void fetchCounts();
+      void fetchJobs();
     } catch (error) {
       setRescrapeArchivesError(
         error instanceof Error
@@ -782,12 +869,12 @@ function AdminDashboard() {
         body.global_limit = globalLimitNum;
       if (crawlerHtmlSaveDir.trim()) {
         body.crawl_html_save_dir = crawlerHtmlSaveDir.trim();
-        body.crawl_html_save_on_recrawl = crawlerHtmlSaveOnRecrawl;
       }
       const response = await adminApi.runCrawlers(body);
       setCrawlerResult(response.data);
       setCrawlerError(null);
       void fetchCounts();
+      void fetchJobs();
     } catch (error) {
       setCrawlerError(
         error instanceof Error ? error.message : 'Failed to run crawlers.'
@@ -1659,17 +1746,6 @@ function AdminDashboard() {
                     />
                   </div>
                   <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-end gap-2">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-400 shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={crawlerHtmlSaveOnRecrawl}
-                        onChange={(e) =>
-                          setCrawlerHtmlSaveOnRecrawl(e.target.checked)
-                        }
-                        className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
-                      />
-                      Overwrite HTML on recrawl
-                    </label>
                     <Input
                       type="text"
                       placeholder="HTML save dir (optional)"
@@ -1846,6 +1922,309 @@ function AdminDashboard() {
                 )}
               </div>
             </>
+          )}
+        </Card>
+      </div>
+
+      {/* Crawler cron schedule */}
+      {!isCronUnavailable && (
+        <div className="mt-6">
+          <Card>
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-white">Crawler Schedule</h2>
+              <p className="text-sm text-gray-400 mt-0.5">
+                Monthly automated run of all crawler adapters via EventBridge Scheduler.
+                Changes take effect immediately — no deploy needed.
+              </p>
+            </div>
+
+            {cronStatus === null ? (
+              <div className="flex justify-center py-6">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Enable / disable toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-700 bg-gray-900/40">
+                  <div>
+                    <p className="text-sm font-medium text-gray-200">Scheduled runs</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {cronStatus.enabled
+                        ? `Active — ${cronStatus.schedule_expression}`
+                        : 'Disabled — no automatic runs'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() =>
+                      void handleSaveCron({ enabled: !cronStatus.enabled })
+                    }
+                    disabled={isSavingCron}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                      cronStatus.enabled ? 'bg-emerald-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                        cronStatus.enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Interval picker */}
+                <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/40 space-y-3">
+                  <p className="text-sm font-medium text-gray-200">Run interval</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(['monthly', 'weekly', 'daily'] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() =>
+                          setCronDraft((d) => ({ ...d, preset: p, customExpression: '' }))
+                        }
+                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                          cronDraft.preset === p
+                            ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                        }`}
+                      >
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() =>
+                        setCronDraft((d) => ({
+                          ...d,
+                          preset: 'custom',
+                          customExpression: d.customExpression || cronStatus.schedule_expression,
+                        }))
+                      }
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        cronDraft.preset === 'custom'
+                          ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                      }`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+
+                  {cronDraft.preset === 'custom' && (
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={cronDraft.customExpression}
+                        onChange={(e) =>
+                          setCronDraft((d) => ({
+                            ...d,
+                            customExpression: e.target.value,
+                          }))
+                        }
+                        placeholder="cron(0 2 1 * ? *)"
+                        className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {cronDraft.preset !== 'custom' && cronStatus.presets[cronDraft.preset] && (
+                    <p className="text-xs text-gray-500 font-mono">
+                      {cronStatus.presets[cronDraft.preset]}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <ActionButton
+                      onClick={() =>
+                        void handleSaveCron({
+                          preset: cronDraft.preset,
+                          customExpression: cronDraft.customExpression,
+                        })
+                      }
+                      disabled={
+                        isSavingCron ||
+                        (cronDraft.preset === 'custom' &&
+                          !cronDraft.customExpression.trim())
+                      }
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
+                    >
+                      {isSavingCron ? 'Saving…' : 'Save interval'}
+                    </ActionButton>
+                    {cronStatus.preset !== 'custom' &&
+                      cronDraft.preset === cronStatus.preset && (
+                        <span className="text-xs text-gray-500">Current: {cronStatus.preset}</span>
+                      )}
+                  </div>
+                </div>
+
+                {cronSaveError && (
+                  <ErrorAlert message={cronSaveError} />
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* Background Jobs */}
+      <div className="mt-6">
+        <Card>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-white">Background Jobs</h2>
+            <p className="text-sm text-gray-400 mt-0.5">
+              Live status of crawler and rescrape jobs. Polls every 5 s while a job is running.
+            </p>
+          </div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-gray-500">
+              {jobsList ? `${jobsList.total} total` : ''}
+            </span>
+            <button
+              onClick={() => void fetchJobs()}
+              disabled={isLoadingJobs}
+              className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+            >
+              {isLoadingJobs ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+
+          {!jobsList && isLoadingJobs && (
+            <div className="flex justify-center py-6">
+              <LoadingSpinner size="sm" />
+            </div>
+          )}
+
+          {jobsList && jobsList.items.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-6">No jobs yet.</p>
+          )}
+
+          {jobsList && jobsList.items.length > 0 && (
+            <div className="space-y-2">
+              {jobsList.items.map((job: BackgroundJob) => {
+                const isExpanded = expandedJobId === job.id;
+                const statusColor =
+                  job.status === 'completed'
+                    ? 'text-emerald-400'
+                    : job.status === 'failed'
+                      ? 'text-red-400'
+                      : job.status === 'running'
+                        ? 'text-yellow-400'
+                        : 'text-gray-400';
+                const statusBg =
+                  job.status === 'completed'
+                    ? 'border-emerald-800/60 bg-emerald-950/30'
+                    : job.status === 'failed'
+                      ? 'border-red-800/60 bg-red-950/30'
+                      : job.status === 'running'
+                        ? 'border-yellow-800/60 bg-yellow-950/30'
+                        : 'border-gray-700 bg-gray-900/30';
+
+                const typeLabel =
+                  job.job_type === 'crawler_run'
+                    ? 'Crawler Run'
+                    : job.job_type === 'archive_rescrape'
+                      ? 'Archive Rescrape'
+                      : job.job_type;
+
+                const startedAt = new Date(job.started_at);
+                const completedAt = job.completed_at
+                  ? new Date(job.completed_at)
+                  : null;
+                const durationSec = completedAt
+                  ? Math.round(
+                      (completedAt.getTime() - startedAt.getTime()) / 1000
+                    )
+                  : null;
+
+                return (
+                  <div
+                    key={job.id}
+                    className={`rounded-lg border px-3 py-2 text-sm ${statusBg}`}
+                  >
+                    <button
+                      className="w-full flex items-center justify-between gap-2 text-left"
+                      onClick={() =>
+                        setExpandedJobId(isExpanded ? null : job.id)
+                      }
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`font-semibold text-xs uppercase tracking-wide shrink-0 ${statusColor}`}
+                        >
+                          {job.status === 'running' ? '● ' : ''}
+                          {job.status}
+                        </span>
+                        <span className="text-gray-300 font-medium truncate">
+                          #{job.id} — {typeLabel}
+                        </span>
+                        <span className="text-gray-500 text-xs shrink-0">
+                          {job.triggered_by}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 text-xs text-gray-400">
+                        <span>{startedAt.toLocaleString()}</span>
+                        {durationSec !== null && (
+                          <span className="tabular-nums">
+                            {durationSec < 60
+                              ? `${durationSec}s`
+                              : `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`}
+                          </span>
+                        )}
+                        <span className="text-gray-600">{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-2">
+                        {job.params && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
+                              Params
+                            </p>
+                            <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                              {JSON.stringify(job.params, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                        {job.result_summary && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
+                              Result
+                            </p>
+                            <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                              {JSON.stringify(job.result_summary, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                        {job.error_message && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1">
+                              Error
+                            </p>
+                            <pre className="text-xs text-red-300 bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                              {job.error_message}
+                            </pre>
+                          </div>
+                        )}
+                        {job.status === 'running' && (
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => {
+                                void adminApi
+                                  .cancelJob(job.id)
+                                  .then(() => fetchJobs())
+                                  .catch(() => undefined);
+                              }}
+                              className="text-xs text-red-400 hover:text-red-300 underline"
+                            >
+                              Cancel job
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </Card>
       </div>

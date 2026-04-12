@@ -7,6 +7,7 @@ Used by admin batch "rescrape archives" and by POST /crawled-pages/{id}/re-parse
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -135,11 +136,13 @@ def run_rescrape_all_archived_pages(
     crawler_user: DBUser,
     default_category_id: int,
     log: logging.Logger,
+    stop_event: Optional[threading.Event] = None,
 ) -> dict[str, int]:
     """
     Re-parse every crawled page that has archived HTML (S3 or local).
 
     ``ingest_payload`` records listing and price history when the parsed payload includes a price.
+    If stop_event is provided and set, the loop exits early (cooperative cancellation).
     """
     counts: dict[str, int] = {
         "parsed_ok": 0,
@@ -159,6 +162,9 @@ def run_rescrape_all_archived_pages(
         .order_by(DBCrawledPage.id)
     )
     for page in q:
+        if stop_event is not None and stop_event.is_set():
+            log.info("Archive rescrape: stop requested, exiting early.")
+            break
         outcome, _, _ = rescrape_crawled_page_from_archive(
             db,
             page,

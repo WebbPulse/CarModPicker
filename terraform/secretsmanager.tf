@@ -21,4 +21,15 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
   secret_string = var.secret_key
 }
 
+resource "aws_secretsmanager_secret" "cron_secret_key" {
+  name                    = "${local.prefix}/cron-secret-key"
+  description             = "Shared secret for EventBridge Scheduler → App Runner cron auth (X-Admin-Cron-Key)"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "cron_secret_key" {
+  secret_id     = aws_secretsmanager_secret.cron_secret_key.id
+  secret_string = var.cron_secret_key
+}
+
 

@@ -10,10 +10,16 @@ import asyncio
 import logging
 import os
 import subprocess  # nosec B404 - Used safely for running database migrations
+import threading
+import traceback
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import boto3
+import secrets
+from botocore.exceptions import BotoCoreError, ClientError
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -36,7 +42,10 @@ from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHis
 from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
+from app.api.schemas.background_job import BackgroundJobList, BackgroundJobRead
 from app.api.utils.endpoint_decorators import standard_responses
+from app.core.config import settings
+from app.core.email import send_job_report_email
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
 from app.crawlers.adapters import ADAPTER_REGISTRY
@@ -44,6 +53,7 @@ from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
 from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC, count_crawl_bucket_object_summary
 from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id, run_crawlers
 from app.db.session import SessionLocal, get_db
+from app.services import job_service
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +62,52 @@ router = APIRouter()
 # Strong references to fire-and-forget tasks so they are not garbage-collected
 # mid-execution. Tasks remove themselves on completion via add_done_callback.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+# Per-job asyncio tasks and stop events for cooperative cancellation.
+# Entries are cleaned up when the job task finishes.
+_job_tasks: dict[int, asyncio.Task[None]] = {}
+_job_stop_events: dict[int, threading.Event] = {}
+
+
+def _get_superadmin_emails(db: Session) -> List[str]:
+    """Return email addresses of all active superusers for job notification."""
+    users = (
+        db.query(DBUser.email)
+        .filter(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False))
+        .all()
+    )
+    return [row.email for row in users]
+
+
+def _notify_job_completion(job_id: int) -> None:
+    """
+    Send a job-report email to all superadmins.
+    Opens its own DB session; safe to call from a background thread.
+    """
+    db = SessionLocal()
+    try:
+        job = job_service.get_job(db, job_id)
+        if job is None:
+            return
+        recipients = _get_superadmin_emails(db)
+        if recipients:
+            sent = send_job_report_email(job, recipients)
+            logger.info("Job #%s report sent to %s superadmin(s)", job_id, sent)
+    except Exception:
+        logger.exception("Failed to send job report email for job #%s", job_id)
+    finally:
+        db.close()
+
+
+def _verify_cron_key(x_admin_cron_key: Optional[str]) -> bool:
+    """
+    Return True if the provided key matches CRON_SECRET_KEY (constant-time compare).
+    Returns False when CRON_SECRET_KEY is not configured.
+    """
+    expected = settings.CRON_SECRET_KEY
+    if not expected or not x_admin_cron_key:
+        return False
+    return secrets.compare_digest(expected, x_admin_cron_key)
 
 
 def _get_alembic_directory() -> str:
@@ -465,11 +521,7 @@ class CrawlerRunRequest(BaseModel):
     )
     crawl_html_save_dir: Optional[str] = Field(
         default=None,
-        description="If set, save full page HTML for post-processing (new URLs only unless crawl_html_save_on_recrawl is True).",
-    )
-    crawl_html_save_on_recrawl: Optional[bool] = Field(
-        default=None,
-        description="If True and crawl_html_save_dir is set, also overwrite saved HTML when recrawling known URLs.",
+        description="Kept for backward compatibility. HTML is always archived for every URL crawled.",
     )
 
 
@@ -500,14 +552,13 @@ async def _run_crawlers_background(
     delay_sec: float,
     user_id: int,
     default_category_id: int,
-    triggered_by_user_id: int,
+    triggered_by_user_id: Optional[int],
+    triggered_by: str,
+    job_id: int,
+    stop_event: threading.Event,
     crawl_html_save_dir: Optional[str] = None,
-    crawl_html_save_on_recrawl: Optional[bool] = None,
 ) -> None:
-    """
-    Run crawlers in a background thread. Logs completion or failure.
-    Can be extended to send a completion report (e.g. via SES).
-    """
+    """Run crawlers in a background thread, recording status to BackgroundJob."""
     try:
         result = await asyncio.to_thread(
             run_crawlers,
@@ -519,21 +570,43 @@ async def _run_crawlers_background(
             user_id=user_id,
             default_category_id=default_category_id,
             crawl_html_save_dir=crawl_html_save_dir,
-            crawl_html_save_on_recrawl=crawl_html_save_on_recrawl,
+            stop_event=stop_event,
         )
         logger.info(
-            "Crawler job completed (triggered by user %s): %s",
+            "Crawler job #%s completed (triggered_by=%s user=%s): %s",
+            job_id,
+            triggered_by,
             triggered_by_user_id,
             result,
         )
-        # TODO: Send completion report (e.g. SES) with result summary
+        db = SessionLocal()
+        try:
+            result_dict = result if isinstance(result, dict) else {"raw": str(result)}
+            job_service.complete_job(db, job_id, result_summary=result_dict)
+        finally:
+            db.close()
+        await asyncio.to_thread(_notify_job_completion, job_id)
     except Exception as e:
         logger.exception(
-            "Crawler job failed (triggered by user %s): %s",
+            "Crawler job #%s failed (triggered_by=%s user=%s): %s",
+            job_id,
+            triggered_by,
             triggered_by_user_id,
             e,
         )
-        # TODO: Send failure notification (e.g. SES)
+        db = SessionLocal()
+        try:
+            job_service.fail_job(
+                db,
+                job_id,
+                error_message=traceback.format_exc(),
+            )
+        finally:
+            db.close()
+        await asyncio.to_thread(_notify_job_completion, job_id)
+    finally:
+        _job_tasks.pop(job_id, None)
+        _job_stop_events.pop(job_id, None)
 
 
 @router.post(
@@ -546,19 +619,29 @@ async def _run_crawlers_background(
 )
 async def run_crawlers_endpoint(
     body: CrawlerRunRequest,
-    current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_admin_user),
+    x_admin_cron_key: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     """
     Start retailer crawlers (admin only). Returns immediately after enqueueing the job.
+
+    Accepts either a superadmin JWT (manual trigger from admin UI) or the
+    ``X-Admin-Cron-Key`` header (EventBridge Scheduler scheduled trigger).
 
     - Run individual crawlers or desired combinations.
     - Run all crawlers with adapters: ["all"].
     - Set per-crawler limits via limits: {"a90shop": 10, "example": 5}.
     - Set a global limit for all crawlers via global_limit.
     - When running more than one crawler, they run in parallel by default.
-    - A completion report can be sent when the job finishes (e.g. via SES).
     """
+    is_scheduled = _verify_cron_key(x_admin_cron_key)
+    if not is_scheduled and current_user is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
+    triggered_by = "scheduled" if is_scheduled else "manual"
+    acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
+
     # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
     crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
     if not crawler_user:
@@ -594,9 +677,32 @@ async def run_crawlers_endpoint(
             detail=f"Unknown adapter(s): {invalid}. Available: {list(ADAPTER_REGISTRY.keys())}",
         )
 
-    logger.info("Admin %s starting crawler job: %s", current_user.id, adapters)
+    logger.info(
+        "Crawler job starting: adapters=%s triggered_by=%s user=%s",
+        adapters,
+        triggered_by,
+        acting_user_id,
+    )
 
     delay_sec = body.delay_sec if body.delay_sec is not None else DEFAULT_REQUEST_DELAY_SEC
+
+    job = job_service.create_job(
+        db,
+        job_type="crawler_run",
+        triggered_by=triggered_by,
+        params={
+            "adapters": adapters,
+            "limits": body.limits,
+            "global_limit": body.global_limit,
+            "parallel": body.parallel,
+            "delay_sec": delay_sec,
+            "crawler_user_id": body.crawler_user_id,
+            "default_category_id": body.crawler_default_category_id,
+        },
+        created_by_user_id=acting_user_id,
+    )
+
+    stop_event = threading.Event()
     task = asyncio.create_task(
         _run_crawlers_background(
             adapters,
@@ -606,18 +712,24 @@ async def run_crawlers_endpoint(
             delay_sec=delay_sec,
             user_id=body.crawler_user_id,
             default_category_id=body.crawler_default_category_id,
-            triggered_by_user_id=current_user.id,
+            triggered_by_user_id=acting_user_id,
+            triggered_by=triggered_by,
+            job_id=job.id,
+            stop_event=stop_event,
             crawl_html_save_dir=body.crawl_html_save_dir,
-            crawl_html_save_on_recrawl=body.crawl_html_save_on_recrawl,
         )
     )
+    _job_tasks[job.id] = task
+    _job_stop_events[job.id] = stop_event
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
 
     return {
         "status": "started",
+        "job_id": job.id,
         "adapters": adapters,
-        "message": "Crawler job has been started. A completion report will be sent when finished.",
+        "triggered_by": triggered_by,
+        "message": "Crawler job has been started. A completion report will be sent to superadmins when finished.",
     }
 
 
@@ -638,9 +750,12 @@ def _rescrape_archives_background(
     *,
     crawler_user_id: int,
     default_category_id: int,
-    triggered_by_user_id: int,
+    triggered_by_user_id: Optional[int],
+    triggered_by: str,
+    job_id: int,
+    stop_event: threading.Event,
 ) -> None:
-    """Re-parse every archived page in a background thread; logs per-outcome counts."""
+    """Re-parse every archived page in a background thread; updates BackgroundJob on finish."""
     db = SessionLocal()
     try:
         crawler_user = _resolve_crawler_user(db, crawler_user_id)
@@ -650,20 +765,31 @@ def _rescrape_archives_background(
             crawler_user=crawler_user,
             default_category_id=cat_id,
             log=logger,
+            stop_event=stop_event,
         )
         logger.info(
-            "Archive rescrape job completed (triggered by admin %s): %s",
+            "Archive rescrape job #%s completed (triggered_by=%s user=%s): %s",
+            job_id,
+            triggered_by,
             triggered_by_user_id,
             counts,
         )
+        job_service.complete_job(db, job_id, result_summary=counts)
     except Exception as e:
         logger.exception(
-            "Archive rescrape job failed (triggered by admin %s): %s",
+            "Archive rescrape job #%s failed (triggered_by=%s user=%s): %s",
+            job_id,
+            triggered_by,
             triggered_by_user_id,
             e,
         )
+        job_service.fail_job(db, job_id, error_message=traceback.format_exc())
     finally:
         db.close()
+        _job_tasks.pop(job_id, None)
+        _job_stop_events.pop(job_id, None)
+
+    _notify_job_completion(job_id)
 
 
 @router.post(
@@ -676,11 +802,15 @@ def _rescrape_archives_background(
 )
 async def rescrape_all_archived_crawled_pages(
     body: RescrapeArchivesRequest,
-    current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_admin_user),
+    x_admin_cron_key: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     """
     Start a background job that re-parses every crawled page with stored HTML.
+
+    Accepts either a superadmin JWT (manual trigger) or ``X-Admin-Cron-Key`` header
+    (EventBridge Scheduler scheduled trigger).
 
     For each row: load archived HTML, run the appropriate retailer parser (including
     extension-sourced URLs matched by host), then ``ingest_payload`` so parts are
@@ -689,6 +819,13 @@ async def rescrape_all_archived_crawled_pages(
 
     HTML is stored under one canonical object per URL (``crawl_html/by_url/…``).
     """
+    is_scheduled = _verify_cron_key(x_admin_cron_key)
+    if not is_scheduled and current_user is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
+    triggered_by = "scheduled" if is_scheduled else "manual"
+    acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
+
     crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
     if not crawler_user:
         raise HTTPException(
@@ -707,25 +844,338 @@ async def rescrape_all_archived_crawled_pages(
             detail=f"default_category_id={body.default_category_id}: not found or inactive.",
         )
 
-    logger.info("Admin %s queued rescrape of all archived HTML pages", current_user.id)
+    logger.info(
+        "Archive rescrape job starting: triggered_by=%s user=%s",
+        triggered_by,
+        acting_user_id,
+    )
+
+    job = job_service.create_job(
+        db,
+        job_type="archive_rescrape",
+        triggered_by=triggered_by,
+        params={
+            "crawler_user_id": body.crawler_user_id,
+            "default_category_id": body.default_category_id,
+        },
+        created_by_user_id=acting_user_id,
+    )
+
+    stop_event = threading.Event()
     task = asyncio.create_task(
         asyncio.to_thread(
             _rescrape_archives_background,
             crawler_user_id=body.crawler_user_id,
             default_category_id=body.default_category_id,
-            triggered_by_user_id=current_user.id,
+            triggered_by_user_id=acting_user_id,
+            triggered_by=triggered_by,
+            job_id=job.id,
+            stop_event=stop_event,
         )
     )
+    _job_tasks[job.id] = task
+    _job_stop_events[job.id] = stop_event
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
 
     return {
         "status": "started",
+        "job_id": job.id,
+        "triggered_by": triggered_by,
         "message": (
             "Archive rescrape job started. Each page is re-parsed from stored HTML; "
-            "check server logs for parsed_ok / failed / skipped counts when the job finishes."
+            "a completion report will be sent to superadmins when finished."
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Cron / EventBridge Scheduler management endpoints
+# ---------------------------------------------------------------------------
+
+_CRON_PRESETS: Dict[str, str] = {
+    "monthly": "cron(0 2 1 * ? *)",   # 2 AM UTC on the 1st of each month
+    "weekly": "cron(0 2 ? * MON *)",  # 2 AM UTC every Monday
+    "daily": "cron(0 2 * * ? *)",     # 2 AM UTC every day
+}
+
+
+def _get_scheduler_client() -> Any:
+    return boto3.client("scheduler", region_name=settings.AWS_REGION)
+
+
+def _get_crawler_schedule() -> Dict[str, Any]:
+    """
+    Fetch the current crawler schedule from EventBridge Scheduler.
+    Returns a simplified dict with enabled, schedule_expression, and preset.
+    Raises HTTPException on AWS errors or when the scheduler is not configured.
+    """
+    name = settings.scheduler_crawler_schedule_name
+    group = settings.SCHEDULER_GROUP_NAME
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Scheduler not configured (SCHEDULER_CRAWLER_SCHEDULE_NAME is empty).",
+        )
+    try:
+        client = _get_scheduler_client()
+        resp = client.get_schedule(Name=name, GroupName=group)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "")
+        if code == "ResourceNotFoundException":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Schedule '{name}' not found in EventBridge Scheduler.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AWS error fetching schedule: {e}",
+        )
+    except BotoCoreError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AWS connection error: {e}",
+        )
+
+    expression = resp.get("ScheduleExpression", "")
+    enabled = resp.get("State", "DISABLED") == "ENABLED"
+    preset = next((k for k, v in _CRON_PRESETS.items() if v == expression), "custom")
+    return {
+        "enabled": enabled,
+        "schedule_expression": expression,
+        "preset": preset,
+        "presets": _CRON_PRESETS,
+        "schedule_name": name,
+        "group_name": group,
+    }
+
+
+@router.get(
+    "/cron/crawler",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Current crawler cron schedule state",
+        forbidden=True,
+    ),
+)
+async def get_crawler_cron(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Return the current state of the EventBridge crawler cron schedule (admin only).
+
+    Returns enabled status, the cron expression, and which preset it matches (if any).
+    """
+    return await asyncio.to_thread(_get_crawler_schedule)
+
+
+class CrawlerCronUpdateRequest(BaseModel):
+    """Request body for updating the crawler cron schedule."""
+
+    enabled: Optional[bool] = Field(
+        default=None,
+        description="Set to true/false to enable or disable the schedule. Omit to leave unchanged.",
+    )
+    schedule_expression: Optional[str] = Field(
+        default=None,
+        description=(
+            "EventBridge cron or rate expression (UTC), e.g. 'cron(0 2 1 * ? *)'. "
+            "Use the preset name shorthand ('monthly', 'weekly', 'daily') or a full expression. "
+            "Omit to leave unchanged."
+        ),
+    )
+    preset: Optional[str] = Field(
+        default=None,
+        description="Shorthand preset: 'monthly', 'weekly', or 'daily'. Overrides schedule_expression if both are set.",
+    )
+
+
+@router.patch(
+    "/cron/crawler",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Crawler cron schedule updated",
+        forbidden=True,
+    ),
+)
+async def update_crawler_cron(
+    body: CrawlerCronUpdateRequest,
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Update the EventBridge crawler cron schedule (admin only).
+
+    Can toggle enabled/disabled and change the schedule expression without a Terraform apply.
+    All fields are optional — send only what you want to change.
+    """
+    if body.enabled is None and body.schedule_expression is None and body.preset is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide at least one of: enabled, schedule_expression, preset.",
+        )
+
+    def _do_update() -> Dict[str, Any]:
+        current = _get_crawler_schedule()
+        name = current["schedule_name"]
+        group = current["group_name"]
+
+        new_expression = current["schedule_expression"]
+        new_state = "ENABLED" if current["enabled"] else "DISABLED"
+
+        if body.preset is not None:
+            if body.preset not in _CRON_PRESETS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unknown preset '{body.preset}'. Available: {list(_CRON_PRESETS)}",
+                )
+            new_expression = _CRON_PRESETS[body.preset]
+        elif body.schedule_expression is not None:
+            new_expression = body.schedule_expression
+
+        if body.enabled is not None:
+            new_state = "ENABLED" if body.enabled else "DISABLED"
+
+        try:
+            client = _get_scheduler_client()
+            raw = client.get_schedule(Name=name, GroupName=group)
+            # update_schedule requires all mandatory fields; carry over existing target/window.
+            client.update_schedule(
+                Name=name,
+                GroupName=group,
+                ScheduleExpression=new_expression,
+                ScheduleExpressionTimezone=raw.get("ScheduleExpressionTimezone", "UTC"),
+                State=new_state,
+                FlexibleTimeWindow=raw["FlexibleTimeWindow"],
+                Target=raw["Target"],
+            )
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"AWS error updating schedule ({code}): {e}",
+            )
+        except BotoCoreError as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"AWS connection error: {e}",
+            )
+
+        logger.info(
+            "Admin %s updated crawler cron schedule: state=%s expression=%s",
+            current_user.id,
+            new_state,
+            new_expression,
+        )
+        return _get_crawler_schedule()
+
+    return await asyncio.to_thread(_do_update)
+
+
+# ---------------------------------------------------------------------------
+# Background job status endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/jobs",
+    response_model=BackgroundJobList,
+    responses=standard_responses(
+        success_description="List of background jobs",
+        forbidden=True,
+    ),
+)
+async def list_background_jobs(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    job_type_filter: Optional[str] = Query(default=None, alias="job_type"),
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> BackgroundJobList:
+    """
+    List background jobs (admin only), newest first.
+
+    Filter by ``status`` (running / completed / failed / cancelled) or
+    ``job_type`` (crawler_run / archive_rescrape).
+    """
+    items, total = job_service.list_jobs(
+        db,
+        limit=limit,
+        offset=offset,
+        status_filter=status_filter,
+        job_type_filter=job_type_filter,
+    )
+    return BackgroundJobList(
+        items=[BackgroundJobRead.model_validate(j) for j in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=BackgroundJobRead,
+    responses=standard_responses(
+        success_description="Background job detail",
+        forbidden=True,
+    ),
+)
+async def get_background_job(
+    job_id: int,
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> BackgroundJobRead:
+    """Return a single background job by ID (admin only)."""
+    job = job_service.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+    return BackgroundJobRead.model_validate(job)
+
+
+@router.post(
+    "/jobs/{job_id}/cancel",
+    response_model=BackgroundJobRead,
+    responses=standard_responses(
+        success_description="Job marked as cancelled",
+        forbidden=True,
+    ),
+)
+async def cancel_background_job(
+    job_id: int,
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> BackgroundJobRead:
+    """
+    Cancel a running background job (admin only).
+
+    Sets the DB status to 'cancelled' and signals the worker's stop event so
+    the crawler / rescrape loop exits at the next URL boundary.
+    """
+    job = job_service.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+    if job.status != "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Job {job_id} is not running (status={job.status}).",
+        )
+    updated = job_service.cancel_job(db, job_id)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+
+    # Signal the worker thread to stop at the next iteration boundary.
+    stop_event = _job_stop_events.get(job_id)
+    if stop_event is not None:
+        stop_event.set()
+        logger.info("Job #%s cancel: stop event signalled.", job_id)
+    else:
+        logger.warning("Job #%s cancel: no stop event found (job may have already finished).", job_id)
+
+    return BackgroundJobRead.model_validate(updated)
+
+
+# ---------------------------------------------------------------------------
 
 
 class DeleteAllGlobalPartsResponse(BaseModel):

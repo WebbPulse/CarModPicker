@@ -1030,10 +1030,33 @@ export interface InitDataResult {
   message: string;
 }
 
+/** A persisted background job record. */
+export interface BackgroundJob {
+  id: number;
+  job_type: 'crawler_run' | 'archive_rescrape';
+  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  triggered_by: 'manual' | 'scheduled';
+  params: Record<string, unknown> | null;
+  result_summary: Record<string, unknown> | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_by_user_id: number | null;
+}
+
+export interface BackgroundJobList {
+  items: BackgroundJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Response when starting a crawler job (returns immediately; job runs in background). */
 export interface CrawlerRunResponse {
   status: 'started';
+  job_id: number;
   adapters: string[];
+  triggered_by: 'manual' | 'scheduled';
   message: string;
 }
 
@@ -1046,10 +1069,7 @@ export interface CrawlerRunRequest {
   parallel?: boolean;
   /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
   delay_sec?: number | null;
-  /** If set, save full page HTML for post-processing (new URLs only unless crawl_html_save_on_recrawl). */
   crawl_html_save_dir?: string | null;
-  /** If true and crawl_html_save_dir set, also overwrite saved HTML when recrawling known URLs. */
-  crawl_html_save_on_recrawl?: boolean | null;
 }
 
 /** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
@@ -1060,6 +1080,8 @@ export interface RescrapeArchivesRequest {
 
 export interface RescrapeArchivesQueuedResponse {
   status: string;
+  job_id: number;
+  triggered_by: 'manual' | 'scheduled';
   message: string;
 }
 
@@ -1087,6 +1109,21 @@ export interface AdminTableCountsResponse {
   crawl_bucket_by_prefix: Record<string, number>;
   /** Present when listing the crawl bucket failed after configuration. */
   crawl_bucket_error?: string;
+}
+
+export interface CrawlerCronStatus {
+  enabled: boolean;
+  schedule_expression: string;
+  preset: 'monthly' | 'weekly' | 'daily' | 'custom';
+  presets: Record<string, string>;
+  schedule_name: string;
+  group_name: string;
+}
+
+export interface CrawlerCronUpdate {
+  enabled?: boolean;
+  schedule_expression?: string;
+  preset?: 'monthly' | 'weekly' | 'daily';
 }
 
 export const adminApi = {
@@ -1129,6 +1166,17 @@ export const adminApi = {
   /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
   getTableCounts: () =>
     apiClient.get<AdminTableCountsResponse>('/admin/stats/table-counts'),
+
+  // Background jobs
+  listJobs: (params?: { status?: string; job_type?: string; limit?: number; offset?: number }) =>
+    apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
+  getJob: (jobId: number) => apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
+  cancelJob: (jobId: number) => apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
+
+  // Cron schedule management
+  getCrawlerCron: () => apiClient.get<CrawlerCronStatus>('/admin/cron/crawler'),
+  updateCrawlerCron: (body: CrawlerCronUpdate) =>
+    apiClient.patch<CrawlerCronStatus>('/admin/cron/crawler', body),
 };
 
 export default apiClient;

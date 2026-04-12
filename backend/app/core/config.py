@@ -112,6 +112,35 @@ class Settings(BaseSettings):
     # Email settings
     EMAIL_FROM: str = Field(default="")
 
+    # Cron / EventBridge scheduler auth.
+    # EventBridge API Destination connections send this secret in the X-Admin-Cron-Key header.
+    # Must be a long random string in production; leave empty to disable cron auth path.
+    CRON_SECRET_KEY: str = Field(
+        default="",
+        description="Shared secret for EventBridge Scheduler → App Runner authenticated calls.",
+    )
+
+    # EventBridge Scheduler — schedule identity.
+    # Defaults to "carmodpicker-<APP_ENVIRONMENT>-crawler-run" which matches the
+    # Terraform resource name. Override only if your deployment uses a different prefix.
+    SCHEDULER_GROUP_NAME: str = Field(
+        default="default",
+        description="EventBridge Scheduler group name.",
+    )
+    SCHEDULER_CRAWLER_SCHEDULE_NAME: str = Field(
+        default="",
+        description=(
+            "EventBridge Scheduler schedule name for the crawler run job. "
+            "Defaults to 'carmodpicker-<APP_ENVIRONMENT>-crawler-run'."
+        ),
+    )
+
+    @property
+    def scheduler_crawler_schedule_name(self) -> str:
+        if self.SCHEDULER_CRAWLER_SCHEDULE_NAME:
+            return self.SCHEDULER_CRAWLER_SCHEDULE_NAME
+        return f"carmodpicker-{self.APP_ENVIRONMENT}-crawler-run"
+
     # Rate limiting settings
     ENABLE_RATE_LIMITING: bool = True
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60

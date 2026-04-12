@@ -32,6 +32,7 @@ resource "aws_iam_role_policy" "apprunner_access_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.cron_secret_key.arn,
       ]
     }]
   })
@@ -67,7 +68,26 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.cron_secret_key.arn,
       ]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "apprunner_instance_scheduler" {
+  name = "eventbridge-scheduler-manage"
+  role = aws_iam_role.apprunner_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "scheduler:GetSchedule",
+        "scheduler:UpdateSchedule",
+      ]
+      # Scoped to only the crawler schedule managed by this deployment.
+      Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-run"
     }]
   })
 }
@@ -168,8 +188,9 @@ resource "aws_apprunner_service" "backend" {
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
-          DATABASE_URL = aws_secretsmanager_secret_version.database_url.arn
-          SECRET_KEY   = aws_secretsmanager_secret_version.secret_key.arn
+          DATABASE_URL    = aws_secretsmanager_secret_version.database_url.arn
+          SECRET_KEY      = aws_secretsmanager_secret_version.secret_key.arn
+          CRON_SECRET_KEY = aws_secretsmanager_secret_version.cron_secret_key.arn
         }
       }
     }

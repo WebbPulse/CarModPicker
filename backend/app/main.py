@@ -77,6 +77,7 @@ app.add_middleware(
         "Accept",
         "Origin",
         "X-Requested-With",
+        "X-Admin-Cron-Key",
     ],  # Restrict to needed headers
     expose_headers=["*"],  # Expose all headers for debugging
 )

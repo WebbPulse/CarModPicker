@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Optional: save full page HTML for post-processing. Set CRAWL_HTML_SAVE_DIR (or pass via API) to enable.
 # When bucket is configured (S3), we upload to the bucket; otherwise we write to local path.
-# When set, we save HTML for new URLs only by default; set CRAWL_HTML_SAVE_ON_RECRAWL=1 to overwrite on recrawl too.
+# HTML is always saved for every URL crawled so the archive stays current.
 CRAWL_HTML_HASH_BYTES = 16  # filename = <sha256(url)>[:16].html so re-crawls overwrite same file
 
 
