@@ -54,13 +54,13 @@ class StorageService:
 
     def __init__(self) -> None:
         """Initialize S3 client with S3 bucket configuration."""
-        self.bucket_name = settings.BUCKET
+        self.bucket_name = settings.USER_IMAGES_BUCKET
         self.max_size_bytes = settings.max_image_size_bytes
         self.allowed_extensions = settings.allowed_image_extensions_list
         self.presigned_url_expiration = min(settings.PRESIGNED_URL_EXPIRATION, 7776000)  # Max 90 days
 
         if not self.bucket_name:
-            logger.warning("BUCKET not configured. Image uploads will be disabled.")
+            logger.warning("USER_IMAGES_BUCKET not configured. Image uploads will be disabled.")
             self.s3_client = None
             self.s3_client_presigner = None
             return
