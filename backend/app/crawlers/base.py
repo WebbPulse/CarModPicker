@@ -62,24 +62,24 @@ class _S3PutObjectProtocol(Protocol):
     ) -> object: ...
 
 
-# Lazy S3 client for crawl HTML uploads. Uses the same S3 bucket and credentials as image uploads
-# (StorageService / app.core.config BUCKET, AWS_ACCESS_KEY_ID, etc.). None if bucket not configured.
+# Lazy S3 client for crawl HTML uploads. Uses CRAWL_BUCKET (separate from user images).
+# Falls back to local filesystem if CRAWL_BUCKET is not configured.
 _crawl_s3_client: Optional[_S3PutObjectProtocol] = None
 _crawl_bucket_name: Optional[str] = None
 
 
 def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]]:
-    """Return (s3_client, bucket_name) for the app's existing bucket (same as images); else (None, None)."""
+    """Return (s3_client, bucket_name) for the crawl data bucket; else (None, None)."""
     global _crawl_s3_client, _crawl_bucket_name
     if _crawl_s3_client is not None or _crawl_bucket_name is not None:
         return _crawl_s3_client, _crawl_bucket_name
     try:
         from app.core.config import settings
 
-        bucket = (settings.BUCKET or "").strip()
+        bucket = (settings.CRAWL_BUCKET or "").strip()
         if not bucket or not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
             logger.info(
-                "Crawl HTML bucket not configured (BUCKET or AWS credentials missing); will use local path if save enabled"
+                "Crawl HTML bucket not configured (CRAWL_BUCKET or AWS credentials missing); will use local path if save enabled"
             )
             return None, None
         import boto3

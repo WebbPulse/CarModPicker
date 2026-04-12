@@ -90,7 +90,7 @@ resource "aws_iam_role_policy" "apprunner_instance_ses" {
 }
 
 resource "aws_iam_role_policy" "apprunner_instance_s3" {
-  name = "s3-user-images"
+  name = "s3-buckets"
   role = aws_iam_role.apprunner_instance.id
 
   policy = jsonencode({
@@ -104,12 +104,18 @@ resource "aws_iam_role_policy" "apprunner_instance_s3" {
           "s3:DeleteObject",
           "s3:HeadObject",
         ]
-        Resource = "${aws_s3_bucket.user_images.arn}/*"
+        Resource = [
+          "${aws_s3_bucket.user_images.arn}/*",
+          "${aws_s3_bucket.crawl_data.arn}/*",
+        ]
       },
       {
         Effect   = "Allow"
         Action   = ["s3:ListBucket", "s3:HeadBucket"]
-        Resource = aws_s3_bucket.user_images.arn
+        Resource = [
+          aws_s3_bucket.user_images.arn,
+          aws_s3_bucket.crawl_data.arn,
+        ]
       }
     ]
   })
@@ -153,7 +159,8 @@ resource "aws_apprunner_service" "backend" {
           DEBUG               = "false"
           APP_ENVIRONMENT = "production"
           PORT                = "8000"
-          BUCKET              = aws_s3_bucket.user_images.bucket
+          USER_IMAGES_BUCKET  = aws_s3_bucket.user_images.bucket
+          CRAWL_BUCKET        = aws_s3_bucket.crawl_data.bucket
           AWS_REGION          = var.aws_region
           S3_ENDPOINT_URL     = "" # Empty → boto3 uses native AWS S3
           EMAIL_FROM          = var.email_from

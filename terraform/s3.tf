@@ -15,6 +15,22 @@ resource "aws_s3_bucket_public_access_block" "user_images" {
 }
 
 # ---------------------------------------------------------------------------
+# Crawler HTML snapshots — internal pipeline data, never served to users
+# ---------------------------------------------------------------------------
+resource "aws_s3_bucket" "crawl_data" {
+  bucket = "${local.prefix}-crawl-data"
+}
+
+resource "aws_s3_bucket_public_access_block" "crawl_data" {
+  bucket = aws_s3_bucket.crawl_data.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# ---------------------------------------------------------------------------
 # Frontend SPA — private origin, served exclusively through CloudFront
 # ---------------------------------------------------------------------------
 resource "aws_s3_bucket" "frontend" {
