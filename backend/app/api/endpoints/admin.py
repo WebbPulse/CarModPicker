@@ -11,30 +11,38 @@ import logging
 import os
 import subprocess  # nosec B404 - Used safely for running database migrations
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
+from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
+from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.global_part_car import global_part_cars
+from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.make import Make as DBMake
+from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
+from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
-from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
-from app.core.category_inference import infer_category
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
 from app.crawlers.adapters import ADAPTER_REGISTRY
-from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC
-from app.crawlers.runner import run_crawlers
+from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
+from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC, count_crawl_bucket_object_summary
+from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id, run_crawlers
 from app.db.session import SessionLocal, get_db
 
 logger = logging.getLogger(__name__)
@@ -75,6 +83,51 @@ def _get_alembic_directory() -> str:
 
     # Last resort: use the calculated backend directory anyway
     return str(backend_dir)
+
+
+@router.get(
+    "/stats/table-counts",
+    response_model=Dict[str, Any],
+    responses=standard_responses(
+        success_description="Supplemental table and polymorphic vote/report counts",
+        forbidden=True,
+    ),
+)
+async def get_admin_table_counts(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Admin-only: counts for internal tables not exposed elsewhere, plus votes/reports by entity_type.
+
+    Build list phases and crawled pages also have dedicated /count routes; this endpoint
+    duplicates those counts for a single dashboard fetch if desired.
+    """
+    _ = current_user
+
+    global_part_car_rows = db.query(func.count()).select_from(global_part_cars).scalar()
+    global_part_car_count = int(global_part_car_rows or 0)
+
+    vote_rows = db.query(DBVote.entity_type, func.count(DBVote.id)).group_by(DBVote.entity_type).all()
+    votes_by_entity_type = {str(row[0]): int(row[1]) for row in vote_rows}
+
+    report_rows = db.query(DBReport.entity_type, func.count(DBReport.id)).group_by(DBReport.entity_type).all()
+    reports_by_entity_type = {str(row[0]): int(row[1]) for row in report_rows}
+
+    crawl_bucket_stats = count_crawl_bucket_object_summary()
+
+    return {
+        "build_list_phases": db.query(DBBuildListPhase).count(),
+        "crawled_pages": db.query(DBCrawledPage).count(),
+        "part_listings": db.query(DBPartListing).count(),
+        "part_price_histories": db.query(DBPartPriceHistory).count(),
+        "image_source_mappings": db.query(DBImageSourceMapping).count(),
+        "build_logs": db.query(DBBuildLog).count(),
+        "global_part_cars": global_part_car_count,
+        "votes_by_entity_type": votes_by_entity_type,
+        "reports_by_entity_type": reports_by_entity_type,
+        **crawl_bucket_stats,
+    }
 
 
 @router.post(
@@ -568,145 +621,111 @@ async def run_crawlers_endpoint(
     }
 
 
-class RerunInferenceRequest(BaseModel):
-    """Request body for rerunning inference on global parts."""
+class RescrapeArchivesRequest(BaseModel):
+    """Request body for re-parsing all archived HTML into global parts (same as crawler ingest)."""
 
-    reassign_brand: bool = Field(
-        default=True,
-        description="If True, try to infer brand from part name (e.g. 'Brand - Product' -> Brand). Only matches existing brands.",
+    crawler_user_id: int = Field(
+        ...,
+        description="User ID to attribute created/updated parts to (must exist and not be disabled).",
+    )
+    default_category_id: int = Field(
+        ...,
+        description="Fallback category ID when inference cannot pick a category.",
     )
 
 
-class RerunInferenceResponse(BaseModel):
-    """Response for rerun-inference on global parts (admin only)."""
-
-    updated_count: int = Field(..., description="Number of global parts updated")
-    error_count: int = Field(..., description="Number of parts that failed to update")
-    errors: List[str] = Field(default_factory=list, description="First 20 error messages if any")
-
-
-def _infer_brand_from_name(db: Session, name: Optional[str]) -> Optional[int]:
-    """
-    Try to infer brand_id from part name. Looks for 'Brand - ' or 'Brand – ' prefix
-    and matches against existing brands (case-insensitive). Returns brand id or None.
-    """
-    if not name or not name.strip():
-        return None
-    name = name.strip()
-    for sep in (" - ", " – ", " — "):
-        if sep in name:
-            prefix = name.split(sep)[0].strip()
-            if prefix:
-                brand = db.query(DBBrand).filter(DBBrand.name.ilike(prefix)).first()
-                if brand:
-                    return brand.id
-    return None
-
-
-def _rerun_inference_impl(db: Session, reassign_brand: bool) -> Dict[str, Any]:
-    """
-    Rerun category, car, and optionally brand inference on all global parts.
-    Returns dict with updated_count, error_count, errors (list of first 20 messages).
-    """
-    parts = db.query(DBGlobalPart).options(joinedload(DBGlobalPart.part_listings)).order_by(DBGlobalPart.id).all()
-    # Resolve category by name (cache); always have "other" fallback
-    categories_by_name: Dict[str, int] = {}
-    other_cat = db.query(DBCategory).filter(DBCategory.name == "other", DBCategory.is_active).first()
-    if other_cat:
-        categories_by_name["other"] = other_cat.id
-
-    updated_count = 0
-    error_count = 0
-    errors: List[str] = []
-    max_errors = 20
-
-    for part in parts:
-        try:
-            product_url: Optional[str] = None
-            if part.part_listings:
-                first_listing = next((pl for pl in part.part_listings if pl.product_url), None)
-                if first_listing:
-                    product_url = first_listing.product_url
-
-            # Category
-            inferred_cat = infer_category(part.name, part.description)
-            cat_name = inferred_cat if inferred_cat else "other"
-            if cat_name not in categories_by_name:
-                cat = db.query(DBCategory).filter(DBCategory.name == cat_name, DBCategory.is_active).first()
-                if cat:
-                    categories_by_name[cat_name] = cat.id
-                else:
-                    cat_name = "other"
-            if cat_name in categories_by_name:
-                part.category_id = categories_by_name[cat_name]
-
-            # Cars
-            triples = infer_car_generations(part.name, part.description, product_url)
-            car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
-            part.is_universal = not car_ids
-            if car_ids:
-                part.cars = [db.get(DBCar, cid) for cid in car_ids]
-            else:
-                part.cars = []
-
-            # Brand (optional)
-            if reassign_brand:
-                inferred_brand_id = _infer_brand_from_name(db, part.name)
-                if inferred_brand_id is not None:
-                    part.brand_id = inferred_brand_id
-
-            updated_count += 1
-        except Exception as e:
-            error_count += 1
-            db.refresh(part)  # Discard partial ORM mutations so they are not committed
-            if len(errors) < max_errors:
-                errors.append(f"Part id={part.id} ({part.name[:50]}...): {e!s}")
-
-    if updated_count > 0:
-        db.commit()
-    return {
-        "updated_count": updated_count,
-        "error_count": error_count,
-        "errors": errors,
-    }
+def _rescrape_archives_background(
+    *,
+    crawler_user_id: int,
+    default_category_id: int,
+    triggered_by_user_id: int,
+) -> None:
+    """Re-parse every archived page in a background thread; logs per-outcome counts."""
+    db = SessionLocal()
+    try:
+        crawler_user = _resolve_crawler_user(db, crawler_user_id)
+        cat_id = _resolve_default_category_id(db, default_category_id)
+        counts = run_rescrape_all_archived_pages(
+            db,
+            crawler_user=crawler_user,
+            default_category_id=cat_id,
+            log=logger,
+        )
+        logger.info(
+            "Archive rescrape job completed (triggered by admin %s): %s",
+            triggered_by_user_id,
+            counts,
+        )
+    except Exception as e:
+        logger.exception(
+            "Archive rescrape job failed (triggered by admin %s): %s",
+            triggered_by_user_id,
+            e,
+        )
+    finally:
+        db.close()
 
 
 @router.post(
-    "/global-parts/rerun-inference",
-    response_model=RerunInferenceResponse,
+    "/crawled-pages/rescrape-archives",
+    response_model=Dict[str, Any],
     responses=standard_responses(
-        success_description="Inference rerun completed",
+        success_description="Archive rescrape job started",
         forbidden=True,
     ),
 )
-async def rerun_global_parts_inference(
-    body: RerunInferenceRequest,
+async def rescrape_all_archived_crawled_pages(
+    body: RescrapeArchivesRequest,
     current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
-) -> RerunInferenceResponse:
+) -> Dict[str, Any]:
     """
-    Rerun category, car, and optionally brand inference on all global parts (admin only).
+    Start a background job that re-parses every crawled page with stored HTML.
 
-    For each part, uses name + description (+ product_url from first listing) to infer:
-    - category_id (from infer_category)
-    - car associations and is_universal (from infer_car_generations + resolve)
-    - brand_id (optional): if reassign_brand is True, infers from 'Brand - Product' name prefix using existing brands only.
+    For each row: load archived HTML, run the appropriate retailer parser (including
+    extension-sourced URLs matched by host), then ``ingest_payload`` so parts are
+    created/updated with full inference and listing refresh. Price history is updated
+    when the parsed payload includes a price (same path as live crawls).
+
+    HTML is stored under one canonical object per URL (``crawl_html/by_url/…``).
     """
-    try:
-        logger.info(
-            "Admin %s triggered rerun inference on all global parts (reassign_brand=%s)",
-            current_user.id,
-            body.reassign_brand,
-        )
-        result = await asyncio.to_thread(_rerun_inference_impl, db, body.reassign_brand)
-        return RerunInferenceResponse(**result)
-    except Exception as e:
-        db.rollback()
-        logger.exception("Rerun inference failed: %s", e)
+    crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+    if not crawler_user:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"crawler_user_id={body.crawler_user_id}: no user found.",
         )
+    if crawler_user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
+        )
+    cat = db.query(DBCategory).filter(DBCategory.id == body.default_category_id).first()
+    if not cat or not cat.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"default_category_id={body.default_category_id}: not found or inactive.",
+        )
+
+    logger.info("Admin %s queued rescrape of all archived HTML pages", current_user.id)
+    task = asyncio.create_task(
+        asyncio.to_thread(
+            _rescrape_archives_background,
+            crawler_user_id=body.crawler_user_id,
+            default_category_id=body.default_category_id,
+            triggered_by_user_id=current_user.id,
+        )
+    )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    return {
+        "status": "started",
+        "message": (
+            "Archive rescrape job started. Each page is re-parsed from stored HTML; "
+            "check server logs for parsed_ok / failed / skipped counts when the job finishes."
+        ),
+    }
 
 
 class DeleteAllGlobalPartsResponse(BaseModel):

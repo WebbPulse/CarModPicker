@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -11,10 +12,12 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 import type {
+  AdminTableCountsResponse,
+  BucketEntityTypeCountResponse,
   CrawlerRunRequest,
   CrawlerRunResponse,
-  RerunInferenceRequest,
-  RerunInferenceResponse,
+  RescrapeArchivesQueuedResponse,
+  RescrapeArchivesRequest,
 } from '../../services/Api';
 import {
   adminApi,
@@ -28,10 +31,106 @@ import {
   globalPartsApi,
   imageApi,
   reportsApi,
+  retailersApi,
   usersApi,
   votesApi,
 } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
+
+function getHttpStatus(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) {
+    return error.response?.status;
+  }
+  return undefined;
+}
+
+/** Preferred order for S3 key prefix labels (matches upload entity_type values). */
+const BUCKET_ENTITY_TYPE_ORDER = [
+  'user',
+  'car',
+  'build_list',
+  'global_part',
+  'build_log_post',
+] as const;
+
+function formatStatCount(value: number | null): string {
+  return value?.toLocaleString() ?? '—';
+}
+
+/** Panel with a 2-column metric grid so values align within the card (no full-width label/value stretch). */
+function StatPanel({
+  title,
+  children,
+  className = '',
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`rounded-lg border border-gray-800/90 bg-gray-950/65 px-2.5 py-2 min-w-0 ${className}`}
+    >
+      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5 pb-1 border-b border-gray-800">
+        {title}
+      </h3>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 items-baseline text-xs">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** One metric row: must be direct children of StatPanel’s grid (fragment = two cells). */
+function StatRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null;
+}) {
+  return (
+    <>
+      <span
+        className="text-[11px] text-gray-500 truncate min-w-0 leading-tight"
+        title={label}
+      >
+        {label}
+      </span>
+      <span className="text-xs font-semibold tabular-nums text-gray-100 text-right leading-tight">
+        {formatStatCount(value)}
+      </span>
+    </>
+  );
+}
+
+/** Metric row plus optional detail block spanning both grid columns. */
+function StatRowWithDetail({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number | null;
+  detail?: ReactNode;
+}) {
+  return (
+    <>
+      <span
+        className="text-[11px] text-gray-500 truncate min-w-0 leading-tight"
+        title={label}
+      >
+        {label}
+      </span>
+      <span className="text-xs font-semibold tabular-nums text-gray-100 text-right leading-tight">
+        {formatStatCount(value)}
+      </span>
+      {detail ? (
+        <div className="col-span-2 min-w-0 -mt-0.5 mb-0.5">{detail}</div>
+      ) : null}
+    </>
+  );
+}
 
 interface EntityCounts {
   users: number | null;
@@ -42,9 +141,17 @@ interface EntityCounts {
   globalParts: number | null;
   categories: number | null;
   brands: number | null;
+  retailers: number | null;
   bucketObjects: number | null;
   buildLogPosts: number | null;
   buildListParts: number | null;
+  buildListPhases: number | null;
+  crawledPages: number | null;
+  partListings: number | null;
+  partPriceHistories: number | null;
+  imageSourceMappings: number | null;
+  buildLogs: number | null;
+  globalPartCars: number | null;
   votes: number | null;
   reports: number | null;
   bugReports: number | null;
@@ -62,13 +169,25 @@ function AdminDashboard() {
     globalParts: null,
     categories: null,
     brands: null,
+    retailers: null,
     bucketObjects: null,
     buildLogPosts: null,
     buildListParts: null,
+    buildListPhases: null,
+    crawledPages: null,
+    partListings: null,
+    partPriceHistories: null,
+    imageSourceMappings: null,
+    buildLogs: null,
+    globalPartCars: null,
     votes: null,
     reports: null,
     bugReports: null,
   });
+  const [bucketEntitySummary, setBucketEntitySummary] =
+    useState<BucketEntityTypeCountResponse | null>(null);
+  const [adminTableCounts, setAdminTableCounts] =
+    useState<AdminTableCountsResponse | null>(null);
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
   const [isRunningMigrations, setIsRunningMigrations] = useState(false);
@@ -137,7 +256,7 @@ function AdminDashboard() {
   // Crawler tools
   const [crawlerAdapters, setCrawlerAdapters] = useState<string[]>([]);
   const [selectedCrawlers, setSelectedCrawlers] = useState<Set<string>>(
-    new Set()
+    () => new Set()
   );
   const [crawlerLimits, setCrawlerLimits] = useState<Record<string, string>>(
     {}
@@ -160,14 +279,13 @@ function AdminDashboard() {
   const [crawlerHtmlSaveOnRecrawl, setCrawlerHtmlSaveOnRecrawl] =
     useState<boolean>(false);
 
-  // Rerun inference
-  const [isRerunningInference, setIsRerunningInference] = useState(false);
-  const [rerunInferenceResult, setRerunInferenceResult] =
-    useState<RerunInferenceResponse | null>(null);
-  const [rerunInferenceError, setRerunInferenceError] = useState<string | null>(
-    null
-  );
-  const [reassignBrand, setReassignBrand] = useState(true);
+  // Rescrape archived HTML (batch re-parse + ingest)
+  const [isRescrapingArchives, setIsRescrapingArchives] = useState(false);
+  const [rescrapeArchivesResult, setRescrapeArchivesResult] =
+    useState<RescrapeArchivesQueuedResponse | null>(null);
+  const [rescrapeArchivesError, setRescrapeArchivesError] = useState<
+    string | null
+  >(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -184,6 +302,7 @@ function AdminDashboard() {
     setCountsError(null);
 
     const failedEndpoints: string[] = [];
+    let staleApiRoutesNotice = false;
 
     const fetchCount = async (
       apiCall: () => Promise<{ data: { count: number } }>,
@@ -198,6 +317,55 @@ function AdminDashboard() {
       }
     };
 
+    const fetchBucketEntitySummary =
+      async (): Promise<BucketEntityTypeCountResponse | null> => {
+        try {
+          const response = await imageApi.getBucketCountByEntityType();
+          return response.data;
+        } catch (e) {
+          const status = getHttpStatus(e);
+          // Older API build (route missing): try legacy total-only count.
+          if (status === 404) {
+            try {
+              const legacy = await imageApi.countBucketObjects();
+              staleApiRoutesNotice = true;
+              return {
+                total: legacy.data.count,
+                by_entity_type: {},
+                other: 0,
+              };
+            } catch (e2) {
+              if (getHttpStatus(e2) === 503) {
+                return null;
+              }
+              failedEndpoints.push('bucket objects (S3)');
+              return null;
+            }
+          }
+          if (status === 503) {
+            return null;
+          }
+          failedEndpoints.push('bucket objects (S3)');
+          return null;
+        }
+      };
+
+    const fetchAdminTableStats =
+      async (): Promise<AdminTableCountsResponse | null> => {
+        try {
+          const response = await adminApi.getTableCounts();
+          return response.data;
+        } catch (e) {
+          const status = getHttpStatus(e);
+          if (status === 404) {
+            staleApiRoutesNotice = true;
+            return null;
+          }
+          failedEndpoints.push('admin supplemental table counts');
+          return null;
+        }
+      };
+
     try {
       // Fetch all counts in parallel, but handle failures individually
       const [
@@ -209,7 +377,9 @@ function AdminDashboard() {
         globalPartsCount,
         categoriesCount,
         brandsCount,
-        bucketObjectsCount,
+        retailersCount,
+        bucketSummary,
+        adminTable,
         buildLogPostsCount,
         buildListPartsCount,
         votesCount,
@@ -224,7 +394,9 @@ function AdminDashboard() {
         fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
         fetchCount(() => brandsApi.countBrands(), 'brands'),
-        fetchCount(() => imageApi.countBucketObjects(), 'bucket objects'),
+        fetchCount(() => retailersApi.countRetailers(), 'retailers'),
+        fetchBucketEntitySummary(),
+        fetchAdminTableStats(),
         fetchCount(() => buildLogsApi.countBuildLogPosts(), 'build log posts'),
         fetchCount(
           () => buildListPartsApi.countBuildListParts(),
@@ -235,6 +407,9 @@ function AdminDashboard() {
         fetchCount(() => bugReportsApi.countBugReports(), 'bug reports'),
       ]);
 
+      setBucketEntitySummary(bucketSummary);
+      setAdminTableCounts(adminTable);
+
       setCounts({
         users: usersCount,
         cars: carsCount,
@@ -244,9 +419,17 @@ function AdminDashboard() {
         globalParts: globalPartsCount,
         categories: categoriesCount,
         brands: brandsCount,
-        bucketObjects: bucketObjectsCount,
+        retailers: retailersCount,
+        bucketObjects: bucketSummary?.total ?? null,
         buildLogPosts: buildLogPostsCount,
         buildListParts: buildListPartsCount,
+        buildListPhases: adminTable?.build_list_phases ?? null,
+        crawledPages: adminTable?.crawled_pages ?? null,
+        partListings: adminTable?.part_listings ?? null,
+        partPriceHistories: adminTable?.part_price_histories ?? null,
+        imageSourceMappings: adminTable?.image_source_mappings ?? null,
+        buildLogs: adminTable?.build_logs ?? null,
+        globalPartCars: adminTable?.global_part_cars ?? null,
         votes: votesCount,
         reports: reportsCount,
         bugReports: bugReportsCount,
@@ -262,7 +445,9 @@ function AdminDashboard() {
         globalPartsCount === null &&
         categoriesCount === null &&
         brandsCount === null &&
-        bucketObjectsCount === null &&
+        retailersCount === null &&
+        bucketSummary === null &&
+        adminTable === null &&
         buildLogPostsCount === null &&
         buildListPartsCount === null &&
         votesCount === null &&
@@ -277,6 +462,10 @@ function AdminDashboard() {
         // Some failed, show a warning
         setCountsError(
           `Some statistics could not be loaded: ${failedEndpoints.join(', ')}. Other data is shown below.`
+        );
+      } else if (staleApiRoutesNotice) {
+        setCountsError(
+          'The API process looks out of date (new routes returned 404). Restart the backend so it loads the latest code—for example: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000. Until then, S3 totals may still appear from the legacy count endpoint, but bucket prefix breakdown and supplemental table counts stay empty.'
         );
       } else {
         // All succeeded, clear any previous errors
@@ -477,23 +666,37 @@ function AdminDashboard() {
     }
   };
 
-  const handleRerunInference = async () => {
-    setIsRerunningInference(true);
-    setRerunInferenceResult(null);
-    setRerunInferenceError(null);
+  const handleRescrapeArchives = async () => {
+    const userIdNum = parseInt(crawlerUserId, 10);
+    const categoryIdNum = parseInt(crawlerDefaultCategoryId, 10);
+    if (isNaN(userIdNum) || userIdNum < 1) {
+      setRescrapeArchivesError('Enter a valid crawler user ID (1 or greater).');
+      return;
+    }
+    if (isNaN(categoryIdNum) || categoryIdNum < 1) {
+      setRescrapeArchivesError('Select a default category.');
+      return;
+    }
+
+    setIsRescrapingArchives(true);
+    setRescrapeArchivesResult(null);
+    setRescrapeArchivesError(null);
     try {
-      const body: RerunInferenceRequest = { reassign_brand: reassignBrand };
-      const response = await adminApi.rerunInference(body);
-      setRerunInferenceResult(response.data);
+      const body: RescrapeArchivesRequest = {
+        crawler_user_id: userIdNum,
+        default_category_id: categoryIdNum,
+      };
+      const response = await adminApi.rescrapeArchives(body);
+      setRescrapeArchivesResult(response.data);
       void fetchCounts();
     } catch (error) {
-      setRerunInferenceError(
+      setRescrapeArchivesError(
         error instanceof Error
           ? error.message
-          : 'Failed to rerun inference on global parts.'
+          : 'Failed to start rescrape archives job.'
       );
     } finally {
-      setIsRerunningInference(false);
+      setIsRescrapingArchives(false);
     }
   };
 
@@ -672,7 +875,7 @@ function AdminDashboard() {
 
       <div className="mt-6">
         <Card>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <SectionHeader title="System Statistics" />
             {!isLoadingCounts && (
               <ActionButton
@@ -684,98 +887,237 @@ function AdminDashboard() {
             )}
           </div>
           {countsError && (
-            <div className="mb-4">
+            <div className="mb-2">
               <ErrorAlert message={countsError} />
             </div>
           )}
           {isLoadingCounts ? (
-            <div className="flex justify-center items-center py-8">
+            <div className="flex justify-center items-center py-6">
               <LoadingSpinner />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Users</div>
-                <div className="text-3xl font-bold text-blue-400">
-                  {counts.users?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Cars</div>
-                <div className="text-3xl font-bold text-green-400">
-                  {counts.cars?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Makes</div>
-                <div className="text-3xl font-bold text-sky-400">
-                  {counts.makes?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Car Models</div>
-                <div className="text-3xl font-bold text-lime-400">
-                  {counts.carModels?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Build Lists</div>
-                <div className="text-3xl font-bold text-yellow-400">
-                  {counts.buildLists?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Global Parts</div>
-                <div className="text-3xl font-bold text-purple-400">
-                  {counts.globalParts?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Categories</div>
-                <div className="text-3xl font-bold text-pink-400">
-                  {counts.categories?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Bucket Objects</div>
-                <div className="text-3xl font-bold text-cyan-400">
-                  {counts.bucketObjects?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">
-                  Build Log Posts
-                </div>
-                <div className="text-3xl font-bold text-orange-400">
-                  {counts.buildLogPosts?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">
-                  Build List Parts
-                </div>
-                <div className="text-3xl font-bold text-indigo-400">
-                  {counts.buildListParts?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Votes</div>
-                <div className="text-3xl font-bold text-teal-400">
-                  {counts.votes?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Reports</div>
-                <div className="text-3xl font-bold text-red-400">
-                  {counts.reports?.toLocaleString() ?? '—'}
-                </div>
-              </div>
-              <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-sm text-gray-400 mb-1">Bug Reports</div>
-                <div className="text-3xl font-bold text-amber-400">
-                  {counts.bugReports?.toLocaleString() ?? '—'}
-                </div>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 [&>*]:min-w-0">
+              <StatPanel title="Users & vehicles">
+                <StatRow label="Users" value={counts.users} />
+                <StatRow label="Cars" value={counts.cars} />
+                <StatRow label="Makes" value={counts.makes} />
+                <StatRow label="Car models" value={counts.carModels} />
+              </StatPanel>
+
+              <StatPanel title="Builds & logs">
+                <StatRow label="Build lists" value={counts.buildLists} />
+                <StatRow label="Build list parts" value={counts.buildListParts} />
+                <StatRow
+                  label="Build list phases"
+                  value={counts.buildListPhases}
+                />
+                <StatRow label="Build logs" value={counts.buildLogs} />
+                <StatRow label="Build log posts" value={counts.buildLogPosts} />
+              </StatPanel>
+
+              <StatPanel title="Parts & catalog">
+                <StatRow label="Global parts" value={counts.globalParts} />
+                <StatRow label="Categories" value={counts.categories} />
+                <StatRow label="Brands" value={counts.brands} />
+                <StatRow label="Retailers" value={counts.retailers} />
+                <StatRow
+                  label="Part ↔ car links"
+                  value={counts.globalPartCars}
+                />
+              </StatPanel>
+
+              <StatPanel title="Crawling & listings">
+                <StatRow label="Crawled pages" value={counts.crawledPages} />
+                <StatRow label="Part listings" value={counts.partListings} />
+                <StatRow
+                  label="Price history rows"
+                  value={counts.partPriceHistories}
+                />
+              </StatPanel>
+
+              <StatPanel title="Media & storage">
+                <StatRowWithDetail
+                  label="User images S3 (total)"
+                  value={counts.bucketObjects}
+                  detail={
+                    bucketEntitySummary ? (
+                      <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
+                        <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                          By key prefix
+                        </div>
+                        <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                          {BUCKET_ENTITY_TYPE_ORDER.map((prefix) => {
+                            const n = bucketEntitySummary.by_entity_type[prefix];
+                            if (!n) return null;
+                            return (
+                              <div
+                                key={prefix}
+                                className="flex justify-between gap-1 min-w-0 leading-tight"
+                              >
+                                <span className="truncate">{prefix}</span>
+                                <span className="tabular-nums shrink-0 text-gray-400">
+                                  {n.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {Object.keys(bucketEntitySummary.by_entity_type)
+                            .filter(
+                              (k) =>
+                                !BUCKET_ENTITY_TYPE_ORDER.includes(
+                                  k as (typeof BUCKET_ENTITY_TYPE_ORDER)[number]
+                                )
+                            )
+                            .sort()
+                            .map((prefix) => {
+                              const n =
+                                bucketEntitySummary.by_entity_type[prefix];
+                              return (
+                                <div
+                                  key={prefix}
+                                  className="flex justify-between gap-1 min-w-0 leading-tight"
+                                >
+                                  <span className="truncate">{prefix}</span>
+                                  <span className="tabular-nums shrink-0 text-gray-400">
+                                    {(n ?? 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          {bucketEntitySummary.other > 0 ? (
+                            <div className="col-span-2 min-[420px]:col-span-3 flex justify-between gap-2 text-amber-500/90 leading-tight pt-0.5 border-t border-gray-800/80 mt-0.5">
+                              <span>Non-standard keys</span>
+                              <span className="tabular-nums shrink-0">
+                                {bucketEntitySummary.other.toLocaleString()}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-600 leading-snug">
+                        Uploads from the app/extension (USER_IMAGES_BUCKET). Scraped
+                        part photos are usually remote URLs, not counted here.
+                      </p>
+                    )
+                  }
+                />
+                <StatRowWithDetail
+                  label="Crawl HTML S3 (CRAWL_BUCKET)"
+                  value={
+                    adminTableCounts == null
+                      ? null
+                      : adminTableCounts.crawl_bucket_configured
+                        ? adminTableCounts.crawl_bucket_total
+                        : null
+                  }
+                  detail={
+                    adminTableCounts &&
+                    !adminTableCounts.crawl_bucket_configured ? (
+                      <p className="text-[10px] text-gray-600 leading-snug">
+                        Bucket not configured: scraped page HTML is saved under{' '}
+                        <span className="font-mono text-gray-500">crawl_html/</span>{' '}
+                        on disk instead. Set{' '}
+                        <span className="font-mono text-gray-500">CRAWL_BUCKET</span>{' '}
+                        (and AWS / LocalStack) to store archives in S3—then counts
+                        appear here (about two objects per archived page: .html + .url).
+                      </p>
+                    ) : adminTableCounts?.crawl_bucket_error ? (
+                      <p className="text-[10px] text-red-400/90">
+                        {adminTableCounts.crawl_bucket_error}
+                      </p>
+                    ) : adminTableCounts &&
+                      adminTableCounts.crawl_bucket_configured &&
+                      Object.keys(adminTableCounts.crawl_bucket_by_prefix).length >
+                        0 ? (
+                      <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
+                        <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                          By top-level prefix
+                        </div>
+                        <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                          {Object.entries(adminTableCounts.crawl_bucket_by_prefix)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([prefix, n]) => (
+                              <div
+                                key={prefix}
+                                className="flex justify-between gap-1 min-w-0 leading-tight"
+                              >
+                                <span className="truncate">{prefix}</span>
+                                <span className="tabular-nums shrink-0 text-gray-400">
+                                  {n.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : adminTableCounts?.crawl_bucket_configured ? (
+                      <p className="text-[10px] text-gray-600 leading-snug">
+                        Bucket is configured but empty (no archived HTML keys yet).
+                      </p>
+                    ) : undefined
+                  }
+                />
+                <StatRow
+                  label="Image source mappings"
+                  value={counts.imageSourceMappings}
+                />
+              </StatPanel>
+
+              <StatPanel title="Community">
+                <StatRowWithDetail
+                  label="Votes"
+                  value={counts.votes}
+                  detail={
+                    adminTableCounts &&
+                    Object.keys(adminTableCounts.votes_by_entity_type).length >
+                      0 ? (
+                      <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                        {Object.entries(adminTableCounts.votes_by_entity_type)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([entityType, n]) => (
+                            <div
+                              key={entityType}
+                              className="flex justify-between gap-1 min-w-0 leading-tight"
+                            >
+                              <span className="truncate">{entityType}</span>
+                              <span className="tabular-nums shrink-0 text-gray-400">
+                                {n.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : undefined
+                  }
+                />
+                <StatRowWithDetail
+                  label="Reports"
+                  value={counts.reports}
+                  detail={
+                    adminTableCounts &&
+                    Object.keys(adminTableCounts.reports_by_entity_type)
+                      .length > 0 ? (
+                      <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                        {Object.entries(
+                          adminTableCounts.reports_by_entity_type
+                        )
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([entityType, n]) => (
+                            <div
+                              key={entityType}
+                              className="flex justify-between gap-1 min-w-0 leading-tight"
+                            >
+                              <span className="truncate">{entityType}</span>
+                              <span className="tabular-nums shrink-0 text-gray-400">
+                                {n.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : undefined
+                  }
+                />
+                <StatRow label="Bug reports" value={counts.bugReports} />
+              </StatPanel>
             </div>
           )}
         </Card>
@@ -1223,98 +1565,24 @@ function AdminDashboard() {
       <div className="mt-3">
         <Card padding="sm">
           <h2 className="text-lg font-semibold text-white mb-1">
-            Rerun inference on global parts
-          </h2>
-          <p className="text-sm text-neutral-400 mb-2">
-            Re-run category, car & brand inference on all parts. Parts:{' '}
-            <span className="font-semibold text-white">
-              {counts.globalParts?.toLocaleString() ?? '—'}
-            </span>
-          </p>
-          <div className="p-3 bg-violet-900/20 border border-violet-700 rounded-lg">
-            <div className="flex flex-wrap items-center gap-3 mb-2">
-              <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-300">
-                <input
-                  type="checkbox"
-                  checked={reassignBrand}
-                  onChange={(e) => setReassignBrand(e.target.checked)}
-                  className="rounded border-gray-600 bg-gray-700 text-violet-500 focus:ring-violet-500"
-                />
-                Reassign brand from name
-              </label>
-              <ActionButton
-                onClick={() => void handleRerunInference()}
-                disabled={isRerunningInference}
-                className="bg-violet-600 hover:bg-violet-700 text-white text-sm py-1.5 px-3"
-              >
-                {isRerunningInference ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Rerunning...
-                  </span>
-                ) : (
-                  'Rerun inference'
-                )}
-              </ActionButton>
-            </div>
-            {rerunInferenceError && (
-              <div className="mt-2">
-                <ErrorAlert message={rerunInferenceError} />
-              </div>
-            )}
-            {rerunInferenceResult && (
-              <div
-                className={`p-2 rounded border text-sm mt-2 ${
-                  rerunInferenceResult.error_count > 0
-                    ? 'bg-amber-900/20 border-amber-700'
-                    : 'bg-green-900/20 border-green-700'
-                }`}
-              >
-                <p className="font-semibold text-green-400">
-                  Updated {rerunInferenceResult.updated_count.toLocaleString()}{' '}
-                  part(s).
-                </p>
-                {rerunInferenceResult.error_count > 0 && (
-                  <p className="text-amber-400 mt-0.5 text-xs">
-                    {rerunInferenceResult.error_count} failed.
-                  </p>
-                )}
-                {rerunInferenceResult.errors.length > 0 && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-neutral-400 hover:text-neutral-300">
-                      Show errors (first {rerunInferenceResult.errors.length})
-                    </summary>
-                    <ul className="mt-2 list-disc list-inside text-xs text-neutral-300 space-y-1">
-                      {rerunInferenceResult.errors.map((err) => (
-                        <li key={err}>{err}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="mt-3">
-        <Card padding="sm">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Crawler Tools
+            Crawler & archives
           </h2>
           <p className="text-sm text-neutral-400 mb-3">
-            Run retailer crawlers; set user, category, and limits below.
+            Run live retailer crawls or re-process stored HTML archives. Crawler user and
+            default category apply to both.
           </p>
-          <div className="p-3 bg-emerald-900/20 border border-emerald-700 rounded-lg">
-            {isLoadingCrawlers ? (
-              <div className="flex justify-center items-center py-4">
-                <LoadingSpinner />
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+
+          {isLoadingCrawlers ? (
+            <div className="flex justify-center items-center py-10">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 p-3 rounded-lg border border-white/15 bg-gray-900/40">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-2">
+                  Shared defaults
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-neutral-400 mb-0.5">
                       Crawler user ID
@@ -1325,7 +1593,7 @@ function AdminDashboard() {
                       placeholder="e.g. 1"
                       value={crawlerUserId}
                       onChange={(e) => setCrawlerUserId(e.target.value)}
-                      className="max-w-[120px] min-h-[36px] text-sm"
+                      className="max-w-[140px] min-h-[36px] text-sm"
                     />
                   </div>
                   <div>
@@ -1337,7 +1605,7 @@ function AdminDashboard() {
                       onChange={(e) =>
                         setCrawlerDefaultCategoryId(e.target.value)
                       }
-                      className="w-full max-w-[220px] min-h-[36px] px-3 py-1.5 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="w-full max-w-xs min-h-[36px] px-3 py-1.5 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
                     >
                       <option value="">Select category...</option>
                       {crawlerCategories.map((c) => (
@@ -1347,6 +1615,18 @@ function AdminDashboard() {
                       ))}
                     </select>
                   </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-900/20 border border-emerald-700 rounded-lg mb-4">
+                <h3 className="text-sm font-semibold text-emerald-200 mb-2">
+                  Live crawlers
+                </h3>
+                <p className="text-xs text-neutral-400 mb-3">
+                  Fetch fresh pages from retailers. Configure delay, limits, and optional HTML
+                  export below.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-neutral-400 mb-0.5">
                       Delay
@@ -1378,8 +1658,8 @@ function AdminDashboard() {
                       className="max-w-[80px] min-h-[36px] text-sm"
                     />
                   </div>
-                  <div className="flex items-end gap-2">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-400">
+                  <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-end gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-400 shrink-0">
                       <input
                         type="checkbox"
                         checked={crawlerHtmlSaveOnRecrawl}
@@ -1395,7 +1675,7 @@ function AdminDashboard() {
                       placeholder="HTML save dir (optional)"
                       value={crawlerHtmlSaveDir}
                       onChange={(e) => setCrawlerHtmlSaveDir(e.target.value)}
-                      className="max-w-[180px] min-h-[36px] text-sm"
+                      className="min-h-[36px] text-sm flex-1 min-w-0"
                     />
                   </div>
                 </div>
@@ -1508,9 +1788,65 @@ function AdminDashboard() {
                     )}
                   </div>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+
+              <div className="p-3 bg-violet-900/20 border border-violet-700 rounded-lg">
+                <h3 className="text-sm font-semibold text-violet-200 mb-2">
+                  Archive rescrape
+                </h3>
+                <p className="text-xs text-neutral-400 mb-2">
+                  Re-run parse → ingest on every URL that has archived HTML (same pipeline as
+                  a live crawl: parts, category and car inference, listings, and price history
+                  when a price is found). Stale snapshots still record a price observation.
+                </p>
+                <p className="text-xs text-neutral-500 mb-3">
+                  Archived pages:{' '}
+                  <span className="font-semibold text-neutral-200">
+                    {counts.crawledPages?.toLocaleString() ?? '—'}
+                  </span>
+                  <span className="text-neutral-600"> · </span>
+                  <span className="text-neutral-500">
+                    Background job—watch server logs for per-outcome counts.
+                  </span>
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <ActionButton
+                    onClick={() => void handleRescrapeArchives()}
+                    disabled={isRescrapingArchives}
+                    className="bg-violet-600 hover:bg-violet-700 text-white text-sm py-1.5 px-3"
+                  >
+                    {isRescrapingArchives ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" inline />
+                        </span>
+                        Starting…
+                      </span>
+                    ) : (
+                      'Rescrape latest archives'
+                    )}
+                  </ActionButton>
+                </div>
+                {rescrapeArchivesError && (
+                  <div className="mt-2">
+                    <ErrorAlert message={rescrapeArchivesError} />
+                  </div>
+                )}
+                {rescrapeArchivesResult && (
+                  <div className="p-2 rounded border text-sm mt-2 bg-green-900/20 border-green-700">
+                    <p className="font-semibold text-green-400">
+                      {rescrapeArchivesResult.status === 'started'
+                        ? 'Job queued.'
+                        : rescrapeArchivesResult.status}
+                    </p>
+                    <p className="text-neutral-300 text-xs mt-1">
+                      {rescrapeArchivesResult.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </Card>
       </div>
 

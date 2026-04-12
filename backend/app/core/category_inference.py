@@ -333,7 +333,6 @@ NAME_WEIGHT = 2
 STEERING_WHEEL_PHRASES = ("steering wheel", "steering wheels")
 WHEELS_AMBIGUOUS_KEYWORDS = frozenset({"wheel", "wheels"})
 
-
 def _score_text(text: str, keywords: list[str]) -> int:
     """Count keyword matches (word-boundary) in text. Each keyword counts at most once."""
     if not text or not keywords:

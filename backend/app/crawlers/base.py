@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, cast
+from typing import Any, Dict, List, Optional, Protocol, cast
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -63,6 +63,8 @@ class _S3PutObjectProtocol(Protocol):
 
     def get_object(self, *, Bucket: str, Key: str) -> dict: ...
 
+    def list_objects_v2(self, **kwargs: object) -> dict: ...
+
 
 # Lazy S3 client for crawl HTML uploads. Uses CRAWL_BUCKET (separate from user images).
 # Falls back to local filesystem if CRAWL_BUCKET is not configured.
@@ -101,6 +103,70 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
         return None, None
 
 
+def count_crawl_bucket_object_summary() -> dict[str, Any]:
+    """
+    List all objects in CRAWL_BUCKET (paginated) and return total plus counts grouped
+    by the first path segment (e.g. ``crawl_html`` / adapter / file).
+
+    Scraped page HTML lives here—not in USER_IMAGES_BUCKET. When the crawl bucket is
+    not configured, HTML may be written only to local disk; then this returns zeros.
+    """
+    from collections import defaultdict
+
+    s3_client, bucket_name = _get_crawl_s3_client()
+    if s3_client is None or bucket_name is None:
+        return {
+            "crawl_bucket_configured": False,
+            "crawl_bucket_total": 0,
+            "crawl_bucket_by_prefix": {},
+        }
+
+    total = 0
+    by_prefix: dict[str, int] = defaultdict(int)
+    continuation_token: str | None = None
+
+    try:
+        while True:
+            list_kwargs: dict[str, Any] = {"Bucket": bucket_name}
+            if continuation_token:
+                list_kwargs["ContinuationToken"] = continuation_token
+
+            response = s3_client.list_objects_v2(**list_kwargs)
+
+            for obj in response.get("Contents") or []:
+                key = obj.get("Key")
+                if not key:
+                    continue
+                total += 1
+                first = key.split("/", 1)[0] if "/" in key else "(root)"
+                by_prefix[first] += 1
+
+            if response.get("IsTruncated"):
+                continuation_token = response.get("NextContinuationToken")
+            else:
+                break
+
+        logger.info(
+            "Crawl bucket %r object summary: total=%s prefixes=%s",
+            bucket_name,
+            total,
+            len(by_prefix),
+        )
+        return {
+            "crawl_bucket_configured": True,
+            "crawl_bucket_total": total,
+            "crawl_bucket_by_prefix": dict(by_prefix),
+        }
+    except Exception as e:
+        logger.warning("Failed to list crawl bucket %r: %s", bucket_name, e)
+        return {
+            "crawl_bucket_configured": True,
+            "crawl_bucket_total": 0,
+            "crawl_bucket_by_prefix": {},
+            "crawl_bucket_error": str(e),
+        }
+
+
 def url_is_known(db: Session, product_url: str) -> bool:
     """True if we already have a part listing with this product_url (i.e. recrawl, not first visit)."""
     if not product_url or not product_url.strip():
@@ -119,21 +185,19 @@ def save_crawl_page_html(
     """
     Save a full page HTML copy for post-processing. When the app's bucket is configured,
     uploads to S3 under key prefix base_dir (e.g. "crawl_html"). Otherwise writes
-    to local path base_dir. Filename is hash of URL so recrawls overwrite. Also writes a .url sidecar
-    so we can re-parse later (know which URL the HTML came from).
+    to local path base_dir. Storage is keyed only by URL hash under ``by_url/`` so every
+    crawl or extension upload for the same URL overwrites a single archive (``adapter_name``
+    is ignored for the path but may still appear in logs from callers).
 
-    Returns the S3 key (e.g. "crawl_html/a90shop/abc123.html") on S3 success,
+    Returns the S3 key (e.g. "crawl_html/by_url/abc123.html") on S3 success,
     the absolute local path string on local success, or None on failure.
     """
     log = logger_instance or logger
+    _ = adapter_name  # retained for call-site compatibility; path is URL-canonical only
     key_prefix = str(base_dir).strip() if base_dir else ""
     url_hash = hashlib.sha256(product_url.encode()).hexdigest()[:CRAWL_HTML_HASH_BYTES]
-    html_key = (
-        f"{key_prefix}/{adapter_name}/{url_hash}.html" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.html"
-    )
-    url_key = (
-        f"{key_prefix}/{adapter_name}/{url_hash}.url" if key_prefix else f"crawl_html/{adapter_name}/{url_hash}.url"
-    )
+    html_key = f"{key_prefix}/by_url/{url_hash}.html" if key_prefix else f"crawl_html/by_url/{url_hash}.html"
+    url_key = f"{key_prefix}/by_url/{url_hash}.url" if key_prefix else f"crawl_html/by_url/{url_hash}.url"
 
     s3_client, bucket_name = _get_crawl_s3_client()
     if s3_client is not None and bucket_name is not None:
@@ -150,7 +214,7 @@ def save_crawl_page_html(
                 Body=product_url.encode("utf-8"),
                 ContentType="text/plain; charset=utf-8",
             )
-            log.info("Saved page copy to bucket: %s", html_key)
+            log.debug("Saved page copy to bucket: %s", html_key)
             return html_key
         except Exception as e:
             log.warning("Could not save page copy to bucket %s: %s", html_key, e)
@@ -160,7 +224,7 @@ def save_crawl_page_html(
     base_path = Path(base_dir) if base_dir else Path("crawl_html")
     if not base_path.is_absolute() and not base_path.exists():
         base_path.mkdir(parents=True, exist_ok=True)
-    dir_path = base_path / adapter_name
+    dir_path = base_path / "by_url"
     dir_path.mkdir(parents=True, exist_ok=True)
     html_path = dir_path / f"{url_hash}.html"
     url_path = dir_path / f"{url_hash}.url"
@@ -449,6 +513,8 @@ def ingest_payload(
         raise ValueError("Could not resolve or create brand")
     db.flush()
 
+    part_number_effective = payload.part_number
+
     # Infer category from name/description when possible; else use default
     category_id = default_category_id
     inferred_name = infer_category(payload.name, payload.description)
@@ -457,6 +523,13 @@ def ingest_payload(
         if cat:
             category_id = cat.id
             logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
+        else:
+            logger.warning(
+                "Inferred category slug %r but no active row in categories with that name; "
+                "using default_category_id=%s.",
+                inferred_name,
+                default_category_id,
+            )
 
     # Infer car make/model/generation from name/description/URL when possible
     triples = infer_car_generations(payload.name, payload.description, payload.product_url)
@@ -478,27 +551,41 @@ def ingest_payload(
         car_ids=inferred_car_ids if inferred_car_ids else [],
         is_universal=not inferred_car_ids,
         brand_id=brand.id,
-        part_number=payload.part_number,
+        part_number=part_number_effective,
         gtin=payload.gtin,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
     )
 
-    # Detect existing part (same dedup order as service: URL, brand+part_number, GTIN)
-    # so we can log "update" vs "create" and ensure we always refresh listing/price history
-    existing_part = None
+    # Same resolution order as GlobalPartService.create (GTIN, product URL, brand+part_number).
+    part_by_url: Optional[DBGlobalPart] = None
+    part_by_brand: Optional[DBGlobalPart] = None
+    part_by_gtin: Optional[DBGlobalPart] = None
     if payload.product_url and payload.product_url.strip():
-        existing_part = find_part_by_product_url(db, payload.product_url)
-    if existing_part is None and brand.id and payload.part_number and payload.part_number.strip():
-        existing_part = find_part_by_brand_and_part_number(db, brand.id, payload.part_number)
-    if existing_part is None and payload.gtin and normalize_gtin(payload.gtin):
-        existing_part = find_part_by_gtin(db, payload.gtin)
+        part_by_url = find_part_by_product_url(db, payload.product_url)
+    if brand.id and part_number_effective and str(part_number_effective).strip():
+        part_by_brand = find_part_by_brand_and_part_number(db, brand.id, str(part_number_effective))
+    if payload.gtin and normalize_gtin(payload.gtin):
+        part_by_gtin = find_part_by_gtin(db, payload.gtin)
 
+    dedupe_ids = {p.id for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None}
+    if len(dedupe_ids) > 1:
+        logger.warning(
+            "Ingest: dedupe keys point to different global_parts %s; service.create will reject with conflict.",
+            dedupe_ids,
+        )
+
+    existing_part = part_by_gtin or part_by_url or part_by_brand
     if existing_part is not None:
-        logger.info(
-            "Existing part %s matched (by URL/brand+part/GTIN); refreshing listing and price history for retailer %s",
+        dedupe_how = (
+            "gtin" if part_by_gtin is not None else ("product_url" if part_by_url is not None else "brand_part_number")
+        )
+        logger.debug(
+            "Existing part %s matched (%s); part_number=%r brand_id=%s",
             existing_part.id,
-            retailer.id,
+            dedupe_how,
+            part_number_effective,
+            brand.id,
         )
 
     service = GlobalPartService()
@@ -507,7 +594,11 @@ def ingest_payload(
         create_data,
         current_user,
         logger,
-        additional_data={"source": source},
+        additional_data={
+            "source": source,
+            # Re-parse archived HTML: same dedupe key, but refresh catalog fields (inference, copy, cars).
+            "refresh_metadata_on_dedupe": source == "archive_rescrape",
+        },
     )
 
     # Always create/update PartListing and PartPriceHistory (new or re-scrape):

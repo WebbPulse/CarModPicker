@@ -3,12 +3,11 @@ Endpoints for crawled page HTML archival and admin re-parse.
 
 POST /crawled-pages/html         - Authenticated user; Chrome extension submits full page HTML.
 GET  /crawled-pages/             - Admin; list archived pages with filters.
-POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML and re-run adapter parsing.
+POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML, parse, and ingest (full pipeline).
 """
 
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -107,6 +106,22 @@ async def upload_html_from_extension(
 
 
 # ---------------------------------------------------------------------------
+# GET /count — Admin: row count
+# ---------------------------------------------------------------------------
+
+
+@router.get("/count", response_model=dict[str, int])
+async def count_crawled_pages(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Admin only: total crawled_pages rows."""
+    count = db.query(DBCrawledPage).count()
+    logger.info("Admin %s retrieved crawled_pages count: %s", current_user.id, count)
+    return {"count": count}
+
+
+# ---------------------------------------------------------------------------
 # GET /  — Admin: list archived pages
 # ---------------------------------------------------------------------------
 
@@ -147,59 +162,52 @@ async def reparse_crawled_page(
     db: Session = Depends(get_db),
 ) -> Any:
     """
-    Admin: fetch archived HTML for a crawled page and re-run its adapter's parser.
-    Only works for pages whose source matches a registered backend adapter (not chrome_extension).
+    Admin: fetch archived HTML for a crawled page and re-run the retailer parser + ingest.
+
+    Uses the row's ``source`` when it is a registered adapter; for ``chrome_extension``,
+    picks the adapter from the URL host (e.g. a90shop.com → a90shop).
     """
-    from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
-    from app.crawlers.base import _get_crawl_s3_client, ingest_payload
+    from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive, resolve_parse_adapter_name
     from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id
 
     page = db.get(DBCrawledPage, page_id)
     if not page:
         raise HTTPException(status_code=404, detail="CrawledPage not found")
 
-    if page.source == "chrome_extension" or page.source not in ADAPTER_REGISTRY:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"No adapter available for source '{page.source}'. "
-                "Re-parse requires a registered backend adapter (not chrome_extension)."
-            ),
-        )
-
-    # Retrieve HTML from storage
-    html: Optional[str] = None
-
-    if page.html_s3_key:
-        s3_client, bucket_name = _get_crawl_s3_client()
-        if s3_client is not None and bucket_name is not None:
-            try:
-                obj = s3_client.get_object(Bucket=bucket_name, Key=page.html_s3_key)
-                html = obj["Body"].read().decode("utf-8", errors="replace")
-            except Exception as e:
-                logger.warning("Could not fetch HTML from S3 key %s: %s", page.html_s3_key, e)
-
-    if html is None and page.html_local_path:
-        try:
-            html = Path(page.html_local_path).read_text(encoding="utf-8", errors="replace")
-        except OSError as e:
-            logger.warning("Could not read local HTML %s: %s", page.html_local_path, e)
-
-    if html is None:
+    if not page.html_s3_key and not page.html_local_path:
         raise HTTPException(
             status_code=404,
             detail="HTML not found in storage for this page. It may not have been archived yet.",
         )
 
-    # Run adapter parser
-    adapter = get_adapter(page.source)
-    payload = adapter.parse_product_page(html, page.url)
-    now = datetime.now(timezone.utc)
+    if resolve_parse_adapter_name(page) is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"No adapter available for source '{page.source}' and this URL's host "
+                "does not match a registered retailer. "
+                "Re-parse requires a backend adapter or a known retailer URL."
+            ),
+        )
 
-    if payload is None:
-        page.parse_status = "failed"
-        page.last_parsed_at = now
-        db.commit()
+    crawler_user = _resolve_crawler_user(db)
+    cat_id = _resolve_default_category_id(db)
+
+    outcome, part_id, err_detail = rescrape_crawled_page_from_archive(
+        db,
+        page,
+        crawler_user=crawler_user,
+        default_category_id=cat_id,
+        log=logger,
+    )
+
+    if outcome == "skipped_no_html":
+        raise HTTPException(
+            status_code=404,
+            detail="HTML not found in storage for this page. It may not have been archived yet.",
+        )
+
+    if outcome == "parse_failed":
         return ReparseResponse(
             crawled_page_id=page.id,
             global_part_id=page.global_part_id,
@@ -207,31 +215,12 @@ async def reparse_crawled_page(
             message="Adapter returned None — page is not a product page or parse failed.",
         )
 
-    # Ingest using crawler user and default category from env
-    try:
-        crawler_user = _resolve_crawler_user(db)
-        cat_id = _resolve_default_category_id(db)
-        part = ingest_payload(
-            db,
-            payload,
-            current_user=crawler_user,
-            default_category_id=cat_id,
-            logger=logger,
-            source="re_parsed",
-        )
-        page.global_part_id = part.id
-        page.parse_status = "parsed"
-        page.last_parsed_at = now
-        db.commit()
-        return ReparseResponse(
-            crawled_page_id=page.id,
-            global_part_id=part.id,
-            parse_status="parsed",
-            message="Re-parse and ingest succeeded.",
-        )
-    except Exception as e:
-        db.rollback()
-        page.parse_status = "failed"
-        page.last_parsed_at = now
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Ingest failed: {e}") from e
+    if outcome == "ingest_failed":
+        raise HTTPException(status_code=500, detail=f"Ingest failed: {err_detail}") from None
+
+    return ReparseResponse(
+        crawled_page_id=page.id,
+        global_part_id=part_id,
+        parse_status="parsed",
+        message="Re-parse and ingest succeeded.",
+    )

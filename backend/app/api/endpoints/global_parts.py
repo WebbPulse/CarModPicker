@@ -8,6 +8,8 @@ while maintaining global part-specific functionality.
 import logging
 from typing import Any, Dict, List, Optional, cast
 
+_module_log = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
@@ -76,6 +78,48 @@ from app.api.utils.pagination_utils import (
 )
 from app.api.utils.response_patterns import ResponsePatterns
 
+
+def _clip_log_text(val: Any, max_len: int = 56) -> str:
+    if val is None:
+        return "None"
+    text = str(val).replace("\n", " ")
+    if len(text) > max_len:
+        return text[: max_len - 1] + "…"
+    return text
+
+
+def _log_dedupe_metadata_refresh_apply(
+    existing_part: DBGlobalPart,
+    udict: dict[str, Any],
+    *,
+    before_car_ids: list[int],
+    after_car_ids: list[int],
+) -> None:
+    """Log only changed fields for archive rescrape dedupe path; INFO if any changed, DEBUG otherwise."""
+    checks: list[tuple[str, Any, Any]] = [
+        ("category_id", existing_part.category_id, udict.get("category_id")),
+        ("part_number", existing_part.part_number, udict.get("part_number")),
+        ("brand_id", existing_part.brand_id, udict.get("brand_id")),
+        ("is_universal", existing_part.is_universal, udict.get("is_universal")),
+        ("gtin", existing_part.gtin, udict.get("gtin")),
+        ("name", existing_part.name, udict.get("name")),
+        ("car_ids", before_car_ids, after_car_ids),
+    ]
+    changed = [
+        f"{label} {_clip_log_text(old)} → {_clip_log_text(new)}"
+        for label, old, new in checks
+        if old != new
+    ]
+    if changed:
+        _module_log.info(
+            "Rescrape global_part id=%s: %s",
+            existing_part.id,
+            " | ".join(changed),
+        )
+    else:
+        _module_log.debug("Rescrape global_part id=%s: no field changes", existing_part.id)
+
+
 # Create router
 router = APIRouter()
 
@@ -129,6 +173,15 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
 
         existing_part = part_by_gtin or part_by_url or part_by_brand
         if existing_part:
+            if additional_data and additional_data.get("refresh_metadata_on_dedupe"):
+                self._refresh_deduped_part_from_scrape_create(
+                    db,
+                    existing_part,
+                    data,
+                    current_user,
+                    logger,
+                    additional_data,
+                )
             if data.retailer_id and (data.product_url or data.price_cents is not None):
                 _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
                 create_or_update_listing_and_price(
@@ -138,7 +191,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
                     product_url=data.product_url,
                     price_cents=data.price_cents,
                 )
-            logger.info(f"User {current_user.id} part create: returning existing part {existing_part.id} (dedup)")
+            logger.debug(f"User {current_user.id} part create: returning existing part {existing_part.id} (dedup)")
             return existing_part
 
         entity_data = data.model_dump()
@@ -148,7 +201,10 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         entity_data.pop("price", None)  # Removed: pricing is per-retailer via listings
         entity_data.pop("car_ids", None)  # Synced via association table after create
         if additional_data:
-            entity_data.update(additional_data)
+            for _k, _v in additional_data.items():
+                if _k == "refresh_metadata_on_dedupe":
+                    continue
+                entity_data[_k] = _v
         entity_data["user_id"] = current_user.id
         # Store normalized part_number so lookups and future scrapes match
         entity_data["part_number"] = (
@@ -191,6 +247,91 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         db.refresh(part)
 
         return part
+
+    def _refresh_deduped_part_from_scrape_create(
+        self,
+        db: Session,
+        existing_part: DBGlobalPart,
+        data: GlobalPartCreate,
+        current_user: DBUser,
+        logger: logging.Logger,
+        additional_data: Optional[Dict[str, Any]],
+    ) -> DBGlobalPart:
+        """
+        Apply parsed create payload onto a deduped part (archive re-parse).
+
+        Skips creator edit permission so the crawler user can refresh metadata. Commits via
+        update_entity (same image cleanup behavior as PATCH).
+        """
+        entity_data = data.model_dump()
+        entity_data.pop("retailer_id", None)
+        entity_data.pop("price_cents", None)
+        entity_data.pop("product_url", None)
+        entity_data.pop("price", None)
+        if additional_data:
+            for key, value in additional_data.items():
+                if key == "refresh_metadata_on_dedupe":
+                    continue
+                entity_data[key] = value
+        entity_data["part_number"] = (
+            normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
+        )
+        if data.gtin:
+            entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
+        if entity_data.get("image_urls") is not None:
+            entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
+
+        update_data = {key: entity_data[key] for key in GlobalPartUpdate.model_fields if key in entity_data}
+        update_payload = GlobalPartUpdate.model_validate(update_data)
+        udict = update_payload.model_dump(exclude_unset=False)
+        car_ids = udict.pop("car_ids", None)
+        before_car_ids = sorted([c.id for c in (existing_part.cars or [])])
+        if udict.get("image_urls") is not None:
+            udict["image_urls"] = udict["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
+        if "gtin" in udict and udict["gtin"] is not None:
+            udict["gtin"] = normalize_gtin(udict["gtin"])
+        if udict.get("image_url"):
+            new_primary = udict["image_url"]
+            current_urls: List[str]
+            if udict.get("image_urls") is not None:
+                current_urls = list(udict["image_urls"])
+            else:
+                current_urls = list(existing_part.image_urls or []) or (
+                    [existing_part.image_url] if existing_part.image_url else []
+                )
+            if new_primary not in current_urls:
+                merged = [new_primary] + [u for u in current_urls if u != new_primary]
+                udict["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
+        if car_ids is not None:
+            is_universal_after = (
+                udict.get("is_universal") if "is_universal" in udict else existing_part.is_universal
+            )
+            if not is_universal_after and car_ids:
+                for cid in car_ids:
+                    get_entity_or_404(db, DBCar, cid, "car")
+                existing_part.cars = [db.get(DBCar, cid) for cid in car_ids]
+            else:
+                existing_part.cars = []
+        if "source" in entity_data:
+            udict["source"] = entity_data["source"]
+
+        after_car_ids = sorted([c.id for c in (existing_part.cars or [])])
+        _log_dedupe_metadata_refresh_apply(
+            existing_part,
+            udict,
+            before_car_ids=before_car_ids,
+            after_car_ids=after_car_ids,
+        )
+
+        updated = update_entity(
+            db=db,
+            entity=existing_part,
+            update_data=udict,
+            user_id=current_user.id,
+            logger=logger,
+            entity_name=self.entity_name,
+        )
+        return updated
 
     def update(
         self,

@@ -321,9 +321,10 @@ class TestImages:
         assert response.status_code == 403
 
     def test_get_bucket_object_count_admin_only(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Session, mock_s3: Dict[str, Any]
     ) -> None:
-        """Test that only admins can get bucket object count."""
+        """Test that only admins can get bucket object count; with moto S3 admin gets 200."""
+        _ = mock_s3
         # Regular user tries to access (should fail)
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
@@ -335,14 +336,53 @@ class TestImages:
         admin_headers = get_auth_headers(admin_token)
         response = client.get(f"{settings.API_STR}/images/admin/count", headers=admin_headers)
 
-        # In test environment, storage service is not configured, so expect 503
-        # In production, would expect 200
-        assert response.status_code in [200, 503], f"Unexpected status: {response.text}"
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["count"] == 0
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "count" in data
-            assert isinstance(data["count"], int)
+    def test_get_bucket_count_by_entity_type_admin_only(
+        self, client: TestClient, test_user: DBUser, db_session: Session, mock_s3: Dict[str, Any]
+    ) -> None:
+        """Non-admins forbidden; admin gets totals grouped by standard key prefix and other."""
+        token = get_auth_token(client, test_user.username)
+        r = client.get(
+            f"{settings.API_STR}/images/admin/count-by-entity-type",
+            headers=get_auth_headers(token),
+        )
+        assert r.status_code == 403
+
+        s3 = mock_s3["client"]
+        bucket = mock_s3["user_images_bucket"]
+        # Standard layout: entity_type / 16-hex user hash / filename
+        s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/1.bin", Body=b"a")
+        s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/2.bin", Body=b"b")
+        s3.put_object(Bucket=bucket, Key="car/bbbbbbbbbbbbbbbb/3.bin", Body=b"c")
+        # Second path segment is not 16 lowercase hex digits -> counted as other
+        s3.put_object(Bucket=bucket, Key="user/000000000000000g/4.bin", Body=b"d")
+        s3.put_object(Bucket=bucket, Key="not-standard-root-key", Body=b"e")
+
+        _, admin_token = create_and_login_admin_user(
+            client, db_session, get_unique_name("admin_bucket_prefix")
+        )
+        r2 = client.get(
+            f"{settings.API_STR}/images/admin/count-by-entity-type",
+            headers=get_auth_headers(admin_token),
+        )
+        assert r2.status_code == 200, r2.text
+        body = r2.json()
+        assert body["total"] == 5
+        assert body["by_entity_type"]["user"] == 2
+        assert body["by_entity_type"]["car"] == 1
+        assert body["other"] == 2
+
+    def test_get_bucket_object_count_admin_503_without_s3(
+        self, client: TestClient, test_user: DBUser, db_session: Session
+    ) -> None:
+        """Without mock_s3, admin bucket count returns 503 (no S3 client in test env)."""
+        _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("admin_no_s3"))
+        admin_headers = get_auth_headers(admin_token)
+        response = client.get(f"{settings.API_STR}/images/admin/count", headers=admin_headers)
+        assert response.status_code == 503
 
     def test_upload_image_build_log_post(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test uploading an image for a build log post."""

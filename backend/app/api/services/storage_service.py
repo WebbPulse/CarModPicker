@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import uuid
+from collections import defaultdict
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -24,6 +25,9 @@ else:
     S3Client = object  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
+
+# First segment is entity_type (e.g. user, car); second is 16-char user hash from upload pipeline.
+_STANDARD_IMAGE_OBJECT_KEY = re.compile(r"^([a-z_]+)/[a-f0-9]{16}/[^/]+$")
 
 
 def _is_test_environment() -> bool:
@@ -570,6 +574,84 @@ class StorageService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred while counting bucket objects",
+            )
+
+    def count_bucket_objects_by_entity_prefix(self) -> dict[str, Any]:
+        """
+        Single S3 list pass: total object count plus counts grouped by first path segment
+        for keys matching the standard upload layout (entity_type/user_hash/filename).
+
+        Keys that do not match are counted under ``other`` (legacy or stray objects).
+
+        Returns:
+            dict with keys: total (int), by_entity_type (dict[str, int]), other (int)
+        """
+        if not self.s3_client or not self.bucket_name:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Image storage is not configured. Please contact administrator.",
+            )
+
+        try:
+            assert self.bucket_name is not None
+
+            total = 0
+            other = 0
+            by_prefix: dict[str, int] = defaultdict(int)
+            continuation_token = None
+
+            while True:
+                list_kwargs: dict[str, Any] = {"Bucket": self.bucket_name}
+                if continuation_token:
+                    list_kwargs["ContinuationToken"] = continuation_token
+
+                response = self.s3_client.list_objects_v2(**list_kwargs)
+
+                if "Contents" in response:
+                    for obj in response["Contents"]:
+                        key = obj.get("Key")
+                        if not key:
+                            continue
+                        total += 1
+                        m = _STANDARD_IMAGE_OBJECT_KEY.match(key)
+                        if m:
+                            by_prefix[m.group(1)] += 1
+                        else:
+                            other += 1
+
+                if response.get("IsTruncated", False):
+                    continuation_token = response.get("NextContinuationToken")
+                else:
+                    break
+
+            logger.info(
+                f"Bucket '{self.bucket_name}' prefix summary: total={total}, "
+                f"prefixes={len(by_prefix)}, other={other}"
+            )
+            return {
+                "total": total,
+                "by_entity_type": dict(by_prefix),
+                "other": other,
+            }
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            logger.error(f"S3 bucket prefix count error ({error_code}): {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to summarize bucket objects: {error_code}",
+            )
+        except BotoCoreError as e:
+            logger.error(f"Boto3 error during bucket prefix count: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to summarize bucket objects due to storage service error",
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error during bucket prefix count: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred while summarizing bucket objects",
             )
 
     def list_bucket_object_keys(self) -> list[str]:

@@ -16,7 +16,7 @@ class CrawledPage(Base):
 
     source: adapter name (e.g. "a90shop", "studiorsr") for backend crawls,
             or "chrome_extension" for pages submitted by the browser extension.
-    html_s3_key: S3 object key when stored in CRAWL_BUCKET (e.g. "crawl_html/a90shop/abc123.html").
+    html_s3_key: S3 object key when stored in CRAWL_BUCKET (e.g. "crawl_html/by_url/abc123.html").
     html_local_path: Absolute local filesystem path used as fallback when CRAWL_BUCKET is not configured.
     parse_status: "pending" (HTML saved, not yet parsed), "parsed" (successfully ingested),
                   "failed" (parse or ingest error).

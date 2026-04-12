@@ -928,6 +928,12 @@ export const imageApi = {
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
 
+  /** Single S3 pass: total plus counts by standard key prefix (admin only). */
+  getBucketCountByEntityType: () =>
+    apiClient.get<BucketEntityTypeCountResponse>(
+      '/images/admin/count-by-entity-type'
+    ),
+
   /** Dry run: list bucket object keys not referenced by any entity (admin only). */
   getOrphanedBucketObjects: () =>
     apiClient.get<{
@@ -1046,15 +1052,41 @@ export interface CrawlerRunRequest {
   crawl_html_save_on_recrawl?: boolean | null;
 }
 
-export interface RerunInferenceRequest {
-  /** If true, infer brand from part name (e.g. "Brand - Product" -> Brand). Only matches existing brands. */
-  reassign_brand?: boolean;
+/** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
+export interface RescrapeArchivesRequest {
+  crawler_user_id: number;
+  default_category_id: number;
 }
 
-export interface RerunInferenceResponse {
-  updated_count: number;
-  error_count: number;
-  errors: string[];
+export interface RescrapeArchivesQueuedResponse {
+  status: string;
+  message: string;
+}
+
+/** Admin-only: S3 user-images bucket totals grouped by upload key prefix (entity_type). */
+export interface BucketEntityTypeCountResponse {
+  total: number;
+  by_entity_type: Record<string, number>;
+  other: number;
+}
+
+/** Admin-only: supplemental DB table row counts plus votes/reports by entity_type. */
+export interface AdminTableCountsResponse {
+  build_list_phases: number;
+  crawled_pages: number;
+  part_listings: number;
+  part_price_histories: number;
+  image_source_mappings: number;
+  build_logs: number;
+  global_part_cars: number;
+  votes_by_entity_type: Record<string, number>;
+  reports_by_entity_type: Record<string, number>;
+  /** True when CRAWL_BUCKET is set and the S3 client initialized (scraped HTML may live here). */
+  crawl_bucket_configured: boolean;
+  crawl_bucket_total: number;
+  crawl_bucket_by_prefix: Record<string, number>;
+  /** Present when listing the crawl bucket failed after configuration. */
+  crawl_bucket_error?: string;
 }
 
 export const adminApi = {
@@ -1071,10 +1103,10 @@ export const adminApi = {
   runCrawlers: (body: CrawlerRunRequest) =>
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
 
-  /** Rerun category, car, and optionally brand inference on all global parts (admin only). */
-  rerunInference: (body: RerunInferenceRequest) =>
-    apiClient.post<RerunInferenceResponse>(
-      '/admin/global-parts/rerun-inference',
+  /** Re-parse all archived HTML into parts (background job; admin only). */
+  rescrapeArchives: (body: RescrapeArchivesRequest) =>
+    apiClient.post<RescrapeArchivesQueuedResponse>(
+      '/admin/crawled-pages/rescrape-archives',
       body
     ),
 
@@ -1093,6 +1125,10 @@ export const adminApi = {
   /** Delete all part brands (admin only). Nullifies brand on parts first, then deletes all brands. */
   deleteAllBrands: () =>
     apiClient.post<{ deleted_count: number }>('/admin/brands/delete-all'),
+
+  /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
+  getTableCounts: () =>
+    apiClient.get<AdminTableCountsResponse>('/admin/stats/table-counts'),
 };
 
 export default apiClient;

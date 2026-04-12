@@ -49,7 +49,7 @@ class TestSaveCrawlPageHtml:
 
         assert key is not None
         assert not key.startswith("/"), "Expected S3 key, got local path"
-        assert "test_adapter" in key
+        assert "by_url" in key
         assert key.endswith(".html")
         assert _url_hash(url) in key
 
@@ -90,6 +90,17 @@ class TestSaveCrawlPageHtml:
         assert key1 == key2, "Re-crawl of same URL should produce same key"
         obj = mock_s3["client"].get_object(Bucket=mock_s3["crawl_bucket"], Key=key2)
         assert obj["Body"].read().decode() == "<html>v2</html>"
+
+    def test_same_url_same_key_across_different_adapter_names(self, mock_s3: Dict[str, Any]) -> None:
+        """HTML archive path is URL-canonical; adapter label must not fork storage."""
+        from app.crawlers.base import save_crawl_page_html
+
+        url = "https://example.com/product/shared-key"
+        key_a = save_crawl_page_html("a90shop", url, "<html>a</html>", "")
+        key_b = save_crawl_page_html("studiorsr", url, "<html>b</html>", "")
+        assert key_a == key_b
+        obj = mock_s3["client"].get_object(Bucket=mock_s3["crawl_bucket"], Key=key_b)
+        assert obj["Body"].read().decode() == "<html>b</html>"
 
     def test_returns_none_on_s3_failure(self, mock_s3: Dict[str, Any]) -> None:
         """If put_object raises, the function returns None without propagating."""
@@ -287,17 +298,22 @@ class TestReparseCrawledPage:
         db_session.refresh(page)
         return page
 
-    def test_reparse_chrome_extension_returns_422(
+    def test_reparse_chrome_extension_unknown_host_returns_422(
         self,
         mock_s3: Dict[str, Any],
         client: TestClient,
         test_admin_user: Any,
         db_session: Session,
     ) -> None:
-        page = self._seed_page_with_html(mock_s3, db_session, "https://e.com/ext", "<html/>", source="chrome_extension")
+        page = self._seed_page_with_html(
+            mock_s3, db_session, "https://unknown-retailer.example/p/1", "<html/>", source="chrome_extension"
+        )
         headers = _auth(client, test_admin_user.username)
         resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
         assert resp.status_code == 422
+        body = resp.json()
+        detail = body.get("detail") or body.get("message") or ""
+        assert "No adapter available" in str(detail)
 
     def test_reparse_missing_page_returns_404(
         self,
@@ -351,18 +367,25 @@ class TestReparseCrawledPage:
         db_session: Session,
     ) -> None:
         """When the adapter returns None (not a product page), status → 'failed'."""
-        from app.api.models.crawled_page import CrawledPage
+        from tests.conftest import get_default_category_id
 
         page = self._seed_page_with_html(mock_s3, db_session, "https://h.com/not-product", "<html>blog post</html>")
 
         mock_adapter = MagicMock()
         mock_adapter.parse_product_page.return_value = None
 
-        os.environ["CRAWLER_USER_ID"] = "1"  # won't be reached but avoid KeyError
+        cat_id = get_default_category_id(db_session)
 
         with (
-            patch("app.crawlers.adapters.ADAPTER_REGISTRY", {"a90shop": mock_adapter}),
-            patch("app.crawlers.adapters.get_adapter", return_value=mock_adapter),
+            patch("app.crawlers.archive_rescrape.get_adapter", return_value=mock_adapter),
+            patch(
+                "app.crawlers.runner._resolve_crawler_user",
+                return_value=test_admin_user,
+            ),
+            patch(
+                "app.crawlers.runner._resolve_default_category_id",
+                return_value=cat_id,
+            ),
         ):
             headers = _auth(client, test_admin_user.username)
             resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
