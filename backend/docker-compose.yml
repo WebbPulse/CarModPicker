@@ -1,6 +1,6 @@
-# Development Database Setup
-# Run this with: docker-compose up -d
-# Backend should be run directly on host during development
+# Development services
+# Run: docker compose up -d
+# Backend runs directly on host during development.
 
 services:
   persistant_volume_db:
@@ -18,5 +18,40 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    container_name: carmodpicker_minio
+    ports:
+      - "9000:9000"   # S3 API  (set S3_ENDPOINT_URL=http://localhost:9000 in .env)
+      - "9001:9001"   # Web console  →  http://localhost:9001  (minioadmin / minioadmin)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot container: creates the two local buckets after MinIO is healthy.
+  # Exits with 0 on success; docker compose ignores stopped init containers.
+  createbuckets:
+    image: minio/mc:latest
+    container_name: carmodpicker_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/carmodpicker-local-images &&
+      mc mb --ignore-existing local/carmodpicker-local-crawl &&
+      echo 'Buckets ready.' &&
+      exit 0"
+
 volumes:
   carmodpicker_data:
+  minio_data:

@@ -11,22 +11,24 @@ Requires env:
     CRAWLER_DEFAULT_CATEGORY_NAME: category name (e.g. exhaust) for new parts (used if category_id not set).
 
 Optional (full-page archive for post-processing):
-    CRAWL_HTML_SAVE_DIR: directory path to save full page HTML (new URLs only unless CRAWL_HTML_SAVE_ON_RECRAWL=1).
-    CRAWL_HTML_SAVE_ON_RECRAWL: set to 1/true/yes to also overwrite saved HTML when recrawling known URLs.
+    CRAWL_HTML_SAVE_DIR: directory path to save full page HTML (always saved for every URL crawled).
 """
 
 import argparse
 import logging
 import os
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
+from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
@@ -38,7 +40,6 @@ from app.crawlers.base import (
     get_crawl_delay_sec,
     ingest_payload,
     save_crawl_page_html,
-    url_is_known,
 )
 from app.db.session import SessionLocal
 
@@ -58,24 +59,32 @@ class CrawlerConfigError(ValueError):
 
 def _get_crawler_user(db: Session) -> DBUser:
     """
-    Load crawler user by CRAWLER_USER_ID.
-    Raises CrawlerConfigError if not set or not found (API-safe; does not sys.exit).
+    Return the crawler service account (is_service_account=True).
+    Falls back to CRAWLER_USER_ID env var for backwards compatibility with local/CLI usage.
+    Raises CrawlerConfigError when neither resolves (API-safe; does not sys.exit).
     """
+    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    if user:
+        return user
+
+    # Fallback: legacy env-var path (CLI / local dev before service account is seeded)
     raw = os.environ.get("CRAWLER_USER_ID")
-    if not raw:
-        raise CrawlerConfigError(
-            "CRAWLER_USER_ID is not set. Set it to the user ID that should own crawler-created parts."
-        )
-    try:
-        user_id = int(raw)
-    except ValueError:
-        raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
-    if not user:
-        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
-    if user.disabled:
-        raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: user is disabled.")
-    return user
+    if raw:
+        try:
+            user_id = int(raw)
+        except ValueError:
+            raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
+        user = db.query(DBUser).filter(DBUser.id == user_id).first()
+        if not user:
+            raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
+        if user.disabled:
+            raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: user is disabled.")
+        return user
+
+    raise CrawlerConfigError(
+        "No crawler service account found and CRAWLER_USER_ID is not set. "
+        "Ensure the app has run its startup initialisation (which creates the service account)."
+    )
 
 
 def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
@@ -140,6 +149,62 @@ def _get_default_category_id(db: Session) -> int:
     )
 
 
+def _upsert_crawled_page(
+    db: Session,
+    *,
+    url: str,
+    source: str,
+    storage_key: Optional[str],
+    part_id: Optional[int],
+) -> None:
+    """
+    Create or update a CrawledPage record for the given URL.
+    storage_key is an S3 key (no leading "/") or an absolute local path (starts with "/").
+    part_id, when provided, marks the parse as successful.
+    Calls db.flush() — caller is responsible for the surrounding commit.
+    """
+    now = datetime.now(timezone.utc)
+
+    html_s3_key: Optional[str] = None
+    html_local_path: Optional[str] = None
+    if storage_key:
+        if storage_key.startswith("/"):
+            html_local_path = storage_key
+        else:
+            html_s3_key = storage_key
+
+    insert_values: dict = {
+        "url": url,
+        "source": source,
+        "crawled_at": now,
+        "parse_status": "pending",
+        "html_s3_key": html_s3_key,
+        "html_local_path": html_local_path,
+        "global_part_id": part_id,
+    }
+    if part_id is not None:
+        insert_values["parse_status"] = "parsed"
+        insert_values["last_parsed_at"] = now
+
+    update_values: dict = {"crawled_at": now}
+    if html_s3_key is not None:
+        update_values["html_s3_key"] = html_s3_key
+    if html_local_path is not None:
+        update_values["html_local_path"] = html_local_path
+    if part_id is not None:
+        update_values["global_part_id"] = part_id
+        update_values["parse_status"] = "parsed"
+        update_values["last_parsed_at"] = now
+
+    stmt = (
+        pg_insert(DBCrawledPage)
+        .values(**insert_values)
+        .on_conflict_do_update(index_elements=["url"], set_=update_values)
+    )
+    db.execute(stmt)
+    db.flush()
+
+
 def run_crawler(
     adapter_name: str,
     *,
@@ -148,13 +213,13 @@ def run_crawler(
     user_id: Optional[int] = None,
     default_category_id: Optional[int] = None,
     crawl_html_save_dir: Optional[str] = None,
-    crawl_html_save_on_recrawl: Optional[bool] = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> dict:
     """
     Run one adapter: discover URLs, fetch, parse, ingest. Optionally cap at `limit` URLs.
     If user_id or default_category_id are provided, use them; otherwise fall back to env vars.
-    When crawl_html_save_dir is set (or CRAWL_HTML_SAVE_DIR env), saves full page HTML for new URLs
-    (or all URLs if crawl_html_save_on_recrawl / CRAWL_HTML_SAVE_ON_RECRAWL is True).
+    Saves full page HTML to the archive for every URL crawled (new and previously-seen).
+    If stop_event is provided and set, the loop exits early (cooperative cancellation).
     Returns a dict: {"adapter": name, "ingested": int, "skipped": int, "errors": int, "total": int}.
     Raises CrawlerConfigError or KeyError (unknown adapter) on setup failure.
     """
@@ -174,26 +239,10 @@ def run_crawler(
         skipped = 0
         errors = 0
 
-        # Optional: save full page HTML for new URLs (or all if save_on_recrawl)
-        save_dir_str = (crawl_html_save_dir or "").strip() or os.environ.get("CRAWL_HTML_SAVE_DIR", "").strip()
-        save_on_recrawl = crawl_html_save_on_recrawl
-        if save_on_recrawl is None:
-            save_on_recrawl = os.environ.get("CRAWL_HTML_SAVE_ON_RECRAWL", "0").strip().lower() in (
-                "1",
-                "true",
-                "yes",
-            )
-        save_dir: Optional[Path] = Path(save_dir_str) if save_dir_str else None
-        if save_dir is not None:
-            logger.info(
-                "Saving full page HTML (prefix: %s; overwrite on recrawl: %s)",
-                save_dir_str,
-                save_on_recrawl,
-            )
-        else:
-            logger.debug("Crawl HTML save disabled (no directory/prefix set)")
-
         for i, url in enumerate(urls, 1):
+            if stop_event is not None and stop_event.is_set():
+                logger.info("Adapter %s: stop requested, exiting after %s/%s URLs.", adapter_name, i - 1, total)
+                break
             try:
                 if i > 1:
                     # Honor robots.txt Crawl-delay if set; use the larger of --delay and directive
@@ -210,7 +259,6 @@ def run_crawler(
                         url,
                     )
                     continue
-                url_known = url_is_known(db, url)
                 html = fetch_page(url)
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
@@ -222,16 +270,14 @@ def run_crawler(
                         url,
                     )
                     continue
-                # Save full page copy for new URLs, or for all if save_on_recrawl is set
-                if save_dir and (not url_known or save_on_recrawl):
-                    save_crawl_page_html(
-                        adapter_name,
-                        url,
-                        html,
-                        save_dir,
-                        logger_instance=logger,
-                    )
-                ingest_payload(
+                storage_key: Optional[str] = save_crawl_page_html(
+                    adapter_name,
+                    url,
+                    html,
+                    "",
+                    logger_instance=logger,
+                )
+                part = ingest_payload(
                     db,
                     payload,
                     current_user=user,
@@ -239,6 +285,7 @@ def run_crawler(
                     logger=logger,
                     source="scraped",
                 )
+                _upsert_crawled_page(db, url=url, source=adapter_name, storage_key=storage_key, part_id=part.id)
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
             except Exception as e:
@@ -273,7 +320,7 @@ def run_crawlers(
     user_id: Optional[int] = None,
     default_category_id: Optional[int] = None,
     crawl_html_save_dir: Optional[str] = None,
-    crawl_html_save_on_recrawl: Optional[bool] = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> dict:
     """
     Run one or more adapters. If multiple adapters, runs them in parallel threads by default.
@@ -284,8 +331,8 @@ def run_crawlers(
         global_limit: Limit applied to all adapters when no per-adapter limit is set.
         delay_sec: Delay between requests per crawler.
         parallel: If True and len(adapter_names) > 1, run in parallel threads.
-        crawl_html_save_dir: If set, save full page HTML (new URLs only unless crawl_html_save_on_recrawl).
-        crawl_html_save_on_recrawl: If True and crawl_html_save_dir set, also overwrite HTML on recrawl.
+        crawl_html_save_dir: Kept for backward compatibility; HTML is always archived for every URL.
+        stop_event: Optional threading.Event for cooperative cancellation across all adapters.
 
     Returns:
         {
@@ -310,7 +357,7 @@ def run_crawlers(
                 user_id=user_id,
                 default_category_id=default_category_id,
                 crawl_html_save_dir=crawl_html_save_dir,
-                crawl_html_save_on_recrawl=crawl_html_save_on_recrawl,
+                stop_event=stop_event,
             )
         except (CrawlerConfigError, KeyError) as e:
             return {"_error": str(e), "_adapter": name}

@@ -31,6 +31,9 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Service account — machine identity, not a real user. Cannot log in.
+    is_service_account: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     # Subscription fields
     subscription_tier: Mapped[str] = mapped_column(default="free", nullable=False)  # 'free', 'premium'
     subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

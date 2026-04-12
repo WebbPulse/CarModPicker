@@ -22,6 +22,22 @@ from app.api.utils.endpoint_decorators import standard_responses
 router = APIRouter()
 
 
+@router.get(
+    "/count",
+    response_model=dict,
+    responses=standard_responses(success_description="Build list phase count retrieved successfully"),
+)
+async def count_build_list_phases(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> dict:
+    """Total count of build list phases (public read, same pattern as other /count endpoints)."""
+    db = deps["db"]
+    logger = deps["logger"]
+    count = db.query(DBBuildListPhase).count()
+    logger.info(f"Retrieved build list phases count: {count}")
+    return {"count": count}
+
+
 @router.put(
     "/{phase_id}",
     response_model=BuildListPhaseRead,

@@ -548,6 +548,20 @@ async function uploadImage(
   }
 }
 
+/**
+ * Archive full page HTML to the backend CRAWL_BUCKET via /crawled-pages/html.
+ * Called when the user scrapes a page via the extension.
+ */
+async function uploadPageHtml(
+  url: string,
+  html: string,
+): Promise<ApiResponse<{ id: number; html_s3_key: string | null }>> {
+  return apiRequest("/crawled-pages/html", {
+    method: "POST",
+    body: JSON.stringify({ url, html }),
+  });
+}
+
 // Listen for messages from popup/content scripts
 chrome.runtime.onMessage.addListener(
   (
@@ -569,6 +583,8 @@ chrome.runtime.onMessage.addListener(
       partNumber?: string;
       domain?: string;
       listingData?: PartListingCreate;
+      url?: string;
+      html?: string;
     },
     _sender,
     sendResponse: (response: unknown) => void,
@@ -728,6 +744,15 @@ chrome.runtime.onMessage.addListener(
         );
         return true;
       }
+    }
+
+    if (request.action === "archiveHtml") {
+      if (request.url && request.html != null) {
+        uploadPageHtml(request.url, request.html).then(sendResponse);
+        return true;
+      }
+      sendResponse({ success: false, error: "url and html required" });
+      return false;
     }
 
     return false;

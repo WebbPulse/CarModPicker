@@ -65,6 +65,9 @@ async def login_for_access_token(
     if user.disabled:
         logger.warning(f"Login attempt for disabled user: {user.username}")
         ResponsePatterns.raise_bad_request("Inactive user")
+    if user.is_service_account:
+        logger.warning(f"Login attempt for service account: {user.username}")
+        ResponsePatterns.raise_unauthorized("Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
 
     # Check if 2FA is enabled
     if user.totp_enabled:

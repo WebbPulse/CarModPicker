@@ -928,6 +928,12 @@ export const imageApi = {
   countBucketObjects: () =>
     apiClient.get<{ count: number }>('/images/admin/count'),
 
+  /** Single S3 pass: total plus counts by standard key prefix (admin only). */
+  getBucketCountByEntityType: () =>
+    apiClient.get<BucketEntityTypeCountResponse>(
+      '/images/admin/count-by-entity-type'
+    ),
+
   /** Dry run: list bucket object keys not referenced by any entity (admin only). */
   getOrphanedBucketObjects: () =>
     apiClient.get<{
@@ -1024,37 +1030,112 @@ export interface InitDataResult {
   message: string;
 }
 
+/** A persisted background job record. */
+export interface BackgroundJob {
+  id: number;
+  job_type: 'crawler_run' | 'archive_rescrape';
+  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  triggered_by: 'manual' | 'scheduled';
+  params: Record<string, unknown> | null;
+  result_summary: Record<string, unknown> | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_by_user_id: number | null;
+}
+
+export interface BackgroundJobList {
+  items: BackgroundJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Response when starting a crawler job (returns immediately; job runs in background). */
 export interface CrawlerRunResponse {
   status: 'started';
+  job_id: number;
   adapters: string[];
+  triggered_by: 'manual' | 'scheduled';
   message: string;
+}
+
+export interface CrawlerServiceAccount {
+  id: number;
+  username: string;
+  email: string;
+  is_service_account: true;
+  created_at: string;
 }
 
 export interface CrawlerRunRequest {
   adapters: string[];
-  crawler_user_id: number;
+  crawler_user_id?: number;
   crawler_default_category_id: number;
   limits?: Record<string, number>;
   global_limit?: number | null;
   parallel?: boolean;
   /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
   delay_sec?: number | null;
-  /** If set, save full page HTML for post-processing (new URLs only unless crawl_html_save_on_recrawl). */
   crawl_html_save_dir?: string | null;
-  /** If true and crawl_html_save_dir set, also overwrite saved HTML when recrawling known URLs. */
-  crawl_html_save_on_recrawl?: boolean | null;
 }
 
-export interface RerunInferenceRequest {
-  /** If true, infer brand from part name (e.g. "Brand - Product" -> Brand). Only matches existing brands. */
-  reassign_brand?: boolean;
+/** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
+export interface RescrapeArchivesRequest {
+  crawler_user_id?: number;
+  default_category_id: number;
 }
 
-export interface RerunInferenceResponse {
-  updated_count: number;
-  error_count: number;
-  errors: string[];
+export interface RescrapeArchivesQueuedResponse {
+  status: string;
+  job_id: number;
+  triggered_by: 'manual' | 'scheduled';
+  message: string;
+}
+
+/** Admin-only: S3 user-images bucket totals grouped by upload key prefix (entity_type). */
+export interface BucketEntityTypeCountResponse {
+  total: number;
+  by_entity_type: Record<string, number>;
+  other: number;
+  /** Total stored data in GB (sum of all object sizes). */
+  size_gb?: number;
+}
+
+/** Admin-only: supplemental DB table row counts plus votes/reports by entity_type. */
+export interface AdminTableCountsResponse {
+  build_list_phases: number;
+  crawled_pages: number;
+  part_listings: number;
+  part_price_histories: number;
+  image_source_mappings: number;
+  build_logs: number;
+  global_part_cars: number;
+  votes_by_entity_type: Record<string, number>;
+  reports_by_entity_type: Record<string, number>;
+  /** True when CRAWL_BUCKET is set and the S3 client initialized (scraped HTML may live here). */
+  crawl_bucket_configured: boolean;
+  crawl_bucket_total: number;
+  crawl_bucket_by_prefix: Record<string, number>;
+  /** Total data stored in the crawl bucket in GB (sum of all object sizes). */
+  crawl_bucket_size_gb?: number;
+  /** Present when listing the crawl bucket failed after configuration. */
+  crawl_bucket_error?: string;
+}
+
+export interface CrawlerCronStatus {
+  enabled: boolean;
+  schedule_expression: string;
+  preset: 'monthly' | 'weekly' | 'daily' | 'custom';
+  presets: Record<string, string>;
+  schedule_name: string;
+  group_name: string;
+}
+
+export interface CrawlerCronUpdate {
+  enabled?: boolean;
+  schedule_expression?: string;
+  preset?: 'monthly' | 'weekly' | 'daily';
 }
 
 export const adminApi = {
@@ -1068,13 +1149,15 @@ export const adminApi = {
 
   // Crawlers
   getCrawlers: () => apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  getCrawlerServiceAccount: () =>
+    apiClient.get<CrawlerServiceAccount>('/admin/service-accounts/crawler'),
   runCrawlers: (body: CrawlerRunRequest) =>
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
 
-  /** Rerun category, car, and optionally brand inference on all global parts (admin only). */
-  rerunInference: (body: RerunInferenceRequest) =>
-    apiClient.post<RerunInferenceResponse>(
-      '/admin/global-parts/rerun-inference',
+  /** Re-parse all archived HTML into parts (background job; admin only). */
+  rescrapeArchives: (body: RescrapeArchivesRequest) =>
+    apiClient.post<RescrapeArchivesQueuedResponse>(
+      '/admin/crawled-pages/rescrape-archives',
       body
     ),
 
@@ -1093,6 +1176,27 @@ export const adminApi = {
   /** Delete all part brands (admin only). Nullifies brand on parts first, then deletes all brands. */
   deleteAllBrands: () =>
     apiClient.post<{ deleted_count: number }>('/admin/brands/delete-all'),
+
+  /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
+  getTableCounts: () =>
+    apiClient.get<AdminTableCountsResponse>('/admin/stats/table-counts'),
+
+  // Background jobs
+  listJobs: (params?: {
+    status?: string;
+    job_type?: string;
+    limit?: number;
+    offset?: number;
+  }) => apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
+  getJob: (jobId: number) =>
+    apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
+  cancelJob: (jobId: number) =>
+    apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
+
+  // Cron schedule management
+  getCrawlerCron: () => apiClient.get<CrawlerCronStatus>('/admin/cron/crawler'),
+  updateCrawlerCron: (body: CrawlerCronUpdate) =>
+    apiClient.patch<CrawlerCronStatus>('/admin/cron/crawler', body),
 };
 
 export default apiClient;

@@ -41,6 +41,8 @@ const Search = lazy(() => import('./pages/Search.tsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.tsx'));
 const ReportReview = lazy(() => import('./pages/admin/ReportReview.tsx'));
 const BugReportReview = lazy(() => import('./pages/admin/BugReportReview.tsx'));
+const CrawlerAdmin = lazy(() => import('./pages/admin/CrawlerAdmin.tsx'));
+const SystemAdmin = lazy(() => import('./pages/admin/SystemAdmin.tsx'));
 const BugReport = lazy(() => import('./pages/BugReport.tsx'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'));
 const BuildListsCatalog = lazy(
@@ -192,6 +194,8 @@ function App() {
                   element={<BugReportReview />}
                 />
                 <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/admin/crawler" element={<CrawlerAdmin />} />
+                <Route path="/admin/system" element={<SystemAdmin />} />
 
                 {/* 404 Catch-all - Must be last */}
                 <Route

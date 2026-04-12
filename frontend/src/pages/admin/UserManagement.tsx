@@ -290,21 +290,16 @@ function UserManagement() {
         subtitle="View and manage user accounts"
       />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <ActionButton onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
         </ActionButton>
-      </div>
-
-      {/* Search */}
-      <Card className="mb-4">
         <div
+          className="flex-1"
           onFocus={() => {
             wasFocusedRef.current = true;
           }}
           onBlur={() => {
-            // Only mark as unfocused if focus is moving outside the component
-            // This prevents losing focus during internal re-renders
             setTimeout(() => {
               if (document.activeElement?.id !== 'user-search') {
                 wasFocusedRef.current = false;
@@ -314,13 +309,12 @@ function UserManagement() {
         >
           <Input
             id="user-search"
-            label="Search Users"
             placeholder="Search by username, email, or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-      </Card>
+      </div>
 
       {usersError && (
         <Card>
