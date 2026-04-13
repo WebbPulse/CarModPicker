@@ -63,7 +63,7 @@ function Popup() {
         active: true,
         currentWindow: true,
       });
-      if (!tab?.id) {
+      if (!tab?.id || !tab.url) {
         showStatus("No active tab found", "error");
         return;
       }
@@ -94,39 +94,57 @@ function Popup() {
         return;
       }
 
+      showStatus("Analyzing page...", "info");
+
       chrome.tabs.sendMessage(
         tab.id,
         { action: "scrapePage" },
         (
           response:
-            | { success: boolean; data: ScrapedProductData; html?: string }
+            | { success: boolean; html: string }
             | undefined
         ) => {
           if (chrome.runtime.lastError) {
             showStatus(
-              "Failed to scrape page data. Make sure you are on a product page and refresh if needed.",
+              "Failed to capture page. Make sure you are on a product page and refresh if needed.",
               "error"
             );
             return;
           }
-          if (response && response.success && response.data) {
-            setScrapedData(response.data);
-            setShowPartDialog(true);
-            // Archive full page HTML in background — fire-and-forget, does not block UX
-            if (response.html && tab.url) {
-              chrome.runtime.sendMessage(
-                { action: "archiveHtml", url: tab.url, html: response.html },
-                () => {
-                  void chrome.runtime.lastError; // suppress unchecked error warning
-                }
-              );
-            }
-          } else {
+          if (!response?.success || !response.html) {
             showStatus(
-              "Failed to scrape page data. Make sure you are on a product page.",
+              "Failed to capture page HTML. Try refreshing the page.",
               "error"
             );
+            return;
           }
+
+          // Send HTML to server for archival + server-side parsing
+          chrome.runtime.sendMessage(
+            { action: "scrapeAndParse", url: tab.url, html: response.html },
+            (
+              serverResponse:
+                | {
+                    success: boolean;
+                    data?: ScrapedProductData & { adapter_used?: string };
+                    error?: string;
+                  }
+                | undefined
+            ) => {
+              void chrome.runtime.lastError; // suppress unchecked error if popup closed
+              if (!serverResponse?.success || !serverResponse.data) {
+                showStatus(
+                  serverResponse?.error ||
+                    "Server failed to parse page. Check your connection and try again.",
+                  "error"
+                );
+                return;
+              }
+              setScrapedData(serverResponse.data);
+              setShowPartDialog(true);
+              setStatusMessage(null);
+            }
+          );
         }
       );
     } catch (error) {

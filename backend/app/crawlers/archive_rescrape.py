@@ -10,7 +10,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional  # Optional still used for load_archived_html return
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -48,13 +48,17 @@ def load_archived_html(page: DBCrawledPage, log: logging.Logger) -> Optional[str
     return html
 
 
-def resolve_parse_adapter_name(page: DBCrawledPage) -> Optional[str]:
-    """Adapter key to parse this page's HTML, or None if no parser is available."""
+def resolve_parse_adapter_name(page: DBCrawledPage) -> str:
+    """
+    Adapter key to parse this page's HTML.
+
+    Returns a site-specific adapter when one is registered for the source or URL,
+    otherwise falls back to ``"generic"`` so every archived page can be re-parsed.
+    """
     if page.source in ADAPTER_REGISTRY:
         return page.source
-    if page.source == "chrome_extension":
-        return adapter_name_for_product_url(page.url)
-    return None
+    # For chrome_extension and any other source, pick by URL (always returns a key)
+    return adapter_name_for_product_url(page.url)
 
 
 def rescrape_crawled_page_from_archive(
@@ -72,9 +76,6 @@ def rescrape_crawled_page_from_archive(
     Commits on each terminal path (same as legacy re-parse + ingest_payload commits).
     """
     adapter_key = resolve_parse_adapter_name(page)
-    if not adapter_key:
-        return "skipped_no_adapter", None, None
-
     html = load_archived_html(page, log)
     if not html:
         return "skipped_no_html", None, None

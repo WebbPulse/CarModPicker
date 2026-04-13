@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CarModPicker Extension Settings</title>
+  <title>CarModPicker Part Scraper</title>
   <style>
     body {
+      width: 400px;
       margin: 0;
       padding: 0;
+      transition: width 0.2s ease;
       /* Match frontend: bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 */
       background: linear-gradient(to bottom right, #0f172a 0%, #1e293b 50%, #0f172a 100%);
       background-attachment: fixed;
@@ -20,7 +22,7 @@
     }
     #root {
       width: 100%;
-      min-height: 100vh;
+      min-height: 100%;
     }
     /* Background pattern overlay like frontend - opacity-5 = 0.05 */
     body::before {
@@ -37,6 +39,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script src="./dist/options.js"></script>
+  <script type="module" src="./src/main-popup.tsx"></script>
 </body>
 </html>

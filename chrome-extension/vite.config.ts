@@ -6,7 +6,9 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "fs";
 import { dirname, resolve } from "path";
@@ -90,25 +92,38 @@ const contentScriptRunOncePlugin = () => {
   };
 };
 
-// Plugin to fix HTML files for Chrome extension (remove crossorigin)
+// Plugin to fix HTML files for Chrome extension (remove crossorigin, rename entry HTMLs)
 const fixHtmlPlugin = () => {
   return {
     name: "fix-html",
     closeBundle() {
-      // Fix popup.html - remove crossorigin and type="module" attributes
+      // Rename popup.entry.html → popup.html in dist
+      const popupEntryPath = resolve(__dirname, "dist", "popup.entry.html");
       const popupHtmlPath = resolve(__dirname, "dist", "popup.html");
-      if (existsSync(popupHtmlPath)) {
-        let html = readFileSync(popupHtmlPath, "utf-8");
-        // Remove crossorigin attribute from script and link tags
+      if (existsSync(popupEntryPath)) {
+        let html = readFileSync(popupEntryPath, "utf-8");
         html = html.replace(/\s+crossorigin="[^"]*"/g, "");
         html = html.replace(/\s+crossorigin/g, "");
-        // Keep type="module" - required for ES modules
+        writeFileSync(popupHtmlPath, html, "utf-8");
+        unlinkSync(popupEntryPath);
+      } else if (existsSync(popupHtmlPath)) {
+        // Fallback: fix existing popup.html if entry rename already happened
+        let html = readFileSync(popupHtmlPath, "utf-8");
+        html = html.replace(/\s+crossorigin="[^"]*"/g, "");
+        html = html.replace(/\s+crossorigin/g, "");
         writeFileSync(popupHtmlPath, html, "utf-8");
       }
 
-      // Fix options.html
+      // Rename options.entry.html → options.html in dist
+      const optionsEntryPath = resolve(__dirname, "dist", "options.entry.html");
       const optionsHtmlPath = resolve(__dirname, "dist", "options.html");
-      if (existsSync(optionsHtmlPath)) {
+      if (existsSync(optionsEntryPath)) {
+        let html = readFileSync(optionsEntryPath, "utf-8");
+        html = html.replace(/\s+crossorigin="[^"]*"/g, "");
+        html = html.replace(/\s+crossorigin/g, "");
+        writeFileSync(optionsHtmlPath, html, "utf-8");
+        unlinkSync(optionsEntryPath);
+      } else if (existsSync(optionsHtmlPath)) {
         let html = readFileSync(optionsHtmlPath, "utf-8");
         html = html.replace(/\s+crossorigin="[^"]*"/g, "");
         html = html.replace(/\s+crossorigin/g, "");
@@ -176,8 +191,8 @@ export default defineConfig({
     cssCodeSplit: false, // Disable CSS code splitting for Chrome extensions
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, "popup.html"),
-        options: resolve(__dirname, "options.html"),
+        popup: resolve(__dirname, "popup.entry.html"),
+        options: resolve(__dirname, "options.entry.html"),
         background: resolve(__dirname, "src/background.ts"),
         content: resolve(__dirname, "src/content.ts"),
       },
@@ -212,7 +227,11 @@ export default defineConfig({
           // For popup and options entries, bundle everything together
           if (moduleInfo?.isEntry) {
             const entryName =
-              moduleInfo.id.split("/").pop()?.replace(".html", "") || "";
+              moduleInfo.id
+                .split("/")
+                .pop()
+                ?.replace(".entry.html", "")
+                .replace(".html", "") || "";
             if (entryName === "popup" || entryName === "options") {
               return undefined; // Bundle everything into the entry file
             }

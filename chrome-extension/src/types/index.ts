@@ -106,6 +106,7 @@ export interface ScrapedProductData {
   product_url: string;
   brand: string | null;
   part_number: string | null;
+  inferred_category: string | null; // server-inferred category name slug, e.g. "exhaust"
 }
 
 export interface LoginResponse {

@@ -1,7 +1,11 @@
 """
 Endpoints for crawled page HTML archival and admin re-parse.
 
-POST /crawled-pages/html         - Authenticated user; Chrome extension submits full page HTML.
+POST /crawled-pages/scrape       - Authenticated user; Chrome extension submits full page HTML,
+                                   server picks the right adapter (or generic fallback) and returns
+                                   parsed part attributes. Also archives the HTML.
+POST /crawled-pages/html         - Authenticated user; Chrome extension submits full page HTML
+                                   for archival only (legacy, kept for backward compat).
 GET  /crawled-pages/             - Admin; list archived pages with filters.
 POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML, parse, and ingest (full pipeline).
 """
@@ -17,6 +21,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
+from app.core.category_inference import infer_category
+from app.crawlers.adapters import adapter_name_for_product_url, get_adapter
 from app.crawlers.base import save_crawl_page_html
 from app.db.session import get_db
 
@@ -43,6 +49,26 @@ class HtmlUploadResponse(BaseModel):
     html_local_path: Optional[str]
 
 
+class ScrapeRequest(BaseModel):
+    url: str
+    html: str
+
+
+class ScrapeResponse(BaseModel):
+    """Parsed part attributes returned to the Chrome extension after server-side inference."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[int] = None  # cents
+    image_url: Optional[str] = None
+    image_urls: List[str] = []
+    product_url: str
+    brand: Optional[str] = None
+    part_number: Optional[str] = None
+    adapter_used: str  # e.g. "a90shop", "studiorsr", "generic"
+    inferred_category: Optional[str] = None  # category name slug, e.g. "exhaust", "suspension"
+
+
 class CrawledPageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,7 +91,81 @@ class ReparseResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# POST /html  — Chrome extension HTML upload
+# POST /scrape  — Chrome extension: archive HTML + server-side parse
+# ---------------------------------------------------------------------------
+
+
+@router.post("/scrape", response_model=ScrapeResponse, status_code=status.HTTP_200_OK)
+async def scrape_page_from_extension(
+    body: ScrapeRequest,
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ScrapeResponse:
+    """
+    Accept full page HTML from the Chrome extension, archive it, and parse part attributes.
+
+    Picks the registered site-specific adapter when the URL matches a known retailer;
+    falls back to the generic parser for all other sites. Returns best-guess part
+    attributes for the user to review before submitting.
+    """
+    url = body.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    if not body.html:
+        raise HTTPException(status_code=400, detail="html is required")
+
+    # Archive HTML (upsert CrawledPage row)
+    storage_key = save_crawl_page_html("chrome_extension", url, body.html, "")
+    now = datetime.now(timezone.utc)
+    page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+    if page is None:
+        page = DBCrawledPage(
+            url=url,
+            source="chrome_extension",
+            crawled_at=now,
+            parse_status="pending",
+        )
+        db.add(page)
+    if storage_key:
+        if storage_key.startswith("/"):
+            page.html_local_path = storage_key
+        else:
+            page.html_s3_key = storage_key
+    db.commit()
+
+    # Select adapter by URL host, falling back to generic
+    adapter_name = adapter_name_for_product_url(url)
+    adapter = get_adapter(adapter_name)
+
+    try:
+        payload = adapter.parse_product_page(body.html, url)
+    except Exception as exc:
+        logger.warning("Adapter %s failed to parse %s: %s", adapter_name, url, exc)
+        payload = None
+
+    if payload is None:
+        # Parser returned nothing useful — return empty fields so the user can fill manually
+        logger.info("Adapter %s returned None for %s, returning empty ScrapeResponse", adapter_name, url)
+        return ScrapeResponse(product_url=url, adapter_used=adapter_name)
+
+    inferred = infer_category(payload.name, payload.description)
+
+    return ScrapeResponse(
+        name=payload.name,
+        description=payload.description,
+        price=payload.price_cents,
+        image_url=payload.image_url,
+        image_urls=payload.image_urls or [],
+        product_url=payload.product_url,
+        brand=payload.brand,
+        part_number=payload.part_number,
+        adapter_used=adapter_name,
+        inferred_category=inferred,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /html  — Chrome extension HTML upload (archive only, legacy)
 # ---------------------------------------------------------------------------
 
 
@@ -167,7 +267,7 @@ async def reparse_crawled_page(
     Uses the row's ``source`` when it is a registered adapter; for ``chrome_extension``,
     picks the adapter from the URL host (e.g. a90shop.com → a90shop).
     """
-    from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive, resolve_parse_adapter_name
+    from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive
     from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id
 
     page = db.get(DBCrawledPage, page_id)
@@ -178,16 +278,6 @@ async def reparse_crawled_page(
         raise HTTPException(
             status_code=404,
             detail="HTML not found in storage for this page. It may not have been archived yet.",
-        )
-
-    if resolve_parse_adapter_name(page) is None:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"No adapter available for source '{page.source}' and this URL's host "
-                "does not match a registered retailer. "
-                "Re-parse requires a backend adapter or a known retailer URL."
-            ),
         )
 
     crawler_user = _resolve_crawler_user(db)
