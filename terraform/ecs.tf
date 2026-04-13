@@ -156,7 +156,7 @@ resource "aws_iam_role_policy" "ecs_task_ses" {
 # ---------------------------------------------------------------------------
 resource "aws_security_group" "crawler_task" {
   name        = "${local.prefix}-crawler-task-sg"
-  description = "ECS Fargate crawler task — outbound only"
+  description = "ECS Fargate crawler task - outbound only"
   vpc_id      = aws_vpc.main.id
 
   egress {
