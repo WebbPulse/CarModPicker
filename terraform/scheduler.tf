@@ -1,7 +1,15 @@
 # ---------------------------------------------------------------------------
 # EventBridge Scheduler — Cron-triggered admin jobs
 #
-# Flow: EventBridge Schedule → API Destination → App Runner admin API
+# Flow: EventBridge Schedule → default Event Bus → EventBridge Rule
+#       → API Destination → App Runner admin API
+#
+# EventBridge Scheduler does not accept api-destination ARNs as a direct
+# target. The standard pattern is to route through an event bus:
+#   Scheduler puts a structured event on the default bus, an EventBridge rule
+#   matches on source/detail-type, and the rule target invokes the API
+#   destination (which carries the X-Admin-Cron-Key auth header via the
+#   EventBridge Connection).
 #
 # Auth: EventBridge Connection stores X-Admin-Cron-Key header value from
 #       var.cron_secret_key. The same value is set as CRON_SECRET_KEY in
@@ -47,11 +55,11 @@ resource "aws_cloudwatch_event_api_destination" "crawler_run" {
 
 
 # ---------------------------------------------------------------------------
-# IAM role — EventBridge Scheduler → API destination invocation
+# IAM role — EventBridge Scheduler → Event Bus
 # ---------------------------------------------------------------------------
 resource "aws_iam_role" "eventbridge_scheduler" {
   name        = "${local.prefix}-eventbridge-scheduler"
-  description = "Allows EventBridge Scheduler to invoke App Runner via API destinations"
+  description = "Allows EventBridge Scheduler to put events on the default event bus"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -65,9 +73,43 @@ resource "aws_iam_role" "eventbridge_scheduler" {
   tags = { Name = "${local.prefix}-eventbridge-scheduler" }
 }
 
-resource "aws_iam_role_policy" "eventbridge_scheduler_invoke" {
-  name = "invoke-api-destinations"
+resource "aws_iam_role_policy" "eventbridge_scheduler_put_events" {
+  name = "put-events-default-bus"
   role = aws_iam_role.eventbridge_scheduler.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["events:PutEvents"]
+      Resource = ["arn:aws:events:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:event-bus/default"]
+    }]
+  })
+}
+
+
+# ---------------------------------------------------------------------------
+# IAM role — EventBridge rule → API destination invocation
+# ---------------------------------------------------------------------------
+resource "aws_iam_role" "eventbridge_invoke" {
+  name        = "${local.prefix}-eventbridge-invoke"
+  description = "Allows EventBridge rules to invoke App Runner via API destinations"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "events.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "${local.prefix}-eventbridge-invoke" }
+}
+
+resource "aws_iam_role_policy" "eventbridge_invoke_api_destination" {
+  name = "invoke-api-destinations"
+  role = aws_iam_role.eventbridge_invoke.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -77,6 +119,35 @@ resource "aws_iam_role_policy" "eventbridge_scheduler_invoke" {
       Resource = [aws_cloudwatch_event_api_destination.crawler_run.arn]
     }]
   })
+}
+
+
+# ---------------------------------------------------------------------------
+# EventBridge rule — matches scheduler events and routes to API destination
+# ---------------------------------------------------------------------------
+resource "aws_cloudwatch_event_rule" "crawler_run" {
+  name        = "${local.prefix}-crawler-run"
+  description = "Routes scheduled crawler-run events to the API destination"
+
+  event_pattern = jsonencode({
+    source      = ["carmodpicker.scheduler"]
+    detail-type = ["crawler-run"]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "crawler_run" {
+  rule      = aws_cloudwatch_event_rule.crawler_run.name
+  target_id = "crawler-run-api-destination"
+  arn       = aws_cloudwatch_event_api_destination.crawler_run.arn
+  role_arn  = aws_iam_role.eventbridge_invoke.arn
+
+  # Extract only $.detail (the payload from the scheduler) as the HTTP body,
+  # discarding the EventBridge envelope so the backend receives the same JSON
+  # it would receive from a direct invocation.
+  input_transformer {
+    input_paths    = { detail = "$.detail" }
+    input_template = "<detail>"
+  }
 }
 
 
@@ -102,11 +173,16 @@ resource "aws_scheduler_schedule" "crawler_run" {
   }
 
   target {
-    arn      = aws_cloudwatch_event_api_destination.crawler_run.arn
+    arn      = "arn:aws:events:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:event-bus/default"
     role_arn = aws_iam_role.eventbridge_scheduler.arn
 
-    # JSON body posted to /api/admin/crawlers/run.
-    # crawler_user_id is omitted — the backend defaults to the crawler service account.
+    eventbridge_parameters {
+      detail_type = "crawler-run"
+      source      = "carmodpicker.scheduler"
+    }
+
+    # JSON body forwarded as $.detail by EventBridge; the input_transformer on
+    # the event rule target strips the envelope before posting to App Runner.
     input = jsonencode({
       adapters                    = ["all"]
       crawler_default_category_id = var.crawler_default_category_id
