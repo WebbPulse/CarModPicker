@@ -123,7 +123,7 @@ class TestSaveCrawlPageHtml:
 
         # Patch the S3 client factory to simulate no bucket configured, bypassing
         # any CRAWL_BUCKET env var that may be set in the local .env file.
-        with patch.object(base_module, "_get_crawl_s3_client", return_value=(None, None)):
+        with patch.object(base_module, "get_crawl_s3_client", return_value=(None, None)):
             key = save_crawl_page_html("test_adapter", url, html, str(tmp_path))
 
             assert key is not None
@@ -416,8 +416,8 @@ class TestReparseCrawledPage:
 
         with (
             patch("app.crawlers.archive_rescrape.get_adapter", return_value=mock_adapter),
-            patch("app.crawlers.runner._resolve_crawler_user", return_value=test_admin_user),
-            patch("app.crawlers.runner._resolve_default_category_id", return_value=cat_id),
+            patch("app.crawlers.runner.resolve_crawler_user", return_value=test_admin_user),
+            patch("app.crawlers.runner.resolve_default_category_id", return_value=cat_id),
         ):
             headers = _auth(client, test_admin_user.username)
             resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
@@ -491,11 +491,11 @@ class TestReparseCrawledPage:
         with (
             patch("app.crawlers.archive_rescrape.get_adapter", return_value=mock_adapter),
             patch(
-                "app.crawlers.runner._resolve_crawler_user",
+                "app.crawlers.runner.resolve_crawler_user",
                 return_value=test_admin_user,
             ),
             patch(
-                "app.crawlers.runner._resolve_default_category_id",
+                "app.crawlers.runner.resolve_default_category_id",
                 return_value=cat_id,
             ),
         ):

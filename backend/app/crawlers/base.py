@@ -87,7 +87,7 @@ _crawl_s3_client: Optional[_S3PutObjectProtocol] = None
 _crawl_bucket_name: Optional[str] = None
 
 
-def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]]:
+def get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]]:
     """Return (s3_client, bucket_name) for the crawl data bucket; else (None, None)."""
     global _crawl_s3_client, _crawl_bucket_name
     if _crawl_s3_client is not None or _crawl_bucket_name is not None:
@@ -134,7 +134,7 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
     """
     from collections import defaultdict
 
-    s3_client, bucket_name = _get_crawl_s3_client()
+    s3_client, bucket_name = get_crawl_s3_client()
     if s3_client is None or bucket_name is None:
         return {
             "crawl_bucket_configured": False,
@@ -282,7 +282,7 @@ def save_crawl_page_html(
     url_key = f"{key_prefix}/by_url/{url_hash}.url" if key_prefix else f"crawl_html/by_url/{url_hash}.url"
     body_bytes = html_utf8 if html_utf8 is not None else html.encode("utf-8", errors="replace")
 
-    s3_client, bucket_name = _get_crawl_s3_client()
+    s3_client, bucket_name = get_crawl_s3_client()
     if s3_client is not None and bucket_name is not None:
         try:
             s3_client.put_object(

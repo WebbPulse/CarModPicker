@@ -520,7 +520,7 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         monkeypatch.setattr(ss_module.storage_service, "bucket_name", "test-user-images")
 
         # Inject moto client directly into the lazy crawl client globals.
-        # _get_crawl_s3_client() sees non-None values and returns them immediately,
+        # get_crawl_s3_client() sees non-None values and returns them immediately,
         # so no new boto3.client() call is made (endpoint_url irrelevant).
         monkeypatch.setattr(base_module, "_crawl_s3_client", s3)
         monkeypatch.setattr(base_module, "_crawl_bucket_name", "test-crawl-data")

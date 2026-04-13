@@ -51,7 +51,7 @@ def _notify_completion(db, job_id: int) -> None:
 
 def main() -> None:
     from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
-    from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id
+    from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
     from app.db.session import SessionLocal
     from app.services import job_service
 
@@ -70,8 +70,8 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        crawler_user = _resolve_crawler_user(db, user_id)
-        cat_id = _resolve_default_category_id(db, int(category_id_str))
+        crawler_user = resolve_crawler_user(db, user_id)
+        cat_id = resolve_default_category_id(db, int(category_id_str))
 
         counts = run_rescrape_all_archived_pages(
             db,

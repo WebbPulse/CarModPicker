@@ -51,7 +51,7 @@ from app.core.init_categories import init_part_categories
 from app.crawlers.adapters import ADAPTER_REGISTRY
 from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
 from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC, count_crawl_bucket_object_summary
-from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id, run_crawlers
+from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id, run_crawlers
 from app.db.session import SessionLocal, get_db
 from app.services import job_service
 
@@ -926,8 +926,8 @@ async def _run_rescrape_in_process(
     def _blocking() -> None:
         db = SessionLocal()
         try:
-            crawler_user = _resolve_crawler_user(db, crawler_user_id)
-            cat_id = _resolve_default_category_id(db, default_category_id)
+            crawler_user = resolve_crawler_user(db, crawler_user_id)
+            cat_id = resolve_default_category_id(db, default_category_id)
             counts = run_rescrape_all_archived_pages(
                 db,
                 crawler_user=crawler_user,

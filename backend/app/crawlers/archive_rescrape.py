@@ -19,8 +19,8 @@ from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.crawlers.adapters import ADAPTER_REGISTRY, adapter_name_for_product_url, get_adapter
 from app.crawlers.base import (
-    _get_crawl_s3_client,
     crawl_html_fingerprint,
+    get_crawl_s3_client,
     ingest_payload,
     save_crawl_page_html,
 )
@@ -38,7 +38,7 @@ def load_archived_html(page: DBCrawledPage, log: logging.Logger) -> Optional[str
     """Load raw HTML for a crawled page from S3 or local path."""
     html: Optional[str] = None
     if page.html_s3_key:
-        s3_client, bucket_name = _get_crawl_s3_client()
+        s3_client, bucket_name = get_crawl_s3_client()
         if s3_client is not None and bucket_name is not None:
             try:
                 obj = s3_client.get_object(Bucket=bucket_name, Key=page.html_s3_key)

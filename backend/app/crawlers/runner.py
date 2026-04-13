@@ -89,7 +89,7 @@ def _get_crawler_user(db: Session) -> DBUser:
     )
 
 
-def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
+def resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
     """
     Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
     """
@@ -103,7 +103,7 @@ def _resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -
     return _get_crawler_user(db)
 
 
-def _resolve_default_category_id(db: Session, category_id_override: Optional[int] = None) -> int:
+def resolve_default_category_id(db: Session, category_id_override: Optional[int] = None) -> int:
     """
     Resolve default category. Uses category_id_override if provided, else env vars.
     """
@@ -235,8 +235,8 @@ def run_crawler(
     """
     db: Session = SessionLocal()
     try:
-        user = _resolve_crawler_user(db, user_id)
-        cat_id = _resolve_default_category_id(db, default_category_id)
+        user = resolve_crawler_user(db, user_id)
+        cat_id = resolve_default_category_id(db, default_category_id)
         adapter = get_adapter(adapter_name)
 
         urls = list(adapter.discover_product_urls())
