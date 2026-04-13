@@ -108,15 +108,23 @@ resource "aws_iam_role_policy" "apprunner_instance_scheduler" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "scheduler:GetSchedule",
-        "scheduler:UpdateSchedule",
-      ]
-      # Scoped to only the crawler schedule managed by this deployment.
-      Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-run"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "scheduler:GetSchedule",
+          "scheduler:UpdateSchedule",
+        ]
+        # Scoped to only the crawler schedule managed by this deployment.
+        Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-run"
+      },
+      {
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        # Required so UpdateSchedule can pass the scheduler's execution role back to AWS.
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.prefix}-eventbridge-scheduler"
+      },
+    ]
   })
 }
 
