@@ -567,11 +567,38 @@ async function scrapeAndParsePage(
   part_number: string | null;
   adapter_used: string;
   inferred_category: string | null;
+  archived: boolean;
+  html_size_bytes: number;
+  html_sha256: string;
+  archive_skipped_duplicate: boolean;
 }>> {
-  return apiRequest("/crawled-pages/scrape", {
+  const res = await apiRequest<{
+    name: string | null;
+    description: string | null;
+    price: number | null;
+    image_url: string | null;
+    image_urls: string[];
+    product_url: string;
+    brand: string | null;
+    part_number: string | null;
+    adapter_used: string;
+    inferred_category: string | null;
+    archived: boolean;
+    html_size_bytes: number;
+    html_sha256: string;
+    archive_skipped_duplicate: boolean;
+  }>("/crawled-pages/scrape", {
     method: "POST",
     body: JSON.stringify({ url, html }),
   });
+  if (res.success && res.data && res.data.html_size_bytes > 6 * 1024 * 1024) {
+    console.warn(
+      "[CarModPicker] Large page HTML submitted:",
+      res.data.html_size_bytes,
+      "bytes",
+    );
+  }
+  return res;
 }
 
 // Listen for messages from popup/content scripts

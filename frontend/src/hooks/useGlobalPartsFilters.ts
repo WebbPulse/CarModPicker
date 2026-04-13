@@ -74,7 +74,6 @@ export interface UseGlobalPartsFiltersReturn {
   availableMakes: string[];
   availableCars: CarRead[];
   availableBrands: BrandResponse[];
-  carsById: Record<number, CarRead>;
   activeCategories: CategoryResponse[];
   uniqueModels: string[];
   generations: CarRead[];
@@ -133,7 +132,6 @@ export function useGlobalPartsFilters(
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
   const [availableBrands, setAvailableBrands] = useState<BrandResponse[]>([]);
-  const [carsById, setCarsById] = useState<Record<number, CarRead>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
     null
@@ -183,28 +181,11 @@ export function useGlobalPartsFilters(
     }
   }, []);
 
-  const loadCars = useCallback(async () => {
-    try {
-      const response = await carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
-      const list = normalizeCarReadList(
-        Array.isArray(response.data) ? response.data : []
-      );
-      const map: Record<number, CarRead> = {};
-      for (const car of list) {
-        map[car.id] = car;
-      }
-      setCarsById(map);
-    } catch {
-      // ignore
-    }
-  }, []);
-
   useEffect(() => {
     void fetchMakes();
     void loadCategories();
     void loadBrands();
-    void loadCars();
-  }, [fetchMakes, loadCategories, loadBrands, loadCars]);
+  }, [fetchMakes, loadCategories, loadBrands]);
 
   // When brand/category/search filters are applied, filter-options returns make_names;
   // otherwise use all makes from makeStats.
@@ -714,7 +695,6 @@ export function useGlobalPartsFilters(
     availableMakes,
     availableCars,
     availableBrands,
-    carsById,
     activeCategories,
     uniqueModels,
     generations,

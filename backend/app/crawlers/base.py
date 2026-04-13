@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, cast
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
 import requests
@@ -49,6 +49,21 @@ logger = logging.getLogger(__name__)
 # When bucket is configured (S3), we upload to the bucket; otherwise we write to local path.
 # HTML is always saved for every URL crawled so the archive stays current.
 CRAWL_HTML_HASH_BYTES = 16  # filename = <sha256(url)>[:16].html so re-crawls overwrite same file
+
+
+def crawl_html_utf8_bytes(html: str) -> bytes:
+    """UTF-8 bytes for HTML archival and hashing (matches S3/local write policy)."""
+    return html.encode("utf-8", errors="replace")
+
+
+def crawl_html_fingerprint(html: str) -> tuple[bytes, int, str]:
+    """
+    Return (utf8_bytes, byte_length, sha256_hexdigest) for crawl/extension HTML.
+
+    Used for size limits, integrity responses, and deduplicating S3 writes.
+    """
+    b = crawl_html_utf8_bytes(html)
+    return b, len(b), hashlib.sha256(b).hexdigest()
 
 
 class _S3PutObjectProtocol(Protocol):
@@ -82,7 +97,13 @@ def _get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str
 
         bucket = (settings.CRAWL_BUCKET or "").strip()
         if not bucket:
-            logger.info("Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback")
+            if settings.is_production:
+                logger.warning(
+                    "CRAWL_BUCKET is not configured in production — HTML archives will fall back to local disk "
+                    "and will be lost on container restart. Set CRAWL_BUCKET to an S3 bucket name."
+                )
+            else:
+                logger.info("Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback")
             return None, None
         import boto3
 
@@ -173,6 +194,57 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
         }
 
 
+_TRACKING_PARAMS = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "fbclid",
+        "gclid",
+        "gclsrc",
+        "dclid",
+        "msclkid",
+        "twclid",
+        "ref",
+        "source",
+    }
+)
+
+
+def canonicalize_url(url: str) -> str:
+    """
+    Return a canonical form of a product URL for consistent hashing and DB keying.
+
+    Rules (conservative — only touches unambiguously noise):
+    - Lowercase scheme and host.
+    - Remove fragment (#…).
+    - Strip known tracking query params (utm_*, fbclid, gclid, ref, source, etc.).
+    - Strip a trailing slash only when the path is exactly "/" (root).
+
+    Path case, non-tracking query params, and www vs non-www are left untouched
+    to avoid colliding on URLs that are genuinely distinct product pages.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return url
+
+    scheme = (parsed.scheme or "https").lower()
+    netloc = (parsed.netloc or "").lower()
+    path = parsed.path
+    if path == "/":
+        path = ""
+
+    qs_filtered = {
+        k: v for k, v in parse_qs(parsed.query, keep_blank_values=True).items() if k.lower() not in _TRACKING_PARAMS
+    }
+    query = urlencode(qs_filtered, doseq=True)
+
+    return urlunparse((scheme, netloc, path, parsed.params, query, ""))
+
+
 def url_is_known(db: Session, product_url: str) -> bool:
     """True if we already have a part listing with this product_url (i.e. recrawl, not first visit)."""
     if not product_url or not product_url.strip():
@@ -186,6 +258,7 @@ def save_crawl_page_html(
     html: str,
     base_dir: str | Path,
     *,
+    html_utf8: Optional[bytes] = None,
     logger_instance: Optional[logging.Logger] = None,
 ) -> Optional[str]:
     """
@@ -197,13 +270,17 @@ def save_crawl_page_html(
 
     Returns the S3 key (e.g. "crawl_html/by_url/abc123.html") on S3 success,
     the absolute local path string on local success, or None on failure.
+
+    Pass ``html_utf8`` when the caller already encoded ``html`` to avoid a second encode.
     """
     log = logger_instance or logger
     _ = adapter_name  # retained for call-site compatibility; path is URL-canonical only
     key_prefix = str(base_dir).strip() if base_dir else ""
-    url_hash = hashlib.sha256(product_url.encode()).hexdigest()[:CRAWL_HTML_HASH_BYTES]
+    canonical = canonicalize_url(product_url)
+    url_hash = hashlib.sha256(canonical.encode()).hexdigest()[:CRAWL_HTML_HASH_BYTES]
     html_key = f"{key_prefix}/by_url/{url_hash}.html" if key_prefix else f"crawl_html/by_url/{url_hash}.html"
     url_key = f"{key_prefix}/by_url/{url_hash}.url" if key_prefix else f"crawl_html/by_url/{url_hash}.url"
+    body_bytes = html_utf8 if html_utf8 is not None else html.encode("utf-8", errors="replace")
 
     s3_client, bucket_name = _get_crawl_s3_client()
     if s3_client is not None and bucket_name is not None:
@@ -211,7 +288,7 @@ def save_crawl_page_html(
             s3_client.put_object(
                 Bucket=bucket_name,
                 Key=html_key,
-                Body=html.encode("utf-8", errors="replace"),
+                Body=body_bytes,
                 ContentType="text/html; charset=utf-8",
             )
             s3_client.put_object(
@@ -235,7 +312,7 @@ def save_crawl_page_html(
     html_path = dir_path / f"{url_hash}.html"
     url_path = dir_path / f"{url_hash}.url"
     try:
-        html_path.write_text(html, encoding="utf-8", errors="replace")
+        html_path.write_bytes(body_bytes)
         url_path.write_text(product_url, encoding="utf-8")
         log.info("Saved page copy to local (bucket not configured): %s", html_path)
         return str(html_path.resolve())

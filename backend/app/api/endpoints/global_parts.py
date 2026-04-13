@@ -37,10 +37,7 @@ from app.api.schemas.global_part import (
     GlobalPartUpdate,
     SetPrimaryImageRequest,
 )
-from app.api.schemas.part_listing import (
-    PartListingCreate,
-    PartListingReadWithRetailer,
-)
+from app.api.schemas.part_listing import PartListingCreate, PartListingReadWithRetailer
 from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_listing_service import (
@@ -52,16 +49,9 @@ from app.api.services.part_listing_service import (
     normalize_gtin,
     normalize_part_number,
 )
-from app.api.utils.authorization import (
-    require_global_part_edit_permission,
-)
+from app.api.utils.authorization import require_global_part_edit_permission
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
-from app.api.utils.common_operations import (
-    create_entity,
-    delete_entity,
-    update_entity,
-    verify_entity_exists,
-)
+from app.api.utils.common_operations import create_entity, delete_entity, update_entity, verify_entity_exists
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     apply_standard_filters,
@@ -69,13 +59,8 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
 )
-from app.api.utils.endpoint_decorators import (
-    pagination_responses,
-    standard_responses,
-)
-from app.api.utils.pagination_utils import (
-    create_paginated_response,
-)
+from app.api.utils.endpoint_decorators import pagination_responses, standard_responses
+from app.api.utils.pagination_utils import create_paginated_response
 from app.api.utils.response_patterns import ResponsePatterns
 
 

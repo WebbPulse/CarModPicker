@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,9 +13,7 @@ import {
 } from '../../services/Api';
 import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type {
-  BrandResponse,
   CarRead,
-  CategoryResponse,
   GlobalPartReadWithVotes,
   PartListingReadWithRetailer,
 } from '../../types/Api';
@@ -71,13 +69,14 @@ function ViewGlobalPart() {
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
     useState(false);
-  const [partWithVotes, setPartWithVotes] =
-    useState<GlobalPartReadWithVotes | null>(null);
-  const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
   const [compatibleCars, setCompatibleCars] = useState<CarRead[]>([]);
   const [isLoadingCompatibleCars, setIsLoadingCompatibleCars] = useState(false);
-  const [brand, setBrand] = useState<BrandResponse | null>(null);
+  const [voteOverride, setVoteOverride] = useState<{
+    upvotes: number;
+    downvotes: number;
+    user_vote: 'upvote' | 'downvote' | null;
+  } | null>(null);
 
   const {
     data: part,
@@ -135,81 +134,34 @@ function ViewGlobalPart() {
     executeRequest: fetchPriceHistory,
   } = useApiRequest(fetchPriceHistoryRequestFn);
 
-  const memoizedFetchPart = useCallback(() => {
-    if (partId) {
-      void fetchPart(partId);
-    }
-  }, [fetchPart, partId]);
-
-  const memoizedFetchVoteSummary = useCallback(() => {
-    if (partId) {
-      void fetchVoteSummary(partId);
-    }
-  }, [fetchVoteSummary, partId]);
-
-  const memoizedFetchCategories = useCallback(() => {
+  // Fetch all primary data when partId changes
+  useEffect(() => {
+    if (!partId) return;
+    void fetchPart(partId);
+    void fetchVoteSummary(partId);
     void fetchCategories(undefined);
-  }, [fetchCategories]);
+    void fetchListings(partId);
+    void fetchPriceHistory(partId);
+  }, [
+    partId,
+    fetchPart,
+    fetchVoteSummary,
+    fetchCategories,
+    fetchListings,
+    fetchPriceHistory,
+  ]);
 
-  const memoizedFetchUser = useCallback(() => {
+  // Fetch dependent data when part loads
+  useEffect(() => {
     if (part?.user_id) {
       void fetchUser(part.user_id);
     }
-  }, [fetchUser, part?.user_id]);
-
-  const memoizedFetchBrand = useCallback(() => {
     if (part?.brand_id) {
       void fetchBrand(part.brand_id);
-    } else {
-      setBrand(null);
     }
-  }, [fetchBrand, part?.brand_id]);
+  }, [part?.user_id, part?.brand_id, fetchUser, fetchBrand]);
 
-  useEffect(() => {
-    memoizedFetchPart();
-    memoizedFetchVoteSummary();
-    memoizedFetchCategories();
-  }, [memoizedFetchPart, memoizedFetchVoteSummary, memoizedFetchCategories]);
-
-  useEffect(() => {
-    if (partId) {
-      void fetchListings(partId);
-    }
-  }, [partId, fetchListings]);
-
-  useEffect(() => {
-    if (partId) {
-      void fetchPriceHistory(partId);
-    }
-  }, [partId, fetchPriceHistory]);
-
-  useEffect(() => {
-    if (categoriesData) {
-      setCategories(categoriesData);
-    }
-  }, [categoriesData]);
-
-  useEffect(() => {
-    if (part && voteSummary) {
-      setPartWithVotes({
-        ...part,
-        upvotes: voteSummary.upvotes,
-        downvotes: voteSummary.downvotes,
-        total_votes: voteSummary.total_votes,
-        user_vote: voteSummary.user_vote ?? null,
-      });
-    }
-  }, [part, voteSummary]);
-
-  useEffect(() => {
-    memoizedFetchUser();
-  }, [memoizedFetchUser]);
-
-  useEffect(() => {
-    memoizedFetchBrand();
-  }, [memoizedFetchBrand]);
-
-  // Fetch all compatible cars when part has car_ids
+  // Fetch compatible cars when part has car_ids
   useEffect(() => {
     const carIds = part?.car_ids ?? [];
     if (carIds.length === 0) {
@@ -242,11 +194,20 @@ function ViewGlobalPart() {
     };
   }, [part?.car_ids]);
 
-  useEffect(() => {
-    if (brandData) {
-      setBrand(brandData);
-    }
-  }, [brandData]);
+  const partWithVotes = useMemo<GlobalPartReadWithVotes | null>(() => {
+    if (!part || !voteSummary) return null;
+    const votes = voteOverride ?? voteSummary;
+    return {
+      ...part,
+      upvotes: votes.upvotes,
+      downvotes: votes.downvotes,
+      total_votes: votes.upvotes + votes.downvotes,
+      user_vote: votes.user_vote ?? null,
+    };
+  }, [part, voteSummary, voteOverride]);
+
+  const categories = categoriesData ?? [];
+  const brand = brandData ?? null;
 
   const handleGlobalPartUpdated = async () => {
     if (partId) {
@@ -260,27 +221,17 @@ function ViewGlobalPart() {
     _partId: number,
     newVote: 'upvote' | 'downvote' | null
   ) => {
-    if (partWithVotes) {
-      const currentVote = partWithVotes.user_vote;
-      let upvotes = partWithVotes.upvotes;
-      let downvotes = partWithVotes.downvotes;
+    if (!partWithVotes) return;
+    const currentVote = partWithVotes.user_vote;
+    let upvotes = partWithVotes.upvotes;
+    let downvotes = partWithVotes.downvotes;
 
-      // Remove previous vote
-      if (currentVote === 'upvote') upvotes--;
-      if (currentVote === 'downvote') downvotes--;
+    if (currentVote === 'upvote') upvotes--;
+    if (currentVote === 'downvote') downvotes--;
+    if (newVote === 'upvote') upvotes++;
+    if (newVote === 'downvote') downvotes++;
 
-      // Add new vote
-      if (newVote === 'upvote') upvotes++;
-      if (newVote === 'downvote') downvotes++;
-
-      setPartWithVotes({
-        ...partWithVotes,
-        upvotes,
-        downvotes,
-        total_votes: upvotes + downvotes,
-        user_vote: newVote,
-      });
-    }
+    setVoteOverride({ upvotes, downvotes, user_vote: newVote });
   };
 
   const openEditGlobalPartDialog = () => setIsEditGlobalPartFormOpen(true);

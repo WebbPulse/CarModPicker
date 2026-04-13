@@ -46,7 +46,6 @@ function useApiRequest<TData, TPayload = unknown>(
     async (payload?: TPayload): Promise<TData | null> => {
       setIsLoading(true);
       setErrorState(null);
-      setData(null);
       try {
         // Use empty object as default payload if none provided
         const actualPayload = (payload ?? {}) as TPayload;

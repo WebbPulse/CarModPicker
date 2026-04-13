@@ -19,8 +19,7 @@ const Card: React.FC<CardProps> = ({
   interactive = false,
   style,
 }) => {
-  const baseClasses =
-    'transition-all duration-300 ease-out relative overflow-hidden';
+  const baseClasses = 'relative overflow-hidden';
 
   const variantClasses = {
     default: 'card',
@@ -36,7 +35,7 @@ const Card: React.FC<CardProps> = ({
   };
 
   const interactiveClasses = interactive
-    ? 'cursor-pointer hover:scale-105'
+    ? 'card-interactive cursor-pointer hover:scale-105'
     : '';
 
   const classes = `${baseClasses} ${variantClasses[variant]} ${paddingClasses[padding]} ${interactiveClasses} ${className}`;
