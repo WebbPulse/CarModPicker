@@ -88,3 +88,18 @@ variable "crawler_cron_schedule" {
 
 # Archive rescrape is intentionally excluded — it is always triggered manually
 # from the admin UI and should never run on a schedule.
+
+# ---------------------------------------------------------------------------
+# ECS Fargate — Crawler task compute
+# ---------------------------------------------------------------------------
+variable "crawler_ecs_cpu" {
+  description = "CPU units for the ECS crawler task (256 = 0.25 vCPU)"
+  type        = string
+  default     = "256"
+}
+
+variable "crawler_ecs_memory" {
+  description = "Memory in MB for the ECS crawler task"
+  type        = string
+  default     = "512"
+}

@@ -7,6 +7,7 @@ generations, part categories), and running retailer crawlers.
 """
 
 import asyncio
+import json
 import logging
 import os
 import secrets
@@ -518,6 +519,10 @@ class CrawlerRunRequest(BaseModel):
         default=None,
         description="Kept for backward compatibility. HTML is always archived for every URL crawled.",
     )
+    skip_known_urls: bool = Field(
+        default=False,
+        description="If True, URLs already in crawled_pages with parse_status='parsed' are skipped before the limit is applied.",
+    )
 
 
 @router.get(
@@ -538,22 +543,100 @@ async def list_crawlers(
     return {"adapters": adapters}
 
 
-async def _run_crawlers_background(
+def _launch_ecs_crawler_task(
+    *,
+    job_id: int,
+    adapters: list[str],
+    default_category_id: int,
+    user_id: int,
+    limits: Optional[Dict[str, int]],
+    global_limit: Optional[int],
+    delay_sec: float,
+    parallel: bool,
+    skip_known_urls: bool,
+) -> str:
+    """
+    Launch an ECS Fargate task to run the crawler. Returns the ECS task ARN.
+
+    Requires CRAWLER_ECS_CLUSTER, CRAWLER_ECS_TASK_DEFINITION, CRAWLER_ECS_SUBNETS,
+    and CRAWLER_ECS_SECURITY_GROUP to be configured in settings.
+    Raises RuntimeError if ECS is not configured or RunTask fails.
+    """
+    if not settings.crawler_ecs_configured:
+        raise RuntimeError(
+            "ECS crawler not configured. Set CRAWLER_ECS_CLUSTER, CRAWLER_ECS_TASK_DEFINITION, "
+            "CRAWLER_ECS_SUBNETS, and CRAWLER_ECS_SECURITY_GROUP."
+        )
+
+    ecs_client = boto3.client("ecs", region_name=settings.AWS_REGION or None)
+
+    env_overrides = [
+        {"name": "JOB_ID", "value": str(job_id)},
+        {"name": "CRAWLER_ADAPTERS", "value": ",".join(adapters)},
+        {"name": "CRAWLER_DEFAULT_CATEGORY_ID", "value": str(default_category_id)},
+        {"name": "CRAWLER_USER_ID", "value": str(user_id)},
+        {"name": "CRAWLER_DELAY_SEC", "value": str(delay_sec)},
+        {"name": "CRAWLER_PARALLEL", "value": "true" if parallel else "false"},
+        {"name": "CRAWLER_SKIP_KNOWN_URLS", "value": "true" if skip_known_urls else "false"},
+    ]
+    if limits:
+        env_overrides.append({"name": "CRAWLER_LIMITS", "value": json.dumps(limits)})
+    if global_limit is not None:
+        env_overrides.append({"name": "CRAWLER_GLOBAL_LIMIT", "value": str(global_limit)})
+
+    subnets = [s.strip() for s in settings.CRAWLER_ECS_SUBNETS.split(",") if s.strip()]
+    security_groups = [sg.strip() for sg in settings.CRAWLER_ECS_SECURITY_GROUP.split(",") if sg.strip()]
+
+    response = ecs_client.run_task(
+        cluster=settings.CRAWLER_ECS_CLUSTER,
+        taskDefinition=settings.CRAWLER_ECS_TASK_DEFINITION,
+        launchType="FARGATE",
+        networkConfiguration={
+            "awsvpcConfiguration": {
+                "subnets": subnets,
+                "securityGroups": security_groups,
+                "assignPublicIp": "ENABLED",
+            }
+        },
+        overrides={
+            "containerOverrides": [
+                {
+                    "name": "crawler",
+                    "environment": env_overrides,
+                }
+            ]
+        },
+    )
+
+    failures = response.get("failures", [])
+    if failures:
+        raise RuntimeError(f"ECS RunTask failures: {failures}")
+
+    tasks = response.get("tasks", [])
+    if not tasks:
+        raise RuntimeError("ECS RunTask returned no tasks and no failures.")
+
+    return tasks[0]["taskArn"]
+
+
+async def _run_crawlers_in_process(
     adapters: list[str],
     *,
-    limits: Optional[Dict[str, int]] = None,
-    global_limit: Optional[int] = None,
+    limits: Optional[Dict[str, int]],
+    global_limit: Optional[int],
     parallel: bool,
     delay_sec: float,
     user_id: int,
     default_category_id: int,
-    triggered_by_user_id: Optional[int],
-    triggered_by: str,
     job_id: int,
     stop_event: threading.Event,
-    crawl_html_save_dir: Optional[str] = None,
+    skip_known_urls: bool,
 ) -> None:
-    """Run crawlers in a background thread, recording status to BackgroundJob."""
+    """
+    Dev-only fallback: run crawlers in an asyncio background thread.
+    Only used when ECS is not configured (i.e. local development).
+    In production, _launch_ecs_crawler_task is always used instead.
+    """
     try:
         result = await asyncio.to_thread(
             run_crawlers,
@@ -564,41 +647,24 @@ async def _run_crawlers_background(
             delay_sec=delay_sec,
             user_id=user_id,
             default_category_id=default_category_id,
-            crawl_html_save_dir=crawl_html_save_dir,
             stop_event=stop_event,
-        )
-        logger.info(
-            "Crawler job #%s completed (triggered_by=%s user=%s): %s",
-            job_id,
-            triggered_by,
-            triggered_by_user_id,
-            result,
+            skip_known_urls=skip_known_urls,
         )
         db = SessionLocal()
         try:
             result_dict = result if isinstance(result, dict) else {"raw": str(result)}
             job_service.complete_job(db, job_id, result_summary=result_dict)
+            await asyncio.to_thread(_notify_job_completion, job_id)
         finally:
             db.close()
-        await asyncio.to_thread(_notify_job_completion, job_id)
     except Exception as e:
-        logger.exception(
-            "Crawler job #%s failed (triggered_by=%s user=%s): %s",
-            job_id,
-            triggered_by,
-            triggered_by_user_id,
-            e,
-        )
+        logger.exception("In-process crawler job #%s failed: %s", job_id, e)
         db = SessionLocal()
         try:
-            job_service.fail_job(
-                db,
-                job_id,
-                error_message=traceback.format_exc(),
-            )
+            job_service.fail_job(db, job_id, error_message=traceback.format_exc())
+            await asyncio.to_thread(_notify_job_completion, job_id)
         finally:
             db.close()
-        await asyncio.to_thread(_notify_job_completion, job_id)
     finally:
         _job_tasks.pop(job_id, None)
         _job_stop_events.pop(job_id, None)
@@ -702,31 +768,65 @@ async def run_crawlers_endpoint(
             "delay_sec": delay_sec,
             "crawler_user_id": crawler_user.id,
             "default_category_id": body.crawler_default_category_id,
+            "skip_known_urls": body.skip_known_urls,
         },
         created_by_user_id=acting_user_id,
     )
 
-    stop_event = threading.Event()
-    task = asyncio.create_task(
-        _run_crawlers_background(
-            adapters,
-            limits=body.limits,
-            global_limit=body.global_limit,
-            parallel=body.parallel,
-            delay_sec=delay_sec,
-            user_id=crawler_user.id,
-            default_category_id=body.crawler_default_category_id,
-            triggered_by_user_id=acting_user_id,
-            triggered_by=triggered_by,
-            job_id=job.id,
-            stop_event=stop_event,
-            crawl_html_save_dir=body.crawl_html_save_dir,
+    if settings.crawler_ecs_configured:
+        # Production path: launch a Fargate task that spins up, runs, and tears down.
+        try:
+            task_arn = _launch_ecs_crawler_task(
+                job_id=job.id,
+                adapters=adapters,
+                default_category_id=body.crawler_default_category_id,
+                user_id=crawler_user.id,
+                limits=body.limits,
+                global_limit=body.global_limit,
+                delay_sec=delay_sec,
+                parallel=body.parallel,
+                skip_known_urls=body.skip_known_urls,
+            )
+            # Store the ECS task ARN so the cancel endpoint can stop it.
+            job.params = {**(job.params or {}), "ecs_task_arn": task_arn}
+            db.add(job)
+            db.commit()
+            logger.info("Crawler job #%s launched ECS task: %s", job.id, task_arn)
+        except Exception as e:
+            logger.exception("Failed to launch ECS task for crawler job #%s: %s", job.id, e)
+            job_service.fail_job(db, job.id, error_message=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to launch crawler task: {e}",
+            )
+    elif not settings.is_production:
+        # Dev fallback: run in-process as a background asyncio task.
+        logger.info("Crawler job #%s: ECS not configured, running in-process (dev mode).", job.id)
+        stop_event = threading.Event()
+        task = asyncio.create_task(
+            _run_crawlers_in_process(
+                adapters,
+                limits=body.limits,
+                global_limit=body.global_limit,
+                parallel=body.parallel,
+                delay_sec=delay_sec,
+                user_id=crawler_user.id,
+                default_category_id=body.crawler_default_category_id,
+                job_id=job.id,
+                stop_event=stop_event,
+                skip_known_urls=body.skip_known_urls,
+            )
         )
-    )
-    _job_tasks[job.id] = task
-    _job_stop_events[job.id] = stop_event
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+        _job_tasks[job.id] = task
+        _job_stop_events[job.id] = stop_event
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    else:
+        job_service.fail_job(db, job.id, error_message="ECS crawler not configured in production.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawler ECS task is not configured. Set CRAWLER_ECS_CLUSTER, CRAWLER_ECS_TASK_DEFINITION, CRAWLER_ECS_SUBNETS, and CRAWLER_ECS_SECURITY_GROUP.",
+        )
 
     return {
         "status": "started",
@@ -1214,13 +1314,27 @@ async def cancel_background_job(
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
 
-    # Signal the worker thread to stop at the next iteration boundary.
-    stop_event = _job_stop_events.get(job_id)
-    if stop_event is not None:
-        stop_event.set()
-        logger.info("Job #%s cancel: stop event signalled.", job_id)
+    # For ECS-backed crawler jobs: stop the Fargate task.
+    # For in-process jobs (archive rescrape): signal the stop event.
+    task_arn = (job.params or {}).get("ecs_task_arn")
+    if task_arn:
+        try:
+            ecs_client = boto3.client("ecs", region_name=settings.AWS_REGION or None)
+            ecs_client.stop_task(
+                cluster=settings.CRAWLER_ECS_CLUSTER,
+                task=task_arn,
+                reason="Cancelled by admin",
+            )
+            logger.info("Job #%s cancel: ECS task %s stopped.", job_id, task_arn)
+        except (BotoCoreError, ClientError) as e:
+            logger.warning("Job #%s cancel: failed to stop ECS task %s: %s", job_id, task_arn, e)
     else:
-        logger.warning("Job #%s cancel: no stop event found (job may have already finished).", job_id)
+        stop_event = _job_stop_events.get(job_id)
+        if stop_event is not None:
+            stop_event.set()
+            logger.info("Job #%s cancel: stop event signalled.", job_id)
+        else:
+            logger.warning("Job #%s cancel: no stop event or ECS task found (job may have already finished).", job_id)
 
     return BackgroundJobRead.model_validate(updated)
 
