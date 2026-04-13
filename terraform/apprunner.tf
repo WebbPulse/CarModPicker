@@ -74,6 +74,34 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
   })
 }
 
+resource "aws_iam_role_policy" "apprunner_instance_ecs" {
+  name = "ecs-crawler-launch"
+  role = aws_iam_role.apprunner_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks"]
+        Resource = [
+          aws_ecs_task_definition.crawler.arn,
+          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.crawler.name}/*",
+        ]
+      },
+      {
+        # App Runner must be able to pass the ECS task role when calling RunTask.
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
+        Resource = [
+          aws_iam_role.ecs_task_execution.arn,
+          aws_iam_role.ecs_task.arn,
+        ]
+      },
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "apprunner_instance_scheduler" {
   name = "eventbridge-scheduler-manage"
   role = aws_iam_role.apprunner_instance.id
@@ -185,6 +213,12 @@ resource "aws_apprunner_service" "backend" {
           S3_ENDPOINT_URL    = "" # Empty → boto3 uses native AWS S3
           EMAIL_FROM         = var.email_from
           EMAIL_ENABLED      = "true"
+
+          # ECS Fargate crawler task — App Runner calls RunTask to launch crawls.
+          CRAWLER_ECS_CLUSTER         = aws_ecs_cluster.crawler.name
+          CRAWLER_ECS_TASK_DEFINITION = aws_ecs_task_definition.crawler.arn
+          CRAWLER_ECS_SUBNETS         = "${aws_subnet.public_a.id},${aws_subnet.public_b.id}"
+          CRAWLER_ECS_SECURITY_GROUP  = aws_security_group.crawler_task.id
         }
 
         # Sensitive values pulled from Secrets Manager at startup

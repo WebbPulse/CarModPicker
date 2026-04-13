@@ -154,6 +154,36 @@ class Settings(BaseSettings):
             return self.SCHEDULER_CRAWLER_SCHEDULE_NAME
         return f"carmodpicker-{self.APP_ENVIRONMENT}-crawler-run"
 
+    # ECS Fargate crawler task — set by Terraform via App Runner env vars.
+    # When configured, POST /admin/crawlers/run launches a Fargate task instead
+    # of a background asyncio task, giving durable "spin-up, run, tear-down" semantics.
+    CRAWLER_ECS_CLUSTER: str = Field(
+        default="",
+        description="ECS cluster name to run the crawler task on.",
+    )
+    CRAWLER_ECS_TASK_DEFINITION: str = Field(
+        default="",
+        description="ECS task definition ARN for the crawler task.",
+    )
+    CRAWLER_ECS_SUBNETS: str = Field(
+        default="",
+        description="Comma-separated subnet IDs for the Fargate task (public subnets, assignPublicIp=ENABLED).",
+    )
+    CRAWLER_ECS_SECURITY_GROUP: str = Field(
+        default="",
+        description="Comma-separated security group IDs for the Fargate task.",
+    )
+
+    @property
+    def crawler_ecs_configured(self) -> bool:
+        """True when all ECS crawler settings are present."""
+        return bool(
+            self.CRAWLER_ECS_CLUSTER
+            and self.CRAWLER_ECS_TASK_DEFINITION
+            and self.CRAWLER_ECS_SUBNETS
+            and self.CRAWLER_ECS_SECURITY_GROUP
+        )
+
     # Rate limiting settings
     ENABLE_RATE_LIMITING: bool = True
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60
