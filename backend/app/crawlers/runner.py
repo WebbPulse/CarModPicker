@@ -221,12 +221,15 @@ def run_crawler(
     default_category_id: Optional[int] = None,
     crawl_html_save_dir: Optional[str] = None,
     stop_event: Optional[threading.Event] = None,
+    skip_known_urls: bool = False,
 ) -> dict:
     """
     Run one adapter: discover URLs, fetch, parse, ingest. Optionally cap at `limit` URLs.
     If user_id or default_category_id are provided, use them; otherwise fall back to env vars.
     Saves full page HTML to the archive for every URL crawled (new and previously-seen).
     If stop_event is provided and set, the loop exits early (cooperative cancellation).
+    If skip_known_urls is True, URLs already in crawled_pages with parse_status='parsed' are
+    filtered out before the limit is applied — useful for successive test runs against the same site.
     Returns a dict: {"adapter": name, "ingested": int, "skipped": int, "errors": int, "total": int}.
     Raises CrawlerConfigError or KeyError (unknown adapter) on setup failure.
     """
@@ -237,6 +240,25 @@ def run_crawler(
         adapter = get_adapter(adapter_name)
 
         urls = list(adapter.discover_product_urls())
+        if skip_known_urls and urls:
+            canonical_urls = [canonicalize_url(u) for u in urls]
+            already_parsed = {
+                row.url
+                for row in db.query(DBCrawledPage.url)
+                .filter(
+                    DBCrawledPage.url.in_(canonical_urls),
+                    DBCrawledPage.parse_status == "parsed",
+                )
+                .all()
+            }
+            before = len(urls)
+            urls = [u for u in urls if canonicalize_url(u) not in already_parsed]
+            logger.info(
+                "Adapter %s: skipped %s already-parsed URL(s), %s remaining.",
+                adapter_name,
+                before - len(urls),
+                len(urls),
+            )
         if limit is not None:
             urls = urls[:limit]
         total = len(urls)
@@ -343,6 +365,7 @@ def run_crawlers(
     default_category_id: Optional[int] = None,
     crawl_html_save_dir: Optional[str] = None,
     stop_event: Optional[threading.Event] = None,
+    skip_known_urls: bool = False,
 ) -> dict:
     """
     Run one or more adapters. If multiple adapters, runs them in parallel threads by default.
@@ -355,6 +378,8 @@ def run_crawlers(
         parallel: If True and len(adapter_names) > 1, run in parallel threads.
         crawl_html_save_dir: Kept for backward compatibility; HTML is always archived for every URL.
         stop_event: Optional threading.Event for cooperative cancellation across all adapters.
+        skip_known_urls: If True, URLs already archived with parse_status='parsed' are filtered out
+            before the limit is applied.
 
     Returns:
         {
@@ -380,6 +405,7 @@ def run_crawlers(
                 default_category_id=default_category_id,
                 crawl_html_save_dir=crawl_html_save_dir,
                 stop_event=stop_event,
+                skip_known_urls=skip_known_urls,
             )
         except (CrawlerConfigError, KeyError) as e:
             return {"_error": str(e), "_adapter": name}
@@ -445,10 +471,16 @@ def main() -> None:
         default=DEFAULT_REQUEST_DELAY_SEC,
         help=f"Seconds to wait between requests (default: {DEFAULT_REQUEST_DELAY_SEC}).",
     )
+    parser.add_argument(
+        "--skip-known",
+        action="store_true",
+        default=False,
+        help="Skip URLs already in crawled_pages with parse_status='parsed'.",
+    )
     args = parser.parse_args()
 
     try:
-        run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay)
+        run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay, skip_known_urls=args.skip_known)
     except CrawlerConfigError as e:
         logger.error("%s", e)
         sys.exit(1)
