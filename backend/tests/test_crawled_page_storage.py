@@ -298,22 +298,37 @@ class TestReparseCrawledPage:
         db_session.refresh(page)
         return page
 
-    def test_reparse_chrome_extension_unknown_host_returns_422(
+    def test_reparse_chrome_extension_unknown_host_uses_generic(
         self,
         mock_s3: Dict[str, Any],
         client: TestClient,
         test_admin_user: Any,
         db_session: Session,
     ) -> None:
+        # Unknown hosts now fall through to the generic adapter instead of returning 422.
+        # The generic adapter returns None for a bare <html/> stub, so re-parse status is "failed".
+        from tests.conftest import get_default_category_id
+
         page = self._seed_page_with_html(
             mock_s3, db_session, "https://unknown-retailer.example/p/1", "<html/>", source="chrome_extension"
         )
-        headers = _auth(client, test_admin_user.username)
-        resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
-        assert resp.status_code == 422
+        cat_id = get_default_category_id(db_session)
+
+        mock_adapter = MagicMock()
+        mock_adapter.parse_product_page.return_value = None
+
+        with (
+            patch("app.crawlers.archive_rescrape.get_adapter", return_value=mock_adapter),
+            patch("app.crawlers.runner._resolve_crawler_user", return_value=test_admin_user),
+            patch("app.crawlers.runner._resolve_default_category_id", return_value=cat_id),
+        ):
+            headers = _auth(client, test_admin_user.username)
+            resp = client.post(f"/api/crawled-pages/{page.id}/re-parse", headers=headers)
+
+        # 200 parse_failed (adapter ran but returned no payload) rather than 422 no-adapter
+        assert resp.status_code == 200
         body = resp.json()
-        detail = body.get("detail") or body.get("message") or ""
-        assert "No adapter available" in str(detail)
+        assert body["parse_status"] == "failed"
 
     def test_reparse_missing_page_returns_404(
         self,

@@ -103,6 +103,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
   const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
   const hasInitializedBrand = useRef(false);
+  const hasInitializedCategory = useRef(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [cars, setCars] = useState<Car[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -268,6 +269,23 @@ const PartDialog: React.FC<PartDialogProps> = ({
       setPendingBrandName(scrapedData.brand.trim());
     }
   }, [brands, scrapedData.brand]);
+
+  // Pre-select inferred category from server when categories first load
+  useEffect(() => {
+    if (
+      hasInitializedCategory.current ||
+      categories.length === 0 ||
+      !scrapedData.inferred_category
+    )
+      return;
+    hasInitializedCategory.current = true;
+    const match = categories.find(
+      (c) => c.name.toLowerCase() === scrapedData.inferred_category!.toLowerCase(),
+    );
+    if (match) {
+      setFormData((prev) => ({ ...prev, categoryId: match.id }));
+    }
+  }, [categories, scrapedData.inferred_category]);
 
   useEffect(() => {
     if (formData.imageUrl) {

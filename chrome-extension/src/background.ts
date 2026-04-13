@@ -549,14 +549,26 @@ async function uploadImage(
 }
 
 /**
- * Archive full page HTML to the backend CRAWL_BUCKET via /crawled-pages/html.
- * Called when the user scrapes a page via the extension.
+ * Send full page HTML to the server for archival + server-side parsing.
+ * The server selects the best adapter for the URL (site-specific or generic fallback)
+ * and returns parsed part attributes for the user to review.
  */
-async function uploadPageHtml(
+async function scrapeAndParsePage(
   url: string,
   html: string,
-): Promise<ApiResponse<{ id: number; html_s3_key: string | null }>> {
-  return apiRequest("/crawled-pages/html", {
+): Promise<ApiResponse<{
+  name: string | null;
+  description: string | null;
+  price: number | null;
+  image_url: string | null;
+  image_urls: string[];
+  product_url: string;
+  brand: string | null;
+  part_number: string | null;
+  adapter_used: string;
+  inferred_category: string | null;
+}>> {
+  return apiRequest("/crawled-pages/scrape", {
     method: "POST",
     body: JSON.stringify({ url, html }),
   });
@@ -746,9 +758,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "archiveHtml") {
+    if (request.action === "scrapeAndParse") {
       if (request.url && request.html != null) {
-        uploadPageHtml(request.url, request.html).then(sendResponse);
+        scrapeAndParsePage(request.url, request.html).then(sendResponse);
         return true;
       }
       sendResponse({ success: false, error: "url and html required" });

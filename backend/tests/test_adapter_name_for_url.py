@@ -14,4 +14,11 @@ def test_studiorsr_hosts() -> None:
 
 
 def test_unknown_host() -> None:
-    assert adapter_name_for_product_url("https://example.com/p/1") is None
+    # Unknown hosts now fall back to "generic" instead of None
+    assert adapter_name_for_product_url("https://example.com/p/1") == "generic"
+
+
+def test_invalid_url() -> None:
+    # Malformed / empty URLs also return "generic"
+    assert adapter_name_for_product_url("not-a-url") == "generic"
+    assert adapter_name_for_product_url("") == "generic"
