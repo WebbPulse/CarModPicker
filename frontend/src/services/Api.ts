@@ -1080,6 +1080,8 @@ export interface CrawlerRunRequest {
   /** Seconds between requests per crawler (0.5–60). Default 5 for polite/heavy runs. */
   delay_sec?: number | null;
   crawl_html_save_dir?: string | null;
+  /** Skip URLs already in crawled_pages with parse_status='parsed'. Useful for successive test runs. */
+  skip_known_urls?: boolean;
 }
 
 /** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
