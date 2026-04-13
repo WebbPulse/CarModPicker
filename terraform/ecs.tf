@@ -81,7 +81,10 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = [aws_secretsmanager_secret.database_url.arn]
+      Resource = [
+        aws_secretsmanager_secret.database_url.arn,
+        aws_secretsmanager_secret.secret_key.arn,
+      ]
     }]
   })
 }
@@ -205,11 +208,18 @@ resource "aws_ecs_task_definition" "crawler" {
       { name = "EMAIL_ENABLED",       value = "true" },
     ]
 
-    # DATABASE_URL is the only secret the crawler task needs.
-    secrets = [{
-      name      = "DATABASE_URL"
-      valueFrom = aws_secretsmanager_secret.database_url.arn
-    }]
+    secrets = [
+      {
+        name      = "DATABASE_URL"
+        valueFrom = aws_secretsmanager_secret.database_url.arn
+      },
+      # Suppress "SECRET_KEY is empty in production" warning — the crawler
+      # doesn't use JWTs but shares config.py with the API server.
+      {
+        name      = "SECRET_KEY"
+        valueFrom = aws_secretsmanager_secret.secret_key.arn
+      },
+    ]
 
     logConfiguration = {
       logDriver = "awslogs"
