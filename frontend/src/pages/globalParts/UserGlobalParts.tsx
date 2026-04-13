@@ -173,7 +173,6 @@ const UserGlobalParts: React.FC = () => {
             layout="table"
             categories={filters.activeCategories}
             brands={filters.availableBrands}
-            carsById={filters.carsById}
           />
 
           {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (

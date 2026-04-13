@@ -28,25 +28,13 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
   fallbackTextClassName = 'text-gray-400',
   loading = 'eager',
 }) => {
-  const [showFallback, setShowFallback] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | undefined>(undefined);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    if (srcUrl) {
-      setImageSrc(srcUrl);
-      setShowFallback(false);
-    } else {
-      setImageSrc(undefined);
-      setShowFallback(true);
-    }
+    setLoadError(false);
   }, [srcUrl]);
 
-  const handleError = () => {
-    // If the srcUrl fails to load, show fallback text
-    setShowFallback(true);
-  };
-
-  if (showFallback || !imageSrc) {
+  if (!srcUrl || loadError) {
     return (
       <div
         className={`${containerClassName} flex items-center justify-center border border-gray-600 bg-gray-800/50 p-2`}
@@ -59,11 +47,12 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
   return (
     <div className={containerClassName}>
       <img
-        src={imageSrc}
+        src={srcUrl}
         alt={altText}
         className={imageClassName}
         loading={loading}
-        onError={handleError}
+        decoding="async"
+        onError={() => setLoadError(true)}
       />
     </div>
   );

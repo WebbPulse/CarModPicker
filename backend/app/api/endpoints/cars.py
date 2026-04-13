@@ -160,6 +160,22 @@ async def get_car_make_stats(
     return result
 
 
+@router.get(
+    "/by-ids",
+    response_model=List[CarRead],
+    responses=standard_responses(success_description="Cars retrieved successfully"),
+)
+async def get_cars_by_ids(
+    ids: List[int] = Query(..., description="Car IDs to fetch"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> List[CarRead]:
+    """Batch-fetch cars by a list of IDs. Used by the frontend to resolve car names for the catalog table."""
+    db = deps["db"]
+    logger = deps["logger"]
+    cars = car_service.get_by_ids(db=db, ids=ids, logger=logger)
+    return [CarRead.model_validate(car) for car in cars]
+
+
 # Base endpoint router - read-only; cars are seeded from car_generations_data
 base_router = BaseEndpointRouter(
     service=car_service,

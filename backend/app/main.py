@@ -26,7 +26,7 @@ from .api.endpoints import (
     users,
     votes,
 )
-from .api.middleware import rate_limit_middleware
+from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
@@ -97,6 +97,9 @@ app.add_middleware(
     ],  # Restrict to needed headers
     expose_headers=["*"],  # Expose all headers for debugging
 )
+
+# Reject extension crawl uploads with oversized Content-Length before heavier middleware
+app.middleware("http")(crawl_upload_content_length_middleware)
 
 # Add rate limiting middleware
 app.middleware("http")(rate_limit_middleware)

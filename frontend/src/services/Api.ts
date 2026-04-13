@@ -228,6 +228,8 @@ export const carsApi = {
       `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
       { params }
     ),
+  getCarsByIds: (ids: number[]) =>
+    apiClient.get<CarRead[]>('/cars/by-ids', { params: { ids } }),
   // Stats and count endpoints
   getCarMakeStats: () =>
     apiClient.get<Record<string, number>>('/cars/stats/makes'),

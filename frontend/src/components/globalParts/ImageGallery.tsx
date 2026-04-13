@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 
 const CAROUSEL_SIZE = 5;
 
@@ -49,7 +50,7 @@ function ImageGallery({
         {/* Large image: shows whichever thumbnail is selected (primary by default) */}
         <div className="aspect-[4/3] max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50">
           <ImageWithPlaceholder
-            srcUrl={selectedUrl ?? null}
+            srcUrl={buildExternalImageUrl(selectedUrl, 'hero')}
             altText={`${altText} - image ${displayIndex + 1}`}
             imageClassName="w-full h-full object-contain"
             containerClassName="w-full h-full"
@@ -71,11 +72,12 @@ function ImageGallery({
                 }`}
               >
                 <ImageWithPlaceholder
-                  srcUrl={url}
+                  srcUrl={buildExternalImageUrl(url, 'thumbnail')}
                   altText={`${altText} - image ${idx + 1}`}
                   imageClassName="w-full h-full object-cover"
                   containerClassName="w-full h-full"
                   fallbackText="Failed to load"
+                  loading="lazy"
                 />
               </button>
             ))}
@@ -108,11 +110,12 @@ function ImageGallery({
             }
           >
             <ImageWithPlaceholder
-              srcUrl={url}
+              srcUrl={buildExternalImageUrl(url, 'carouselTile')}
               altText={`${altText} - image ${idx + 1}`}
               imageClassName="w-full h-full object-cover"
               containerClassName="w-full h-full"
               fallbackText="Failed to load"
+              loading="lazy"
             />
           </div>
         ))}

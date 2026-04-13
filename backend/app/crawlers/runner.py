@@ -36,6 +36,8 @@ from app.crawlers.base import (
     DEFAULT_USER_AGENT,
     apply_delay_jitter,
     can_fetch_url,
+    canonicalize_url,
+    crawl_html_fingerprint,
     fetch_page,
     get_crawl_delay_sec,
     ingest_payload,
@@ -156,6 +158,7 @@ def _upsert_crawled_page(
     source: str,
     storage_key: Optional[str],
     part_id: Optional[int],
+    html_sha256: Optional[str] = None,
 ) -> None:
     """
     Create or update a CrawledPage record for the given URL.
@@ -185,6 +188,8 @@ def _upsert_crawled_page(
     if part_id is not None:
         insert_values["parse_status"] = "parsed"
         insert_values["last_parsed_at"] = now
+    if html_sha256 is not None:
+        insert_values["html_sha256"] = html_sha256
 
     update_values: dict = {"crawled_at": now}
     if html_s3_key is not None:
@@ -195,6 +200,8 @@ def _upsert_crawled_page(
         update_values["global_part_id"] = part_id
         update_values["parse_status"] = "parsed"
         update_values["last_parsed_at"] = now
+    if html_sha256 is not None:
+        update_values["html_sha256"] = html_sha256
 
     stmt = (
         pg_insert(DBCrawledPage)
@@ -270,13 +277,21 @@ def run_crawler(
                         url,
                     )
                     continue
-                storage_key: Optional[str] = save_crawl_page_html(
-                    adapter_name,
-                    url,
-                    html,
-                    "",
-                    logger_instance=logger,
-                )
+                arch_url = canonicalize_url(url)
+                html_utf8, _, html_sha = crawl_html_fingerprint(html)
+                existing = db.query(DBCrawledPage).filter(DBCrawledPage.url == arch_url).first()
+                storage_key: Optional[str]
+                if existing and existing.html_sha256 == html_sha and (existing.html_s3_key or existing.html_local_path):
+                    storage_key = existing.html_s3_key or existing.html_local_path
+                else:
+                    storage_key = save_crawl_page_html(
+                        adapter_name,
+                        arch_url,
+                        html,
+                        "",
+                        html_utf8=html_utf8,
+                        logger_instance=logger,
+                    )
                 part = ingest_payload(
                     db,
                     payload,
@@ -285,7 +300,14 @@ def run_crawler(
                     logger=logger,
                     source="scraped",
                 )
-                _upsert_crawled_page(db, url=url, source=adapter_name, storage_key=storage_key, part_id=part.id)
+                _upsert_crawled_page(
+                    db,
+                    url=arch_url,
+                    source=adapter_name,
+                    storage_key=storage_key,
+                    part_id=part.id,
+                    html_sha256=html_sha,
+                )
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
             except Exception as e:

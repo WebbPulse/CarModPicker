@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { globalPartsApi } from '../../services/Api';
+import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { ErrorAlert } from '../common/Alerts';
 import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
@@ -110,7 +111,7 @@ export default function ImageGalleryManage({
         {/* Large image: shows whichever thumbnail is selected (primary by default) */}
         <div className="aspect-[4/3] max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50 relative group">
           <ImageWithPlaceholder
-            srcUrl={selectedUrl ?? null}
+            srcUrl={buildExternalImageUrl(selectedUrl, 'hero')}
             altText={`${altText} - image ${displayIndex + 1}`}
             imageClassName="w-full h-full object-contain"
             containerClassName="w-full h-full"
@@ -171,11 +172,12 @@ export default function ImageGalleryManage({
                   }`}
                 >
                   <ImageWithPlaceholder
-                    srcUrl={url}
+                    srcUrl={buildExternalImageUrl(url, 'thumbnail')}
                     altText={`${altText} - image ${idx + 1}`}
                     imageClassName="w-full h-full object-cover"
                     containerClassName="w-full h-full"
                     fallbackText="Failed to load"
+                    loading="lazy"
                   />
                   {/* Overlay: click on empty area selects image; buttons use stopPropagation */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
@@ -254,11 +256,12 @@ export default function ImageGalleryManage({
               }
             >
               <ImageWithPlaceholder
-                srcUrl={url}
+                srcUrl={buildExternalImageUrl(url, 'carouselTile')}
                 altText={`${altText} - image ${imageIndex + 1}`}
                 imageClassName="w-full h-full object-cover"
                 containerClassName="w-full h-full"
                 fallbackText="Failed to load"
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
                 {isPrimary ? (

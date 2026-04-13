@@ -105,6 +105,20 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
             logger.info(f"Retrieved {len(entities)} {self.entity_name} entities")
         return entities
 
+    def get_by_ids(
+        self,
+        db: Session,
+        ids: List[int],
+        logger: Optional[logging.Logger] = None,
+    ) -> List[DBCar]:
+        """Return cars whose IDs are in the provided list."""
+        if not ids:
+            return []
+        cars = _car_query_with_make_model(db).filter(DBCar.id.in_(ids)).all()
+        if logger:
+            logger.info(f"Retrieved {len(cars)} cars by ID batch")
+        return cars
+
     def get_cars_by_make_model(
         self,
         db: Session,

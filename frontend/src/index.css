@@ -275,10 +275,16 @@ body {
   -webkit-backdrop-filter: blur(25px);
   border: 1px solid var(--glass-border);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glass-card:hover {
+.glass-card.card-interactive {
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card.card-interactive:hover {
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.15) 0%,
@@ -439,7 +445,6 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 28px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -458,14 +463,24 @@ body {
     transparent
   );
   opacity: 0;
+}
+
+.card-interactive {
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-interactive::before {
   transition: opacity 0.3s ease;
 }
 
-.card:hover::before {
+.card-interactive:hover::before {
   opacity: 1;
 }
 
-.card:hover {
+.card-interactive:hover {
   transform: translateY(-6px);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
   border-color: rgba(255, 255, 255, 0.25);
@@ -491,7 +506,6 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: visible;
   width: 100%;
@@ -513,17 +527,9 @@ body {
     transparent
   );
   opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.card-table-container:hover::before {
-  opacity: 1;
 }
 
 .card-table-container:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.25);
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.15) 0%,

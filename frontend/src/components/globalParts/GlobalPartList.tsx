@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { globalPartVotesApi, globalPartsApi } from '../../services/Api';
+import {
+  carsApi,
+  globalPartVotesApi,
+  globalPartsApi,
+} from '../../services/Api';
 import type {
   BrandResponse,
   CarRead,
@@ -11,6 +15,7 @@ import type {
 } from '../../types/Api';
 
 import { CACHE_DURATION_MS } from '../../constants';
+import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -27,6 +32,9 @@ interface CachedData {
   timestamp: number;
 }
 const globalPartsCache = new Map<string, CachedData>();
+
+// Persistent car lookup cache — populated on-demand, survives page navigations
+const carByIdCache: Record<number, CarRead> = {};
 
 const COLUMN_WIDTH_STORAGE_KEY = 'globalPartsTableColumnWidths';
 
@@ -503,6 +511,41 @@ function GlobalPartList({
       return cached?.pagination ?? null;
     });
 
+  // On-demand car lookup: fetch only the car IDs that appear in the current page
+  const [localCarsById, setLocalCarsById] = useState<Record<number, CarRead>>(
+    () => ({ ...carByIdCache })
+  );
+
+  useEffect(() => {
+    const needed = [
+      ...new Set(displayData.flatMap((p) => p.car_ids ?? [])),
+    ].filter((id) => !(id in carByIdCache));
+    if (!needed.length) return;
+
+    carsApi
+      .getCarsByIds(needed)
+      .then((res) => {
+        const incoming: Record<number, CarRead> = {};
+        for (const car of res.data ?? []) {
+          if (car.id != null) {
+            carByIdCache[car.id] = car;
+            incoming[car.id] = car;
+          }
+        }
+        if (Object.keys(incoming).length > 0) {
+          setLocalCarsById((prev) => ({ ...prev, ...incoming }));
+        }
+      })
+      .catch(() => {});
+  }, [displayData]);
+
+  // Merge prop-supplied map (for callers that manage their own lookup) with
+  // the internally-fetched map; prop values take precedence.
+  const effectiveCarsById = useMemo(
+    () => ({ ...localCarsById, ...carsById }),
+    [localCarsById, carsById]
+  );
+
   // Only fetch if data is not provided; run when fetchRequestKey changes (not on every params reference change)
   useEffect(() => {
     if (!providedData) {
@@ -590,14 +633,14 @@ function GlobalPartList({
       if (n === 0) return { label: '—', title: undefined };
       if (n === 1) {
         const firstId = ids[0];
-        const car = firstId != null ? carsById[firstId] : undefined;
+        const car = firstId != null ? effectiveCarsById[firstId] : undefined;
         return {
           label: car ? formatCarName(car) : '1 vehicle',
           title: undefined,
         };
       }
       const names = ids
-        .map((id) => carsById[id])
+        .map((id) => effectiveCarsById[id])
         .filter((c): c is CarRead => c != null)
         .map(formatCarName);
       return {
@@ -605,7 +648,7 @@ function GlobalPartList({
         title: names.length > 0 ? names.join('\n') : undefined,
       };
     },
-    [carsById, formatCarName]
+    [effectiveCarsById, formatCarName]
   );
 
   const getNetVotes = (part: GlobalPartReadWithVotes) =>
@@ -819,7 +862,10 @@ function GlobalPartList({
                       >
                         <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
                           <ImageWithPlaceholder
-                            srcUrl={globalPart.image_url ?? null}
+                            srcUrl={buildExternalImageUrl(
+                              globalPart.image_url,
+                              'thumbnail'
+                            )}
                             altText={globalPart.name}
                             imageClassName="w-full h-full object-cover"
                             containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
@@ -980,7 +1026,10 @@ function GlobalPartList({
                 >
                   <div className="w-20 h-20">
                     <ImageWithPlaceholder
-                      srcUrl={globalPart.image_url ?? null}
+                      srcUrl={buildExternalImageUrl(
+                        globalPart.image_url,
+                        'thumbnail'
+                      )}
                       altText={globalPart.name}
                       imageClassName="w-full h-full object-cover rounded"
                       containerClassName="w-full h-full flex justify-center items-center"

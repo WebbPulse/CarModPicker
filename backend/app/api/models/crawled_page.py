@@ -30,6 +30,7 @@ class CrawledPage(Base):
     source: Mapped[str] = mapped_column(nullable=False)
     html_s3_key: Mapped[Optional[str]] = mapped_column(nullable=True)
     html_local_path: Mapped[Optional[str]] = mapped_column(nullable=True)
+    html_sha256: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
     crawled_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), nullable=False)
     last_parsed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     parse_status: Mapped[str] = mapped_column(default="pending", nullable=False)

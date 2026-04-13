@@ -12,22 +12,124 @@ POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML, parse, and ingest 
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.core.category_inference import infer_category
+from app.core.config import settings
 from app.crawlers.adapters import adapter_name_for_product_url, get_adapter
-from app.crawlers.base import save_crawl_page_html
+from app.crawlers.base import canonicalize_url, crawl_html_fingerprint, save_crawl_page_html
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_CRAWL_UPLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
+    413: {
+        "description": "HTML payload exceeds the configured maximum UTF-8 byte size.",
+        "content": {"application/json": {"schema": {"type": "object", "properties": {"detail": {"type": "string"}}}}},
+    }
+}
+
+
+def _split_storage_key(storage_key: str) -> tuple[Optional[str], Optional[str]]:
+    if storage_key.startswith("/"):
+        return None, storage_key
+    return storage_key, None
+
+
+def _enforce_max_crawl_html_size(
+    html_size_bytes: int,
+    *,
+    user_id: int,
+    url: str,
+    content_length: Optional[str],
+) -> None:
+    max_b = settings.CRAWLED_PAGE_MAX_HTML_BYTES
+    if html_size_bytes <= max_b:
+        return
+    logger.warning(
+        "Crawled page HTML rejected over max size user_id=%s url=%s html_bytes=%s max_bytes=%s content_length=%s",
+        user_id,
+        url,
+        html_size_bytes,
+        max_b,
+        content_length,
+    )
+    raise HTTPException(
+        status_code=413,
+        detail=(
+            f"HTML payload exceeds maximum size ({max_b} UTF-8 bytes); "
+            f"submitted html is {html_size_bytes} bytes. "
+            "Increase CRAWLED_PAGE_MAX_HTML_BYTES if this limit is too strict."
+        ),
+    )
+
+
+def _persist_extension_crawl_archive(
+    db: Session,
+    *,
+    url: str,
+    html: str,
+    html_utf8: bytes,
+    html_sha256: str,
+    now: datetime,
+) -> Tuple[Optional[str], bool, bool]:
+    """
+    Save extension HTML and upsert ``crawled_pages`` for ``url``.
+
+    Returns ``(storage_key, archived, skipped_duplicate_write)``.
+    When ``archived`` is False, no DB upsert is performed and ``skipped_duplicate_write`` is False.
+    """
+    existing = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+    skipped = bool(
+        existing and existing.html_sha256 == html_sha256 and (existing.html_s3_key or existing.html_local_path)
+    )
+    if skipped:
+        assert existing is not None
+        storage_key = existing.html_s3_key or existing.html_local_path
+        assert storage_key is not None
+    else:
+        storage_key = save_crawl_page_html(
+            "chrome_extension", url, html, "", html_utf8=html_utf8, logger_instance=logger
+        )
+
+    if storage_key is None:
+        return None, False, False
+
+    html_s3_key, html_local_path = _split_storage_key(storage_key)
+    insert_vals: dict = {
+        "url": url,
+        "source": "chrome_extension",
+        "crawled_at": now,
+        "parse_status": "pending",
+        "html_s3_key": html_s3_key,
+        "html_local_path": html_local_path,
+        "html_sha256": html_sha256,
+    }
+    if skipped:
+        update_vals: dict = {"crawled_at": now, "html_sha256": html_sha256}
+    else:
+        update_vals = {
+            "crawled_at": now,
+            "html_sha256": html_sha256,
+            "html_s3_key": html_s3_key,
+            "html_local_path": html_local_path,
+        }
+
+    stmt = (
+        pg_insert(DBCrawledPage).values(**insert_vals).on_conflict_do_update(index_elements=["url"], set_=update_vals)
+    )
+    db.execute(stmt)
+    db.commit()
+    return storage_key, True, skipped
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +149,9 @@ class HtmlUploadResponse(BaseModel):
     url: str
     html_s3_key: Optional[str]
     html_local_path: Optional[str]
+    html_size_bytes: int
+    html_sha256: str
+    archive_skipped_duplicate: bool = False
 
 
 class ScrapeRequest(BaseModel):
@@ -67,6 +172,10 @@ class ScrapeResponse(BaseModel):
     part_number: Optional[str] = None
     adapter_used: str  # e.g. "a90shop", "studiorsr", "generic"
     inferred_category: Optional[str] = None  # category name slug, e.g. "exhaust", "suspension"
+    archived: bool = True  # False when S3/local write failed; extension may warn the user
+    html_size_bytes: int = 0
+    html_sha256: str = ""
+    archive_skipped_duplicate: bool = False
 
 
 class CrawledPageRead(BaseModel):
@@ -81,6 +190,7 @@ class CrawledPageRead(BaseModel):
     last_parsed_at: Optional[datetime]
     parse_status: str
     global_part_id: Optional[int]
+    html_sha256: Optional[str] = None
 
 
 class ReparseResponse(BaseModel):
@@ -95,8 +205,14 @@ class ReparseResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/scrape", response_model=ScrapeResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/scrape",
+    response_model=ScrapeResponse,
+    status_code=status.HTTP_200_OK,
+    responses=_CRAWL_UPLOAD_RESPONSES,
+)
 async def scrape_page_from_extension(
+    request: Request,
     body: ScrapeRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -108,30 +224,32 @@ async def scrape_page_from_extension(
     falls back to the generic parser for all other sites. Returns best-guess part
     attributes for the user to review before submitting.
     """
-    url = body.url.strip()
-    if not url:
+    raw_url = body.url.strip()
+    if not raw_url:
         raise HTTPException(status_code=400, detail="url is required")
     if not body.html:
         raise HTTPException(status_code=400, detail="html is required")
 
-    # Archive HTML (upsert CrawledPage row)
-    storage_key = save_crawl_page_html("chrome_extension", url, body.html, "")
+    url = canonicalize_url(raw_url)
     now = datetime.now(timezone.utc)
-    page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
-    if page is None:
-        page = DBCrawledPage(
-            url=url,
-            source="chrome_extension",
-            crawled_at=now,
-            parse_status="pending",
-        )
-        db.add(page)
-    if storage_key:
-        if storage_key.startswith("/"):
-            page.html_local_path = storage_key
-        else:
-            page.html_s3_key = storage_key
-    db.commit()
+    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(body.html)
+    _enforce_max_crawl_html_size(
+        html_size_bytes,
+        user_id=current_user.id,
+        url=url,
+        content_length=request.headers.get("content-length"),
+    )
+
+    _, archived, skipped_dup = _persist_extension_crawl_archive(
+        db,
+        url=url,
+        html=body.html,
+        html_utf8=html_utf8,
+        html_sha256=html_sha256,
+        now=now,
+    )
+    if not archived:
+        logger.warning("save_crawl_page_html returned None for %s; skipping DB upsert to avoid phantom row", url)
 
     # Select adapter by URL host, falling back to generic
     adapter_name = adapter_name_for_product_url(url)
@@ -146,7 +264,14 @@ async def scrape_page_from_extension(
     if payload is None:
         # Parser returned nothing useful — return empty fields so the user can fill manually
         logger.info("Adapter %s returned None for %s, returning empty ScrapeResponse", adapter_name, url)
-        return ScrapeResponse(product_url=url, adapter_used=adapter_name)
+        return ScrapeResponse(
+            product_url=url,
+            adapter_used=adapter_name,
+            archived=archived,
+            html_size_bytes=html_size_bytes,
+            html_sha256=html_sha256,
+            archive_skipped_duplicate=skipped_dup,
+        )
 
     inferred = infer_category(payload.name, payload.description)
 
@@ -161,6 +286,10 @@ async def scrape_page_from_extension(
         part_number=payload.part_number,
         adapter_used=adapter_name,
         inferred_category=inferred,
+        archived=archived,
+        html_size_bytes=html_size_bytes,
+        html_sha256=html_sha256,
+        archive_skipped_duplicate=skipped_dup,
     )
 
 
@@ -169,40 +298,76 @@ async def scrape_page_from_extension(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/html", response_model=HtmlUploadResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/html",
+    response_model=HtmlUploadResponse,
+    status_code=status.HTTP_200_OK,
+    responses=_CRAWL_UPLOAD_RESPONSES,
+)
 async def upload_html_from_extension(
+    request: Request,
     body: HtmlUploadRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> DBCrawledPage:
+) -> HtmlUploadResponse:
     """
     Accept full page HTML from the Chrome extension and archive it to CRAWL_BUCKET.
     Creates or updates a CrawledPage record for the URL so it can be re-parsed later.
     """
-    url = body.url.strip()
-    if not url:
+    raw_url = body.url.strip()
+    if not raw_url:
         raise HTTPException(status_code=400, detail="url is required")
+    if not body.html:
+        raise HTTPException(status_code=400, detail="html is required")
 
-    storage_key = save_crawl_page_html("chrome_extension", url, body.html, "")
+    url = canonicalize_url(raw_url)
+    now = datetime.now(timezone.utc)
+    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(body.html)
+    _enforce_max_crawl_html_size(
+        html_size_bytes,
+        user_id=current_user.id,
+        url=url,
+        content_length=request.headers.get("content-length"),
+    )
+
+    _, archived, skipped_dup = _persist_extension_crawl_archive(
+        db,
+        url=url,
+        html=body.html,
+        html_utf8=html_utf8,
+        html_sha256=html_sha256,
+        now=now,
+    )
+
+    if not archived:
+        logger.warning("save_crawl_page_html returned None for %s; skipping DB upsert to avoid phantom row", url)
+        page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+        if page is None:
+            raise HTTPException(
+                status_code=503,
+                detail="HTML could not be saved to storage; archive unavailable. Please try again.",
+            )
+        return HtmlUploadResponse(
+            id=page.id,
+            url=page.url,
+            html_s3_key=page.html_s3_key,
+            html_local_path=page.html_local_path,
+            html_size_bytes=html_size_bytes,
+            html_sha256=html_sha256,
+            archive_skipped_duplicate=False,
+        )
 
     page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
-    now = datetime.now(timezone.utc)
-    if page is None:
-        page = DBCrawledPage(
-            url=url,
-            source="chrome_extension",
-            crawled_at=now,
-            parse_status="pending",
-        )
-        db.add(page)
-    if storage_key:
-        if storage_key.startswith("/"):
-            page.html_local_path = storage_key
-        else:
-            page.html_s3_key = storage_key
-    db.commit()
-    db.refresh(page)
-    return page
+    assert page is not None
+    return HtmlUploadResponse(
+        id=page.id,
+        url=page.url,
+        html_s3_key=page.html_s3_key,
+        html_local_path=page.html_local_path,
+        html_size_bytes=html_size_bytes,
+        html_sha256=html_sha256,
+        archive_skipped_duplicate=skipped_dup,
+    )
 
 
 # ---------------------------------------------------------------------------

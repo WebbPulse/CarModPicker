@@ -18,7 +18,12 @@ from sqlalchemy.orm import Session
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.crawlers.adapters import ADAPTER_REGISTRY, adapter_name_for_product_url, get_adapter
-from app.crawlers.base import _get_crawl_s3_client, ingest_payload, save_crawl_page_html
+from app.crawlers.base import (
+    _get_crawl_s3_client,
+    crawl_html_fingerprint,
+    ingest_payload,
+    save_crawl_page_html,
+)
 
 RescrapeOutcome = Literal[
     "parsed_ok",
@@ -80,6 +85,8 @@ def rescrape_crawled_page_from_archive(
     if not html:
         return "skipped_no_html", None, None
 
+    html_utf8, _, html_sha = crawl_html_fingerprint(html)
+
     adapter = get_adapter(adapter_key)
     payload = adapter.parse_product_page(html, page.url)
     now = datetime.now(timezone.utc)
@@ -110,20 +117,27 @@ def rescrape_crawled_page_from_archive(
 
     db.refresh(page)
 
-    storage_key = save_crawl_page_html(
-        adapter_key,
-        page.url,
-        html,
-        "",
-        logger_instance=log,
-    )
-    if storage_key:
-        if storage_key.startswith("/"):
-            page.html_local_path = storage_key
-            page.html_s3_key = None
-        else:
-            page.html_s3_key = storage_key
-            page.html_local_path = None
+    # Only re-save HTML when the page was loaded from local disk (migrate to S3) or has no key at
+    # all. Skip the put_object round-trip when the HTML was just fetched from html_s3_key — it is
+    # already there and writing the same bytes back wastes S3 PUT quota.
+    if not page.html_s3_key:
+        storage_key = save_crawl_page_html(
+            adapter_key,
+            page.url,
+            html,
+            "",
+            html_utf8=html_utf8,
+            logger_instance=log,
+        )
+        if storage_key:
+            if storage_key.startswith("/"):
+                page.html_local_path = storage_key
+                page.html_s3_key = None
+            else:
+                page.html_s3_key = storage_key
+                page.html_local_path = None
+
+    page.html_sha256 = html_sha
     page.global_part_id = part.id
     page.parse_status = "parsed"
     page.last_parsed_at = now
