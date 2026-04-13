@@ -433,7 +433,7 @@ async def reparse_crawled_page(
     picks the adapter from the URL host (e.g. a90shop.com → a90shop).
     """
     from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive
-    from app.crawlers.runner import _resolve_crawler_user, _resolve_default_category_id
+    from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
 
     page = db.get(DBCrawledPage, page_id)
     if not page:
@@ -445,8 +445,8 @@ async def reparse_crawled_page(
             detail="HTML not found in storage for this page. It may not have been archived yet.",
         )
 
-    crawler_user = _resolve_crawler_user(db)
-    cat_id = _resolve_default_category_id(db)
+    crawler_user = resolve_crawler_user(db)
+    cat_id = resolve_default_category_id(db)
 
     outcome, part_id, err_detail = rescrape_crawled_page_from_archive(
         db,
