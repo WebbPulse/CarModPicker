@@ -48,6 +48,18 @@ resource "aws_sesv2_email_identity" "domain" {
 }
 
 # ---------------------------------------------------------------------------
+# Custom MAIL FROM domain
+# Sets the envelope sender to bounce.carmodpicker.com so SPF aligns with
+# carmodpicker.com under DMARC (fixes the "MAIL FROM not aligned" warning).
+# The matching MX + SPF records are in route53.tf.
+# ---------------------------------------------------------------------------
+resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
+  email_identity         = aws_sesv2_email_identity.domain.email_identity
+  mail_from_domain       = "bounce.carmodpicker.com"
+  behavior_on_mx_failure = "USE_DEFAULT_VALUE"
+}
+
+# ---------------------------------------------------------------------------
 # Account-level VDM attributes (engagement metrics + optimised delivery).
 # Import: terraform import aws_sesv2_account_vdm_attributes.main aws_sesv2_account_vdm_attributes
 # ---------------------------------------------------------------------------
