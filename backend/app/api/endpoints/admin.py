@@ -850,50 +850,103 @@ class RescrapeArchivesRequest(BaseModel):
     )
 
 
-def _rescrape_archives_background(
+def _launch_ecs_rescrape_task(
+    *,
+    job_id: int,
+    user_id: int,
+    default_category_id: int,
+) -> str:
+    """
+    Launch an ECS Fargate task to run the archive rescrape. Returns the ECS task ARN.
+
+    Reuses the same cluster and task definition as the crawler, overriding the
+    container command to point at the rescrape entry point.
+    Raises RuntimeError if ECS is not configured or RunTask fails.
+    """
+    if not settings.crawler_ecs_configured:
+        raise RuntimeError(
+            "ECS crawler not configured. Set CRAWLER_ECS_CLUSTER, CRAWLER_ECS_TASK_DEFINITION, "
+            "CRAWLER_ECS_SUBNETS, and CRAWLER_ECS_SECURITY_GROUP."
+        )
+
+    ecs_client = boto3.client("ecs", region_name=settings.AWS_REGION or None)
+
+    subnets = [s.strip() for s in settings.CRAWLER_ECS_SUBNETS.split(",") if s.strip()]
+    security_groups = [sg.strip() for sg in settings.CRAWLER_ECS_SECURITY_GROUP.split(",") if sg.strip()]
+
+    response = ecs_client.run_task(
+        cluster=settings.CRAWLER_ECS_CLUSTER,
+        taskDefinition=settings.CRAWLER_ECS_TASK_DEFINITION,
+        launchType="FARGATE",
+        networkConfiguration={
+            "awsvpcConfiguration": {
+                "subnets": subnets,
+                "securityGroups": security_groups,
+                "assignPublicIp": "ENABLED",
+            }
+        },
+        overrides={
+            "containerOverrides": [
+                {
+                    "name": "crawler",
+                    "command": ["python", "-m", "app.crawlers.ecs_rescrape_runner"],
+                    "environment": [
+                        {"name": "JOB_ID", "value": str(job_id)},
+                        {"name": "CRAWLER_USER_ID", "value": str(user_id)},
+                        {"name": "CRAWLER_DEFAULT_CATEGORY_ID", "value": str(default_category_id)},
+                    ],
+                }
+            ]
+        },
+    )
+
+    failures = response.get("failures", [])
+    if failures:
+        raise RuntimeError(f"ECS RunTask failures: {failures}")
+
+    tasks = response.get("tasks", [])
+    if not tasks:
+        raise RuntimeError("ECS RunTask returned no tasks and no failures.")
+
+    return tasks[0]["taskArn"]
+
+
+async def _run_rescrape_in_process(
     *,
     crawler_user_id: int,
     default_category_id: int,
-    triggered_by_user_id: Optional[int],
-    triggered_by: str,
     job_id: int,
     stop_event: threading.Event,
 ) -> None:
-    """Re-parse every archived page in a background thread; updates BackgroundJob on finish."""
-    db = SessionLocal()
-    try:
-        crawler_user = _resolve_crawler_user(db, crawler_user_id)
-        cat_id = _resolve_default_category_id(db, default_category_id)
-        counts = run_rescrape_all_archived_pages(
-            db,
-            crawler_user=crawler_user,
-            default_category_id=cat_id,
-            log=logger,
-            stop_event=stop_event,
-        )
-        logger.info(
-            "Archive rescrape job #%s completed (triggered_by=%s user=%s): %s",
-            job_id,
-            triggered_by,
-            triggered_by_user_id,
-            counts,
-        )
-        job_service.complete_job(db, job_id, result_summary=counts)
-    except Exception as e:
-        logger.exception(
-            "Archive rescrape job #%s failed (triggered_by=%s user=%s): %s",
-            job_id,
-            triggered_by,
-            triggered_by_user_id,
-            e,
-        )
-        job_service.fail_job(db, job_id, error_message=traceback.format_exc())
-    finally:
-        db.close()
-        _job_tasks.pop(job_id, None)
-        _job_stop_events.pop(job_id, None)
+    """
+    Dev-only fallback: run archive rescrape in a background thread.
+    Only used when ECS is not configured (i.e. local development).
+    """
 
-    _notify_job_completion(job_id)
+    def _blocking() -> None:
+        db = SessionLocal()
+        try:
+            crawler_user = _resolve_crawler_user(db, crawler_user_id)
+            cat_id = _resolve_default_category_id(db, default_category_id)
+            counts = run_rescrape_all_archived_pages(
+                db,
+                crawler_user=crawler_user,
+                default_category_id=cat_id,
+                log=logger,
+                stop_event=stop_event,
+            )
+            job_service.complete_job(db, job_id, result_summary=counts)
+            _notify_job_completion(job_id)
+        except Exception as e:
+            logger.exception("In-process archive rescrape job #%s failed: %s", job_id, e)
+            job_service.fail_job(db, job_id, error_message=traceback.format_exc())
+            _notify_job_completion(job_id)
+        finally:
+            db.close()
+            _job_tasks.pop(job_id, None)
+            _job_stop_events.pop(job_id, None)
+
+    await asyncio.to_thread(_blocking)
 
 
 @router.post(
@@ -973,22 +1026,47 @@ async def rescrape_all_archived_crawled_pages(
         created_by_user_id=acting_user_id,
     )
 
-    stop_event = threading.Event()
-    task = asyncio.create_task(
-        asyncio.to_thread(
-            _rescrape_archives_background,
-            crawler_user_id=crawler_user.id,
-            default_category_id=body.default_category_id,
-            triggered_by_user_id=acting_user_id,
-            triggered_by=triggered_by,
-            job_id=job.id,
-            stop_event=stop_event,
+    if settings.crawler_ecs_configured:
+        # Production path: launch a Fargate task that spins up, runs, and tears down.
+        try:
+            task_arn = _launch_ecs_rescrape_task(
+                job_id=job.id,
+                user_id=crawler_user.id,
+                default_category_id=body.default_category_id,
+            )
+            job.params = {**(job.params or {}), "ecs_task_arn": task_arn}
+            db.add(job)
+            db.commit()
+            logger.info("Archive rescrape job #%s launched ECS task: %s", job.id, task_arn)
+        except Exception as e:
+            logger.exception("Failed to launch ECS task for rescrape job #%s: %s", job.id, e)
+            job_service.fail_job(db, job.id, error_message=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to launch rescrape task: {e}",
+            )
+    elif not settings.is_production:
+        # Dev fallback: run in-process as a background asyncio task.
+        logger.info("Archive rescrape job #%s: ECS not configured, running in-process (dev mode).", job.id)
+        stop_event = threading.Event()
+        task = asyncio.create_task(
+            _run_rescrape_in_process(
+                crawler_user_id=crawler_user.id,
+                default_category_id=body.default_category_id,
+                job_id=job.id,
+                stop_event=stop_event,
+            )
         )
-    )
-    _job_tasks[job.id] = task
-    _job_stop_events[job.id] = stop_event
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+        _job_tasks[job.id] = task
+        _job_stop_events[job.id] = stop_event
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    else:
+        job_service.fail_job(db, job.id, error_message="ECS crawler not configured in production.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawler ECS task is not configured. Set CRAWLER_ECS_CLUSTER, CRAWLER_ECS_TASK_DEFINITION, CRAWLER_ECS_SUBNETS, and CRAWLER_ECS_SECURITY_GROUP.",
+        )
 
     return {
         "status": "started",
