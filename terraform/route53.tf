@@ -71,6 +71,23 @@ resource "aws_route53_record" "ses_dkim_3" {
   records = ["4manrayokzig5dbsj5j2yncnrveannx7.dkim.amazonses.com"]
 }
 
+# Custom MAIL FROM domain records (SPF alignment for DMARC)
+resource "aws_route53_record" "ses_mail_from_mx" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "bounce.carmodpicker.com"
+  type    = "MX"
+  ttl     = 300
+  records = ["10 feedback-smtp.us-west-2.amazonses.com"]
+}
+
+resource "aws_route53_record" "ses_mail_from_spf" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "bounce.carmodpicker.com"
+  type    = "TXT"
+  ttl     = 300
+  records = ["v=spf1 include:amazonses.com ~all"]
+}
+
 # DMARC policy record
 resource "aws_route53_record" "dmarc" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
