@@ -52,15 +52,15 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
     total: number;
   };
   type FailedAdapter = { adapter: string; error: string };
-  const totals = summary.summary as
+  const totals = summary['summary'] as
     | {
         total_ingested?: number;
         total_skipped?: number;
         total_errors?: number;
       }
     | undefined;
-  const results = (summary.results ?? []) as AdapterResult[];
-  const failed = (summary.failed ?? []) as FailedAdapter[];
+  const results = (summary['results'] ?? []) as AdapterResult[];
+  const failed = (summary['failed'] ?? []) as FailedAdapter[];
   return (
     <div className="space-y-2">
       {totals && (
@@ -160,27 +160,27 @@ function ArchiveRescrapeResult({
   const rows: { label: string; value: number; variant: string }[] = [
     {
       label: 'Parsed OK',
-      value: Number(summary.parsed_ok ?? 0),
+      value: Number(summary['parsed_ok'] ?? 0),
       variant: 'ok',
     },
     {
       label: 'Parse failed',
-      value: Number(summary.parse_failed ?? 0),
+      value: Number(summary['parse_failed'] ?? 0),
       variant: 'err',
     },
     {
       label: 'Ingest failed',
-      value: Number(summary.ingest_failed ?? 0),
+      value: Number(summary['ingest_failed'] ?? 0),
       variant: 'err',
     },
     {
       label: 'No adapter',
-      value: Number(summary.skipped_no_adapter ?? 0),
+      value: Number(summary['skipped_no_adapter'] ?? 0),
       variant: 'muted',
     },
     {
       label: 'No HTML',
-      value: Number(summary.skipped_no_html ?? 0),
+      value: Number(summary['skipped_no_html'] ?? 0),
       variant: 'muted',
     },
   ];
@@ -208,10 +208,10 @@ function JobParams({ job }: { job: BackgroundJob }) {
   const p = job.params;
   if (!p) return null;
   if (job.job_type === 'crawler_run') {
-    const adapters = (p.adapters as string[] | undefined) ?? [];
-    const limits = (p.limits as Record<string, number> | undefined) ?? {};
-    const globalLimit = p.global_limit as number | undefined;
-    const delaySec = p.delay_sec as number | undefined;
+    const adapters = (p['adapters'] as string[] | undefined) ?? [];
+    const limits = (p['limits'] as Record<string, number> | undefined) ?? {};
+    const globalLimit = p['global_limit'] as number | undefined;
+    const delaySec = p['delay_sec'] as number | undefined;
     return (
       <div className="space-y-1.5">
         <div className="flex flex-wrap gap-1">
@@ -254,7 +254,7 @@ function jobInlineSummary(job: BackgroundJob): string | null {
   const s = job.result_summary;
   if (!s) return null;
   if (job.job_type === 'crawler_run') {
-    const totals = s.summary as
+    const totals = s['summary'] as
       | { total_ingested?: number; total_errors?: number }
       | undefined;
     if (!totals) return null;
@@ -264,8 +264,9 @@ function jobInlineSummary(job: BackgroundJob): string | null {
     return parts.join(' · ');
   }
   if (job.job_type === 'archive_rescrape') {
-    const ok = Number(s.parsed_ok ?? 0);
-    const failed = Number(s.parse_failed ?? 0) + Number(s.ingest_failed ?? 0);
+    const ok = Number(s['parsed_ok'] ?? 0);
+    const failed =
+      Number(s['parse_failed'] ?? 0) + Number(s['ingest_failed'] ?? 0);
     const parts = [`${ok} parsed`];
     if (failed > 0) parts.push(`${failed} failed`);
     return parts.join(' · ');
