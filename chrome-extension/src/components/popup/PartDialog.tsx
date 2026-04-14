@@ -538,7 +538,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
               const apiUrl =
                 (settings["apiUrl"] as string) ||
                 "https://api.carmodpicker.com/api";
-              let frontendUrl = "https://carmodpicker.com";
+              let frontendUrl = "https://www.carmodpicker.com";
 
               if (
                 apiUrl.includes("localhost") ||
