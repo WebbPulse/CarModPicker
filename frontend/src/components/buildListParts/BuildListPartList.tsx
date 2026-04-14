@@ -12,6 +12,7 @@ import SecondaryButton from '../buttons/SecondaryButton';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 
 const DEFAULT_BRANDS: BrandResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<number, CarRead> = {};
@@ -278,7 +279,10 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                       >
                         <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
                           <ImageWithPlaceholder
-                            srcUrl={gp.image_url ?? null}
+                            srcUrl={buildExternalImageUrl(
+                              gp.image_url ?? gp.image_urls?.[0],
+                              'thumbnail'
+                            )}
                             altText={gp.name}
                             imageClassName="w-full h-full object-cover"
                             containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
