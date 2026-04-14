@@ -387,10 +387,11 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         # Check access if user is provided
         if current_user and not allow_public:
             if hasattr(entity, "user_id") and getattr(entity, "user_id", None) != current_user.id:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Not authorized to access this {self.entity_name}",
-                )
+                if not (current_user.is_admin or current_user.is_superuser):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Not authorized to access this {self.entity_name}",
+                    )
 
         if logger:
             logger.info(f"Retrieved {self.entity_name} {entity_id} with relations")
