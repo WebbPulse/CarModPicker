@@ -102,10 +102,11 @@ def verify_entity_access(
 
     if not allow_public and hasattr(entity, "user_id"):
         if getattr(entity, "user_id", None) != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Not authorized to access this {entity_name}",
-            )
+            if not (current_user.is_admin or current_user.is_superuser):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Not authorized to access this {entity_name}",
+                )
 
     return entity
 
