@@ -186,11 +186,27 @@ def _extract_a90_images(soup: BeautifulSoup, raw_html: str) -> List[str]:
     """
     Extract product gallery image URLs for A90 Shop (Wix). Only Wix product media;
     excludes tracking, placeholders, bucket URLs, logos, promo.
-    Restricts to HTML before "Related Products" so we don't include related-product images.
+    Restricts to HTML before "Related Products" or the comments section so we
+    don't include related-product images or comment user avatars.
     """
-    # Only collect from content before "Related Products" (main product area)
-    related_pos = raw_html.lower().find("related products")
-    main_html = raw_html[:related_pos] if related_pos >= 0 else raw_html
+    # Cut at the earliest of: "Related Products", Wix comments widget, or comment prompts.
+    # Comment section profile pictures are also Wix media URLs and would otherwise be included.
+    _SECTION_CUTOFFS = [
+        "related products",
+        "wix-comments",
+        'data-hook="comments',
+        "add a comment",
+        "leave a comment",
+        "be the first to comment",
+        "comments section",
+    ]
+    raw_lower = raw_html.lower()
+    cut_pos = len(raw_html)
+    for marker in _SECTION_CUTOFFS:
+        pos = raw_lower.find(marker)
+        if pos >= 0:
+            cut_pos = min(cut_pos, pos)
+    main_html = raw_html[:cut_pos]
 
     seen_bases: set[str] = set()
     ordered: List[str] = []
@@ -223,7 +239,7 @@ def _extract_a90_images(soup: BeautifulSoup, raw_html: str) -> List[str]:
         if content and content.strip():
             add_url(content.strip())
 
-    # 2. img src / data-src: only add if this URL appears in main_html (before Related Products)
+    # 2. img src / data-src: only add if this URL appears in main_html (before Related Products or comments)
     for img in soup.find_all("img"):
         if not isinstance(img, Tag):
             continue

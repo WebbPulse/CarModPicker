@@ -32,7 +32,17 @@ def get_or_create_retailer(
     """Get existing retailer by domain (if provided) or name; otherwise create."""
     if domain:
         domain_normalized = domain.strip().lower()
-        retailer = db.query(DBRetailer).filter(DBRetailer.domain == domain_normalized).first()
+        # Match both www. and non-www. variants so e.g. "a90shop.com" and
+        # "www.a90shop.com" resolve to the same retailer row.
+        if domain_normalized.startswith("www."):
+            domain_alt = domain_normalized[4:]
+        else:
+            domain_alt = "www." + domain_normalized
+        retailer = (
+            db.query(DBRetailer)
+            .filter(or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt))
+            .first()
+        )
         if retailer:
             return retailer
     retailer = db.query(DBRetailer).filter(DBRetailer.name == name.strip()).first()
@@ -182,6 +192,20 @@ def create_or_update_listing_and_price(
         )
         .first()
     )
+    if not listing and product_url:
+        # Fall back to URL-based dedup: if this part already has a listing at the
+        # same product_url (possibly under a different retailer due to www./non-www.
+        # retailer fragmentation), update that listing instead of creating a duplicate.
+        normalized_url = _normalize_url(product_url)
+        if normalized_url:
+            listing = (
+                db.query(DBPartListing)
+                .filter(
+                    DBPartListing.global_part_id == global_part_id,
+                    DBPartListing.product_url == normalized_url,
+                )
+                .first()
+            )
     if not listing:
         listing = DBPartListing(
             global_part_id=global_part_id,
