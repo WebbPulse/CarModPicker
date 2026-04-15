@@ -51,31 +51,41 @@ resource "aws_cloudwatch_log_group" "rds_upgrade" {
 # CloudWatch Alarms — 6 alarms (free tier: 10 standard-resolution alarms)
 # ---------------------------------------------------------------------------
 
-# App Runner: fire if healthy instances drop below 1 for 2 consecutive minutes.
-# treat_missing_data = "breaching" so a complete metrics blackout is also an alarm.
+# App Runner: fire if active instances drop to zero while traffic is flowing.
+# ActiveInstances is the correct App Runner metric (HealthyInstanceCount does not exist
+# in AWS/AppRunner). treat_missing_data = "notBreaching" because no datapoints simply
+# means no traffic is being served, which is normal for a low-traffic service.
+# Both ServiceName and ServiceID dimensions are required for App Runner metrics.
 resource "aws_cloudwatch_metric_alarm" "apprunner_healthy_instances" {
   alarm_name          = "${local.prefix}-apprunner-healthy-instances"
-  alarm_description   = "App Runner has no healthy instances"
+  alarm_description   = "App Runner active instance count dropped to zero while traffic is flowing"
   namespace           = "AWS/AppRunner"
-  metric_name         = "HealthyInstanceCount"
-  dimensions          = { ServiceName = "${local.prefix}-backend" }
+  metric_name         = "ActiveInstances"
+  dimensions = {
+    ServiceName = "${local.prefix}-backend"
+    ServiceID   = aws_apprunner_service.backend.service_id
+  }
   statistic           = "Minimum"
   period              = 60
   evaluation_periods  = 2
   threshold           = 1
   comparison_operator = "LessThanThreshold"
-  treat_missing_data  = "breaching"
+  treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
 }
 
 # App Runner: more than 10 HTTP 5xx responses in a 5-minute window.
+# 5xxStatusResponses is the correct App Runner metric name (Http5xxCount does not exist).
 resource "aws_cloudwatch_metric_alarm" "apprunner_5xx" {
   alarm_name          = "${local.prefix}-apprunner-5xx"
   alarm_description   = "Elevated App Runner 5xx error rate"
   namespace           = "AWS/AppRunner"
-  metric_name         = "Http5xxCount"
-  dimensions          = { ServiceName = "${local.prefix}-backend" }
+  metric_name         = "5xxStatusResponses"
+  dimensions = {
+    ServiceName = "${local.prefix}-backend"
+    ServiceID   = aws_apprunner_service.backend.service_id
+  }
   statistic           = "Sum"
   period              = 300
   evaluation_periods  = 1
