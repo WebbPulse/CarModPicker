@@ -48,32 +48,8 @@ resource "aws_cloudwatch_log_group" "rds_upgrade" {
 }
 
 # ---------------------------------------------------------------------------
-# CloudWatch Alarms — 6 alarms (free tier: 10 standard-resolution alarms)
+# CloudWatch Alarms — 5 alarms (free tier: 10 standard-resolution alarms)
 # ---------------------------------------------------------------------------
-
-# App Runner: fire if active instances drop to zero while traffic is flowing.
-# ActiveInstances is the correct App Runner metric (HealthyInstanceCount does not exist
-# in AWS/AppRunner). treat_missing_data = "notBreaching" because no datapoints simply
-# means no traffic is being served, which is normal for a low-traffic service.
-# Both ServiceName and ServiceID dimensions are required for App Runner metrics.
-resource "aws_cloudwatch_metric_alarm" "apprunner_healthy_instances" {
-  alarm_name          = "${local.prefix}-apprunner-healthy-instances"
-  alarm_description   = "App Runner active instance count dropped to zero while traffic is flowing"
-  namespace           = "AWS/AppRunner"
-  metric_name         = "ActiveInstances"
-  dimensions = {
-    ServiceName = "${local.prefix}-backend"
-    ServiceID   = aws_apprunner_service.backend.service_id
-  }
-  statistic           = "Minimum"
-  period              = 60
-  evaluation_periods  = 2
-  threshold           = 1
-  comparison_operator = "LessThanThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.alarms.arn]
-  ok_actions          = [aws_sns_topic.alarms.arn]
-}
 
 # App Runner: more than 10 HTTP 5xx responses in a 5-minute window.
 # 5xxStatusResponses is the correct App Runner metric name (Http5xxCount does not exist).
