@@ -37,13 +37,13 @@ resource "aws_route53_record" "api" {
   records = [aws_apprunner_service.backend.service_url]
 }
 
-# MX record for Google Workspace email
-resource "aws_route53_record" "mx" {
+# SPF record for SES sending from @carmodpicker.com
+resource "aws_route53_record" "spf" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
   name    = "carmodpicker.com"
-  type    = "MX"
-  ttl     = 60
-  records = ["1 SMTP.GOOGLE.COM."]
+  type    = "TXT"
+  ttl     = 300
+  records = ["v=spf1 include:amazonses.com ~all"]
 }
 
 # SES DKIM verification records
