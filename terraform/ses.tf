@@ -60,6 +60,61 @@ resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
 }
 
 # ---------------------------------------------------------------------------
+# Feedback forwarding — disabled; SNS event destination handles this instead.
+# ---------------------------------------------------------------------------
+resource "aws_sesv2_email_identity_feedback_attributes" "domain" {
+  email_identity           = aws_sesv2_email_identity.domain.email_identity
+  email_forwarding_enabled = false
+}
+
+# ---------------------------------------------------------------------------
+# SNS topic for SES bounce/complaint/delay notifications → tyler@webbpulse.com
+# After apply, AWS will send a subscription confirmation email to that address.
+# The event destination will not deliver until the subscription is confirmed.
+# ---------------------------------------------------------------------------
+resource "aws_sns_topic" "ses_notifications" {
+  name = "${local.prefix}-ses-notifications"
+  tags = { Name = "${local.prefix}-ses-notifications" }
+}
+
+resource "aws_sns_topic_policy" "ses_notifications" {
+  arn = aws_sns_topic.ses_notifications.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowSESPublish"
+      Effect    = "Allow"
+      Principal = { Service = "ses.amazonaws.com" }
+      Action    = "SNS:Publish"
+      Resource  = aws_sns_topic.ses_notifications.arn
+      Condition = {
+        StringEquals = { "AWS:SourceAccount" = data.aws_caller_identity.current.account_id }
+      }
+    }]
+  })
+}
+
+resource "aws_sns_topic_subscription" "ses_email" {
+  topic_arn = aws_sns_topic.ses_notifications.arn
+  protocol  = "email"
+  endpoint  = "tyler@webbpulse.com"
+}
+
+resource "aws_sesv2_configuration_set_event_destination" "sns" {
+  configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
+  event_destination_name = "sns-notifications"
+
+  event_destination {
+    enabled              = true
+    matching_event_types = ["BOUNCE", "COMPLAINT", "DELIVERY_DELAY"]
+
+    sns_destination {
+      topic_arn = aws_sns_topic.ses_notifications.arn
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Account-level VDM attributes (engagement metrics + optimised delivery).
 # Import: terraform import aws_sesv2_account_vdm_attributes.main aws_sesv2_account_vdm_attributes
 # ---------------------------------------------------------------------------
