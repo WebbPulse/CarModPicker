@@ -822,7 +822,7 @@ class TestBuildLogs:
         build_list_id = response.json()["id"]
 
         # Ensure test_user has no profile picture
-        test_user.image_url = None
+        test_user.image_urls = None
         db_session.add(test_user)
         db_session.commit()
 

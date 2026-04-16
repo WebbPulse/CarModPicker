@@ -380,7 +380,7 @@ def test_upload_profile_picture_success(client: TestClient, db_session: Session)
 
     if response.status_code == 200:
         data = response.json()
-        assert "image_url" in data or "file_key" in data
+        assert "image_urls" in data
 
 
 def test_upload_profile_picture_unauthorized(client: TestClient) -> None:
@@ -436,8 +436,8 @@ def test_delete_profile_picture_success(client: TestClient, db_session: Session)
 
         if response.status_code == 200:
             data = response.json()
-            # image_url should be None or not present
-            assert data.get("image_url") is None or "image_url" not in data
+            # image_urls should be None or not present after deletion
+            assert data.get("image_urls") is None or "image_urls" not in data
 
 
 def test_delete_profile_picture_not_found(client: TestClient, db_session: Session) -> None:
@@ -476,7 +476,7 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
     # Only continue if first upload succeeded
     if upload_response1.status_code == 200:
         data1 = upload_response1.json()
-        old_image_url = data1.get("image_url")
+        old_image_urls = data1.get("image_urls")
 
         # Upload second profile picture (should replace the first)
         img2 = Image.new("RGB", (100, 100), color="blue")
@@ -492,11 +492,11 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
 
         if upload_response2.status_code == 200:
             data2 = upload_response2.json()
-            new_image_url = data2.get("image_url")
-            # New image URL should be different from old one (if both exist)
+            new_image_urls = data2.get("image_urls")
+            # New image URLs should be different from old ones (if both exist)
             # Note: In test environment, storage service might not be configured,
             # so we just verify the endpoint doesn't crash
-            assert "image_url" in data2 or "file_key" in data2
+            assert "image_urls" in data2
 
 
 def test_delete_profile_picture_idempotency(client: TestClient, db_session: Session) -> None:
@@ -592,9 +592,9 @@ def test_upload_profile_picture_non_square(client: TestClient, db_session: Sessi
     assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
 
     if response.status_code == 200:
-        # Verify the image was processed (should have image_url or file_key)
+        # Verify the image was processed (should have image_urls)
         data = response.json()
-        assert "image_url" in data or "file_key" in data or hasattr(data, "image_url")
+        assert "image_urls" in data
 
 
 def test_upload_profile_picture_concurrent_requests(client: TestClient, db_session: Session) -> None:
@@ -654,7 +654,7 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
 
     # Get initial state
     user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
-    initial_image_url = user_before.image_url
+    initial_image_urls = user_before.image_urls
 
     # Create test image
     img = Image.new("RGB", (100, 100), color="red")
@@ -671,9 +671,9 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
         # Should fail with 500 error
         assert response.status_code == 500, f"Expected 500 on storage failure, got {response.status_code}"
 
-        # Verify DB was rolled back (image_url should not be updated)
+        # Verify DB was rolled back (image_urls should not be updated)
         db_session.refresh(user_before)
-        assert user_before.image_url == initial_image_url, "DB should be rolled back on storage failure"
+        assert user_before.image_urls == initial_image_urls, "DB should be rolled back on storage failure"
 
 
 def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Session) -> None:
@@ -697,9 +697,9 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
 
     # Only test deletion if upload succeeded
     if upload_response.status_code == 200:
-        # Get the file_key/image_url before deletion
+        # Get the file_key/image_urls before deletion
         user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
-        old_image_url = user_before.image_url
+        old_image_urls = user_before.image_urls
 
         # Mock storage service to fail during deletion
         with patch("app.api.endpoints.users.storage_service.delete_image", return_value=False):
@@ -712,5 +712,5 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
             # If it returns 500, verify DB was rolled back
             if response.status_code == 500:
                 db_session.refresh(user_before)
-                # DB should be rolled back (image_url should still be set)
-                assert user_before.image_url == old_image_url, "DB should be rolled back on storage deletion failure"
+                # DB should be rolled back (image_urls should still be set)
+                assert user_before.image_urls == old_image_urls, "DB should be rolled back on storage deletion failure"
