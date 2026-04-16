@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { useCookieConsent } from '../../hooks/useCookieConsent';
+
 /** Width of the sidebar ad in pixels. Standard skyscraper / banner sizes. */
 const AD_WIDTH = 160;
 const AD_HEIGHT = 600;
@@ -39,15 +41,17 @@ export default function AdBanner({ side, slotId }: AdBannerProps) {
     | string
     | undefined;
   const hasAdConfig = Boolean(clientId);
+  const { consent } = useCookieConsent();
+  const canServeAds = hasAdConfig && consent === 'accepted';
 
   useEffect(() => {
-    if (!hasAdConfig || !slotId || !insRef.current) return;
+    if (!canServeAds || !slotId || !insRef.current) return;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch {
       // AdSense may not be loaded yet or blocked
     }
-  }, [hasAdConfig, slotId]);
+  }, [canServeAds, slotId]);
 
   const MARGIN = 8;
   /** Extra space between the ad and the browser's left/right edge. */
@@ -80,7 +84,7 @@ export default function AdBanner({ side, slotId }: AdBannerProps) {
           marginRight: MARGIN,
         }}
       >
-        {hasAdConfig && slotId ? (
+        {canServeAds && slotId ? (
           <ins
             ref={insRef as React.RefObject<HTMLModElement>}
             className="adsbygoogle"
@@ -101,7 +105,13 @@ export default function AdBanner({ side, slotId }: AdBannerProps) {
           >
             <span className="block mt-20">Ad placeholder</span>
             <span className="block mt-2">
-              {clientId ? 'Set slot id' : 'Set VITE_ADSENSE_CLIENT_ID'}
+              {!hasAdConfig
+                ? 'Set VITE_ADSENSE_CLIENT_ID'
+                : !slotId
+                  ? 'Set slot id'
+                  : consent === 'rejected'
+                    ? 'Ads disabled'
+                    : 'Awaiting consent'}
             </span>
           </div>
         )}

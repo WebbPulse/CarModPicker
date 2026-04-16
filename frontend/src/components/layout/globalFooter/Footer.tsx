@@ -2,7 +2,11 @@ import { FaGithub, FaLinkedin, FaTwitter } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
 
+import { useCookieConsent } from '../../../hooks/useCookieConsent';
+
 function Footer() {
+  const { reset: resetCookieConsent } = useCookieConsent();
+
   return (
     <footer className="relative mt-auto w-full">
       {/* Background with gradient */}
@@ -59,6 +63,23 @@ function Footer() {
                   >
                     Privacy Policy
                   </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/terms-of-service"
+                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                  >
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={resetCookieConsent}
+                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm text-left"
+                  >
+                    Cookie preferences
+                  </button>
                 </li>
                 <li>
                   <Link

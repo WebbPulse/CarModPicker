@@ -207,6 +207,13 @@ function Register() {
           <p className="text-neutral-500 text-xs">
             By creating an account, you agree to our{' '}
             <Link
+              to="/terms-of-service"
+              className="text-neutral-400 hover:text-white transition-colors"
+            >
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link
               to="/privacy-policy"
               className="text-neutral-400 hover:text-white transition-colors"
             >
