@@ -30,7 +30,6 @@ class GlobalPart(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
-    image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Gallery images (file keys)
 
     # New fields for shared architecture

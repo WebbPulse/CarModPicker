@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -60,7 +60,7 @@ class CreateGlobalPartAndAddToBuildListRequest(BaseModel):
     # Global part fields
     name: str
     description: str | None = None
-    image_url: str | None = None
+    image_urls: List[str] | None = None
     product_url: str | None = None
     category_id: int
     car_ids: list[int] | None = None  # Car IDs this part fits; ignored when is_universal

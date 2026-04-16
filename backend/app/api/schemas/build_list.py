@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from app.api.utils.image_utils import get_presigned_url_from_file_key
+from app.api.schemas.global_part import _serialize_image_urls
 
 
 # Schema for request body when creating/updating a build list
@@ -11,7 +11,7 @@ class BuildListCreate(BaseModel):
     name: str = Field(..., min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
     car_id: int = Field(..., description="Car ID is required - build lists must be associated with a car")
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
 
 # Schema for request body when updating a build list (all fields optional)
@@ -19,7 +19,7 @@ class BuildListUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
     car_id: Optional[int] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
 
 # Schema for response body when reading a build list
@@ -29,16 +29,16 @@ class BuildListRead(BaseModel):
     description: Optional[str] = None
     car_id: Optional[int] = None
     user_id: int
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("image_url")
-    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
-        """Convert file key to presigned URL when serializing response."""
-        return get_presigned_url_from_file_key(value)
+    @field_serializer("image_urls")
+    def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
+        """Convert file keys to presigned URLs when serializing response."""
+        return _serialize_image_urls(value)
 
 
 # Schema for response body when reading a build list with vote summary

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -22,7 +22,7 @@ class BuildList(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(index=True, nullable=True)
-    image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Build list cover image(s)
     car_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cars.id"), nullable=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 

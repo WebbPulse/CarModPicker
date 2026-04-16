@@ -120,7 +120,7 @@ async def get_build_log_by_build_list(
         post_data.author_username = author.username if author else None
         # Convert file key to presigned URL for profile picture
         post_data.author_image_url = (
-            get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+            get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
         )
         posts_with_authors.append(post_data)
 
@@ -215,7 +215,7 @@ async def create_build_log_post(
     post_response.author_username = author.username if author else None
     # Convert file key to presigned URL for profile picture
     post_response.author_image_url = (
-        get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+        get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
     )
 
     logger.info(f"User {current_user.id} created post {post.id} in build log {build_log.id}")
@@ -283,7 +283,7 @@ async def update_build_log_post(
     post_response.author_username = author.username if author else None
     # Convert file key to presigned URL for profile picture
     post_response.author_image_url = (
-        get_presigned_url_from_file_key(author.image_url) if author and author.image_url else None
+        get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
     )
 
     logger.info(f"User {current_user.id} updated post {post.id}")

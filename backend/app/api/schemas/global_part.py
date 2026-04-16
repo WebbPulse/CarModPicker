@@ -21,14 +21,10 @@ def _serialize_image_urls(value: Optional[List[str]]) -> Optional[List[str]]:
 class GlobalPartCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    image_url: Optional[str] = Field(
-        None,
-        description="Primary image: file key (from images/upload) or external URL (e.g. scraped).",
-    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery: file keys (from images/upload) and/or external URLs (scraped); max 12.",
+        description="Images: file keys (from images/upload) and/or external URLs (scraped); max 12. First entry is the primary/display image.",
     )
     product_url: Optional[str] = Field(
         None, description="Product URL at retailer (used only with retailer_id for listing)"
@@ -67,14 +63,10 @@ class GlobalPartCreate(BaseModel):
 class GlobalPartUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    image_url: Optional[str] = Field(
-        None,
-        description="Primary image: file key or external URL.",
-    )
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
-        description="Gallery: file keys and/or external URLs; max 12.",
+        description="Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
     )
     category_id: Optional[int] = None
     car_ids: Optional[List[int]] = None  # Car IDs this part fits; ignored when is_universal
@@ -93,7 +85,6 @@ class GlobalPartRead(BaseModel):
     best_price_cents: Optional[int] = Field(
         None, description="Lowest current price from any retailer listing (computed when available)"
     )
-    image_url: Optional[str] = None
     image_urls: Optional[List[str]] = None
     category_id: int
     user_id: int  # Creator
@@ -110,11 +101,6 @@ class GlobalPartRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-    @field_serializer("image_url")
-    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
-        """Convert file key to presigned URL when serializing response."""
-        return get_presigned_url_from_file_key(value)
 
     @field_serializer("image_urls")
     def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:

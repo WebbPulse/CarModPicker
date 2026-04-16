@@ -369,7 +369,7 @@ async def create_global_part_and_add_to_build_list(
     global_part_dict: Dict[str, Any] = {
         "name": request.name,
         "description": request.description,
-        "image_url": request.image_url,
+        "image_urls": request.image_urls,
         "category_id": request.category_id,
         "is_universal": request.is_universal,
         "brand_id": request.brand_id,

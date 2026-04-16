@@ -194,7 +194,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
         # Store normalized GTIN (digits only) for dedup
         if data.gtin:
             entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
-        # Cap gallery size; do not set image_url from scraped gallery (leave null if no manual primary)
+        # Cap gallery size
         if entity_data.get("image_urls") is not None:
             entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
 
@@ -271,18 +271,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             udict["image_urls"] = udict["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
         if "gtin" in udict and udict["gtin"] is not None:
             udict["gtin"] = normalize_gtin(udict["gtin"])
-        if udict.get("image_url"):
-            new_primary = udict["image_url"]
-            current_urls: List[str]
-            if udict.get("image_urls") is not None:
-                current_urls = list(udict["image_urls"])
-            else:
-                current_urls = list(existing_part.image_urls or []) or (
-                    [existing_part.image_url] if existing_part.image_url else []
-                )
-            if new_primary not in current_urls:
-                merged = [new_primary] + [u for u in current_urls if u != new_primary]
-                udict["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
         if car_ids is not None:
             is_universal_after = udict.get("is_universal") if "is_universal" in udict else existing_part.is_universal
             if not is_universal_after and car_ids:
@@ -337,17 +325,6 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
             update_data["image_urls"] = update_data["image_urls"][:MAX_IMAGES_PER_GLOBAL_PART]
         if "gtin" in update_data and update_data["gtin"] is not None:
             update_data["gtin"] = normalize_gtin(update_data["gtin"])
-        # When primary image (image_url) is set (e.g. manual upload), ensure it appears in the carousel
-        if update_data.get("image_url"):
-            new_primary = update_data["image_url"]
-            current_urls: List[str]
-            if update_data.get("image_urls") is not None:
-                current_urls = list(update_data["image_urls"])
-            else:
-                current_urls = list(entity.image_urls or []) or ([entity.image_url] if entity.image_url else [])
-            if new_primary not in current_urls:
-                merged = [new_primary] + [u for u in current_urls if u != new_primary]
-                update_data["image_urls"] = merged[:MAX_IMAGES_PER_GLOBAL_PART]
         # Sync car associations when car_ids was provided
         if car_ids is not None:
             is_universal_after = (
@@ -1009,7 +986,7 @@ async def append_images_to_global_part(
     part = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
     require_global_part_edit_permission(current_user, part)
 
-    existing = list(part.image_urls or []) or ([part.image_url] if part.image_url else [])
+    existing = list(part.image_urls or [])
     if len(existing) >= MAX_IMAGES_PER_GLOBAL_PART:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1023,18 +1000,14 @@ async def append_images_to_global_part(
             seen.add(fk)
 
     part.image_urls = existing[:MAX_IMAGES_PER_GLOBAL_PART]
-    # Do not set primary image from appended (scraped) images; leave image_url as-is
     db.commit()
     db.refresh(part)
     return GlobalPartRead.model_validate(part)
 
 
 def _get_part_image_file_keys(part: DBGlobalPart) -> List[str]:
-    """Return ordered list of image file keys (gallery + primary if not in gallery)."""
-    urls = list(part.image_urls or [])
-    if not urls and part.image_url:
-        return [part.image_url]
-    return urls
+    """Return ordered list of image file keys. First entry is the primary/display image."""
+    return list(part.image_urls or [])
 
 
 @router.delete(
@@ -1073,8 +1046,6 @@ async def remove_image_from_global_part(
     new_keys = [fk for i, fk in enumerate(file_keys) if i != image_index]
 
     part.image_urls = new_keys if new_keys else None
-    if part.image_url == removed_key:
-        part.image_url = new_keys[0] if new_keys else None
 
     if removed_key and is_file_key(removed_key):
         try:
@@ -1123,7 +1094,6 @@ async def set_primary_image_for_global_part(
     primary_key = file_keys[data.index]
     new_order = [primary_key] + [fk for i, fk in enumerate(file_keys) if i != data.index]
     part.image_urls = new_order
-    part.image_url = primary_key
     db.commit()
     db.refresh(part)
     return GlobalPartRead.model_validate(part)

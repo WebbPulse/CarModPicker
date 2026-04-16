@@ -18,7 +18,7 @@ from app.core.car_generations_data import get_all_car_generations
 
 logger = logging.getLogger(__name__)
 
-# Fields from source data that are synced when updating an existing car (id, created_at, updated_at, image_url stay as-is)
+# Fields from source data that are synced when updating an existing car (id, created_at, updated_at, image_urls stay as-is)
 _CAR_SYNC_FIELDS = ("generation_name", "start_year", "end_year", "description")
 
 

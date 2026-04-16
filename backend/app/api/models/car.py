@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -31,7 +31,7 @@ class Car(Base):
     start_year: Mapped[int] = mapped_column(nullable=False)
     end_year: Mapped[Optional[int]] = mapped_column(nullable=True)  # None for current/ongoing generations
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
-    image_url: Mapped[Optional[str]] = mapped_column(nullable=True)
+    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Car image(s)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
