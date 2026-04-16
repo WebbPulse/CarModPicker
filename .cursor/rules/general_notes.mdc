@@ -1,6 +1,0 @@
----
-alwaysApply: true
----
-
-- when generating alembic migrations, always use the --autogenerate flag of the cli tool
-- never create alembic migrations manually, always use the cli tool, if you require the user to do something you cant do because of your sandbox, inform them.
