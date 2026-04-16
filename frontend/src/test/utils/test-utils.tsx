@@ -74,7 +74,7 @@ export const createMockUser = (overrides = {}) => ({
   email: 'test@example.com',
   disabled: false,
   email_verified: true,
-  image_url: 'https://example.com/user.jpg',
+  image_urls: ['https://example.com/user.jpg'],
   is_superuser: false,
   is_admin: false,
   ...overrides,
@@ -87,7 +87,7 @@ export const createMockCar = (overrides = {}) => ({
   year: 2020,
   trim: 'SE',
   vin: '1HGBH41JXMN109186',
-  image_url: 'https://example.com/car.jpg',
+  image_urls: ['https://example.com/car.jpg'],
   user_id: 1,
   ...overrides,
 });
@@ -97,7 +97,7 @@ export const createMockBuildList = (overrides = {}) => ({
   name: 'Test Build',
   description: 'Test build description',
   car_id: 1,
-  image_url: 'https://example.com/build.jpg',
+  image_urls: ['https://example.com/build.jpg'],
   ...overrides,
 });
 
@@ -106,7 +106,7 @@ export const createMockGlobalPart = (overrides = {}) => ({
   name: 'Test Part',
   description: 'Test part description',
   best_price_cents: 10000, // $100.00
-  image_url: 'https://example.com/part.jpg',
+  image_urls: ['https://example.com/part.jpg'],
   category_id: 1,
   user_id: 1,
   car_ids: [],

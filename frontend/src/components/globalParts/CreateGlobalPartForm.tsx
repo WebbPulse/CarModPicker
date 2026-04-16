@@ -322,7 +322,7 @@ function CreateGlobalPartForm({
     const globalPartData: GlobalPartCreate = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
-      image_url: imageFileKey || null,
+      image_urls: imageFileKey ? [imageFileKey] : null,
       product_url: formData.product_url.trim() || null,
       category_id: formData.category_id,
       is_universal: formData.is_universal,

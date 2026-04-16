@@ -863,8 +863,7 @@ function GlobalPartList({
                         <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
                           <ImageWithPlaceholder
                             srcUrl={buildExternalImageUrl(
-                              globalPart.image_url ??
-                                globalPart.image_urls?.[0],
+                              globalPart.image_urls?.[0],
                               'thumbnail'
                             )}
                             altText={globalPart.name}
@@ -1028,7 +1027,7 @@ function GlobalPartList({
                   <div className="w-20 h-20">
                     <ImageWithPlaceholder
                       srcUrl={buildExternalImageUrl(
-                        globalPart.image_url ?? globalPart.image_urls?.[0],
+                        globalPart.image_urls?.[0],
                         'thumbnail'
                       )}
                       altText={globalPart.name}

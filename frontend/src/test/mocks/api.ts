@@ -15,7 +15,7 @@ export const mockUser: UserRead = {
   email: 'test@example.com',
   disabled: false,
   email_verified: true,
-  image_url: 'https://example.com/user.jpg',
+  image_urls: ['https://example.com/user.jpg'],
   is_superuser: false,
   is_admin: false,
   subscription_tier: 'free',
@@ -32,7 +32,7 @@ export const mockCar: CarRead = {
   start_year: 2018,
   end_year: 2023,
   description: 'Test car description',
-  image_url: 'https://example.com/car.jpg',
+  image_urls: ['https://example.com/car.jpg'],
 };
 
 // Mock build list data
@@ -42,7 +42,7 @@ export const mockBuildList: BuildListRead = {
   description: 'Test build description',
   car_id: 1,
   user_id: 1,
-  image_url: 'https://example.com/build.jpg',
+  image_urls: ['https://example.com/build.jpg'],
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
@@ -53,7 +53,7 @@ export const mockGlobalPart: GlobalPartRead = {
   name: 'Test Part',
   description: 'Test part description',
   best_price_cents: 10000, // $100.00
-  image_url: 'https://example.com/part.jpg',
+  image_urls: ['https://example.com/part.jpg'],
   category_id: 1,
   user_id: 1,
   car_ids: [],

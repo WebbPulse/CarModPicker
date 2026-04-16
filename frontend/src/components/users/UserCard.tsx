@@ -12,9 +12,9 @@ const UserCard: React.FC<UserCardProps> = ({ user }) => {
     <Link to={`/user/${user.id}`} className="block hover:no-underline h-full">
       <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
         <div className="flex items-center gap-4">
-          {user.image_url ? (
+          {user.image_urls?.[0] ? (
             <img
-              src={user.image_url}
+              src={user.image_urls[0]}
               alt={user.username}
               className="w-16 h-16 rounded-full object-cover"
             />

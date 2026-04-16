@@ -52,7 +52,7 @@ function Profile() {
 
   useEffect(() => {
     if (user) {
-      // Note: user.image_url is now a presigned URL from the API
+      // Note: user.image_urls[0] is a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
       setSocialLinks({
@@ -94,9 +94,9 @@ function Profile() {
     const payload: UserUpdate = {};
     let hasChanges = false;
 
-    // Image URL - only include if changed
+    // Image - only include if changed
     if (imageChanged) {
-      payload.image_url = imageFileKey || null; // Set to null if removed
+      payload.image_urls = imageFileKey ? [imageFileKey] : null;
       hasChanges = true;
     }
 
@@ -194,9 +194,9 @@ function Profile() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
               <CardInfoItem label="Profile Picture">
-                {user.image_url ? (
+                {user.image_urls?.[0] ? (
                   <img
-                    src={user.image_url}
+                    src={user.image_urls[0]}
                     alt={`${user.username}'s profile`}
                     className="h-48 w-48 rounded-lg object-cover"
                   />
@@ -270,7 +270,7 @@ function Profile() {
               </CardInfoItem>
             </div>
             <ImageUpload
-              currentImageUrl={user.image_url ?? null}
+              currentImageUrl={user.image_urls?.[0] ?? null}
               entityType="user"
               entityId={user.id}
               onImageUploaded={(fileKey) => {

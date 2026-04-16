@@ -320,8 +320,7 @@ function ViewBuildList() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-gray-300 items-start">
           <div className="min-w-0">
             <ImageGallery
-              imageUrl={buildList.image_url ?? null}
-              imageUrls={null}
+              imageUrls={buildList.image_urls ?? null}
               altText={buildList.name}
               layout="hero"
               emptyMessage="No image available for this build list."

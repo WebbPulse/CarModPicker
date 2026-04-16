@@ -125,7 +125,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
       name: name.trim(),
       description: description.trim() || null,
       car_id: selectedGeneration.id,
-      image_url: imageFileKey || null,
+      image_urls: imageFileKey ? [imageFileKey] : null,
     };
 
     const result = await executeCreateBuildList(payload);

@@ -440,7 +440,7 @@ function CreateBuildListPartForm({
         const globalPartData: GlobalPartCreate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          image_url: imageFileKey || null,
+          image_urls: imageFileKey ? [imageFileKey] : null,
           product_url: formData.product_url.trim() || null,
           category_id: formData.category_id,
           is_universal: formData.is_universal,
@@ -854,7 +854,7 @@ function CreateBuildListPartForm({
                           <div className="flex-shrink-0">
                             <div className="w-32 h-32">
                               <ImageWithPlaceholder
-                                srcUrl={selectedPart.image_url ?? null}
+                                srcUrl={selectedPart.image_urls?.[0] ?? null}
                                 altText={selectedPart.name}
                                 imageClassName="w-full h-full object-cover rounded-lg"
                                 containerClassName="w-full h-full flex justify-center items-center bg-gray-700 rounded-lg"

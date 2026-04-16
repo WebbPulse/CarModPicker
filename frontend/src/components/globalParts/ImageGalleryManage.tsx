@@ -8,9 +8,7 @@ import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 const CAROUSEL_SIZE = 5;
 
 interface ImageGalleryManageProps {
-  /** Primary image URL (fallback when no gallery) */
-  imageUrl?: string | null;
-  /** Gallery image URLs (presigned from API) */
+  /** Image URLs (presigned from API). First entry is the primary/display image. */
   imageUrls?: string[] | null;
   altText: string;
   /** Global part ID (required for manage actions) */
@@ -26,7 +24,6 @@ interface ImageGalleryManageProps {
  * set primary image, remove image. Supports carousel (default) or hero layout.
  */
 export default function ImageGalleryManage({
-  imageUrl,
   imageUrls,
   altText,
   partId,
@@ -45,8 +42,7 @@ export default function ImageGalleryManage({
   );
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const allUrls =
-    imageUrls && imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
+  const allUrls = imageUrls && imageUrls.length > 0 ? imageUrls : [];
 
   const handleSetPrimary = async (index: number) => {
     if (index < 0 || index >= allUrls.length) return;

@@ -159,7 +159,7 @@ function AddToBuildListDialog({
           <div className="flex gap-4">
             <div className="flex-shrink-0">
               <ImageWithPlaceholder
-                srcUrl={globalPart.image_url ?? null}
+                srcUrl={globalPart.image_urls?.[0] ?? null}
                 altText={globalPart.name}
                 imageClassName="w-24 h-24 object-cover rounded-lg"
                 containerClassName="w-24 h-24 flex justify-center items-center"

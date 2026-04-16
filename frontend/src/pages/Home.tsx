@@ -246,7 +246,7 @@ export default function HomePage() {
                         <div className="flex gap-4">
                           <div className="flex-shrink-0">
                             <ImageWithPlaceholder
-                              srcUrl={part.image_url ?? null}
+                              srcUrl={part.image_urls?.[0] ?? null}
                               altText={part.name}
                               imageClassName="w-16 h-16 object-cover rounded-lg"
                               containerClassName="w-16 h-16"

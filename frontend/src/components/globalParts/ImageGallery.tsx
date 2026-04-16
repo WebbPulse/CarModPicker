@@ -5,9 +5,7 @@ import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 const CAROUSEL_SIZE = 5;
 
 interface ImageGalleryProps {
-  /** Primary image URL (fallback when no gallery) */
-  imageUrl?: string | null;
-  /** Gallery image URLs (presigned from API) */
+  /** Image URLs (presigned from API). First entry is the primary/display image. */
   imageUrls?: string[] | null;
   altText: string;
   /** When "hero", show large primary image with carousel of others beneath */
@@ -20,7 +18,6 @@ interface ImageGalleryProps {
  * Displays part images: carousel (default) or hero (large primary + carousel of others).
  */
 function ImageGallery({
-  imageUrl,
   imageUrls,
   altText,
   layout = 'carousel',
@@ -29,9 +26,7 @@ function ImageGallery({
   const [showAll, setShowAll] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Build display list: prefer image_urls, fallback to single image_url
-  const allUrls =
-    imageUrls && imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
+  const allUrls = imageUrls && imageUrls.length > 0 ? imageUrls : [];
 
   if (allUrls.length === 0) {
     return (

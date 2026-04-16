@@ -280,7 +280,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
                           <ImageWithPlaceholder
                             srcUrl={buildExternalImageUrl(
-                              gp.image_url ?? gp.image_urls?.[0],
+                              gp.image_urls?.[0],
                               'thumbnail'
                             )}
                             altText={gp.name}
