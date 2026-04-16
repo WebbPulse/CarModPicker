@@ -1,5 +1,0 @@
----
-alwaysApply: true
----
-
-- When running pytest within this project, use multithreaded tests always. use the -n auto flag to automatically determine the number of workers to use.
