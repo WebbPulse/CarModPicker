@@ -357,15 +357,8 @@ class ScrapedPayload:
     price_cents: Optional[int] = None
     brand: Optional[str] = None
     part_number: Optional[str] = None
-    image_url: Optional[str] = None
     image_urls: Optional[List[str]] = None
     gtin: Optional[str] = None
-
-    def __post_init__(self) -> None:
-        if self.image_urls is None and self.image_url:
-            self.image_urls = [self.image_url]
-        elif self.image_urls and not self.image_url:
-            self.image_url = self.image_urls[0]
 
 
 def _origin_from_url(url: str) -> str:
@@ -627,7 +620,6 @@ def ingest_payload(
     create_data = GlobalPartCreate(
         name=payload.name,
         description=payload.description,
-        image_url=payload.image_url,
         image_urls=payload.image_urls[:12] if payload.image_urls else None,
         product_url=payload.product_url,
         category_id=category_id,

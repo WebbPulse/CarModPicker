@@ -224,7 +224,6 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
                 # Supplement missing images and price from DOM
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 image_urls = payload.image_urls if payload.image_urls else (dom_images or None)
-                image_url = (image_urls[0] if image_urls else None) or payload.image_url
                 # Supplement missing brand from title heuristics
                 brand = payload.brand
                 if not brand:
@@ -244,7 +243,6 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
                     price_cents=price_cents,
                     brand=brand,
                     part_number=part_number,
-                    image_url=image_url,
                     image_urls=image_urls[:12] if image_urls else None,
                     gtin=payload.gtin,
                 )
@@ -298,7 +296,6 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
         if not brand:
             brand = brand_fallback_from_title(name)
 
-        image_url = dom_images[0] if dom_images else None
         image_urls: Optional[List[str]] = dom_images[:12] if dom_images else None
 
         return ScrapedPayload(
@@ -308,6 +305,5 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
             price_cents=price_cents,
             brand=brand,
             part_number=part_number,
-            image_url=image_url,
             image_urls=image_urls,
         )
