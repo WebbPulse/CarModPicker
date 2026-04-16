@@ -131,7 +131,7 @@ const BuildListsCatalog: React.FC = () => {
   } = useApiRequest(fetchCarsByMakeFn);
 
   const fetchCarByIdFn = useCallback(
-    (carId: number) => carsApi.getCar(carId),
+    (carId: string) => carsApi.getCar(carId),
     []
   );
   const { data: carFromUrl, executeRequest: fetchCarById } =
@@ -178,11 +178,8 @@ const BuildListsCatalog: React.FC = () => {
     }
     const carIdParam = searchParams.get('car_id');
     if (carIdParam) {
-      const id = Number.parseInt(carIdParam, 10);
-      if (!Number.isNaN(id)) {
-        void fetchCarById(id);
-        return;
-      }
+      void fetchCarById(carIdParam);
+      return;
     }
     // Leave isInitializingFromUrlRef true so reset-page effect skips; cleared in useEffect after tick
     setIsInitializedFromUrl(true);

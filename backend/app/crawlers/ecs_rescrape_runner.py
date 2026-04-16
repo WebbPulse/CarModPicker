@@ -6,9 +6,9 @@ Invoked as: python -m app.crawlers.ecs_rescrape_runner
 Configuration is read from environment variables injected by App Runner
 at ecs.run_task() time:
 
-    JOB_ID                       — BackgroundJob ID to update on completion
-    CRAWLER_DEFAULT_CATEGORY_ID  — integer; fallback category ID (required)
-    CRAWLER_USER_ID              — optional integer; defaults to crawler service account
+    JOB_ID                       — BackgroundJob UUID to update on completion
+    CRAWLER_DEFAULT_CATEGORY_ID  — UUID; fallback category ID (required)
+    CRAWLER_USER_ID              — optional UUID; defaults to crawler service account
 
 Static environment (baked into the ECS task definition by Terraform):
     DATABASE_URL, USER_IMAGES_BUCKET, CRAWL_BUCKET, AWS_REGION,
@@ -19,6 +19,7 @@ import logging
 import os
 import sys
 import traceback
+from uuid import UUID
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,7 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _notify_completion(db, job_id: int) -> None:
+def _notify_completion(db, job_id: UUID) -> None:
     """Send job-report email to superadmins. Best-effort — never raises."""
     try:
         from app.api.models.user import User as DBUser
@@ -56,7 +57,7 @@ def main() -> None:
     from app.services import job_service
 
     job_id_str = os.environ.get("JOB_ID")
-    job_id = int(job_id_str) if job_id_str else None
+    job_id = UUID(job_id_str) if job_id_str else None
 
     category_id_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
     if not category_id_str:
@@ -64,14 +65,14 @@ def main() -> None:
         sys.exit(1)
 
     user_id_str = os.environ.get("CRAWLER_USER_ID")
-    user_id = int(user_id_str) if user_id_str else None
+    user_id = UUID(user_id_str) if user_id_str else None
 
     logger.info("ECS archive rescrape task starting: job_id=%s", job_id)
 
     db = SessionLocal()
     try:
         crawler_user = resolve_crawler_user(db, user_id)
-        cat_id = resolve_default_category_id(db, int(category_id_str))
+        cat_id = resolve_default_category_id(db, UUID(category_id_str))
 
         counts = run_rescrape_all_archived_pages(
             db,

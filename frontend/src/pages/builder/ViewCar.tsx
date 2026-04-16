@@ -20,7 +20,7 @@ import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchCarRequestFn = (carId: string) => carsApi.getCar(Number(carId));
+const fetchCarRequestFn = (carId: string) => carsApi.getCar(carId);
 
 function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
@@ -30,7 +30,7 @@ function ViewCar(): React.JSX.Element {
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
   const [partsRefreshTrigger, setPartsRefreshTrigger] = useState(0);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [buildListSearchTerm, setBuildListSearchTerm] = useState('');
   const [partsSearchTerm, setPartsSearchTerm] = useState('');
 
@@ -64,7 +64,7 @@ function ViewCar(): React.JSX.Element {
 
   const handleVoteUpdate = (
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _partId: number,
+    _partId: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _newVote: 'upvote' | 'downvote' | null
   ) => {
@@ -72,7 +72,7 @@ function ViewCar(): React.JSX.Element {
     setPartsRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleCategoryChange = (categoryId: number | null) => {
+  const handleCategoryChange = (categoryId: string | null) => {
     setSelectedCategory(categoryId);
     // Refresh parts list when category changes
     setPartsRefreshTrigger((prev) => prev + 1);

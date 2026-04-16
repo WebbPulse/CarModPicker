@@ -10,7 +10,7 @@ import type {
 
 // Mock user data
 export const mockUser: UserRead = {
-  id: 1,
+  id: '11111111-1111-7111-8111-111111111111',
   username: 'testuser',
   email: 'test@example.com',
   disabled: false,
@@ -25,7 +25,7 @@ export const mockUser: UserRead = {
 
 // Mock car data
 export const mockCar: CarRead = {
-  id: 1,
+  id: '22222222-2222-7222-8222-222222222222',
   make: 'Toyota',
   model: 'Camry',
   generation_name: 'XV70',
@@ -37,11 +37,11 @@ export const mockCar: CarRead = {
 
 // Mock build list data
 export const mockBuildList: BuildListRead = {
-  id: 1,
+  id: '33333333-3333-7333-8333-333333333333',
   name: 'Test Build',
   description: 'Test build description',
-  car_id: 1,
-  user_id: 1,
+  car_id: '22222222-2222-7222-8222-222222222222',
+  user_id: '11111111-1111-7111-8111-111111111111',
   image_urls: ['https://example.com/build.jpg'],
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
@@ -49,13 +49,13 @@ export const mockBuildList: BuildListRead = {
 
 // Mock global part data
 export const mockGlobalPart: GlobalPartRead = {
-  id: 1,
+  id: '44444444-4444-7444-8444-444444444444',
   name: 'Test Part',
   description: 'Test part description',
   best_price_cents: 10000, // $100.00
   image_urls: ['https://example.com/part.jpg'],
-  category_id: 1,
-  user_id: 1,
+  category_id: '55555555-5555-7555-8555-555555555555',
+  user_id: '11111111-1111-7111-8111-111111111111',
   car_ids: [],
   is_universal: false,
   brand: 'TestBrand',
@@ -70,7 +70,7 @@ export const mockGlobalPart: GlobalPartRead = {
 
 // Mock category data
 export const mockCategory: CategoryResponse = {
-  id: 1,
+  id: '55555555-5555-7555-8555-555555555555',
   name: 'engine',
   display_name: 'Engine',
   description: 'Engine parts',
@@ -83,7 +83,7 @@ export const mockCategory: CategoryResponse = {
 
 // Mock vote summary
 export const mockVoteSummary: VoteSummary = {
-  entity_id: 1,
+  entity_id: '44444444-4444-7444-8444-444444444444',
   entity_type: 'global_part',
   upvotes: 5,
   downvotes: 1,

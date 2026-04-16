@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -22,16 +24,16 @@ class BuildListPart(Base):
 
     __tablename__ = "build_list_parts"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    build_list_id: Mapped[int] = mapped_column(ForeignKey("build_lists.id"), nullable=False)
-    global_part_id: Mapped[int] = mapped_column(ForeignKey("global_parts.id"), nullable=False)
-    added_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    build_list_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("build_lists.id"), nullable=False)
+    global_part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("global_parts.id"), nullable=False)
+    added_by: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
     purchased: Mapped[bool] = mapped_column(default=False, nullable=False)
     added_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    build_list_phase_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("build_list_phases.id", ondelete="SET NULL"), nullable=True
+    build_list_phase_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("build_list_phases.id", ondelete="SET NULL"), nullable=True
     )
 
     # Relationships

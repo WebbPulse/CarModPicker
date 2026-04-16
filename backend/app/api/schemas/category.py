@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,7 +28,7 @@ class CategoryUpdate(BaseModel):
 
 
 class CategoryInDB(CategoryBase):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
 

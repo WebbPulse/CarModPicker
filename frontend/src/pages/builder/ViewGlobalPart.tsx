@@ -38,25 +38,25 @@ import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
 const fetchPartRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPart(Number(partId));
+  globalPartsApi.getGlobalPart(partId);
 
 const fetchPartWithVotesRequestFn = (partId: string) =>
-  globalPartVotesApi.getVoteSummary(Number(partId));
+  globalPartVotesApi.getVoteSummary(partId);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
-const fetchUserRequestFn = (userId: number) => usersApi.getUser(userId);
+const fetchUserRequestFn = (userId: string) => usersApi.getUser(userId);
 
-const fetchBrandRequestFn = (brandId: number) => brandsApi.getBrand(brandId);
+const fetchBrandRequestFn = (brandId: string) => brandsApi.getBrand(brandId);
 
 const deletePartRequestFn = (partId: string) =>
-  globalPartsApi.deleteGlobalPart(Number(partId));
+  globalPartsApi.deleteGlobalPart(partId);
 
 const fetchListingsRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPartListings(Number(partId));
+  globalPartsApi.getGlobalPartListings(partId);
 
 const fetchPriceHistoryRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPartPriceHistory(Number(partId));
+  globalPartsApi.getGlobalPartPriceHistory(partId);
 
 function ViewGlobalPart() {
   const { partId } = useParams<{ partId: string }>();
@@ -218,7 +218,7 @@ function ViewGlobalPart() {
   };
 
   const handleVoteUpdate = (
-    _partId: number,
+    _partId: string,
     newVote: 'upvote' | 'downvote' | null
   ) => {
     if (!partWithVotes) return;

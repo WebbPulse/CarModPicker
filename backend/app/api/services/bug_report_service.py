@@ -5,6 +5,7 @@ Bug report service for handling bug reports.
 import logging
 from datetime import UTC, datetime
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import desc
@@ -33,7 +34,7 @@ class BugReportService:
         self,
         db: Session,
         bug_report_data: BugReportCreate,
-        user_id: Optional[int] = None,
+        user_id: Optional[UUID] = None,
         logger: Optional[logging.Logger] = None,
     ) -> DBBugReport:
         """
@@ -180,7 +181,7 @@ class BugReportService:
     def update_bug_report(
         self,
         db: Session,
-        bug_report_id: int,
+        bug_report_id: UUID,
         bug_report_update: BugReportUpdate,
         logger: Optional[logging.Logger] = None,
     ) -> DBBugReport:
@@ -231,7 +232,7 @@ class BugReportService:
     def delete_bug_report(
         self,
         db: Session,
-        bug_report_id: int,
+        bug_report_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         """
@@ -258,7 +259,7 @@ class BugReportService:
     def get_bug_report_by_id(
         self,
         db: Session,
-        bug_report_id: int,
+        bug_report_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> Optional[BugReportWithDetails]:
         """

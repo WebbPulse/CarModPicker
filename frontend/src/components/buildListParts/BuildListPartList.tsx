@@ -15,7 +15,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 
 const DEFAULT_BRANDS: BrandResponse[] = [];
-const DEFAULT_CARS_BY_ID: Record<number, CarRead> = {};
+const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
 
 interface GroupedPart {
   category: CategoryResponse | null;
@@ -27,9 +27,9 @@ interface BuildListPartTableProps {
   categoryName: string;
   categoryIcon: string;
   brands: BrandResponse[];
-  carsById: Record<number, CarRead>;
+  carsById: Record<string, CarRead>;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
-  onDelete?: (buildListPartId: number) => void;
+  onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
@@ -47,7 +47,7 @@ function formatCarName(car: CarRead): string {
 
 function getFitCell(
   part: BuildListPartReadWithGlobalPart,
-  carsById: Record<number, CarRead>
+  carsById: Record<string, CarRead>
 ): { label: string; title?: string } {
   const gp = part.global_part;
   if (gp.is_universal) return { label: 'Universal' };
@@ -399,10 +399,10 @@ interface BuildListPartListProps {
   viewMode?: 'category' | 'phase';
   phases?: BuildListPhaseRead[];
   brands?: BrandResponse[];
-  carsById?: Record<number, CarRead>;
+  carsById?: Record<string, CarRead>;
   loading?: boolean;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
-  onDelete?: (buildListPartId: number) => void;
+  onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
@@ -436,7 +436,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
 }) => {
   // Create a map of category_id to category for quick lookup
   const categoryMap = useMemo(() => {
-    const map = new Map<number, CategoryResponse>();
+    const map = new Map<string, CategoryResponse>();
     categories.forEach((cat) => map.set(cat.id, cat));
     return map;
   }, [categories]);
@@ -444,7 +444,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   // Group and sort parts by category
   const groupedParts = useMemo(() => {
     const groups = new Map<
-      number,
+      string,
       {
         category: CategoryResponse | null;
         parts: BuildListPartReadWithGlobalPart[];
@@ -482,12 +482,12 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
 
   // Phase map: id -> sort_order and id -> name
   const phaseOrderMap = useMemo(() => {
-    const map = new Map<number, number>();
+    const map = new Map<string, number>();
     phases.forEach((p) => map.set(p.id, p.sort_order));
     return map;
   }, [phases]);
   const phaseNameMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<string, string>();
     phases.forEach((p) => map.set(p.id, p.name));
     return map;
   }, [phases]);
@@ -495,7 +495,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   // Group and sort parts by phase (build_list_phase_id; null = Unassigned)
   const groupedByPhase = useMemo(() => {
     const groups = new Map<
-      number | 'unassigned',
+      string | 'unassigned',
       {
         phaseName: string;
         phaseSortOrder: number;

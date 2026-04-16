@@ -12,8 +12,8 @@ function formatCarLabel(car: CarRead): string {
 
 interface CarModelMultiSelectProps {
   cars: CarRead[];
-  value: number[];
-  onChange: (carIds: number[]) => void;
+  value: string[];
+  onChange: (carIds: string[]) => void;
   label?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -69,15 +69,15 @@ function CarModelMultiSelect({
   const handleAddCar = useCallback(
     (selectedValue: number | string | null) => {
       if (selectedValue === null || selectedValue === '') return;
-      const id = Number(selectedValue);
-      if (Number.isNaN(id) || value.includes(id)) return;
+      const id = String(selectedValue);
+      if (value.includes(id)) return;
       onChange([...value, id]);
     },
     [value, onChange]
   );
 
   const handleRemoveCar = useCallback(
-    (carId: number) => {
+    (carId: string) => {
       onChange(value.filter((id) => id !== carId));
     },
     [value, onChange]

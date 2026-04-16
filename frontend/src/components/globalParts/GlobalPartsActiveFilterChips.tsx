@@ -4,12 +4,12 @@ import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
 export interface GlobalPartsActiveFilterChipsProps {
   hasActiveFilters: boolean;
-  selectedCategoryIds: number[];
+  selectedCategoryIds: string[];
   activeCategories: CategoryResponse[];
-  toggleCategory: (id: number) => void;
-  selectedBrandIds: number[];
+  toggleCategory: (id: string) => void;
+  selectedBrandIds: string[];
   availableBrands: BrandResponse[];
-  toggleBrand: (id: number) => void;
+  toggleBrand: (id: string) => void;
   selectedGeneration: CarRead | null;
   selectedMake?: string;
   selectedModel?: string;

@@ -31,14 +31,14 @@ import { formatCarYearRange } from '../../utils/carUtils';
 const fetchBuildListRequestFn = (buildListId: string) =>
   apiClient.get<BuildListRead>(`/build-lists/${buildListId}`);
 
-const fetchCarRequestFn = (carId: number) =>
+const fetchCarRequestFn = (carId: string) =>
   apiClient.get<CarRead>(`/cars/${carId}`);
 
-const fetchUserRequestFn = (userId: number) =>
+const fetchUserRequestFn = (userId: string) =>
   apiClient.get<UserRead>(`/users/${userId}`);
 
 const fetchVoteSummaryRequestFn = (buildListId: string) =>
-  buildListVotesApi.getVoteSummary(Number(buildListId));
+  buildListVotesApi.getVoteSummary(buildListId);
 
 const deleteBuildListRequestFn = (buildListId: string) =>
   apiClient.delete<Record<string, string>>(`/build-lists/${buildListId}`);
@@ -137,7 +137,7 @@ function ViewBuildList() {
 
   const handleVoteUpdate = (
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _entityId: number,
+    _entityId: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _newVote: 'upvote' | 'downvote' | null
   ) => {
@@ -356,10 +356,10 @@ function ViewBuildList() {
                   onVoteUpdate={handleVoteUpdate}
                   voteApi={{
                     voteOnEntity: (
-                      id: number,
+                      id: string,
                       data: { vote_type: 'upvote' | 'downvote' }
                     ) => buildListVotesApi.voteOnBuildList(id, data),
-                    removeVote: (id: number) =>
+                    removeVote: (id: string) =>
                       buildListVotesApi.removeVote(id),
                   }}
                   size="md"

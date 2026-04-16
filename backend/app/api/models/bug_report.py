@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Index
+from sqlalchemy import ForeignKey, Index, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -17,8 +19,10 @@ class BugReport(Base):
 
     __tablename__ = "bug_reports"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Allow anonymous reports
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )  # Allow anonymous reports
 
     # Bug report fields
     title: Mapped[str] = mapped_column(nullable=False)
@@ -36,7 +40,7 @@ class BugReport(Base):
     )  # 'pending', 'in_progress', 'resolved', 'dismissed'
     priority: Mapped[str] = mapped_column(default="medium", nullable=False)  # 'low', 'medium', 'high', 'critical'
     admin_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
-    assigned_to: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    assigned_to: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

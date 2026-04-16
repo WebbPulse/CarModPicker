@@ -7,7 +7,7 @@ import Dialog from '../common/Dialog';
 interface ReportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  partId: number;
+  partId: string;
   partName: string;
   onReportSubmitted?: () => void;
 }

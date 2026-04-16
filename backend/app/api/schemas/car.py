@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
@@ -29,7 +30,7 @@ class CarUpdate(BaseModel):
 
 # Schema for response body when reading a car
 class CarRead(BaseModel):
-    id: int
+    id: UUID
     make: str
     model: str
     generation_name: str

@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import JSON, ForeignKey
+from sqlalchemy import JSON, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -23,9 +25,9 @@ class Car(Base):
 
     __tablename__ = "cars"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    car_model_id: Mapped[int] = mapped_column(
-        ForeignKey("car_models.id", ondelete="CASCADE"), nullable=False, index=True
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    car_model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("car_models.id", ondelete="CASCADE"), nullable=False, index=True
     )
     generation_name: Mapped[str] = mapped_column(nullable=False)  # e.g., "5th Gen", "MK7", "F30"
     start_year: Mapped[int] = mapped_column(nullable=False)

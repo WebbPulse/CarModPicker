@@ -20,6 +20,7 @@ uvicorn==0.34.0
 sqlalchemy==2.0.41
 psycopg2-binary==2.9.10
 alembic==1.16.2
+uuid6==2025.0.1
 
 # Authentication and security
 # Note: python-jose depends on ecdsa (CVE-2024-23342), but this is not exploitable

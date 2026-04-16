@@ -4,6 +4,7 @@ Bug reports endpoint for handling bug reports.
 
 import logging
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -162,7 +163,7 @@ async def list_bug_reports_with_details(
     ),
 )
 async def update_bug_report(
-    bug_report_id: int,
+    bug_report_id: UUID,
     bug_report_update: BugReportUpdate,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
@@ -188,7 +189,7 @@ async def update_bug_report(
     ),
 )
 async def delete_bug_report(
-    bug_report_id: int,
+    bug_report_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
@@ -213,7 +214,7 @@ async def delete_bug_report(
     ),
 )
 async def get_bug_report(
-    bug_report_id: int,
+    bug_report_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),

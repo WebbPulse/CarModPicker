@@ -27,16 +27,16 @@ export interface GlobalPartsFilterSidebarProps {
   setPriceMax: (s: string) => void;
   // Categories (multi-select)
   activeCategories: CategoryResponse[];
-  availableCategoryIds: number[];
-  selectedCategoryIds: number[];
-  toggleCategory: (id: number) => void;
-  setSelectedCategoryIds: (ids: number[]) => void;
+  availableCategoryIds: string[];
+  selectedCategoryIds: string[];
+  toggleCategory: (id: string) => void;
+  setSelectedCategoryIds: (ids: string[]) => void;
   // Brands (multi-select)
   availableBrands: BrandResponse[];
-  availableBrandIds: number[];
-  selectedBrandIds: number[];
-  toggleBrand: (id: number) => void;
-  setSelectedBrandIds: (ids: number[]) => void;
+  availableBrandIds: string[];
+  selectedBrandIds: string[];
+  toggleBrand: (id: string) => void;
+  setSelectedBrandIds: (ids: string[]) => void;
 }
 
 const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (

@@ -27,8 +27,8 @@ import BuildListPartList from './BuildListPartList';
 import EditBuildListPartForm from './EditBuildListPartForm';
 
 interface BuildListPartsProps {
-  buildListId: number;
-  buildListCarId?: number | null;
+  buildListId: string;
+  buildListCarId?: string | null;
   canManageParts: boolean;
   refreshKey: number;
   onAddPartClick?: () => void;
@@ -36,7 +36,7 @@ interface BuildListPartsProps {
   emptyMessage?: string;
 }
 
-const fetchBuildListPartsRequestFn = (buildListId: number) =>
+const fetchBuildListPartsRequestFn = (buildListId: string) =>
   buildListPartsApi.getBuildListParts(buildListId);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
@@ -45,7 +45,7 @@ const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
 
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
-const fetchPhasesRequestFn = (buildListId: number) =>
+const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
 
 const BuildListParts: React.FC<BuildListPartsProps> = ({
@@ -62,15 +62,15 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     useState<BuildListPartReadWithGlobalPart | null>(null);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
+  const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'category' | 'phase'>('category');
   const [newPhaseName, setNewPhaseName] = useState('');
   const [isAddingPhase, setIsAddingPhase] = useState(false);
-  const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
+  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
   const [editingPhaseName, setEditingPhaseName] = useState('');
-  const [deletingPhaseId, setDeletingPhaseId] = useState<number | null>(null);
+  const [deletingPhaseId, setDeletingPhaseId] = useState<string | null>(null);
   const [phaseError, setPhaseError] = useState<string | null>(null);
 
   const {
@@ -99,7 +99,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const carsById = useMemo(() => {
     const list = Array.isArray(carsData) ? carsData : [];
     const normalized = normalizeCarReadList(list);
-    const map: Record<number, CarRead> = {};
+    const map: Record<string, CarRead> = {};
     for (const car of normalized) {
       map[car.id] = car;
     }
@@ -163,7 +163,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   };
 
   const handleEditSubmit = async (
-    _buildListPartId: number,
+    _buildListPartId: string,
     data: BuildListPartUpdate
   ) => {
     try {
@@ -182,7 +182,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     }
   };
 
-  const handleDelete = (buildListPartId: number) => {
+  const handleDelete = (buildListPartId: string) => {
     // Find the build list part to get the global_part_id
     const buildListPart = buildListParts?.find(
       (part) => part.id === buildListPartId

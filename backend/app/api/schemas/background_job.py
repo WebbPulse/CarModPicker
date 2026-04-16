@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,7 +10,7 @@ class BackgroundJobRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     job_type: str
     status: str
     triggered_by: str
@@ -18,7 +19,7 @@ class BackgroundJobRead(BaseModel):
     error_message: Optional[str] = None
     started_at: datetime
     completed_at: Optional[datetime] = None
-    created_by_user_id: Optional[int] = None
+    created_by_user_id: Optional[UUID] = None
 
 
 class BackgroundJobList(BaseModel):

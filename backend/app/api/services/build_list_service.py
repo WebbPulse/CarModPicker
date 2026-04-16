@@ -4,6 +4,7 @@ Build list service that extends the base CRUD service.
 
 import logging
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -92,7 +93,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def update(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         data: BuildListUpdate,
         current_user: DBUser,
         logger: logging.Logger,
@@ -130,7 +131,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def delete(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: DBUser,
         logger: logging.Logger,
     ) -> Dict[str, str]:
@@ -178,7 +179,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def get_build_lists_by_car(
         self,
         db: Session,
-        car_id: int,
+        car_id: UUID,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
@@ -193,7 +194,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def get_build_lists_by_user(
         self,
         db: Session,
-        user_id: int,
+        user_id: UUID,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
@@ -208,7 +209,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def count_by_user(
         self,
         db: Session,
-        user_id: int,
+        user_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> int:
         """Count build lists owned by a specific user."""
@@ -220,7 +221,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     def copy_build_list(
         self,
         db: Session,
-        build_list_id: int,
+        build_list_id: UUID,
         current_user: DBUser,
         logger: logging.Logger,
         new_name: Optional[str] = None,
@@ -285,7 +286,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
             .all()
         )
-        phase_id_mapping: Dict[int, int] = {}  # old_phase_id -> new_phase_id
+        phase_id_mapping: Dict[UUID, UUID] = {}  # old_phase_id -> new_phase_id
         for orig_phase in original_phases:
             new_phase = DBBuildListPhase(
                 build_list_id=new_build_list.id,
