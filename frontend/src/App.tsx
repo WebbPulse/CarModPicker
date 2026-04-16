@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
+import BetaBanner from './components/common/BetaBanner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import Footer from './components/layout/globalFooter/Footer.tsx';
@@ -98,6 +99,7 @@ function App() {
         </div>
 
         <Header />
+        <BetaBanner />
 
         <main className="flex-grow relative z-10 flex w-full">
           {/* Left margin: ad or spacer (spacer keeps layout when premium hides ads) */}
