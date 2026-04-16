@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
+import CookieConsentBanner from './components/common/CookieConsentBanner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import Footer from './components/layout/globalFooter/Footer.tsx';
@@ -11,7 +12,20 @@ import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
+import { useCookieConsent } from './hooks/useCookieConsent';
 import { isPremium } from './utils/subscription';
+
+const ADSENSE_SCRIPT_ATTR = 'data-adsense-loader';
+
+function loadAdSenseScript(clientId: string) {
+  if (document.querySelector(`script[${ADSENSE_SCRIPT_ATTR}="1"]`)) return;
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(clientId)}`;
+  script.crossOrigin = 'anonymous';
+  script.setAttribute(ADSENSE_SCRIPT_ATTR, '1');
+  document.head.appendChild(script);
+}
 
 // Lazy load all page components for code splitting
 const Home = lazy(() => import('./pages/Home.tsx'));
@@ -36,6 +50,7 @@ const ViewUser = lazy(() => import('./pages/ViewUser.tsx'));
 const About = lazy(() => import('./pages/About.tsx'));
 const ContactUs = lazy(() => import('./pages/ContactUs.tsx'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.tsx'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService.tsx'));
 const Support = lazy(() => import('./pages/Support.tsx'));
 const Search = lazy(() => import('./pages/Search.tsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.tsx'));
@@ -77,11 +92,22 @@ const AD_BANNER_EXCLUDED_PATHS = new Set([
 function App() {
   const location = useLocation();
   const { user } = useAuth();
+  const { consent } = useCookieConsent();
   // On non-excluded paths: show ads for free users, or a same-size spacer for premium (keeps layout consistent).
   // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
   const showAdSpace = !AD_BANNER_EXCLUDED_PATHS.has(location.pathname);
   const showAds = showAdSpace && !isPremium(user);
   const isLandingPage = location.pathname === '/';
+
+  const adsenseClientId = import.meta.env['VITE_ADSENSE_CLIENT_ID'] as
+    | string
+    | undefined;
+
+  useEffect(() => {
+    if (consent === 'accepted' && adsenseClientId) {
+      loadAdSenseScript(adsenseClientId);
+    }
+  }, [consent, adsenseClientId]);
 
   return (
     <ErrorBoundary>
@@ -140,6 +166,7 @@ function App() {
                 {/* Public Info Pages */}
                 <Route path="/about" element={<About />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/support" element={<Support />} />
                 <Route path="/bug-report" element={<BugReport />} />
@@ -239,6 +266,7 @@ function App() {
         </main>
 
         <Footer />
+        <CookieConsentBanner />
       </div>
     </ErrorBoundary>
   );

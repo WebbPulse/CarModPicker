@@ -1,27 +1,320 @@
+import { Link } from 'react-router-dom';
+
+const LAST_UPDATED = 'April 15, 2026';
+const CONTACT_EMAIL = 'tyler@webbpulse.com';
+
 function PrivacyPolicy() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-4">Privacy Policy</h1>
-      <p className="mb-4">
-        This Privacy Policy explains how we collect, use, and protect your
-        information when you use our website.
-      </p>
-      <h2 className="text-2xl font-semibold mb-2">Information Collection</h2>
-      <p className="mb-4">
-        We collect information from you when you visit our site, register on the
-        site, or fill out a form.
-      </p>
-      <h2 className="text-2xl font-semibold mb-2">Information Use</h2>
-      <p className="mb-4">
-        We may use the information we collect from you to personalize your
-        experience, improve our website, and send periodic emails.
-      </p>
-      <h2 className="text-2xl font-semibold mb-2">Data Protection</h2>
-      <p className="mb-4">
-        We implement a variety of security measures to maintain the safety of
-        your personal information.
-      </p>
+    <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <div className="glass-card rounded-2xl p-8 md:p-12">
+        <h1 className="text-4xl md:text-5xl font-bold mb-2">
+          <span className="text-gradient">Privacy Policy</span>
+        </h1>
+        <p className="text-neutral-500 text-sm mb-8">
+          Last updated: {LAST_UPDATED}
+        </p>
+
+        <div className="prose prose-invert max-w-none text-neutral-300 space-y-6 leading-relaxed">
+          <p>
+            CarModPicker ("we", "us", "the Service") is a hobbyist project
+            operated by an individual. This policy describes, in plain terms,
+            what data we handle and what you should reasonably expect. By using
+            the Service you agree to this policy and to our{' '}
+            <Link to="/terms-of-service" className="text-primary-400 underline">
+              Terms of Service
+            </Link>
+            .
+          </p>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              1. Information We Collect
+            </h2>
+            <p>We collect only what is needed to run the Service:</p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>
+                <strong>Account information</strong> you provide: username,
+                email address, hashed password, optional profile details, and
+                two-factor authentication secrets if enabled.
+              </li>
+              <li>
+                <strong>Content you create</strong>: cars, build lists, parts,
+                build logs, images you upload, votes, and comments. Items you
+                submit privately — such as content reports to moderators and bug
+                reports — are kept internal and are not displayed publicly.
+              </li>
+              <li>
+                <strong>Technical data</strong>: IP address, user agent,
+                timestamps, and request logs used for security, rate limiting,
+                and debugging.
+              </li>
+              <li>
+                <strong>Cookies and local storage</strong>: a session token to
+                keep you logged in, plus minimal preferences. We do not use
+                tracking cookies of our own.
+              </li>
+              <li>
+                <strong>Data from our Chrome extension</strong>: if you install
+                our optional extension, it collects publicly displayed product
+                information from retailer pages and sends it to our servers when
+                you choose to submit it. It does not passively track your
+                browsing history.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              2. How We Use Your Information
+            </h2>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>To operate, maintain, and improve the Service.</li>
+              <li>
+                To authenticate you and send transactional email (e.g. email
+                verification, password reset).
+              </li>
+              <li>
+                To detect, prevent, and investigate abuse, fraud, and security
+                issues.
+              </li>
+              <li>
+                To display user-submitted content (usernames, builds, parts,
+                comments) publicly on the Service. Assume anything you post
+                publicly is public. Content you submit privately — such as
+                moderation reports and bug reports — is used only for operations
+                and is not displayed to other users.
+              </li>
+            </ul>
+            <p>
+              We do not sell your personal information. We do not share it with
+              third parties except as described below.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              3. Third-Party Services
+            </h2>
+            <p>
+              We rely on third-party providers to help operate the Service.
+              These providers may process limited data on our behalf or as part
+              of serving the Service, including:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>
+                <strong>Cloud infrastructure providers</strong> — for hosting,
+                storage, and transactional email.
+              </li>
+              <li>
+                <strong>Advertising partners</strong> — third-party vendors,
+                including Google, may use cookies to serve ads based on your
+                prior visits to our Service or other websites. Google's use of
+                advertising cookies enables it and its partners to serve ads to
+                you. You can opt out of personalized advertising by visiting{' '}
+                <a
+                  href="https://www.google.com/settings/ads"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-400 underline"
+                >
+                  Google Ads Settings
+                </a>{' '}
+                or, for other participating vendors,{' '}
+                <a
+                  href="https://www.aboutads.info/choices"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-400 underline"
+                >
+                  aboutads.info/choices
+                </a>
+                .
+              </li>
+              <li>
+                <strong>Retailer websites</strong> — if you use features that
+                link to or interact with retailer pages, your interaction with
+                those sites is governed by their own policies.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              4. Data Retention and Deletion
+            </h2>
+            <p>
+              We do <strong>not</strong> guarantee any particular retention
+              period for your data. The Service is in active development and is
+              operated on a best-effort basis. We may, at any time and without
+              prior notice, reset, migrate, wipe, or delete accounts, databases,
+              uploaded images, or any other stored content — for example during
+              schema changes, infrastructure moves, abuse cleanup, or simply
+              because we decide to.
+            </p>
+            <p>
+              You should keep your own copies of anything you care about. Do not
+              rely on the Service as a system of record.
+            </p>
+            <p>
+              You can request deletion of your account and associated personal
+              data by emailing{' '}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-primary-400 underline"
+              >
+                {CONTACT_EMAIL}
+              </a>
+              . We will process verified deletion requests without undue delay,
+              typically within thirty (30) days. Content you posted publicly may
+              persist in backups or caches for a reasonable period after
+              deletion.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              5. Security
+            </h2>
+            <p>
+              We take reasonable steps to protect your data, including hashing
+              stored passwords, encrypting traffic in transit, and offering
+              optional two-factor authentication. No system is perfectly secure,
+              and we make no guarantee that your data will not be accessed,
+              disclosed, altered, or destroyed as a result of a breach. Use a
+              unique password.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              6. Minors
+            </h2>
+            <p>
+              <strong>
+                The Service is intended exclusively for adults 18 years of age
+                and older.
+              </strong>{' '}
+              We do not direct the Service to minors and do not knowingly
+              collect personal information from anyone under 18. If you believe
+              a minor has provided us personal information, contact us at{' '}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-primary-400 underline"
+              >
+                {CONTACT_EMAIL}
+              </a>{' '}
+              and we will terminate the account and delete the data.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              7. EEA / UK Residents (GDPR / UK GDPR)
+            </h2>
+            <p>
+              If you are located in the European Economic Area or the United
+              Kingdom, we process your personal data on the following legal
+              bases:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>
+                <strong>Performance of a contract</strong> — to provide the
+                Service you signed up for (e.g. authenticate you, display your
+                builds).
+              </li>
+              <li>
+                <strong>Legitimate interests</strong> — to secure the Service,
+                prevent abuse, debug issues, improve features, and send
+                operational communications.
+              </li>
+              <li>
+                <strong>Consent</strong> — where we rely on your consent (for
+                example, optional cookies for personalized advertising). You may
+                withdraw consent at any time.
+              </li>
+              <li>
+                <strong>Legal obligation</strong> — to comply with applicable
+                law.
+              </li>
+            </ul>
+            <p>
+              You have the right to access, correct, export, restrict, object
+              to, or delete your personal data, and to lodge a complaint with
+              your local data protection authority. To exercise any of these
+              rights, email us. We will respond within one month.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              8. California Residents (CCPA / CPRA)
+            </h2>
+            <p>
+              In the past twelve months, we have collected the following
+              categories of personal information from California residents:
+              identifiers (e.g. username, email, IP address), customer account
+              records, commercial information (if you purchase paid features),
+              internet and network activity (e.g. request logs), and
+              user-generated content.
+            </p>
+            <p>
+              <strong>
+                We do not sell or share your personal information for
+                cross-context behavioral advertising, and we have not done so in
+                the past twelve months.
+              </strong>{' '}
+              We do not knowingly collect or sell the personal information of
+              minors under 16.
+            </p>
+            <p>
+              California residents have the right to know, delete, correct, and
+              limit the use of their personal information, and to not be
+              discriminated against for exercising these rights. To exercise any
+              of these rights, email us.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              9. International Users
+            </h2>
+            <p>
+              The Service is operated from the United States and your data will
+              be processed there. By using the Service, you consent to that
+              transfer.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              10. Changes to This Policy
+            </h2>
+            <p>
+              We may update this policy at any time. Material changes will be
+              reflected by updating the "Last updated" date above. Continued use
+              of the Service after a change means you accept the updated policy.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              11. Contact
+            </h2>
+            <p>
+              Questions about this policy? Email{' '}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-primary-400 underline"
+              >
+                {CONTACT_EMAIL}
+              </a>
+              .
+            </p>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
+
 export default PrivacyPolicy;
