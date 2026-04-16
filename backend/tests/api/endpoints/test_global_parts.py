@@ -46,7 +46,7 @@ class TestGlobalParts:
             "description": "A test part description",
             "category_id": test_category.id,
             "brand_id": test_brand.id,
-            "image_url": "https://example.com/image.jpg",
+            "image_urls": ["https://example.com/image.jpg"],
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
