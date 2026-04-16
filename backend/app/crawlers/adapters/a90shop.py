@@ -304,7 +304,6 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
                         price_cents=price_cents,
                         brand=payload.brand,
                         part_number=payload.part_number,
-                        image_url=dom_images[0] if dom_images else payload.image_url,
                         image_urls=dom_images[:12] if dom_images else payload.image_urls,
                         gtin=payload.gtin,
                     )
@@ -362,7 +361,6 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         if not brand:
             brand = brand_fallback_from_title(str(name))
 
-        image_url = dom_images[0] if dom_images else None
         image_urls = dom_images[:12] if dom_images else None
 
         return ScrapedPayload(
@@ -372,6 +370,5 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
             price_cents=price_cents,
             brand=brand,
             part_number=part_number,
-            image_url=image_url,
             image_urls=image_urls,
         )

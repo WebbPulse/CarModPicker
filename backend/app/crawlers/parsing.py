@@ -332,7 +332,6 @@ def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Opti
         part_number = normalize_part_number(sku_val)
     price_cents = _price_from_json_ld(item)
     images = _images_from_json_ld(item)
-    image_url = images[0] if images else None
     return ScrapedPayload(
         name=name,
         product_url=product_url,
@@ -340,7 +339,6 @@ def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Opti
         price_cents=price_cents,
         brand=brand,
         part_number=part_number,
-        image_url=image_url,
         image_urls=images[:12] if images else None,
     )
 
