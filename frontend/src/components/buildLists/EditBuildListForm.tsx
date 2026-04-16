@@ -150,7 +150,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   useEffect(() => {
     setName(buildList.name);
     setDescription(buildList.description || '');
-    // Note: buildList.image_url is now a presigned URL from the API
+    // Note: buildList.image_urls[0] is a presigned URL from the API
     setImageFileKey(null);
     setImageChanged(false);
     setApiError(null);
@@ -176,9 +176,9 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
       car_id: selectedGeneration?.id || null,
     };
 
-    // Only include image_url if it was changed (new file key uploaded)
+    // Only include image_urls if it was changed (new file key uploaded)
     if (imageChanged) {
-      payload.image_url = imageFileKey || null;
+      payload.image_urls = imageFileKey ? [imageFileKey] : null;
     }
 
     // Always submit the data, even if no changes detected
@@ -417,7 +417,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
           />
         </div>
         <ImageUpload
-          currentImageUrl={buildList.image_url ?? null}
+          currentImageUrl={buildList.image_urls?.[0] ?? null}
           entityType="build_list"
           entityId={buildList.id}
           onImageUploaded={(fileKey) => {

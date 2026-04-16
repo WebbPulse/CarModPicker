@@ -89,9 +89,9 @@ function ViewUser() {
         <SectionHeader title="Public Profile Information" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <CardInfoItem label="Profile Picture">
-            {user.image_url ? (
+            {user.image_urls?.[0] ? (
               <img
-                src={user.image_url}
+                src={user.image_urls[0]}
                 alt={`${user.username}'s profile`}
                 className="h-48 w-48 rounded-lg object-cover"
               />

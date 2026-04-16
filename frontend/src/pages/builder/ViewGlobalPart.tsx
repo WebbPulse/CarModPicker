@@ -479,7 +479,6 @@ function ViewGlobalPart() {
             <CardInfoItem label="Part Images">
               {canEdit ? (
                 <ImageGalleryManage
-                  imageUrl={part.image_url ?? null}
                   imageUrls={part.image_urls ?? null}
                   altText={part.name}
                   partId={part.id}
@@ -488,7 +487,6 @@ function ViewGlobalPart() {
                 />
               ) : (
                 <ImageGallery
-                  imageUrl={part.image_url ?? null}
                   imageUrls={part.image_urls ?? null}
                   altText={part.name}
                   layout="hero"

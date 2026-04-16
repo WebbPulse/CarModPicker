@@ -89,9 +89,9 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
         className="block hover:no-underline flex-grow"
       >
         <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
-          {buildList.image_url && (
+          {buildList.image_urls?.[0] && (
             <ImageWithPlaceholder
-              srcUrl={buildList.image_url}
+              srcUrl={buildList.image_urls[0]}
               altText={buildList.name}
               imageClassName="w-full h-40 object-cover rounded-md"
               containerClassName="w-full h-40 mb-4"

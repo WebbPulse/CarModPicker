@@ -38,7 +38,7 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
       <Card className="h-full hover:border-primary-500 border-2 border-transparent transition-all duration-300 group">
         <div className="relative mb-4">
           <ImageWithPlaceholder
-            srcUrl={buildList.image_url ?? null}
+            srcUrl={buildList.image_urls?.[0] ?? null}
             altText={buildList.name}
             imageClassName="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
             containerClassName="w-full h-48"

@@ -14,7 +14,7 @@ export interface UserRead {
   email: string;
   disabled: boolean;
   email_verified: boolean;
-  image_url?: string | null;
+  image_urls?: string[] | null;
   is_superuser: boolean;
   is_admin: boolean;
   subscription_tier: string;
@@ -40,7 +40,7 @@ export interface UserUpdate {
   email?: string | null;
   disabled?: boolean | null;
   password?: string | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
   current_password?: string | null;
   otp?: string | null; // Required if 2FA is enabled and changing password
   instagram_url?: string | null;
@@ -56,7 +56,7 @@ export interface AdminUserUpdate {
   email?: string | null;
   disabled?: boolean | null;
   password?: string | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
   is_superuser?: boolean | null;
   is_admin?: boolean | null;
   email_verified?: boolean | null;
@@ -72,7 +72,7 @@ export interface CarCreate {
   start_year: number;
   end_year: number;
   description?: string | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarRead {
@@ -83,7 +83,7 @@ export interface CarRead {
   start_year: number;
   end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarUpdate {
@@ -93,7 +93,7 @@ export interface CarUpdate {
   start_year?: number | null;
   end_year?: number | null;
   description?: string | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
 }
 
 // Car Generation interfaces
@@ -129,7 +129,7 @@ export interface BuildListCreate {
   name: string;
   description?: string | null;
   car_id: number; // Required - build lists must be associated with a car
-  image_url?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface BuildListRead {
@@ -138,7 +138,7 @@ export interface BuildListRead {
   description?: string | null;
   car_id?: number | null;
   user_id: number;
-  image_url?: string | null;
+  image_urls?: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -156,7 +156,7 @@ export interface BuildListUpdate {
   name?: string | null;
   description?: string | null;
   car_id?: number | null;
-  image_url?: string | null;
+  image_urls?: string[] | null;
 }
 
 // Build Log interfaces
@@ -202,7 +202,6 @@ export interface BuildLogReadPaginated {
 export interface GlobalPartCreate {
   name: string;
   description?: string | null;
-  image_url?: string | null;
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
@@ -220,7 +219,6 @@ export interface GlobalPartRead {
   name: string;
   description?: string | null;
   best_price_cents?: number | null; // Lowest current price from any retailer listing
-  image_url?: string | null;
   image_urls?: string[] | null;
   category_id: number;
   user_id: number;
@@ -295,7 +293,6 @@ export interface PaginatedResponse<T> {
 export interface GlobalPartUpdate {
   name?: string | null;
   description?: string | null;
-  image_url?: string | null;
   image_urls?: string[] | null;
   category_id?: number | null;
   car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal

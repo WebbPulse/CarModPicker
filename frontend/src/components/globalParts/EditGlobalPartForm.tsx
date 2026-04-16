@@ -124,7 +124,7 @@ function EditGlobalPartForm({
         car_ids: [...carIds],
         is_universal: globalPart.is_universal ?? false,
       });
-      // Note: globalPart.image_url is now a presigned URL from the API
+      // Note: globalPart.image_urls[0] is a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
     } catch {
@@ -269,9 +269,9 @@ function EditGlobalPartForm({
       car_ids: formData.is_universal ? [] : formData.car_ids,
     };
 
-    // Only include image_url if it was changed (new file key uploaded)
+    // Only include image_urls if it was changed (new file key uploaded)
     if (imageChanged) {
-      globalPartData.image_url = imageFileKey || null;
+      globalPartData.image_urls = imageFileKey ? [imageFileKey] : null;
     }
 
     const result = await updateGlobalPart({
@@ -429,7 +429,7 @@ function EditGlobalPartForm({
       )}
 
       <ImageUpload
-        currentImageUrl={globalPart.image_url ?? null}
+        currentImageUrl={globalPart.image_urls?.[0] ?? null}
         entityType="global_part"
         entityId={globalPart.id}
         onImageUploaded={(fileKey) => {

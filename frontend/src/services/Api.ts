@@ -694,7 +694,7 @@ export const buildListPartsApi = {
       {
         name: globalPartData.name,
         description: globalPartData.description,
-        image_url: globalPartData.image_url,
+        image_urls: globalPartData.image_urls,
         category_id: globalPartData.category_id,
         car_ids: globalPartData.car_ids ?? undefined,
         is_universal: globalPartData.is_universal ?? false,

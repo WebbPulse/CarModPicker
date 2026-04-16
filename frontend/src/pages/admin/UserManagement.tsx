@@ -51,7 +51,7 @@ function UserManagement() {
     email: null,
     disabled: null,
     password: null,
-    image_url: null,
+    image_urls: null,
     is_superuser: null,
     is_admin: null,
     email_verified: null,
@@ -174,7 +174,7 @@ function UserManagement() {
       is_admin: formData.is_admin ?? null,
       is_superuser: formData.is_superuser ?? null,
       email_verified: formData.email_verified ?? null,
-      image_url: formData.image_url || null,
+      image_urls: formData.image_urls || null,
       subscription_tier: formData.subscription_tier ?? null,
       subscription_status: formData.subscription_status ?? null,
       subscription_expires_at: formData.subscription_expires_at || null,
@@ -197,7 +197,7 @@ function UserManagement() {
         email: null,
         disabled: null,
         password: null,
-        image_url: null,
+        image_urls: null,
         is_superuser: null,
         is_admin: null,
         email_verified: null,
@@ -233,7 +233,7 @@ function UserManagement() {
       email: user.email,
       disabled: user.disabled,
       password: null, // Don't populate password
-      image_url: user.image_url || null,
+      image_urls: user.image_urls || null,
       is_superuser: user.is_superuser,
       is_admin: user.is_admin,
       email_verified: user.email_verified,
@@ -258,7 +258,7 @@ function UserManagement() {
       email: null,
       disabled: null,
       password: null,
-      image_url: null,
+      image_urls: null,
       is_superuser: null,
       is_admin: null,
       email_verified: null,
@@ -519,9 +519,12 @@ function UserManagement() {
           <Input
             id="edit-image-url"
             label="Image URL"
-            value={formData.image_url || ''}
+            value={formData.image_urls?.[0] || ''}
             onChange={(e) =>
-              setFormData({ ...formData, image_url: e.target.value || null })
+              setFormData({
+                ...formData,
+                image_urls: e.target.value ? [e.target.value] : null,
+              })
             }
             placeholder="https://example.com/image.jpg"
           />
