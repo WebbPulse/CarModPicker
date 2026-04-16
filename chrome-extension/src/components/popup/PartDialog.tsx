@@ -95,7 +95,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
     description: scrapedData.description || "",
     price: scrapedData.price ? (scrapedData.price / 100).toFixed(2) : "",
     url: scrapedData.product_url || "",
-    imageUrl: scrapedData.image_url || "",
+    imageUrl: "",
     imageUrls: scrapedData.image_urls || [],
     categoryId: null as number | string | null,
     carId: null as number | string | null,
@@ -111,7 +111,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [imagePreview, setImagePreview] = useState(
-    scrapedData.image_url || (scrapedData.image_urls?.[0] ?? ""),
+    scrapedData.image_urls?.[0] ?? "",
   );
 
   // Match retailer by product URL domain (for create flow - from preloaded list or get-or-create)
@@ -467,7 +467,6 @@ const PartDialog: React.FC<PartDialogProps> = ({
         car_ids: formData.carId ? [parseInt(formData.carId.toString())] : [],
         brand_id: brandId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
-        image_url: null,
         image_urls: null,
         retailer_id: retailer?.id ?? null,
         price_cents: retailer && priceCents != null ? priceCents : null,
@@ -485,7 +484,6 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
       if (scrapedImageUrls.length > 0) {
         partData.image_urls = scrapedImageUrls;
-        // Do not set image_url from scraped URLs; leave null so only manual uploads set primary
       }
 
       // Create part
