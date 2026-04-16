@@ -6,7 +6,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  image_url?: string | null;
+  image_urls?: string[] | null;
   email_verified: boolean;
   disabled: boolean;
   created_at: string;
@@ -64,7 +64,6 @@ export interface GlobalPartCreate {
   name: string;
   description?: string | null;
   price?: number | null; // Price in cents (legacy GlobalPart field)
-  image_url?: string | null;
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
@@ -82,7 +81,6 @@ export interface GlobalPartRead {
   name: string;
   description?: string | null;
   price?: number | null;
-  image_url?: string | null;
   image_urls?: string[] | null;
   category_id: number;
   user_id: number;
@@ -101,8 +99,7 @@ export interface ScrapedProductData {
   name: string | null;
   description: string | null;
   price: number | null; // Price in cents
-  image_url: string | null; // Primary image (first in gallery)
-  image_urls: string[]; // All product images for gallery
+  image_urls: string[]; // Product images; first entry is the primary/display image
   product_url: string;
   brand: string | null;
   part_number: string | null;

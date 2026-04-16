@@ -560,7 +560,6 @@ async function scrapeAndParsePage(
   name: string | null;
   description: string | null;
   price: number | null;
-  image_url: string | null;
   image_urls: string[];
   product_url: string;
   brand: string | null;
@@ -576,7 +575,6 @@ async function scrapeAndParsePage(
     name: string | null;
     description: string | null;
     price: number | null;
-    image_url: string | null;
     image_urls: string[];
     product_url: string;
     brand: string | null;
