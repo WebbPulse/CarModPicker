@@ -264,7 +264,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             name=new_name,
             description=original_build_list.description,
             car_id=original_build_list.car_id,
-            image_url=original_build_list.image_url,
+            image_urls=original_build_list.image_urls,
             user_id=current_user.id,
         )
         db.add(new_build_list)

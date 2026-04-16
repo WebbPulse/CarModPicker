@@ -421,8 +421,8 @@ async def purge_orphaned_bucket_objects(
     """
     Delete bucket objects that are not referenced by any entity (orphans).
     Admin only. Non-destructive: only objects with no DB reference are removed.
-    Referenced keys come from: global_part (image_url, image_urls), user (image_url),
-    car (image_url), build_list (image_url), image_source_mapping (file_key).
+    Referenced keys come from: global_part (image_urls), user (image_urls),
+    car (image_urls), build_list (image_urls), image_source_mapping (file_key).
     """
     try:
         referenced = get_all_referenced_file_keys(db)

@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
-from app.api.utils.image_utils import get_presigned_url_from_file_key
+from app.api.schemas.global_part import _serialize_image_urls
 
 
 # Schema for request body when creating a car
@@ -13,7 +13,7 @@ class CarCreate(BaseModel):
     start_year: int
     end_year: Optional[int] = None  # None for current/ongoing generations
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
 
 # Schema for request body when updating a car (all fields optional)
@@ -24,7 +24,7 @@ class CarUpdate(BaseModel):
     start_year: Optional[int] = None
     end_year: Optional[int] = None
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
 
 # Schema for response body when reading a car
@@ -36,11 +36,11 @@ class CarRead(BaseModel):
     start_year: int
     end_year: Optional[int] = None  # None for current/ongoing generations
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("image_url")
-    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
-        """Convert file key to presigned URL when serializing response."""
-        return get_presigned_url_from_file_key(value)
+    @field_serializer("image_urls")
+    def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
+        """Convert file keys to presigned URLs when serializing response."""
+        return _serialize_image_urls(value)

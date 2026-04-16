@@ -409,36 +409,6 @@ def update_entity(
     from sqlalchemy.exc import IntegrityError
 
     try:
-        # Handle image deletion if image_url is being updated
-        if "image_url" in update_data and hasattr(entity, "image_url"):
-            old_image_url = getattr(entity, "image_url", None)
-            new_image_url = update_data["image_url"]
-
-            # If the old image exists and is different from the new one, delete it
-            if old_image_url and old_image_url != new_image_url:
-                from app.api.services.storage_service import storage_service
-                from app.api.utils.image_utils import is_file_key
-
-                # Only delete if it's a file key (not a regular URL)
-                if is_file_key(old_image_url):
-                    try:
-                        storage_service.delete_image(old_image_url)
-                        logger.info(f"Deleted old image for {entity_name} {entity.id}: {old_image_url}")
-                    except Exception as e:
-                        # Log but don't fail the update if image deletion fails
-                        logger.warning(f"Failed to delete old image for {entity_name} {entity.id}: {str(e)}")
-
-                # Remove the deleted primary image from image_urls so the gallery does not
-                # keep a broken reference (edit form often only sends image_url, not image_urls).
-                if hasattr(entity, "image_urls") and "image_urls" not in update_data:
-                    current_urls = cast(list[str], getattr(entity, "image_urls", None) or [])
-                    if old_image_url in current_urls:
-                        from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
-
-                        update_data["image_urls"] = [k for k in current_urls if k != old_image_url][
-                            :MAX_IMAGES_PER_GLOBAL_PART
-                        ]
-
         # Handle image_urls deletion when gallery is being updated
         if "image_urls" in update_data and hasattr(entity, "image_urls"):
             from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
@@ -530,16 +500,6 @@ def delete_entity(
         # Delete associated images if they exist
         from app.api.services.storage_service import storage_service
         from app.api.utils.image_utils import is_file_key
-
-        if hasattr(entity, "image_url"):
-            image_url = getattr(entity, "image_url", None)
-            if image_url:
-                if is_file_key(image_url):
-                    try:
-                        storage_service.delete_image(image_url)
-                        logger.info(f"Deleted image for {entity_name} {entity_id}: {image_url}")
-                    except Exception as e:
-                        logger.warning(f"Failed to delete image for {entity_name} {entity_id}: {str(e)}")
 
         if hasattr(entity, "image_urls"):
             image_urls = cast(list[str], getattr(entity, "image_urls", None) or [])

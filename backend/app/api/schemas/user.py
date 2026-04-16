@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
-from app.api.utils.image_utils import get_presigned_url_from_file_key
+from app.api.schemas.global_part import _serialize_image_urls
 
 # Max length for social profile URLs (RFC 7230 recommends 8000; we use 500 for profile links)
 SOCIAL_URL_MAX_LENGTH = 500
@@ -50,7 +50,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
     password: Optional[str] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     current_password: Optional[str] = None
     otp: Optional[str] = None  # Required if 2FA is enabled and changing password
     # Social profile links (optional; validated per platform)
@@ -95,7 +95,7 @@ class AdminUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
     password: Optional[str] = None
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     is_superuser: Optional[bool] = None
     is_admin: Optional[bool] = None
     email_verified: Optional[bool] = None
@@ -130,7 +130,7 @@ class PublicUserRead(BaseModel):
     username: str
     email: EmailStr
     disabled: bool
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     is_superuser: bool
     is_admin: bool
     subscription_tier: str
@@ -144,10 +144,10 @@ class PublicUserRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("image_url")
-    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
-        """Convert file key to presigned URL when serializing response."""
-        return get_presigned_url_from_file_key(value)
+    @field_serializer("image_urls")
+    def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
+        """Convert file keys to presigned URLs when serializing response."""
+        return _serialize_image_urls(value)
 
 
 # Schema for response body when reading a user (DO NOT include hashed password)
@@ -158,7 +158,7 @@ class UserRead(BaseModel):
     email: EmailStr
     disabled: bool
     email_verified: bool
-    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     is_superuser: bool
     is_admin: bool
     subscription_tier: str
@@ -174,7 +174,7 @@ class UserRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("image_url")
-    def serialize_image_url(self, value: Optional[str]) -> Optional[str]:
-        """Convert file key to presigned URL when serializing response."""
-        return get_presigned_url_from_file_key(value)
+    @field_serializer("image_urls")
+    def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
+        """Convert file keys to presigned URLs when serializing response."""
+        return _serialize_image_urls(value)

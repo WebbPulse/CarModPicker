@@ -165,7 +165,6 @@ class ScrapeResponse(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[int] = None  # cents
-    image_url: Optional[str] = None
     image_urls: List[str] = []
     product_url: str
     brand: Optional[str] = None
@@ -279,7 +278,6 @@ async def scrape_page_from_extension(
         name=payload.name,
         description=payload.description,
         price=payload.price_cents,
-        image_url=payload.image_url,
         image_urls=payload.image_urls or [],
         product_url=payload.product_url,
         brand=payload.brand,

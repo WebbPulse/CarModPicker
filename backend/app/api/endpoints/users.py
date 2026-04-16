@@ -95,7 +95,7 @@ async def upload_profile_picture(
     Upload a profile picture for the current user.
 
     This endpoint uploads the image to storage and automatically updates
-    the user's image_url field. If the user already has a profile picture,
+    the user's image_urls field. If the user already has a profile picture,
     the old one will be deleted from storage.
 
     Args:
@@ -121,16 +121,17 @@ async def upload_profile_picture(
         )
 
         # Delete old profile picture if it exists
-        if current_user.image_url:
+        old_key = (current_user.image_urls or [None])[0]
+        if old_key:
             try:
-                storage_service.delete_image(current_user.image_url)
-                logger.info(f"Deleted old profile picture for user {current_user.id}: {current_user.image_url}")
+                storage_service.delete_image(old_key)
+                logger.info(f"Deleted old profile picture for user {current_user.id}: {old_key}")
             except Exception as e:
                 # Log but don't fail if old image deletion fails
                 logger.warning(f"Failed to delete old profile picture for user {current_user.id}: {str(e)}")
 
-        # Update user's image_url
-        current_user.image_url = file_key
+        # Update user's image_urls (single-element array)
+        current_user.image_urls = [file_key]
         db.add(current_user)
         db.commit()
         db.refresh(current_user)
@@ -160,7 +161,7 @@ async def delete_profile_picture(
     Delete the current user's profile picture.
 
     This endpoint removes the profile picture from storage and clears
-    the user's image_url field.
+    the user's image_urls field.
 
     Args:
         current_user: Authenticated user (from JWT token)
@@ -173,7 +174,8 @@ async def delete_profile_picture(
     Raises:
         HTTPException: If deletion fails
     """
-    if not current_user.image_url:
+    old_file_key = (current_user.image_urls or [None])[0]
+    if not old_file_key:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No profile picture found to delete",
@@ -181,11 +183,10 @@ async def delete_profile_picture(
 
     try:
         # Delete image from storage
-        storage_service.delete_image(current_user.image_url)
+        storage_service.delete_image(old_file_key)
 
-        # Clear user's image_url
-        old_file_key = current_user.image_url
-        current_user.image_url = None
+        # Clear user's image_urls
+        current_user.image_urls = None
         db.add(current_user)
         db.commit()
         db.refresh(current_user)

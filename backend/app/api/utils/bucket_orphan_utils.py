@@ -6,6 +6,7 @@ Collects all file keys referenced by entities so we can safely delete only unref
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.car import Car as DBCar
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.user import User as DBUser
@@ -17,29 +18,32 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
     Collect all file keys that are referenced by any entity in the database.
     Used to identify bucket objects that are safe to delete (orphans).
 
-    Includes: global_part (image_url, image_urls), user (image_url), car (image_url),
-    build_list (image_url), image_source_mapping (file_key).
+    Includes: global_part (image_urls), user (image_urls), car (image_urls),
+    build_list (image_urls), image_source_mapping (file_key).
     """
     referenced: set[str] = set()
 
-    # Global parts: image_url + image_urls (gallery)
-    for row in db.query(DBGlobalPart.image_url, DBGlobalPart.image_urls).all():
-        if row.image_url and is_file_key(row.image_url):
-            referenced.add(row.image_url)
-        if row.image_urls:
-            for k in row.image_urls:
+    def _collect_image_urls(image_urls: list[str] | None) -> None:
+        if image_urls:
+            for k in image_urls:
                 if k and is_file_key(k):
                     referenced.add(k)
 
-    # Users: image_url
-    for row in db.query(DBUser.image_url).filter(DBUser.image_url.isnot(None)).all():
-        if row.image_url and is_file_key(row.image_url):
-            referenced.add(row.image_url)
+    # Global parts: image_urls gallery
+    for row in db.query(DBGlobalPart.image_urls).all():
+        _collect_image_urls(row.image_urls)
 
-    # Build lists: image_url
-    for row in db.query(DBBuildList.image_url).filter(DBBuildList.image_url.isnot(None)).all():
-        if row.image_url and is_file_key(row.image_url):
-            referenced.add(row.image_url)
+    # Users: image_urls
+    for row in db.query(DBUser.image_urls).filter(DBUser.image_urls.isnot(None)).all():
+        _collect_image_urls(row.image_urls)
+
+    # Cars: image_urls
+    for row in db.query(DBCar.image_urls).filter(DBCar.image_urls.isnot(None)).all():
+        _collect_image_urls(row.image_urls)
+
+    # Build lists: image_urls
+    for row in db.query(DBBuildList.image_urls).filter(DBBuildList.image_urls.isnot(None)).all():
+        _collect_image_urls(row.image_urls)
 
     # Image source mappings (dedup cache)
     for row in db.query(DBImageSourceMapping.file_key).all():
