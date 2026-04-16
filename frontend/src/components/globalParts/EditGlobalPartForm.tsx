@@ -4,6 +4,7 @@ import apiClient, {
   brandsApi,
   carsApi,
   categoriesApi,
+  globalPartsApi,
 } from '../../services/Api';
 import type {
   BrandCreate,
@@ -269,16 +270,23 @@ function EditGlobalPartForm({
       car_ids: formData.is_universal ? [] : formData.car_ids,
     };
 
-    // Only include image_urls if it was changed (new file key uploaded)
-    if (imageChanged) {
-      globalPartData.image_urls = imageFileKey ? [imageFileKey] : null;
-    }
-
     const result = await updateGlobalPart({
       globalPartId: globalPart.id,
       globalPartData,
     });
     if (result !== null) {
+      // Handle image changes separately so existing images are not wiped
+      if (imageChanged) {
+        if (imageFileKey) {
+          // Append the new image to the gallery (preserves existing images)
+          await globalPartsApi.appendGlobalPartImages(globalPart.id, [
+            imageFileKey,
+          ]);
+        } else {
+          // User removed the displayed image — delete only the first one (index 0)
+          await globalPartsApi.removeGlobalPartImage(globalPart.id, 0);
+        }
+      }
       // Clear pending brand after successful update
       setPendingBrandName(null);
       await onGlobalPartUpdated();

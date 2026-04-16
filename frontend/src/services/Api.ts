@@ -471,6 +471,10 @@ export const globalPartsApi = {
     apiClient.delete<GlobalPartRead>(`/global-parts/${partId}`),
 
   // Image management (requires edit permission)
+  appendGlobalPartImages: (partId: number, fileKeys: string[]) =>
+    apiClient.post<GlobalPartRead>(`/global-parts/${partId}/append-images`, {
+      file_keys: fileKeys,
+    }),
   removeGlobalPartImage: (partId: number, imageIndex: number) =>
     apiClient.delete<GlobalPartRead>(
       `/global-parts/${partId}/images/${imageIndex}`
