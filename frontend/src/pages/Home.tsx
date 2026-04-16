@@ -112,17 +112,17 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
+      {/* Landing-page ambient glow — fixed to viewport so it extends behind the ad gutters and persists while scrolling. */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
+        <div
+          className="absolute bottom-0 left-0 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1.5s' }}
+        ></div>
+      </div>
+
       {/* Compact Hero Section */}
       <section className="relative py-16 px-4">
-        {/* Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
-          <div
-            className="absolute bottom-0 left-0 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl animate-float"
-            style={{ animationDelay: '1.5s' }}
-          ></div>
-        </div>
-
         <div className="container mx-auto relative z-10">
           <div className="text-center max-w-3xl mx-auto animate-slideInUp">
             <div className="flex justify-center mb-4">
