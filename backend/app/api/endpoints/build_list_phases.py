@@ -3,6 +3,8 @@ Build list phase endpoints: update and delete phases by ID.
 List and create are under build_lists (GET/POST /build-lists/{id}/phases).
 """
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies.auth import get_current_user
@@ -48,7 +50,7 @@ async def count_build_list_phases(
     ),
 )
 async def update_build_list_phase(
-    phase_id: int,
+    phase_id: UUID,
     body: BuildListPhaseUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -83,7 +85,7 @@ async def update_build_list_phase(
     ),
 )
 async def delete_build_list_phase(
-    phase_id: int,
+    phase_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPhaseRead:

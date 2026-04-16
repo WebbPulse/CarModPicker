@@ -42,16 +42,16 @@ function CreateGlobalPartForm({
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand_id: null as number | null,
+    brand_id: null as string | null,
     description: '',
     product_url: '',
-    category_id: null as number | null,
-    car_ids: [] as number[],
+    category_id: null as string | null,
+    car_ids: [] as string[],
     is_universal: false,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [duplicatePartId, setDuplicatePartId] = useState<number | null>(null);
+  const [duplicatePartId, setDuplicatePartId] = useState<string | null>(null);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   const [cars, setCars] = useState<CarRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
@@ -130,13 +130,13 @@ function CreateGlobalPartForm({
   );
 
   const handleCategoryChange = (value: number | string | null) => {
-    const categoryId = value !== null && value !== '' ? Number(value) : null;
+    const categoryId = value !== null && value !== '' ? String(value) : null;
     setFormData((prev) => ({ ...prev, category_id: categoryId }));
     if (validationError) setValidationError(null);
   };
 
   const handleBrandChange = (value: number | string | null) => {
-    const brandId = value !== null && value !== '' ? Number(value) : null;
+    const brandId = value !== null && value !== '' ? String(value) : null;
     setFormData((prev) => ({ ...prev, brand_id: brandId }));
     // Clear pending brand if an existing brand is selected or value is cleared
     if (brandId !== null || value === null) {
@@ -264,7 +264,7 @@ function CreateGlobalPartForm({
     // Don't clear duplicatePartId here - let the useEffect handle it
   };
 
-  const handleCarIdsChange = (carIds: number[]) => {
+  const handleCarIdsChange = (carIds: string[]) => {
     setFormData((prev) => ({ ...prev, car_ids: carIds }));
     if (validationError) setValidationError(null);
   };
@@ -350,7 +350,7 @@ function CreateGlobalPartForm({
           error_code?: string;
           message?: string;
           detail?: string;
-          details?: { existing_part_id?: number };
+          details?: { existing_part_id?: string };
         };
         if (
           responseData.error_code === 'DUPLICATE_PRODUCT_URL' ||
@@ -364,9 +364,9 @@ function CreateGlobalPartForm({
           }
           // Try to extract from message if details not available
           const message = responseData.message || responseData.detail || '';
-          const match = message.match(/Part ID: (\d+)/);
+          const match = message.match(/Part ID: ([\w-]+)/);
           if (match && match[1]) {
-            setDuplicatePartId(Number(match[1]));
+            setDuplicatePartId(match[1]);
             setValidationError(null);
             return;
           }

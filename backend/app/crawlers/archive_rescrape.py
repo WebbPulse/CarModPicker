@@ -11,6 +11,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional  # Optional still used for load_archived_html return
+from uuid import UUID
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -71,9 +72,9 @@ def rescrape_crawled_page_from_archive(
     page: DBCrawledPage,
     *,
     crawler_user: DBUser,
-    default_category_id: int,
+    default_category_id: UUID,
     log: logging.Logger,
-) -> tuple[RescrapeOutcome, Optional[int], Optional[str]]:
+) -> tuple[RescrapeOutcome, Optional[UUID], Optional[str]]:
     """
     Fetch archived HTML, parse with the right adapter, ingest (including price history).
 
@@ -149,7 +150,7 @@ def run_rescrape_all_archived_pages(
     db: Session,
     *,
     crawler_user: DBUser,
-    default_category_id: int,
+    default_category_id: UUID,
     log: logging.Logger,
     stop_event: Optional[threading.Event] = None,
 ) -> dict[str, int]:

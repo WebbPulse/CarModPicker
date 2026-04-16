@@ -6,10 +6,10 @@ Invoked as: python -m app.crawlers.ecs_runner
 Per-run configuration is read from environment variables injected by
 App Runner at ecs.run_task() time:
 
-    JOB_ID                       — BackgroundJob ID to update on completion
+    JOB_ID                       — BackgroundJob UUID to update on completion
     CRAWLER_ADAPTERS             — comma-separated adapter names, or "all"
-    CRAWLER_DEFAULT_CATEGORY_ID  — integer; category ID for new parts (required)
-    CRAWLER_USER_ID              — optional integer; defaults to crawler service account
+    CRAWLER_DEFAULT_CATEGORY_ID  — UUID; category ID for new parts (required)
+    CRAWLER_USER_ID              — optional UUID; defaults to crawler service account
     CRAWLER_LIMITS               — optional JSON dict {"adapter": limit}
     CRAWLER_GLOBAL_LIMIT         — optional integer
     CRAWLER_DELAY_SEC            — optional float (default: DEFAULT_REQUEST_DELAY_SEC)
@@ -26,6 +26,7 @@ import logging
 import os
 import sys
 import traceback
+from uuid import UUID
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +36,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _notify_completion(db, job_id: int) -> None:
+def _notify_completion(db, job_id: UUID) -> None:
     """Send job-report email to superadmins. Best-effort — never raises."""
     try:
         from app.api.models.user import User as DBUser
@@ -65,7 +66,7 @@ def main() -> None:
 
     # --- Parse env vars ---
     job_id_str = os.environ.get("JOB_ID")
-    job_id = int(job_id_str) if job_id_str else None
+    job_id = UUID(job_id_str) if job_id_str else None
 
     adapters_str = os.environ.get("CRAWLER_ADAPTERS", "all")
     adapters = [a.strip() for a in adapters_str.split(",") if a.strip()]
@@ -76,10 +77,10 @@ def main() -> None:
     if not category_id_str:
         logger.error("CRAWLER_DEFAULT_CATEGORY_ID is required but not set")
         sys.exit(1)
-    default_category_id = int(category_id_str)
+    default_category_id = UUID(category_id_str)
 
     user_id_str = os.environ.get("CRAWLER_USER_ID")
-    user_id = int(user_id_str) if user_id_str else None
+    user_id = UUID(user_id_str) if user_id_str else None
 
     limits_str = os.environ.get("CRAWLER_LIMITS")
     limits = json.loads(limits_str) if limits_str else None

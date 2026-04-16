@@ -3,11 +3,13 @@ CarModel entity - e.g. Civic, Camry, F-150.
 Dedicated entity for model line; belongs to a Make. Car (generation) links to CarModel.
 """
 
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -25,8 +27,10 @@ class CarModel(Base):
     __tablename__ = "car_models"
     __table_args__ = (UniqueConstraint("make_id", "name", name="uq_car_models_make_id_name"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    make_id: Mapped[int] = mapped_column(ForeignKey("makes.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    make_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("makes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(nullable=False, index=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

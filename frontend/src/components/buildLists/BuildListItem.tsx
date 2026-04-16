@@ -16,7 +16,7 @@ interface BuildListItemProps {
   buildList: BuildListRead | BuildListReadWithVotes;
   showVoteButtons?: boolean;
   onVoteUpdate?: (
-    buildListId: number,
+    buildListId: string,
     newVote: 'upvote' | 'downvote' | null
   ) => void;
 }

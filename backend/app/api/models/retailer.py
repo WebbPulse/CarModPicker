@@ -1,7 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -17,7 +20,7 @@ class Retailer(Base):
 
     __tablename__ = "retailers"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     name: Mapped[str] = mapped_column(nullable=False, index=True)
     domain: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)  # e.g. "a90shop.com"
     base_url: Mapped[Optional[str]] = mapped_column(nullable=True)  # e.g. "https://www.a90shop.com"

@@ -34,7 +34,7 @@ interface EditGlobalPartFormProps {
 }
 
 const updateGlobalPartRequestFn = (payload: {
-  globalPartId: number;
+  globalPartId: string;
   globalPartData: GlobalPartUpdate;
 }) =>
   apiClient.put<GlobalPartUpdate>(
@@ -54,10 +54,10 @@ function EditGlobalPartForm({
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand_id: null as number | null,
+    brand_id: null as string | null,
     description: '',
-    category_id: 1,
-    car_ids: [] as number[],
+    category_id: '' as string,
+    car_ids: [] as string[],
     is_universal: false,
   });
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
@@ -121,7 +121,7 @@ function EditGlobalPartForm({
         part_number: globalPart.part_number ?? '',
         brand_id: globalPart.brand_id ?? null,
         description: globalPart.description ?? '',
-        category_id: globalPart.category_id ?? 1,
+        category_id: globalPart.category_id ?? '',
         car_ids: [...carIds],
         is_universal: globalPart.is_universal ?? false,
       });
@@ -140,15 +140,15 @@ function EditGlobalPartForm({
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const categoryId = e.target.value ? Number(e.target.value) : null;
+    const categoryId = e.target.value || '';
     setFormData((prev) => ({
       ...prev,
-      category_id: categoryId ?? 1,
+      category_id: categoryId,
     }));
     if (validationError) setValidationError(null);
   };
 
-  const handleCarIdsChange = (carIds: number[]) => {
+  const handleCarIdsChange = (carIds: string[]) => {
     setFormData((prev) => ({ ...prev, car_ids: carIds }));
     if (validationError) setValidationError(null);
   };
@@ -160,7 +160,7 @@ function EditGlobalPartForm({
   };
 
   const handleBrandChange = (value: number | string | null) => {
-    const brandId = value !== null && value !== '' ? Number(value) : null;
+    const brandId = value !== null && value !== '' ? String(value) : null;
     setFormData((prev) => ({ ...prev, brand_id: brandId }));
     // Clear pending brand if an existing brand is selected or value is cleared
     if (brandId !== null || value === null) {

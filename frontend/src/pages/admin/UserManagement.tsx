@@ -28,11 +28,11 @@ const fetchUsersRequestFn = (params?: {
 }) => usersApi.getAllUsers(params);
 
 const updateUserRequestFn = (payload: {
-  userId: number;
+  userId: string;
   data: AdminUserUpdate;
 }) => usersApi.adminUpdateUser(payload.userId, payload.data);
 
-const deleteUserRequestFn = (userId: number) =>
+const deleteUserRequestFn = (userId: string) =>
   usersApi.adminDeleteUser(userId);
 
 function UserManagement() {

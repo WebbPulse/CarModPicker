@@ -4,6 +4,7 @@ Base service class for voting operations to eliminate code duplication.
 
 import logging
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from uuid import UUID
 
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
@@ -51,8 +52,8 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
     def vote_on_entity(
         self,
         db: Session,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         vote_data: VoteCreateSchema,
         logger: logging.Logger,
     ) -> VoteModelType:
@@ -118,8 +119,8 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
     def remove_vote(
         self,
         db: Session,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         logger: logging.Logger,
     ) -> bool:
         """
@@ -169,7 +170,7 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
     def get_vote_summary(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         logger: logging.Logger,
     ) -> Dict[str, Any]:
         """
@@ -235,8 +236,8 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
     def get_user_vote(
         self,
         db: Session,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         logger: logging.Logger,
     ) -> Optional[VoteModelType]:
         """

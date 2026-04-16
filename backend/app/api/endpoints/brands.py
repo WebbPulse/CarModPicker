@@ -5,6 +5,7 @@ Allows users to create and search brands, with admin-only update/delete operatio
 """
 
 from typing import Dict, List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -116,7 +117,7 @@ async def search_brands(
 
 @router.get("/{brand_id}", response_model=BrandResponse)
 async def get_brand(
-    brand_id: int,
+    brand_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> BrandResponse:
     """
@@ -133,7 +134,7 @@ async def get_brand(
     responses=pagination_responses("global part", allow_public_read=True),
 )
 async def get_global_parts_by_brand(
-    brand_id: int,
+    brand_id: UUID,
     skip: int = Query(0, ge=0, description="Number of parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -187,7 +188,7 @@ async def create_brand(
     responses=crud_responses("brand", "update"),
 )
 async def update_brand(
-    brand_id: int,
+    brand_id: UUID,
     brand: BrandUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
@@ -225,7 +226,7 @@ async def update_brand(
     responses=crud_responses("brand", "delete"),
 )
 async def delete_brand(
-    brand_id: int,
+    brand_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BrandResponse:
@@ -258,7 +259,7 @@ async def delete_brand(
     ),
 )
 async def get_brand_parts_count(
-    brand_id: int,
+    brand_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """

@@ -5,6 +5,7 @@ Unified vote service for all entity types.
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import List, Optional, Type, Union
+from uuid import UUID
 
 from sqlalchemy import Float, and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
@@ -38,8 +39,8 @@ class VoteService:
         self,
         db: Session,
         entity_type: EntityType,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         vote_data: VoteCreate,
         logger: logging.Logger,
     ) -> DBVote:
@@ -103,8 +104,8 @@ class VoteService:
         self,
         db: Session,
         entity_type: EntityType,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         logger: logging.Logger,
     ) -> bool:
         """
@@ -142,8 +143,8 @@ class VoteService:
         self,
         db: Session,
         entity_type: EntityType,
-        entity_id: int,
-        user_id: Optional[int] = None,
+        entity_id: UUID,
+        user_id: Optional[UUID] = None,
         logger: Optional[logging.Logger] = None,
     ) -> VoteSummary:
         """

@@ -12,7 +12,7 @@ interface ImageGalleryManageProps {
   imageUrls?: string[] | null;
   altText: string;
   /** Global part ID (required for manage actions) */
-  partId: number;
+  partId: string;
   /** Called after an image is removed or primary is changed so parent can refresh part */
   onPartUpdated: () => void | Promise<void>;
   /** When "hero", show large primary image with carousel of others beneath */

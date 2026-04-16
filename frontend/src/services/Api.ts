@@ -173,10 +173,10 @@ apiClient.interceptors.response.use(
 export const usersApi = {
   getMe: () => apiClient.get<UserRead>('/users/me'),
   createUser: (data: UserCreate) => apiClient.post<UserRead>('/users/', data),
-  getUser: (userId: number) => apiClient.get<UserRead>(`/users/${userId}`),
-  updateUser: (userId: number, data: UserUpdate) =>
+  getUser: (userId: string) => apiClient.get<UserRead>(`/users/${userId}`),
+  updateUser: (userId: string, data: UserUpdate) =>
     apiClient.put<UserRead>(`/users/${userId}`, data),
-  deleteUser: (userId: number) =>
+  deleteUser: (userId: string) =>
     apiClient.delete<UserRead>(`/users/${userId}`),
 
   // Profile picture endpoints
@@ -202,15 +202,15 @@ export const usersApi = {
     apiClient.get<PaginatedResponse<UserRead>>('/users/admin/users', {
       params,
     }),
-  adminUpdateUser: (userId: number, data: AdminUserUpdate) =>
+  adminUpdateUser: (userId: string, data: AdminUserUpdate) =>
     apiClient.put<UserRead>(`/users/admin/users/${userId}`, data),
-  adminDeleteUser: (userId: number) =>
+  adminDeleteUser: (userId: string) =>
     apiClient.delete<UserRead>(`/users/admin/users/${userId}`),
 };
 
 // Car API (read-only; cars are seeded from backend car_generations_data)
 export const carsApi = {
-  getCar: (carId: number) => apiClient.get<CarRead>(`/cars/${carId}`),
+  getCar: (carId: string) => apiClient.get<CarRead>(`/cars/${carId}`),
   listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
     apiClient.get<CarRead[]>('/cars/', { params }),
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
@@ -228,7 +228,7 @@ export const carsApi = {
       `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
       { params }
     ),
-  getCarsByIds: (ids: number[]) =>
+  getCarsByIds: (ids: string[]) =>
     apiClient.get<CarRead[]>('/cars/by-ids', { params: { ids } }),
   // Stats and count endpoints
   getCarMakeStats: () =>
@@ -241,7 +241,7 @@ export const carsApi = {
 
 // Car Generation API (read-only; uses /cars endpoints; Car = generation in backend)
 export const carGenerationsApi = {
-  getCarGeneration: (generationId: number) =>
+  getCarGeneration: (generationId: string) =>
     apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
   listCarGenerations: (params?: {
     skip?: number;
@@ -272,11 +272,11 @@ export const carGenerationsApi = {
 export const buildListsApi = {
   createBuildList: (data: BuildListCreate) =>
     apiClient.post<BuildListRead>('/build-lists/', data),
-  getBuildList: (buildListId: number) =>
+  getBuildList: (buildListId: string) =>
     apiClient.get<BuildListRead>(`/build-lists/${buildListId}`),
-  updateBuildList: (buildListId: number, data: BuildListUpdate) =>
+  updateBuildList: (buildListId: string, data: BuildListUpdate) =>
     apiClient.put<BuildListRead>(`/build-lists/${buildListId}`, data),
-  deleteBuildList: (buildListId: number) =>
+  deleteBuildList: (buildListId: string) =>
     apiClient.delete<BuildListRead>(`/build-lists/${buildListId}`),
 
   // List and filter endpoints
@@ -289,8 +289,8 @@ export const buildListsApi = {
     skip?: number;
     limit?: number;
     search?: string;
-    car_id?: number;
-    car_ids?: number[];
+    car_id?: string;
+    car_ids?: string[];
     min_cost_cents?: number;
     max_cost_cents?: number;
     sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -304,7 +304,7 @@ export const buildListsApi = {
       }
     ),
   getBuildListsByCar: (
-    carId: number,
+    carId: string,
     params?: { skip?: number; limit?: number; search?: string }
   ) =>
     apiClient.get<PaginatedResponse<BuildListRead>>(
@@ -316,7 +316,7 @@ export const buildListsApi = {
       params,
     }),
   getBuildListsByUser: (
-    userId: number,
+    userId: string,
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<BuildListRead[]>(`/build-lists/user/${userId}`, { params }),
@@ -325,15 +325,15 @@ export const buildListsApi = {
   countBuildLists: () => apiClient.get<{ count: number }>('/build-lists/count'),
 
   // Copy build list
-  copyBuildList: (buildListId: number, newName?: string) =>
+  copyBuildList: (buildListId: string, newName?: string) =>
     apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
       new_name: newName || null,
     }),
 
   // Phases (priority groups) for a build list
-  getPhases: (buildListId: number) =>
+  getPhases: (buildListId: string) =>
     apiClient.get<BuildListPhaseRead[]>(`/build-lists/${buildListId}/phases`),
-  createPhase: (buildListId: number, data: BuildListPhaseCreate) =>
+  createPhase: (buildListId: string, data: BuildListPhaseCreate) =>
     apiClient.post<BuildListPhaseRead>(
       `/build-lists/${buildListId}/phases`,
       data
@@ -342,9 +342,9 @@ export const buildListsApi = {
 
 // Build list phases API (update/delete by phase ID)
 export const buildListPhasesApi = {
-  updatePhase: (phaseId: number, data: BuildListPhaseUpdate) =>
+  updatePhase: (phaseId: string, data: BuildListPhaseUpdate) =>
     apiClient.put<BuildListPhaseRead>(`/build-list-phases/${phaseId}`, data),
-  deletePhase: (phaseId: number) =>
+  deletePhase: (phaseId: string) =>
     apiClient.delete<BuildListPhaseRead>(`/build-list-phases/${phaseId}`),
 };
 
@@ -377,8 +377,8 @@ export const globalPartsApi = {
   getGlobalParts: (params?: {
     skip?: number;
     limit?: number;
-    category_id?: number;
-    car_id?: number;
+    category_id?: string;
+    car_id?: string;
     search?: string;
   }) => apiClient.get<GlobalPartRead[]>('/global-parts/', { params }),
 
@@ -386,13 +386,13 @@ export const globalPartsApi = {
   getGlobalPartsWithVotes: (params?: {
     skip?: number;
     limit?: number;
-    category_id?: number;
-    category_ids?: number[];
-    car_id?: number;
-    car_ids?: number[];
-    brand_id?: number;
-    brand_ids?: number[];
-    user_id?: number;
+    category_id?: string;
+    category_ids?: string[];
+    car_id?: string;
+    car_ids?: string[];
+    brand_id?: string;
+    brand_ids?: string[];
+    user_id?: string;
     search?: string;
     sort?: string;
     min_price_cents?: number;
@@ -410,18 +410,18 @@ export const globalPartsApi = {
 
   // Get available filter options given current filters (for cascading filters)
   getFilterOptions: (params?: {
-    category_ids?: number[];
-    brand_ids?: number[];
-    car_id?: number;
-    car_ids?: number[];
+    category_ids?: string[];
+    brand_ids?: string[];
+    car_id?: string;
+    car_ids?: string[];
     search?: string;
-    user_id?: number;
+    user_id?: string;
     universal?: boolean;
   }) =>
     apiClient.get<{
-      category_ids: number[];
-      brand_ids: number[];
-      car_ids?: number[];
+      category_ids: string[];
+      brand_ids: string[];
+      car_ids?: string[];
       make_names?: string[];
     }>('/global-parts/filter-options', {
       params: params
@@ -431,7 +431,7 @@ export const globalPartsApi = {
 
   // Filter by category
   getGlobalPartsByCategory: (
-    categoryId: number,
+    categoryId: string,
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<GlobalPartRead[]>(`/global-parts/category/${categoryId}`, {
@@ -443,19 +443,19 @@ export const globalPartsApi = {
     apiClient.post<GlobalPartRead>('/global-parts/', data),
 
   // Get specific global part
-  getGlobalPart: (partId: number) =>
+  getGlobalPart: (partId: string) =>
     apiClient.get<GlobalPartRead>(`/global-parts/${partId}`),
 
   // Get retailer listings for a part (price by retailer)
-  getGlobalPartListings: (partId: number) =>
+  getGlobalPartListings: (partId: string) =>
     apiClient.get<PartListingReadWithRetailer[]>(
       `/global-parts/${partId}/listings`
     ),
 
   // Get price history for a part (optional filter by retailer)
   getGlobalPartPriceHistory: (
-    partId: number,
-    params?: { retailer_id?: number }
+    partId: string,
+    params?: { retailer_id?: string }
   ) =>
     apiClient.get<PartPriceHistoryReadWithRetailer[]>(
       `/global-parts/${partId}/price-history`,
@@ -463,23 +463,23 @@ export const globalPartsApi = {
     ),
 
   // Update global part
-  updateGlobalPart: (partId: number, data: GlobalPartUpdate) =>
+  updateGlobalPart: (partId: string, data: GlobalPartUpdate) =>
     apiClient.put<GlobalPartRead>(`/global-parts/${partId}`, data),
 
   // Delete global part
-  deleteGlobalPart: (partId: number) =>
+  deleteGlobalPart: (partId: string) =>
     apiClient.delete<GlobalPartRead>(`/global-parts/${partId}`),
 
   // Image management (requires edit permission)
-  appendGlobalPartImages: (partId: number, fileKeys: string[]) =>
+  appendGlobalPartImages: (partId: string, fileKeys: string[]) =>
     apiClient.post<GlobalPartRead>(`/global-parts/${partId}/append-images`, {
       file_keys: fileKeys,
     }),
-  removeGlobalPartImage: (partId: number, imageIndex: number) =>
+  removeGlobalPartImage: (partId: string, imageIndex: number) =>
     apiClient.delete<GlobalPartRead>(
       `/global-parts/${partId}/images/${imageIndex}`
     ),
-  setGlobalPartPrimaryImage: (partId: number, index: number) =>
+  setGlobalPartPrimaryImage: (partId: string, index: number) =>
     apiClient.patch<GlobalPartRead>(`/global-parts/${partId}/primary-image`, {
       index,
     }),
@@ -487,12 +487,12 @@ export const globalPartsApi = {
   // Count endpoints
   countGlobalParts: () =>
     apiClient.get<{ count: number }>('/global-parts/count'),
-  countGlobalPartsByUser: (userId: number) =>
+  countGlobalPartsByUser: (userId: string) =>
     apiClient.get<{ count: number }>(`/global-parts/user/${userId}/count`),
 
   // Check if product URL exists
   checkProductUrl: (productUrl: string) =>
-    apiClient.get<{ existing_part_id: number | null }>(
+    apiClient.get<{ existing_part_id: string | null }>(
       '/global-parts/check-url',
       {
         params: { product_url: productUrl },
@@ -503,10 +503,10 @@ export const globalPartsApi = {
 // Categories API (read-only; categories are seeded from backend part_categories_data)
 export const categoriesApi = {
   getCategories: () => apiClient.get<CategoryResponse[]>('/categories/'),
-  getCategory: (categoryId: number) =>
+  getCategory: (categoryId: string) =>
     apiClient.get<CategoryResponse>(`/categories/${categoryId}`),
   getPartsByCategory: (
-    categoryId: number,
+    categoryId: string,
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<GlobalPartRead[]>(`/categories/${categoryId}/global-parts`, {
@@ -514,7 +514,7 @@ export const categoriesApi = {
     }),
 
   // Count endpoints
-  getCategoryPartsCount: (categoryId: number) =>
+  getCategoryPartsCount: (categoryId: string) =>
     apiClient.get<{ count: number }>(`/categories/${categoryId}/parts-count`),
   countCategories: () => apiClient.get<{ count: number }>('/categories/count'),
 };
@@ -529,22 +529,22 @@ export const brandsApi = {
     apiClient.get<BrandResponse[]>('/brands/search', {
       params: { q, ...params },
     }),
-  getBrand: (brandId: number) =>
+  getBrand: (brandId: string) =>
     apiClient.get<BrandResponse>(`/brands/${brandId}`),
   createBrand: (data: BrandCreate) =>
     apiClient.post<BrandResponse>('/brands/', data),
-  updateBrand: (brandId: number, data: BrandUpdate) =>
+  updateBrand: (brandId: string, data: BrandUpdate) =>
     apiClient.put<BrandResponse>(`/brands/${brandId}`, data),
-  deleteBrand: (brandId: number) =>
+  deleteBrand: (brandId: string) =>
     apiClient.delete<Record<string, string>>(`/brands/${brandId}`),
   getPartsByBrand: (
-    brandId: number,
+    brandId: string,
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<GlobalPartRead[]>(`/brands/${brandId}/global-parts`, {
       params,
     }),
-  getBrandPartsCount: (brandId: number) =>
+  getBrandPartsCount: (brandId: string) =>
     apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
   countBrands: () => apiClient.get<{ count: number }>('/brands/count'),
 };
@@ -558,19 +558,19 @@ export const retailersApi = {
 export const votesApi = {
   voteOnEntity: (
     entityType: 'car' | 'build_list' | 'global_part',
-    entityId: number,
+    entityId: string,
     data: VoteCreate
   ) => apiClient.post<VoteRead>(`/votes/${entityType}/${entityId}`, data),
   removeVote: (
     entityType: 'car' | 'build_list' | 'global_part',
-    entityId: number
+    entityId: string
   ) =>
     apiClient.delete<Record<string, string>>(
       `/votes/${entityType}/${entityId}`
     ),
   getVoteSummary: (
     entityType: 'car' | 'build_list' | 'global_part',
-    entityId: number
+    entityId: string
   ) => apiClient.get<VoteSummary>(`/votes/${entityType}/${entityId}/summary`),
   getFlaggedEntities: (
     entityType: 'car' | 'build_list' | 'global_part',
@@ -587,7 +587,7 @@ export const votesApi = {
 export const reportsApi = {
   reportEntity: (
     entityType: 'build_list' | 'global_part',
-    entityId: number,
+    entityId: string,
     data: ReportCreate
   ) => apiClient.post<ReportRead>(`/reports/${entityType}/${entityId}`, data),
   getReports: (params?: {
@@ -613,11 +613,11 @@ export const reportsApi = {
     ),
   getMyReports: (params?: { status?: string; skip?: number; limit?: number }) =>
     apiClient.get<ReportRead[]>('/reports/my-reports', { params }),
-  getReport: (reportId: number) =>
+  getReport: (reportId: string) =>
     apiClient.get<ReportWithDetails>(`/reports/${reportId}`),
-  updateReport: (reportId: number, data: ReportUpdate) =>
+  updateReport: (reportId: string, data: ReportUpdate) =>
     apiClient.put<ReportRead>(`/reports/${reportId}`, data),
-  deleteReport: (reportId: number) =>
+  deleteReport: (reportId: string) =>
     apiClient.delete<Record<string, string>>(`/reports/${reportId}`),
   countReports: () => apiClient.get<{ count: number }>('/reports/count'),
 };
@@ -625,7 +625,7 @@ export const reportsApi = {
 // Legacy APIs for backward compatibility (will be removed in future versions)
 export const globalPartVotesApi = {
   voteOnGlobalPart: (
-    partId: number,
+    partId: string,
     data: { vote_type: 'upvote' | 'downvote' }
   ) =>
     votesApi.voteOnEntity('global_part', partId, {
@@ -633,8 +633,8 @@ export const globalPartVotesApi = {
       entity_type: 'global_part',
       entity_id: partId,
     }),
-  removeVote: (partId: number) => votesApi.removeVote('global_part', partId),
-  getVoteSummary: (partId: number) =>
+  removeVote: (partId: string) => votesApi.removeVote('global_part', partId),
+  getVoteSummary: (partId: string) =>
     votesApi.getVoteSummary('global_part', partId),
   getFlaggedParts: (params?: { limit?: number }) =>
     votesApi.getFlaggedEntities('global_part', params?.limit),
@@ -642,7 +642,7 @@ export const globalPartVotesApi = {
 
 export const buildListVotesApi = {
   voteOnBuildList: (
-    buildListId: number,
+    buildListId: string,
     data: { vote_type: 'upvote' | 'downvote' }
   ) =>
     votesApi.voteOnEntity('build_list', buildListId, {
@@ -650,9 +650,9 @@ export const buildListVotesApi = {
       entity_type: 'build_list',
       entity_id: buildListId,
     }),
-  removeVote: (buildListId: number) =>
+  removeVote: (buildListId: string) =>
     votesApi.removeVote('build_list', buildListId),
-  getVoteSummary: (buildListId: number) =>
+  getVoteSummary: (buildListId: string) =>
     votesApi.getVoteSummary('build_list', buildListId),
   getFlaggedBuildLists: (params?: { limit?: number }) =>
     votesApi.getFlaggedEntities('build_list', params?.limit),
@@ -660,7 +660,7 @@ export const buildListVotesApi = {
 
 export const globalPartReportsApi = {
   reportGlobalPart: (
-    partId: number,
+    partId: string,
     data: { reason: string; description?: string | null }
   ) =>
     reportsApi.reportEntity('global_part', partId, {
@@ -674,9 +674,9 @@ export const globalPartReportsApi = {
     }),
   getReports: (params?: { status?: string; skip?: number; limit?: number }) =>
     reportsApi.getReports({ ...params, entity_type: 'global_part' }),
-  getReport: (reportId: number) => reportsApi.getReport(reportId),
+  getReport: (reportId: string) => reportsApi.getReport(reportId),
   updateReport: (
-    reportId: number,
+    reportId: string,
     data: { status: string; admin_notes?: string | null }
   ) =>
     reportsApi.updateReport(reportId, {
@@ -689,7 +689,7 @@ export const globalPartReportsApi = {
 export const buildListPartsApi = {
   // Create a new global part and add it to a build list as a build list part
   createGlobalPartAndAddToBuildList: (
-    buildListId: number,
+    buildListId: string,
     globalPartData: GlobalPartCreate,
     buildListPartData: BuildListPartCreate
   ) =>
@@ -715,8 +715,8 @@ export const buildListPartsApi = {
     ),
   // Add an existing global part to a build list as a build list part
   addGlobalPartToBuildList: (
-    buildListId: number,
-    globalPartId: number,
+    buildListId: string,
+    globalPartId: string,
     data: BuildListPartCreate
   ) =>
     apiClient.post<BuildListPartRead>(
@@ -728,8 +728,8 @@ export const buildListPartsApi = {
     ),
   // Update a build list part (notes, etc.) by build list and global part IDs
   updateBuildListPart: (
-    buildListId: number,
-    globalPartId: number,
+    buildListId: string,
+    globalPartId: string,
     data: BuildListPartUpdate
   ) =>
     apiClient.put<BuildListPartRead>(
@@ -738,7 +738,7 @@ export const buildListPartsApi = {
     ),
   // Update a build list part by its own ID
   updateBuildListPartById: (
-    buildListPartId: number,
+    buildListPartId: string,
     data: BuildListPartUpdate
   ) =>
     apiClient.put<BuildListPartRead>(
@@ -746,23 +746,23 @@ export const buildListPartsApi = {
       data
     ),
   // Remove a build list part from a build list (doesn't delete the global part)
-  removeBuildListPart: (buildListId: number, globalPartId: number) =>
+  removeBuildListPart: (buildListId: string, globalPartId: string) =>
     apiClient.delete<BuildListPartRead>(
       `/build-list-parts/${buildListId}/global-parts/${globalPartId}`
     ),
   // Delete a build list part by its own ID
-  deleteBuildListPartById: (buildListPartId: number) =>
+  deleteBuildListPartById: (buildListPartId: string) =>
     apiClient.delete<BuildListPartRead>(`/build-list-parts/${buildListPartId}`),
   // Get all build list parts in a build list (basic info)
-  getBuildListPartsBasic: (buildListId: number) =>
+  getBuildListPartsBasic: (buildListId: string) =>
     apiClient.get<BuildListPartRead[]>(`/build-list-parts/${buildListId}`),
   // Get all build list parts in a build list (with global part details)
-  getBuildListParts: (buildListId: number) =>
+  getBuildListParts: (buildListId: string) =>
     apiClient.get<BuildListPartReadWithGlobalPart[]>(
       `/build-list-parts/${buildListId}/global-parts`
     ),
   // Count build lists containing a specific global part
-  countBuildListsContainingGlobalPart: (globalPartId: number) =>
+  countBuildListsContainingGlobalPart: (globalPartId: string) =>
     apiClient.get<{ count: number }>(
       `/build-list-parts/global-parts/${globalPartId}/build-lists/count`
     ),
@@ -881,7 +881,7 @@ export const imageApi = {
   uploadImage: async (
     file: File,
     entityType: string,
-    entityId?: number
+    entityId?: string
   ): Promise<ImageUploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -959,7 +959,7 @@ export const imageApi = {
 // Build Logs API
 export const buildLogsApi = {
   getBuildLogByBuildList: (
-    buildListId: number,
+    buildListId: string,
     skip?: number,
     limit?: number
   ) => {
@@ -971,14 +971,14 @@ export const buildLogsApi = {
       `/build-logs/build-list/${buildListId}${queryString ? `?${queryString}` : ''}`
     );
   },
-  createBuildLogPost: (buildListId: number, data: BuildLogPostCreate) =>
+  createBuildLogPost: (buildListId: string, data: BuildLogPostCreate) =>
     apiClient.post<BuildLogPostRead>(
       `/build-logs/build-list/${buildListId}/posts`,
       data
     ),
-  updateBuildLogPost: (postId: number, data: BuildLogPostUpdate) =>
+  updateBuildLogPost: (postId: string, data: BuildLogPostUpdate) =>
     apiClient.put<BuildLogPostRead>(`/build-logs/posts/${postId}`, data),
-  deleteBuildLogPost: (postId: number) =>
+  deleteBuildLogPost: (postId: string) =>
     apiClient.delete<{ message: string }>(`/build-logs/posts/${postId}`),
   countBuildLogPosts: () =>
     apiClient.get<{ count: number }>('/build-logs/posts/count'),
@@ -1009,11 +1009,11 @@ export const bugReportsApi = {
         params,
       }
     ),
-  getBugReport: (bugReportId: number) =>
+  getBugReport: (bugReportId: string) =>
     apiClient.get<BugReportWithDetails>(`/bug-reports/${bugReportId}`),
-  updateBugReport: (bugReportId: number, data: BugReportUpdate) =>
+  updateBugReport: (bugReportId: string, data: BugReportUpdate) =>
     apiClient.put<BugReportRead>(`/bug-reports/${bugReportId}`, data),
-  deleteBugReport: (bugReportId: number) =>
+  deleteBugReport: (bugReportId: string) =>
     apiClient.delete<Record<string, string>>(`/bug-reports/${bugReportId}`),
   countBugReports: () => apiClient.get<{ count: number }>('/bug-reports/count'),
 };
@@ -1038,7 +1038,7 @@ export interface InitDataResult {
 
 /** A persisted background job record. */
 export interface BackgroundJob {
-  id: number;
+  id: string;
   job_type: 'crawler_run' | 'archive_rescrape';
   status: 'running' | 'completed' | 'failed' | 'cancelled';
   triggered_by: 'manual' | 'scheduled';
@@ -1047,7 +1047,7 @@ export interface BackgroundJob {
   error_message: string | null;
   started_at: string;
   completed_at: string | null;
-  created_by_user_id: number | null;
+  created_by_user_id: string | null;
 }
 
 export interface BackgroundJobList {
@@ -1060,14 +1060,14 @@ export interface BackgroundJobList {
 /** Response when starting a crawler job (returns immediately; job runs in background). */
 export interface CrawlerRunResponse {
   status: 'started';
-  job_id: number;
+  job_id: string;
   adapters: string[];
   triggered_by: 'manual' | 'scheduled';
   message: string;
 }
 
 export interface CrawlerServiceAccount {
-  id: number;
+  id: string;
   username: string;
   email: string;
   is_service_account: true;
@@ -1076,8 +1076,8 @@ export interface CrawlerServiceAccount {
 
 export interface CrawlerRunRequest {
   adapters: string[];
-  crawler_user_id?: number;
-  crawler_default_category_id: number;
+  crawler_user_id?: string;
+  crawler_default_category_id: string;
   limits?: Record<string, number>;
   global_limit?: number | null;
   parallel?: boolean;
@@ -1090,13 +1090,13 @@ export interface CrawlerRunRequest {
 
 /** Admin: re-parse every archived crawled page (full ingest + inference + price history when price is present). */
 export interface RescrapeArchivesRequest {
-  crawler_user_id?: number;
-  default_category_id: number;
+  crawler_user_id?: string;
+  default_category_id: string;
 }
 
 export interface RescrapeArchivesQueuedResponse {
   status: string;
-  job_id: number;
+  job_id: string;
   triggered_by: 'manual' | 'scheduled';
   message: string;
 }
@@ -1196,9 +1196,9 @@ export const adminApi = {
     limit?: number;
     offset?: number;
   }) => apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
-  getJob: (jobId: number) =>
+  getJob: (jobId: string) =>
     apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
-  cancelJob: (jobId: number) =>
+  cancelJob: (jobId: string) =>
     apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
 
   // Cron schedule management

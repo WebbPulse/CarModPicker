@@ -27,7 +27,7 @@ const fetchReportsRequestFn = (params?: {
 }): Promise<AxiosResponse<PaginatedResponse<ReportWithDetails>>> =>
   reportsApi.getReportsWithDetails(params);
 const updateReportRequestFn = (payload: {
-  reportId: number;
+  reportId: string;
   data: ReportUpdate;
 }): Promise<AxiosResponse<ReportWithDetails>> =>
   apiClient.put<ReportWithDetails>(

@@ -6,6 +6,7 @@ and response documentation while maintaining build list part-specific functional
 """
 
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -53,7 +54,7 @@ from app.api.utils.response_patterns import ResponsePatterns
 router = APIRouter()
 
 
-def _validate_phase_belongs_to_build_list(db, phase_id: Optional[int], build_list_id: int) -> None:
+def _validate_phase_belongs_to_build_list(db, phase_id: Optional[UUID], build_list_id: UUID) -> None:
     """If phase_id is set, verify the phase exists and belongs to the build list. Raises 404/400."""
     if phase_id is None:
         return
@@ -96,8 +97,8 @@ async def count_build_list_parts(
     ),
 )
 async def add_global_part_to_build_list(
-    build_list_id: int,
-    global_part_id: int,
+    build_list_id: UUID,
+    global_part_id: UUID,
     build_list_part: BuildListPartCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -157,7 +158,7 @@ async def add_global_part_to_build_list(
     ),
 )
 async def get_build_list_parts(
-    build_list_id: int,
+    build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPartRead]:
@@ -190,7 +191,7 @@ async def get_build_list_parts(
     ),
 )
 async def update_build_list_part(
-    build_list_part_id: int,
+    build_list_part_id: UUID,
     build_list_part: BuildListPartUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -237,7 +238,7 @@ async def update_build_list_part(
     ),
 )
 async def delete_build_list_part(
-    build_list_part_id: int,
+    build_list_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
@@ -272,7 +273,7 @@ async def delete_build_list_part(
     ),
 )
 async def create_global_part_and_add_to_build_list(
-    build_list_id: int,
+    build_list_id: UUID,
     request: CreateGlobalPartAndAddToBuildListRequest,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -453,7 +454,7 @@ async def create_global_part_and_add_to_build_list(
     ),
 )
 async def get_global_parts_in_build_list(
-    build_list_id: int,
+    build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPartReadWithGlobalPart]:
@@ -479,7 +480,7 @@ async def get_global_parts_in_build_list(
 
     # Pull lowest available price for every related global part (from retailer listings)
     part_ids = [p.global_part_id for p in db_build_list_parts]
-    best_price_cents_dict: Dict[int, int] = {}
+    best_price_cents_dict: Dict[UUID, int] = {}
     if part_ids:
         min_prices = (
             db.query(
@@ -532,8 +533,8 @@ async def get_global_parts_in_build_list(
     ),
 )
 async def update_global_part_in_build_list(
-    build_list_id: int,
-    global_part_id: int,
+    build_list_id: UUID,
+    global_part_id: UUID,
     build_list_part: BuildListPartUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -587,8 +588,8 @@ async def update_global_part_in_build_list(
     ),
 )
 async def remove_global_part_from_build_list(
-    build_list_id: int,
-    global_part_id: int,
+    build_list_id: UUID,
+    global_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
@@ -635,7 +636,7 @@ async def remove_global_part_from_build_list(
     ),
 )
 async def count_build_lists_containing_global_part(
-    global_part_id: int,
+    global_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Count the number of build lists that contain a specific global part."""

@@ -4,6 +4,7 @@ Base endpoint router with common patterns to reduce redundancy.
 
 import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -142,7 +143,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     },
                 )
                 async def get_entity_public(  # pyright: ignore[reportUnusedFunction]
-                    entity_id: int,
+                    entity_id: UUID,
                     db: Session = Depends(get_db),
                     logger: logging.Logger = Depends(get_logger),
                 ) -> ModelType:
@@ -166,7 +167,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     },
                 )
                 async def get_entity_private(  # pyright: ignore[reportUnusedFunction]
-                    entity_id: int,
+                    entity_id: UUID,
                     db: Session = Depends(get_db),
                     logger: logging.Logger = Depends(get_logger),
                     current_user: DBUser = Depends(get_current_user),
@@ -230,7 +231,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 },
             )
             async def update_entity(  # pyright: ignore[reportUnusedFunction]
-                entity_id: int,
+                entity_id: UUID,
                 data: _update_schema,  # type: ignore[valid-type]
                 db: Session = Depends(get_db),
                 logger: logging.Logger = Depends(get_logger),
@@ -259,7 +260,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 },
             )
             async def delete_entity(  # pyright: ignore[reportUnusedFunction]
-                entity_id: int,
+                entity_id: UUID,
                 db: Session = Depends(get_db),
                 logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
@@ -306,7 +307,7 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             },
         )
         async def filter_entities(  # pyright: ignore[reportUnusedFunction]
-            filter_id: int,
+            filter_id: UUID,
             skip: int = Query(0, ge=0, description=f"Number of {self.entity_name}s to skip"),
             limit: int = Query(
                 100,

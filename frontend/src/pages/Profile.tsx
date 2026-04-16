@@ -65,7 +65,7 @@ function Profile() {
     }
   }, [user]);
 
-  const updateUserRequestFn = (payload: { userId: number; data: UserUpdate }) =>
+  const updateUserRequestFn = (payload: { userId: string; data: UserUpdate }) =>
     apiClient.put<UserRead>(`/users/${payload.userId}`, payload.data);
 
   const {

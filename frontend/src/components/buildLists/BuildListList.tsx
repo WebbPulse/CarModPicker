@@ -14,7 +14,7 @@ import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
 
 interface BuildListListProps {
-  carId: number;
+  carId: string;
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
@@ -29,8 +30,8 @@ class GlobalPartCreate(BaseModel):
     product_url: Optional[str] = Field(
         None, description="Product URL at retailer (used only with retailer_id for listing)"
     )
-    category_id: int
-    car_ids: Optional[List[int]] = Field(
+    category_id: UUID
+    car_ids: Optional[List[UUID]] = Field(
         default=None,
         description="Car IDs this part fits. Ignored when is_universal is True.",
     )
@@ -38,7 +39,7 @@ class GlobalPartCreate(BaseModel):
         default=False,
         description="When True, part fits all cars; no need to list car_ids.",
     )
-    brand_id: int  # Required brand association
+    brand_id: UUID  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
         None,
@@ -46,7 +47,7 @@ class GlobalPartCreate(BaseModel):
     )
     specifications: Optional[Dict[str, Any]] = None
     # Optional: link to retailer listing for dedup and price history
-    retailer_id: Optional[int] = Field(None, description="Retailer ID when product_url is from a known retailer")
+    retailer_id: Optional[UUID] = Field(None, description="Retailer ID when product_url is from a known retailer")
     price_cents: Optional[int] = Field(
         None, ge=0, le=2147483647, description="Price in cents for this retailer (creates/updates listing)"
     )
@@ -68,10 +69,10 @@ class GlobalPartUpdate(BaseModel):
         max_length=MAX_IMAGES_PER_GLOBAL_PART,
         description="Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
     )
-    category_id: Optional[int] = None
-    car_ids: Optional[List[int]] = None  # Car IDs this part fits; ignored when is_universal
+    category_id: Optional[UUID] = None
+    car_ids: Optional[List[UUID]] = None  # Car IDs this part fits; ignored when is_universal
     is_universal: Optional[bool] = None
-    brand_id: int  # Required brand association
+    brand_id: UUID  # Required brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
@@ -79,18 +80,18 @@ class GlobalPartUpdate(BaseModel):
 
 # Schema for response body when reading a part
 class GlobalPartRead(BaseModel):
-    id: int
+    id: UUID
     name: str
     description: Optional[str] = None
     best_price_cents: Optional[int] = Field(
         None, description="Lowest current price from any retailer listing (computed when available)"
     )
     image_urls: Optional[List[str]] = None
-    category_id: int
-    user_id: int  # Creator
-    car_ids: List[int] = Field(default_factory=list, description="Car IDs this part is associated with")
+    category_id: UUID
+    user_id: UUID  # Creator
+    car_ids: List[UUID] = Field(default_factory=list, description="Car IDs this part is associated with")
     is_universal: bool = Field(default=False, description="When True, part fits all cars")
-    brand_id: Optional[int] = None  # Optional brand association
+    brand_id: Optional[UUID] = None  # Optional brand association
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
     specifications: Optional[Dict[str, Any]] = None

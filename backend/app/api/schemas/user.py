@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
@@ -126,7 +127,7 @@ class AdminUserUpdate(BaseModel):
 
 # Schema for public user data (excludes sensitive fields like email_verified and totp_enabled)
 class PublicUserRead(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     disabled: bool
@@ -153,7 +154,7 @@ class PublicUserRead(BaseModel):
 # Schema for response body when reading a user (DO NOT include hashed password)
 # Includes sensitive fields that should only be visible to the user themselves, admins, or superusers
 class UserRead(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     disabled: bool

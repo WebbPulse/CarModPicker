@@ -4,6 +4,7 @@ Car service that extends BaseCRUDService to eliminate redundancy.
 
 import logging
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
@@ -49,7 +50,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     def get_by_id(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: Optional[DBUser] = None,
         allow_public: bool = False,
         logger: Optional[logging.Logger] = None,
@@ -108,7 +109,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     def get_by_ids(
         self,
         db: Session,
-        ids: List[int],
+        ids: List[UUID],
         logger: Optional[logging.Logger] = None,
     ) -> List[DBCar]:
         """Return cars whose IDs are in the provided list."""
@@ -178,7 +179,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
     def delete(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: DBUser,
         logger: Optional[logging.Logger] = None,
     ) -> DBCar:

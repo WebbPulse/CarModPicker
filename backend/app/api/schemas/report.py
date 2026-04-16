@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -36,15 +37,15 @@ class ReportUpdate(BaseModel):
 
 
 class ReportRead(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     entity_type: str
-    entity_id: int
+    entity_id: UUID
     reason: str
     description: Optional[str] = None
     status: str
     admin_notes: Optional[str] = None
-    reviewed_by: Optional[int] = None
+    reviewed_by: Optional[UUID] = None
     reviewed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

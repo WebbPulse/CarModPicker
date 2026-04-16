@@ -28,7 +28,7 @@ const fetchBugReportsRequestFn = (params?: {
 }): Promise<AxiosResponse<PaginatedResponse<BugReportWithDetails>>> =>
   bugReportsApi.getBugReportsWithDetails(params);
 const updateBugReportRequestFn = (payload: {
-  bugReportId: number;
+  bugReportId: string;
   data: BugReportUpdate;
 }): Promise<AxiosResponse<BugReportWithDetails>> =>
   apiClient.put<BugReportWithDetails>(
