@@ -114,9 +114,13 @@ const apiClient = axios.create({
     const parts: string[] = [];
     for (const [key, value] of Object.entries(params)) {
       if (Array.isArray(value)) {
-        value.forEach((v) => parts.push(`${key}=${encodeURIComponent(v)}`));
+        value.forEach((v: string | number | boolean) =>
+          parts.push(`${key}=${encodeURIComponent(v)}`)
+        );
       } else if (value !== undefined && value !== null) {
-        parts.push(`${key}=${encodeURIComponent(value as string)}`);
+        parts.push(
+          `${key}=${encodeURIComponent(value as string | number | boolean)}`
+        );
       }
     }
     return parts.join('&');
