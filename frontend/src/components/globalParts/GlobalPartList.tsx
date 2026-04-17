@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
+import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
+import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import {
   carsApi,
   globalPartVotesApi,
@@ -51,12 +53,12 @@ type TableColumnKey =
 const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
   part: 0,
   price: 1,
-  fit: 2,
-  rating: 3,
-  actions: 4,
-  brand: 5,
+  rating: 2,
+  brand: 3,
+  category: 4,
+  fit: 5,
   part_number: 6,
-  category: 7,
+  actions: 7,
 };
 
 // Minimum width where a column's content renders without truncation for typical
@@ -68,7 +70,7 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
   part: 280,
   price: 100,
   fit: 160,
-  rating: 120,
+  rating: 160,
   actions: 200,
   brand: 160,
   part_number: 150,
@@ -334,28 +336,11 @@ function GlobalPartList({
     onDelete,
   ]);
 
-  // Determine which columns fit in the measured container; drop lowest-priority
-  // columns first. `part` and `price` are pinned (priority 0/1) and never drop —
-  // if they alone overflow, horizontal scroll kicks in.
-  const visibleColumns = useMemo(() => {
-    if (containerWidth === 0) return tableColumnKeys;
-    const kept = new Set<TableColumnKey>(tableColumnKeys);
-    const dropOrder = [...tableColumnKeys].sort(
-      (a, b) => COLUMN_PRIORITY[b] - COLUMN_PRIORITY[a]
-    );
-    let total = tableColumnKeys.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0);
-    for (const k of dropOrder) {
-      if (total <= containerWidth) break;
-      if (COLUMN_PRIORITY[k] <= 1) break;
-      kept.delete(k);
-      total -= COLUMN_MIN_WIDTH[k];
-    }
-    return tableColumnKeys.filter((k) => kept.has(k));
-  }, [tableColumnKeys, containerWidth]);
-
-  const totalMinWidth = useMemo(
-    () => visibleColumns.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0),
-    [visibleColumns]
+  const { visibleColumns, totalMinWidth } = useResponsiveColumns(
+    tableColumnKeys,
+    COLUMN_PRIORITY,
+    COLUMN_MIN_WIDTH,
+    containerWidth
   );
 
   const handleSort = useCallback(
@@ -669,220 +654,206 @@ function GlobalPartList({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div
+          <ResponsiveTableWrapper
             ref={tableWrapperRef}
-            className="overflow-x-auto min-w-0 rounded-inherit"
+            visibleColumns={visibleColumns}
+            columnMinWidths={COLUMN_MIN_WIDTH}
+            totalMinWidth={totalMinWidth}
+            tableClassName="global-parts-table-scroll-layer w-full text-sm table-fixed"
           >
-            <table className="global-parts-table-scroll-layer w-full text-sm table-fixed">
-              <colgroup>
-                {visibleColumns.map((key) => (
-                  <col
-                    key={key}
-                    style={{
-                      width: `${(COLUMN_MIN_WIDTH[key] / totalMinWidth) * 100}%`,
-                    }}
+            <thead>
+              <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+                {visibleColumns.includes('part') && (
+                  <SortableTh {...sortableThProps} column="part">
+                    Part name
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('brand') && (
+                  <SortableTh {...sortableThProps} column="brand">
+                    Brand
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('part_number') && (
+                  <SortableTh {...sortableThProps} column="part_number">
+                    Part #
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('category') && (
+                  <SortableTh {...sortableThProps} column="category">
+                    Category
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('fit') && (
+                  <SortableTh {...sortableThProps} column="fit">
+                    Fit
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('rating') && (
+                  <SortableTh {...sortableThProps} column="rating">
+                    Rating
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('price') && (
+                  <SortableTh {...sortableThProps} column="price" align="right">
+                    Price
+                  </SortableTh>
+                )}
+                {visibleColumns.includes('actions') && (
+                  <th
+                    className="px-4 py-3 font-medium whitespace-nowrap min-w-0"
+                    aria-label="Actions"
                   />
-                ))}
-              </colgroup>
-              <thead>
-                <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {displayParts.map((globalPart: GlobalPartReadWithVotes) => (
+                <tr
+                  key={globalPart.id}
+                  className="border-b border-gray-700/70 hover:bg-gray-800/50 group"
+                >
                   {visibleColumns.includes('part') && (
-                    <SortableTh {...sortableThProps} column="part">
-                      Part name
-                    </SortableTh>
+                    <td
+                      className="px-4 py-2 min-w-0 overflow-hidden"
+                      title={globalPart.name}
+                    >
+                      <Link
+                        to={`/global-parts/${globalPart.id}`}
+                        className="flex items-center gap-2 hover:no-underline"
+                      >
+                        <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                          <ImageWithPlaceholder
+                            srcUrl={buildExternalImageUrl(
+                              globalPart.image_urls?.[0],
+                              'thumbnail'
+                            )}
+                            altText={globalPart.name}
+                            imageClassName="w-full h-full object-cover"
+                            containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                            fallbackText=""
+                            loading="lazy"
+                          />
+                        </div>
+                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
+                          {globalPart.name}
+                        </span>
+                      </Link>
+                    </td>
                   )}
                   {visibleColumns.includes('brand') && (
-                    <SortableTh {...sortableThProps} column="brand">
-                      Brand
-                    </SortableTh>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={getBrandName(globalPart)}
+                    >
+                      <span className="block truncate">
+                        {getBrandName(globalPart)}
+                      </span>
+                    </td>
                   )}
                   {visibleColumns.includes('part_number') && (
-                    <SortableTh {...sortableThProps} column="part_number">
-                      Part #
-                    </SortableTh>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
+                      title={globalPart.part_number ?? '—'}
+                    >
+                      <span className="block truncate">
+                        {globalPart.part_number ?? '—'}
+                      </span>
+                    </td>
                   )}
                   {visibleColumns.includes('category') && (
-                    <SortableTh {...sortableThProps} column="category">
-                      Category
-                    </SortableTh>
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={getCategoryName(globalPart.category_id)}
+                    >
+                      <span className="block truncate">
+                        {getCategoryName(globalPart.category_id)}
+                      </span>
+                    </td>
                   )}
                   {visibleColumns.includes('fit') && (
-                    <SortableTh {...sortableThProps} column="fit">
-                      Fit
-                    </SortableTh>
+                    <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
+                      {(() => {
+                        const { label, title } = getFitCell(globalPart);
+                        const tooltip = title ?? label;
+                        return (
+                          <span
+                            title={tooltip}
+                            className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                   )}
                   {visibleColumns.includes('rating') && (
-                    <SortableTh {...sortableThProps} column="rating">
-                      Rating
-                    </SortableTh>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {onVoteUpdate ? (
+                        <VoteButtons
+                          entityId={globalPart.id}
+                          upvotes={globalPart.upvotes}
+                          downvotes={globalPart.downvotes}
+                          userVote={globalPart.user_vote ?? null}
+                          onVoteUpdate={onVoteUpdate}
+                          voteApi={{
+                            voteOnEntity: (id, data) =>
+                              globalPartVotesApi.voteOnGlobalPart(id, data),
+                            removeVote: (id) =>
+                              globalPartVotesApi.removeVote(id),
+                          }}
+                        />
+                      ) : (
+                        <span className="text-gray-400">
+                          ({getNetVotes(globalPart)})
+                        </span>
+                      )}
+                    </td>
                   )}
                   {visibleColumns.includes('price') && (
-                    <SortableTh
-                      {...sortableThProps}
-                      column="price"
-                      align="right"
-                    >
-                      Price
-                    </SortableTh>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {globalPart.best_price_cents != null ? (
+                        <span className="font-semibold text-green-400">
+                          ${(globalPart.best_price_cents / 100).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </td>
                   )}
                   {visibleColumns.includes('actions') && (
-                    <th
-                      className="px-4 py-3 font-medium whitespace-nowrap min-w-0"
-                      aria-label="Actions"
-                    />
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {showAddToBuildListButton && onAddToBuildList && (
+                          <ActionButton
+                            onClick={() => onAddToBuildList(globalPart)}
+                            className="text-xs px-2 py-1 whitespace-nowrap shrink-0"
+                          >
+                            Add to Build List
+                          </ActionButton>
+                        )}
+                        {onEdit && (!canEdit || canEdit(globalPart)) && (
+                          <SecondaryButton
+                            onClick={() => onEdit(globalPart)}
+                            className="text-xs px-2 py-1"
+                          >
+                            Edit
+                          </SecondaryButton>
+                        )}
+                        {onDelete && (!canDelete || canDelete(globalPart)) && (
+                          <ActionButton
+                            onClick={() => onDelete(globalPart)}
+                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </ActionButton>
+                        )}
+                      </div>
+                    </td>
                   )}
                 </tr>
-              </thead>
-              <tbody>
-                {displayParts.map((globalPart: GlobalPartReadWithVotes) => (
-                  <tr
-                    key={globalPart.id}
-                    className="border-b border-gray-700/70 hover:bg-gray-800/50 group"
-                  >
-                    {visibleColumns.includes('part') && (
-                      <td
-                        className="px-4 py-2 min-w-0 overflow-hidden"
-                        title={globalPart.name}
-                      >
-                        <Link
-                          to={`/global-parts/${globalPart.id}`}
-                          className="flex items-center gap-2 hover:no-underline"
-                        >
-                          <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                            <ImageWithPlaceholder
-                              srcUrl={buildExternalImageUrl(
-                                globalPart.image_urls?.[0],
-                                'thumbnail'
-                              )}
-                              altText={globalPart.name}
-                              imageClassName="w-full h-full object-cover"
-                              containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
-                              fallbackText=""
-                              loading="lazy"
-                            />
-                          </div>
-                          <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
-                            {globalPart.name}
-                          </span>
-                        </Link>
-                      </td>
-                    )}
-                    {visibleColumns.includes('brand') && (
-                      <td
-                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                        title={getBrandName(globalPart)}
-                      >
-                        <span className="block truncate">
-                          {getBrandName(globalPart)}
-                        </span>
-                      </td>
-                    )}
-                    {visibleColumns.includes('part_number') && (
-                      <td
-                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
-                        title={globalPart.part_number ?? '—'}
-                      >
-                        <span className="block truncate">
-                          {globalPart.part_number ?? '—'}
-                        </span>
-                      </td>
-                    )}
-                    {visibleColumns.includes('category') && (
-                      <td
-                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                        title={getCategoryName(globalPart.category_id)}
-                      >
-                        <span className="block truncate">
-                          {getCategoryName(globalPart.category_id)}
-                        </span>
-                      </td>
-                    )}
-                    {visibleColumns.includes('fit') && (
-                      <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
-                        {(() => {
-                          const { label, title } = getFitCell(globalPart);
-                          const tooltip = title ?? label;
-                          return (
-                            <span
-                              title={tooltip}
-                              className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
-                            >
-                              {label}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                    )}
-                    {visibleColumns.includes('rating') && (
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {onVoteUpdate ? (
-                          <VoteButtons
-                            entityId={globalPart.id}
-                            upvotes={globalPart.upvotes}
-                            downvotes={globalPart.downvotes}
-                            userVote={globalPart.user_vote ?? null}
-                            onVoteUpdate={onVoteUpdate}
-                            voteApi={{
-                              voteOnEntity: (id, data) =>
-                                globalPartVotesApi.voteOnGlobalPart(id, data),
-                              removeVote: (id) =>
-                                globalPartVotesApi.removeVote(id),
-                            }}
-                          />
-                        ) : (
-                          <span className="text-gray-400">
-                            ({getNetVotes(globalPart)})
-                          </span>
-                        )}
-                      </td>
-                    )}
-                    {visibleColumns.includes('price') && (
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
-                        {globalPart.best_price_cents != null ? (
-                          <span className="font-semibold text-green-400">
-                            ${(globalPart.best_price_cents / 100).toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">—</span>
-                        )}
-                      </td>
-                    )}
-                    {visibleColumns.includes('actions') && (
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {showAddToBuildListButton && onAddToBuildList && (
-                            <ActionButton
-                              onClick={() => onAddToBuildList(globalPart)}
-                              className="text-xs px-2 py-1 whitespace-nowrap shrink-0"
-                            >
-                              Add to Build List
-                            </ActionButton>
-                          )}
-                          {onEdit && (!canEdit || canEdit(globalPart)) && (
-                            <SecondaryButton
-                              onClick={() => onEdit(globalPart)}
-                              className="text-xs px-2 py-1"
-                            >
-                              Edit
-                            </SecondaryButton>
-                          )}
-                          {onDelete &&
-                            (!canDelete || canDelete(globalPart)) && (
-                              <ActionButton
-                                onClick={() => onDelete(globalPart)}
-                                className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </ActionButton>
-                            )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </ResponsiveTableWrapper>
         )}
       </Card>
     );
