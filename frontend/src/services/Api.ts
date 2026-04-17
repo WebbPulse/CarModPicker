@@ -110,6 +110,17 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 30000, // 30 seconds timeout to prevent indefinite hangs on cold starts
+  paramsSerializer: (params) => {
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) {
+        value.forEach((v) => parts.push(`${key}=${encodeURIComponent(v)}`));
+      } else if (value !== undefined && value !== null) {
+        parts.push(`${key}=${encodeURIComponent(value as string)}`);
+      }
+    }
+    return parts.join('&');
+  },
 });
 
 // Token storage key
