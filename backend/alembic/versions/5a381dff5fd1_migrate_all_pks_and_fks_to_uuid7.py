@@ -12,13 +12,10 @@ after this migration.
 """
 from typing import Sequence, Union
 
-from alembic import op
-
-from app.db.base import Base
-
 # Ensure all model modules register their tables on Base.metadata before drop/create.
 import app.api.models  # noqa: F401
-
+from alembic import op
+from app.db.base import Base
 
 # revision identifiers, used by Alembic.
 revision: str = '5a381dff5fd1'

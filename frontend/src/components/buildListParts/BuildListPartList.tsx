@@ -495,7 +495,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   // Group and sort parts by phase (build_list_phase_id; null = Unassigned)
   const groupedByPhase = useMemo(() => {
     const groups = new Map<
-      string | 'unassigned',
+      string,
       {
         phaseName: string;
         phaseSortOrder: number;
