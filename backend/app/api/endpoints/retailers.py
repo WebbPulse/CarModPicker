@@ -157,7 +157,7 @@ async def create_retailer(
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
                 "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": existing.id},
+                details={"existing_retailer_id": str(existing.id)},
             )
     db_retailer = DBRetailer(**retailer.model_dump())
     db.add(db_retailer)
@@ -186,7 +186,7 @@ async def update_retailer(
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
                 "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": existing.id},
+                details={"existing_retailer_id": str(existing.id)},
             )
     update_data = retailer.model_dump(exclude_unset=True)
     for field, value in update_data.items():

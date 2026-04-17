@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
 # Helper function to create and login an admin user
@@ -129,7 +129,7 @@ def test_read_car_success(client: TestClient, db_session: Session) -> None:
     response = client.get(f"{settings.API_STR}/cars/{car['id']}")
     assert response.status_code == 200, response.text
     read_car_data = response.json()
-    assert read_car_data["id"] == car["id"]
+    assert read_car_data["id"] == str(car["id"])
     assert read_car_data["make"] == car["make"]
     assert read_car_data["model"] == car["model"]
     assert read_car_data["generation_name"] == car["generation_name"]
@@ -139,7 +139,7 @@ def test_read_car_success(client: TestClient, db_session: Session) -> None:
 
 def test_read_car_not_found(client: TestClient, db_session: Session) -> None:
     """Test reading a non-existent car."""
-    response = client.get(f"{settings.API_STR}/cars/999999")  # Non-existent ID
+    response = client.get(f"{settings.API_STR}/cars/{INVALID_UUID_STR}")  # Non-existent ID
     assert response.status_code == 404
 
 

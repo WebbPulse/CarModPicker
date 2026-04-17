@@ -10,7 +10,7 @@ from app.api.models.category import Category
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db, login_user
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, login_user
 
 
 def get_unique_name(base_name: str) -> str:
@@ -74,7 +74,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -84,8 +84,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -114,7 +114,7 @@ class TestBuildListParts:
             "notes": "Test notes",
         }
         response = client.post(
-            f"{settings.API_STR}/build-list-parts/1/global-parts/1",
+            f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}/global-parts/{INVALID_UUID_STR}",
             json=build_list_part_data,
         )
         assert response.status_code == 401
@@ -131,8 +131,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -143,7 +143,7 @@ class TestBuildListParts:
             "notes": "Test notes",
         }
         response = client.post(
-            f"{settings.API_STR}/build-list-parts/99999/global-parts/{global_part['id']}",
+            f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}/global-parts/{global_part['id']}",
             json=build_list_part_data,
             headers=headers,
         )
@@ -165,7 +165,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -176,7 +176,7 @@ class TestBuildListParts:
             "notes": "Test notes",
         }
         response = client.post(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999",
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{INVALID_UUID_STR}",
             json=build_list_part_data,
             headers=headers,
         )
@@ -198,7 +198,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -208,8 +208,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -242,7 +242,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -252,8 +252,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -286,7 +286,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -296,8 +296,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -338,7 +338,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -348,8 +348,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -386,7 +386,7 @@ class TestBuildListParts:
         headers = get_auth_headers(token)
 
         # Try to get parts from non-existent build list
-        response = client.get(f"{settings.API_STR}/build-list-parts/99999", headers=headers)
+        response = client.get(f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_get_build_list_parts_unauthorized(
@@ -402,7 +402,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -428,7 +428,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -438,8 +438,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -486,7 +486,9 @@ class TestBuildListParts:
             "quantity": 3,
             "notes": "Updated notes",
         }
-        response = client.put(f"{settings.API_STR}/build-list-parts/99999", json=update_data, headers=headers)
+        response = client.put(
+            f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}", json=update_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_update_build_list_part_unauthorized(self, client: TestClient) -> None:
@@ -496,7 +498,7 @@ class TestBuildListParts:
             "quantity": 3,
             "notes": "Updated notes",
         }
-        response = client.put(f"{settings.API_STR}/build-list-parts/1", json=update_data)
+        response = client.put(f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}", json=update_data)
         assert response.status_code == 401
 
     def test_update_build_list_part_invalid_quantity(
@@ -515,7 +517,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -525,8 +527,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -574,7 +576,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -584,8 +586,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -623,13 +625,13 @@ class TestBuildListParts:
         headers = get_auth_headers(token)
 
         # Try to remove a build list part that doesn't exist
-        response = client.delete(f"{settings.API_STR}/build-list-parts/99999", headers=headers)
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_remove_part_from_build_list_unauthorized(self, client: TestClient) -> None:
         """Test removing a build list part without authentication."""
         # Try to remove a build list part without authentication
-        response = client.delete(f"{settings.API_STR}/build-list-parts/1")
+        response = client.delete(f"{settings.API_STR}/build-list-parts/{INVALID_UUID_STR}")
         assert response.status_code == 401
 
     def test_add_part_to_build_list_with_extra_fields(
@@ -648,7 +650,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -658,8 +660,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -698,7 +700,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -708,8 +710,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -741,7 +743,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -751,8 +753,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -788,7 +790,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -798,8 +800,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -851,7 +853,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -861,8 +863,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -907,7 +909,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -917,8 +919,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1001,7 +1003,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 401  # Should fail due to unverified email
@@ -1024,7 +1026,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1034,8 +1036,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
             "notes": "Some notes about the part",
         }
         response = client.post(
@@ -1067,7 +1069,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1077,8 +1079,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1125,7 +1127,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1135,8 +1137,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1186,7 +1188,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1198,7 +1200,7 @@ class TestBuildListParts:
             "notes": "Updated notes",
         }
         response = client.put(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999",
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{INVALID_UUID_STR}",
             json=update_data,
             headers=headers,
         )
@@ -1220,7 +1222,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1230,8 +1232,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1278,7 +1280,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1286,7 +1288,7 @@ class TestBuildListParts:
 
         # Try to remove non-existent part
         response = client.delete(
-            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/99999", headers=headers
+            f"{settings.API_STR}/build-list-parts/{build_list['id']}/global-parts/{INVALID_UUID_STR}", headers=headers
         )
         assert response.status_code == 404
 
@@ -1311,8 +1313,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1322,7 +1324,7 @@ class TestBuildListParts:
         build_list_data_1 = {
             "name": get_unique_name("test_build_list_1"),
             "description": "First test build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data_1, headers=headers)
         assert response.status_code == 200
@@ -1343,7 +1345,7 @@ class TestBuildListParts:
         build_list_data_2 = {
             "name": get_unique_name("test_build_list_2"),
             "description": "Second test build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data_2, headers=headers)
         assert response.status_code == 200
@@ -1376,8 +1378,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1394,7 +1396,7 @@ class TestBuildListParts:
     def test_count_build_lists_containing_global_part_not_found(self, client: TestClient) -> None:
         """Test counting build lists containing a non-existent global part."""
         # Try to count build lists for non-existent global part (public endpoint, no auth required)
-        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/99999/build-lists/count")
+        response = client.get(f"{settings.API_STR}/build-list-parts/global-parts/{INVALID_UUID_STR}/build-lists/count")
         assert response.status_code == 404
 
     def test_count_build_lists_containing_global_part_public_endpoint(
@@ -1413,8 +1415,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -1424,7 +1426,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1463,7 +1465,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1474,9 +1476,9 @@ class TestBuildListParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             # price in cents (99.99)
-            "category_id": test_category.id,
-            "car_id": car["id"],
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "car_id": str(car["id"]),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
         assert response.status_code == 200
@@ -1522,7 +1524,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1533,9 +1535,9 @@ class TestBuildListParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             # price in cents (99.99)
-            "category_id": test_category.id,
-            "car_id": car["id"],
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "car_id": str(car["id"]),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=global_part_data, headers=headers)
         assert response.status_code == 200
@@ -1577,7 +1579,7 @@ class TestBuildListParts:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1587,8 +1589,8 @@ class TestBuildListParts:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200

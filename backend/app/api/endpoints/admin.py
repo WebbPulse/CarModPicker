@@ -767,8 +767,8 @@ async def run_crawlers_endpoint(
             "global_limit": body.global_limit,
             "parallel": body.parallel,
             "delay_sec": delay_sec,
-            "crawler_user_id": crawler_user.id,
-            "default_category_id": body.crawler_default_category_id,
+            "crawler_user_id": str(crawler_user.id),
+            "default_category_id": str(body.crawler_default_category_id),
             "skip_known_urls": body.skip_known_urls,
         },
         created_by_user_id=acting_user_id,
@@ -1021,8 +1021,8 @@ async def rescrape_all_archived_crawled_pages(
         job_type="archive_rescrape",
         triggered_by=triggered_by,
         params={
-            "crawler_user_id": crawler_user.id,
-            "default_category_id": body.default_category_id,
+            "crawler_user_id": str(crawler_user.id),
+            "default_category_id": str(body.default_category_id),
         },
         created_by_user_id=acting_user_id,
     )

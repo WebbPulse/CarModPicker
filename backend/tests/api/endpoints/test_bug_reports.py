@@ -88,7 +88,7 @@ class TestBugReports:
         data = response.json()
         assert data["title"] == "Test Bug Report"
         assert data["description"] == "This is a test bug report"
-        assert data["user_id"] == test_user.id
+        assert data["user_id"] == str(test_user.id)
         assert data["status"] == "pending"
         assert data["priority"] == "medium"
         assert data["steps_to_reproduce"] == "1. Go to page\n2. Click button\n3. See error"

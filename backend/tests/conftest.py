@@ -1,6 +1,8 @@
 import gc
 import os
+import uuid
 from typing import Any, Dict, Generator, Optional
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +14,9 @@ from sqlalchemy.pool import StaticPool
 # This ensures storage service and other services can detect test environment
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
+
+INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
+INVALID_UUID_STR: str = str(INVALID_UUID)
 
 # Import after environment setup - environment variables must be set before importing app code
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
@@ -283,7 +288,7 @@ def test_superuser_user(db_session: Session) -> User:
 
 
 # Test utilities
-def get_default_category_id(db_session: Session) -> int:
+def get_default_category_id(db_session: Session) -> UUID:
     """Get the ID of the 'other' category for testing."""
     category = db_session.query(Category).filter(Category.name == "other").first()
     if not category:
@@ -361,7 +366,7 @@ def create_and_login_user(
     return user_data_response
 
 
-def create_car_for_user_cookie_auth(client: TestClient) -> int:
+def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
     """DEPRECATED: Create a car for the currently logged-in user.
 
     This function is deprecated since cars are now centrally managed by admins.
@@ -554,7 +559,7 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     # This is a test utility function, so this is acceptable
     from app.api.models.user import User
 
-    user_id: int = admin_user_data.get("id", 0)
+    user_id: UUID = UUID(admin_user_data["id"])
     user_name: str = admin_user_data.get("username", "")
     user_email: str = admin_user_data.get("email", "")
 
