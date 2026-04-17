@@ -124,8 +124,7 @@ def _domain_to_retailer_name(domain: str) -> str:
     base = parts[0] if parts else domain
     if not base:
         return domain
-    # Title case for readability
-    return base[0].upper() + base[1:].lower()
+    return base.title()
 
 
 @router.get("/{retailer_id}", response_model=RetailerRead)

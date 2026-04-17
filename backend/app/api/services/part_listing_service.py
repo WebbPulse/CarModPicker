@@ -46,7 +46,7 @@ def get_or_create_retailer(
         )
         if retailer:
             return retailer
-    retailer = db.query(DBRetailer).filter(DBRetailer.name == name.strip()).first()
+    retailer = db.query(DBRetailer).filter(DBRetailer.name.ilike(name.strip())).first()
     if retailer:
         if domain and not retailer.domain:
             retailer.domain = domain.strip().lower()
