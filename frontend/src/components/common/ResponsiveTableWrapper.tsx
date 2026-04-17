@@ -27,7 +27,7 @@ const ResponsiveTableWrapper = ({
             <col
               key={key}
               style={{
-                width: `${(columnMinWidths[key] / totalMinWidth) * 100}%`,
+                width: `${((columnMinWidths[key] ?? 0) / totalMinWidth) * 100}%`,
               }}
             />
           ))}
