@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
+import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
+import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import type {
   BrandResponse,
   BuildListPartReadWithGlobalPart,
@@ -144,25 +146,11 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
     return keys;
   }, [showCheckbox, showActions]);
 
-  const visibleColumns = useMemo(() => {
-    if (containerWidth === 0) return tableColumnKeys;
-    const kept = new Set<TableColumnKey>(tableColumnKeys);
-    const dropOrder = [...tableColumnKeys].sort(
-      (a, b) => COLUMN_PRIORITY[b] - COLUMN_PRIORITY[a]
-    );
-    let total = tableColumnKeys.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0);
-    for (const k of dropOrder) {
-      if (total <= containerWidth) break;
-      if (COLUMN_PRIORITY[k] <= 1) break;
-      kept.delete(k);
-      total -= COLUMN_MIN_WIDTH[k];
-    }
-    return tableColumnKeys.filter((k) => kept.has(k));
-  }, [tableColumnKeys, containerWidth]);
-
-  const totalMinWidth = useMemo(
-    () => visibleColumns.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0),
-    [visibleColumns]
+  const { visibleColumns, totalMinWidth } = useResponsiveColumns(
+    tableColumnKeys,
+    COLUMN_PRIORITY,
+    COLUMN_MIN_WIDTH,
+    containerWidth
   );
 
   return (
@@ -180,271 +168,255 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 
       {/* Table - matching global-parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
-        <div ref={tableWrapperRef} className="min-w-0">
-          <div className="overflow-x-auto min-w-0 rounded-inherit">
-            <table className="w-full text-sm table-fixed">
-              <colgroup>
-                {visibleColumns.map((key) => (
-                  <col
-                    key={key}
-                    style={{
-                      width: `${(COLUMN_MIN_WIDTH[key] / totalMinWidth) * 100}%`,
-                    }}
-                  />
-                ))}
-              </colgroup>
-              <thead>
-                <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
-                  {visibleColumns.includes('checkbox') && (
-                    <th
-                      className="px-3 py-3 font-medium whitespace-nowrap"
-                      title="Mark as purchased"
-                    >
-                      Purchased
-                    </th>
-                  )}
-                  {visibleColumns.includes('part') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                      Part name
-                    </th>
-                  )}
-                  {visibleColumns.includes('brand') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                      Brand
-                    </th>
-                  )}
-                  {visibleColumns.includes('part_number') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                      Part #
-                    </th>
-                  )}
-                  {visibleColumns.includes('fit') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                      Fit
-                    </th>
-                  )}
-                  {visibleColumns.includes('qty') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                      Qty
-                    </th>
-                  )}
-                  {visibleColumns.includes('price') && (
-                    <th className="px-4 py-3 font-medium whitespace-nowrap text-right">
-                      Price
-                    </th>
-                  )}
-                  {visibleColumns.includes('actions') && (
-                    <th
-                      className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
-                      aria-label="Actions"
-                    />
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {group.parts.map((buildListPart) => {
-                  const { global_part, notes, quantity, purchased } =
-                    buildListPart;
-                  const gp = global_part;
-                  const qty = quantity || 1;
-                  const partPriceInCents = gp.best_price_cents;
-                  const totalPriceInCents =
-                    partPriceInCents != null ? partPriceInCents * qty : null;
-                  const showEdit =
-                    canEdit &&
-                    onEdit &&
-                    (!canEditPart || canEditPart(buildListPart));
-                  const showDelete =
-                    canDelete &&
-                    onDelete &&
-                    (!canDeletePart || canDeletePart(buildListPart));
+        <ResponsiveTableWrapper
+          ref={tableWrapperRef}
+          visibleColumns={visibleColumns}
+          columnMinWidths={COLUMN_MIN_WIDTH}
+          totalMinWidth={totalMinWidth}
+        >
+          <thead>
+            <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+              {visibleColumns.includes('checkbox') && (
+                <th
+                  className="px-3 py-3 font-medium whitespace-nowrap"
+                  title="Mark as purchased"
+                >
+                  Purchased
+                </th>
+              )}
+              {visibleColumns.includes('part') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Part name
+                </th>
+              )}
+              {visibleColumns.includes('brand') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Brand
+                </th>
+              )}
+              {visibleColumns.includes('part_number') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Part #
+                </th>
+              )}
+              {visibleColumns.includes('fit') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Fit
+                </th>
+              )}
+              {visibleColumns.includes('qty') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
+                  Qty
+                </th>
+              )}
+              {visibleColumns.includes('price') && (
+                <th className="px-4 py-3 font-medium whitespace-nowrap text-right">
+                  Price
+                </th>
+              )}
+              {visibleColumns.includes('actions') && (
+                <th
+                  className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
+                  aria-label="Actions"
+                />
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {group.parts.map((buildListPart) => {
+              const { global_part, notes, quantity, purchased } = buildListPart;
+              const gp = global_part;
+              const qty = quantity || 1;
+              const partPriceInCents = gp.best_price_cents;
+              const totalPriceInCents =
+                partPriceInCents != null ? partPriceInCents * qty : null;
+              const showEdit =
+                canEdit &&
+                onEdit &&
+                (!canEditPart || canEditPart(buildListPart));
+              const showDelete =
+                canDelete &&
+                onDelete &&
+                (!canDeletePart || canDeletePart(buildListPart));
 
-                  return (
-                    <tr
-                      key={buildListPart.id}
-                      className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
-                        purchased ? 'opacity-60' : ''
-                      }`}
-                    >
-                      {visibleColumns.includes('checkbox') && (
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <label
-                            className="relative flex items-center cursor-pointer"
-                            title={
-                              purchased
-                                ? 'Mark as not purchased'
-                                : 'Mark as purchased'
-                            }
-                          >
-                            <input
-                              type="checkbox"
-                              checked={purchased}
-                              onChange={() =>
-                                onTogglePurchased?.(buildListPart)
-                              }
-                              className="sr-only peer"
-                              aria-label={
-                                purchased
-                                  ? 'Mark as not purchased'
-                                  : 'Mark as purchased'
-                              }
-                            />
-                            <div className="w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] aspect-square flex-shrink-0 bg-gray-700 border-2 border-gray-500 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
-                              {purchased && (
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="none"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="3"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                          </label>
-                        </td>
-                      )}
-                      <td
-                        className="px-4 py-2 min-w-0 overflow-hidden"
+              return (
+                <tr
+                  key={buildListPart.id}
+                  className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
+                    purchased ? 'opacity-60' : ''
+                  }`}
+                >
+                  {visibleColumns.includes('checkbox') && (
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <label
+                        className="relative flex items-center cursor-pointer"
                         title={
-                          notes
-                            ? `${gp.name}${notes ? ` — ${notes}` : ''}`
-                            : gp.name
+                          purchased
+                            ? 'Mark as not purchased'
+                            : 'Mark as purchased'
                         }
                       >
-                        <Link
-                          to={`/global-parts/${gp.id}`}
-                          className="flex items-center gap-2 hover:no-underline"
-                        >
-                          <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                            <ImageWithPlaceholder
-                              srcUrl={buildExternalImageUrl(
-                                gp.image_urls?.[0],
-                                'thumbnail'
-                              )}
-                              altText={gp.name}
-                              imageClassName="w-full h-full object-cover"
-                              containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
-                              fallbackText=""
-                            />
-                          </div>
-                          <span
-                            className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
-                              purchased
-                                ? 'text-gray-400 line-through'
-                                : 'text-gray-200'
-                            }`}
-                          >
-                            {gp.name}
-                          </span>
-                        </Link>
-                      </td>
-                      {visibleColumns.includes('brand') && (
-                        <td
-                          className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                          title={getBrandName(buildListPart, brands)}
-                        >
-                          <span className="block truncate">
-                            {getBrandName(buildListPart, brands)}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.includes('part_number') && (
-                        <td
-                          className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
-                          title={gp.part_number ?? '—'}
-                        >
-                          <span className="block truncate">
-                            {gp.part_number ?? '—'}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.includes('fit') && (
-                        <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
-                          {(() => {
-                            const { label, title } = getFitCell(
-                              buildListPart,
-                              carsById
-                            );
-                            const tooltip = title ?? label;
-                            return (
-                              <span
-                                title={tooltip}
-                                className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
-                              >
-                                {label}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                      )}
-                      {visibleColumns.includes('qty') && (
-                        <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
-                          {qty}
-                        </td>
-                      )}
-                      {visibleColumns.includes('price') && (
-                        <td className="px-4 py-2 text-right whitespace-nowrap">
-                          {totalPriceInCents != null ? (
-                            <span
-                              className={
-                                purchased
-                                  ? 'font-semibold text-gray-500 line-through'
-                                  : 'font-semibold text-green-400'
-                              }
+                        <input
+                          type="checkbox"
+                          checked={purchased}
+                          onChange={() => onTogglePurchased?.(buildListPart)}
+                          className="sr-only peer"
+                          aria-label={
+                            purchased
+                              ? 'Mark as not purchased'
+                              : 'Mark as purchased'
+                          }
+                        />
+                        <div className="w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] aspect-square flex-shrink-0 bg-gray-700 border-2 border-gray-500 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
+                          {purchased && (
+                            <svg
+                              className="w-4 h-4 text-white"
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="3"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
                             >
-                              $
-                              {(totalPriceInCents / 100).toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }
-                              )}
-                              {qty > 1 && (
-                                <span className="text-xs text-gray-400 block">
-                                  ${(partPriceInCents! / 100).toFixed(2)} ×{' '}
-                                  {qty}
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">—</span>
+                              <path d="M5 13l4 4L19 7" />
+                            </svg>
                           )}
-                        </td>
+                        </div>
+                      </label>
+                    </td>
+                  )}
+                  <td
+                    className="px-4 py-2 min-w-0 overflow-hidden"
+                    title={
+                      notes
+                        ? `${gp.name}${notes ? ` — ${notes}` : ''}`
+                        : gp.name
+                    }
+                  >
+                    <Link
+                      to={`/global-parts/${gp.id}`}
+                      className="flex items-center gap-2 hover:no-underline"
+                    >
+                      <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                        <ImageWithPlaceholder
+                          srcUrl={buildExternalImageUrl(
+                            gp.image_urls?.[0],
+                            'thumbnail'
+                          )}
+                          altText={gp.name}
+                          imageClassName="w-full h-full object-cover"
+                          containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                          fallbackText=""
+                        />
+                      </div>
+                      <span
+                        className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
+                          purchased
+                            ? 'text-gray-400 line-through'
+                            : 'text-gray-200'
+                        }`}
+                      >
+                        {gp.name}
+                      </span>
+                    </Link>
+                  </td>
+                  {visibleColumns.includes('brand') && (
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                      title={getBrandName(buildListPart, brands)}
+                    >
+                      <span className="block truncate">
+                        {getBrandName(buildListPart, brands)}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.includes('part_number') && (
+                    <td
+                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
+                      title={gp.part_number ?? '—'}
+                    >
+                      <span className="block truncate">
+                        {gp.part_number ?? '—'}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.includes('fit') && (
+                    <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
+                      {(() => {
+                        const { label, title } = getFitCell(
+                          buildListPart,
+                          carsById
+                        );
+                        const tooltip = title ?? label;
+                        return (
+                          <span
+                            title={tooltip}
+                            className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleColumns.includes('qty') && (
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                      {qty}
+                    </td>
+                  )}
+                  {visibleColumns.includes('price') && (
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {totalPriceInCents != null ? (
+                        <span
+                          className={
+                            purchased
+                              ? 'font-semibold text-gray-500 line-through'
+                              : 'font-semibold text-green-400'
+                          }
+                        >
+                          $
+                          {(totalPriceInCents / 100).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          {qty > 1 && (
+                            <span className="text-xs text-gray-400 block">
+                              ${(partPriceInCents! / 100).toFixed(2)} × {qty}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
                       )}
-                      {visibleColumns.includes('actions') && (
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            {showEdit && (
-                              <SecondaryButton
-                                onClick={() => onEdit(buildListPart)}
-                                className="text-xs px-2 py-1"
-                              >
-                                Edit
-                              </SecondaryButton>
-                            )}
-                            {showDelete && (
-                              <ActionButton
-                                onClick={() => onDelete(buildListPart.id)}
-                                className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
-                              >
-                                Remove
-                              </ActionButton>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    </td>
+                  )}
+                  {visibleColumns.includes('actions') && (
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {showEdit && (
+                          <SecondaryButton
+                            onClick={() => onEdit(buildListPart)}
+                            className="text-xs px-2 py-1"
+                          >
+                            Edit
+                          </SecondaryButton>
+                        )}
+                        {showDelete && (
+                          <ActionButton
+                            onClick={() => onDelete(buildListPart.id)}
+                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                          >
+                            Remove
+                          </ActionButton>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </ResponsiveTableWrapper>
       </Card>
     </div>
   );
