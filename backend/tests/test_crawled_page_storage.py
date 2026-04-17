@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.crawlers.base import CRAWL_HTML_HASH_BYTES
-from tests.conftest import login_user
+from tests.conftest import INVALID_UUID_STR, login_user
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -434,7 +434,7 @@ class TestReparseCrawledPage:
         test_admin_user: Any,
     ) -> None:
         headers = _auth(client, test_admin_user.username)
-        resp = client.post("/api/crawled-pages/999999/re-parse", headers=headers)
+        resp = client.post(f"/api/crawled-pages/{INVALID_UUID_STR}/re-parse", headers=headers)
         assert resp.status_code == 404
 
     def test_reparse_no_html_returns_404(

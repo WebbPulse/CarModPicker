@@ -2,6 +2,7 @@
 
 import os
 from typing import Any
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from app.api.models.part_listing import PartListing
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id
 
 
 def get_unique_name(base_name: str) -> str:
@@ -152,7 +153,7 @@ class TestRetailers:
 
     def test_get_retailer_not_found(self, client: TestClient) -> None:
         """Test getting a non-existent retailer."""
-        response = client.get(f"{settings.API_STR}/retailers/99999")
+        response = client.get(f"{settings.API_STR}/retailers/{INVALID_UUID_STR}")
         assert response.status_code == 404
         msg = response.json().get("message", response.json().get("detail", ""))
         assert "retailer" in msg.lower() and "not found" in msg.lower()
@@ -310,7 +311,7 @@ class TestRetailers:
         _, admin_token = create_and_login_admin_user(client, db_session, "update_nf")
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = client.put(
-            f"{settings.API_STR}/retailers/99999",
+            f"{settings.API_STR}/retailers/{INVALID_UUID_STR}",
             json={"name": "Missing"},
             headers=headers,
         )
@@ -366,7 +367,7 @@ class TestRetailers:
         """Test deleting a non-existent retailer."""
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_nf")
         headers = {"Authorization": f"Bearer {admin_token}"}
-        response = client.delete(f"{settings.API_STR}/retailers/99999", headers=headers)
+        response = client.delete(f"{settings.API_STR}/retailers/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_delete_retailer_with_part_listings_fails(self, client: TestClient, db_session: Session) -> None:
@@ -389,8 +390,8 @@ class TestRetailers:
         part_data = {
             "name": get_unique_name("PartForListing"),
             "description": "Part",
-            "category_id": category_id,
-            "brand_id": brand.id,
+            "category_id": str(category_id),
+            "brand_id": str(brand.id),
         }
         part_resp = client.post(
             f"{settings.API_STR}/global-parts/", json=part_data, headers={"Authorization": f"Bearer {user_token}"}
@@ -399,8 +400,8 @@ class TestRetailers:
         global_part = part_resp.json()
 
         listing = PartListing(
-            global_part_id=global_part["id"],
-            retailer_id=retailer_id,
+            global_part_id=UUID(global_part["id"]),
+            retailer_id=UUID(retailer_id),
             product_url="https://example.com/part",
         )
         db_session.add(listing)

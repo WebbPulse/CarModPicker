@@ -1,5 +1,6 @@
 import os
 from typing import Any, Dict
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -88,7 +89,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -119,7 +120,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -143,7 +144,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -169,7 +170,7 @@ class TestBuildLogs:
 
     def test_get_build_log_build_list_not_found(self, client: TestClient) -> None:
         """Test getting build log for non-existent build list."""
-        response = client.get(f"{settings.API_STR}/build-logs/build-list/99999")
+        response = client.get(f"{settings.API_STR}/build-logs/build-list/{INVALID_UUID_STR}")
         assert response.status_code == 404
 
     def test_create_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
@@ -183,7 +184,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -199,7 +200,7 @@ class TestBuildLogs:
         assert response.status_code == 201
         data = response.json()
         assert data["content"] == post_data["content"]
-        assert data["user_id"] == test_user.id
+        assert data["user_id"] == str(test_user.id)
         assert "author_username" in data
         assert data["author_username"] == test_user.username
 
@@ -216,7 +217,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -238,7 +239,7 @@ class TestBuildLogs:
     def test_create_build_log_post_unauthorized(self, client: TestClient) -> None:
         """Test creating a build log post without authentication."""
         post_data = {"content": "This is a test post"}
-        response = client.post(f"{settings.API_STR}/build-logs/build-list/1/posts", json=post_data)
+        response = client.post(f"{settings.API_STR}/build-logs/build-list/{INVALID_UUID_STR}/posts", json=post_data)
         assert response.status_code == 401
 
     def test_create_build_log_post_build_list_not_found(self, client: TestClient, test_user: DBUser) -> None:
@@ -246,7 +247,9 @@ class TestBuildLogs:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         post_data = {"content": "This is a test post"}
-        response = client.post(f"{settings.API_STR}/build-logs/build-list/99999/posts", json=post_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/build-logs/build-list/{INVALID_UUID_STR}/posts", json=post_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_create_build_log_post_empty_content(
@@ -262,7 +265,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -288,7 +291,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -341,7 +344,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=user1_headers)
         assert response.status_code == 200
@@ -390,7 +393,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -416,7 +419,9 @@ class TestBuildLogs:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         update_data = {"content": "Updated content"}
-        response = client.put(f"{settings.API_STR}/build-logs/posts/99999", json=update_data, headers=headers)
+        response = client.put(
+            f"{settings.API_STR}/build-logs/posts/{INVALID_UUID_STR}", json=update_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_delete_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
@@ -430,7 +435,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -485,7 +490,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -531,7 +536,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -556,7 +561,7 @@ class TestBuildLogs:
         build_list_data2 = {
             "name": get_unique_name("test_build_list2"),
             "description": "User 2's build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data2, headers=user2_headers)
         assert response.status_code == 200
@@ -583,7 +588,7 @@ class TestBuildLogs:
         """Test deleting a non-existent post."""
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
-        response = client.delete(f"{settings.API_STR}/build-logs/posts/99999", headers=headers)
+        response = client.delete(f"{settings.API_STR}/build-logs/posts/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_delete_build_log_post_admin_can_delete(
@@ -599,7 +604,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -635,7 +640,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -669,7 +674,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -720,7 +725,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -773,7 +778,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -815,7 +820,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -851,7 +856,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -883,7 +888,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -923,7 +928,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -942,7 +947,7 @@ class TestBuildLogs:
             post_ids.append(response.json()["id"])
 
         # Verify build log and posts exist
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
+        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
         assert build_log is not None
         posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).all()
         assert len(posts) == 3
@@ -953,11 +958,11 @@ class TestBuildLogs:
 
         # Verify build log is deleted (cascade)
         db_session.expire_all()
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
+        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
         assert build_log is None, "Build log should be deleted when build list is deleted"
 
         # Verify all posts are deleted (cascade)
-        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.id.in_(post_ids)).all()
+        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.id.in_([UUID(p) for p in post_ids])).all()
         assert len(posts) == 0, "All posts should be deleted when build list is deleted"
 
     def test_access_build_log_after_build_list_deletion(
@@ -973,7 +978,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1009,7 +1014,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1047,7 +1052,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1084,7 +1089,7 @@ class TestBuildLogs:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1117,7 +1122,7 @@ class TestBuildLogs:
         build_list_data1 = {
             "name": get_unique_name("test_build_list_1"),
             "description": "First build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data1, headers=headers)
         assert response.status_code == 200
@@ -1126,7 +1131,7 @@ class TestBuildLogs:
         build_list_data2 = {
             "name": get_unique_name("test_build_list_2"),
             "description": "Second build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data2, headers=headers)
         assert response.status_code == 200

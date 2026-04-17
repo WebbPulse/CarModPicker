@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import INVALID_UUID_STR
 
 
 def get_auth_headers(token: str) -> dict[str, str]:
@@ -518,7 +519,9 @@ class TestAdminUserManagement:
             "username": "updated_username",
         }
 
-        response = client.put(f"{settings.API_STR}/users/admin/users/99999", json=update_data, headers=headers)
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{INVALID_UUID_STR}", json=update_data, headers=headers
+        )
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 
@@ -528,7 +531,7 @@ class TestAdminUserManagement:
         _, token = create_and_login_admin_user(client, db_session, "delete_nonexistent")
 
         headers = get_auth_headers(token)
-        response = client.delete(f"{settings.API_STR}/users/admin/users/99999", headers=headers)
+        response = client.delete(f"{settings.API_STR}/users/admin/users/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 

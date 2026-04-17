@@ -9,7 +9,7 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.user import User
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -81,7 +81,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -89,8 +89,8 @@ class TestBuildLists:
         data = response.json()
         assert data["name"] == build_list_data["name"]
         assert data["description"] == build_list_data["description"]
-        assert data["user_id"] == test_user.id
-        assert data["car_id"] == car["id"]
+        assert data["user_id"] == str(test_user.id)
+        assert data["car_id"] == str(car["id"])
 
     def test_create_build_list_unauthorized(self, client: TestClient) -> None:
         """Test creating a build list without authentication."""
@@ -112,7 +112,7 @@ class TestBuildLists:
         car = create_car_in_db(db_session)
 
         # Try to create a build list without name
-        build_list_data = {"description": "A test build list description", "car_id": car["id"]}
+        build_list_data = {"description": "A test build list description", "car_id": str(car["id"])}
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
@@ -129,7 +129,7 @@ class TestBuildLists:
         build_list_data = {
             "name": "",
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
@@ -144,14 +144,14 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("first_build_list"),
             "description": "First",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
         second_data = {
             "name": get_unique_name("second_build_list"),
             "description": "Second",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=second_data, headers=headers)
         assert response.status_code == 402
@@ -172,7 +172,7 @@ class TestBuildLists:
             build_list_data = {
                 "name": get_unique_name(f"premium_build_list_{i}"),
                 "description": f"Build list {i}",
-                "car_id": car["id"],
+                "car_id": str(car["id"]),
             }
             response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
             assert response.status_code == 200, f"Premium user should create build list {i + 1}"
@@ -190,7 +190,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -210,7 +210,7 @@ class TestBuildLists:
         headers = get_auth_headers(token)
 
         # Try to get a non-existent build list
-        response = client.get(f"{settings.API_STR}/build-lists/99999", headers=headers)
+        response = client.get(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_get_build_list_unauthorized(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -224,7 +224,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -247,7 +247,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -279,7 +279,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -304,7 +304,7 @@ class TestBuildLists:
         """Test updating a build list without proper authorization."""
         # Try to update a build list without authentication
         update_data = {"name": "unauthorized_update"}
-        response = client.put(f"{settings.API_STR}/build-lists/1", json=update_data)
+        response = client.put(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}", json=update_data)
         assert response.status_code == 401
 
     def test_delete_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -320,7 +320,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -337,7 +337,7 @@ class TestBuildLists:
     def test_delete_build_list_unauthorized(self, client: TestClient) -> None:
         """Test deleting a build list without proper authorization."""
         # Try to delete a build list without authentication
-        response = client.delete(f"{settings.API_STR}/build-lists/1")
+        response = client.delete(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}")
         assert response.status_code == 401
 
     def test_get_build_lists_by_car(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -353,7 +353,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -368,7 +368,7 @@ class TestBuildLists:
         assert len(data["data"]) >= 1
         build_list: Any
         for build_list in data["data"]:
-            assert build_list["car_id"] == car["id"]
+            assert build_list["car_id"] == str(car["id"])
 
     def test_get_build_lists_by_car_unauthorized(
         self, client: TestClient, test_user: User, db_session: Session
@@ -396,7 +396,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
             "extra_field": "should_be_ignored",
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
@@ -437,7 +437,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/",
@@ -461,7 +461,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -495,7 +495,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -526,7 +526,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -591,7 +591,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 401  # Should fail due to unverified email
@@ -611,7 +611,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("original_build_list"),
             "description": "Original build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -635,8 +635,8 @@ class TestBuildLists:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": category.id,
-            "brand_id": brand.id,
+            "category_id": str(category.id),
+            "brand_id": str(brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -665,7 +665,7 @@ class TestBuildLists:
         assert copied_build_list["name"] == f"Copy of {original_build_list['name']}"
         assert copied_build_list["description"] == original_build_list["description"]
         assert copied_build_list["car_id"] == original_build_list["car_id"]
-        assert copied_build_list["user_id"] == test_user.id  # Should be owned by current user
+        assert copied_build_list["user_id"] == str(test_user.id)  # Should be owned by current user
 
         # Verify parts were copied
         response = client.get(
@@ -692,7 +692,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("original_build_list"),
             "description": "Original build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -727,7 +727,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("original_build_list"),
             "description": "Original build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -753,7 +753,7 @@ class TestBuildLists:
 
         # Try to copy a non-existent build list
         response = client.post(
-            f"{settings.API_STR}/build-lists/99999/copy",
+            f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}/copy",
             json={},
             headers=headers,
         )
@@ -763,7 +763,7 @@ class TestBuildLists:
         """Test copying a build list without authentication."""
         # Try to copy a build list without authentication
         response = client.post(
-            f"{settings.API_STR}/build-lists/1/copy",
+            f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}/copy",
             json={},
         )
         assert response.status_code == 401
@@ -795,7 +795,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("original_build_list"),
             "description": "Original build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=original_headers)
         assert response.status_code == 200
@@ -814,7 +814,7 @@ class TestBuildLists:
         copied_build_list = response.json()
 
         # Verify copied build list is owned by test_user, not original_owner
-        assert copied_build_list["user_id"] == test_user.id
+        assert copied_build_list["user_id"] == str(test_user.id)
         assert copied_build_list["user_id"] != original_owner.id
 
     def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -830,7 +830,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -904,7 +904,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -941,7 +941,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -968,7 +968,7 @@ class TestBuildLists:
             build_list_data = {
                 "name": get_unique_name(f"test_build_list_{i}"),
                 "description": f"Build list {i}",
-                "car_id": car["id"],
+                "car_id": str(car["id"]),
             }
             response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
             assert response.status_code == 200
@@ -996,7 +996,7 @@ class TestBuildLists:
         build_list_data = {
             "name": unique_name,
             "description": "A searchable build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -1030,7 +1030,7 @@ class TestBuildLists:
         build_list_data1 = {
             "name": get_unique_name("car1_build_list"),
             "description": "Build list for car 1",
-            "car_id": car1["id"],
+            "car_id": str(car1["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data1, headers=headers)
         assert response.status_code == 200
@@ -1039,7 +1039,7 @@ class TestBuildLists:
         build_list_data2 = {
             "name": get_unique_name("car2_build_list"),
             "description": "Build list for car 2",
-            "car_id": car2["id"],
+            "car_id": str(car2["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data2, headers=headers)
         assert response.status_code == 200
@@ -1051,7 +1051,7 @@ class TestBuildLists:
 
         # Verify all results are for car1
         for bl in data["data"]:
-            assert bl["car_id"] == car1["id"]
+            assert bl["car_id"] == str(car1["id"])
 
         # Verify build_list1 is in the results
         found = any(bl["id"] == build_list1["id"] for bl in data["data"])
@@ -1072,7 +1072,7 @@ class TestBuildLists:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200

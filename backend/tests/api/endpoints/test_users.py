@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from tests.conftest import INVALID_UUID_STR
 
 
 # Helper function to create a user and log them in (returns user data and token)
@@ -27,11 +28,9 @@ def create_and_login_user(
     # Attempt to create user
     response = client.post(f"{settings.API_STR}/users/", json=user_data_create)
     created_user_data: Dict[str, Any] = {}
-    user_id: int = -1
 
     if response.status_code == 200:
         created_user_data = response.json()
-        user_id = created_user_data["id"]
     elif response.status_code == 400 and "already registered" in response.json().get("detail", "").lower():
         # User likely exists, will attempt login and fetch details
         pass
@@ -50,17 +49,16 @@ def create_and_login_user(
     headers = {"Authorization": f"Bearer {token}"}
 
     # If user was not created in this call (because they already existed), fetch their data now
-    if not created_user_data or user_id == -1:
+    if not created_user_data:
         me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
         if me_response.status_code == 200:
             created_user_data = me_response.json()
-            user_id = created_user_data["id"]
         else:
             raise Exception(
                 f"Could not retrieve user data for {username} via /users/me after login. Status: {me_response.status_code}, Detail: {me_response.text}"
             )
 
-    if not created_user_data or user_id == -1:
+    if not created_user_data or "id" not in created_user_data:
         raise Exception(f"User ID or data for {username} could not be determined.")
 
     return created_user_data, token
@@ -155,11 +153,9 @@ def test_read_user_by_id_not_found(client: TestClient, db_session: Session) -> N
     # Need to be authenticated to read users
     _, token = create_and_login_user(client, "read_not_found_test")
     headers = get_auth_headers(token)
-    response = client.get(f"{settings.API_STR}/users/9999999", headers=headers)  # Non-existent ID
+    response = client.get(f"{settings.API_STR}/users/{INVALID_UUID_STR}", headers=headers)  # Non-existent ID
     assert response.status_code == 404
-    assert (
-        "User with ID 9999999 not found" in response.json()["message"] or "User not found" in response.json()["message"]
-    )
+    assert "not found" in response.json()["message"].lower()
 
 
 # --- Update User Tests ---
@@ -262,9 +258,11 @@ def test_update_user_not_found(client: TestClient, db_session: Session) -> None:
         "current_password": logged_in_user_password,
     }  # Add current_password
     headers = get_auth_headers(token)
-    response = client.put(f"{settings.API_STR}/users/9999998", json=update_payload, headers=headers)  # Non-existent ID
+    response = client.put(
+        f"{settings.API_STR}/users/{INVALID_UUID_STR}", json=update_payload, headers=headers
+    )  # Non-existent ID
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert "User" in response.json()["message"] and "not found" in response.json()["message"]
+    assert "not found" in response.json()["message"].lower()
 
 
 # --- Delete User Tests ---
@@ -319,7 +317,7 @@ def test_delete_user_not_found(client: TestClient, db_session: Session) -> None:
     _, token = create_and_login_user(client, "deleter_user_notfound")  # Logs in a user
 
     headers = get_auth_headers(token)
-    response = client.delete(f"{settings.API_STR}/users/9999997", headers=headers)  # Non-existent ID
+    response = client.delete(f"{settings.API_STR}/users/{INVALID_UUID_STR}", headers=headers)  # Non-existent ID
     assert response.status_code == 403  # Changed from 404
     assert response.json()["message"] == "Not authorized to delete this user"  # Changed detail
 
