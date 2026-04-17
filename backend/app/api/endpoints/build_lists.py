@@ -6,6 +6,7 @@ and response documentation while maintaining build list-specific functionality.
 """
 
 from typing import Any, Dict, List, Optional, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel
@@ -78,8 +79,8 @@ async def read_build_lists_with_votes(
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(
+    car_id: Optional[UUID] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
     ),
     min_cost_cents: Optional[int] = Query(None, ge=0, description="Minimum total build list cost (cents)"),
@@ -269,7 +270,7 @@ async def read_build_lists_with_votes(
         .filter(total_cost_subq.c.build_list_id.in_(build_list_ids))
         .all()
     )
-    total_cost_cents_dict: Dict[int, Optional[int]] = {}
+    total_cost_cents_dict: Dict[UUID, Optional[int]] = {}
     for row in cost_rows:
         total_cost_cents_dict[row.build_list_id] = (
             int(row.total_cost_cents) if row.total_cost_cents is not None else None
@@ -291,8 +292,8 @@ async def read_build_lists_with_votes(
     )
 
     # Build vote count dictionaries
-    upvotes_dict: Dict[int, int] = {}
-    downvotes_dict: Dict[int, int] = {}
+    upvotes_dict: Dict[UUID, int] = {}
+    downvotes_dict: Dict[UUID, int] = {}
     for entity_id, vote_type, count in vote_counts:
         if vote_type == "upvote":
             upvotes_dict[entity_id] = count
@@ -300,7 +301,7 @@ async def read_build_lists_with_votes(
             downvotes_dict[entity_id] = count
 
     # Bulk fetch user votes if user is authenticated
-    user_votes_dict: Dict[int, str] = {}
+    user_votes_dict: Dict[UUID, str] = {}
     if current_user:
         user_votes = (
             db.query(DBVote.entity_id, DBVote.vote_type)
@@ -342,7 +343,7 @@ async def read_build_lists_with_votes(
     },
 )
 async def read_build_list(
-    build_list_id: int,
+    build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BuildListRead:
@@ -371,7 +372,7 @@ async def read_build_list(
     ),
 )
 async def list_build_list_phases(
-    build_list_id: int,
+    build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPhaseRead]:
@@ -401,7 +402,7 @@ async def list_build_list_phases(
     ),
 )
 async def create_build_list_phase(
-    build_list_id: int,
+    build_list_id: UUID,
     body: BuildListPhaseCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -441,7 +442,7 @@ async def create_build_list_phase(
     responses=pagination_responses("build list", allow_public_read=True),
 )
 async def read_build_lists_by_car(
-    car_id: int,
+    car_id: UUID,
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
@@ -527,7 +528,7 @@ async def read_my_build_lists(
     responses=pagination_responses("build list", allow_public_read=True),
 )
 async def read_build_lists_by_user(
-    user_id: int,
+    user_id: UUID,
     skip: int = Query(0, ge=0, description="Number of build lists to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -571,7 +572,7 @@ class CopyBuildListRequest(BaseModel):
     ),
 )
 async def copy_build_list(
-    build_list_id: int,
+    build_list_id: UUID,
     request: CopyBuildListRequest = Body(default=CopyBuildListRequest()),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),

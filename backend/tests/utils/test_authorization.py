@@ -1,6 +1,7 @@
 """Tests for authorization utility functions."""
 
 from fastapi import HTTPException
+from uuid6 import uuid7
 
 from app.api.models.build_list import BuildList
 from app.api.models.build_list_part import BuildListPart
@@ -167,7 +168,7 @@ class TestAuthorization:
 
         build_list_part = BuildListPart(
             build_list_id=build_list.id,
-            global_part_id=1,
+            global_part_id=uuid7(),
             added_by=other_user.id,  # Added by different user
         )
         db_session.add(build_list_part)

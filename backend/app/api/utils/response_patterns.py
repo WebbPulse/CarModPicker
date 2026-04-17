@@ -3,6 +3,7 @@ Common response patterns utility for standardizing API responses and reducing re
 """
 
 from typing import Any, Dict, List, NoReturn, Optional, Union
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
@@ -166,7 +167,7 @@ class ResponsePatterns:
     @staticmethod
     def not_found_response(
         resource_type: str = "Resource",
-        resource_id: Optional[Union[int, str]] = None,
+        resource_id: Optional[Union[int, str, UUID]] = None,
     ) -> JSONResponse:
         """
         Create a standardized not found response.
@@ -314,7 +315,7 @@ class ResponsePatterns:
     @staticmethod
     def raise_not_found(
         resource_type: str = "Resource",
-        resource_id: Optional[Union[int, str]] = None,
+        resource_id: Optional[Union[int, str, UUID]] = None,
     ) -> NoReturn:
         """
         Raise a standardized 404 HTTPException.

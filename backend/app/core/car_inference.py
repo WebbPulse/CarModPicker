@@ -10,6 +10,7 @@ via resolve_car_triples_to_ids().
 
 import re
 from typing import TYPE_CHECKING, Optional
+from uuid import UUID
 
 from app.core.car_generations_data import CAR_GENERATIONS
 
@@ -415,7 +416,7 @@ def infer_car_generations(
 def resolve_car_triples_to_ids(
     db: "Session",
     triples: list[tuple[str, str, str]],
-) -> list[int]:
+) -> list[UUID]:
     """
     Resolve (make, model, generation_name) triples to car IDs using the database.
 
@@ -427,8 +428,8 @@ def resolve_car_triples_to_ids(
     from app.api.models.car_model import CarModel
     from app.api.models.make import Make
 
-    ids: list[int] = []
-    seen_ids: set[int] = set()
+    ids: list[UUID] = []
+    seen_ids: set[UUID] = set()
     for make_name, model_name, gen_name in triples:
         make = db.query(Make).filter(Make.name == make_name).first()
         if not make:

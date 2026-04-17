@@ -20,7 +20,7 @@ const PARTS_PER_PAGE = 100;
 
 export interface UseGlobalPartsFiltersOptions {
   /** When set, list and filter-options are scoped to this user (e.g. My Parts). */
-  user_id?: number;
+  user_id?: string;
   /** When true, filter state is synced to URL and initialized from URL. */
   syncToUrl?: boolean;
 }
@@ -30,14 +30,14 @@ export interface UseGlobalPartsFiltersReturn {
   params: {
     skip: number;
     limit: number;
-    category_ids?: number[];
-    car_id?: number;
-    brand_ids?: number[];
+    category_ids?: string[];
+    car_id?: string;
+    brand_ids?: string[];
     search?: string;
     sort?: string;
     min_price_cents?: number;
     max_price_cents?: number;
-    user_id?: number;
+    user_id?: string;
     universal?: boolean;
   };
   currentPage: number;
@@ -46,10 +46,10 @@ export interface UseGlobalPartsFiltersReturn {
   setPaginationInfo: (info: PaginationInfo | null) => void;
 
   // Filter state
-  selectedCategoryIds: number[];
-  setSelectedCategoryIds: (ids: number[]) => void;
-  selectedBrandIds: number[];
-  setSelectedBrandIds: (ids: number[]) => void;
+  selectedCategoryIds: string[];
+  setSelectedCategoryIds: (ids: string[]) => void;
+  selectedBrandIds: string[];
+  setSelectedBrandIds: (ids: string[]) => void;
   selectedMake: string;
   selectedModel: string;
   selectedGeneration: CarRead | null;
@@ -78,22 +78,22 @@ export interface UseGlobalPartsFiltersReturn {
   uniqueModels: string[];
   generations: CarRead[];
   filterOptions: {
-    category_ids: number[];
-    brand_ids: number[];
-    car_ids?: number[];
+    category_ids: string[];
+    brand_ids: string[];
+    car_ids?: string[];
     make_names?: string[];
   } | null;
 
   // Derived
-  availableCategoryIds: number[];
-  availableBrandIds: number[];
+  availableCategoryIds: string[];
+  availableBrandIds: string[];
   hasPriceRange: boolean;
   hasActiveFilters: boolean;
   clearAllFilters: () => void;
   clearVehicleFilter: () => void;
   clearPriceRange: () => void;
-  toggleCategory: (id: number) => void;
-  toggleBrand: (id: number) => void;
+  toggleCategory: (id: string) => void;
+  toggleBrand: (id: string) => void;
 
   // Loading
   isLoadingMakes: boolean;
@@ -109,22 +109,22 @@ export function useGlobalPartsFilters(
   const { user_id: userId, syncToUrl = false } = options;
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
     null
   );
   const [showUniversalParts, setShowUniversalParts] = useState(false);
-  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>([]);
+  const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
   const [sortParam, setSortParamState] = useState<string>('votes_desc');
   const [filterOptions, setFilterOptions] = useState<{
-    category_ids: number[];
-    brand_ids: number[];
-    car_ids?: number[];
+    category_ids: string[];
+    brand_ids: string[];
+    car_ids?: string[];
     make_names?: string[];
   } | null>(null);
 
@@ -157,7 +157,7 @@ export function useGlobalPartsFilters(
   } = useApiRequest(fetchCarsByMakeFn);
 
   const fetchCarByIdFn = useCallback(
-    (carId: number) => carsApi.getCar(carId),
+    (carId: string) => carsApi.getCar(carId),
     []
   );
   const { data: carFromUrl, executeRequest: fetchCarById } =
@@ -309,10 +309,9 @@ export function useGlobalPartsFilters(
           ? [searchParams.get('category_id') as string]
           : [];
     if (categoryIdsRaw.length > 0) {
-      const ids = categoryIdsRaw
-        .map((p) => Number.parseInt(p, 10))
-        .filter((id) => !Number.isNaN(id));
-      const valid = ids.filter((id) => categories.some((c) => c.id === id));
+      const valid = categoryIdsRaw.filter((id) =>
+        categories.some((c) => c.id === id)
+      );
       if (valid.length > 0) setSelectedCategoryIds(valid);
     }
     const brandIdParams = searchParams.getAll('brand_ids');
@@ -323,22 +322,16 @@ export function useGlobalPartsFilters(
           ? [searchParams.get('brand_id') as string]
           : [];
     if (brandIdsRaw.length > 0) {
-      const ids = brandIdsRaw
-        .map((p) => Number.parseInt(p, 10))
-        .filter((id) => !Number.isNaN(id));
-      const valid = ids.filter((id) =>
+      const valid = brandIdsRaw.filter((id) =>
         availableBrands.some((b) => b.id === id)
       );
       if (valid.length > 0) setSelectedBrandIds(valid);
     }
     const carIdParam = searchParams.get('car_id');
     if (carIdParam) {
-      const id = Number.parseInt(carIdParam, 10);
-      if (!Number.isNaN(id)) {
-        isInitializingFromUrlRef.current = true;
-        void fetchCarById(id);
-        return;
-      }
+      isInitializingFromUrlRef.current = true;
+      void fetchCarById(carIdParam);
+      return;
     }
     if (searchParams.get('universal') === 'true') setShowUniversalParts(true);
     const makeParam = searchParams.get('make');
@@ -411,9 +404,8 @@ export function useGlobalPartsFilters(
     ) {
       const carIdParam = searchParams.get('car_id');
       if (carIdParam) {
-        const carId = Number.parseInt(carIdParam, 10);
         const car = normalizeCarRead(
-          carsByMake.find((c) => c.id === carId) ?? null
+          carsByMake.find((c) => c.id === carIdParam) ?? null
         );
         if (car) setSelectedGeneration(car);
       } else {
@@ -571,7 +563,7 @@ export function useGlobalPartsFilters(
     showUniversalParts ||
     hasPriceRange;
 
-  const toggleCategory = useCallback((categoryId: number) => {
+  const toggleCategory = useCallback((categoryId: string) => {
     setSelectedCategoryIds((prev) =>
       prev.includes(categoryId)
         ? prev.filter((id) => id !== categoryId)
@@ -579,7 +571,7 @@ export function useGlobalPartsFilters(
     );
   }, []);
 
-  const toggleBrand = useCallback((brandId: number) => {
+  const toggleBrand = useCallback((brandId: string) => {
     setSelectedBrandIds((prev) =>
       prev.includes(brandId)
         ? prev.filter((id) => id !== brandId)

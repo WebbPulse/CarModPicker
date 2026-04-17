@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, cast
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
+from uuid import UUID
 
 import requests
 from sqlalchemy.orm import Session
@@ -556,7 +557,7 @@ def ingest_payload(
     payload: ScrapedPayload,
     *,
     current_user: DBUser,
-    default_category_id: int,
+    default_category_id: UUID,
     logger: logging.Logger,
     source: str = "scraped",
 ) -> DBGlobalPart:

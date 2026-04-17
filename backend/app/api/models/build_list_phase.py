@@ -1,7 +1,9 @@
+import uuid
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -18,8 +20,10 @@ class BuildListPhase(Base):
 
     __tablename__ = "build_list_phases"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    build_list_id: Mapped[int] = mapped_column(ForeignKey("build_lists.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    build_list_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("build_lists.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(nullable=False)
     sort_order: Mapped[int] = mapped_column(default=0, nullable=False)
 

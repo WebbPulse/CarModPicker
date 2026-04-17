@@ -9,7 +9,7 @@ export interface HTTPValidationError {
 }
 
 export interface UserRead {
-  id: number;
+  id: string;
   username: string;
   email: string;
   disabled: boolean;
@@ -76,7 +76,7 @@ export interface CarCreate {
 }
 
 export interface CarRead {
-  id: number;
+  id: string;
   make: string;
   model: string;
   generation_name: string;
@@ -107,7 +107,7 @@ export interface CarGenerationCreate {
 }
 
 export interface CarGenerationRead {
-  id: number;
+  id: string;
   make: string;
   model: string;
   generation_name: string;
@@ -128,16 +128,16 @@ export interface CarGenerationUpdate {
 export interface BuildListCreate {
   name: string;
   description?: string | null;
-  car_id: number; // Required - build lists must be associated with a car
+  car_id: string; // Required - build lists must be associated with a car
   image_urls?: string[] | null;
 }
 
 export interface BuildListRead {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
-  car_id?: number | null;
-  user_id: number;
+  car_id?: string | null;
+  user_id: string;
   image_urls?: string[] | null;
   created_at: string;
   updated_at: string;
@@ -155,7 +155,7 @@ export interface BuildListReadWithVotes extends BuildListRead {
 export interface BuildListUpdate {
   name?: string | null;
   description?: string | null;
-  car_id?: number | null;
+  car_id?: string | null;
   image_urls?: string[] | null;
 }
 
@@ -169,9 +169,9 @@ export interface BuildLogPostUpdate {
 }
 
 export interface BuildLogPostRead {
-  id: number;
-  build_log_id: number;
-  user_id: number;
+  id: string;
+  build_log_id: string;
+  user_id: string;
   content: string;
   created_at: string;
   updated_at: string;
@@ -180,8 +180,8 @@ export interface BuildLogPostRead {
 }
 
 export interface BuildLogRead {
-  id: number;
-  build_list_id: number;
+  id: string;
+  build_list_id: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -189,8 +189,8 @@ export interface BuildLogRead {
 }
 
 export interface BuildLogReadPaginated {
-  id: number;
-  build_list_id: number;
+  id: string;
+  build_list_id: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -204,27 +204,27 @@ export interface GlobalPartCreate {
   description?: string | null;
   image_urls?: string[] | null;
   product_url?: string | null;
-  category_id: number;
-  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  category_id: string;
+  car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean; // When true, part fits all cars
-  brand_id: number; // Required brand association
+  brand_id: string; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
-  retailer_id?: number | null;
+  retailer_id?: string | null;
   price_cents?: number | null; // Price for this retailer (creates/updates listing)
 }
 
 export interface GlobalPartRead {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   best_price_cents?: number | null; // Lowest current price from any retailer listing
   image_urls?: string[] | null;
-  category_id: number;
-  user_id: number;
-  car_ids: number[]; // Car IDs this part is associated with
+  category_id: string;
+  user_id: string;
+  car_ids: string[]; // Car IDs this part is associated with
   is_universal: boolean; // When true, part fits all cars
-  brand_id?: number | null; // Optional brand association
+  brand_id?: string | null; // Optional brand association
   brand?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
@@ -244,7 +244,7 @@ export interface GlobalPartReadWithVotes extends GlobalPartRead {
 
 /** Retailer (store) where parts are sold */
 export interface RetailerRead {
-  id: number;
+  id: string;
   name: string;
   domain?: string | null;
   base_url?: string | null;
@@ -255,9 +255,9 @@ export interface RetailerRead {
 
 /** Part listing at a retailer with current price */
 export interface PartListingReadWithRetailer {
-  id: number;
-  global_part_id: number;
-  retailer_id: number;
+  id: string;
+  global_part_id: string;
+  retailer_id: string;
   product_url?: string | null;
   last_known_price_cents?: number | null;
   last_price_updated_at?: string | null;
@@ -268,11 +268,11 @@ export interface PartListingReadWithRetailer {
 
 /** Price history entry with retailer info */
 export interface PartPriceHistoryReadWithRetailer {
-  id: number;
-  part_listing_id: number;
+  id: string;
+  part_listing_id: string;
   price_cents: number;
   observed_at: string;
-  retailer_id: number;
+  retailer_id: string;
   retailer_name: string;
 }
 
@@ -294,17 +294,17 @@ export interface GlobalPartUpdate {
   name?: string | null;
   description?: string | null;
   image_urls?: string[] | null;
-  category_id?: number | null;
-  car_ids?: number[] | null; // Car IDs this part fits; ignored when is_universal
+  category_id?: string | null;
+  car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean | null;
-  brand_id: number; // Required brand association
+  brand_id: string; // Required brand association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
 
 // New interfaces for categories
 export interface CategoryResponse {
-  id: number;
+  id: string;
   name: string;
   display_name: string;
   description?: string | null;
@@ -335,7 +335,7 @@ export interface CategoryUpdate {
 
 // Brand interfaces
 export interface BrandResponse {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   is_active: boolean;
@@ -359,21 +359,21 @@ export interface BrandUpdate {
 export interface VoteCreate {
   vote_type: 'upvote' | 'downvote';
   entity_type: 'car' | 'build_list' | 'global_part';
-  entity_id: number;
+  entity_id: string;
 }
 
 export interface VoteRead {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   vote_type: string;
   entity_type: string;
-  entity_id: number;
+  entity_id: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface VoteSummary {
-  entity_id: number;
+  entity_id: string;
   entity_type: string;
   upvotes: number;
   downvotes: number;
@@ -383,7 +383,7 @@ export interface VoteSummary {
 }
 
 export interface FlaggedEntitySummary {
-  entity_id: number;
+  entity_id: string;
   entity_type: string;
   entity_name: string;
   entity_description?: string | null;
@@ -410,15 +410,15 @@ export interface ReportCreate {
 }
 
 export interface ReportRead {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   entity_type: string;
-  entity_id: number;
+  entity_id: string;
   reason: string;
   description?: string | null;
   status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
   admin_notes?: string | null;
-  reviewed_by?: number | null;
+  reviewed_by?: string | null;
   reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -449,8 +449,8 @@ export interface BugReportCreate {
 }
 
 export interface BugReportRead {
-  id: number;
-  user_id?: number | null;
+  id: string;
+  user_id?: string | null;
   title: string;
   description: string;
   steps_to_reproduce?: string | null;
@@ -462,7 +462,7 @@ export interface BugReportRead {
   status: 'pending' | 'in_progress' | 'resolved' | 'dismissed';
   priority: 'low' | 'medium' | 'high' | 'critical';
   admin_notes?: string | null;
-  assigned_to?: number | null;
+  assigned_to?: string | null;
   resolved_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -477,13 +477,13 @@ export interface BugReportUpdate {
   status?: 'pending' | 'in_progress' | 'resolved' | 'dismissed' | null;
   priority?: 'low' | 'medium' | 'high' | 'critical' | null;
   admin_notes?: string | null;
-  assigned_to?: number | null;
+  assigned_to?: string | null;
 }
 
 // Build list phase (priority group) per build list
 export interface BuildListPhaseRead {
-  id: number;
-  build_list_id: number;
+  id: string;
+  build_list_id: string;
   name: string;
   sort_order: number;
 }
@@ -500,22 +500,22 @@ export interface BuildListPhaseUpdate {
 
 // Build list part relationship
 export interface BuildListPartCreate {
-  global_part_id?: number | null;
+  global_part_id?: string | null;
   quantity?: number;
   notes?: string | null;
-  build_list_phase_id?: number | null;
+  build_list_phase_id?: string | null;
 }
 
 export interface BuildListPartRead {
-  id: number;
-  build_list_id: number;
-  global_part_id: number;
-  added_by: number;
+  id: string;
+  build_list_id: string;
+  global_part_id: string;
+  added_by: string;
   quantity: number;
   notes?: string | null;
   purchased: boolean;
   added_at: string;
-  build_list_phase_id?: number | null;
+  build_list_phase_id?: string | null;
 }
 
 export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
@@ -527,7 +527,7 @@ export interface BuildListPartUpdate {
   quantity?: number | null;
   notes?: string | null;
   purchased?: boolean | null;
-  build_list_phase_id?: number | null;
+  build_list_phase_id?: string | null;
 }
 
 // Auth interfaces

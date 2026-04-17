@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,7 +22,7 @@ class BrandUpdate(BaseModel):
 
 
 class BrandInDB(BrandBase):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
 

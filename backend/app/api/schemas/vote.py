@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -25,11 +26,11 @@ class VoteUpdate(BaseModel):
 
 
 class VoteRead(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     vote_type: str
     entity_type: str
-    entity_id: int
+    entity_id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -37,7 +38,7 @@ class VoteRead(BaseModel):
 
 
 class VoteSummary(BaseModel):
-    entity_id: int
+    entity_id: UUID
     entity_type: str
     upvotes: int
     downvotes: int
@@ -49,7 +50,7 @@ class VoteSummary(BaseModel):
 
 
 class FlaggedEntitySummary(BaseModel):
-    entity_id: int
+    entity_id: UUID
     entity_type: str
     entity_name: str
     entity_description: Optional[str] = None

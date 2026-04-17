@@ -4,6 +4,7 @@ Unified votes endpoint for all entity types.
 
 import logging
 from typing import Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -73,7 +74,7 @@ async def count_votes(
 )
 async def vote_on_entity(
     entity_type: EntityType,
-    entity_id: int,
+    entity_id: UUID,
     vote_data: VoteCreate,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
@@ -100,7 +101,7 @@ async def vote_on_entity(
 )
 async def remove_vote(
     entity_type: EntityType,
-    entity_id: int,
+    entity_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
@@ -130,7 +131,7 @@ async def remove_vote(
 )
 async def get_vote_summary(
     entity_type: EntityType,
-    entity_id: int,
+    entity_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> VoteSummary:

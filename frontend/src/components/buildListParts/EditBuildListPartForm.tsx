@@ -14,7 +14,7 @@ interface EditBuildListPartFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (
-    buildListPartId: number,
+    buildListPartId: string,
     data: BuildListPartUpdate
   ) => Promise<void>;
   loading?: boolean;
@@ -30,7 +30,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
 }) => {
   const [notes, setNotes] = useState(buildListPart.notes || '');
   const [quantity, setQuantity] = useState(buildListPart.quantity ?? 1);
-  const [phaseId, setPhaseId] = useState<number | null>(
+  const [phaseId, setPhaseId] = useState<string | null>(
     buildListPart.build_list_phase_id ?? null
   );
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +118,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
               value={phaseId ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
-                setPhaseId(v === '' ? null : parseInt(v, 10));
+                setPhaseId(v === '' ? null : v);
               }}
               className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             >

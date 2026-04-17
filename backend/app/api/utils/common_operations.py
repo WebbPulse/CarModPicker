@@ -5,6 +5,7 @@ Common operations and utilities for API endpoints.
 import logging
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar, cast
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Query, Session
@@ -17,7 +18,9 @@ from app.api.protocols import HasId
 ModelType = TypeVar("ModelType", bound=HasId)
 
 
-def verify_entity_exists(db: Session, model: Type[ModelType], entity_id: int, entity_name: str = "entity") -> ModelType:
+def verify_entity_exists(
+    db: Session, model: Type[ModelType], entity_id: UUID, entity_name: str = "entity"
+) -> ModelType:
     """
     Verify that an entity exists in the database.
 
@@ -42,7 +45,7 @@ def verify_entity_exists(db: Session, model: Type[ModelType], entity_id: int, en
 def verify_entity_ownership(
     db: Session,
     model: Type[ModelType],
-    entity_id: int,
+    entity_id: UUID,
     current_user: DBUser,
     entity_name: str = "entity",
 ) -> ModelType:
@@ -76,7 +79,7 @@ def verify_entity_ownership(
 def verify_entity_access(
     db: Session,
     model: Type[ModelType],
-    entity_id: int,
+    entity_id: UUID,
     current_user: DBUser,
     entity_name: str = "entity",
     allow_public: bool = False,
@@ -215,8 +218,8 @@ def log_operation(
     logger: logging.Logger,
     operation: str,
     entity_type: str,
-    entity_id: int,
-    user_id: int,
+    entity_id: UUID,
+    user_id: UUID,
     additional_info: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
@@ -322,7 +325,7 @@ def create_entity(
     db: Session,
     model: Type[ModelType],
     data: Dict[str, Any],
-    user_id: int,
+    user_id: UUID,
     logger: logging.Logger,
     entity_name: str = "entity",
 ) -> ModelType:
@@ -388,7 +391,7 @@ def update_entity(
     db: Session,
     entity: ModelType,
     update_data: Dict[str, Any],
-    user_id: int,
+    user_id: UUID,
     logger: logging.Logger,
     entity_name: str = "entity",
 ) -> ModelType:
@@ -475,7 +478,7 @@ def update_entity(
 def delete_entity(
     db: Session,
     entity: HasId,
-    user_id: int,
+    user_id: UUID,
     logger: logging.Logger,
     entity_name: str = "entity",
 ) -> Dict[str, str]:

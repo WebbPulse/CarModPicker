@@ -315,7 +315,7 @@ function CrawlerAdmin() {
   // Background jobs
   const [jobsList, setJobsList] = useState<BackgroundJobList | null>(null);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-  const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   // Cron
   const [cronStatus, setCronStatus] = useState<CrawlerCronStatus | null>(null);
@@ -481,8 +481,7 @@ function CrawlerAdmin() {
   };
 
   const runCrawlersWithAdapters = async (adapters: string[]) => {
-    const categoryIdNum = parseInt(crawlerDefaultCategoryId, 10);
-    if (isNaN(categoryIdNum) || categoryIdNum < 1) {
+    if (!crawlerDefaultCategoryId) {
       setCrawlerError('Select a default category.');
       return;
     }
@@ -514,7 +513,7 @@ function CrawlerAdmin() {
     try {
       const body: CrawlerRunRequest = {
         adapters,
-        crawler_default_category_id: categoryIdNum,
+        crawler_default_category_id: crawlerDefaultCategoryId,
         parallel: true,
         delay_sec: crawlerDelaySec,
       };
@@ -539,8 +538,7 @@ function CrawlerAdmin() {
   };
 
   const handleRescrapeArchives = async () => {
-    const categoryIdNum = parseInt(crawlerDefaultCategoryId, 10);
-    if (isNaN(categoryIdNum) || categoryIdNum < 1) {
+    if (!crawlerDefaultCategoryId) {
       setRescrapeArchivesError('Select a default category.');
       return;
     }
@@ -550,7 +548,7 @@ function CrawlerAdmin() {
     setRescrapeArchivesError(null);
     try {
       const body: RescrapeArchivesRequest = {
-        default_category_id: categoryIdNum,
+        default_category_id: crawlerDefaultCategoryId,
       };
       const response = await adminApi.rescrapeArchives(body);
       setRescrapeArchivesResult(response.data);

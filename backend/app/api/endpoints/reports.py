@@ -4,6 +4,7 @@ Unified reports endpoint for all entity types.
 
 import logging
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -70,7 +71,7 @@ async def count_reports(
 )
 async def report_entity(
     entity_type: EntityType,
-    entity_id: int,
+    entity_id: UUID,
     report_data: ReportCreate,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
@@ -194,7 +195,7 @@ async def list_reports_with_details(
     ),
 )
 async def update_report(
-    report_id: int,
+    report_id: UUID,
     report_update: ReportUpdate,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
@@ -222,7 +223,7 @@ async def update_report(
     ),
 )
 async def delete_report(
-    report_id: int,
+    report_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
@@ -245,7 +246,7 @@ async def delete_report(
     ),
 )
 async def get_report(
-    report_id: int,
+    report_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),

@@ -22,6 +22,7 @@ from typing import (
     TypeVar,
     cast,
 )
+from uuid import UUID
 
 from fastapi import Depends, Query
 from sqlalchemy.orm import Query as SQLAlchemyQuery
@@ -133,7 +134,7 @@ def get_standard_public_endpoint_dependencies(
 # Standard authorization patterns
 def verify_user_access_or_admin(
     current_user: DBUser,
-    target_user_id: int,
+    target_user_id: UUID,
     action_description: str = "access this resource",
     logger: Optional[logging.Logger] = None,
 ) -> None:
@@ -192,7 +193,7 @@ def get_paginated_response(
     limit: int,
     logger: logging.Logger,
     entity_name: str = "items",
-    user_id: Optional[int] = None,
+    user_id: Optional[UUID] = None,
 ) -> List[ModelT]:
     """
     Get paginated response with consistent logging.
@@ -228,7 +229,7 @@ def get_paginated_response(
 def apply_standard_filters(
     query: SQLAlchemyQuery[ModelT],
     search: Optional[str] = None,
-    category_id: Optional[int] = None,
+    category_id: Optional[UUID] = None,
     search_fields: Optional[List[str]] = None,
 ) -> SQLAlchemyQuery[ModelT]:
     """
@@ -306,7 +307,7 @@ def verify_ownership(
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(entity_name, int(entity_id) if isinstance(entity_id, int) else 0)
+                ResponsePatterns.raise_not_found(entity_name, entity_id if isinstance(entity_id, UUID) else None)
 
             if getattr(entity, user_id_field) != current_user.id:
                 detail = forbidden_detail or f"Not authorized to access this {entity_name}"
@@ -342,7 +343,7 @@ def admin_only(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
 def get_entity_or_404(
     db: Session,
     model: Type[ModelT],
-    entity_id: int,
+    entity_id: UUID,
     entity_name: str,
     logger: Optional[logging.Logger] = None,
 ) -> ModelT:
@@ -596,8 +597,8 @@ def get_admin_dependencies() -> Dict[str, Any]:
 # Vote-related patterns
 def handle_vote_operation(
     db: Session,
-    user_id: int,
-    entity_id: int,
+    user_id: UUID,
+    entity_id: UUID,
     vote_type: str,
     entity_model: Type[Any],
     vote_model: Type[Any],
@@ -662,8 +663,8 @@ def handle_vote_operation(
 
 def remove_vote_operation(
     db: Session,
-    user_id: int,
-    entity_id: int,
+    user_id: UUID,
+    entity_id: UUID,
     entity_model: Type[Any],
     vote_model: Type[Any],
     entity_name: str,
@@ -721,7 +722,7 @@ def remove_vote_operation(
 
 def get_vote_summary(
     db: Session,
-    entity_id: int,
+    entity_id: UUID,
     entity_model: Type[Any],
     vote_model: Type[Any],
     entity_name: str,
@@ -791,8 +792,8 @@ def get_vote_summary(
 # Report-related patterns
 def handle_report_creation(
     db: Session,
-    user_id: int,
-    entity_id: int,
+    user_id: UUID,
+    entity_id: UUID,
     report_data: Dict[str, Any],
     entity_model: Type[Any],
     report_model: Type[Any],
@@ -866,7 +867,7 @@ def handle_report_creation(
 
 def get_reports_by_entity(
     db: Session,
-    entity_id: int,
+    entity_id: UUID,
     entity_model: Type[Any],
     report_model: Type[Any],
     entity_name: str,
@@ -923,11 +924,11 @@ def get_reports_by_entity(
 
 def update_report_status(
     db: Session,
-    report_id: int,
+    report_id: UUID,
     new_status: str,
     report_model: Type[Any],
     logger: logging.Logger,
-    admin_user_id: int,
+    admin_user_id: UUID,
     resolution_notes: Optional[str] = None,
 ) -> Dict[str, str]:
     """

@@ -12,7 +12,7 @@ import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm'
 import PageHeader from '../../components/layout/PageHeader';
 
 const fetchPartRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPart(Number(partId));
+  globalPartsApi.getGlobalPart(partId);
 
 function EditGlobalPart() {
   const { partId } = useParams<{ partId: string }>();

@@ -16,6 +16,7 @@ import threading
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -65,8 +66,8 @@ _background_tasks: set[asyncio.Task[None]] = set()
 
 # Per-job asyncio tasks and stop events for cooperative cancellation.
 # Entries are cleaned up when the job task finishes.
-_job_tasks: dict[int, asyncio.Task[None]] = {}
-_job_stop_events: dict[int, threading.Event] = {}
+_job_tasks: dict[UUID, asyncio.Task[None]] = {}
+_job_stop_events: dict[UUID, threading.Event] = {}
 
 
 def _get_superadmin_emails(db: Session) -> List[str]:
@@ -75,7 +76,7 @@ def _get_superadmin_emails(db: Session) -> List[str]:
     return [row.email for row in users]
 
 
-def _notify_job_completion(job_id: int) -> None:
+def _notify_job_completion(job_id: UUID) -> None:
     """
     Send a job-report email to all superadmins.
     Opens its own DB session; safe to call from a background thread.
@@ -489,11 +490,11 @@ class CrawlerRunRequest(BaseModel):
         ...,
         description="Adapter names to run (e.g. ['a90shop']). Use ['all'] to run all adapters.",
     )
-    crawler_user_id: Optional[int] = Field(
+    crawler_user_id: Optional[UUID] = Field(
         default=None,
         description="User ID to attribute crawler-created parts to. Defaults to the crawler service account.",
     )
-    crawler_default_category_id: int = Field(
+    crawler_default_category_id: UUID = Field(
         ...,
         description="Category ID for new parts.",
     )
@@ -545,10 +546,10 @@ async def list_crawlers(
 
 def _launch_ecs_crawler_task(
     *,
-    job_id: int,
+    job_id: UUID,
     adapters: list[str],
-    default_category_id: int,
-    user_id: int,
+    default_category_id: UUID,
+    user_id: UUID,
     limits: Optional[Dict[str, int]],
     global_limit: Optional[int],
     delay_sec: float,
@@ -626,9 +627,9 @@ async def _run_crawlers_in_process(
     global_limit: Optional[int],
     parallel: bool,
     delay_sec: float,
-    user_id: int,
-    default_category_id: int,
-    job_id: int,
+    user_id: UUID,
+    default_category_id: UUID,
+    job_id: UUID,
     stop_event: threading.Event,
     skip_known_urls: bool,
 ) -> None:
@@ -701,7 +702,7 @@ async def run_crawlers_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
     triggered_by = "scheduled" if is_scheduled else "manual"
-    acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
+    acting_user_id: Optional[UUID] = None if is_scheduled else (current_user.id if current_user else None)
 
     # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
     if body.crawler_user_id is not None:
@@ -766,8 +767,8 @@ async def run_crawlers_endpoint(
             "global_limit": body.global_limit,
             "parallel": body.parallel,
             "delay_sec": delay_sec,
-            "crawler_user_id": crawler_user.id,
-            "default_category_id": body.crawler_default_category_id,
+            "crawler_user_id": str(crawler_user.id),
+            "default_category_id": str(body.crawler_default_category_id),
             "skip_known_urls": body.skip_known_urls,
         },
         created_by_user_id=acting_user_id,
@@ -840,11 +841,11 @@ async def run_crawlers_endpoint(
 class RescrapeArchivesRequest(BaseModel):
     """Request body for re-parsing all archived HTML into global parts (same as crawler ingest)."""
 
-    crawler_user_id: Optional[int] = Field(
+    crawler_user_id: Optional[UUID] = Field(
         default=None,
         description="User ID to attribute created/updated parts to. Defaults to the crawler service account.",
     )
-    default_category_id: int = Field(
+    default_category_id: UUID = Field(
         ...,
         description="Fallback category ID when inference cannot pick a category.",
     )
@@ -852,9 +853,9 @@ class RescrapeArchivesRequest(BaseModel):
 
 def _launch_ecs_rescrape_task(
     *,
-    job_id: int,
-    user_id: int,
-    default_category_id: int,
+    job_id: UUID,
+    user_id: UUID,
+    default_category_id: UUID,
 ) -> str:
     """
     Launch an ECS Fargate task to run the archive rescrape. Returns the ECS task ARN.
@@ -913,9 +914,9 @@ def _launch_ecs_rescrape_task(
 
 async def _run_rescrape_in_process(
     *,
-    crawler_user_id: int,
-    default_category_id: int,
-    job_id: int,
+    crawler_user_id: UUID,
+    default_category_id: UUID,
+    job_id: UUID,
     stop_event: threading.Event,
 ) -> None:
     """
@@ -981,7 +982,7 @@ async def rescrape_all_archived_crawled_pages(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
     triggered_by = "scheduled" if is_scheduled else "manual"
-    acting_user_id: Optional[int] = None if is_scheduled else (current_user.id if current_user else None)
+    acting_user_id: Optional[UUID] = None if is_scheduled else (current_user.id if current_user else None)
 
     if body.crawler_user_id is not None:
         crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
@@ -1020,8 +1021,8 @@ async def rescrape_all_archived_crawled_pages(
         job_type="archive_rescrape",
         triggered_by=triggered_by,
         params={
-            "crawler_user_id": crawler_user.id,
-            "default_category_id": body.default_category_id,
+            "crawler_user_id": str(crawler_user.id),
+            "default_category_id": str(body.default_category_id),
         },
         created_by_user_id=acting_user_id,
     )
@@ -1350,7 +1351,7 @@ async def list_background_jobs(
     ),
 )
 async def get_background_job(
-    job_id: int,
+    job_id: UUID,
     current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ) -> BackgroundJobRead:
@@ -1370,7 +1371,7 @@ async def get_background_job(
     ),
 )
 async def cancel_background_job(
-    job_id: int,
+    job_id: UUID,
     current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ) -> BackgroundJobRead:

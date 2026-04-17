@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import Any, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
-from app.api.schemas.global_part import _serialize_image_urls
+from app.api.schemas.global_part import apply_image_url_presigning
 
 # Max length for social profile URLs (RFC 7230 recommends 8000; we use 500 for profile links)
 SOCIAL_URL_MAX_LENGTH = 500
@@ -126,7 +127,7 @@ class AdminUserUpdate(BaseModel):
 
 # Schema for public user data (excludes sensitive fields like email_verified and totp_enabled)
 class PublicUserRead(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     disabled: bool
@@ -147,13 +148,13 @@ class PublicUserRead(BaseModel):
     @field_serializer("image_urls")
     def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
         """Convert file keys to presigned URLs when serializing response."""
-        return _serialize_image_urls(value)
+        return apply_image_url_presigning(value)
 
 
 # Schema for response body when reading a user (DO NOT include hashed password)
 # Includes sensitive fields that should only be visible to the user themselves, admins, or superusers
 class UserRead(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     disabled: bool
@@ -177,4 +178,4 @@ class UserRead(BaseModel):
     @field_serializer("image_urls")
     def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
         """Convert file keys to presigned URLs when serializing response."""
-        return _serialize_image_urls(value)
+        return apply_image_url_presigning(value)

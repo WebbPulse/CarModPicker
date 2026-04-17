@@ -12,7 +12,7 @@ interface BuildListPartListItemProps {
   buildListPart: BuildListPartReadWithGlobalPart;
   category?: CategoryResponse | null;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
-  onDelete?: (buildListPartId: number) => void;
+  onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;

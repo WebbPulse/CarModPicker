@@ -4,10 +4,12 @@ Used for deduplication: when adding images to a part, we check if we've already
 downloaded from this source URL and reuse the existing file_key instead of re-uploading.
 """
 
+import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -22,7 +24,7 @@ class ImageSourceMapping(Base):
     __tablename__ = "image_source_mappings"
     __table_args__ = (UniqueConstraint("source_url", name="uq_image_source_mapping_source_url"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     source_url: Mapped[str] = mapped_column(index=True, nullable=False)
     file_key: Mapped[str] = mapped_column(nullable=False)
 

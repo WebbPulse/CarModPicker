@@ -5,6 +5,7 @@ Unified report service for all entity types.
 import logging
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Type, Union
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import desc
@@ -39,8 +40,8 @@ class ReportService:
         self,
         db: Session,
         entity_type: EntityType,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         report_data: ReportCreate,
         logger: logging.Logger,
     ) -> DBReport:
@@ -212,10 +213,10 @@ class ReportService:
     def update_report(
         self,
         db: Session,
-        report_id: int,
+        report_id: UUID,
         status: str,
         admin_notes: Optional[str] = None,
-        reviewer_id: Optional[int] = None,
+        reviewer_id: Optional[UUID] = None,
         logger: Optional[logging.Logger] = None,
     ) -> DBReport:
         """
@@ -256,7 +257,7 @@ class ReportService:
     def delete_report(
         self,
         db: Session,
-        report_id: int,
+        report_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         """
@@ -283,7 +284,7 @@ class ReportService:
     def get_user_reports(
         self,
         db: Session,
-        user_id: int,
+        user_id: UUID,
         status: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
@@ -318,8 +319,8 @@ class ReportService:
     def get_report_by_id(
         self,
         db: Session,
-        report_id: int,
-        current_user_id: int,
+        report_id: UUID,
+        current_user_id: UUID,
         is_admin: bool = False,
         logger: Optional[logging.Logger] = None,
     ) -> Optional[ReportWithDetails]:
@@ -395,7 +396,7 @@ class ReportService:
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_details(self, db: Session, entity_type: str, entity_id: int) -> Dict[str, Any]:
+    def _get_entity_details(self, db: Session, entity_type: str, entity_id: UUID) -> Dict[str, Any]:
         """Get entity details for report display."""
         if entity_type == "build_list":
             entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()

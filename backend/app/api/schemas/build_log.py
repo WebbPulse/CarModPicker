@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,9 +17,9 @@ class BuildLogPostUpdate(BaseModel):
 
 # Schema for response body when reading a build log post
 class BuildLogPostRead(BaseModel):
-    id: int
-    build_log_id: int
-    user_id: Optional[int] = None
+    id: UUID
+    build_log_id: UUID
+    user_id: Optional[UUID] = None
     content: str
     created_at: datetime
     updated_at: datetime
@@ -30,8 +31,8 @@ class BuildLogPostRead(BaseModel):
 
 # Schema for response body when reading a build log with posts
 class BuildLogRead(BaseModel):
-    id: int
-    build_list_id: int
+    id: UUID
+    build_list_id: UUID
     title: str
     created_at: datetime
     updated_at: datetime
@@ -42,8 +43,8 @@ class BuildLogRead(BaseModel):
 
 # Schema for paginated build log response
 class BuildLogReadPaginated(BaseModel):
-    id: int
-    build_list_id: int
+    id: UUID
+    build_list_id: UUID
     title: str
     created_at: datetime
     updated_at: datetime
@@ -55,13 +56,13 @@ class BuildLogReadPaginated(BaseModel):
 
 # Schema for response body when reading a build log post with author details
 class BuildLogPostReadWithAuthor(BaseModel):
-    id: int
-    build_log_id: int
-    user_id: Optional[int] = None
+    id: UUID
+    build_log_id: UUID
+    user_id: Optional[UUID] = None
     content: str
     created_at: datetime
     updated_at: datetime
     author_username: str
-    author_id: int
+    author_id: UUID
 
     model_config = ConfigDict(from_attributes=True)

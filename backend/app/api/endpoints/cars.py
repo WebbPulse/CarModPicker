@@ -6,6 +6,7 @@ database on startup. The backend source code is the source of truth; no create/u
 """
 
 from typing import List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
@@ -166,7 +167,7 @@ async def get_car_make_stats(
     responses=standard_responses(success_description="Cars retrieved successfully"),
 )
 async def get_cars_by_ids(
-    ids: List[int] = Query(..., description="Car IDs to fetch"),
+    ids: List[UUID] = Query(..., description="Car IDs to fetch"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[CarRead]:
     """Batch-fetch cars by a list of IDs. Used by the frontend to resolve car names for the catalog table."""

@@ -8,6 +8,7 @@ hashing and admin management.
 
 import logging
 from typing import Any, Dict, List, Optional, Union
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
@@ -215,7 +216,7 @@ async def delete_profile_picture(
     },
 )
 async def get_user(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
@@ -378,7 +379,7 @@ async def create_user(
     responses=crud_responses("user", "update"),
 )
 async def update_user(
-    user_id: int,
+    user_id: UUID,
     user: UserUpdate,
     response: Response,
     db: Session = Depends(get_db),
@@ -511,7 +512,7 @@ async def update_user(
     responses=crud_responses("user", "delete"),
 )
 async def delete_user(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
@@ -600,7 +601,7 @@ async def get_all_users(
     responses=crud_responses("user", "update"),
 )
 async def admin_update_user(
-    user_id: int,
+    user_id: UUID,
     user_update: AdminUserUpdate,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
@@ -645,7 +646,7 @@ async def admin_update_user(
     responses=crud_responses("user", "delete"),
 )
 async def admin_delete_user(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),

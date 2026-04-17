@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -151,7 +151,7 @@ class TestImages:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -393,7 +393,7 @@ class TestImages:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -421,7 +421,7 @@ class TestImages:
         img_bytes = create_test_image()
         files = {"file": ("test_image.png", img_bytes, "image/png")}
         response = client.post(
-            f"{settings.API_STR}/images/upload?entity_type=build_log_post&entity_id=99999",
+            f"{settings.API_STR}/images/upload?entity_type=build_log_post&entity_id={INVALID_UUID_STR}",
             files=files,
             headers=headers,
         )
@@ -441,9 +441,9 @@ class TestImages:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "car_id": car["id"],
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "car_id": str(car["id"]),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -690,7 +690,7 @@ class TestImages:
             img_bytes.seek(0)
 
             files = {"file": ("test_image.webp", img_bytes, "image/webp")}
-            data = {"entity_type": "user", "entity_id": test_user.id}
+            data = {"entity_type": "user", "entity_id": str(test_user.id)}
             response = client.post(f"{settings.API_STR}/images/upload", files=files, data=data, headers=headers)
 
             # May succeed, fail validation, or return 503 if storage not configured
@@ -707,7 +707,7 @@ class TestImages:
         # Create a file with image extension but corrupted content
         corrupted_content = b"This is not a valid image file, but has .png extension"
         files = {"file": ("fake_image.png", io.BytesIO(corrupted_content), "image/png")}
-        data = {"entity_type": "user", "entity_id": test_user.id}
+        data = {"entity_type": "user", "entity_id": str(test_user.id)}
         response = client.post(f"{settings.API_STR}/images/upload", files=files, data=data, headers=headers)
 
         # Should reject corrupted files (400/422) or 503 if storage not configured

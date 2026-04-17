@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sqlalchemy import JSON, ForeignKey
+from sqlalchemy import JSON, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -27,18 +29,18 @@ class GlobalPart(Base):
 
     __tablename__ = "global_parts"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Gallery images (file keys)
 
     # New fields for shared architecture
-    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)  # Creator
+    category_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Creator
     is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
     """When True, part fits all cars; no need to list every car_id in global_part_cars."""
-    brand_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("brands.id"), nullable=True, index=True
+    brand_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("brands.id"), nullable=True, index=True
     )  # Optional brand association
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
     gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)  # UPC/EAN/GTIN for dedup
@@ -64,7 +66,7 @@ class GlobalPart(Base):
     brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="global_parts")
 
     @property
-    def car_ids(self) -> List[int]:
+    def car_ids(self) -> List[uuid.UUID]:
         """IDs of cars this part is associated with (empty if is_universal)."""
         return [c.id for c in self.cars]
 

@@ -23,7 +23,7 @@ interface BuildListCatalogListProps {
     max_cost_cents?: number;
     sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
   };
-  carIds?: number[]; // Optional: filter by car IDs
+  carIds?: string[]; // Optional: filter by car IDs
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
@@ -36,8 +36,8 @@ const fetchBuildListsRequestFn = (params?: {
   skip?: number;
   limit?: number;
   search?: string;
-  car_id?: number;
-  car_ids?: number[];
+  car_id?: string;
+  car_ids?: string[];
   min_cost_cents?: number;
   max_cost_cents?: number;
   sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -81,8 +81,8 @@ function BuildListCatalogList({
       skip?: number;
       limit?: number;
       search?: string;
-      car_id?: number;
-      car_ids?: number[];
+      car_id?: string;
+      car_ids?: string[];
       min_cost_cents?: number;
       max_cost_cents?: number;
       sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -102,7 +102,7 @@ function BuildListCatalogList({
   }, [buildListsResponse]);
 
   const handleVoteUpdate = useCallback(
-    (buildListId: number, newVote: 'upvote' | 'downvote' | null) => {
+    (buildListId: string, newVote: 'upvote' | 'downvote' | null) => {
       // Update local state optimistically
       setBuildListsWithVotes((prev) =>
         prev.map((bl) => {
@@ -224,7 +224,7 @@ function BuildListCatalogList({
               buildList: BuildListRead | BuildListReadWithVotes;
               showVoteButtons: boolean;
               onVoteUpdate?: (
-                buildListId: number,
+                buildListId: string,
                 newVote: 'upvote' | 'downvote' | null
               ) => void;
             } = {

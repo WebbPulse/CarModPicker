@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -12,8 +14,8 @@ class BuildListPhaseUpdate(BaseModel):
 
 
 class BuildListPhaseRead(BaseModel):
-    id: int
-    build_list_id: int
+    id: UUID
+    build_list_id: UUID
     name: str
     sort_order: int
 

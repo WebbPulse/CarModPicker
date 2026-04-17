@@ -11,6 +11,7 @@ import uuid
 from collections import defaultdict
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Optional
+from uuid import UUID
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -246,7 +247,9 @@ class StorageService:
                 detail="Failed to process image to square format",
             )
 
-    def _generate_file_key(self, entity_type: str, entity_id: Optional[int], user_id: int, file_extension: str) -> str:
+    def _generate_file_key(
+        self, entity_type: str, entity_id: Optional[UUID], user_id: UUID, file_extension: str
+    ) -> str:
         """
         Generate a unique, secure file key for S3 bucket.
 
@@ -274,7 +277,7 @@ class StorageService:
 
         return f"{entity_type}/{user_hash}/{filename}"
 
-    def verify_file_key_ownership(self, file_key: str, user_id: int) -> bool:
+    def verify_file_key_ownership(self, file_key: str, user_id: UUID) -> bool:
         """
         Verify that a file key belongs to a specific user.
 
@@ -361,8 +364,8 @@ class StorageService:
         self,
         file: UploadFile,
         entity_type: str,
-        user_id: int,
-        entity_id: Optional[int] = None,
+        user_id: UUID,
+        entity_id: Optional[UUID] = None,
         force_square: bool = False,
     ) -> str:
         """

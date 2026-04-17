@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Index
+from sqlalchemy import ForeignKey, Index, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -20,12 +22,12 @@ class Report(Base):
 
     __tablename__ = "reports"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     # Polymorphic entity reference
     entity_type: Mapped[str] = mapped_column(nullable=False)  # 'build_list', 'global_part'
-    entity_id: Mapped[int] = mapped_column(nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
 
     reason: Mapped[str] = mapped_column(nullable=False)  # 'inappropriate', 'spam', 'inaccurate', 'duplicate', 'other'
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
@@ -33,7 +35,7 @@ class Report(Base):
         default="pending", nullable=False
     )  # 'pending', 'reviewed', 'resolved', 'dismissed'
     admin_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
-    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

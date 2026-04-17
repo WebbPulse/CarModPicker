@@ -4,6 +4,7 @@ Base service class for reporting operations to eliminate code duplication.
 
 import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import and_, desc, func
@@ -51,8 +52,8 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
     def create_report(
         self,
         db: Session,
-        entity_id: int,
-        user_id: int,
+        entity_id: UUID,
+        user_id: UUID,
         report_data: ReportCreateSchema,
         logger: logging.Logger,
     ) -> ReportModelType:
@@ -116,7 +117,7 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
     def get_reports_by_entity(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         logger: logging.Logger,
         status: Optional[str] = None,
     ) -> List[ReportModelType]:
@@ -156,9 +157,9 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
     def update_report_status(
         self,
         db: Session,
-        report_id: int,
+        report_id: UUID,
         new_status: str,
-        admin_user_id: int,
+        admin_user_id: UUID,
         logger: logging.Logger,
         resolution_notes: Optional[str] = None,
     ) -> ReportModelType:
@@ -232,7 +233,7 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
     def get_report_summary(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         logger: logging.Logger,
     ) -> Dict[str, Any]:
         """
@@ -309,7 +310,7 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
     def get_user_reports(
         self,
         db: Session,
-        user_id: int,
+        user_id: UUID,
         logger: logging.Logger,
         status: Optional[str] = None,
     ) -> List[ReportModelType]:

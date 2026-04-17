@@ -6,6 +6,7 @@ Authenticated users can get-or-create by domain (for scrapers).
 """
 
 from typing import List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -129,7 +130,7 @@ def _domain_to_retailer_name(domain: str) -> str:
 
 @router.get("/{retailer_id}", response_model=RetailerRead)
 async def get_retailer(
-    retailer_id: int,
+    retailer_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> RetailerRead:
     """Get a retailer by ID."""
@@ -156,7 +157,7 @@ async def create_retailer(
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
                 "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": existing.id},
+                details={"existing_retailer_id": str(existing.id)},
             )
     db_retailer = DBRetailer(**retailer.model_dump())
     db.add(db_retailer)
@@ -171,7 +172,7 @@ async def create_retailer(
     responses=crud_responses("retailer", "update"),
 )
 async def update_retailer(
-    retailer_id: int,
+    retailer_id: UUID,
     retailer: RetailerUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
@@ -185,7 +186,7 @@ async def update_retailer(
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
                 "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": existing.id},
+                details={"existing_retailer_id": str(existing.id)},
             )
     update_data = retailer.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -207,7 +208,7 @@ async def update_retailer(
     responses=crud_responses("retailer", "delete"),
 )
 async def delete_retailer(
-    retailer_id: int,
+    retailer_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> RetailerRead:

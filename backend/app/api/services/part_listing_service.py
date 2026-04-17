@@ -11,6 +11,7 @@ import re
 from datetime import UTC, datetime
 from typing import Optional
 from urllib.parse import urlparse
+from uuid import UUID
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -120,7 +121,7 @@ def find_part_by_product_url(db: Session, product_url: str) -> Optional[DBGlobal
 
 def find_part_by_brand_and_part_number(
     db: Session,
-    brand_id: int,
+    brand_id: UUID,
     part_number: str,
 ) -> Optional[DBGlobalPart]:
     """Find a global part by brand_id and part_number. Uses normalized part_number for matching."""
@@ -172,8 +173,8 @@ def find_part_by_gtin(db: Session, gtin: str) -> Optional[DBGlobalPart]:
 
 def create_or_update_listing_and_price(
     db: Session,
-    global_part_id: int,
-    retailer_id: int,
+    global_part_id: UUID,
+    retailer_id: UUID,
     *,
     product_url: Optional[str] = None,
     price_cents: Optional[int] = None,
@@ -255,7 +256,7 @@ def create_or_update_listing_and_price(
     return listing
 
 
-def get_best_listing_for_part(db: Session, global_part_id: int) -> Optional[DBPartListing]:
+def get_best_listing_for_part(db: Session, global_part_id: UUID) -> Optional[DBPartListing]:
     """
     Return the PartListing with the lowest current price for this part.
     Uses last_known_price_cents; only considers listings that have a price.
