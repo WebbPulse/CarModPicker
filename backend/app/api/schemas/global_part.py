@@ -10,7 +10,7 @@ from app.api.utils.image_utils import get_presigned_url_from_file_key
 MAX_IMAGES_PER_GLOBAL_PART = 12
 
 
-def _serialize_image_urls(value: Optional[List[str]]) -> Optional[List[str]]:
+def apply_image_url_presigning(value: Optional[List[str]]) -> Optional[List[str]]:
     """Convert list of file keys to presigned URLs."""
     if not value:
         return None
@@ -106,7 +106,7 @@ class GlobalPartRead(BaseModel):
     @field_serializer("image_urls")
     def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
         """Convert file keys to presigned URLs when serializing response."""
-        return _serialize_image_urls(value)
+        return apply_image_url_presigning(value)
 
 
 # Schema for response body when reading a part with vote summary
