@@ -127,3 +127,51 @@ resource "aws_servicecatalogappregistry_attribute_group_association" "carmodpick
   application_id     = aws_servicecatalogappregistry_application.carmodpicker.id
   attribute_group_id = aws_servicecatalogappregistry_attribute_group.carmodpicker.id
 }
+
+# ---------------------------------------------------------------------------
+# Resource Groups tag-sync role — extra permissions
+#
+# AWS auto-creates a `tag-sync-role-<region>-<suffix>` role (one per account +
+# region) the first time tag-sync is enabled on a Resource Group. The role
+# propagates the AppRegistry `awsApplication` tag to resources that match the
+# Resource Group query, so they show up under myApplications.
+#
+# AWS attaches the managed policy
+# `ResourceGroupsTaggingAPITagUntagSupportedResources`, but that policy is
+# missing `apprunner:*` and `servicecatalog:*` tag actions, so tag-sync is
+# denied when trying to tag our App Runner service + autoscaling config, and
+# the AppRegistry application + attribute group. CloudTrail shows recurring
+# `AccessDenied` TagResource events from `TagSyncTaskProcessor`.
+#
+# Fix: attach an inline policy granting the missing permissions. The role also
+# services a sibling project (webbpulse-production), so the policy name is
+# project-scoped to avoid collisions if the same fix is applied there.
+#
+# The role name has an AWS-generated suffix; if tag-sync is ever disabled and
+# re-enabled the suffix will change and this data lookup will fail loudly,
+# which is the desired behavior.
+# ---------------------------------------------------------------------------
+data "aws_iam_role" "tag_sync" {
+  name = "tag-sync-role-${var.aws_region}-k73y7vmb"
+}
+
+resource "aws_iam_role_policy" "tag_sync_apprunner_servicecatalog" {
+  name = "${local.prefix}-tag-sync-extras"
+  role = data.aws_iam_role.tag_sync.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "apprunner:TagResource",
+          "apprunner:UntagResource",
+          "servicecatalog:TagResource",
+          "servicecatalog:UntagResource",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
