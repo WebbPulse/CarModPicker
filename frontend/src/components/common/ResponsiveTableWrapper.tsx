@@ -1,5 +1,3 @@
-import { forwardRef } from 'react';
-
 interface ResponsiveTableWrapperProps {
   visibleColumns: string[];
   columnMinWidths: Record<string, number>;
