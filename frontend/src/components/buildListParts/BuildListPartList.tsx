@@ -64,6 +64,7 @@ interface BuildListPartTableProps {
   categoryIcon: string;
   brands: BrandResponse[];
   carsById: Record<string, CarRead>;
+  containerWidth: number;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
@@ -124,6 +125,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   categoryIcon,
   brands,
   carsById,
+  containerWidth,
   onEdit,
   onDelete,
   onTogglePurchased,
@@ -135,8 +137,6 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 }) => {
   const showCheckbox = canMarkPurchased && onTogglePurchased;
   const showActions = Boolean(onEdit || onDelete);
-
-  const [tableWrapperRef, containerWidth] = useContainerWidth<HTMLDivElement>();
 
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
     const keys: TableColumnKey[] = [];
@@ -169,7 +169,6 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
       {/* Table - matching global-parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
         <ResponsiveTableWrapper
-          ref={tableWrapperRef}
           visibleColumns={visibleColumns}
           columnMinWidths={COLUMN_MIN_WIDTH}
           totalMinWidth={totalMinWidth}
@@ -463,6 +462,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   canDeletePart,
   emptyMessage = 'No parts added to this build list yet.',
 }) => {
+  const [containerRef, containerWidth] = useContainerWidth<HTMLDivElement>();
+
   // Create a map of category_id to category for quick lookup
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryResponse>();
@@ -651,7 +652,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingCount = buildListParts.filter((p) => !p.purchased).length;
 
   return (
-    <div className="space-y-3">
+    <div ref={containerRef} className="space-y-3">
       {/* Cost Summary Card */}
       <Card className="bg-gray-800 border-2 border-blue-600">
         <div className="space-y-3 p-4">
@@ -758,6 +759,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             categoryIcon={group.groupIcon}
             brands={brands}
             carsById={carsById}
+            containerWidth={containerWidth}
             {...(onEdit != null && { onEdit })}
             {...(onDelete != null && { onDelete })}
             {...(onTogglePurchased != null && { onTogglePurchased })}
