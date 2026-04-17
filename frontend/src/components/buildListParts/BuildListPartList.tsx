@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
+import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
+import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import type {
   BrandResponse,
   BuildListPartReadWithGlobalPart,
@@ -13,6 +16,39 @@ import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
+
+type TableColumnKey =
+  | 'checkbox'
+  | 'part'
+  | 'brand'
+  | 'part_number'
+  | 'fit'
+  | 'qty'
+  | 'price'
+  | 'actions';
+
+// Lower = higher priority (kept longer). `part` and `price` are pinned and never drop.
+const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
+  part: 0,
+  price: 1,
+  qty: 2,
+  actions: 3,
+  checkbox: 4,
+  fit: 5,
+  brand: 6,
+  part_number: 7,
+};
+
+const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
+  part: 280,
+  price: 100,
+  qty: 70,
+  actions: 130,
+  checkbox: 60,
+  fit: 160,
+  brand: 140,
+  part_number: 140,
+};
 
 const DEFAULT_BRANDS: BrandResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
@@ -28,6 +64,7 @@ interface BuildListPartTableProps {
   categoryIcon: string;
   brands: BrandResponse[];
   carsById: Record<string, CarRead>;
+  containerWidth: number;
   onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
   onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
@@ -88,6 +125,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   categoryIcon,
   brands,
   carsById,
+  containerWidth,
   onEdit,
   onDelete,
   onTogglePurchased,
@@ -100,48 +138,20 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   const showCheckbox = canMarkPurchased && onTogglePurchased;
   const showActions = Boolean(onEdit || onDelete);
 
-  // Percentages that sum to 100% so the table fills horizontal space (checkbox, part, brand, part#, fit, qty, price, actions).
-  const columnWidths = ((): { key: string; width: number }[] => {
-    if (showCheckbox && showActions)
-      return [
-        { key: 'cb', width: 4 },
-        { key: 'part', width: 28 },
-        { key: 'brand', width: 12 },
-        { key: 'partNum', width: 12 },
-        { key: 'fit', width: 10 },
-        { key: 'qty', width: 8 },
-        { key: 'price', width: 12 },
-        { key: 'actions', width: 14 },
-      ];
-    if (showCheckbox && !showActions)
-      return [
-        { key: 'cb', width: 4 },
-        { key: 'part', width: 38 },
-        { key: 'brand', width: 14 },
-        { key: 'partNum', width: 14 },
-        { key: 'fit', width: 12 },
-        { key: 'qty', width: 10 },
-        { key: 'price', width: 8 },
-      ];
-    if (!showCheckbox && showActions)
-      return [
-        { key: 'part', width: 30 },
-        { key: 'brand', width: 12 },
-        { key: 'partNum', width: 12 },
-        { key: 'fit', width: 10 },
-        { key: 'qty', width: 10 },
-        { key: 'price', width: 12 },
-        { key: 'actions', width: 14 },
-      ];
-    return [
-      { key: 'part', width: 35 },
-      { key: 'brand', width: 15 },
-      { key: 'partNum', width: 15 },
-      { key: 'fit', width: 12 },
-      { key: 'qty', width: 10 },
-      { key: 'price', width: 13 },
-    ];
-  })();
+  const tableColumnKeys = useMemo((): TableColumnKey[] => {
+    const keys: TableColumnKey[] = [];
+    if (showCheckbox) keys.push('checkbox');
+    keys.push('part', 'brand', 'part_number', 'fit', 'qty', 'price');
+    if (showActions) keys.push('actions');
+    return keys;
+  }, [showCheckbox, showActions]);
+
+  const { visibleColumns, totalMinWidth } = useResponsiveColumns(
+    tableColumnKeys,
+    COLUMN_PRIORITY,
+    COLUMN_MIN_WIDTH,
+    containerWidth
+  );
 
   return (
     <div className="space-y-2">
@@ -158,148 +168,158 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 
       {/* Table - matching global-parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
-        <div className="overflow-x-auto min-w-0 rounded-inherit">
-          <table className="w-full text-sm table-fixed">
-            <colgroup>
-              {columnWidths.map((col) => (
-                <col key={col.key} style={{ width: `${col.width}%` }} />
-              ))}
-            </colgroup>
-            <thead>
-              <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
-                {showCheckbox && (
-                  <th
-                    className="px-3 py-3 font-medium whitespace-nowrap"
-                    title="Mark as purchased"
-                  >
-                    Purchased
-                  </th>
-                )}
+        <ResponsiveTableWrapper
+          visibleColumns={visibleColumns}
+          columnMinWidths={COLUMN_MIN_WIDTH}
+          totalMinWidth={totalMinWidth}
+        >
+          <thead>
+            <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
+              {visibleColumns.includes('checkbox') && (
+                <th
+                  className="px-3 py-3 font-medium whitespace-nowrap"
+                  title="Mark as purchased"
+                >
+                  Purchased
+                </th>
+              )}
+              {visibleColumns.includes('part') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
                   Part name
                 </th>
+              )}
+              {visibleColumns.includes('brand') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
                   Brand
                 </th>
+              )}
+              {visibleColumns.includes('part_number') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
                   Part #
                 </th>
+              )}
+              {visibleColumns.includes('fit') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
                   Fit
                 </th>
+              )}
+              {visibleColumns.includes('qty') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
                   Qty
                 </th>
+              )}
+              {visibleColumns.includes('price') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap text-right">
                   Price
                 </th>
-                {(onEdit || onDelete) && (
-                  <th
-                    className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
-                    aria-label="Actions"
-                  />
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {group.parts.map((buildListPart) => {
-                const { global_part, notes, quantity, purchased } =
-                  buildListPart;
-                const gp = global_part;
-                const qty = quantity || 1;
-                const partPriceInCents = gp.best_price_cents;
-                const totalPriceInCents =
-                  partPriceInCents != null ? partPriceInCents * qty : null;
-                const showEdit =
-                  canEdit &&
-                  onEdit &&
-                  (!canEditPart || canEditPart(buildListPart));
-                const showDelete =
-                  canDelete &&
-                  onDelete &&
-                  (!canDeletePart || canDeletePart(buildListPart));
+              )}
+              {visibleColumns.includes('actions') && (
+                <th
+                  className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
+                  aria-label="Actions"
+                />
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {group.parts.map((buildListPart) => {
+              const { global_part, notes, quantity, purchased } = buildListPart;
+              const gp = global_part;
+              const qty = quantity || 1;
+              const partPriceInCents = gp.best_price_cents;
+              const totalPriceInCents =
+                partPriceInCents != null ? partPriceInCents * qty : null;
+              const showEdit =
+                canEdit &&
+                onEdit &&
+                (!canEditPart || canEditPart(buildListPart));
+              const showDelete =
+                canDelete &&
+                onDelete &&
+                (!canDeletePart || canDeletePart(buildListPart));
 
-                return (
-                  <tr
-                    key={buildListPart.id}
-                    className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
-                      purchased ? 'opacity-60' : ''
-                    }`}
-                  >
-                    {showCheckbox && (
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <label
-                          className="relative flex items-center cursor-pointer"
-                          title={
+              return (
+                <tr
+                  key={buildListPart.id}
+                  className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
+                    purchased ? 'opacity-60' : ''
+                  }`}
+                >
+                  {visibleColumns.includes('checkbox') && (
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <label
+                        className="relative flex items-center cursor-pointer"
+                        title={
+                          purchased
+                            ? 'Mark as not purchased'
+                            : 'Mark as purchased'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={purchased}
+                          onChange={() => onTogglePurchased?.(buildListPart)}
+                          className="sr-only peer"
+                          aria-label={
                             purchased
                               ? 'Mark as not purchased'
                               : 'Mark as purchased'
                           }
-                        >
-                          <input
-                            type="checkbox"
-                            checked={purchased}
-                            onChange={() => onTogglePurchased?.(buildListPart)}
-                            className="sr-only peer"
-                            aria-label={
-                              purchased
-                                ? 'Mark as not purchased'
-                                : 'Mark as purchased'
-                            }
-                          />
-                          <div className="w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] aspect-square flex-shrink-0 bg-gray-700 border-2 border-gray-500 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
-                            {purchased && (
-                              <svg
-                                className="w-4 h-4 text-white"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="3"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </label>
-                      </td>
-                    )}
-                    <td
-                      className="px-4 py-2 min-w-0 overflow-hidden"
-                      title={
-                        notes
-                          ? `${gp.name}${notes ? ` — ${notes}` : ''}`
-                          : gp.name
-                      }
-                    >
-                      <Link
-                        to={`/global-parts/${gp.id}`}
-                        className="flex items-center gap-2 hover:no-underline"
-                      >
-                        <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                          <ImageWithPlaceholder
-                            srcUrl={buildExternalImageUrl(
-                              gp.image_urls?.[0],
-                              'thumbnail'
-                            )}
-                            altText={gp.name}
-                            imageClassName="w-full h-full object-cover"
-                            containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
-                            fallbackText=""
-                          />
+                        />
+                        <div className="w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] aspect-square flex-shrink-0 bg-gray-700 border-2 border-gray-500 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-800 transition-all duration-200 flex items-center justify-center hover:border-gray-400 peer-checked:hover:bg-blue-500">
+                          {purchased && (
+                            <svg
+                              className="w-4 h-4 text-white"
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="3"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
                         </div>
-                        <span
-                          className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
-                            purchased
-                              ? 'text-gray-400 line-through'
-                              : 'text-gray-200'
-                          }`}
-                        >
-                          {gp.name}
-                        </span>
-                      </Link>
+                      </label>
                     </td>
+                  )}
+                  <td
+                    className="px-4 py-2 min-w-0 overflow-hidden"
+                    title={
+                      notes
+                        ? `${gp.name}${notes ? ` — ${notes}` : ''}`
+                        : gp.name
+                    }
+                  >
+                    <Link
+                      to={`/global-parts/${gp.id}`}
+                      className="flex items-center gap-2 hover:no-underline"
+                    >
+                      <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                        <ImageWithPlaceholder
+                          srcUrl={buildExternalImageUrl(
+                            gp.image_urls?.[0],
+                            'thumbnail'
+                          )}
+                          altText={gp.name}
+                          imageClassName="w-full h-full object-cover"
+                          containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                          fallbackText=""
+                        />
+                      </div>
+                      <span
+                        className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
+                          purchased
+                            ? 'text-gray-400 line-through'
+                            : 'text-gray-200'
+                        }`}
+                      >
+                        {gp.name}
+                      </span>
+                    </Link>
+                  </td>
+                  {visibleColumns.includes('brand') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
                       title={getBrandName(buildListPart, brands)}
@@ -308,6 +328,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         {getBrandName(buildListPart, brands)}
                       </span>
                     </td>
+                  )}
+                  {visibleColumns.includes('part_number') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
                       title={gp.part_number ?? '—'}
@@ -316,6 +338,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         {gp.part_number ?? '—'}
                       </span>
                     </td>
+                  )}
+                  {visibleColumns.includes('fit') && (
                     <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
                       {(() => {
                         const { label, title } = getFitCell(
@@ -333,9 +357,13 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         );
                       })()}
                     </td>
+                  )}
+                  {visibleColumns.includes('qty') && (
                     <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
                       {qty}
                     </td>
+                  )}
+                  {visibleColumns.includes('price') && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
                       {totalPriceInCents != null ? (
                         <span
@@ -360,34 +388,34 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         <span className="text-gray-500">—</span>
                       )}
                     </td>
-                    {(onEdit || onDelete) && (
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {showEdit && (
-                            <SecondaryButton
-                              onClick={() => onEdit(buildListPart)}
-                              className="text-xs px-2 py-1"
-                            >
-                              Edit
-                            </SecondaryButton>
-                          )}
-                          {showDelete && (
-                            <ActionButton
-                              onClick={() => onDelete(buildListPart.id)}
-                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
-                            >
-                              Remove
-                            </ActionButton>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  )}
+                  {visibleColumns.includes('actions') && (
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {showEdit && (
+                          <SecondaryButton
+                            onClick={() => onEdit(buildListPart)}
+                            className="text-xs px-2 py-1"
+                          >
+                            Edit
+                          </SecondaryButton>
+                        )}
+                        {showDelete && (
+                          <ActionButton
+                            onClick={() => onDelete(buildListPart.id)}
+                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                          >
+                            Remove
+                          </ActionButton>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </ResponsiveTableWrapper>
       </Card>
     </div>
   );
@@ -434,6 +462,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   canDeletePart,
   emptyMessage = 'No parts added to this build list yet.',
 }) => {
+  const [containerRef, containerWidth] = useContainerWidth<HTMLDivElement>();
+
   // Create a map of category_id to category for quick lookup
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryResponse>();
@@ -622,7 +652,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingCount = buildListParts.filter((p) => !p.purchased).length;
 
   return (
-    <div className="space-y-3">
+    <div ref={containerRef} className="space-y-3">
       {/* Cost Summary Card */}
       <Card className="bg-gray-800 border-2 border-blue-600">
         <div className="space-y-3 p-4">
@@ -729,6 +759,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             categoryIcon={group.groupIcon}
             brands={brands}
             carsById={carsById}
+            containerWidth={containerWidth}
             {...(onEdit != null && { onEdit })}
             {...(onDelete != null && { onDelete })}
             {...(onTogglePurchased != null && { onTogglePurchased })}

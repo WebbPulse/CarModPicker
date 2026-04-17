@@ -111,6 +111,9 @@ const apiClient = axios.create({
   },
   timeout: 30000, // 30 seconds timeout to prevent indefinite hangs on cold starts
   paramsSerializer: (params) => {
+    if (params instanceof URLSearchParams) {
+      return params.toString();
+    }
     const parts: string[] = [];
     for (const [key, value] of Object.entries(params)) {
       if (Array.isArray(value)) {
@@ -313,9 +316,7 @@ export const buildListsApi = {
     apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
       '/build-lists/with-votes',
       {
-        params: params
-          ? paramsWithArrays(params as Record<string, unknown>)
-          : undefined,
+        params,
       }
     ),
   getBuildListsByCar: (
@@ -363,29 +364,6 @@ export const buildListPhasesApi = {
     apiClient.delete<BuildListPhaseRead>(`/build-list-phases/${phaseId}`),
 };
 
-// Serialize params so array values become repeated keys (category_ids=1&category_ids=2) for FastAPI
-function paramsWithArrays(params: Record<string, unknown>): URLSearchParams {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null) continue;
-    if (Array.isArray(value)) {
-      value.forEach((v) => search.append(key, String(v)));
-    } else if (typeof value === 'object') {
-      search.append(key, JSON.stringify(value));
-    } else if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean' ||
-      typeof value === 'bigint'
-    ) {
-      search.append(key, String(value));
-    } else if (typeof value === 'symbol') {
-      search.append(key, value.toString());
-    }
-  }
-  return search;
-}
-
 // Global Parts API (Global shared parts in the catalog)
 export const globalPartsApi = {
   // Get all global parts with filtering
@@ -416,11 +394,7 @@ export const globalPartsApi = {
   }) =>
     apiClient.get<PaginatedResponse<GlobalPartReadWithVotes>>(
       '/global-parts/with-votes',
-      {
-        params: params
-          ? paramsWithArrays(params as Record<string, unknown>)
-          : undefined,
-      }
+      { params }
     ),
 
   // Get available filter options given current filters (for cascading filters)
@@ -438,11 +412,7 @@ export const globalPartsApi = {
       brand_ids: string[];
       car_ids?: string[];
       make_names?: string[];
-    }>('/global-parts/filter-options', {
-      params: params
-        ? paramsWithArrays(params as Record<string, unknown>)
-        : undefined,
-    }),
+    }>('/global-parts/filter-options', { params }),
 
   // Filter by category
   getGlobalPartsByCategory: (

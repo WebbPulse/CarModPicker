@@ -1,33 +1,39 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useRef, useState, type RefCallback } from 'react';
 
 /**
- * Observes the attached element's inline width via ResizeObserver,
- * debounced with requestAnimationFrame. Returns 0 until the first measurement.
+ * Returns a callback ref and the observed element's content width.
+ * Uses a callback ref (not useRef) so the ResizeObserver is wired up
+ * whenever the element mounts — even if the first render showed a
+ * loading state and the element wasn't in the DOM yet.
+ * Returns 0 until the first measurement.
  */
 export function useContainerWidth<T extends HTMLElement>(): [
-  RefObject<T | null>,
+  RefCallback<T>,
   number,
 ] {
-  const ref = useRef<T>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef(0);
   const [width, setWidth] = useState(0);
 
-  useLayoutEffect(() => {
-    const el = ref.current;
+  const ref = useCallback((el: T | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+      cancelAnimationFrame(rafRef.current);
+    }
+
     if (!el) return;
-    let raf = 0;
+
     const observer = new ResizeObserver((entries) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
         const w = entries[0]?.contentRect.width;
         if (typeof w === 'number') setWidth(w);
       });
     });
     observer.observe(el);
+    observerRef.current = observer;
     setWidth(el.getBoundingClientRect().width);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(raf);
-    };
   }, []);
 
   return [ref, width];
