@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
-from app.api.schemas.global_part import _serialize_image_urls
+from app.api.schemas.global_part import apply_image_url_presigning
 
 
 # Schema for request body when creating a car
@@ -44,4 +44,4 @@ class CarRead(BaseModel):
     @field_serializer("image_urls")
     def serialize_image_urls(self, value: Optional[List[str]]) -> Optional[List[str]]:
         """Convert file keys to presigned URLs when serializing response."""
-        return _serialize_image_urls(value)
+        return apply_image_url_presigning(value)

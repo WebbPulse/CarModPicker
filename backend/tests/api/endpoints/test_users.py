@@ -1,6 +1,7 @@
 import io
 from typing import Any, Dict, Optional
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import status  # Add this import
 from fastapi.testclient import TestClient
@@ -648,10 +649,11 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
 
     user_info, token = create_and_login_user(client, "profile_storage_fail")
     headers = get_auth_headers(token)
-    user_id = user_info["id"]
+    user_id = UUID(user_info["id"])
 
     # Get initial state
     user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
+    assert user_before is not None
     initial_image_urls = user_before.image_urls
 
     # Create test image
@@ -682,7 +684,7 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
 
     user_info, token = create_and_login_user(client, "profile_delete_storage_fail")
     headers = get_auth_headers(token)
-    user_id = user_info["id"]
+    user_id = UUID(user_info["id"])
 
     # First upload a profile picture
     img = Image.new("RGB", (100, 100), color="red")
@@ -697,6 +699,7 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
     if upload_response.status_code == 200:
         # Get the file_key/image_urls before deletion
         user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
+        assert user_before is not None
         old_image_urls = user_before.image_urls
 
         # Mock storage service to fail during deletion
