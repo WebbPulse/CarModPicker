@@ -48,7 +48,7 @@ class ColorizedFormatter(logging.Formatter):
         return super().format(record_copy)
 
 
-def _make_formatter() -> logging.Formatter:
+def make_formatter() -> logging.Formatter:
     """Return JSON formatter in production (non-TTY), colorized text formatter locally."""
     if sys.stdout.isatty():
         return ColorizedFormatter(LOG_FORMAT)
@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(_make_formatter())
+console_handler.setFormatter(make_formatter())
 console_handler.addFilter(RequestContextFilter())
 logger.addHandler(console_handler)
 

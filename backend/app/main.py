@@ -32,7 +32,7 @@ from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
-from .core.logging import LOG_FORMAT, _make_formatter
+from .core.logging import LOG_FORMAT, make_formatter
 from .db.session import SessionLocal, check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
@@ -41,7 +41,7 @@ logging.basicConfig(
     format=LOG_FORMAT,
     handlers=[logging.StreamHandler()],
 )
-_formatter = _make_formatter()
+_formatter = make_formatter()
 _ctx_filter = RequestContextFilter()
 _root = logging.getLogger()
 for _h in _root.handlers:
