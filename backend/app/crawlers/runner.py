@@ -23,6 +23,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
@@ -89,7 +90,7 @@ def _get_crawler_user(db: Session) -> DBUser:
     )
 
 
-def resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) -> DBUser:
+def resolve_crawler_user(db: Session, user_id_override: Optional[UUID] = None) -> DBUser:
     """
     Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
     """
@@ -103,7 +104,7 @@ def resolve_crawler_user(db: Session, user_id_override: Optional[int] = None) ->
     return _get_crawler_user(db)
 
 
-def resolve_default_category_id(db: Session, category_id_override: Optional[int] = None) -> int:
+def resolve_default_category_id(db: Session, category_id_override: Optional[UUID] = None) -> UUID:
     """
     Resolve default category. Uses category_id_override if provided, else env vars.
     """
@@ -115,7 +116,7 @@ def resolve_default_category_id(db: Session, category_id_override: Optional[int]
     return _get_default_category_id(db)
 
 
-def _get_default_category_id(db: Session) -> int:
+def _get_default_category_id(db: Session) -> UUID:
     """
     Resolve default category from CRAWLER_DEFAULT_CATEGORY_ID or CRAWLER_DEFAULT_CATEGORY_NAME.
     Raises CrawlerConfigError if no category can be resolved (API-safe; does not sys.exit).
@@ -123,7 +124,7 @@ def _get_default_category_id(db: Session) -> int:
     raw_id = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
     if raw_id:
         try:
-            cat_id = int(raw_id)
+            cat_id = UUID(raw_id)
         except ValueError:
             pass
         else:
@@ -157,7 +158,7 @@ def _upsert_crawled_page(
     url: str,
     source: str,
     storage_key: Optional[str],
-    part_id: Optional[int],
+    part_id: Optional[UUID],
     html_sha256: Optional[str] = None,
 ) -> None:
     """
@@ -217,8 +218,8 @@ def run_crawler(
     *,
     limit: Optional[int] = None,
     delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
-    user_id: Optional[int] = None,
-    default_category_id: Optional[int] = None,
+    user_id: Optional[UUID] = None,
+    default_category_id: Optional[UUID] = None,
     crawl_html_save_dir: Optional[str] = None,
     stop_event: Optional[threading.Event] = None,
     skip_known_urls: bool = False,
@@ -361,8 +362,8 @@ def run_crawlers(
     global_limit: Optional[int] = None,
     delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
     parallel: bool = True,
-    user_id: Optional[int] = None,
-    default_category_id: Optional[int] = None,
+    user_id: Optional[UUID] = None,
+    default_category_id: Optional[UUID] = None,
     crawl_html_save_dir: Optional[str] = None,
     stop_event: Optional[threading.Event] = None,
     skip_known_urls: bool = False,

@@ -29,7 +29,7 @@ function AddToBuildListDialog({
   onPartAdded,
 }: AddToBuildListDialogProps) {
   const { user } = useAuth();
-  const [selectedBuildListIds, setSelectedBuildListIds] = useState<Set<number>>(
+  const [selectedBuildListIds, setSelectedBuildListIds] = useState<Set<string>>(
     () => new Set()
   );
   const [quantity, setQuantity] = useState(1);
@@ -39,7 +39,7 @@ function AddToBuildListDialog({
   const [isLoadingBuildLists, setIsLoadingBuildLists] = useState(false);
   const [buildListsError, setBuildListsError] = useState<string | null>(null);
 
-  const toggleBuildListSelection = (id: number) => {
+  const toggleBuildListSelection = (id: string) => {
     setSelectedBuildListIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {

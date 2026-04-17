@@ -12,7 +12,7 @@ interface ChangePasswordDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onPasswordChanged: () => void;
-  userId: number;
+  userId: string;
 }
 
 const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({

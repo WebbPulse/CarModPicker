@@ -13,7 +13,7 @@ interface CarListProps {
   searchQuery?: string;
   make?: string;
   year?: number;
-  generationId?: number;
+  generationId?: string;
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;

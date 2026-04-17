@@ -8,6 +8,7 @@ authentication, authorization, and response handling.
 import logging
 from functools import wraps
 from typing import Any, List, Type, TypeVar
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -106,7 +107,7 @@ def admin_update_endpoint(
         )
         @wraps(func)
         async def wrapper(
-            entity_id: int,
+            entity_id: UUID,
             update_data: UpdateSchema,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
@@ -153,7 +154,7 @@ def admin_delete_endpoint(
         )
         @wraps(func)
         async def wrapper(
-            entity_id: int,
+            entity_id: UUID,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
@@ -173,7 +174,7 @@ def admin_delete_endpoint(
 
 
 def prevent_self_modification(
-    entity_id: int,
+    entity_id: UUID,
     current_user: DBUser,
     operation: str = "modify",
     entity_name: str = "entity",

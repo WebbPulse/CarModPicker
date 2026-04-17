@@ -2,19 +2,19 @@ import React, { useState } from 'react';
 
 interface VoteApi {
   voteOnEntity: (
-    entityId: number,
+    entityId: string,
     data: { vote_type: 'upvote' | 'downvote' }
   ) => Promise<unknown>;
-  removeVote: (entityId: number) => Promise<unknown>;
+  removeVote: (entityId: string) => Promise<unknown>;
 }
 
 interface VoteButtonsProps {
-  entityId: number;
+  entityId: string;
   upvotes: number;
   downvotes: number;
   userVote?: 'upvote' | 'downvote' | null;
   onVoteUpdate: (
-    entityId: number,
+    entityId: string,
     newVote: 'upvote' | 'downvote' | null
   ) => void;
   voteApi: VoteApi;

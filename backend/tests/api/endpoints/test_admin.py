@@ -10,6 +10,7 @@ from app.api.models.brand import Brand as DBBrand
 from app.api.models.global_part import GlobalPart as DBGlobalPart
 from app.api.models.user import User as DBUser
 from app.core.config import settings
+from tests.conftest import INVALID_UUID_STR
 
 
 def create_and_login_admin_user(client: TestClient, db_session: Session, username_suffix: str = "admin") -> str:
@@ -138,7 +139,7 @@ class TestAdminRescrapeArchives:
         """Test rescrape archives without auth returns 401."""
         response = client.post(
             f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
-            json={"crawler_user_id": 1, "default_category_id": 1},
+            json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
         )
         assert response.status_code == 401
 
@@ -148,7 +149,7 @@ class TestAdminRescrapeArchives:
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
             f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
-            json={"crawler_user_id": 1, "default_category_id": 1},
+            json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
             headers=headers,
         )
         assert response.status_code == 403
@@ -165,7 +166,7 @@ class TestAdminRescrapeArchives:
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
             f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
-            json={"crawler_user_id": admin.id, "default_category_id": cat_id},
+            json={"crawler_user_id": str(admin.id), "default_category_id": str(cat_id)},
             headers=headers,
         )
         assert response.status_code == 200

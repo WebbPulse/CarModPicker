@@ -6,6 +6,7 @@ database on startup. The backend source code is the source of truth; no create/u
 """
 
 from typing import Dict, List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -71,7 +72,7 @@ async def get_categories(
 
 @router.get("/{category_id}", response_model=CategoryResponse)
 async def get_category(
-    category_id: int,
+    category_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> CategoryResponse:
     """Get specific category details."""
@@ -86,7 +87,7 @@ async def get_category(
     responses=pagination_responses("global part", allow_public_read=True),
 )
 async def get_global_parts_by_category(
-    category_id: int,
+    category_id: UUID,
     skip: int = Query(0, ge=0, description="Number of parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -107,7 +108,7 @@ async def get_global_parts_by_category(
     ),
 )
 async def get_category_parts_count(
-    category_id: int,
+    category_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """

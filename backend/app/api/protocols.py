@@ -6,20 +6,21 @@ allowing proper type checking without circular dependencies.
 """
 
 from typing import Any, Dict, Protocol, runtime_checkable
+from uuid import UUID
 
 
 @runtime_checkable
 class HasId(Protocol):
     """Protocol for models with an id attribute."""
 
-    id: int
+    id: UUID
 
 
 @runtime_checkable
 class HasUserId(Protocol):
     """Protocol for models with a user_id attribute."""
 
-    user_id: int
+    user_id: UUID
 
 
 @runtime_checkable

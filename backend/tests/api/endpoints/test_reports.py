@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.user import User
 from app.core.config import settings
-from tests.conftest import create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
 def get_unique_name(base_name: str) -> str:
@@ -91,7 +91,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -121,7 +121,7 @@ class TestUnifiedReports:
         data = response.json()
         assert data["entity_id"] == build_list["id"]
         assert data["entity_type"] == "build_list"
-        assert data["user_id"] == test_user.id
+        assert data["user_id"] == str(test_user.id)
         assert data["reason"] == "spam"
         assert data["description"] == "This build list is spam"
         assert data["status"] == "pending"
@@ -177,8 +177,8 @@ class TestUnifiedReports:
         part_data = {
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
-            "category_id": category.id,
-            "brand_id": brand.id,
+            "category_id": str(category.id),
+            "brand_id": str(brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -206,7 +206,7 @@ class TestUnifiedReports:
         data = response.json()
         assert data["entity_id"] == part["id"]
         assert data["entity_type"] == "global_part"
-        assert data["user_id"] == test_user.id
+        assert data["user_id"] == str(test_user.id)
         assert data["reason"] == "inaccurate"
         assert data["description"] == "This part information is inaccurate"
         assert data["status"] == "pending"
@@ -218,7 +218,7 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/build_list/1", json=report_data)
+        response = client.post(f"{settings.API_STR}/reports/build_list/{INVALID_UUID_STR}", json=report_data)
         assert response.status_code == 401
 
     def test_create_report_entity_not_found(self, client: TestClient, test_user: User) -> None:
@@ -235,7 +235,9 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/build_list/99999", json=report_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/reports/build_list/{INVALID_UUID_STR}", json=report_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -254,7 +256,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -307,7 +309,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -421,7 +423,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -466,7 +468,7 @@ class TestUnifiedReports:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Try to get non-existent report
-        response = client.get(f"{settings.API_STR}/reports/99999", headers=headers)
+        response = client.get(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_update_report_status_admin_only(self, client: TestClient, test_user: User) -> None:
@@ -480,7 +482,7 @@ class TestUnifiedReports:
 
         # Try to update report status
         update_data = {"status": "resolved", "admin_notes": "Issue resolved"}
-        response = client.put(f"{settings.API_STR}/reports/1", json=update_data, headers=headers)
+        response = client.put(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", json=update_data, headers=headers)
         assert response.status_code == 403
 
     def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -516,7 +518,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -582,7 +584,7 @@ class TestUnifiedReports:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Try to delete report
-        response = client.delete(f"{settings.API_STR}/reports/1", headers=headers)
+        response = client.delete(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 403
 
     def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -618,7 +620,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -685,7 +687,9 @@ class TestUnifiedReports:
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
         }
-        response = client.post(f"{settings.API_STR}/reports/invalid_type/1", json=report_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/reports/invalid_type/{INVALID_UUID_STR}", json=report_data, headers=headers
+        )
         assert response.status_code == 422  # Validation error
 
     def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -721,7 +725,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers
@@ -788,7 +792,7 @@ class TestUnifiedReports:
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(
             f"{settings.API_STR}/build-lists/", json=build_list_data, headers=build_list_owner_headers

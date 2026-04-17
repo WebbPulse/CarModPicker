@@ -16,7 +16,7 @@ const fetchUserRequestFn = (
   userId: string // userId will be a string from URL params
 ) => apiClient.get<UserRead>(`/users/${userId}`);
 
-const fetchBuildListsByUserRequestFn = (userId: number) =>
+const fetchBuildListsByUserRequestFn = (userId: string) =>
   buildListsApi.getBuildListsByUser(userId);
 
 function ViewUser() {

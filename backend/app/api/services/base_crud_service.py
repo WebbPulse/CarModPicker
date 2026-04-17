@@ -4,6 +4,7 @@ Base service class for CRUD operations to eliminate code duplication.
 
 import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -100,7 +101,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
     def get_by_id(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: Optional[DBUser] = None,
         allow_public: bool = False,
         logger: Optional[logging.Logger] = None,
@@ -134,7 +135,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
     def get_by_user(
         self,
         db: Session,
-        user_id: int,
+        user_id: UUID,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
@@ -215,7 +216,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
     def update(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         data: UpdateSchema,
         current_user: DBUser,
         logger: logging.Logger,
@@ -254,7 +255,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
     def delete(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: DBUser,
         logger: logging.Logger,
     ) -> Dict[str, str]:
@@ -303,7 +304,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
 
         return count
 
-    def count_by_user(self, db: Session, user_id: int, logger: Optional[logging.Logger] = None) -> int:
+    def count_by_user(self, db: Session, user_id: UUID, logger: Optional[logging.Logger] = None) -> int:
         """
         Count entities owned by a specific user.
 
@@ -327,7 +328,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
 
         return count
 
-    def exists(self, db: Session, entity_id: int, logger: Optional[logging.Logger] = None) -> bool:
+    def exists(self, db: Session, entity_id: UUID, logger: Optional[logging.Logger] = None) -> bool:
         """
         Check if an entity exists.
 
@@ -350,7 +351,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
     def get_with_relations(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         relations: List[str],
         current_user: Optional[DBUser] = None,
         allow_public: bool = False,

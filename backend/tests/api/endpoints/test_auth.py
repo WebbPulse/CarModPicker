@@ -62,7 +62,7 @@ def test_login_for_access_token_success(client: TestClient) -> None:
     assert user_data_response["username"] == username
     assert user_data_response["email"] == email
     assert "id" in user_data_response
-    assert isinstance(user_data_response["id"], int)
+    assert isinstance(user_data_response["id"], str)
     assert user_data_response["disabled"] is False
     assert "hashed_password" not in user_data_response  # Ensure password is not returned
 

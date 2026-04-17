@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -21,9 +23,13 @@ class PartListing(Base):
     __tablename__ = "part_listings"
     __table_args__ = (UniqueConstraint("global_part_id", "retailer_id", name="uq_part_listing_global_part_retailer"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    global_part_id: Mapped[int] = mapped_column(ForeignKey("global_parts.id"), nullable=False, index=True)
-    retailer_id: Mapped[int] = mapped_column(ForeignKey("retailers.id"), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
+    global_part_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("global_parts.id"), nullable=False, index=True
+    )
+    retailer_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("retailers.id"), nullable=False, index=True
+    )
     product_url: Mapped[Optional[str]] = mapped_column(nullable=True)  # product page at this retailer
     last_known_price_cents: Mapped[Optional[int]] = mapped_column(nullable=True)
     last_price_updated_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

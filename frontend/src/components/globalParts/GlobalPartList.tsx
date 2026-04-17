@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 import {
   carsApi,
   globalPartVotesApi,
@@ -34,9 +35,7 @@ interface CachedData {
 const globalPartsCache = new Map<string, CachedData>();
 
 // Persistent car lookup cache — populated on-demand, survives page navigations
-const carByIdCache: Record<number, CarRead> = {};
-
-const COLUMN_WIDTH_STORAGE_KEY = 'globalPartsTableColumnWidths';
+const carByIdCache: Record<string, CarRead> = {};
 
 type TableColumnKey =
   | 'part'
@@ -48,32 +47,37 @@ type TableColumnKey =
   | 'price'
   | 'actions';
 
-// Rebalanced so part name and part_number get more share; table fills container via % of this total.
-const DEFAULT_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
-  part: 300,
-  brand: 75,
-  part_number: 90,
-  category: 80,
-  fit: 80,
-  rating: 120,
-  price: 100,
-  actions: 195,
+// Lower = higher priority (kept longer). `part` and `price` are pinned and never drop.
+const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
+  part: 0,
+  price: 1,
+  fit: 2,
+  rating: 3,
+  actions: 4,
+  brand: 5,
+  part_number: 6,
+  category: 7,
 };
 
-const MIN_COLUMN_WIDTHS: Record<TableColumnKey, number> = {
-  part: 120,
-  brand: 50,
-  part_number: 40,
-  category: 50,
-  fit: 56,
-  rating: 80,
-  price: 70,
-  actions: 120,
+// Minimum width where a column's content renders without truncation for typical
+// values (brand names, part numbers, fit strings, etc.). A column is dropped
+// once the sum of these values across visible columns would exceed the
+// container width. Also used as the flex share for proportional width
+// distribution among the surviving columns.
+const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
+  part: 280,
+  price: 100,
+  fit: 160,
+  rating: 120,
+  actions: 200,
+  brand: 160,
+  part_number: 150,
+  category: 140,
 };
 
 const DEFAULT_CATEGORIES: CategoryResponse[] = [];
 const DEFAULT_BRANDS: BrandResponse[] = [];
-const DEFAULT_CARS_BY_ID: Record<number, CarRead> = {};
+const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
 
 type SortColumn =
   | 'part'
@@ -88,32 +92,23 @@ interface SortableThProps {
   column: SortColumn;
   children: React.ReactNode;
   align?: 'left' | 'right';
-  columnKey: TableColumnKey;
-  nextColumnKey?: TableColumnKey | undefined;
   sortColumn: SortColumn;
   sortDirection: 'asc' | 'desc';
   onSort: (column: SortColumn) => void;
-  onResizeStart: (
-    leftKey: TableColumnKey,
-    rightKey: TableColumnKey
-  ) => (e: React.MouseEvent) => void;
 }
 
 function SortableTh({
   column,
   children,
   align = 'left',
-  columnKey,
-  nextColumnKey,
   sortColumn,
   sortDirection,
   onSort,
-  onResizeStart,
 }: SortableThProps) {
   const isActive = sortColumn === column;
   return (
     <th
-      className={`relative px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
+      className={`px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
       onClick={() => onSort(column)}
@@ -126,7 +121,9 @@ function SortableTh({
           : undefined
       }
     >
-      <span className="flex items-center gap-1">
+      <span
+        className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}
+      >
         {children}
         {isActive && (
           <span className="text-indigo-400" aria-hidden>
@@ -134,14 +131,6 @@ function SortableTh({
           </span>
         )}
       </span>
-      {nextColumnKey != null && (
-        <div
-          role="separator"
-          aria-label="Resize column"
-          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize touch-none hover:bg-indigo-500/50 active:bg-indigo-500/70 z-10"
-          onMouseDown={onResizeStart(columnKey, nextColumnKey)}
-        />
-      )}
     </th>
   );
 }
@@ -149,16 +138,18 @@ function SortableTh({
 function getCacheKey(params?: {
   skip?: number;
   limit?: number;
-  category_id?: number;
-  category_ids?: number[];
-  car_id?: number;
-  brand_id?: number;
-  brand_ids?: number[];
-  user_id?: number;
+  category_id?: string;
+  category_ids?: string[];
+  car_id?: string;
+  car_ids?: string[];
+  brand_id?: string;
+  brand_ids?: string[];
+  user_id?: string;
   search?: string;
   sort?: string;
   min_price_cents?: number;
   max_price_cents?: number;
+  universal?: boolean;
 }): string {
   return JSON.stringify(params || {});
 }
@@ -233,16 +224,18 @@ interface GlobalPartListProps {
   params?: {
     skip?: number;
     limit?: number;
-    category_id?: number;
-    category_ids?: number[];
-    car_id?: number;
-    brand_id?: number;
-    brand_ids?: number[];
-    user_id?: number;
+    category_id?: string;
+    category_ids?: string[];
+    car_id?: string;
+    car_ids?: string[];
+    brand_id?: string;
+    brand_ids?: string[];
+    user_id?: string;
     search?: string;
     sort?: string;
     min_price_cents?: number;
     max_price_cents?: number;
+    universal?: boolean;
   };
   data?: GlobalPartReadWithVotes[]; // Optional: pass pre-fetched data instead of fetching
   pagination?: PaginationInfo | null; // Optional: pass pagination info when using pre-fetched data
@@ -251,7 +244,7 @@ interface GlobalPartListProps {
   emptyMessage?: string;
   showVoteButtons?: boolean;
   onVoteUpdate?: (
-    partId: number,
+    partId: string,
     newVote: 'upvote' | 'downvote' | null
   ) => void;
   onAddToBuildList?: (globalPart: GlobalPartReadWithVotes) => void;
@@ -270,22 +263,24 @@ interface GlobalPartListProps {
   categories?: CategoryResponse[];
   brands?: BrandResponse[];
   /** Map of car ID to CarRead for Fit column car names. */
-  carsById?: Record<number, CarRead>;
+  carsById?: Record<string, CarRead>;
 }
 
 const fetchGlobalPartsRequestFn = (params?: {
   skip?: number;
   limit?: number;
-  category_id?: number;
-  category_ids?: number[];
-  car_id?: number;
-  brand_id?: number;
-  brand_ids?: number[];
-  user_id?: number;
+  category_id?: string;
+  category_ids?: string[];
+  car_id?: string;
+  car_ids?: string[];
+  brand_id?: string;
+  brand_ids?: string[];
+  user_id?: string;
   search?: string;
   sort?: string;
   min_price_cents?: number;
   max_price_cents?: number;
+  universal?: boolean;
 }) => globalPartsApi.getGlobalPartsWithVotes(params);
 
 function GlobalPartList({
@@ -321,37 +316,7 @@ function GlobalPartList({
     ? sortParamToColumnAndDirection(controlledSortParam)
     : { sortColumn: localSortColumn, sortDirection: localSortDirection };
 
-  const [columnWidths, setColumnWidths] = useState<
-    Partial<Record<TableColumnKey, number>>
-  >(() => {
-    try {
-      const raw = localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as Record<string, number>;
-      const out: Partial<Record<TableColumnKey, number>> = {};
-      const keys: TableColumnKey[] = [
-        'part',
-        'brand',
-        'part_number',
-        'category',
-        'fit',
-        'rating',
-        'price',
-        'actions',
-      ];
-      keys.forEach((k) => {
-        if (
-          typeof parsed[k] === 'number' &&
-          parsed[k] >= MIN_COLUMN_WIDTHS[k]
-        ) {
-          out[k] = parsed[k];
-        }
-      });
-      return out;
-    } catch {
-      return {};
-    }
-  });
+  const [tableWrapperRef, containerWidth] = useContainerWidth<HTMLDivElement>();
 
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
     const keys: TableColumnKey[] = ['part', 'brand', 'part_number'];
@@ -369,76 +334,28 @@ function GlobalPartList({
     onDelete,
   ]);
 
-  const getColumnWidth = useCallback(
-    (key: TableColumnKey) => columnWidths[key] ?? DEFAULT_COLUMN_WIDTHS[key],
-    [columnWidths]
-  );
+  // Determine which columns fit in the measured container; drop lowest-priority
+  // columns first. `part` and `price` are pinned (priority 0/1) and never drop —
+  // if they alone overflow, horizontal scroll kicks in.
+  const visibleColumns = useMemo(() => {
+    if (containerWidth === 0) return tableColumnKeys;
+    const kept = new Set<TableColumnKey>(tableColumnKeys);
+    const dropOrder = [...tableColumnKeys].sort(
+      (a, b) => COLUMN_PRIORITY[b] - COLUMN_PRIORITY[a]
+    );
+    let total = tableColumnKeys.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0);
+    for (const k of dropOrder) {
+      if (total <= containerWidth) break;
+      if (COLUMN_PRIORITY[k] <= 1) break;
+      kept.delete(k);
+      total -= COLUMN_MIN_WIDTH[k];
+    }
+    return tableColumnKeys.filter((k) => kept.has(k));
+  }, [tableColumnKeys, containerWidth]);
 
-  const resizeRef = useRef<{
-    leftKey: TableColumnKey;
-    rightKey: TableColumnKey;
-    startX: number;
-    startLeft: number;
-    startRight: number;
-  } | null>(null);
-
-  const handleResizeStart = useCallback(
-    (leftKey: TableColumnKey, rightKey: TableColumnKey) =>
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        resizeRef.current = {
-          leftKey,
-          rightKey,
-          startX: e.clientX,
-          startLeft: getColumnWidth(leftKey),
-          startRight: getColumnWidth(rightKey),
-        };
-        const onMove = (moveEvent: MouseEvent) => {
-          const r = resizeRef.current;
-          if (!r) return;
-          const delta = moveEvent.clientX - r.startX;
-          const minLeft = MIN_COLUMN_WIDTHS[r.leftKey];
-          const minRight = MIN_COLUMN_WIDTHS[r.rightKey];
-          let newLeft = r.startLeft + delta;
-          let newRight = r.startRight - delta;
-          if (newLeft < minLeft) {
-            newLeft = minLeft;
-            newRight = r.startLeft + r.startRight - minLeft;
-          } else if (newRight < minRight) {
-            newRight = minRight;
-            newLeft = r.startLeft + r.startRight - minRight;
-          }
-          setColumnWidths((prev) => {
-            const next = {
-              ...prev,
-              [r.leftKey]: newLeft,
-              [r.rightKey]: newRight,
-            };
-            try {
-              localStorage.setItem(
-                COLUMN_WIDTH_STORAGE_KEY,
-                JSON.stringify(next)
-              );
-            } catch {
-              // ignore
-            }
-            return next;
-          });
-        };
-        const onUp = () => {
-          resizeRef.current = null;
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          document.body.style.cursor = '';
-          document.body.style.userSelect = '';
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-      },
-    [getColumnWidth]
+  const totalMinWidth = useMemo(
+    () => visibleColumns.reduce((s, k) => s + COLUMN_MIN_WIDTH[k], 0),
+    [visibleColumns]
   );
 
   const handleSort = useCallback(
@@ -512,7 +429,7 @@ function GlobalPartList({
     });
 
   // On-demand car lookup: fetch only the car IDs that appear in the current page
-  const [localCarsById, setLocalCarsById] = useState<Record<number, CarRead>>(
+  const [localCarsById, setLocalCarsById] = useState<Record<string, CarRead>>(
     () => ({ ...carByIdCache })
   );
 
@@ -525,7 +442,7 @@ function GlobalPartList({
     carsApi
       .getCarsByIds(needed)
       .then((res) => {
-        const incoming: Record<number, CarRead> = {};
+        const incoming: Record<string, CarRead> = {};
         for (const car of res.data ?? []) {
           if (car.id != null) {
             carByIdCache[car.id] = car;
@@ -599,7 +516,7 @@ function GlobalPartList({
 
   // Hooks must be called unconditionally, before any early returns
   const getCategoryName = useCallback(
-    (categoryId: number) => {
+    (categoryId: string) => {
       const cat = categories.find((c) => c.id === categoryId);
       return cat?.display_name ?? cat?.name ?? '—';
     },
@@ -714,16 +631,10 @@ function GlobalPartList({
       ? (globalParts ?? [])
       : sortedParts;
 
-  const totalTableWidth = useMemo(
-    () => tableColumnKeys.reduce((sum, key) => sum + getColumnWidth(key), 0),
-    [tableColumnKeys, getColumnWidth]
-  );
-
   const sortableThProps = {
     sortColumn,
     sortDirection,
     onSort: handleSort,
-    onResizeStart: handleResizeStart,
   };
 
   if (isLoadingState) {
@@ -758,88 +669,65 @@ function GlobalPartList({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto min-w-0 rounded-inherit">
+          <div
+            ref={tableWrapperRef}
+            className="overflow-x-auto min-w-0 rounded-inherit"
+          >
             <table className="global-parts-table-scroll-layer w-full text-sm table-fixed">
               <colgroup>
-                {tableColumnKeys.map((key) => (
+                {visibleColumns.map((key) => (
                   <col
                     key={key}
                     style={{
-                      width: `${(getColumnWidth(key) / totalTableWidth) * 100}%`,
+                      width: `${(COLUMN_MIN_WIDTH[key] / totalMinWidth) * 100}%`,
                     }}
                   />
                 ))}
               </colgroup>
               <thead>
                 <tr className="border-b border-gray-700 bg-gray-800/80 text-gray-400 text-left">
-                  <SortableTh
-                    {...sortableThProps}
-                    column="part"
-                    columnKey="part"
-                    nextColumnKey={tableColumnKeys[1]}
-                  >
-                    Part name
-                  </SortableTh>
-                  <SortableTh
-                    {...sortableThProps}
-                    column="brand"
-                    columnKey="brand"
-                    nextColumnKey={tableColumnKeys[2]}
-                  >
-                    Brand
-                  </SortableTh>
-                  <SortableTh
-                    {...sortableThProps}
-                    column="part_number"
-                    columnKey="part_number"
-                    nextColumnKey={categories.length > 0 ? 'category' : 'fit'}
-                  >
-                    Part #
-                  </SortableTh>
-                  {categories.length > 0 && (
-                    <SortableTh
-                      {...sortableThProps}
-                      column="category"
-                      columnKey="category"
-                      nextColumnKey="fit"
-                    >
+                  {visibleColumns.includes('part') && (
+                    <SortableTh {...sortableThProps} column="part">
+                      Part name
+                    </SortableTh>
+                  )}
+                  {visibleColumns.includes('brand') && (
+                    <SortableTh {...sortableThProps} column="brand">
+                      Brand
+                    </SortableTh>
+                  )}
+                  {visibleColumns.includes('part_number') && (
+                    <SortableTh {...sortableThProps} column="part_number">
+                      Part #
+                    </SortableTh>
+                  )}
+                  {visibleColumns.includes('category') && (
+                    <SortableTh {...sortableThProps} column="category">
                       Category
                     </SortableTh>
                   )}
-                  <SortableTh
-                    {...sortableThProps}
-                    column="fit"
-                    columnKey="fit"
-                    nextColumnKey={showVoteButtons ? 'rating' : 'price'}
-                  >
-                    Fit
-                  </SortableTh>
-                  {showVoteButtons && (
-                    <SortableTh
-                      {...sortableThProps}
-                      column="rating"
-                      columnKey="rating"
-                      nextColumnKey="price"
-                    >
+                  {visibleColumns.includes('fit') && (
+                    <SortableTh {...sortableThProps} column="fit">
+                      Fit
+                    </SortableTh>
+                  )}
+                  {visibleColumns.includes('rating') && (
+                    <SortableTh {...sortableThProps} column="rating">
                       Rating
                     </SortableTh>
                   )}
-                  <SortableTh
-                    {...sortableThProps}
-                    column="price"
-                    align="right"
-                    columnKey="price"
-                    nextColumnKey={
-                      showAddToBuildListButton || onEdit || onDelete
-                        ? 'actions'
-                        : undefined
-                    }
-                  >
-                    Price
-                  </SortableTh>
-                  {(showAddToBuildListButton || onEdit || onDelete) && (
+                  {visibleColumns.includes('price') && (
+                    <SortableTh
+                      {...sortableThProps}
+                      column="price"
+                      align="right"
+                    >
+                      Price
+                    </SortableTh>
+                  )}
+                  {visibleColumns.includes('actions') && (
                     <th
-                      className="relative px-4 py-3 font-medium whitespace-nowrap min-w-0"
+                      className="px-4 py-3 font-medium whitespace-nowrap min-w-0"
                       aria-label="Actions"
                     />
                   )}
@@ -851,53 +739,55 @@ function GlobalPartList({
                     key={globalPart.id}
                     className="border-b border-gray-700/70 hover:bg-gray-800/50 group"
                   >
-                    {/* Part: thumb + name */}
-                    <td
-                      className="px-4 py-2 min-w-0 overflow-hidden"
-                      title={globalPart.name}
-                    >
-                      <Link
-                        to={`/global-parts/${globalPart.id}`}
-                        className="flex items-center gap-2 hover:no-underline"
+                    {visibleColumns.includes('part') && (
+                      <td
+                        className="px-4 py-2 min-w-0 overflow-hidden"
+                        title={globalPart.name}
                       >
-                        <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                          <ImageWithPlaceholder
-                            srcUrl={buildExternalImageUrl(
-                              globalPart.image_urls?.[0],
-                              'thumbnail'
-                            )}
-                            altText={globalPart.name}
-                            imageClassName="w-full h-full object-cover"
-                            containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
-                            fallbackText=""
-                            loading="lazy"
-                          />
-                        </div>
-                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
-                          {globalPart.name}
+                        <Link
+                          to={`/global-parts/${globalPart.id}`}
+                          className="flex items-center gap-2 hover:no-underline"
+                        >
+                          <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                            <ImageWithPlaceholder
+                              srcUrl={buildExternalImageUrl(
+                                globalPart.image_urls?.[0],
+                                'thumbnail'
+                              )}
+                              altText={globalPart.name}
+                              imageClassName="w-full h-full object-cover"
+                              containerClassName="w-full h-full flex justify-center items-center min-w-[3rem] min-h-[3rem]"
+                              fallbackText=""
+                              loading="lazy"
+                            />
+                          </div>
+                          <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
+                            {globalPart.name}
+                          </span>
+                        </Link>
+                      </td>
+                    )}
+                    {visibleColumns.includes('brand') && (
+                      <td
+                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
+                        title={getBrandName(globalPart)}
+                      >
+                        <span className="block truncate">
+                          {getBrandName(globalPart)}
                         </span>
-                      </Link>
-                    </td>
-                    {/* Brand */}
-                    <td
-                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={getBrandName(globalPart)}
-                    >
-                      <span className="block truncate">
-                        {getBrandName(globalPart)}
-                      </span>
-                    </td>
-                    {/* Part # */}
-                    <td
-                      className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
-                      title={globalPart.part_number ?? '—'}
-                    >
-                      <span className="block truncate">
-                        {globalPart.part_number ?? '—'}
-                      </span>
-                    </td>
-                    {/* Category */}
-                    {categories.length > 0 && (
+                      </td>
+                    )}
+                    {visibleColumns.includes('part_number') && (
+                      <td
+                        className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
+                        title={globalPart.part_number ?? '—'}
+                      >
+                        <span className="block truncate">
+                          {globalPart.part_number ?? '—'}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.includes('category') && (
                       <td
                         className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
                         title={getCategoryName(globalPart.category_id)}
@@ -907,23 +797,23 @@ function GlobalPartList({
                         </span>
                       </td>
                     )}
-                    {/* Fit */}
-                    <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
-                      {(() => {
-                        const { label, title } = getFitCell(globalPart);
-                        const tooltip = title ?? label;
-                        return (
-                          <span
-                            title={tooltip}
-                            className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
-                          >
-                            {label}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    {/* Rating */}
-                    {showVoteButtons && (
+                    {visibleColumns.includes('fit') && (
+                      <td className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden">
+                        {(() => {
+                          const { label, title } = getFitCell(globalPart);
+                          const tooltip = title ?? label;
+                          return (
+                            <span
+                              title={tooltip}
+                              className="block truncate cursor-help underline decoration-dotted decoration-gray-500 underline-offset-1"
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    )}
+                    {visibleColumns.includes('rating') && (
                       <td className="px-4 py-2 whitespace-nowrap">
                         {onVoteUpdate ? (
                           <VoteButtons
@@ -946,18 +836,18 @@ function GlobalPartList({
                         )}
                       </td>
                     )}
-                    {/* Price */}
-                    <td className="px-4 py-2 text-right whitespace-nowrap">
-                      {globalPart.best_price_cents != null ? (
-                        <span className="font-semibold text-green-400">
-                          ${(globalPart.best_price_cents / 100).toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">—</span>
-                      )}
-                    </td>
-                    {/* Actions */}
-                    {(showAddToBuildListButton || onEdit || onDelete) && (
+                    {visibleColumns.includes('price') && (
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        {globalPart.best_price_cents != null ? (
+                          <span className="font-semibold text-green-400">
+                            ${(globalPart.best_price_cents / 100).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.includes('actions') && (
                       <td className="px-4 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-1">
                           {showAddToBuildListButton && onAddToBuildList && (

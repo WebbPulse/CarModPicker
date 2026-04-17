@@ -2,6 +2,7 @@
 
 import os
 from typing import Any
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -10,7 +11,7 @@ from app.api.dependencies.auth import get_password_hash
 from app.api.models.brand import Brand as DBBrand
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id
 
 
 def get_unique_name(base_name: str) -> str:
@@ -50,7 +51,7 @@ def create_and_login_admin_user(
 
 def create_and_login_user(
     client: TestClient, username_suffix: str, db_session: Session | None = None
-) -> tuple[int, str]:
+) -> tuple[UUID, str]:
     """Create a user and log them in. Returns (user_id, token).
     If db_session is provided, verify email in DB so user can create global parts.
     """
@@ -60,9 +61,9 @@ def create_and_login_user(
 
     user_data = {"username": username, "email": email, "password": password}
     response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id = -1
+    user_id: UUID | None = None
     if response.status_code == 200:
-        user_id = response.json()["id"]
+        user_id = UUID(response.json()["id"])
     elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
         pass
     else:
@@ -79,11 +80,11 @@ def create_and_login_user(
     assert token_response.status_code == 200, f"Failed to login user: {token_response.text}"
     token = token_response.json()["access_token"]
 
-    if user_id == -1:
+    if user_id is None:
         headers = {"Authorization": f"Bearer {token}"}
         me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
         assert me_response.status_code == 200
-        user_id = me_response.json()["id"]
+        user_id = UUID(me_response.json()["id"])
     return user_id, token
 
 
@@ -145,7 +146,7 @@ class TestBrands:
 
     def test_get_brand_not_found(self, client: TestClient) -> None:
         """Test getting a non-existent brand."""
-        response = client.get(f"{settings.API_STR}/brands/99999")
+        response = client.get(f"{settings.API_STR}/brands/{INVALID_UUID_STR}")
         assert response.status_code == 404
         msg = response.json().get("message", response.json().get("detail", ""))
         assert "brand" in msg.lower() and "not found" in msg.lower()
@@ -244,7 +245,7 @@ class TestBrands:
         _, token = create_and_login_admin_user(client, db_session, "update_nf")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.put(
-            f"{settings.API_STR}/brands/99999",
+            f"{settings.API_STR}/brands/{INVALID_UUID_STR}",
             json={"description": "Missing"},
             headers=headers,
         )
@@ -279,7 +280,7 @@ class TestBrands:
         """Test deleting a non-existent brand."""
         _, token = create_and_login_admin_user(client, db_session, "delete_nf")
         headers = {"Authorization": f"Bearer {token}"}
-        response = client.delete(f"{settings.API_STR}/brands/99999", headers=headers)
+        response = client.delete(f"{settings.API_STR}/brands/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_delete_brand_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
@@ -287,7 +288,7 @@ class TestBrands:
         _, user_token = create_and_login_user(client, "delete_with_parts", db_session)
         created = create_brand_via_api(client, user_token, get_unique_name("BrandWithParts"))
         brand_id = created["id"]
-        category_id = get_default_category_id(db_session)
+        category_id = str(get_default_category_id(db_session))
         headers = {"Authorization": f"Bearer {user_token}"}
 
         part_data = {
@@ -312,7 +313,7 @@ class TestBrands:
         _, token = create_and_login_user(client, "parts_by_brand", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandForParts"))
         brand_id = created["id"]
-        category_id = get_default_category_id(db_session)
+        category_id = str(get_default_category_id(db_session))
         headers = {"Authorization": f"Bearer {token}"}
 
         part_data = {
@@ -335,7 +336,7 @@ class TestBrands:
         _, token = create_and_login_user(client, "parts_pag", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandPag"))
         brand_id = created["id"]
-        category_id = get_default_category_id(db_session)
+        category_id = str(get_default_category_id(db_session))
         headers = {"Authorization": f"Bearer {token}"}
 
         for i in range(3):
@@ -360,7 +361,7 @@ class TestBrands:
         _, token = create_and_login_user(client, "count_user", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandCount"))
         brand_id = created["id"]
-        category_id = get_default_category_id(db_session)
+        category_id = str(get_default_category_id(db_session))
         headers = {"Authorization": f"Bearer {token}"}
 
         response = client.get(f"{settings.API_STR}/brands/{brand_id}/parts-count")
@@ -385,7 +386,7 @@ class TestBrands:
 
     def test_get_brand_parts_count_not_found(self, client: TestClient) -> None:
         """Test parts count for non-existent brand."""
-        response = client.get(f"{settings.API_STR}/brands/99999/parts-count")
+        response = client.get(f"{settings.API_STR}/brands/{INVALID_UUID_STR}/parts-count")
         assert response.status_code == 404
 
     def test_count_brands_success(self, client: TestClient, db_session: Session) -> None:

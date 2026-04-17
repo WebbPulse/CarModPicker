@@ -1,8 +1,10 @@
+import uuid
 from datetime import UTC, datetime
 from typing import Any, Optional
 
-from sqlalchemy import JSON, ForeignKey, Text
+from sqlalchemy import JSON, ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid6 import uuid7
 
 from app.db.base_class import Base
 
@@ -22,7 +24,7 @@ class BackgroundJob(Base):
 
     __tablename__ = "background_jobs"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     job_type: Mapped[str] = mapped_column(nullable=False, index=True)
     status: Mapped[str] = mapped_column(default="running", nullable=False, index=True)
     triggered_by: Mapped[str] = mapped_column(nullable=False)
@@ -34,7 +36,8 @@ class BackgroundJob(Base):
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
-    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+    created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,

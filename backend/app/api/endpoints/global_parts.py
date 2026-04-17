@@ -7,6 +7,7 @@ while maintaining global part-specific functionality.
 
 import logging
 from typing import Any, Dict, List, Optional, cast
+from uuid import UUID
 
 _module_log = logging.getLogger(__name__)
 
@@ -77,8 +78,8 @@ def _log_dedupe_metadata_refresh_apply(
     existing_part: DBGlobalPart,
     udict: dict[str, Any],
     *,
-    before_car_ids: list[int],
-    after_car_ids: list[int],
+    before_car_ids: list[UUID],
+    after_car_ids: list[UUID],
 ) -> None:
     """Log only changed fields for archive rescrape dedupe path; INFO if any changed, DEBUG otherwise."""
     checks: list[tuple[str, Any, Any]] = [
@@ -303,7 +304,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
     def update(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         data: GlobalPartUpdate,
         current_user: DBUser,
         logger: logging.Logger,
@@ -348,7 +349,7 @@ class GlobalPartService(BaseCRUDService[DBGlobalPart, GlobalPartCreate, GlobalPa
     def delete(
         self,
         db: Session,
-        entity_id: int,
+        entity_id: UUID,
         current_user: DBUser,
         logger: logging.Logger,
     ) -> Dict[str, str]:
@@ -396,16 +397,16 @@ global_part_service = GlobalPartService()
 async def read_global_parts_with_votes(
     skip: int = Query(0, ge=0, description="Number of global parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of global parts to return"),
-    category_id: Optional[int] = Query(None, description="Filter by category ID (single; use category_ids for multi)"),
-    category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(
+    category_id: Optional[UUID] = Query(None, description="Filter by category ID (single; use category_ids for multi)"),
+    category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs (parts matching any)"),
+    car_id: Optional[UUID] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
     ),
-    brand_id: Optional[int] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
-    brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
-    retailer_id: Optional[int] = Query(None, description="Filter to parts that have a listing from this retailer"),
-    user_id: Optional[int] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
+    brand_id: Optional[UUID] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
+    brand_ids: Optional[List[UUID]] = Query(None, description="Filter by brand IDs (parts matching any)"),
+    retailer_id: Optional[UUID] = Query(None, description="Filter to parts that have a listing from this retailer"),
+    user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
     sort: Optional[str] = Query(
         None,
         description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, brand_asc, brand_desc, category_asc, category_desc",
@@ -617,8 +618,8 @@ async def read_global_parts_with_votes(
     )
 
     # Build vote count dictionaries
-    upvotes_dict: Dict[int, int] = {}
-    downvotes_dict: Dict[int, int] = {}
+    upvotes_dict: Dict[UUID, int] = {}
+    downvotes_dict: Dict[UUID, int] = {}
     for entity_id, vote_type, count in vote_counts:
         if vote_type == "upvote":
             upvotes_dict[entity_id] = count
@@ -638,10 +639,10 @@ async def read_global_parts_with_votes(
         .group_by(DBPartListing.global_part_id)
         .all()
     )
-    best_price_cents_dict: Dict[int, int] = {gp_id: int(mp) for gp_id, mp in min_prices}
+    best_price_cents_dict: Dict[UUID, int] = {gp_id: int(mp) for gp_id, mp in min_prices}
 
     # Bulk fetch user votes if user is authenticated
-    user_votes_dict: Dict[int, str] = {}
+    user_votes_dict: Dict[UUID, str] = {}
     if current_user:
         user_votes = (
             db.query(DBVote.entity_id, DBVote.vote_type)
@@ -674,12 +675,12 @@ async def read_global_parts_with_votes(
 
 def _apply_global_parts_list_filters(
     query: Any,
-    category_ids: Optional[List[int]],
-    brand_ids: Optional[List[int]],
-    car_ids: Optional[List[int]],
+    category_ids: Optional[List[UUID]],
+    brand_ids: Optional[List[UUID]],
+    car_ids: Optional[List[UUID]],
     search: Optional[str],
-    user_id: Optional[int],
-    retailer_id: Optional[int],
+    user_id: Optional[UUID],
+    retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
 ):
@@ -713,12 +714,12 @@ def _apply_global_parts_list_filters(
 
 def _global_parts_base_query(
     db: Session,
-    category_ids: Optional[List[int]],
-    brand_ids: Optional[List[int]],
-    car_ids: Optional[List[int]],
+    category_ids: Optional[List[UUID]],
+    brand_ids: Optional[List[UUID]],
+    car_ids: Optional[List[UUID]],
     search: Optional[str],
-    user_id: Optional[int],
-    retailer_id: Optional[int],
+    user_id: Optional[UUID],
+    retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
 ):
@@ -734,14 +735,14 @@ def _global_parts_base_query(
     response_model=Dict[str, Any],
 )
 async def get_global_parts_filter_options(
-    category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (parts matching any)"),
-    brand_ids: Optional[List[int]] = Query(None, description="Filter by brand IDs (parts matching any)"),
-    car_id: Optional[int] = Query(None, description="Filter by car ID (single generation)"),
-    car_ids: Optional[List[int]] = Query(
+    category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs (parts matching any)"),
+    brand_ids: Optional[List[UUID]] = Query(None, description="Filter by brand IDs (parts matching any)"),
+    car_id: Optional[UUID] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
     ),
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
-    user_id: Optional[int] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
+    user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
     universal: Optional[bool] = Query(None, description="When true, scope to parts that fit all cars (is_universal)"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
@@ -818,7 +819,7 @@ async def get_global_parts_filter_options(
     responses=pagination_responses("global part", allow_public_read=True),
 )
 async def get_global_parts_by_category(
-    category_id: int,
+    category_id: UUID,
     skip: int = Query(0, ge=0, description="Number of parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -836,7 +837,7 @@ async def get_global_parts_by_category(
 
 @router.get(
     "/check-url",
-    response_model=Dict[str, Optional[int]],
+    response_model=Dict[str, Optional[UUID]],
     responses=standard_responses(
         success_description="URL check completed",
     ),
@@ -844,7 +845,7 @@ async def get_global_parts_by_category(
 async def check_product_url_exists(
     product_url: Optional[str] = Query(None, description="Product URL to check"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> Dict[str, Optional[int]]:
+) -> Dict[str, Optional[UUID]]:
     """
     Check if a product URL already exists in the global parts catalog.
     Returns the part ID if found, null otherwise.
@@ -883,7 +884,7 @@ async def check_product_url_exists(
     ),
 )
 async def find_global_part_by_brand_and_part_number(
-    brand_id: int = Query(..., description="Brand ID"),
+    brand_id: UUID = Query(..., description="Brand ID"),
     part_number: str = Query(..., min_length=1, description="Part number or SKU"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -909,7 +910,7 @@ async def find_global_part_by_brand_and_part_number(
     ),
 )
 async def get_global_part_listings(
-    global_part_id: int,
+    global_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[PartListingReadWithRetailer]:
     """List all retailer listings for a global part (with current price)."""
@@ -933,7 +934,7 @@ async def get_global_part_listings(
     ),
 )
 async def create_or_update_global_part_listing(
-    global_part_id: int,
+    global_part_id: UUID,
     data: PartListingCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> PartListingReadWithRetailer:
@@ -973,7 +974,7 @@ async def create_or_update_global_part_listing(
     ),
 )
 async def append_images_to_global_part(
-    global_part_id: int,
+    global_part_id: UUID,
     data: GlobalPartAppendImages,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -1019,7 +1020,7 @@ def _get_part_image_file_keys(part: DBGlobalPart) -> List[str]:
     ),
 )
 async def remove_image_from_global_part(
-    global_part_id: int,
+    global_part_id: UUID,
     image_index: int,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -1071,7 +1072,7 @@ async def remove_image_from_global_part(
     ),
 )
 async def set_primary_image_for_global_part(
-    global_part_id: int,
+    global_part_id: UUID,
     data: SetPrimaryImageRequest,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -1108,7 +1109,7 @@ async def set_primary_image_for_global_part(
     ),
 )
 async def get_global_part_best_listing(
-    global_part_id: int,
+    global_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> PartListingReadWithRetailer:
     """Get the listing with the lowest current price for this part. 404 if no listing has a price."""
@@ -1136,7 +1137,7 @@ async def get_global_part_best_listing(
     ),
 )
 async def get_global_part_with_listings(
-    global_part_id: int,
+    global_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> GlobalPartReadWithListings:
     """Get a global part with all retailer listings and the best (lowest price) listing."""
@@ -1177,8 +1178,8 @@ async def get_global_part_with_listings(
     ),
 )
 async def get_global_part_price_history(
-    global_part_id: int,
-    retailer_id: Optional[int] = Query(None, description="Filter by retailer ID"),
+    global_part_id: UUID,
+    retailer_id: Optional[UUID] = Query(None, description="Filter by retailer ID"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[PartPriceHistoryReadWithRetailer]:
     """Get price history for this part, optionally filtered by retailer. Ordered by observed_at desc."""
@@ -1226,7 +1227,7 @@ base_router = BaseEndpointRouter(
     responses=standard_responses(success_description="Count of global parts for user", not_found=True),
 )
 async def count_global_parts_by_user(
-    user_id: int,
+    user_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Count global parts created by a specific user."""

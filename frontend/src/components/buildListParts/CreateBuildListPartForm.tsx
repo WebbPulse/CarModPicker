@@ -33,14 +33,14 @@ import SearchableSelect, {
 } from '../common/SearchableSelect';
 
 interface CreateBuildListPartFormProps {
-  buildListId: number;
+  buildListId: string;
   onPartAdded: () => void;
   onCancel: () => void;
 }
 
 const fetchGlobalPartsRequestFn = () => globalPartsApi.getGlobalParts();
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
-const fetchPhasesRequestFn = (buildListId: number) =>
+const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
 
 function CreateBuildListPartForm({
@@ -50,24 +50,24 @@ function CreateBuildListPartForm({
 }: CreateBuildListPartFormProps) {
   const [mode, setMode] = useState<'create' | 'select'>('select');
   const [selectedGlobalPartId, setSelectedGlobalPartId] = useState<
-    number | null
+    string | null
   >(null);
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand_id: null as number | null,
+    brand_id: null as string | null,
     description: '',
     product_url: '',
-    category_id: null as number | null,
-    car_ids: [] as number[],
+    category_id: null as string | null,
+    car_ids: [] as string[],
     is_universal: false,
     notes: '',
     quantity: 1,
   });
-  const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [duplicatePartId, setDuplicatePartId] = useState<number | null>(null);
+  const [duplicatePartId, setDuplicatePartId] = useState<string | null>(null);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isAddingExisting, setIsAddingExisting] = useState(false);
@@ -201,7 +201,7 @@ function CreateBuildListPartForm({
   };
 
   const handleCarIdsChange = useCallback(
-    (carIds: number[]) => {
+    (carIds: string[]) => {
       setFormData((prev) => ({ ...prev, car_ids: carIds }));
       if (validationError) setValidationError(null);
     },
@@ -334,7 +334,7 @@ function CreateBuildListPartForm({
 
   const handleBrandChange = useCallback(
     (value: number | string | null) => {
-      const brandId = value !== null && value !== '' ? Number(value) : null;
+      const brandId = value !== null && value !== '' ? String(value) : null;
       setFormData((prev) => ({ ...prev, brand_id: brandId }));
       // Clear pending brand if an existing brand is selected or value is cleared
       if (brandId !== null || value === null) {
@@ -369,9 +369,9 @@ function CreateBuildListPartForm({
 
   const handleCategoryChange = useCallback(
     (categoryId: number | string | null) => {
-      const numericCategoryId =
-        categoryId !== null && categoryId !== '' ? Number(categoryId) : null;
-      setFormData((prev) => ({ ...prev, category_id: numericCategoryId }));
+      const nextCategoryId =
+        categoryId !== null && categoryId !== '' ? String(categoryId) : null;
+      setFormData((prev) => ({ ...prev, category_id: nextCategoryId }));
       if (validationError) setValidationError(null);
     },
     [validationError]
@@ -379,8 +379,8 @@ function CreateBuildListPartForm({
 
   const handlePartSelect = useCallback(
     (partId: number | string | null) => {
-      const numericPartId = partId ? Number(partId) : null;
-      setSelectedGlobalPartId(numericPartId);
+      const nextPartId = partId ? String(partId) : null;
+      setSelectedGlobalPartId(nextPartId);
       if (validationError) setValidationError(null);
     },
     [validationError]
@@ -981,7 +981,7 @@ function CreateBuildListPartForm({
               value={selectedPhaseId ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
-                setSelectedPhaseId(v === '' ? null : parseInt(v, 10));
+                setSelectedPhaseId(v === '' ? null : v);
               }}
               className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             >

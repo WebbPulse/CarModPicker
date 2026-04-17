@@ -23,7 +23,7 @@ interface EditBuildListFormProps {
 }
 
 const updateBuildListRequestFn = (payload: {
-  buildListId: number;
+  buildListId: string;
   data: BuildListUpdate;
 }) =>
   apiClient.put<BuildListRead>(
@@ -84,7 +84,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 
   // Fetch current car if buildList has car_id
   const fetchCurrentCarFn = useCallback(
-    (carId: number) => carsApi.getCar(carId),
+    (carId: string) => carsApi.getCar(carId),
     []
   );
 

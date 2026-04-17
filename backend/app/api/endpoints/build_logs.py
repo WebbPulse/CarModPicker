@@ -4,6 +4,7 @@ Each build list automatically gets a build log thread.
 """
 
 from typing import Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -66,7 +67,7 @@ async def count_build_log_posts(
     responses=crud_responses("build log", "read", allow_public_read=True),
 )
 async def get_build_log_by_build_list(
-    build_list_id: int,
+    build_list_id: UUID,
     skip: int = Query(0, ge=0, description="Number of posts to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of posts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -172,7 +173,7 @@ async def get_build_log_by_build_list(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_build_log_post(
-    build_list_id: int,
+    build_list_id: UUID,
     post_data: BuildLogPostCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -229,7 +230,7 @@ async def create_build_log_post(
     responses=crud_responses("build log post", "update"),
 )
 async def update_build_log_post(
-    post_id: int,
+    post_id: UUID,
     post_data: BuildLogPostUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -296,7 +297,7 @@ async def update_build_log_post(
     responses=crud_responses("build log post", "delete"),
 )
 async def delete_build_log_post(
-    post_id: int,
+    post_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> Dict[str, str]:

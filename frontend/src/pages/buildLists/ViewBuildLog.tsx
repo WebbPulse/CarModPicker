@@ -26,14 +26,14 @@ import { BUILD_LOG_POSTS_PER_PAGE } from '../../constants';
 const fetchBuildLogRequestFn = (buildListId: string, page: number = 1) => {
   const skip = (page - 1) * BUILD_LOG_POSTS_PER_PAGE;
   return buildLogsApi.getBuildLogByBuildList(
-    Number(buildListId),
+    buildListId,
     skip,
     BUILD_LOG_POSTS_PER_PAGE
   );
 };
 
 const fetchBuildListRequestFn = (buildListId: string) =>
-  buildListsApi.getBuildList(Number(buildListId));
+  buildListsApi.getBuildList(buildListId);
 
 function ViewBuildLog() {
   const { buildListId } = useParams<{ buildListId: string }>();
@@ -90,7 +90,7 @@ function ViewBuildLog() {
     if (!buildListId || !newPostContent.trim()) return;
 
     try {
-      await buildLogsApi.createBuildLogPost(Number(buildListId), {
+      await buildLogsApi.createBuildLogPost(buildListId, {
         content: newPostContent.trim(),
       });
       setNewPostContent('');
@@ -537,7 +537,7 @@ Markdown examples:
             <div>
               <ImageUpload
                 entityType="build_log_post"
-                entityId={buildListId ? Number(buildListId) : 0}
+                entityId={buildListId ?? ''}
                 onImageUploaded={handleImageUploaded}
                 label="Upload Image"
                 maxSizeMB={10}
@@ -607,7 +607,7 @@ Markdown examples:
             <div>
               <ImageUpload
                 entityType="build_log_post"
-                entityId={buildListId ? Number(buildListId) : 0}
+                entityId={buildListId ?? ''}
                 onImageUploaded={handleEditImageUploaded}
                 label="Upload Image"
                 maxSizeMB={10}

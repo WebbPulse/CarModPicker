@@ -4,6 +4,7 @@ Base vote router with common patterns to reduce redundancy.
 
 import logging
 from typing import Any, Callable, Dict, Generic, Type, TypeVar
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -68,7 +69,7 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
             },
         )
         async def vote_on_entity(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             vote: VoteCreateSchema,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
@@ -91,7 +92,7 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
             },
         )
         async def remove_vote(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
@@ -118,7 +119,7 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
             },
         )
         async def get_vote_summary(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
@@ -139,7 +140,7 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
             },
         )
         async def get_my_vote(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),

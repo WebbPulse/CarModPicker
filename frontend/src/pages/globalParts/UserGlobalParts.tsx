@@ -17,7 +17,7 @@ import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
 const UserGlobalParts: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
-  const [deletingPartId, setDeletingPartId] = useState<number | null>(null);
+  const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
   const [deletingPartName, setDeletingPartName] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);

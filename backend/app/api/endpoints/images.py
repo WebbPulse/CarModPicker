@@ -6,6 +6,7 @@ Supports source URL tracking for deduplication (avoid re-downloading same images
 
 import logging
 from typing import Any, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
@@ -47,7 +48,7 @@ async def get_image_by_source_url(
 @router.post("/upload")
 async def upload_image(
     entity_type: str,
-    entity_id: Optional[int] = None,
+    entity_id: Optional[UUID] = None,
     source_url: Optional[str] = Form(
         None, description="Original URL (for deduplication; skips upload if already stored)"
     ),

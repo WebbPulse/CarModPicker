@@ -10,7 +10,7 @@ interface ImageUploadProps {
   /** Entity type for organizing uploads (e.g., 'build_list', 'global_part', 'user', 'car') */
   entityType: string;
   /** Optional entity ID for organizing uploads */
-  entityId?: number;
+  entityId?: string;
   /** Callback when image is successfully uploaded */
   onImageUploaded: (fileKey: string, presignedUrl: string) => void;
   /** Callback when image is removed */

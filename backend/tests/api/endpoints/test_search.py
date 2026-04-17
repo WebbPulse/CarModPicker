@@ -88,7 +88,7 @@ class TestSearch:
         build_list_data = {
             "name": build_list_name,
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -112,7 +112,7 @@ class TestSearch:
         build_list_data = {
             "name": get_unique_name("honda_build_list"),
             "description": "A Honda build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -124,7 +124,7 @@ class TestSearch:
         assert len(data["build_lists"]["data"]) > 0
         # Verify the build list was found (search by car make works)
         # BuildListRead schema only includes car_id, not the full car object
-        assert any(bl.get("car_id") == car["id"] for bl in data["build_lists"]["data"])
+        assert any(bl.get("car_id") == str(car["id"]) for bl in data["build_lists"]["data"])
 
     def test_search_users_by_username(self, client: TestClient, test_user: DBUser) -> None:
         """Test searching users by username."""
@@ -160,9 +160,9 @@ class TestSearch:
         part_data = {
             "name": part_name,
             "description": "A test part description",
-            "category_id": test_category.id,
-            "car_id": car["id"],
-            "brand_id": test_brand.id,
+            "category_id": str(test_category.id),
+            "car_id": str(car["id"]),
+            "brand_id": str(test_brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -198,8 +198,8 @@ class TestSearch:
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
-            "category_id": test_category.id,
-            "car_id": car["id"],
+            "category_id": str(test_category.id),
+            "car_id": str(car["id"]),
             "brand_id": brand_id,
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
@@ -243,7 +243,7 @@ class TestSearch:
         build_list_data = {
             "name": build_list_name,
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -269,7 +269,7 @@ class TestSearch:
             build_list_data = {
                 "name": f"{base_name}_{i}",
                 "description": f"Build list {i}",
-                "car_id": car["id"],
+                "car_id": str(car["id"]),
             }
             response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
             assert response.status_code == 200
@@ -296,7 +296,7 @@ class TestSearch:
         build_list_data = {
             "name": build_list_name,
             "description": "A test build list description",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -351,7 +351,7 @@ class TestSearch:
         build_list_data = {
             "name": build_list_name,
             "description": "Test with unicode: 测试 🚗",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -406,7 +406,7 @@ class TestSearch:
         build_list_data = {
             "name": get_unique_name("test_build_list"),
             "description": "A test build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
@@ -472,7 +472,7 @@ class TestSearch:
         build_list_data = {
             "name": build_list_name,
             "description": "A test build list",
-            "car_id": car["id"],
+            "car_id": str(car["id"]),
         }
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200

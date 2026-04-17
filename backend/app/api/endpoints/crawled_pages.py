@@ -13,6 +13,7 @@ POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML, parse, and ingest 
 import logging
 from datetime import datetime, timezone
 from typing import Any, List, Optional, Tuple
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
@@ -48,7 +49,7 @@ def _split_storage_key(storage_key: str) -> tuple[Optional[str], Optional[str]]:
 def _enforce_max_crawl_html_size(
     html_size_bytes: int,
     *,
-    user_id: int,
+    user_id: UUID,
     url: str,
     content_length: Optional[str],
 ) -> None:
@@ -145,7 +146,7 @@ class HtmlUploadRequest(BaseModel):
 class HtmlUploadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     url: str
     html_s3_key: Optional[str]
     html_local_path: Optional[str]
@@ -180,7 +181,7 @@ class ScrapeResponse(BaseModel):
 class CrawledPageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     url: str
     source: str
     html_s3_key: Optional[str]
@@ -188,13 +189,13 @@ class CrawledPageRead(BaseModel):
     crawled_at: datetime
     last_parsed_at: Optional[datetime]
     parse_status: str
-    global_part_id: Optional[int]
+    global_part_id: Optional[UUID]
     html_sha256: Optional[str] = None
 
 
 class ReparseResponse(BaseModel):
-    crawled_page_id: int
-    global_part_id: Optional[int]
+    crawled_page_id: UUID
+    global_part_id: Optional[UUID]
     parse_status: str
     message: str
 
@@ -420,7 +421,7 @@ async def list_crawled_pages(
 
 @router.post("/{page_id}/re-parse", response_model=ReparseResponse)
 async def reparse_crawled_page(
-    page_id: int,
+    page_id: UUID,
     current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ) -> Any:

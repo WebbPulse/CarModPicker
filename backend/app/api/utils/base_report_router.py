@@ -4,6 +4,7 @@ Base report router with common patterns to reduce redundancy.
 
 import logging
 from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -68,7 +69,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def create_report(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             report: ReportCreateSchema,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
@@ -93,7 +94,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def get_reports_by_entity(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             status: str = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
@@ -115,7 +116,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def get_report_summary(  # pyright: ignore[reportUnusedFunction]
-            entity_id: int,
+            entity_id: UUID,
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
@@ -184,7 +185,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def update_report_status(  # pyright: ignore[reportUnusedFunction]
-            report_id: int,
+            report_id: UUID,
             status_update: Dict[str, Any],
             db: Session = Depends(get_db),
             logger: logging.Logger = Depends(get_logger),

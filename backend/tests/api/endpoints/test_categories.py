@@ -1,5 +1,6 @@
 import os
 from typing import Any
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from app.api.models.brand import Brand
 from app.api.models.category import Category
 from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import create_car_in_db, get_default_category_id, test_brand
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, get_default_category_id, test_brand
 
 
 def get_unique_name(base_name: str) -> str:
@@ -52,7 +53,7 @@ def create_and_login_admin_user(
 
 
 # Helper function to create a user and log them in. Returns (user_id, token)
-def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[int, str]:
+def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
     username = f"category_test_user_{username_suffix}"
     email = f"category_test_user_{username_suffix}@example.com"
     password = "testpassword"
@@ -63,9 +64,9 @@ def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[int
         "password": password,
     }
     response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id = -1
+    user_id: UUID | None = None
     if response.status_code == 200:
-        user_id = response.json()["id"]
+        user_id = UUID(response.json()["id"])
     elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
         pass
     else:
@@ -79,15 +80,15 @@ def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[int
         )
     token = token_response.json()["access_token"]
 
-    if user_id == -1:
+    if user_id is None:
         headers = {"Authorization": f"Bearer {token}"}
         me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
         if me_response.status_code == 200:
-            user_id = me_response.json()["id"]
+            user_id = UUID(me_response.json()["id"])
         else:
             raise Exception(f"Could not retrieve user_id for existing user {username} via /users/me.")
 
-    if user_id == -1:
+    if user_id is None:
         raise Exception(f"User ID for {username} could not be determined.")
     return user_id, token
 
@@ -100,25 +101,25 @@ def create_car_for_categories_test(
     generation_name: str = "Test Gen",
     start_year: int = 2020,
     end_year: int = 2024,
-) -> int:
+) -> UUID:
     """Create a car in DB for category tests and return the car ID."""
     car = create_car_in_db(db_session, car_make, car_model, generation_name, start_year, end_year)
-    return int(car["id"])
+    return car["id"]
 
 
 # Helper function to create a build list for a car (cars are centrally managed, not owned by users)
 def create_build_list_for_car_cookie_auth(
-    client: TestClient, token: str, car_id: int, bl_name: str = "TestBLCategory"
-) -> int:
+    client: TestClient, token: str, car_id: UUID, bl_name: str = "TestBLCategory"
+) -> UUID:
     headers = {"Authorization": f"Bearer {token}"}
     build_list_data = {
         "name": bl_name,
         "description": "Test BL for categories",
-        "car_id": car_id,
+        "car_id": str(car_id),
     }
     response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
     assert response.status_code == 200, f"Failed to create build list for category tests: {response.text}"
-    return int(response.json()["id"])
+    return UUID(response.json()["id"])
 
 
 class TestCategories:
@@ -160,13 +161,13 @@ class TestCategories:
         assert response.status_code == 200
 
         category = response.json()
-        assert category["id"] == category_id
+        assert category["id"] == str(category_id)
         assert "name" in category
         assert "display_name" in category
 
     def test_get_category_not_found(self, client: TestClient, db_session: Session) -> None:
         """Test getting a non-existent category."""
-        response = client.get(f"{settings.API_STR}/categories/99999")
+        response = client.get(f"{settings.API_STR}/categories/{INVALID_UUID_STR}")
         assert response.status_code == 404
         assert "Category not found" in response.json()["message"]
 
@@ -202,8 +203,8 @@ class TestCategories:
             part_data = {
                 "name": f"Test Part {i}",
                 "description": f"Test part description {i}",
-                "category_id": category_id,
-                "brand_id": test_brand.id,
+                "category_id": str(category_id),
+                "brand_id": str(test_brand.id),
             }
             response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
             assert response.status_code == 200
@@ -284,8 +285,8 @@ class TestCategories:
         part_data = {
             "name": "Test Part",
             "description": "Test part description",
-            "category_id": category_id,
-            "brand_id": brand.id,
+            "category_id": str(category_id),
+            "brand_id": str(brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
@@ -331,8 +332,8 @@ class TestCategories:
         part_data = {
             "name": "Test Part for Count",
             "description": "Test part description",
-            "category_id": category_id,
-            "brand_id": brand.id,
+            "category_id": str(category_id),
+            "brand_id": str(brand.id),
         }
         response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
@@ -346,7 +347,7 @@ class TestCategories:
 
     def test_get_category_parts_count_not_found(self, client: TestClient, db_session: Session) -> None:
         """Test getting parts count for a non-existent category."""
-        response = client.get(f"{settings.API_STR}/categories/99999/parts-count")
+        response = client.get(f"{settings.API_STR}/categories/{INVALID_UUID_STR}/parts-count")
         assert response.status_code == 404
         assert (
             "category" in response.json().get("message", "").lower()

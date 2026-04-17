@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -34,12 +35,12 @@ class BugReportUpdate(BaseModel):
     status: Optional[BugReportStatus] = None
     priority: Optional[BugReportPriority] = None
     admin_notes: Optional[str] = None
-    assigned_to: Optional[int] = None
+    assigned_to: Optional[UUID] = None
 
 
 class BugReportRead(BaseModel):
-    id: int
-    user_id: Optional[int] = None
+    id: UUID
+    user_id: Optional[UUID] = None
     title: str
     description: str
     steps_to_reproduce: Optional[str] = None
@@ -51,7 +52,7 @@ class BugReportRead(BaseModel):
     status: str
     priority: str
     admin_notes: Optional[str] = None
-    assigned_to: Optional[int] = None
+    assigned_to: Optional[UUID] = None
     resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

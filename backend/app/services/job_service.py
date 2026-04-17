@@ -8,6 +8,7 @@ SessionLocal() instance (not the request-scoped one).
 
 from datetime import UTC, datetime
 from typing import Any, Optional
+from uuid import UUID
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ def create_job(
     job_type: str,
     triggered_by: str,
     params: Optional[dict[str, Any]] = None,
-    created_by_user_id: Optional[int] = None,
+    created_by_user_id: Optional[UUID] = None,
 ) -> BackgroundJob:
     """
     Insert a new job record in 'running' status and return it.
@@ -44,7 +45,7 @@ def create_job(
 
 def complete_job(
     db: Session,
-    job_id: int,
+    job_id: UUID,
     result_summary: Optional[dict[str, Any]] = None,
 ) -> Optional[BackgroundJob]:
     """Mark a job as completed, recording the result summary and finish time.
@@ -67,7 +68,7 @@ def complete_job(
 
 def fail_job(
     db: Session,
-    job_id: int,
+    job_id: UUID,
     error_message: str,
     result_summary: Optional[dict[str, Any]] = None,
 ) -> Optional[BackgroundJob]:
@@ -84,7 +85,7 @@ def fail_job(
     return job
 
 
-def cancel_job(db: Session, job_id: int) -> Optional[BackgroundJob]:
+def cancel_job(db: Session, job_id: UUID) -> Optional[BackgroundJob]:
     """
     Set a job's status to 'cancelled'.
 
@@ -101,7 +102,7 @@ def cancel_job(db: Session, job_id: int) -> Optional[BackgroundJob]:
     return job
 
 
-def get_job(db: Session, job_id: int) -> Optional[BackgroundJob]:
+def get_job(db: Session, job_id: UUID) -> Optional[BackgroundJob]:
     """Return a single job by ID, or None if not found."""
     return db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
 
