@@ -63,3 +63,15 @@ tests/
 # Docker
 app/Dockerfile
 docker-compose.yml
+
+# Not copied by the runtime Dockerfile, but still in build context
+docs/
+scripts/
+static_assets/
+runtime.txt
+pyproject.toml
+pyrightconfig.json
+mypy.ini
+pytest.ini
+.bandit
+.claude/
