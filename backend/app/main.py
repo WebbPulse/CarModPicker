@@ -26,12 +26,13 @@ from .api.endpoints import (
     users,
     votes,
 )
-from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware
+from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_service_accounts import init_crawler_service_account
-from .core.logging import LOG_FORMAT, ColorizedFormatter
+from .core.log_context import RequestContextFilter
+from .core.logging import LOG_FORMAT, _make_formatter
 from .db.session import SessionLocal, check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
@@ -40,16 +41,19 @@ logging.basicConfig(
     format=LOG_FORMAT,
     handlers=[logging.StreamHandler()],
 )
-_coloured = ColorizedFormatter(LOG_FORMAT)
+_formatter = _make_formatter()
+_ctx_filter = RequestContextFilter()
 _root = logging.getLogger()
 for _h in _root.handlers:
-    _h.setFormatter(_coloured)
+    _h.setFormatter(_formatter)
+    _h.addFilter(_ctx_filter)
 
-# Apply same format and colors to uvicorn loggers
+# Apply same format and context filter to uvicorn loggers
 for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
     _log = logging.getLogger(_name)
     for _h in _log.handlers:
-        _h.setFormatter(_coloured)
+        _h.setFormatter(_formatter)
+        _h.addFilter(_ctx_filter)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +101,9 @@ app.add_middleware(
     ],  # Restrict to needed headers
     expose_headers=["*"],  # Expose all headers for debugging
 )
+
+# Assign a UUID to every request and inject request_id/user_id into all log lines
+app.middleware("http")(request_context_middleware)
 
 # Reject extension crawl uploads with oversized Content-Length before heavier middleware
 app.middleware("http")(crawl_upload_content_length_middleware)

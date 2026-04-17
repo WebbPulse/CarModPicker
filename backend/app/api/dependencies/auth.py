@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.models.user import User as DBUser
 from app.api.schemas.token import TokenData
 from app.core.config import settings
+from app.core.log_context import user_id_var
 from app.db.session import get_db
 
 ALGORITHM = "HS256"
@@ -101,6 +102,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not verified")
+    user_id_var.set(str(user.id))
     return user
 
 
@@ -129,6 +131,7 @@ async def get_optional_current_user(
     if user is None or user.disabled or not user.email_verified:
         return None
 
+    user_id_var.set(str(user.id))
     return user
 
 
@@ -159,6 +162,7 @@ async def get_current_active_user_optional(
     if user.disabled:
         return None  # User is inactive, so not considered an "active user"
 
+    user_id_var.set(str(user.id))
     return user
 
 

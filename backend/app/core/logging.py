@@ -3,9 +3,15 @@ import sys
 from copy import copy
 
 import click
+from pythonjsonlogger.json import JsonFormatter  # type: ignore[import-untyped]
 
-# Single format used app-wide (app loggers and uvicorn access/error logs)
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+from app.core.log_context import RequestContextFilter
+
+# Human-readable format for TTY (local dev)
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - [req=%(request_id)s user=%(user_id)s] - %(message)s"
+
+# JSON format for non-TTY (production): fields become top-level JSON keys
+JSON_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(request_id)s %(user_id)s %(message)s"
 
 # Level name colors (matches uvicorn default)
 TRACE_LOG_LEVEL = 5
@@ -42,13 +48,22 @@ class ColorizedFormatter(logging.Formatter):
         return super().format(record_copy)
 
 
+def _make_formatter() -> logging.Formatter:
+    """Return JSON formatter in production (non-TTY), colorized text formatter locally."""
+    if sys.stdout.isatty():
+        return ColorizedFormatter(LOG_FORMAT)
+    return JsonFormatter(
+        JSON_LOG_FORMAT, rename_fields={"levelname": "level", "name": "logger", "asctime": "timestamp"}
+    )
+
+
 # Logger setup
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.DEBUG)
-formatter = ColorizedFormatter(LOG_FORMAT)
-console_handler.setFormatter(formatter)
+console_handler.setFormatter(_make_formatter())
+console_handler.addFilter(RequestContextFilter())
 logger.addHandler(console_handler)
 
 
