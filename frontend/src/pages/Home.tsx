@@ -248,7 +248,7 @@ export default function HomePage() {
                             <ImageWithPlaceholder
                               srcUrl={part.image_urls?.[0] ?? null}
                               altText={part.name}
-                              imageClassName="w-16 h-16 object-cover rounded-lg"
+                              imageClassName="w-16 h-16 object-cover rounded-lg group-hover:scale-110 transition-transform duration-300"
                               containerClassName="w-16 h-16"
                               fallbackText="No img"
                             />
