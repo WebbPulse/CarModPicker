@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  brandsApi,
+  partManufacturersApi,
   buildListPartsApi,
   carsApi,
   categoriesApi,
@@ -46,7 +46,8 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
 const fetchUserRequestFn = (userId: string) => usersApi.getUser(userId);
 
-const fetchBrandRequestFn = (brandId: string) => brandsApi.getBrand(brandId);
+const fetchPartManufacturerRequestFn = (part_manufacturerId: string) =>
+  partManufacturersApi.getPartManufacturer(part_manufacturerId);
 
 const deletePartRequestFn = (partId: string) => partsApi.deletePart(partId);
 
@@ -104,11 +105,11 @@ function ViewPart() {
   } = useApiRequest(fetchUserRequestFn);
 
   const {
-    data: brandData,
-    isLoading: isLoadingBrand,
-    error: brandApiError,
-    executeRequest: fetchBrand,
-  } = useApiRequest(fetchBrandRequestFn);
+    data: part_manufacturerData,
+    isLoading: isLoadingPartManufacturer,
+    error: part_manufacturerApiError,
+    executeRequest: fetchPartManufacturer,
+  } = useApiRequest(fetchPartManufacturerRequestFn);
 
   const {
     isLoading: isDeletingPart,
@@ -153,10 +154,15 @@ function ViewPart() {
     if (part?.user_id) {
       void fetchUser(part.user_id);
     }
-    if (part?.brand_id) {
-      void fetchBrand(part.brand_id);
+    if (part?.part_manufacturer_id) {
+      void fetchPartManufacturer(part.part_manufacturer_id);
     }
-  }, [part?.user_id, part?.brand_id, fetchUser, fetchBrand]);
+  }, [
+    part?.user_id,
+    part?.part_manufacturer_id,
+    fetchUser,
+    fetchPartManufacturer,
+  ]);
 
   // Fetch compatible cars when part has car_ids
   useEffect(() => {
@@ -204,7 +210,7 @@ function ViewPart() {
   }, [part, voteSummary, voteOverride]);
 
   const categories = categoriesData ?? [];
-  const brand = brandData ?? null;
+  const part_manufacturer = part_manufacturerData ?? null;
 
   const handlePartUpdated = async () => {
     if (partId) {
@@ -278,7 +284,7 @@ function ViewPart() {
     isLoadingCategories ||
     isLoadingOwner ||
     isLoadingCompatibleCars ||
-    isLoadingBrand;
+    isLoadingPartManufacturer;
 
   if (isLoading && !part) {
     return (
@@ -443,13 +449,13 @@ function ViewPart() {
               </Link>
             </CardInfoItem>
           )}
-          {brand && (
-            <CardInfoItem label="Brand:">
+          {part_manufacturer && (
+            <CardInfoItem label="PartManufacturer:">
               <Link
-                to={`/parts?mode=brand&brand_id=${brand.id}`}
+                to={`/parts?mode=part_manufacturer&part_manufacturer_id=${part_manufacturer.id}`}
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
               >
-                {brand.name}
+                {part_manufacturer.name}
               </Link>
             </CardInfoItem>
           )}
@@ -652,9 +658,9 @@ function ViewPart() {
             message={`Error loading creator information: ${ownerApiError}`}
           />
         )}
-        {brandApiError && (
+        {part_manufacturerApiError && (
           <ErrorAlert
-            message={`Error loading brand information: ${brandApiError}`}
+            message={`Error loading part_manufacturer information: ${part_manufacturerApiError}`}
           />
         )}
       </Card>

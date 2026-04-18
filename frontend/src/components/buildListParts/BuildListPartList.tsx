@@ -4,7 +4,7 @@ import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
 import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import type {
-  BrandResponse,
+  PartManufacturerResponse,
   BuildListPartReadWithPart,
   BuildListPhaseRead,
   CarRead,
@@ -20,7 +20,7 @@ import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 type TableColumnKey =
   | 'checkbox'
   | 'part'
-  | 'brand'
+  | 'part_manufacturer'
   | 'part_number'
   | 'fit'
   | 'qty'
@@ -35,7 +35,7 @@ const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
   actions: 3,
   checkbox: 4,
   fit: 5,
-  brand: 6,
+  part_manufacturer: 6,
   part_number: 7,
 };
 
@@ -46,11 +46,11 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
   actions: 130,
   checkbox: 60,
   fit: 160,
-  brand: 140,
+  part_manufacturer: 140,
   part_number: 140,
 };
 
-const DEFAULT_BRANDS: BrandResponse[] = [];
+const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
 
 interface GroupedPart {
@@ -62,7 +62,7 @@ interface BuildListPartTableProps {
   group: GroupedPart;
   categoryName: string;
   categoryIcon: string;
-  brands: BrandResponse[];
+  part_manufacturers: PartManufacturerResponse[];
   carsById: Record<string, CarRead>;
   containerWidth: number;
   onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
@@ -106,14 +106,16 @@ function getFitCell(
     : { label: `${n} vehicles` };
 }
 
-function getBrandName(
+function getPartManufacturerName(
   part: BuildListPartReadWithPart,
-  brands: BrandResponse[]
+  part_manufacturers: PartManufacturerResponse[]
 ): string {
   const gp = part.part;
-  if (gp.brand) return gp.brand;
-  if (gp.brand_id != null && brands.length > 0) {
-    const b = brands.find((br) => br.id === gp.brand_id);
+  if (gp.part_manufacturer) return gp.part_manufacturer;
+  if (gp.part_manufacturer_id != null && part_manufacturers.length > 0) {
+    const b = part_manufacturers.find(
+      (br) => br.id === gp.part_manufacturer_id
+    );
     return b?.name ?? '—';
   }
   return '—';
@@ -123,7 +125,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   group,
   categoryName,
   categoryIcon,
-  brands,
+  part_manufacturers,
   carsById,
   containerWidth,
   onEdit,
@@ -141,7 +143,14 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
     const keys: TableColumnKey[] = [];
     if (showCheckbox) keys.push('checkbox');
-    keys.push('part', 'brand', 'part_number', 'fit', 'qty', 'price');
+    keys.push(
+      'part',
+      'part_manufacturer',
+      'part_number',
+      'fit',
+      'qty',
+      'price'
+    );
     if (showActions) keys.push('actions');
     return keys;
   }, [showCheckbox, showActions]);
@@ -188,9 +197,9 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                   Part name
                 </th>
               )}
-              {visibleColumns.includes('brand') && (
+              {visibleColumns.includes('part_manufacturer') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Brand
+                  PartManufacturer
                 </th>
               )}
               {visibleColumns.includes('part_number') && (
@@ -319,13 +328,19 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                       </span>
                     </Link>
                   </td>
-                  {visibleColumns.includes('brand') && (
+                  {visibleColumns.includes('part_manufacturer') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={getBrandName(buildListPart, brands)}
+                      title={getPartManufacturerName(
+                        buildListPart,
+                        part_manufacturers
+                      )}
                     >
                       <span className="block truncate">
-                        {getBrandName(buildListPart, brands)}
+                        {getPartManufacturerName(
+                          buildListPart,
+                          part_manufacturers
+                        )}
                       </span>
                     </td>
                   )}
@@ -426,7 +441,7 @@ interface BuildListPartListProps {
   categories: CategoryResponse[];
   viewMode?: 'category' | 'phase';
   phases?: BuildListPhaseRead[];
-  brands?: BrandResponse[];
+  part_manufacturers?: PartManufacturerResponse[];
   carsById?: Record<string, CarRead>;
   loading?: boolean;
   onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
@@ -449,7 +464,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   categories,
   viewMode = 'category',
   phases = DEFAULT_PHASES,
-  brands = DEFAULT_BRANDS,
+  part_manufacturers = DEFAULT_PART_MANUFACTURERS,
   carsById = DEFAULT_CARS_BY_ID,
   loading = false,
   onEdit,
@@ -753,7 +768,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             group={group}
             categoryName={group.groupLabel}
             categoryIcon={group.groupIcon}
-            brands={brands}
+            part_manufacturers={part_manufacturers}
             carsById={carsById}
             containerWidth={containerWidth}
             {...(onEdit != null && { onEdit })}

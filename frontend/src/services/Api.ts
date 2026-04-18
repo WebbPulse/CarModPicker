@@ -4,9 +4,9 @@ import type {
   BodyLoginForAccessToken,
   BodyResetPassword,
   BodyVerifyEmail,
-  BrandCreate,
-  BrandResponse,
-  BrandUpdate,
+  PartManufacturerCreate,
+  PartManufacturerResponse,
+  PartManufacturerUpdate,
   BugReportCreate,
   BugReportRead,
   BugReportUpdate,
@@ -383,8 +383,8 @@ export const partsApi = {
     category_ids?: string[];
     car_id?: string;
     car_ids?: string[];
-    brand_id?: string;
-    brand_ids?: string[];
+    part_manufacturer_id?: string;
+    part_manufacturer_ids?: string[];
     user_id?: string;
     search?: string;
     sort?: string;
@@ -399,7 +399,7 @@ export const partsApi = {
   // Get available filter options given current filters (for cascading filters)
   getFilterOptions: (params?: {
     category_ids?: string[];
-    brand_ids?: string[];
+    part_manufacturer_ids?: string[];
     car_id?: string;
     car_ids?: string[];
     search?: string;
@@ -408,7 +408,7 @@ export const partsApi = {
   }) =>
     apiClient.get<{
       category_ids: string[];
-      brand_ids: string[];
+      part_manufacturer_ids: string[];
       car_ids?: string[];
       make_names?: string[];
     }>('/parts/filter-options', { params }),
@@ -490,34 +490,53 @@ export const categoriesApi = {
   countCategories: () => apiClient.get<{ count: number }>('/categories/count'),
 };
 
-// Brands API
-export const brandsApi = {
-  getBrands: (activeOnly: boolean = true) =>
-    apiClient.get<BrandResponse[]>('/brands/', {
+// PartManufacturers API
+export const partManufacturersApi = {
+  getPartManufacturers: (activeOnly: boolean = true) =>
+    apiClient.get<PartManufacturerResponse[]>('/part-manufacturers/', {
       params: { active_only: activeOnly },
     }),
-  searchBrands: (q: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<BrandResponse[]>('/brands/search', {
-      params: { q, ...params },
-    }),
-  getBrand: (brandId: string) =>
-    apiClient.get<BrandResponse>(`/brands/${brandId}`),
-  createBrand: (data: BrandCreate) =>
-    apiClient.post<BrandResponse>('/brands/', data),
-  updateBrand: (brandId: string, data: BrandUpdate) =>
-    apiClient.put<BrandResponse>(`/brands/${brandId}`, data),
-  deleteBrand: (brandId: string) =>
-    apiClient.delete<Record<string, string>>(`/brands/${brandId}`),
-  getPartsByBrand: (
-    brandId: string,
+  searchPartManufacturers: (
+    q: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<PartRead[]>(`/brands/${brandId}/parts`, {
-      params,
+    apiClient.get<PartManufacturerResponse[]>('/part-manufacturers/search', {
+      params: { q, ...params },
     }),
-  getBrandPartsCount: (brandId: string) =>
-    apiClient.get<{ parts_count: number }>(`/brands/${brandId}/parts-count`),
-  countBrands: () => apiClient.get<{ count: number }>('/brands/count'),
+  getPartManufacturer: (part_manufacturerId: string) =>
+    apiClient.get<PartManufacturerResponse>(
+      `/part-manufacturers/${part_manufacturerId}`
+    ),
+  createPartManufacturer: (data: PartManufacturerCreate) =>
+    apiClient.post<PartManufacturerResponse>('/part-manufacturers/', data),
+  updatePartManufacturer: (
+    part_manufacturerId: string,
+    data: PartManufacturerUpdate
+  ) =>
+    apiClient.put<PartManufacturerResponse>(
+      `/part-manufacturers/${part_manufacturerId}`,
+      data
+    ),
+  deletePartManufacturer: (part_manufacturerId: string) =>
+    apiClient.delete<Record<string, string>>(
+      `/part-manufacturers/${part_manufacturerId}`
+    ),
+  getPartsByPartManufacturer: (
+    part_manufacturerId: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<PartRead[]>(
+      `/part-manufacturers/${part_manufacturerId}/parts`,
+      {
+        params,
+      }
+    ),
+  getPartManufacturerPartsCount: (part_manufacturerId: string) =>
+    apiClient.get<{ parts_count: number }>(
+      `/part-manufacturers/${part_manufacturerId}/parts-count`
+    ),
+  countPartManufacturers: () =>
+    apiClient.get<{ count: number }>('/part-manufacturers/count'),
 };
 
 // Retailers API (part stores/sites)
@@ -666,7 +685,7 @@ export const buildListPartsApi = {
         category_id: partData.category_id,
         car_ids: partData.car_ids ?? undefined,
         is_universal: partData.is_universal ?? false,
-        brand_id: partData.brand_id,
+        part_manufacturer_id: partData.part_manufacturer_id,
         part_number: partData.part_number,
         specifications: partData.specifications,
         retailer_id: partData.retailer_id,
@@ -1145,9 +1164,11 @@ export const adminApi = {
       deleted_makes_count: number;
     }>('/admin/cars/delete-all'),
 
-  /** Delete all part brands (admin only). Nullifies brand on parts first, then deletes all brands. */
-  deleteAllBrands: () =>
-    apiClient.post<{ deleted_count: number }>('/admin/brands/delete-all'),
+  /** Delete all part_manufacturers (admin only). Nullifies part_manufacturer on parts first, then deletes all part_manufacturers. */
+  deleteAllPartManufacturers: () =>
+    apiClient.post<{ deleted_count: number }>(
+      '/admin/part-manufacturers/delete-all'
+    ),
 
   /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
   getTableCounts: () =>

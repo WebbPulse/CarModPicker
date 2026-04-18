@@ -15,7 +15,7 @@ import type {
 } from '../../services/Api';
 import {
   adminApi,
-  brandsApi,
+  partManufacturersApi,
   bugReportsApi,
   buildListPartsApi,
   buildListsApi,
@@ -137,7 +137,7 @@ interface EntityCounts {
   buildLists: number | null;
   parts: number | null;
   categories: number | null;
-  brands: number | null;
+  part_manufacturers: number | null;
   retailers: number | null;
   bucketObjects: number | null;
   buildLogPosts: number | null;
@@ -165,7 +165,7 @@ function AdminDashboard() {
     buildLists: null,
     parts: null,
     categories: null,
-    brands: null,
+    part_manufacturers: null,
     retailers: null,
     bucketObjects: null,
     buildLogPosts: null,
@@ -274,7 +274,7 @@ function AdminDashboard() {
         buildListsCount,
         partsCount,
         categoriesCount,
-        brandsCount,
+        partManufacturersCount,
         retailersCount,
         bucketSummary,
         adminTable,
@@ -291,7 +291,10 @@ function AdminDashboard() {
         fetchCount(() => buildListsApi.countBuildLists(), 'build lists'),
         fetchCount(() => partsApi.countParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
-        fetchCount(() => brandsApi.countBrands(), 'brands'),
+        fetchCount(
+          () => partManufacturersApi.countPartManufacturers(),
+          'part_manufacturers'
+        ),
         fetchCount(() => retailersApi.countRetailers(), 'retailers'),
         fetchBucketEntitySummary(),
         fetchAdminTableStats(),
@@ -316,7 +319,7 @@ function AdminDashboard() {
         buildLists: buildListsCount,
         parts: partsCount,
         categories: categoriesCount,
-        brands: brandsCount,
+        part_manufacturers: partManufacturersCount,
         retailers: retailersCount,
         bucketObjects: bucketSummary?.total ?? null,
         buildLogPosts: buildLogPostsCount,
@@ -341,7 +344,7 @@ function AdminDashboard() {
         buildListsCount === null &&
         partsCount === null &&
         categoriesCount === null &&
-        brandsCount === null &&
+        partManufacturersCount === null &&
         retailersCount === null &&
         bucketSummary === null &&
         adminTable === null &&
@@ -521,7 +524,10 @@ function AdminDashboard() {
               <StatPanel title="Parts & catalog">
                 <StatRow label="Global parts" value={counts.parts} />
                 <StatRow label="Categories" value={counts.categories} />
-                <StatRow label="Brands" value={counts.brands} />
+                <StatRow
+                  label="Part Manufacturers"
+                  value={counts.part_manufacturers}
+                />
                 <StatRow label="Retailers" value={counts.retailers} />
                 <StatRow label="Part ↔ car links" value={counts.partCars} />
               </StatPanel>

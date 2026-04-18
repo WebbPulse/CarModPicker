@@ -1,15 +1,19 @@
 import React from 'react';
 import { filterChipClass } from '../common/VehicleFilterChips';
-import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
+import type {
+  PartManufacturerResponse,
+  CarRead,
+  CategoryResponse,
+} from '../../types/Api';
 
 export interface PartsActiveFilterChipsProps {
   hasActiveFilters: boolean;
   selectedCategoryIds: string[];
   activeCategories: CategoryResponse[];
   toggleCategory: (id: string) => void;
-  selectedBrandIds: string[];
-  availableBrands: BrandResponse[];
-  toggleBrand: (id: string) => void;
+  selectedPartManufacturerIds: string[];
+  availablePartManufacturers: PartManufacturerResponse[];
+  togglePartManufacturer: (id: string) => void;
   selectedGeneration: CarRead | null;
   selectedMake?: string;
   selectedModel?: string;
@@ -29,9 +33,9 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
     selectedCategoryIds,
     activeCategories,
     toggleCategory,
-    selectedBrandIds,
-    availableBrands,
-    toggleBrand,
+    selectedPartManufacturerIds,
+    availablePartManufacturers,
+    togglePartManufacturer,
     selectedGeneration,
     selectedMake = '',
     selectedModel = '',
@@ -67,17 +71,19 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
           </span>
         );
       })}
-      {selectedBrandIds.map((id) => {
-        const brand = availableBrands.find((b) => b.id === id);
-        if (!brand) return null;
+      {selectedPartManufacturerIds.map((id) => {
+        const part_manufacturer = availablePartManufacturers.find(
+          (b) => b.id === id
+        );
+        if (!part_manufacturer) return null;
         return (
-          <span key={`brand-${id}`} className={filterChipClass}>
-            {brand.name}
+          <span key={`part_manufacturer-${id}`} className={filterChipClass}>
+            {part_manufacturer.name}
             <button
               type="button"
-              onClick={() => toggleBrand(id)}
+              onClick={() => togglePartManufacturer(id)}
               className={removeButtonClass}
-              aria-label="Remove brand filter"
+              aria-label="Remove part manufacturer filter"
             >
               ×
             </button>

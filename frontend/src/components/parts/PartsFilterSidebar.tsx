@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import Card from '../common/Card';
 import VehicleFilterSection from '../common/VehicleFilterSection';
-import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
+import type {
+  PartManufacturerResponse,
+  CarRead,
+  CategoryResponse,
+} from '../../types/Api';
 
 export interface PartsFilterSidebarProps {
   hasActiveFilters: boolean;
@@ -31,16 +35,17 @@ export interface PartsFilterSidebarProps {
   selectedCategoryIds: string[];
   toggleCategory: (id: string) => void;
   setSelectedCategoryIds: (ids: string[]) => void;
-  // Brands (multi-select)
-  availableBrands: BrandResponse[];
-  availableBrandIds: string[];
-  selectedBrandIds: string[];
-  toggleBrand: (id: string) => void;
-  setSelectedBrandIds: (ids: string[]) => void;
+  // PartManufacturers (multi-select)
+  availablePartManufacturers: PartManufacturerResponse[];
+  availablePartManufacturerIds: string[];
+  selectedPartManufacturerIds: string[];
+  togglePartManufacturer: (id: string) => void;
+  setSelectedPartManufacturerIds: (ids: string[]) => void;
 }
 
 const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
-  const [brandSearchTerm, setBrandSearchTerm] = useState('');
+  const [part_manufacturerSearchTerm, setPartManufacturerSearchTerm] =
+    useState('');
   const {
     hasActiveFilters,
     clearAllFilters,
@@ -66,11 +71,11 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
     selectedCategoryIds,
     toggleCategory,
     setSelectedCategoryIds,
-    availableBrands,
-    availableBrandIds,
-    selectedBrandIds,
-    toggleBrand,
-    setSelectedBrandIds,
+    availablePartManufacturers,
+    availablePartManufacturerIds,
+    selectedPartManufacturerIds,
+    togglePartManufacturer,
+    setSelectedPartManufacturerIds,
   } = props;
 
   const sectionTitleClass =
@@ -190,44 +195,53 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
             </div>
           </div>
 
-          {/* Brand Filter */}
+          {/* PartManufacturer Filter */}
           <div>
-            <h3 className={sectionTitleClass}>Part Brand</h3>
+            <h3 className={sectionTitleClass}>Part PartManufacturer</h3>
             <div className="space-y-2">
               <input
                 type="text"
-                placeholder="Search brands..."
-                value={brandSearchTerm}
-                onChange={(e) => setBrandSearchTerm(e.target.value)}
+                placeholder="Search part manufacturers..."
+                value={part_manufacturerSearchTerm}
+                onChange={(e) => setPartManufacturerSearchTerm(e.target.value)}
                 className={inputClass}
               />
-              {selectedBrandIds.length > 0 && (
+              {selectedPartManufacturerIds.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setSelectedBrandIds([])}
+                  onClick={() => setSelectedPartManufacturerIds([])}
                   className={clearButtonClass}
                 >
-                  Clear brands
+                  Clear part_manufacturers
                 </button>
               )}
-              {availableBrands
-                .filter((b) => availableBrandIds.includes(b.id))
+              {availablePartManufacturers
+                .filter((b) => availablePartManufacturerIds.includes(b.id))
                 .filter(
                   (b) =>
-                    !brandSearchTerm.trim() ||
+                    !part_manufacturerSearchTerm.trim() ||
                     b.name
                       .toLowerCase()
-                      .includes(brandSearchTerm.trim().toLowerCase())
+                      .includes(
+                        part_manufacturerSearchTerm.trim().toLowerCase()
+                      )
                 )
-                .map((brand) => (
-                  <label key={brand.id} className={checkboxRowClass}>
+                .map((part_manufacturer) => (
+                  <label
+                    key={part_manufacturer.id}
+                    className={checkboxRowClass}
+                  >
                     <input
                       type="checkbox"
-                      checked={selectedBrandIds.includes(brand.id)}
-                      onChange={() => toggleBrand(brand.id)}
+                      checked={selectedPartManufacturerIds.includes(
+                        part_manufacturer.id
+                      )}
+                      onChange={() =>
+                        togglePartManufacturer(part_manufacturer.id)
+                      }
                       className={checkboxInputClass}
                     />
-                    <span>{brand.name}</span>
+                    <span>{part_manufacturer.name}</span>
                   </label>
                 ))}
             </div>

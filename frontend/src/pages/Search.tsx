@@ -455,7 +455,7 @@ function Search() {
                   title={`Parts (${pagination?.parts ? (searchResults?.parts.total ?? parts.length) : parts.length}${pagination?.parts ? ` of ${searchResults?.parts.total ?? 0}` : ''})`}
                   emptyMessage="No parts found."
                   categories={[]}
-                  brands={[]}
+                  part_manufacturers={[]}
                   carsById={{}}
                 />
                 {(pagination?.parts.has_next ||
@@ -500,7 +500,7 @@ function Search() {
               Enter a search term to find build lists, users, and parts
             </p>
             <p className="text-gray-500">
-              Search across names, descriptions, brands, and more
+              Search across names, descriptions, part_manufacturers, and more
             </p>
           </div>
         </Card>
