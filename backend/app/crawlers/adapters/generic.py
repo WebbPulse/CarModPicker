@@ -21,15 +21,15 @@ from bs4 import BeautifulSoup, Tag
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload
 from app.crawlers.parsing import (
-    brand_fallback_from_title,
-    brand_from_description,
-    brand_from_title,
     extract_dom_price,
     extract_json_ld_product,
     extract_part_number_candidate_from_title,
     extract_sku_from_text,
     meta_content,
     normalize_part_number,
+    part_manufacturer_fallback_from_title,
+    part_manufacturer_from_description,
+    part_manufacturer_from_title,
     scraped_payload_from_json_ld,
 )
 
@@ -210,7 +210,7 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse any product page. JSON-LD first, supplemented with DOM fallbacks
-        for missing fields (images, price, brand, part number).
+        for missing fields (images, price, part_manufacturer, part number).
         """
         soup = BeautifulSoup(html, "html.parser")
         dom_images = _extract_generic_images(soup)
@@ -224,14 +224,16 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
                 # Supplement missing images and price from DOM
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 image_urls = payload.image_urls if payload.image_urls else (dom_images or None)
-                # Supplement missing brand from title heuristics
-                brand = payload.brand
-                if not brand:
-                    brand = brand_from_title(payload.name)
-                if not brand and payload.description:
-                    brand = brand_from_description(payload.description, product_name=payload.name)
-                if not brand:
-                    brand = brand_fallback_from_title(payload.name)
+                # Supplement missing part_manufacturer from title heuristics
+                part_manufacturer = payload.part_manufacturer
+                if not part_manufacturer:
+                    part_manufacturer = part_manufacturer_from_title(payload.name)
+                if not part_manufacturer and payload.description:
+                    part_manufacturer = part_manufacturer_from_description(
+                        payload.description, product_name=payload.name
+                    )
+                if not part_manufacturer:
+                    part_manufacturer = part_manufacturer_fallback_from_title(payload.name)
                 # Supplement missing part number
                 part_number = payload.part_number
                 if not part_number:
@@ -241,7 +243,7 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
                     product_url=url,
                     description=payload.description,
                     price_cents=price_cents,
-                    brand=brand,
+                    part_manufacturer=part_manufacturer,
                     part_number=part_number,
                     image_urls=image_urls[:12] if image_urls else None,
                     gtin=payload.gtin,
@@ -289,12 +291,12 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
         if not part_number:
             part_number = _extract_part_number_from_url(url)
 
-        # Brand: title → description → fallback
-        brand: Optional[str] = brand_from_title(name)
-        if not brand and description:
-            brand = brand_from_description(description, product_name=name)
-        if not brand:
-            brand = brand_fallback_from_title(name)
+        # PartManufacturer: title → description → fallback
+        part_manufacturer: Optional[str] = part_manufacturer_from_title(name)
+        if not part_manufacturer and description:
+            part_manufacturer = part_manufacturer_from_description(description, product_name=name)
+        if not part_manufacturer:
+            part_manufacturer = part_manufacturer_fallback_from_title(name)
 
         image_urls: Optional[List[str]] = dom_images[:12] if dom_images else None
 
@@ -303,7 +305,7 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
             product_url=url,
             description=description,
             price_cents=price_cents,
-            brand=brand,
+            part_manufacturer=part_manufacturer,
             part_number=part_number,
             image_urls=image_urls,
         )

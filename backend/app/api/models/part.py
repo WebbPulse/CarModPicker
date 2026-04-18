@@ -11,11 +11,11 @@ from app.db.base_class import Base
 from .part_car import part_cars
 
 if TYPE_CHECKING:
-    from .brand import Brand
     from .build_list_part import BuildListPart
     from .car import Car
     from .category import Category
     from .part_listing import PartListing
+    from .part_manufacturer import PartManufacturer
     from .report import Report
     from .user import User
     from .vote import Vote
@@ -33,8 +33,8 @@ class Part(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
     """When True, part fits all cars; no need to list every car_id in part_cars."""
-    brand_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("brands.id"), nullable=True, index=True
+    part_manufacturer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("part_manufacturers.id"), nullable=True, index=True
     )
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
     gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
@@ -56,7 +56,7 @@ class Part(Base):
         back_populates="parts",
         lazy="selectin",
     )
-    brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="parts")
+    part_manufacturer: Mapped[Optional["PartManufacturer"]] = relationship("PartManufacturer", back_populates="parts")
 
     @property
     def car_ids(self) -> List[uuid.UUID]:

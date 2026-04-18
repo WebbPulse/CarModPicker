@@ -2,8 +2,8 @@
 Service for part listing deduplication and retailer/listing/price operations.
 
 Used by global part create, create-and-add-part, and scrapers to:
-- Get-or-create retailers and brands
-- Find existing parts by URL, brand+part_number, or GTIN (UPC/EAN)
+- Get-or-create retailers and part_manufacturers
+- Find existing parts by URL, part_manufacturer+part_number, or GTIN (UPC/EAN)
 - Create/update PartListing and append PartPriceHistory
 """
 
@@ -16,9 +16,9 @@ from uuid import UUID
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
 
@@ -65,18 +65,18 @@ def get_or_create_retailer(
     return retailer
 
 
-def get_or_create_brand_by_name(db: Session, name: str) -> Optional[DBBrand]:
-    """Get existing brand by name (case-insensitive); otherwise create. Returns None if name is empty."""
+def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
+    """Get existing part manufacturer by name (case-insensitive); otherwise create. Returns None if name is empty."""
     if not name or not name.strip():
         return None
     name_normalized = name.strip()
-    brand = db.query(DBBrand).filter(DBBrand.name.ilike(name_normalized)).first()
-    if brand:
-        return brand
-    brand = DBBrand(name=name_normalized, is_active=True)
-    db.add(brand)
+    part_manufacturer = db.query(DBPartManufacturer).filter(DBPartManufacturer.name.ilike(name_normalized)).first()
+    if part_manufacturer:
+        return part_manufacturer
+    part_manufacturer = DBPartManufacturer(name=name_normalized, is_active=True)
+    db.add(part_manufacturer)
     db.flush()
-    return brand
+    return part_manufacturer
 
 
 def _normalize_url(url: Optional[str]) -> Optional[str]:
@@ -119,12 +119,12 @@ def find_part_by_product_url(db: Session, product_url: str) -> Optional[DBPart]:
     return None
 
 
-def find_part_by_brand_and_part_number(
+def find_part_by_part_manufacturer_and_part_number(
     db: Session,
-    brand_id: UUID,
+    part_manufacturer_id: UUID,
     part_number: str,
 ) -> Optional[DBPart]:
-    """Find a part by brand_id and part_number. Uses normalized part_number for matching."""
+    """Find a part by part_manufacturer_id and part_number. Uses normalized part_number for matching."""
     normalized = normalize_part_number(part_number)
     if not normalized:
         return None
@@ -132,7 +132,7 @@ def find_part_by_brand_and_part_number(
     candidates = (
         db.query(DBPart)
         .filter(
-            DBPart.brand_id == brand_id,
+            DBPart.part_manufacturer_id == part_manufacturer_id,
             or_(DBPart.part_number == normalized, DBPart.part_number == exact),
         )
         .all()

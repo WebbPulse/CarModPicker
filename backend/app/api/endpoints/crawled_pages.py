@@ -168,7 +168,7 @@ class ScrapeResponse(BaseModel):
     price: Optional[int] = None  # cents
     image_urls: List[str] = []
     product_url: str
-    brand: Optional[str] = None
+    part_manufacturer: Optional[str] = None
     part_number: Optional[str] = None
     adapter_used: str  # e.g. "a90shop", "studiorsr", "generic"
     inferred_category: Optional[str] = None  # category name slug, e.g. "exhaust", "suspension"
@@ -281,7 +281,7 @@ async def scrape_page_from_extension(
         price=payload.price_cents,
         image_urls=payload.image_urls or [],
         product_url=payload.product_url,
-        brand=payload.brand,
+        part_manufacturer=payload.part_manufacturer,
         part_number=payload.part_number,
         adapter_used=adapter_name,
         inferred_category=inferred,

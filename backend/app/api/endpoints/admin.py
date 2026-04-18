@@ -26,7 +26,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
@@ -39,6 +38,7 @@ from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
 from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
@@ -1464,43 +1464,45 @@ async def delete_all_parts(
         db.close()
 
 
-class DeleteAllBrandsResponse(BaseModel):
-    """Response for delete-all part brands (admin only)."""
+class DeleteAllPartManufacturersResponse(BaseModel):
+    """Response for delete-all part manufacturers (admin only)."""
 
-    deleted_count: int = Field(..., description="Number of part brands deleted")
+    deleted_count: int = Field(..., description="Number of part manufacturers deleted")
 
 
 @router.post(
-    "/brands/delete-all",
-    response_model=DeleteAllBrandsResponse,
+    "/part-manufacturers/delete-all",
+    response_model=DeleteAllPartManufacturersResponse,
     responses=standard_responses(
-        success_description="All part brands deleted",
+        success_description="All part manufacturers deleted",
         forbidden=True,
     ),
 )
-async def delete_all_brands(
+async def delete_all_part_manufacturers(
     current_user: DBUser = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
-) -> DeleteAllBrandsResponse:
+) -> DeleteAllPartManufacturersResponse:
     """
-    Delete all part brands (admin only).
+    Delete all part manufacturers (admin only).
 
-    First nullifies brand_id on all global parts, then deletes all brands.
+    First nullifies part_manufacturer_id on all global parts, then deletes all part_manufacturers.
     This action cannot be undone.
     """
     try:
-        # Nullify brand_id on all global parts so we can delete brands
-        db.query(DBPart).filter(DBPart.brand_id.isnot(None)).update({DBPart.brand_id: None}, synchronize_session=False)
-        brands = db.query(DBBrand).all()
-        count = len(brands)
-        for brand in brands:
-            db.delete(brand)
+        # Nullify part_manufacturer_id on all global parts so we can delete part_manufacturers
+        db.query(DBPart).filter(DBPart.part_manufacturer_id.isnot(None)).update(
+            {DBPart.part_manufacturer_id: None}, synchronize_session=False
+        )
+        part_manufacturers = db.query(DBPartManufacturer).all()
+        count = len(part_manufacturers)
+        for part_manufacturer in part_manufacturers:
+            db.delete(part_manufacturer)
         db.commit()
-        logger.info("Admin %s deleted all %s part brands", current_user.id, count)
-        return DeleteAllBrandsResponse(deleted_count=count)
+        logger.info("Admin %s deleted all %s part manufacturers", current_user.id, count)
+        return DeleteAllPartManufacturersResponse(deleted_count=count)
     except Exception as e:
         db.rollback()
-        logger.exception("Delete all part brands failed: %s", e)
+        logger.exception("Delete all part manufacturers failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

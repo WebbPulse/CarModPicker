@@ -3,7 +3,7 @@ Studio RSR (studiorsr.com) crawler adapter.
 
 Product URLs: https://studiorsr.com/products/<handle>?...
 Uses JSON-LD first (Shopify often exposes Product schema), then shared DOM fallbacks:
-og:meta, h1, extract_dom_price, brand_from_title, og:image.
+og:meta, h1, extract_dom_price, part_manufacturer_from_title, og:image.
 
 Discovery: sitemap.xml (and child sitemaps) to find all /products/ URLs.
 Override with CRAWLER_STUDIORSR_START_URLS (comma-separated) to use a fixed list.
@@ -26,9 +26,6 @@ from app.crawlers.base import (
     fetch_page,
 )
 from app.crawlers.parsing import (
-    brand_fallback_from_title,
-    brand_from_description,
-    brand_from_title,
     extract_dom_price,
     extract_json_ld_product,
     extract_part_number_candidate_from_title,
@@ -36,6 +33,9 @@ from app.crawlers.parsing import (
     meta_content,
     normalize_description_text,
     normalize_part_number,
+    part_manufacturer_fallback_from_title,
+    part_manufacturer_from_description,
+    part_manufacturer_from_title,
     scraped_payload_from_json_ld,
 )
 
@@ -48,18 +48,18 @@ DEFAULT_START_URLS = [
 ]
 
 
-def _normalize_brand(brand: Optional[str], product_name: str) -> Optional[str]:
+def _normalize_part_manufacturer(part_manufacturer: Optional[str], product_name: str) -> Optional[str]:
     """
-    Normalize retailer-specific brand shorthand to full name (e.g. JSON-LD may give "Rogue").
+    Normalize retailer-specific part_manufacturer shorthand to full name (e.g. JSON-LD may give "Rogue").
     """
-    if not brand:
-        return brand
-    b = brand.strip()
+    if not part_manufacturer:
+        return part_manufacturer
+    b = part_manufacturer.strip()
     if b == "Rogue" or (b.lower() == "rogue" and re.search(r"\bRogue\s+Engineering\b", product_name, re.IGNORECASE)):
         return "Rogue Engineering"
     if b == "Radium" or (b.lower() == "radium" and re.search(r"\bRadium\s+Engineering\b", product_name, re.IGNORECASE)):
         return "Radium Engineering"
-    return brand
+    return part_manufacturer
 
 
 def _resolve_start_urls() -> List[str]:
@@ -216,7 +216,7 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
 class StudioRSRAdapter(RetailerCrawlerAdapter):
     """
     Studio RSR adapter. Discovery: start URLs from env or sitemap.
-    Parsing: JSON-LD first (Shopify), then shared DOM helpers (og:meta, h1, price, brand, images).
+    Parsing: JSON-LD first (Shopify), then shared DOM helpers (og:meta, h1, price, part_manufacturer, images).
     """
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -231,7 +231,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse Studio RSR product page. JSON-LD first, then DOM fallback using
-        shared parsing helpers (meta_content, extract_dom_price, brand_from_title).
+        shared parsing helpers (meta_content, extract_dom_price, part_manufacturer_from_title).
         """
         soup = BeautifulSoup(html, "html.parser")
         dom_images = _extract_dom_images(soup)
@@ -252,20 +252,20 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 if dom_images or price_cents is not None:
-                    brand = _normalize_brand(payload.brand, payload.name)
+                    part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer, payload.name)
                     payload = ScrapedPayload(
                         name=payload.name,
                         product_url=payload.product_url,
                         description=description,
                         price_cents=price_cents,
-                        brand=brand,
+                        part_manufacturer=part_manufacturer,
                         part_number=part_number,
                         image_urls=dom_images[:12] if dom_images else payload.image_urls,
                         gtin=payload.gtin,
                     )
                 return payload
 
-        # 2. DOM fallback: og:meta, h1, description, price, brand, images
+        # 2. DOM fallback: og:meta, h1, description, price, part_manufacturer, images
         name = None
         og_title = soup.find("meta", property="og:title")
         content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
@@ -315,12 +315,12 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
                 part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
-        brand = brand_from_title(str(name))
-        if not brand and description:
-            brand = brand_from_description(description, product_name=str(name))
-        if not brand:
-            brand = brand_fallback_from_title(str(name))
-        brand = _normalize_brand(brand, str(name))
+        part_manufacturer = part_manufacturer_from_title(str(name))
+        if not part_manufacturer and description:
+            part_manufacturer = part_manufacturer_from_description(description, product_name=str(name))
+        if not part_manufacturer:
+            part_manufacturer = part_manufacturer_fallback_from_title(str(name))
+        part_manufacturer = _normalize_part_manufacturer(part_manufacturer, str(name))
         image_urls = dom_images[:12] if dom_images else None
 
         return ScrapedPayload(
@@ -328,7 +328,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
             product_url=url,
             description=description if description else None,
             price_cents=price_cents,
-            brand=brand,
+            part_manufacturer=part_manufacturer,
             part_number=part_number,
             image_urls=image_urls,
         )

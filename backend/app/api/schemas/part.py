@@ -37,7 +37,7 @@ class PartCreate(BaseModel):
         default=False,
         description="When True, part fits all cars; no need to list car_ids.",
     )
-    brand_id: UUID
+    part_manufacturer_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
         None,
@@ -68,7 +68,7 @@ class PartUpdate(BaseModel):
     category_id: Optional[UUID] = None
     car_ids: Optional[List[UUID]] = None
     is_universal: Optional[bool] = None
-    brand_id: UUID
+    part_manufacturer_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
@@ -86,7 +86,7 @@ class PartRead(BaseModel):
     user_id: UUID
     car_ids: List[UUID] = Field(default_factory=list, description="Car IDs this part is associated with")
     is_universal: bool = Field(default=False, description="When True, part fits all cars")
-    brand_id: Optional[UUID] = None
+    part_manufacturer_id: Optional[UUID] = None
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
     specifications: Optional[Dict[str, Any]] = None
