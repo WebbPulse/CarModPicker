@@ -1093,31 +1093,23 @@ export interface AdminTableCountsResponse {
   crawl_bucket_error?: string;
 }
 
-/** One per-adapter crawler schedule row (source of truth, reconciled to EventBridge). */
-export interface AdapterSchedule {
+/** Per-adapter retailer tuning (delay, limit, skip flag, default category). */
+export interface CrawlerAdapterConfig {
   id: string;
   adapter_name: string;
-  enabled: boolean;
-  schedule_expression: string;
   delay_sec: number;
   per_run_limit: number | null;
   skip_known_urls: boolean;
   default_category_id: string;
-  last_reconciled_at: string | null;
-  last_reconcile_error: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface AdapterScheduleList {
-  items: AdapterSchedule[];
-  presets: Record<string, string>;
+export interface CrawlerAdapterConfigList {
+  items: CrawlerAdapterConfig[];
 }
 
-export interface AdapterScheduleUpdate {
-  enabled?: boolean;
-  schedule_expression?: string;
-  preset?: 'monthly' | 'weekly' | 'daily';
+export interface CrawlerAdapterConfigUpdate {
   delay_sec?: number;
   per_run_limit?: number | null;
   /** Set true to clear per_run_limit (unlimited). Takes precedence over per_run_limit. */
@@ -1126,14 +1118,50 @@ export interface AdapterScheduleUpdate {
   default_category_id?: string;
 }
 
-export interface AdapterReconcileResult {
-  adapter_name: string;
+/** A user-defined crawler schedule with its adapter membership. */
+export interface CrawlerSchedule {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  schedule_expression: string;
+  last_reconciled_at: string | null;
+  last_reconcile_error: string | null;
+  created_at: string;
+  updated_at: string;
+  adapters: { adapter_name: string }[];
+}
+
+export interface CrawlerScheduleList {
+  items: CrawlerSchedule[];
+  presets: Record<string, string>;
+}
+
+export interface CrawlerScheduleCreate {
+  name: string;
+  description?: string | null;
+  enabled?: boolean;
+  schedule_expression?: string;
+  preset?: 'monthly' | 'weekly' | 'daily';
+  adapters: string[];
+}
+
+export interface CrawlerScheduleUpdate {
+  description?: string | null;
+  enabled?: boolean;
+  schedule_expression?: string;
+  preset?: 'monthly' | 'weekly' | 'daily';
+  adapters?: string[];
+}
+
+export interface CrawlerReconcileResult {
+  schedule_name: string;
   ok: boolean;
   error: string | null;
 }
 
-export interface AdapterReconcileAllResponse {
-  results: AdapterReconcileResult[];
+export interface CrawlerReconcileAllResponse {
+  results: CrawlerReconcileResult[];
 }
 
 export const adminApi = {
@@ -1193,17 +1221,33 @@ export const adminApi = {
   cancelJob: (jobId: string) =>
     apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
 
-  // Per-adapter schedule management (DB-backed, reconciled to EventBridge on save)
-  listAdapterSchedules: () =>
-    apiClient.get<AdapterScheduleList>('/admin/adapter-schedules/'),
-  updateAdapterSchedule: (adapterName: string, body: AdapterScheduleUpdate) =>
-    apiClient.patch<AdapterSchedule>(
-      `/admin/adapter-schedules/${adapterName}`,
+  // Crawler schedules (user-defined, N-to-N with adapters, reconciled to EventBridge)
+  listCrawlerSchedules: () =>
+    apiClient.get<CrawlerScheduleList>('/admin/crawler-schedules/'),
+  createCrawlerSchedule: (body: CrawlerScheduleCreate) =>
+    apiClient.post<CrawlerSchedule>('/admin/crawler-schedules/', body),
+  updateCrawlerSchedule: (scheduleId: string, body: CrawlerScheduleUpdate) =>
+    apiClient.patch<CrawlerSchedule>(
+      `/admin/crawler-schedules/${scheduleId}`,
       body
     ),
-  reconcileAdapterSchedules: () =>
-    apiClient.post<AdapterReconcileAllResponse>(
-      '/admin/adapter-schedules/reconcile'
+  deleteCrawlerSchedule: (scheduleId: string) =>
+    apiClient.delete<void>(`/admin/crawler-schedules/${scheduleId}`),
+  reconcileCrawlerSchedules: () =>
+    apiClient.post<CrawlerReconcileAllResponse>(
+      '/admin/crawler-schedules/reconcile'
+    ),
+
+  // Per-adapter retailer tuning (used by every schedule the adapter is in)
+  listCrawlerAdapterConfigs: () =>
+    apiClient.get<CrawlerAdapterConfigList>('/admin/crawler-adapter-configs/'),
+  updateCrawlerAdapterConfig: (
+    adapterName: string,
+    body: CrawlerAdapterConfigUpdate
+  ) =>
+    apiClient.patch<CrawlerAdapterConfig>(
+      `/admin/crawler-adapter-configs/${adapterName}`,
+      body
     ),
 };
 

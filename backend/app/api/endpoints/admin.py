@@ -21,7 +21,7 @@ from uuid import UUID
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,8 @@ from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
+from app.api.models.crawler_adapter_config import CrawlerAdapterConfig as DBCrawlerAdapterConfig
+from app.api.models.crawler_schedule import CrawlerSchedule as DBCrawlerSchedule
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.part import Part as DBPart
 from app.api.models.part_car import part_cars
@@ -484,19 +486,35 @@ async def delete_all_cars(
 
 
 class CrawlerRunRequest(BaseModel):
-    """Request body for running crawlers."""
+    """
+    Request body for running crawlers.
 
-    adapters: list[str] = Field(
-        ...,
-        description="Adapter names to run (e.g. ['a90shop']). Use ['all'] to run all adapters.",
+    Two shapes are accepted:
+
+    1. **Scheduled** — ``schedule_id`` alone (EventBridge Scheduler payload). The
+       server dereferences the schedule's members and their per-adapter configs.
+    2. **Explicit** — ``adapters`` + ``crawler_default_category_id`` (manual
+       admin runs from the UI or API). Per-adapter knobs can be passed as
+       dicts.
+
+    Mixing the two forms is rejected by a ``model_validator``.
+    """
+
+    schedule_id: Optional[UUID] = Field(
+        default=None,
+        description="ID of a crawler_schedules row. When set, all other fields except crawler_user_id are ignored and sourced from the schedule + adapter configs.",
+    )
+    adapters: Optional[list[str]] = Field(
+        default=None,
+        description="Adapter names to run (e.g. ['a90shop']). Use ['all'] to run all adapters. Required when schedule_id is not set.",
     )
     crawler_user_id: Optional[UUID] = Field(
         default=None,
         description="User ID to attribute crawler-created parts to. Defaults to the crawler service account.",
     )
-    crawler_default_category_id: UUID = Field(
-        ...,
-        description="Category ID for new parts.",
+    crawler_default_category_id: Optional[UUID] = Field(
+        default=None,
+        description="Category ID for new parts. Required when schedule_id is not set.",
     )
     limits: Optional[Dict[str, int]] = Field(
         default=None,
@@ -514,7 +532,11 @@ class CrawlerRunRequest(BaseModel):
         default=None,
         ge=0.5,
         le=60.0,
-        description="Seconds between requests per crawler (default: 2.5). Use 5+ for conservative/large runs.",
+        description="Default delay between requests per crawler (default: 2.5). Use 5+ for conservative/large runs.",
+    )
+    delays: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Per-adapter delay override: {'a90shop': 7.5}. Falls back to delay_sec.",
     )
     crawl_html_save_dir: Optional[str] = Field(
         default=None,
@@ -522,8 +544,28 @@ class CrawlerRunRequest(BaseModel):
     )
     skip_known_urls: bool = Field(
         default=False,
-        description="If True, URLs already in crawled_pages with parse_status='parsed' are skipped before the limit is applied.",
+        description="Default: skip URLs already parsed. Per-adapter overrides via skip_known_urls_by_adapter.",
     )
+    skip_known_urls_by_adapter: Optional[Dict[str, bool]] = Field(
+        default=None,
+        description="Per-adapter override for skip_known_urls.",
+    )
+    default_category_ids: Optional[Dict[str, UUID]] = Field(
+        default=None,
+        description="Per-adapter category override: {'a90shop': <uuid>}. Falls back to crawler_default_category_id.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_shape(self) -> "CrawlerRunRequest":
+        if self.schedule_id is not None:
+            if self.adapters is not None:
+                raise ValueError("Do not pass 'adapters' when using schedule_id; it is derived from the schedule.")
+            return self
+        if not self.adapters:
+            raise ValueError("Either schedule_id or a non-empty adapters list is required.")
+        if self.crawler_default_category_id is None:
+            raise ValueError("crawler_default_category_id is required when schedule_id is not set.")
+        return self
 
 
 @router.get(
@@ -555,6 +597,9 @@ def _launch_ecs_crawler_task(
     delay_sec: float,
     parallel: bool,
     skip_known_urls: bool,
+    delays: Optional[Dict[str, float]] = None,
+    skip_known_urls_by_adapter: Optional[Dict[str, bool]] = None,
+    default_category_ids: Optional[Dict[str, UUID]] = None,
 ) -> str:
     """
     Launch an ECS Fargate task to run the crawler. Returns the ECS task ARN.
@@ -571,7 +616,7 @@ def _launch_ecs_crawler_task(
 
     ecs_client = boto3.client("ecs", region_name=settings.AWS_REGION or None)
 
-    env_overrides = [
+    env_overrides: list[dict[str, str]] = [
         {"name": "JOB_ID", "value": str(job_id)},
         {"name": "CRAWLER_ADAPTERS", "value": ",".join(adapters)},
         {"name": "CRAWLER_DEFAULT_CATEGORY_ID", "value": str(default_category_id)},
@@ -584,6 +629,19 @@ def _launch_ecs_crawler_task(
         env_overrides.append({"name": "CRAWLER_LIMITS", "value": json.dumps(limits)})
     if global_limit is not None:
         env_overrides.append({"name": "CRAWLER_GLOBAL_LIMIT", "value": str(global_limit)})
+    if delays:
+        env_overrides.append({"name": "CRAWLER_DELAYS", "value": json.dumps(delays)})
+    if skip_known_urls_by_adapter:
+        env_overrides.append(
+            {"name": "CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER", "value": json.dumps(skip_known_urls_by_adapter)}
+        )
+    if default_category_ids:
+        env_overrides.append(
+            {
+                "name": "CRAWLER_DEFAULT_CATEGORY_IDS",
+                "value": json.dumps({k: str(v) for k, v in default_category_ids.items()}),
+            }
+        )
 
     subnets = [s.strip() for s in settings.CRAWLER_ECS_SUBNETS.split(",") if s.strip()]
     security_groups = [sg.strip() for sg in settings.CRAWLER_ECS_SECURITY_GROUP.split(",") if sg.strip()]
@@ -632,6 +690,9 @@ async def _run_crawlers_in_process(
     job_id: UUID,
     stop_event: threading.Event,
     skip_known_urls: bool,
+    delays: Optional[Dict[str, float]] = None,
+    skip_known_urls_by_adapter: Optional[Dict[str, bool]] = None,
+    default_category_ids: Optional[Dict[str, UUID]] = None,
 ) -> None:
     """
     Dev-only fallback: run crawlers in an asyncio background thread.
@@ -646,10 +707,13 @@ async def _run_crawlers_in_process(
             global_limit=global_limit,
             parallel=parallel,
             delay_sec=delay_sec,
+            delays=delays,
             user_id=user_id,
             default_category_id=default_category_id,
+            default_category_ids=default_category_ids,
             stop_event=stop_event,
             skip_known_urls=skip_known_urls,
+            skip_known_urls_by_adapter=skip_known_urls_by_adapter,
         )
         db = SessionLocal()
         try:
@@ -725,28 +789,95 @@ async def run_crawlers_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No crawler service account found. Restart the app to create it.",
             )
-    cat = db.query(DBCategory).filter(DBCategory.id == body.crawler_default_category_id).first()
-    if not cat or not cat.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"crawler_default_category_id={body.crawler_default_category_id}: not found or inactive.",
-        )
+    # Resolve the concrete run shape — either from a schedule_id (EB firing or
+    # UI-dispatched scheduled run) or from the explicit body. A schedule's
+    # ``enabled`` flag is intentionally NOT re-checked here: EventBridge has
+    # already made the authoritative "fire" decision by the time we see it.
+    adapters: list[str]
+    delay_sec: float = body.delay_sec if body.delay_sec is not None else DEFAULT_REQUEST_DELAY_SEC
+    limits: Optional[Dict[str, int]] = body.limits
+    delays: Optional[Dict[str, float]] = body.delays
+    skip_known_urls: bool = body.skip_known_urls
+    skip_known_urls_by_adapter: Optional[Dict[str, bool]] = body.skip_known_urls_by_adapter
+    default_category_id: UUID
+    default_category_ids: Optional[Dict[str, UUID]] = body.default_category_ids
+    parallel: bool = body.parallel
 
-    adapters = body.adapters
-    if adapters == ["all"]:
-        adapters = list(ADAPTER_REGISTRY.keys())
-    elif not adapters:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="adapters cannot be empty. Use ['all'] to run all crawlers.",
+    if body.schedule_id is not None:
+        sched = db.query(DBCrawlerSchedule).filter(DBCrawlerSchedule.id == body.schedule_id).first()
+        if not sched:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"schedule_id={body.schedule_id}: not found.",
+            )
+        member_names = [a.adapter_name for a in sched.adapters]
+        if not member_names:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Schedule '{sched.name}' has no adapters.",
+            )
+        configs = db.query(DBCrawlerAdapterConfig).filter(DBCrawlerAdapterConfig.adapter_name.in_(member_names)).all()
+        configs_by_name = {c.adapter_name: c for c in configs}
+        missing = [n for n in member_names if n not in configs_by_name]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing crawler_adapter_configs for: {missing}. Restart the app to re-seed.",
+            )
+        adapters = [n for n in member_names if n in ADAPTER_REGISTRY]
+        unknown = [n for n in member_names if n not in ADAPTER_REGISTRY]
+        if unknown:
+            logger.warning(
+                "Schedule '%s' references unregistered adapter(s) %s; skipping.",
+                sched.name,
+                unknown,
+            )
+        if not adapters:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Schedule '{sched.name}' has no currently-registered adapters.",
+            )
+        delays = {n: configs_by_name[n].delay_sec for n in adapters}
+        skip_known_urls_by_adapter = {n: configs_by_name[n].skip_known_urls for n in adapters}
+        default_category_ids = {n: configs_by_name[n].default_category_id for n in adapters}
+        per_adapter_limits: Dict[str, int] = {}
+        for n in adapters:
+            lim = configs_by_name[n].per_run_limit
+            if lim is not None:
+                per_adapter_limits[n] = lim
+        limits = per_adapter_limits or None
+        default_category_id = configs_by_name[adapters[0]].default_category_id
+        parallel = True
+        logger.info(
+            "Dispatching schedule '%s' (id=%s) with adapters=%s",
+            sched.name,
+            sched.id,
+            adapters,
         )
-
-    invalid = [a for a in adapters if a not in ADAPTER_REGISTRY]
-    if invalid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown adapter(s): {invalid}. Available: {list(ADAPTER_REGISTRY.keys())}",
-        )
+    else:
+        if body.crawler_default_category_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="crawler_default_category_id is required when schedule_id is not set.",
+            )
+        cat = db.query(DBCategory).filter(DBCategory.id == body.crawler_default_category_id).first()
+        if not cat or not cat.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"crawler_default_category_id={body.crawler_default_category_id}: not found or inactive.",
+            )
+        raw = body.adapters or []
+        if raw == ["all"]:
+            adapters = list(ADAPTER_REGISTRY.keys())
+        else:
+            adapters = raw
+        invalid = [a for a in adapters if a not in ADAPTER_REGISTRY]
+        if invalid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown adapter(s): {invalid}. Available: {list(ADAPTER_REGISTRY.keys())}",
+            )
+        default_category_id = body.crawler_default_category_id
 
     logger.info(
         "Crawler job starting: adapters=%s triggered_by=%s user=%s",
@@ -755,21 +886,25 @@ async def run_crawlers_endpoint(
         acting_user_id,
     )
 
-    delay_sec = body.delay_sec if body.delay_sec is not None else DEFAULT_REQUEST_DELAY_SEC
-
     job = job_service.create_job(
         db,
         job_type="crawler_run",
         triggered_by=triggered_by,
         params={
             "adapters": adapters,
-            "limits": body.limits,
+            "limits": limits,
             "global_limit": body.global_limit,
-            "parallel": body.parallel,
+            "parallel": parallel,
             "delay_sec": delay_sec,
+            "delays": delays,
             "crawler_user_id": str(crawler_user.id),
-            "default_category_id": str(body.crawler_default_category_id),
-            "skip_known_urls": body.skip_known_urls,
+            "default_category_id": str(default_category_id),
+            "default_category_ids": (
+                {k: str(v) for k, v in default_category_ids.items()} if default_category_ids else None
+            ),
+            "skip_known_urls": skip_known_urls,
+            "skip_known_urls_by_adapter": skip_known_urls_by_adapter,
+            "schedule_id": str(body.schedule_id) if body.schedule_id else None,
         },
         created_by_user_id=acting_user_id,
     )
@@ -780,13 +915,16 @@ async def run_crawlers_endpoint(
             task_arn = _launch_ecs_crawler_task(
                 job_id=job.id,
                 adapters=adapters,
-                default_category_id=body.crawler_default_category_id,
+                default_category_id=default_category_id,
                 user_id=crawler_user.id,
-                limits=body.limits,
+                limits=limits,
                 global_limit=body.global_limit,
                 delay_sec=delay_sec,
-                parallel=body.parallel,
-                skip_known_urls=body.skip_known_urls,
+                parallel=parallel,
+                skip_known_urls=skip_known_urls,
+                delays=delays,
+                skip_known_urls_by_adapter=skip_known_urls_by_adapter,
+                default_category_ids=default_category_ids,
             )
             # Store the ECS task ARN so the cancel endpoint can stop it.
             job.params = {**(job.params or {}), "ecs_task_arn": task_arn}
@@ -807,15 +945,18 @@ async def run_crawlers_endpoint(
         task = asyncio.create_task(
             _run_crawlers_in_process(
                 adapters,
-                limits=body.limits,
+                limits=limits,
                 global_limit=body.global_limit,
-                parallel=body.parallel,
+                parallel=parallel,
                 delay_sec=delay_sec,
                 user_id=crawler_user.id,
-                default_category_id=body.crawler_default_category_id,
+                default_category_id=default_category_id,
                 job_id=job.id,
                 stop_event=stop_event,
-                skip_known_urls=body.skip_known_urls,
+                skip_known_urls=skip_known_urls,
+                delays=delays,
+                skip_known_urls_by_adapter=skip_known_urls_by_adapter,
+                default_category_ids=default_category_ids,
             )
         )
         _job_tasks[job.id] = task

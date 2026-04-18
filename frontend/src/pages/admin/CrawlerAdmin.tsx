@@ -9,12 +9,15 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import type {
-  AdapterSchedule,
-  AdapterScheduleUpdate,
   BackgroundJob,
   BackgroundJobList,
+  CrawlerAdapterConfig,
+  CrawlerAdapterConfigUpdate,
   CrawlerRunRequest,
   CrawlerRunResponse,
+  CrawlerSchedule,
+  CrawlerScheduleCreate,
+  CrawlerScheduleUpdate,
   CrawlerServiceAccount,
   RescrapeArchivesQueuedResponse,
   RescrapeArchivesRequest,
@@ -317,10 +320,9 @@ function CrawlerAdmin() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-  // Per-adapter crawler schedules (DB-backed, reconciled to EventBridge on save)
-  const [adapterSchedules, setAdapterSchedules] = useState<AdapterSchedule[]>(
-    []
-  );
+  // User-defined crawler schedules (N schedules ↔ M adapters; reconciled on
+  // enabled/expression change, not on membership change).
+  const [schedules, setSchedules] = useState<CrawlerSchedule[]>([]);
   const [schedulePresets, setSchedulePresets] = useState<
     Record<string, string>
   >({});
@@ -329,11 +331,29 @@ function CrawlerAdmin() {
   >({});
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
   const [isSchedulesUnavailable, setIsSchedulesUnavailable] = useState(false);
-  const [savingAdapter, setSavingAdapter] = useState<string | null>(null);
+  const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
   const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(
     null
   );
   const [isReconcilingAll, setIsReconcilingAll] = useState(false);
+
+  // Create-schedule form state
+  const [isCreatingSchedule, setIsCreatingSchedule] = useState(false);
+  const [newScheduleName, setNewScheduleName] = useState('');
+  const [newSchedulePreset, setNewSchedulePreset] = useState<
+    'monthly' | 'weekly' | 'daily' | 'custom'
+  >('monthly');
+  const [newScheduleCustomExpression, setNewScheduleCustomExpression] =
+    useState('');
+  const [newScheduleAdapters, setNewScheduleAdapters] = useState<string[]>([]);
+
+  // Per-adapter retailer tuning (separate from schedule membership).
+  const [adapterConfigs, setAdapterConfigs] = useState<CrawlerAdapterConfig[]>(
+    []
+  );
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
+  const [savingConfigName, setSavingConfigName] = useState<string | null>(null);
+  const [configSaveError, setConfigSaveError] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -393,12 +413,12 @@ function CrawlerAdmin() {
     []
   );
 
-  const fetchAdapterSchedules = useCallback(async () => {
+  const fetchSchedules = useCallback(async () => {
     if (!user?.is_admin) return;
     setIsLoadingSchedules(true);
     try {
-      const res = await adminApi.listAdapterSchedules();
-      setAdapterSchedules(res.data.items);
+      const res = await adminApi.listCrawlerSchedules();
+      setSchedules(res.data.items);
       setSchedulePresets(res.data.presets);
       setScheduleDrafts(
         Object.fromEntries(
@@ -408,7 +428,7 @@ function CrawlerAdmin() {
               res.data.presets
             );
             return [
-              row.adapter_name,
+              row.id,
               {
                 preset,
                 customExpression:
@@ -426,10 +446,21 @@ function CrawlerAdmin() {
     }
   }, [user?.is_admin, presetForExpression]);
 
-  const mergeScheduleRow = (row: AdapterSchedule) => {
-    setAdapterSchedules((prev) =>
-      prev.map((r) => (r.adapter_name === row.adapter_name ? row : r))
-    );
+  const fetchAdapterConfigs = useCallback(async () => {
+    if (!user?.is_admin) return;
+    setIsLoadingConfigs(true);
+    try {
+      const res = await adminApi.listCrawlerAdapterConfigs();
+      setAdapterConfigs(res.data.items);
+    } catch {
+      setAdapterConfigs([]);
+    } finally {
+      setIsLoadingConfigs(false);
+    }
+  }, [user?.is_admin]);
+
+  const mergeScheduleRow = (row: CrawlerSchedule) => {
+    setSchedules((prev) => prev.map((r) => (r.id === row.id ? row : r)));
     setScheduleDrafts((prev) => {
       const preset = presetForExpression(
         row.schedule_expression,
@@ -437,7 +468,7 @@ function CrawlerAdmin() {
       );
       return {
         ...prev,
-        [row.adapter_name]: {
+        [row.id]: {
           preset,
           customExpression: preset === 'custom' ? row.schedule_expression : '',
         },
@@ -446,22 +477,79 @@ function CrawlerAdmin() {
   };
 
   const handleSaveSchedule = async (
-    adapterName: string,
-    patch: AdapterScheduleUpdate
+    scheduleId: string,
+    patch: CrawlerScheduleUpdate
   ) => {
-    setSavingAdapter(adapterName);
+    setSavingScheduleId(scheduleId);
     setScheduleSaveError(null);
     try {
-      const res = await adminApi.updateAdapterSchedule(adapterName, patch);
+      const res = await adminApi.updateCrawlerSchedule(scheduleId, patch);
       mergeScheduleRow(res.data);
     } catch (e) {
       setScheduleSaveError(
-        e instanceof Error
-          ? `${adapterName}: ${e.message}`
-          : `${adapterName}: failed to update schedule.`
+        e instanceof Error ? e.message : 'Failed to update schedule.'
       );
     } finally {
-      setSavingAdapter(null);
+      setSavingScheduleId(null);
+    }
+  };
+
+  const handleToggleAdapterInSchedule = async (
+    row: CrawlerSchedule,
+    adapterName: string
+  ) => {
+    const current = row.adapters.map((a) => a.adapter_name);
+    const next = current.includes(adapterName)
+      ? current.filter((n) => n !== adapterName)
+      : [...current, adapterName];
+    await handleSaveSchedule(row.id, { adapters: next });
+  };
+
+  const handleCreateSchedule = async () => {
+    const name = newScheduleName.trim();
+    if (!name) return;
+    setIsCreatingSchedule(true);
+    setScheduleSaveError(null);
+    const body: CrawlerScheduleCreate = {
+      name,
+      enabled: false,
+      adapters: newScheduleAdapters,
+      ...(newSchedulePreset === 'custom'
+        ? { schedule_expression: newScheduleCustomExpression.trim() }
+        : { preset: newSchedulePreset }),
+    };
+    try {
+      await adminApi.createCrawlerSchedule(body);
+      setNewScheduleName('');
+      setNewSchedulePreset('monthly');
+      setNewScheduleCustomExpression('');
+      setNewScheduleAdapters([]);
+      await fetchSchedules();
+    } catch (e) {
+      setScheduleSaveError(
+        e instanceof Error ? e.message : 'Failed to create schedule.'
+      );
+    } finally {
+      setIsCreatingSchedule(false);
+    }
+  };
+
+  const handleDeleteSchedule = async (row: CrawlerSchedule) => {
+    if (
+      !window.confirm(`Delete schedule '${row.name}'? This cannot be undone.`)
+    )
+      return;
+    setSavingScheduleId(row.id);
+    setScheduleSaveError(null);
+    try {
+      await adminApi.deleteCrawlerSchedule(row.id);
+      setSchedules((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e) {
+      setScheduleSaveError(
+        e instanceof Error ? e.message : 'Failed to delete schedule.'
+      );
+    } finally {
+      setSavingScheduleId(null);
     }
   };
 
@@ -469,8 +557,8 @@ function CrawlerAdmin() {
     setIsReconcilingAll(true);
     setScheduleSaveError(null);
     try {
-      await adminApi.reconcileAdapterSchedules();
-      await fetchAdapterSchedules();
+      await adminApi.reconcileCrawlerSchedules();
+      await fetchSchedules();
     } catch (e) {
       setScheduleSaveError(
         e instanceof Error ? e.message : 'Failed to reconcile schedules.'
@@ -480,11 +568,34 @@ function CrawlerAdmin() {
     }
   };
 
+  const handleSaveAdapterConfig = async (
+    adapterName: string,
+    patch: CrawlerAdapterConfigUpdate
+  ) => {
+    setSavingConfigName(adapterName);
+    setConfigSaveError(null);
+    try {
+      const res = await adminApi.updateCrawlerAdapterConfig(adapterName, patch);
+      setAdapterConfigs((prev) =>
+        prev.map((r) => (r.adapter_name === adapterName ? res.data : r))
+      );
+    } catch (e) {
+      setConfigSaveError(
+        e instanceof Error
+          ? `${adapterName}: ${e.message}`
+          : `${adapterName}: failed to update tuning.`
+      );
+    } finally {
+      setSavingConfigName(null);
+    }
+  };
+
   useEffect(() => {
     void fetchCrawlers();
     void fetchJobs();
-    void fetchAdapterSchedules();
-  }, [fetchCrawlers, fetchJobs, fetchAdapterSchedules]);
+    void fetchSchedules();
+    void fetchAdapterConfigs();
+  }, [fetchCrawlers, fetchJobs, fetchSchedules, fetchAdapterConfigs]);
 
   // Poll jobs every 5 s while any job is running
   useEffect(() => {
@@ -954,17 +1065,17 @@ function CrawlerAdmin() {
 
         {/* Right column: Schedule + Jobs */}
         <div className="flex flex-col gap-4 mt-4 xl:mt-0">
-          {/* Per-Adapter Crawler Schedules */}
+          {/* Crawler Schedules */}
           <Card>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold text-white">
-                  Adapter Schedules
+                  Crawler Schedules
                 </h2>
                 <p className="text-sm text-gray-400 mt-0.5">
-                  One EventBridge schedule per adapter. Each row stores its own
-                  cadence, per-page delay, and per-run limit — tune these to
-                  stay unbanned. Saves reconcile to AWS immediately.
+                  Each schedule fires one EventBridge trigger and runs all its
+                  member adapters in parallel. Mix adapters freely —
+                  per-retailer tuning below travels with the adapter.
                 </p>
               </div>
               <ActionButton
@@ -997,26 +1108,109 @@ function CrawlerAdmin() {
               </div>
             )}
 
-            {isLoadingSchedules && adapterSchedules.length === 0 ? (
+            {/* Create new schedule */}
+            <div className="mb-4 p-3 rounded-lg border border-dashed border-gray-700 bg-gray-900/30">
+              <p className="text-xs font-medium text-gray-400 mb-2">
+                New schedule
+              </p>
+              <div className="space-y-2">
+                <Input
+                  id="new-schedule-name"
+                  placeholder="name (lowercase-slug, max 26 chars)"
+                  value={newScheduleName}
+                  onChange={(e) => setNewScheduleName(e.target.value)}
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {(['monthly', 'weekly', 'daily', 'custom'] as const).map(
+                    (p) => (
+                      <button
+                        key={p}
+                        onClick={() => setNewSchedulePreset(p)}
+                        className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
+                          newSchedulePreset === p
+                            ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                        }`}
+                      >
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    )
+                  )}
+                </div>
+                {newSchedulePreset === 'custom' && (
+                  <input
+                    type="text"
+                    value={newScheduleCustomExpression}
+                    onChange={(e) =>
+                      setNewScheduleCustomExpression(e.target.value)
+                    }
+                    placeholder="cron(0 2 1 * ? *)"
+                    className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                  />
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {crawlerAdapters.map((name) => {
+                    const checked = newScheduleAdapters.includes(name);
+                    return (
+                      <button
+                        key={name}
+                        onClick={() =>
+                          setNewScheduleAdapters((prev) =>
+                            checked
+                              ? prev.filter((n) => n !== name)
+                              : [...prev, name]
+                          )
+                        }
+                        className={`px-2.5 py-0.5 text-xs rounded-full border font-mono transition-colors ${
+                          checked
+                            ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
+                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <ActionButton
+                  onClick={() => void handleCreateSchedule()}
+                  disabled={
+                    isCreatingSchedule ||
+                    !newScheduleName.trim() ||
+                    newScheduleAdapters.length === 0 ||
+                    (newSchedulePreset === 'custom' &&
+                      !newScheduleCustomExpression.trim())
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
+                >
+                  {isCreatingSchedule ? 'Creating…' : 'Create schedule'}
+                </ActionButton>
+              </div>
+            </div>
+
+            {isLoadingSchedules && schedules.length === 0 ? (
               <div className="flex justify-center py-6">
                 <LoadingSpinner size="sm" />
               </div>
-            ) : adapterSchedules.length === 0 ? (
+            ) : schedules.length === 0 ? (
               <p className="text-sm text-gray-500 py-3">
-                No adapters registered yet.
+                No schedules yet — create one above.
               </p>
             ) : (
               <div className="space-y-3">
-                {adapterSchedules.map((row) => {
-                  const draft = scheduleDrafts[row.adapter_name] ?? {
+                {schedules.map((row) => {
+                  const draft = scheduleDrafts[row.id] ?? {
                     preset: presetForExpression(
                       row.schedule_expression,
                       schedulePresets
                     ),
                     customExpression: '',
                   };
-                  const isSaving = savingAdapter === row.adapter_name;
+                  const isSaving = savingScheduleId === row.id;
                   const reconcileFailed = !!row.last_reconcile_error;
+                  const memberNames = new Set(
+                    row.adapters.map((a) => a.adapter_name)
+                  );
                   return (
                     <div
                       key={row.id}
@@ -1025,7 +1219,7 @@ function CrawlerAdmin() {
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-100 font-mono truncate">
-                            {row.adapter_name}
+                            {row.name}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {row.enabled ? (
@@ -1041,7 +1235,7 @@ function CrawlerAdmin() {
                         </div>
                         <button
                           onClick={() =>
-                            void handleSaveSchedule(row.adapter_name, {
+                            void handleSaveSchedule(row.id, {
                               enabled: !row.enabled,
                             })
                           }
@@ -1059,6 +1253,37 @@ function CrawlerAdmin() {
                       </div>
 
                       <div className="space-y-3">
+                        {/* Adapter membership chips */}
+                        <div>
+                          <p className="text-xs font-medium text-gray-400 mb-1.5">
+                            Adapters ({row.adapters.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {crawlerAdapters.map((name) => {
+                              const selected = memberNames.has(name);
+                              return (
+                                <button
+                                  key={name}
+                                  onClick={() =>
+                                    void handleToggleAdapterInSchedule(
+                                      row,
+                                      name
+                                    )
+                                  }
+                                  disabled={isSaving}
+                                  className={`px-2.5 py-0.5 text-xs rounded-full border font-mono transition-colors disabled:opacity-50 ${
+                                    selected
+                                      ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
+                                      : 'border-gray-600 text-gray-500 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
                         {/* Interval pills */}
                         <div>
                           <p className="text-xs font-medium text-gray-400 mb-1.5">
@@ -1072,7 +1297,7 @@ function CrawlerAdmin() {
                                   onClick={() =>
                                     setScheduleDrafts((prev) => ({
                                       ...prev,
-                                      [row.adapter_name]: {
+                                      [row.id]: {
                                         preset: p,
                                         customExpression: '',
                                       },
@@ -1092,7 +1317,7 @@ function CrawlerAdmin() {
                               onClick={() =>
                                 setScheduleDrafts((prev) => ({
                                   ...prev,
-                                  [row.adapter_name]: {
+                                  [row.id]: {
                                     preset: 'custom',
                                     customExpression:
                                       draft.customExpression ||
@@ -1116,7 +1341,7 @@ function CrawlerAdmin() {
                               onChange={(e) =>
                                 setScheduleDrafts((prev) => ({
                                   ...prev,
-                                  [row.adapter_name]: {
+                                  [row.id]: {
                                     ...draft,
                                     customExpression: e.target.value,
                                   },
@@ -1134,132 +1359,17 @@ function CrawlerAdmin() {
                             )}
                         </div>
 
-                        {/* Delay + limit + skip + category */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label
-                              htmlFor={`delay-${row.adapter_name}`}
-                              className="block text-xs font-medium text-gray-400 mb-1"
-                            >
-                              Delay (s)
-                            </label>
-                            <select
-                              id={`delay-${row.adapter_name}`}
-                              value={String(row.delay_sec)}
-                              onChange={(e) =>
-                                void handleSaveSchedule(row.adapter_name, {
-                                  delay_sec: Number(e.target.value),
-                                })
-                              }
-                              disabled={isSaving}
-                              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                            >
-                              {[2.5, 5, 10, 15, 30].map((v) => (
-                                <option key={v} value={String(v)}>
-                                  {v}s
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label
-                              htmlFor={`limit-${row.adapter_name}`}
-                              className="block text-xs font-medium text-gray-400 mb-1"
-                            >
-                              Per-run limit
-                            </label>
-                            <Input
-                              id={`limit-${row.adapter_name}`}
-                              type="number"
-                              min="1"
-                              value={
-                                row.per_run_limit == null
-                                  ? ''
-                                  : String(row.per_run_limit)
-                              }
-                              placeholder="Unlimited"
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                if (raw === '') {
-                                  if (row.per_run_limit != null) {
-                                    void handleSaveSchedule(row.adapter_name, {
-                                      clear_per_run_limit: true,
-                                    });
-                                  }
-                                } else {
-                                  const n = Number(raw);
-                                  if (
-                                    Number.isFinite(n) &&
-                                    n >= 1 &&
-                                    n !== row.per_run_limit
-                                  ) {
-                                    void handleSaveSchedule(row.adapter_name, {
-                                      per_run_limit: n,
-                                    });
-                                  }
-                                }
-                              }}
-                              disabled={isSaving}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
-                          <label className="inline-flex items-center gap-2 text-xs text-gray-300">
-                            <input
-                              type="checkbox"
-                              checked={row.skip_known_urls}
-                              onChange={(e) =>
-                                void handleSaveSchedule(row.adapter_name, {
-                                  skip_known_urls: e.target.checked,
-                                })
-                              }
-                              disabled={isSaving}
-                              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                            />
-                            Skip URLs already archived as parsed
-                          </label>
-
-                          <div>
-                            <label
-                              htmlFor={`cat-${row.adapter_name}`}
-                              className="block text-xs font-medium text-gray-400 mb-1"
-                            >
-                              Default category (new parts)
-                            </label>
-                            <select
-                              id={`cat-${row.adapter_name}`}
-                              value={row.default_category_id}
-                              onChange={(e) =>
-                                void handleSaveSchedule(row.adapter_name, {
-                                  default_category_id: e.target.value,
-                                })
-                              }
-                              disabled={
-                                isSaving || crawlerCategories.length === 0
-                              }
-                              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                            >
-                              {crawlerCategories.map((c) => (
-                                <option key={c.id} value={String(c.id)}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Save interval row */}
-                        {draft.preset === 'custom' ||
-                        presetForExpression(
-                          row.schedule_expression,
-                          schedulePresets
-                        ) !== draft.preset ? (
-                          <div className="flex items-center gap-2 pt-1">
+                        {/* Save interval / delete row */}
+                        <div className="flex items-center gap-2 pt-1">
+                          {draft.preset === 'custom' ||
+                          presetForExpression(
+                            row.schedule_expression,
+                            schedulePresets
+                          ) !== draft.preset ? (
                             <ActionButton
                               onClick={() =>
                                 void handleSaveSchedule(
-                                  row.adapter_name,
+                                  row.id,
                                   draft.preset === 'custom'
                                     ? {
                                         schedule_expression:
@@ -1282,8 +1392,15 @@ function CrawlerAdmin() {
                             >
                               {isSaving ? 'Saving…' : 'Save interval'}
                             </ActionButton>
-                          </div>
-                        ) : null}
+                          ) : null}
+                          <button
+                            onClick={() => void handleDeleteSchedule(row)}
+                            disabled={isSaving}
+                            className="ml-auto text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
 
                         {/* Reconcile status */}
                         <div className="text-xs text-gray-500 pt-1 border-t border-gray-700/50">
@@ -1301,6 +1418,165 @@ function CrawlerAdmin() {
                           ) : (
                             <span>Not yet reconciled to AWS.</span>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Adapter Tuning */}
+          <Card>
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-white">
+                Adapter Tuning
+              </h2>
+              <p className="text-sm text-gray-400 mt-0.5">
+                Per-retailer request delay, run limit, and default category.
+                Edits take effect on the next run of any schedule this adapter
+                is a member of — no AWS reconcile needed.
+              </p>
+            </div>
+
+            {configSaveError && (
+              <div className="mb-4">
+                <ErrorAlert message={configSaveError} />
+              </div>
+            )}
+
+            {isLoadingConfigs && adapterConfigs.length === 0 ? (
+              <div className="flex justify-center py-6">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : adapterConfigs.length === 0 ? (
+              <p className="text-sm text-gray-500 py-3">
+                No adapters registered yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {adapterConfigs.map((row) => {
+                  const isSaving = savingConfigName === row.adapter_name;
+                  return (
+                    <div
+                      key={row.id}
+                      className="p-3 rounded-lg border border-gray-700 bg-gray-900/40"
+                    >
+                      <p className="text-sm font-medium text-gray-100 font-mono mb-3">
+                        {row.adapter_name}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label
+                            htmlFor={`tune-delay-${row.adapter_name}`}
+                            className="block text-xs font-medium text-gray-400 mb-1"
+                          >
+                            Delay (s)
+                          </label>
+                          <select
+                            id={`tune-delay-${row.adapter_name}`}
+                            value={String(row.delay_sec)}
+                            onChange={(e) =>
+                              void handleSaveAdapterConfig(row.adapter_name, {
+                                delay_sec: Number(e.target.value),
+                              })
+                            }
+                            disabled={isSaving}
+                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                          >
+                            {[2.5, 5, 10, 15, 30].map((v) => (
+                              <option key={v} value={String(v)}>
+                                {v}s
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label
+                            htmlFor={`tune-limit-${row.adapter_name}`}
+                            className="block text-xs font-medium text-gray-400 mb-1"
+                          >
+                            Per-run limit
+                          </label>
+                          <Input
+                            id={`tune-limit-${row.adapter_name}`}
+                            type="number"
+                            min="1"
+                            value={
+                              row.per_run_limit == null
+                                ? ''
+                                : String(row.per_run_limit)
+                            }
+                            placeholder="Unlimited"
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              if (raw === '') {
+                                if (row.per_run_limit != null) {
+                                  void handleSaveAdapterConfig(
+                                    row.adapter_name,
+                                    { clear_per_run_limit: true }
+                                  );
+                                }
+                              } else {
+                                const n = Number(raw);
+                                if (
+                                  Number.isFinite(n) &&
+                                  n >= 1 &&
+                                  n !== row.per_run_limit
+                                ) {
+                                  void handleSaveAdapterConfig(
+                                    row.adapter_name,
+                                    { per_run_limit: n }
+                                  );
+                                }
+                              }
+                            }}
+                            disabled={isSaving}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 mt-3">
+                        <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={row.skip_known_urls}
+                            onChange={(e) =>
+                              void handleSaveAdapterConfig(row.adapter_name, {
+                                skip_known_urls: e.target.checked,
+                              })
+                            }
+                            disabled={isSaving}
+                            className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                          />
+                          Skip URLs already archived as parsed
+                        </label>
+                        <div>
+                          <label
+                            htmlFor={`tune-cat-${row.adapter_name}`}
+                            className="block text-xs font-medium text-gray-400 mb-1"
+                          >
+                            Default category (new parts)
+                          </label>
+                          <select
+                            id={`tune-cat-${row.adapter_name}`}
+                            value={row.default_category_id}
+                            onChange={(e) =>
+                              void handleSaveAdapterConfig(row.adapter_name, {
+                                default_category_id: e.target.value,
+                              })
+                            }
+                            disabled={
+                              isSaving || crawlerCategories.length === 0
+                            }
+                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                          >
+                            {crawlerCategories.map((c) => (
+                              <option key={c.id} value={String(c.id)}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     </div>
