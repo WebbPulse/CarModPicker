@@ -231,6 +231,5 @@
   ],
   "cursorpyright.analysis.typeCheckingMode": "standard",
   "cursorpyright.analysis.useLibraryCodeForTypes": true,
-  "python-envs.defaultEnvManager": "ms-python.python:pyenv",
   "python-envs.pythonProjects": []
 }

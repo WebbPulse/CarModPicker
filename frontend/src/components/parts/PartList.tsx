@@ -672,7 +672,7 @@ function PartList({
                 )}
                 {visibleColumns.includes('part_manufacturer') && (
                   <SortableTh {...sortableThProps} column="part_manufacturer">
-                    PartManufacturer
+                    Part Manufacturer
                   </SortableTh>
                 )}
                 {visibleColumns.includes('part_number') && (
@@ -912,7 +912,7 @@ function PartList({
                           {part.part_manufacturer && (
                             <span className="text-gray-400">
                               <span className="text-gray-500">
-                                PartManufacturer:
+                                Part Manufacturer:
                               </span>{' '}
                               {part.part_manufacturer}
                             </span>
