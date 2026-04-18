@@ -1116,9 +1116,17 @@ function CrawlerAdmin() {
               <div className="space-y-2">
                 <Input
                   id="new-schedule-name"
-                  placeholder="name (lowercase-slug, max 26 chars)"
+                  placeholder="e.g. retailers-daily (letters, digits, hyphens)"
                   value={newScheduleName}
-                  onChange={(e) => setNewScheduleName(e.target.value)}
+                  onChange={(e) =>
+                    setNewScheduleName(
+                      e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, '-')
+                        .replace(/^-+/, '')
+                        .slice(0, 26)
+                    )
+                  }
                 />
                 <div className="flex flex-wrap gap-1.5">
                   {(['monthly', 'weekly', 'daily', 'custom'] as const).map(
