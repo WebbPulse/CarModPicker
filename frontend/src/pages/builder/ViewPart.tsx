@@ -525,7 +525,7 @@ function ViewPart() {
             ) : (
               <p className="text-gray-500 italic">Not linked to any car yet.</p>
             )}
-            <p className="mt-2 text-xs text-amber-300/90">
+            <p className="mt-2 border-l-2 border-gray-600 pl-2 text-xs text-gray-400">
               Fitment info is community-sourced and may be incomplete or
               inaccurate. Always verify compatibility with the manufacturer or a
               trusted shop before purchasing.
