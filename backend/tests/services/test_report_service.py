@@ -116,7 +116,7 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT, description="Inappropriate")
-        report = service.create_report(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, report_data, logger)
+        report = service.create_report(db_session, EntityType.PART, part.id, test_user.id, report_data, logger)
 
         assert report.entity_type == "part"
         assert report.entity_id == part.id
@@ -299,7 +299,7 @@ class TestReportService:
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
         report_data2 = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT)
         service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
-        service.create_report(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, report_data2, logger)
+        service.create_report(db_session, EntityType.PART, part.id, test_user.id, report_data2, logger)
 
         # Get reports filtered by entity type
         reports = service.get_reports(db_session, entity_type=EntityType.BUILD_LIST)
