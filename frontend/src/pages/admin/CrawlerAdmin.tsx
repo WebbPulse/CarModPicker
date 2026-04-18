@@ -1258,19 +1258,20 @@ function CrawlerAdmin() {
                           <div className="flex items-center gap-2 pt-1">
                             <ActionButton
                               onClick={() =>
-                                void handleSaveSchedule(row.adapter_name, {
-                                  preset:
-                                    draft.preset === 'custom'
-                                      ? undefined
-                                      : (draft.preset as
+                                void handleSaveSchedule(
+                                  row.adapter_name,
+                                  draft.preset === 'custom'
+                                    ? {
+                                        schedule_expression:
+                                          draft.customExpression,
+                                      }
+                                    : {
+                                        preset: draft.preset as
                                           | 'monthly'
                                           | 'weekly'
-                                          | 'daily'),
-                                  schedule_expression:
-                                    draft.preset === 'custom'
-                                      ? draft.customExpression
-                                      : undefined,
-                                })
+                                          | 'daily',
+                                      }
+                                )
                               }
                               disabled={
                                 isSaving ||

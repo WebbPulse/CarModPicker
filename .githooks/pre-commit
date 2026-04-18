@@ -37,7 +37,7 @@ if [ -n "$PY_FILES" ]; then
   fi
 fi
 
-# ─── Frontend: Prettier + ESLint ─────────────────────────────────────────────
+# ─── Frontend: Prettier + ESLint + tsc ───────────────────────────────────────
 
 TS_FILES=$(staged_files_matching '^frontend/src/.*\.(ts|tsx|css|json)$')
 
@@ -50,6 +50,13 @@ if [ -n "$TS_FILES" ]; then
     (cd "$REPO_ROOT/frontend" && echo "$TS_LINT" | sed 's|^frontend/||' | xargs npx eslint --fix --max-warnings=0 2>/dev/null || true)
   fi
   re_stage $TS_FILES
+
+  # Full-project type-check — tsc is project-wide, so we can't scope to staged
+  # files. Mirrors the `npm run type-check` step in frontend-ci.yml.
+  if [ -n "$TS_LINT" ]; then
+    echo "▶ tsc --noEmit (frontend)"
+    (cd "$REPO_ROOT/frontend" && npm run -s type-check)
+  fi
 fi
 
 echo "✓ pre-commit checks passed"
