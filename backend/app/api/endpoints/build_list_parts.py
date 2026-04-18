@@ -28,8 +28,8 @@ from app.api.schemas.build_list_part import (
 from app.api.schemas.part import PartRead
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
-    find_part_by_brand_and_part_number,
     find_part_by_gtin,
+    find_part_by_part_manufacturer_and_part_number,
     find_part_by_product_url,
     get_best_listing_for_part,
     normalize_gtin,
@@ -260,31 +260,33 @@ async def create_part_and_add_to_build_list(
 
     _validate_phase_belongs_to_build_list(db, getattr(request, "build_list_phase_id", None), build_list_id)
 
-    # Dedup: find existing part by URL, brand+part_number, or GTIN
+    # Dedup: find existing part by URL, part_manufacturer+part_number, or GTIN
     part_by_url: Optional[DBPart] = None
-    part_by_brand: Optional[DBPart] = None
+    part_by_part_manufacturer: Optional[DBPart] = None
     part_by_gtin: Optional[DBPart] = None
     if request.product_url and request.product_url.strip():
         part_by_url = find_part_by_product_url(db, request.product_url)
-    if request.brand_id and request.part_number and request.part_number.strip():
-        part_by_brand = find_part_by_brand_and_part_number(db, request.brand_id, request.part_number)
+    if request.part_manufacturer_id and request.part_number and request.part_number.strip():
+        part_by_part_manufacturer = find_part_by_part_manufacturer_and_part_number(
+            db, request.part_manufacturer_id, request.part_number
+        )
     if request.gtin and normalize_gtin(request.gtin):
         part_by_gtin = find_part_by_gtin(db, request.gtin)
 
-    parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+    parts = [p for p in (part_by_gtin, part_by_url, part_by_part_manufacturer) if p is not None]
     ids = {p.id for p in parts}
     if len(ids) > 1:
         ResponsePatterns.raise_conflict(
-            message="Product URL, brand+part number, or GTIN point to different existing parts.",
+            message="Product URL, part manufacturer + part number, or GTIN point to different existing parts.",
             error_code="PART_DEDUP_CONFLICT",
             details={
                 "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
                 "url_part_id": part_by_url.id if part_by_url else None,
-                "brand_part_id": part_by_brand.id if part_by_brand else None,
+                "part_manufacturer_part_id": part_by_part_manufacturer.id if part_by_part_manufacturer else None,
             },
         )
 
-    existing_part = part_by_gtin or part_by_url or part_by_brand
+    existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
     if existing_part:
         if request.retailer_id and (request.product_url or request.price_cents is not None):
             _ = get_entity_or_404(db, DBRetailer, request.retailer_id, "retailer")
@@ -339,7 +341,7 @@ async def create_part_and_add_to_build_list(
         "image_urls": request.image_urls,
         "category_id": request.category_id,
         "is_universal": request.is_universal,
-        "brand_id": request.brand_id,
+        "part_manufacturer_id": request.part_manufacturer_id,
         "part_number": request.part_number,
         "specifications": request.specifications,
         "user_id": current_user.id,

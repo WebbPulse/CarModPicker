@@ -62,7 +62,7 @@ class CreatePartAndAddToBuildListRequest(BaseModel):
     category_id: UUID
     car_ids: list[UUID] | None = None
     is_universal: bool = False
-    brand_id: UUID
+    part_manufacturer_id: UUID
     part_number: str | None = None
     gtin: str | None = Field(None, description="UPC/EAN/GTIN for dedup (digits only stored)")
     specifications: dict[str, Any] | None = None

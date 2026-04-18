@@ -13,7 +13,6 @@ from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
@@ -21,6 +20,7 @@ from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
 from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
@@ -40,8 +40,8 @@ from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
-    find_part_by_brand_and_part_number,
     find_part_by_gtin,
+    find_part_by_part_manufacturer_and_part_number,
     find_part_by_product_url,
     get_best_listing_for_part,
     normalize_gtin,
@@ -82,7 +82,7 @@ def _log_dedupe_metadata_refresh_apply(
     checks: list[tuple[str, Any, Any]] = [
         ("category_id", existing_part.category_id, udict.get("category_id")),
         ("part_number", existing_part.part_number, udict.get("part_number")),
-        ("brand_id", existing_part.brand_id, udict.get("brand_id")),
+        ("part_manufacturer_id", existing_part.part_manufacturer_id, udict.get("part_manufacturer_id")),
         ("is_universal", existing_part.is_universal, udict.get("is_universal")),
         ("gtin", existing_part.gtin, udict.get("gtin")),
         ("name", existing_part.name, udict.get("name")),
@@ -122,35 +122,37 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> DBPart:
         """
-        Create a new part with dedup by URL, brand+part_number, and GTIN (UPC/EAN).
+        Create a new part with dedup by URL, part_manufacturer+part_number, and GTIN (UPC/EAN).
         If an existing part is found, create/update PartListing and return that part.
         """
         part_by_url: Optional[DBPart] = None
-        part_by_brand: Optional[DBPart] = None
+        part_by_part_manufacturer: Optional[DBPart] = None
         part_by_gtin: Optional[DBPart] = None
 
         if data.product_url and data.product_url.strip():
             part_by_url = find_part_by_product_url(db, data.product_url)
-        if data.brand_id and data.part_number and data.part_number.strip():
-            part_by_brand = find_part_by_brand_and_part_number(db, data.brand_id, data.part_number)
+        if data.part_manufacturer_id and data.part_number and data.part_number.strip():
+            part_by_part_manufacturer = find_part_by_part_manufacturer_and_part_number(
+                db, data.part_manufacturer_id, data.part_number
+            )
         if data.gtin and normalize_gtin(data.gtin):
             part_by_gtin = find_part_by_gtin(db, data.gtin)
 
-        parts = [p for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None]
+        parts = [p for p in (part_by_gtin, part_by_url, part_by_part_manufacturer) if p is not None]
         ids = {p.id for p in parts}
         if len(ids) > 1:
             logger.info(f"User {current_user.id} part create conflict: dedup keys point to different parts {ids}")
             ResponsePatterns.raise_conflict(
-                message="Product URL, brand+part number, or GTIN point to different existing parts.",
+                message="Product URL, part manufacturer + part number, or GTIN point to different existing parts.",
                 error_code="PART_DEDUP_CONFLICT",
                 details={
                     "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
                     "url_part_id": part_by_url.id if part_by_url else None,
-                    "brand_part_id": part_by_brand.id if part_by_brand else None,
+                    "part_manufacturer_part_id": part_by_part_manufacturer.id if part_by_part_manufacturer else None,
                 },
             )
 
-        existing_part = part_by_gtin or part_by_url or part_by_brand
+        existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
         if existing_part:
             if additional_data and additional_data.get("refresh_metadata_on_dedupe"):
                 self._refresh_deduped_part_from_scrape_create(
@@ -372,13 +374,17 @@ async def read_parts_with_votes(
     car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
     ),
-    brand_id: Optional[UUID] = Query(None, description="Filter by brand ID (single; use brand_ids for multi)"),
-    brand_ids: Optional[List[UUID]] = Query(None, description="Filter by brand IDs (parts matching any)"),
+    part_manufacturer_id: Optional[UUID] = Query(
+        None, description="Filter by part_manufacturer ID (single; use part_manufacturer_ids for multi)"
+    ),
+    part_manufacturer_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by part_manufacturer IDs (parts matching any)"
+    ),
     retailer_id: Optional[UUID] = Query(None, description="Filter to parts that have a listing from this retailer"),
     user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
     sort: Optional[str] = Query(
         None,
-        description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, brand_asc, brand_desc, category_asc, category_desc",
+        description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, part_manufacturer_asc, part_manufacturer_desc, category_asc, category_desc",
     ),
     search: Optional[str] = Query(None, description="Search in part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
@@ -395,7 +401,11 @@ async def read_parts_with_votes(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
     effective_category_ids = category_ids if category_ids else ([category_id] if category_id is not None else None)
-    effective_brand_ids = brand_ids if brand_ids else ([brand_id] if brand_id is not None else None)
+    effective_part_manufacturer_ids = (
+        part_manufacturer_ids
+        if part_manufacturer_ids
+        else ([part_manufacturer_id] if part_manufacturer_id is not None else None)
+    )
     effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
     has_price_filter = min_price_cents is not None or max_price_cents is not None
 
@@ -429,7 +439,7 @@ async def read_parts_with_votes(
     base_query = _apply_parts_list_filters(
         base_query,
         effective_category_ids,
-        effective_brand_ids,
+        effective_part_manufacturer_ids,
         effective_car_ids,
         search,
         user_id,
@@ -445,7 +455,7 @@ async def read_parts_with_votes(
     query = _apply_parts_list_filters(
         query,
         effective_category_ids,
-        effective_brand_ids,
+        effective_part_manufacturer_ids,
         effective_car_ids,
         search,
         user_id,
@@ -503,13 +513,13 @@ async def read_parts_with_votes(
         query = query.order_by(DBPart.part_number.asc().nullslast(), DBPart.id.desc())
     elif sort == "part_number_desc":
         query = query.order_by(DBPart.part_number.desc().nullslast(), DBPart.id.desc())
-    elif sort == "brand_asc":
-        query = query.outerjoin(DBBrand, DBPart.brand_id == DBBrand.id).order_by(
-            DBBrand.name.asc().nullslast(), DBPart.id.desc()
+    elif sort == "part_manufacturer_asc":
+        query = query.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
+            DBPartManufacturer.name.asc().nullslast(), DBPart.id.desc()
         )
-    elif sort == "brand_desc":
-        query = query.outerjoin(DBBrand, DBPart.brand_id == DBBrand.id).order_by(
-            DBBrand.name.desc().nullslast(), DBPart.id.desc()
+    elif sort == "part_manufacturer_desc":
+        query = query.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
+            DBPartManufacturer.name.desc().nullslast(), DBPart.id.desc()
         )
     elif sort == "category_asc":
         query = query.join(DBCategory, DBPart.category_id == DBCategory.id).order_by(
@@ -619,7 +629,7 @@ async def read_parts_with_votes(
 def _apply_parts_list_filters(
     query: Any,
     category_ids: Optional[List[UUID]],
-    brand_ids: Optional[List[UUID]],
+    part_manufacturer_ids: Optional[List[UUID]],
     car_ids: Optional[List[UUID]],
     search: Optional[str],
     user_id: Optional[UUID],
@@ -636,8 +646,8 @@ def _apply_parts_list_filters(
     )
     if category_ids:
         query = query.filter(DBPart.category_id.in_(category_ids))
-    if brand_ids:
-        query = query.filter(DBPart.brand_id.in_(brand_ids))
+    if part_manufacturer_ids:
+        query = query.filter(DBPart.part_manufacturer_id.in_(part_manufacturer_ids))
     if universal is True:
         query = query.filter(DBPart.is_universal == True)  # noqa: E712
     elif car_ids:
@@ -656,7 +666,7 @@ def _apply_parts_list_filters(
 def _parts_base_query(
     db: Session,
     category_ids: Optional[List[UUID]],
-    brand_ids: Optional[List[UUID]],
+    part_manufacturer_ids: Optional[List[UUID]],
     car_ids: Optional[List[UUID]],
     search: Optional[str],
     user_id: Optional[UUID],
@@ -667,7 +677,7 @@ def _parts_base_query(
     """Build base query for parts list with filters applied (no pagination/sort)."""
     q = db.query(DBPart)
     return _apply_parts_list_filters(
-        q, category_ids, brand_ids, car_ids, search, user_id, retailer_id, universal=universal
+        q, category_ids, part_manufacturer_ids, car_ids, search, user_id, retailer_id, universal=universal
     )
 
 
@@ -677,7 +687,9 @@ def _parts_base_query(
 )
 async def get_parts_filter_options(
     category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs (parts matching any)"),
-    brand_ids: Optional[List[UUID]] = Query(None, description="Filter by brand IDs (parts matching any)"),
+    part_manufacturer_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by part_manufacturer IDs (parts matching any)"
+    ),
     car_id: Optional[UUID] = Query(None, description="Filter by car ID (single generation)"),
     car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
@@ -688,14 +700,14 @@ async def get_parts_filter_options(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
     """
-    Return category_ids and brand_ids that have at least one part matching the current filters.
+    Return category_ids and part_manufacturer_ids that have at least one part matching the current filters.
     """
     db = deps["db"]
     effective_car_ids = car_ids if car_ids else ([car_id] if car_id is not None else None)
     q = _parts_base_query(
         db,
         category_ids=category_ids,
-        brand_ids=brand_ids,
+        part_manufacturer_ids=part_manufacturer_ids,
         car_ids=effective_car_ids,
         search=search,
         user_id=user_id,
@@ -705,17 +717,24 @@ async def get_parts_filter_options(
     available_categories = [
         row[0] for row in q.with_entities(DBPart.category_id).distinct().filter(DBPart.category_id.isnot(None)).all()
     ]
-    available_brands = [
-        row[0] for row in q.with_entities(DBPart.brand_id).distinct().filter(DBPart.brand_id.isnot(None)).all()
+    available_part_manufacturers = [
+        row[0]
+        for row in q.with_entities(DBPart.part_manufacturer_id)
+        .distinct()
+        .filter(DBPart.part_manufacturer_id.isnot(None))
+        .all()
     ]
-    result: Dict[str, Any] = {"category_ids": available_categories, "brand_ids": available_brands}
+    result: Dict[str, Any] = {
+        "category_ids": available_categories,
+        "part_manufacturer_ids": available_part_manufacturers,
+    }
 
-    has_scoping_filters = bool(category_ids or brand_ids or (search and search.strip()))
+    has_scoping_filters = bool(category_ids or part_manufacturer_ids or (search and search.strip()))
     if has_scoping_filters:
         q_no_car = _parts_base_query(
             db,
             category_ids=category_ids,
-            brand_ids=brand_ids,
+            part_manufacturer_ids=part_manufacturer_ids,
             car_ids=None,
             search=search,
             user_id=user_id,
@@ -800,21 +819,21 @@ async def check_product_url_exists(
 
 
 @router.get(
-    "/find-by-brand-and-part-number",
+    "/find-by-part-manufacturer-and-part-number",
     response_model=PartRead,
     responses=standard_responses(success_description="Existing part found", not_found=True),
 )
-async def find_part_by_brand_and_part_number_endpoint(
-    brand_id: UUID = Query(..., description="Brand ID"),
+async def find_part_by_part_manufacturer_and_part_number_endpoint(
+    part_manufacturer_id: UUID = Query(..., description="PartManufacturer ID"),
     part_number: str = Query(..., min_length=1, description="Part number or SKU"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> PartRead:
-    """Find an existing part by brand and part number (normalized). Returns 404 if not found."""
+    """Find an existing part by part manufacturer and part number (normalized). Returns 404 if not found."""
     db = deps["db"]
-    part = find_part_by_brand_and_part_number(db, brand_id, part_number)
+    part = find_part_by_part_manufacturer_and_part_number(db, part_manufacturer_id, part_number)
     if not part:
-        raise HTTPException(status_code=404, detail="No part found for this brand and part number")
+        raise HTTPException(status_code=404, detail="No part found for this part manufacturer and part number")
     return PartRead.model_validate(part)
 
 

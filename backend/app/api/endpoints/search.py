@@ -4,7 +4,7 @@ Search endpoint that searches across multiple entity types.
 This endpoint provides unified search functionality across:
 - Build lists (name, description, and associated car make/model/generation/year range)
 - User profiles (username, email)
-- Global parts (name, description, brand name, part_number)
+- Global parts (name, description, part_manufacturer name, part_number)
 """
 
 from typing import Any, Dict
@@ -13,12 +13,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListRead
 from app.api.schemas.part import PartRead
@@ -123,20 +123,20 @@ async def search_all(
     user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
 
-    # Search parts (name, description, brand name, part_number)
+    # Search parts (name, description, part_manufacturer name, part_number)
     part_query = (
         db.query(DBPart)
-        .outerjoin(DBBrand, DBPart.brand_id == DBBrand.id)
+        .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
         .filter(
             or_(
                 DBPart.name.ilike(f"%{search_term}%"),
                 DBPart.description.ilike(f"%{search_term}%"),
-                DBBrand.name.ilike(f"%{search_term}%"),
-                DBBrand.description.ilike(f"%{search_term}%"),
+                DBPartManufacturer.name.ilike(f"%{search_term}%"),
+                DBPartManufacturer.description.ilike(f"%{search_term}%"),
                 DBPart.part_number.ilike(f"%{search_term}%"),
             )
         )
-        .options(joinedload(DBPart.brand))
+        .options(joinedload(DBPart.part_manufacturer))
     )
     part_total = get_total_count(part_query)
     parts_list = part_query.offset(skip).limit(limit).all()
