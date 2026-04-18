@@ -20,40 +20,31 @@ function Support() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full blur-3xl animate-float"></div>
-          <div
-            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-float"
-            style={{ animationDelay: '1s' }}
-          ></div>
-        </div>
-
+      <section className="relative py-10 px-4">
         <div className="container mx-auto relative z-10">
           <div className="text-center max-w-5xl mx-auto">
             <div className="animate-fadeInScale">
               {/* Icon */}
-              <div className="flex justify-center mb-8">
+              <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-24 h-24 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
-                    <FaCoffee className="text-white text-4xl" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                    <FaCoffee className="text-white text-3xl" />
                   </div>
                   <div className="absolute -inset-2 bg-gradient-to-br from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
               {/* Title */}
-              <h1 className="text-6xl md:text-7xl font-bold mb-8">
+              <h1 className="text-5xl md:text-6xl font-bold mb-4">
                 <span className="text-gradient">Support CarModPicker</span>
               </h1>
 
               {/* Subtitle */}
-              <p className="text-xl md:text-2xl text-neutral-300 mb-8 leading-relaxed">
+              <p className="text-xl md:text-2xl text-neutral-300 mb-3 leading-relaxed">
                 Help us keep the platform running and improving
               </p>
 
-              <p className="text-lg text-neutral-400 mb-12 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-lg text-neutral-400 mb-6 max-w-4xl mx-auto leading-relaxed">
                 CarModPicker is built with passion and dedication to serve the
                 car enthusiast community. Your support helps us maintain
                 servers, develop new features, and keep the platform free for
@@ -66,10 +57,10 @@ function Support() {
       </section>
 
       {/* Support Options Section */}
-      <section className="py-24 px-4">
+      <section className="py-8 px-4">
         <div className="container mx-auto">
-          <div className="text-center mb-20 animate-slideInUp">
-            <h2 className="text-5xl md:text-6xl font-bold mb-8">
+          <div className="text-center mb-8 animate-slideInUp">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-gradient">Ways to Support</span>
             </h2>
             <p className="text-xl text-neutral-400 max-w-3xl mx-auto leading-relaxed">
@@ -87,14 +78,14 @@ function Support() {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div
-                  className={`w-16 h-16 bg-gradient-to-br ${option.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}
+                  className={`w-14 h-14 bg-gradient-to-br ${option.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}
                 >
                   {option.icon}
                 </div>
-                <h3 className="text-2xl font-semibold text-white mb-4 group-hover:text-gradient transition-colors">
+                <h3 className="text-2xl font-semibold text-white mb-3 group-hover:text-gradient transition-colors">
                   {option.title}
                 </h3>
-                <p className="text-neutral-400 mb-6 leading-relaxed">
+                <p className="text-neutral-400 mb-4 leading-relaxed">
                   {option.description}
                 </p>
                 <a
@@ -114,17 +105,17 @@ function Support() {
       </section>
 
       {/* Why Support Section */}
-      <section className="py-24 px-4">
+      <section className="py-8 px-4">
         <div className="container mx-auto">
-          <Card variant="glass" className="p-12 max-w-4xl mx-auto">
+          <Card variant="glass" className="p-8 max-w-4xl mx-auto">
             <div className="text-center">
-              <div className="flex justify-center mb-6">
-                <FaHeart className="text-5xl text-red-500 animate-pulse" />
+              <div className="flex justify-center mb-4">
+                <FaHeart className="text-4xl text-red-500 animate-pulse" />
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 <span className="text-gradient">Why Your Support Matters</span>
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 text-left">
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
                     <GiRaceCar className="mr-3 text-primary-400" />
@@ -176,11 +167,11 @@ function Support() {
       </section>
 
       {/* Thank You Section */}
-      <section className="py-24 px-4 pb-24">
+      <section className="py-8 px-4 pb-10">
         <div className="container mx-auto">
           <div className="text-center max-w-3xl mx-auto">
             <div className="animate-fadeInScale">
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 <span className="text-gradient">Thank You!</span>
               </h2>
               <p className="text-xl text-neutral-300 leading-relaxed">

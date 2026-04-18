@@ -134,6 +134,7 @@ class PublicUserRead(BaseModel):
     image_urls: Optional[List[str]] = None
     is_superuser: bool
     is_admin: bool
+    is_service_account: bool = False
     subscription_tier: str
     subscription_status: str
     subscription_expires_at: Optional[datetime] = None
@@ -162,6 +163,7 @@ class UserRead(BaseModel):
     image_urls: Optional[List[str]] = None
     is_superuser: bool
     is_admin: bool
+    is_service_account: bool = False
     subscription_tier: str
     subscription_status: str
     subscription_expires_at: Optional[datetime] = None

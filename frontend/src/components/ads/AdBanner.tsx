@@ -1,26 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCookieConsent } from '../../hooks/useCookieConsent';
 
-/** Width of the sidebar ad in pixels. Standard skyscraper / banner sizes. */
 const AD_WIDTH = 160;
 const AD_HEIGHT = 600;
-
-/** Reserve space at bottom so the ad never overlaps the footer. Match footer height (main block + bottom bar). */
-const FOOTER_SAFE_PX = 280;
-
-/** Minimum gap between the bottom of the ad and the footer on short pages. */
-const AD_BOTTOM_MARGIN = 32;
+const AD_GAP = 48;
+const PADDING_Y = 48;
+const OUTER_EDGE_MARGIN = 20;
+const MARGIN = 8;
 
 type AdBannerSide = 'left' | 'right';
 
 interface AdBannerProps {
-  /** Which side this banner is on (for styling/layout). */
   side: AdBannerSide;
-  /**
-   * Optional AdSense slot ID (e.g. "1234567890").
-   * Set VITE_ADSENSE_CLIENT_ID in .env to enable real ads; otherwise a placeholder is shown.
-   */
   slotId?: string | undefined;
 }
 
@@ -30,13 +22,69 @@ declare global {
   }
 }
 
+function SingleAd({
+  canServeAds,
+  slotId,
+  clientId,
+  index,
+}: {
+  canServeAds: boolean;
+  slotId?: string;
+  clientId?: string;
+  index: number;
+}) {
+  const insRef = useRef<HTMLModElement>(null);
+
+  useEffect(() => {
+    if (!canServeAds || !slotId || !insRef.current) return;
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch {
+      // AdSense not loaded yet or blocked
+    }
+  }, [canServeAds, slotId]);
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden border border-white/10 bg-black/20 flex items-center justify-center flex-shrink-0"
+      style={{
+        width: AD_WIDTH,
+        height: AD_HEIGHT,
+        marginLeft: MARGIN,
+        marginRight: MARGIN,
+      }}
+    >
+      {canServeAds && slotId ? (
+        <ins
+          ref={insRef as React.RefObject<HTMLModElement>}
+          className="adsbygoogle"
+          style={{ display: 'block', height: AD_HEIGHT, width: AD_WIDTH }}
+          data-ad-client={clientId}
+          data-ad-slot={slotId}
+          data-ad-format="auto"
+          data-full-width-responsive="false"
+        />
+      ) : (
+        <div
+          className="text-neutral-500 text-xs text-center p-4 flex flex-col items-center justify-center"
+          style={{ height: AD_HEIGHT, width: AD_WIDTH }}
+        >
+          <span>Ad {index + 1}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * Global sidebar ad banner. Renders in left/right margins.
- * When the route changes, the parent should remount this component (e.g. key={location.pathname})
- * so a new ad is requested for another ad view.
+ * Global sidebar ad banner. Stacks as many ads as fit in the available column height.
+ * The aside uses self-stretch so its height is driven by the sibling content div,
+ * making it safe to ResizeObserver the aside itself without feedback loops.
  */
 export default function AdBanner({ side, slotId }: AdBannerProps) {
-  const insRef = useRef<HTMLModElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  const [adCount, setAdCount] = useState(1);
+
   const clientId = import.meta.env['VITE_ADSENSE_CLIENT_ID'] as
     | string
     | undefined;
@@ -45,77 +93,44 @@ export default function AdBanner({ side, slotId }: AdBannerProps) {
   const canServeAds = hasAdConfig && consent === 'accepted';
 
   useEffect(() => {
-    if (!canServeAds || !slotId || !insRef.current) return;
-    try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch {
-      // AdSense may not be loaded yet or blocked
-    }
-  }, [canServeAds, slotId]);
-
-  const MARGIN = 8;
-  /** Extra space between the ad and the browser's left/right edge. */
-  const OUTER_EDGE_MARGIN = 20;
-  // On initial load, place ad so its center is at viewport center (above footer). In-flow so it scrolls with the page.
-  const paddingTop = `calc((100vh - ${FOOTER_SAFE_PX}px) / 2 - ${AD_HEIGHT / 2 + MARGIN}px)`;
-  // Min height so on short pages the aside fits ad + bottom margin and never collides with the footer.
-  const minHeight = `calc((100vh - ${FOOTER_SAFE_PX}px) / 2 + ${AD_HEIGHT / 2 + MARGIN + AD_BOTTOM_MARGIN}px)`;
+    const el = asideRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      const available = el.offsetHeight - 2 * PADDING_Y;
+      const count = Math.max(
+        1,
+        Math.floor((available + AD_GAP) / (AD_HEIGHT + AD_GAP))
+      );
+      setAdCount(count);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <aside
-      className="hidden lg:flex flex-shrink-0 flex-col items-center"
+      ref={asideRef}
+      className="hidden lg:flex self-stretch flex-shrink-0 flex-col items-center justify-start"
       style={{
         width: AD_WIDTH,
-        paddingTop,
-        paddingBottom: AD_BOTTOM_MARGIN,
-        minHeight,
+        gap: AD_GAP,
+        paddingTop: PADDING_Y,
+        paddingBottom: PADDING_Y,
         ...(side === 'left'
           ? { marginLeft: OUTER_EDGE_MARGIN }
           : { marginRight: OUTER_EDGE_MARGIN }),
       }}
       aria-label={`Advertisement ${side}`}
     >
-      <div
-        className="rounded-lg overflow-hidden border border-white/10 bg-black/20 flex items-center justify-center"
-        style={{
-          width: AD_WIDTH,
-          minHeight: AD_HEIGHT,
-          marginLeft: MARGIN,
-          marginRight: MARGIN,
-        }}
-      >
-        {canServeAds && slotId ? (
-          <ins
-            ref={insRef as React.RefObject<HTMLModElement>}
-            className="adsbygoogle"
-            style={{
-              display: 'block',
-              minHeight: AD_HEIGHT,
-              minWidth: AD_WIDTH,
-            }}
-            data-ad-client={clientId}
-            data-ad-slot={slotId}
-            data-ad-format="auto"
-            data-full-width-responsive="false"
-          />
-        ) : (
-          <div
-            className="text-neutral-500 text-xs text-center p-4"
-            style={{ minHeight: AD_HEIGHT, minWidth: AD_WIDTH }}
-          >
-            <span className="block mt-20">Ad placeholder</span>
-            <span className="block mt-2">
-              {!hasAdConfig
-                ? 'Set VITE_ADSENSE_CLIENT_ID'
-                : !slotId
-                  ? 'Set slot id'
-                  : consent === 'rejected'
-                    ? 'Ads disabled'
-                    : 'Awaiting consent'}
-            </span>
-          </div>
-        )}
-      </div>
+      {Array.from({ length: adCount }, (_, i) => (
+        <SingleAd
+          key={i}
+          index={i}
+          canServeAds={canServeAds}
+          slotId={slotId}
+          clientId={clientId}
+        />
+      ))}
     </aside>
   );
 }

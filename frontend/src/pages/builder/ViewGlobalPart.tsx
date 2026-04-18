@@ -371,84 +371,6 @@ function ViewGlobalPart() {
           </div>
         </div>
 
-        {/* Car Association / Universal Parts Badge */}
-        <div className="mb-6">
-          {part.is_universal ? (
-            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🌐</span>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    Universal Part
-                  </h3>
-                  <p className="text-sm text-gray-300">
-                    This part fits all vehicles (wheels, tools, accessories,
-                    etc.).
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : part.car_ids?.length ? (
-            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">🚗</span>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    {part.car_ids.length > 1
-                      ? 'Car-Specific Part (multiple)'
-                      : 'Car-Specific Part'}
-                  </h3>
-                  {isLoadingCompatibleCars ? (
-                    <p className="text-sm text-gray-400">
-                      Loading compatible cars...
-                    </p>
-                  ) : compatibleCars.length > 0 ? (
-                    <div className="mt-1">
-                      <p className="text-sm text-gray-300 mb-2">
-                        This part fits the following {compatibleCars.length}{' '}
-                        vehicle
-                        {compatibleCars.length !== 1 ? 's' : ''}:
-                      </p>
-                      <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
-                        {compatibleCars.map((c) => (
-                          <li key={c.id}>
-                            <Link
-                              to={`/cars/${c.id}`}
-                              className="text-sm font-medium text-indigo-300 hover:text-indigo-200 underline transition-colors"
-                            >
-                              {c.make} {c.model} {c.generation_name} (
-                              {formatCarYearRange(c.start_year, c.end_year)})
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400">
-                      Compatible car list could not be loaded.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 bg-indigo-900/20 border-2 border-indigo-500/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🌐</span>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-indigo-400 mb-1">
-                    No car linked yet
-                  </h3>
-                  <p className="text-sm text-gray-300">
-                    This part isn’t linked to specific cars yet. Mark as
-                    universal or add car fitment in edit.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Voting Section */}
         {partWithVotes && (
           <div className="mb-6 p-4 bg-gray-800 rounded-lg">
@@ -563,7 +485,7 @@ function ViewGlobalPart() {
                 </div>
               </CardInfoItem>
             )}
-          {itemOwner && (
+          {itemOwner && !itemOwner.is_service_account && (
             <CardInfoItem label="Created by:">
               <ParentNavigationLink
                 linkTo={`/user/${itemOwner.id}`}
@@ -571,6 +493,36 @@ function ViewGlobalPart() {
               />
             </CardInfoItem>
           )}
+          <CardInfoItem
+            label="Fits:"
+            className={
+              !part.is_universal && (part.car_ids?.length ?? 0) > 1
+                ? 'md:col-span-2'
+                : ''
+            }
+          >
+            {part.is_universal ? (
+              <p>Universal (all vehicles)</p>
+            ) : isLoadingCompatibleCars ? (
+              <p className="text-gray-400">Loading…</p>
+            ) : compatibleCars.length > 0 ? (
+              <ul className="space-y-1">
+                {compatibleCars.map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      to={`/cars/${c.id}`}
+                      className="text-blue-400 hover:text-blue-300 underline transition-colors"
+                    >
+                      {c.make} {c.model} {c.generation_name} (
+                      {formatCarYearRange(c.start_year, c.end_year)})
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 italic">Not linked to any car yet.</p>
+            )}
+          </CardInfoItem>
           <CardInfoItem label="Created:">
             <p>{new Date(part.created_at).toLocaleDateString()}</p>
           </CardInfoItem>

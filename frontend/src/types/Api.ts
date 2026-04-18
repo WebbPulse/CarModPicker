@@ -17,6 +17,7 @@ export interface UserRead {
   image_urls?: string[] | null;
   is_superuser: boolean;
   is_admin: boolean;
+  is_service_account: boolean;
   subscription_tier: string;
   subscription_status: string;
   subscription_expires_at?: string | null;
