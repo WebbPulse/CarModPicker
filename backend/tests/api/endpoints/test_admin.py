@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.brand import Brand as DBBrand
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import INVALID_UUID_STR
@@ -228,7 +228,7 @@ class TestAdminDeleteAllBrands:
         db_session.commit()
         db_session.refresh(brand)
 
-        part = DBGlobalPart(
+        part = DBPart(
             name="Part with brand",
             description="Test part",
             category_id=test_category.id,
@@ -251,7 +251,7 @@ class TestAdminDeleteAllBrands:
 
         # Verify part still exists but brand_id is null
         db_session.expire_all()  # Clear any cached state
-        part_after = db_session.query(DBGlobalPart).filter(DBGlobalPart.id == part_id).first()
+        part_after = db_session.query(DBPart).filter(DBPart.id == part_id).first()
         assert part_after is not None
         assert part_after.brand_id is None
 
@@ -290,7 +290,7 @@ class TestAdminTableCounts:
             "part_price_histories",
             "image_source_mappings",
             "build_logs",
-            "global_part_cars",
+            "part_cars",
             "votes_by_entity_type",
             "reports_by_entity_type",
             "crawl_bucket_configured",

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type {
-  BuildListPartReadWithGlobalPart,
+  BuildListPartReadWithPart,
   BuildListPartUpdate,
   BuildListPhaseRead,
 } from '../../types/Api';
@@ -9,7 +9,7 @@ import SecondaryButton from '../buttons/SecondaryButton';
 import Dialog from '../common/Dialog';
 
 interface EditBuildListPartFormProps {
-  buildListPart: BuildListPartReadWithGlobalPart;
+  buildListPart: BuildListPartReadWithPart;
   phases: BuildListPhaseRead[];
   isOpen: boolean;
   onClose: () => void;
@@ -77,7 +77,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <h3 className="text-lg font-semibold text-white mb-2">
-            {buildListPart.global_part.name}
+            {buildListPart.part.name}
           </h3>
           <p className="text-gray-400 text-sm mb-4">
             Update quantity and notes for this part in your build list.

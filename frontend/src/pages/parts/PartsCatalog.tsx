@@ -2,23 +2,24 @@ import React, { useCallback, useState } from 'react';
 import LinkButton from '../../components/buttons/LinkButton';
 import Input from '../../components/common/Input';
 import Pagination from '../../components/common/Pagination';
-import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
-import GlobalPartList from '../../components/globalParts/GlobalPartList';
-import GlobalPartsFilterSidebar from '../../components/globalParts/GlobalPartsFilterSidebar';
-import GlobalPartsActiveFilterChips from '../../components/globalParts/GlobalPartsActiveFilterChips';
+import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
+import PartList from '../../components/parts/PartList';
+import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
+import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
 import { useAuth } from '../../hooks/useAuth';
-import { useGlobalPartsFilters } from '../../hooks/useGlobalPartsFilters';
-import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
+import { usePartsFilters } from '../../hooks/usePartsFilters';
+import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
 
-const GlobalPartsCatalog: React.FC = () => {
+const PartsCatalog: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [selectedGlobalPart, setSelectedGlobalPart] =
-    useState<GlobalPartReadWithVotes | null>(null);
+  const [selectedPart, setSelectedPart] = useState<PartReadWithVotes | null>(
+    null
+  );
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
     useState(false);
 
-  const filters = useGlobalPartsFilters({ syncToUrl: true });
+  const filters = usePartsFilters({ syncToUrl: true });
 
   const handlePaginationChange = useCallback(
     (pagination: PaginationInfo | null) => {
@@ -27,13 +28,10 @@ const GlobalPartsCatalog: React.FC = () => {
     [filters]
   );
 
-  const handleAddToBuildList = useCallback(
-    (globalPart: GlobalPartReadWithVotes) => {
-      setSelectedGlobalPart(globalPart);
-      setIsAddToBuildListDialogOpen(true);
-    },
-    []
-  );
+  const handleAddToBuildList = useCallback((part: PartReadWithVotes) => {
+    setSelectedPart(part);
+    setIsAddToBuildListDialogOpen(true);
+  }, []);
 
   const sidebarProps = {
     hasActiveFilters: filters.hasActiveFilters,
@@ -91,14 +89,14 @@ const GlobalPartsCatalog: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="Parts Catalog" />
         {isAuthenticated && (
-          <LinkButton to="/my-global-parts" variant="outline" size="md">
+          <LinkButton to="/my-parts" variant="outline" size="md">
             My Parts
           </LinkButton>
         )}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        <GlobalPartsFilterSidebar {...sidebarProps} />
+        <PartsFilterSidebar {...sidebarProps} />
 
         <main className="flex-1 min-w-0">
           <div className="mb-4">
@@ -111,9 +109,9 @@ const GlobalPartsCatalog: React.FC = () => {
             />
           </div>
 
-          <GlobalPartsActiveFilterChips {...chipsProps} />
+          <PartsActiveFilterChips {...chipsProps} />
 
-          <GlobalPartList
+          <PartList
             params={filters.params}
             title=""
             emptyMessage="No parts found. Try adjusting your filters."
@@ -144,11 +142,11 @@ const GlobalPartsCatalog: React.FC = () => {
       <AddToBuildListDialog
         isOpen={isAddToBuildListDialogOpen}
         onClose={() => setIsAddToBuildListDialogOpen(false)}
-        globalPart={selectedGlobalPart}
+        part={selectedPart}
         onPartAdded={() => {}}
       />
     </div>
   );
 };
 
-export default GlobalPartsCatalog;
+export default PartsCatalog;

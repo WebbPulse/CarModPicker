@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 from app.api.schemas.part_listing import PartListingReadWithRetailer
 from app.api.utils.image_utils import get_presigned_url_from_file_key
 
-MAX_IMAGES_PER_GLOBAL_PART = 12
+MAX_IMAGES_PER_PART = 12
 
 
 def apply_image_url_presigning(value: Optional[List[str]]) -> Optional[List[str]]:
@@ -17,14 +17,12 @@ def apply_image_url_presigning(value: Optional[List[str]]) -> Optional[List[str]
     return [get_presigned_url_from_file_key(k) or k for k in value]
 
 
-# Schema for request body when creating a part
-# product_url is only used when retailer_id is set (creates/updates that retailer's listing with this URL)
-class GlobalPartCreate(BaseModel):
+class PartCreate(BaseModel):
     name: str
     description: Optional[str] = None
     image_urls: Optional[List[str]] = Field(
         None,
-        max_length=MAX_IMAGES_PER_GLOBAL_PART,
+        max_length=MAX_IMAGES_PER_PART,
         description="Images: file keys (from images/upload) and/or external URLs (scraped); max 12. First entry is the primary/display image.",
     )
     product_url: Optional[str] = Field(
@@ -39,14 +37,13 @@ class GlobalPartCreate(BaseModel):
         default=False,
         description="When True, part fits all cars; no need to list car_ids.",
     )
-    brand_id: UUID  # Required brand association
+    brand_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
         None,
         description="UPC/EAN/GTIN barcode for dedup (digits only stored); e.g. 012345678901",
     )
     specifications: Optional[Dict[str, Any]] = None
-    # Optional: link to retailer listing for dedup and price history
     retailer_id: Optional[UUID] = Field(None, description="Retailer ID when product_url is from a known retailer")
     price_cents: Optional[int] = Field(
         None, ge=0, le=2147483647, description="Price in cents for this retailer (creates/updates listing)"
@@ -60,26 +57,24 @@ class GlobalPartCreate(BaseModel):
         return v
 
 
-# Schema for request body when updating a part (all fields optional)
-class GlobalPartUpdate(BaseModel):
+class PartUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     image_urls: Optional[List[str]] = Field(
         None,
-        max_length=MAX_IMAGES_PER_GLOBAL_PART,
+        max_length=MAX_IMAGES_PER_PART,
         description="Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
     )
     category_id: Optional[UUID] = None
-    car_ids: Optional[List[UUID]] = None  # Car IDs this part fits; ignored when is_universal
+    car_ids: Optional[List[UUID]] = None
     is_universal: Optional[bool] = None
-    brand_id: UUID  # Required brand association
+    brand_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
 
 
-# Schema for response body when reading a part
-class GlobalPartRead(BaseModel):
+class PartRead(BaseModel):
     id: UUID
     name: str
     description: Optional[str] = None
@@ -88,10 +83,10 @@ class GlobalPartRead(BaseModel):
     )
     image_urls: Optional[List[str]] = None
     category_id: UUID
-    user_id: UUID  # Creator
+    user_id: UUID
     car_ids: List[UUID] = Field(default_factory=list, description="Car IDs this part is associated with")
     is_universal: bool = Field(default=False, description="When True, part fits all cars")
-    brand_id: Optional[UUID] = None  # Optional brand association
+    brand_id: Optional[UUID] = None
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
     specifications: Optional[Dict[str, Any]] = None
@@ -109,35 +104,30 @@ class GlobalPartRead(BaseModel):
         return apply_image_url_presigning(value)
 
 
-# Schema for response body when reading a part with vote summary
-class GlobalPartReadWithVotes(GlobalPartRead):
+class PartReadWithVotes(PartRead):
     upvotes: int = 0
     downvotes: int = 0
     total_votes: int = 0
     user_vote: Optional[str] = None  # 'upvote', 'downvote', or None
 
 
-# Schema for appending images to a part (used when re-scraping adds new images)
-class GlobalPartAppendImages(BaseModel):
+class PartAppendImages(BaseModel):
     file_keys: List[str] = Field(
         ...,
-        max_length=MAX_IMAGES_PER_GLOBAL_PART,
+        max_length=MAX_IMAGES_PER_PART,
         description="Image references to append: file keys (from images/upload) or external URLs (scraped); max 12.",
     )
 
 
-# Schema for setting the primary (display) image by index
 class SetPrimaryImageRequest(BaseModel):
     index: int = Field(..., ge=0, description="0-based index into the part's image_urls gallery")
 
 
 def _default_listings() -> list[PartListingReadWithRetailer]:
-    """Typed default for listings to satisfy strict type checking (default_factory=list is list[Unknown])."""
     return []
 
 
-# Schema for response when reading a part with listings and best listing
-class GlobalPartReadWithListings(GlobalPartRead):
+class PartReadWithListings(PartRead):
     listings: list[PartListingReadWithRetailer] = Field(
         default_factory=_default_listings, description="Retailer listings with current price"
     )

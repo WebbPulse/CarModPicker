@@ -78,7 +78,7 @@ def rescrape_crawled_page_from_archive(
     """
     Fetch archived HTML, parse with the right adapter, ingest (including price history).
 
-    Returns (outcome, global_part_id if parsed_ok else None, error detail for ingest failures).
+    Returns (outcome, part_id if parsed_ok else None, error detail for ingest failures).
     Commits on each terminal path (same as legacy re-parse + ingest_payload commits).
     """
     adapter_key = resolve_parse_adapter_name(page)
@@ -139,7 +139,7 @@ def rescrape_crawled_page_from_archive(
                 page.html_local_path = None
 
     page.html_sha256 = html_sha
-    page.global_part_id = part.id
+    page.part_id = part.id
     page.parse_status = "parsed"
     page.last_parsed_at = now
     db.commit()

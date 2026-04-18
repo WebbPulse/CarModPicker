@@ -5,7 +5,7 @@ import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
 import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import type {
   BrandResponse,
-  BuildListPartReadWithGlobalPart,
+  BuildListPartReadWithPart,
   BuildListPhaseRead,
   CarRead,
   CategoryResponse,
@@ -55,7 +55,7 @@ const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
 
 interface GroupedPart {
   category: CategoryResponse | null;
-  parts: BuildListPartReadWithGlobalPart[];
+  parts: BuildListPartReadWithPart[];
 }
 
 interface BuildListPartTableProps {
@@ -65,14 +65,14 @@ interface BuildListPartTableProps {
   brands: BrandResponse[];
   carsById: Record<string, CarRead>;
   containerWidth: number;
-  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
-  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
   canMarkPurchased?: boolean;
-  canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
-  canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+  canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
 }
 
 function formatCarName(car: CarRead): string {
@@ -83,10 +83,10 @@ function formatCarName(car: CarRead): string {
 }
 
 function getFitCell(
-  part: BuildListPartReadWithGlobalPart,
+  part: BuildListPartReadWithPart,
   carsById: Record<string, CarRead>
 ): { label: string; title?: string } {
-  const gp = part.global_part;
+  const gp = part.part;
   if (gp.is_universal) return { label: 'Universal' };
   const ids = gp.car_ids ?? [];
   const n = ids.length;
@@ -107,10 +107,10 @@ function getFitCell(
 }
 
 function getBrandName(
-  part: BuildListPartReadWithGlobalPart,
+  part: BuildListPartReadWithPart,
   brands: BrandResponse[]
 ): string {
-  const gp = part.global_part;
+  const gp = part.part;
   if (gp.brand) return gp.brand;
   if (gp.brand_id != null && brands.length > 0) {
     const b = brands.find((br) => br.id === gp.brand_id);
@@ -166,7 +166,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
         </span>
       </div>
 
-      {/* Table - matching global-parts/search layout; columns use % so table fills width */}
+      {/* Table - matching parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
         <ResponsiveTableWrapper
           visibleColumns={visibleColumns}
@@ -223,8 +223,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
           </thead>
           <tbody>
             {group.parts.map((buildListPart) => {
-              const { global_part, notes, quantity, purchased } = buildListPart;
-              const gp = global_part;
+              const { part, notes, quantity, purchased } = buildListPart;
+              const gp = part;
               const qty = quantity || 1;
               const partPriceInCents = gp.best_price_cents;
               const totalPriceInCents =
@@ -293,7 +293,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                     }
                   >
                     <Link
-                      to={`/global-parts/${gp.id}`}
+                      to={`/parts/${gp.id}`}
                       className="flex items-center gap-2 hover:no-underline"
                     >
                       <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
@@ -422,21 +422,21 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 };
 
 interface BuildListPartListProps {
-  buildListParts: BuildListPartReadWithGlobalPart[];
+  buildListParts: BuildListPartReadWithPart[];
   categories: CategoryResponse[];
   viewMode?: 'category' | 'phase';
   phases?: BuildListPhaseRead[];
   brands?: BrandResponse[];
   carsById?: Record<string, CarRead>;
   loading?: boolean;
-  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
-  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
   canMarkPurchased?: boolean;
-  canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
-  canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+  canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   emptyMessage?: string;
 }
 
@@ -477,13 +477,13 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       string,
       {
         category: CategoryResponse | null;
-        parts: BuildListPartReadWithGlobalPart[];
+        parts: BuildListPartReadWithPart[];
       }
     >();
 
     // Group parts by category_id
     buildListParts.forEach((part) => {
-      const categoryId = part.global_part.category_id;
+      const categoryId = part.part.category_id;
       if (!groups.has(categoryId)) {
         groups.set(categoryId, {
           category: categoryMap.get(categoryId) || null,
@@ -495,9 +495,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
 
     // Sort parts within each category alphabetically by part name
     groups.forEach((group) => {
-      group.parts.sort((a, b) =>
-        a.global_part.name.localeCompare(b.global_part.name)
-      );
+      group.parts.sort((a, b) => a.part.name.localeCompare(b.part.name));
     });
 
     // Convert to array and sort by category display_name
@@ -529,7 +527,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       {
         phaseName: string;
         phaseSortOrder: number;
-        parts: BuildListPartReadWithGlobalPart[];
+        parts: BuildListPartReadWithPart[];
       }
     >();
 
@@ -552,9 +550,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     });
 
     groups.forEach((group) => {
-      group.parts.sort((a, b) =>
-        a.global_part.name.localeCompare(b.global_part.name)
-      );
+      group.parts.sort((a, b) => a.part.name.localeCompare(b.part.name));
     });
 
     return Array.from(groups.values()).sort(
@@ -583,7 +579,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   // Calculate total price (from best_price_cents when available)
   const totalPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -596,7 +592,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (part.purchased) return sum; // Skip purchased parts
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -609,7 +605,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const purchasedPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (!part.purchased) return sum; // Skip unpurchased parts
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -741,14 +737,14 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         </div>
       </Card>
 
-      {/* Parts grouped by category or phase - table layout matching global-parts/search */}
+      {/* Parts grouped by category or phase - table layout matching parts/search */}
       {displayGroups.map((group, index) => {
         const groupKey =
           viewMode === 'phase'
             ? `phase-${group.groupLabel}-${index}`
             : String(
                 group.category?.id ??
-                  group.parts[0]?.global_part.category_id ??
+                  group.parts[0]?.part.category_id ??
                   'uncategorized'
               );
         return (

@@ -60,10 +60,10 @@ export interface Retailer {
   updated_at: string;
 }
 
-export interface GlobalPartCreate {
+export interface PartCreate {
   name: string;
   description?: string | null;
-  price?: number | null; // Price in cents (legacy GlobalPart field)
+  price?: number | null; // Price in cents (legacy Part field)
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
@@ -76,7 +76,7 @@ export interface GlobalPartCreate {
   price_cents?: number | null; // Optional - for PartListing/price history when retailer_id set
 }
 
-export interface GlobalPartRead {
+export interface PartRead {
   id: number;
   name: string;
   description?: string | null;
@@ -127,7 +127,7 @@ export interface ImageUploadResponse {
 }
 
 export interface PartListingCreate {
-  global_part_id: number;
+  part_id: number;
   retailer_id: number;
   product_url?: string | null;
   price_cents?: number | null;
@@ -137,7 +137,7 @@ export interface ExtensionMessage {
   action: string;
   username?: string;
   password?: string;
-  partData?: GlobalPartCreate;
+  partData?: PartCreate;
   imageUrl?: string;
   limit?: number;
   searchTerm?: string;

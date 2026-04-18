@@ -11,7 +11,7 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .build_list import BuildList
     from .car_model import CarModel
-    from .global_part import GlobalPart
+    from .part import Part
     from .vote import Vote
 
 
@@ -41,9 +41,9 @@ class Car(Base):
     # Relationships
     car_model: Mapped["CarModel"] = relationship("CarModel", back_populates="cars")
     build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car")
-    global_parts: Mapped[List["GlobalPart"]] = relationship(
-        "GlobalPart",
-        secondary="global_part_cars",
+    parts: Mapped[List["Part"]] = relationship(
+        "Part",
+        secondary="part_cars",
         back_populates="cars",
     )
     votes: Mapped[List["Vote"]] = relationship(

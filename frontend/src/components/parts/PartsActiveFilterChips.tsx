@@ -2,7 +2,7 @@ import React from 'react';
 import { filterChipClass } from '../common/VehicleFilterChips';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
-export interface GlobalPartsActiveFilterChipsProps {
+export interface PartsActiveFilterChipsProps {
   hasActiveFilters: boolean;
   selectedCategoryIds: string[];
   activeCategories: CategoryResponse[];
@@ -21,9 +21,9 @@ export interface GlobalPartsActiveFilterChipsProps {
   clearPriceRange: () => void;
 }
 
-const GlobalPartsActiveFilterChips: React.FC<
-  GlobalPartsActiveFilterChipsProps
-> = (props) => {
+const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
+  props
+) => {
   const {
     hasActiveFilters,
     selectedCategoryIds,
@@ -123,4 +123,4 @@ const GlobalPartsActiveFilterChips: React.FC<
   );
 };
 
-export default GlobalPartsActiveFilterChips;
+export default PartsActiveFilterChips;

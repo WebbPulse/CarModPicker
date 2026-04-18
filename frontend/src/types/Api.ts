@@ -200,7 +200,7 @@ export interface BuildLogReadPaginated {
 }
 
 // Updated Part interfaces to match new backend schema
-export interface GlobalPartCreate {
+export interface PartCreate {
   name: string;
   description?: string | null;
   image_urls?: string[] | null;
@@ -215,7 +215,7 @@ export interface GlobalPartCreate {
   price_cents?: number | null; // Price for this retailer (creates/updates listing)
 }
 
-export interface GlobalPartRead {
+export interface PartRead {
   id: string;
   name: string;
   description?: string | null;
@@ -236,7 +236,7 @@ export interface GlobalPartRead {
   updated_at: string;
 }
 
-export interface GlobalPartReadWithVotes extends GlobalPartRead {
+export interface PartReadWithVotes extends PartRead {
   upvotes: number;
   downvotes: number;
   total_votes: number;
@@ -257,7 +257,7 @@ export interface RetailerRead {
 /** Part listing at a retailer with current price */
 export interface PartListingReadWithRetailer {
   id: string;
-  global_part_id: string;
+  part_id: string;
   retailer_id: string;
   product_url?: string | null;
   last_known_price_cents?: number | null;
@@ -291,7 +291,7 @@ export interface PaginatedResponse<T> {
   pagination: PaginationInfo;
 }
 
-export interface GlobalPartUpdate {
+export interface PartUpdate {
   name?: string | null;
   description?: string | null;
   image_urls?: string[] | null;
@@ -359,7 +359,7 @@ export interface BrandUpdate {
 // Unified voting system interfaces
 export interface VoteCreate {
   vote_type: 'upvote' | 'downvote';
-  entity_type: 'car' | 'build_list' | 'global_part';
+  entity_type: 'car' | 'build_list' | 'part';
   entity_id: string;
 }
 
@@ -501,7 +501,7 @@ export interface BuildListPhaseUpdate {
 
 // Build list part relationship
 export interface BuildListPartCreate {
-  global_part_id?: string | null;
+  part_id?: string | null;
   quantity?: number;
   notes?: string | null;
   build_list_phase_id?: string | null;
@@ -510,7 +510,7 @@ export interface BuildListPartCreate {
 export interface BuildListPartRead {
   id: string;
   build_list_id: string;
-  global_part_id: string;
+  part_id: string;
   added_by: string;
   quantity: number;
   notes?: string | null;
@@ -519,9 +519,9 @@ export interface BuildListPartRead {
   build_list_phase_id?: string | null;
 }
 
-export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
+export interface BuildListPartReadWithPart extends BuildListPartRead {
   phase_name?: string | null;
-  global_part: GlobalPartRead;
+  part: PartRead;
 }
 
 export interface BuildListPartUpdate {

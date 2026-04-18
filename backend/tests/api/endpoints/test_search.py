@@ -73,7 +73,7 @@ class TestSearch:
         data = response.json()
         assert "build_lists" in data
         assert "users" in data
-        assert "global_parts" in data
+        assert "parts" in data
         assert "query" in data
 
     def test_search_build_lists_by_name(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
@@ -146,7 +146,7 @@ class TestSearch:
         # Note: email might not be in PublicUserRead, so we check username matches
         assert len(data["users"]["data"]) > 0
 
-    def test_search_global_parts_by_name(
+    def test_search_parts_by_name(
         self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
     ) -> None:
         """Test searching global parts by name."""
@@ -164,7 +164,7 @@ class TestSearch:
             "car_id": str(car["id"]),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Search for the part
@@ -172,10 +172,10 @@ class TestSearch:
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
-        assert len(data["global_parts"]["data"]) > 0
-        assert any(search_term.lower() in gp["name"].lower() for gp in data["global_parts"]["data"])
+        assert len(data["parts"]["data"]) > 0
+        assert any(search_term.lower() in gp["name"].lower() for gp in data["parts"]["data"])
 
-    def test_search_global_parts_by_brand(
+    def test_search_parts_by_brand(
         self, client: TestClient, test_user: DBUser, test_category, db_session: Session
     ) -> None:
         """Test searching global parts by brand."""
@@ -202,15 +202,15 @@ class TestSearch:
             "car_id": str(car["id"]),
             "brand_id": brand_id,
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Search for "ACME" (matches brand name)
         response = client.get(f"{settings.API_STR}/search/?q=ACME")
         assert response.status_code == 200
         data = response.json()
-        assert len(data["global_parts"]["data"]) > 0
-        assert any(gp.get("brand_id") == brand_id for gp in data["global_parts"]["data"])
+        assert len(data["parts"]["data"]) > 0
+        assert any(gp.get("brand_id") == brand_id for gp in data["parts"]["data"])
 
     def test_search_empty_query(self, client: TestClient) -> None:
         """Test search with empty query."""
@@ -219,7 +219,7 @@ class TestSearch:
         data = response.json()
         assert data["build_lists"]["data"] == []
         assert data["users"]["data"] == []
-        assert data["global_parts"]["data"] == []
+        assert data["parts"]["data"] == []
         assert data["query"] == ""
 
     def test_search_no_results(self, client: TestClient) -> None:
@@ -229,7 +229,7 @@ class TestSearch:
         data = response.json()
         assert len(data["build_lists"]["data"]) == 0
         assert len(data["users"]["data"]) == 0
-        assert len(data["global_parts"]["data"]) == 0
+        assert len(data["parts"]["data"]) == 0
 
     def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test that search is case-insensitive."""
@@ -325,7 +325,7 @@ class TestSearch:
             data = response.json()
             assert "build_lists" in data
             assert "users" in data
-            assert "global_parts" in data
+            assert "parts" in data
 
     def test_search_special_characters(self, client: TestClient) -> None:
         """Test search with special characters."""
@@ -337,7 +337,7 @@ class TestSearch:
             data = response.json()
             assert "build_lists" in data
             assert "users" in data
-            assert "global_parts" in data
+            assert "parts" in data
 
     def test_search_unicode_characters(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
         """Test search with unicode and emoji characters."""
@@ -373,7 +373,7 @@ class TestSearch:
         data = response.json()
         assert "build_lists" in data
         assert "users" in data
-        assert "global_parts" in data
+        assert "parts" in data
 
     def test_search_whitespace_only(self, client: TestClient) -> None:
         """Test search with whitespace-only query."""
@@ -390,7 +390,7 @@ class TestSearch:
             # Should return empty results or handle gracefully
             assert "build_lists" in data
             assert "users" in data
-            assert "global_parts" in data
+            assert "parts" in data
 
     def test_search_pagination_skip_beyond_total(
         self, client: TestClient, test_user: DBUser, db_session: Session
@@ -419,10 +419,10 @@ class TestSearch:
         if isinstance(data, dict):
             assert "build_lists" in data
             assert "users" in data
-            assert "global_parts" in data
+            assert "parts" in data
             assert data["build_lists"]["data"] == []
             assert data["users"]["data"] == []
-            assert data["global_parts"]["data"] == []
+            assert data["parts"]["data"] == []
         else:
             # Old format (list) - for backward compatibility
             assert isinstance(data, list)
@@ -453,7 +453,7 @@ class TestSearch:
         if isinstance(data, dict):
             assert data["build_lists"]["data"] == []
             assert data["users"]["data"] == []
-            assert data["global_parts"]["data"] == []
+            assert data["parts"]["data"] == []
         else:
             # Old format
             assert isinstance(data, list)

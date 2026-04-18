@@ -17,7 +17,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.models.brand import Brand as DBBrand
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
@@ -108,14 +108,14 @@ def normalize_part_number(part_number: Optional[str]) -> Optional[str]:
     return s if s else None
 
 
-def find_part_by_product_url(db: Session, product_url: str) -> Optional[DBGlobalPart]:
-    """Find a global part by product URL (via PartListing only)."""
+def find_part_by_product_url(db: Session, product_url: str) -> Optional[DBPart]:
+    """Find a part by product URL (via PartListing only)."""
     normalized = _normalize_url(product_url)
     if not normalized:
         return None
     listing = db.query(DBPartListing).filter(DBPartListing.product_url == normalized).first()
     if listing:
-        return listing.global_part
+        return listing.part
     return None
 
 
@@ -123,18 +123,17 @@ def find_part_by_brand_and_part_number(
     db: Session,
     brand_id: UUID,
     part_number: str,
-) -> Optional[DBGlobalPart]:
-    """Find a global part by brand_id and part_number. Uses normalized part_number for matching."""
+) -> Optional[DBPart]:
+    """Find a part by brand_id and part_number. Uses normalized part_number for matching."""
     normalized = normalize_part_number(part_number)
     if not normalized:
         return None
-    # Match by normalized value, or by exact strip (for legacy rows stored before normalization)
     exact = part_number.strip()
     candidates = (
-        db.query(DBGlobalPart)
+        db.query(DBPart)
         .filter(
-            DBGlobalPart.brand_id == brand_id,
-            or_(DBGlobalPart.part_number == normalized, DBGlobalPart.part_number == exact),
+            DBPart.brand_id == brand_id,
+            or_(DBPart.part_number == normalized, DBPart.part_number == exact),
         )
         .all()
     )
@@ -155,16 +154,15 @@ def normalize_gtin(gtin: Optional[str]) -> Optional[str]:
     return digits if digits else None
 
 
-def find_part_by_gtin(db: Session, gtin: str) -> Optional[DBGlobalPart]:
-    """Find a global part by GTIN (UPC/EAN). Uses normalized digits-only for matching."""
+def find_part_by_gtin(db: Session, gtin: str) -> Optional[DBPart]:
+    """Find a part by GTIN (UPC/EAN). Uses normalized digits-only for matching."""
     normalized = normalize_gtin(gtin)
     if not normalized:
         return None
-    part = db.query(DBGlobalPart).filter(DBGlobalPart.gtin == normalized).first()
+    part = db.query(DBPart).filter(DBPart.gtin == normalized).first()
     if part:
         return part
-    # Legacy: match if stored value normalizes to same (e.g. stored with dashes)
-    candidates = db.query(DBGlobalPart).filter(DBGlobalPart.gtin.isnot(None)).all()
+    candidates = db.query(DBPart).filter(DBPart.gtin.isnot(None)).all()
     for c in candidates:
         if c.gtin and normalize_gtin(c.gtin) == normalized:
             return c
@@ -173,7 +171,7 @@ def find_part_by_gtin(db: Session, gtin: str) -> Optional[DBGlobalPart]:
 
 def create_or_update_listing_and_price(
     db: Session,
-    global_part_id: UUID,
+    part_id: UUID,
     retailer_id: UUID,
     *,
     product_url: Optional[str] = None,
@@ -181,35 +179,32 @@ def create_or_update_listing_and_price(
     observed_at: Optional[datetime] = None,
 ) -> DBPartListing:
     """
-    Create or update PartListing for (global_part_id, retailer_id).
+    Create or update PartListing for (part_id, retailer_id).
     If price_cents is provided, append PartPriceHistory and update listing's last_known_price_cents/last_price_updated_at.
     Returns the PartListing.
     """
     listing = (
         db.query(DBPartListing)
         .filter(
-            DBPartListing.global_part_id == global_part_id,
+            DBPartListing.part_id == part_id,
             DBPartListing.retailer_id == retailer_id,
         )
         .first()
     )
     if not listing and product_url:
-        # Fall back to URL-based dedup: if this part already has a listing at the
-        # same product_url (possibly under a different retailer due to www./non-www.
-        # retailer fragmentation), update that listing instead of creating a duplicate.
         normalized_url = _normalize_url(product_url)
         if normalized_url:
             listing = (
                 db.query(DBPartListing)
                 .filter(
-                    DBPartListing.global_part_id == global_part_id,
+                    DBPartListing.part_id == part_id,
                     DBPartListing.product_url == normalized_url,
                 )
                 .first()
             )
     if not listing:
         listing = DBPartListing(
-            global_part_id=global_part_id,
+            part_id=part_id,
             retailer_id=retailer_id,
             product_url=_normalize_url(product_url) if product_url else None,
         )
@@ -256,16 +251,12 @@ def create_or_update_listing_and_price(
     return listing
 
 
-def get_best_listing_for_part(db: Session, global_part_id: UUID) -> Optional[DBPartListing]:
-    """
-    Return the PartListing with the lowest current price for this part.
-    Uses last_known_price_cents; only considers listings that have a price.
-    Returns None if the part has no listings with a price.
-    """
+def get_best_listing_for_part(db: Session, part_id: UUID) -> Optional[DBPartListing]:
+    """Return the PartListing with the lowest current price for this part."""
     return (
         db.query(DBPartListing)
         .filter(
-            DBPartListing.global_part_id == global_part_id,
+            DBPartListing.part_id == part_id,
             DBPartListing.last_known_price_cents.isnot(None),
             DBPartListing.last_known_price_cents >= 0,
         )

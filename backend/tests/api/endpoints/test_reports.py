@@ -126,7 +126,7 @@ class TestUnifiedReports:
         assert data["description"] == "This build list is spam"
         assert data["status"] == "pending"
 
-    def test_create_global_part_report_success(
+    def test_create_part_report_success(
         self,
         client: TestClient,
         test_user: User,
@@ -180,7 +180,7 @@ class TestUnifiedReports:
             "category_id": str(category.id),
             "brand_id": str(brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -197,7 +197,7 @@ class TestUnifiedReports:
             "description": "This part information is inaccurate",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/global_part/{part['id']}",
+            f"{settings.API_STR}/reports/part/{part['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -205,7 +205,7 @@ class TestUnifiedReports:
 
         data = response.json()
         assert data["entity_id"] == part["id"]
-        assert data["entity_type"] == "global_part"
+        assert data["entity_type"] == "part"
         assert data["user_id"] == str(test_user.id)
         assert data["reason"] == "inaccurate"
         assert data["description"] == "This part information is inaccurate"

@@ -141,7 +141,7 @@ const BuildListsCatalog: React.FC = () => {
     void fetchMakes();
   }, [fetchMakes]);
 
-  // Initialize filter state from URL (deeplinking), same param names as global-parts where applicable
+  // Initialize filter state from URL (deeplinking), same param names as parts where applicable
   const initializeFromUrl = useCallback(() => {
     if (isInitializedFromUrl || !makeStats) return;
     const hasUrlParams = Array.from(searchParams.keys()).length > 0;
@@ -415,7 +415,7 @@ const BuildListsCatalog: React.FC = () => {
         <PageHeader title="Build Lists Catalog" />
       </div>
 
-      {/* Same layout as global-parts: sidebar + main from the start */}
+      {/* Same layout as parts: sidebar + main from the start */}
       <div className="flex flex-col lg:flex-row gap-6">
         <aside className="lg:w-64 flex-shrink-0">
           <Card className="sticky top-4 overflow-hidden">

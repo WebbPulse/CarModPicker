@@ -232,7 +232,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         This method creates completely new, independent entities:
         - A new BuildList entity with a new primary key
         - New BuildListPart entities (one for each original part) with new primary keys
-        - Each new BuildListPart references the same GlobalPart (by global_part_id)
+        - Each new BuildListPart references the same Part (by part_id)
           but is a separate entity in the database
 
         This ensures that modifications or deletions to the original build list
@@ -302,7 +302,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
 
         # Create NEW BuildListPart entities for each original part
         # Each new part is a completely separate entity with its own primary key
-        # They reference the same GlobalPart entities (by global_part_id) but are
+        # They reference the same Part entities (by part_id) but are
         # independent relationship entities, ensuring separate dependency chains
         for original_part in original_parts:
             new_phase_id = (
@@ -313,7 +313,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             # Create a new BuildListPart entity (new primary key, independent from original)
             new_part = DBBuildListPart(
                 build_list_id=new_build_list.id,  # Points to the new build list
-                global_part_id=original_part.global_part_id,  # References same global part (correct - we share global parts)
+                part_id=original_part.part_id,  # References same part (correct - we share parts)
                 added_by=current_user.id,  # New owner
                 quantity=original_part.quantity,  # Copy the quantity value
                 notes=original_part.notes,  # Copy the notes value

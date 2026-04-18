@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car import Car as DBCar
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
     EntityType,
@@ -340,22 +340,22 @@ class VoteService:
             ) in flagged_entities
         ]
 
-    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBGlobalPart]]:
+    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBPart]]:
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.CAR:
             return DBCar
         elif entity_type == EntityType.BUILD_LIST:
             return DBBuildList
-        elif entity_type == EntityType.GLOBAL_PART:
-            return DBGlobalPart
+        elif entity_type == EntityType.PART:
+            return DBPart
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBGlobalPart], entity_type: EntityType) -> str:
+    def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBPart], entity_type: EntityType) -> str:
         """Get the display name for an entity."""
         if entity_type == EntityType.CAR:
             return str(f"{entity.make} {entity.model} {entity.generation_name} ({entity.start_year}-{entity.end_year})")
         elif entity_type == EntityType.BUILD_LIST:
             return str(entity.name)
-        else:  # EntityType.GLOBAL_PART
+        else:  # EntityType.PART
             return str(entity.name)

@@ -176,7 +176,7 @@ class TestCategories:
         # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
-        response = client.get(f"{settings.API_STR}/categories/{category_id}/global-parts")
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
         assert response.status_code == 200
 
         parts = response.json()
@@ -206,10 +206,10 @@ class TestCategories:
                 "category_id": str(category_id),
                 "brand_id": str(test_brand.id),
             }
-            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
 
-        response = client.get(f"{settings.API_STR}/categories/{category_id}/global-parts?skip=2&limit=2")
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts?skip=2&limit=2")
         assert response.status_code == 200
 
         parts: list[Any] = response.json()
@@ -221,7 +221,7 @@ class TestCategories:
         # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
-        response = client.get(f"{settings.API_STR}/categories/{category_id}/global-parts")
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
         assert response.status_code == 200
 
         parts = response.json()
@@ -288,7 +288,7 @@ class TestCategories:
             "category_id": str(category_id),
             "brand_id": str(brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
 
         # Re-login as admin user for the delete operation
@@ -335,7 +335,7 @@ class TestCategories:
             "category_id": str(category_id),
             "brand_id": str(brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=user_headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
 
         # Get count again (should be increased by 1)

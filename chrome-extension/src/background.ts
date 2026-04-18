@@ -7,8 +7,8 @@ import type {
   Brand,
   Car,
   Category,
-  GlobalPartCreate,
-  GlobalPartRead,
+  PartCreate,
+  PartRead,
   ImageUploadResponse,
   LoginResponse,
   PartListingCreate,
@@ -350,7 +350,7 @@ async function checkProductUrl(
   productUrl: string,
 ): Promise<ApiResponse<{ existing_part_id: number | null }>> {
   return apiRequest<{ existing_part_id: number | null }>(
-    `/global-parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
+    `/parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
     { method: "GET" },
   );
 }
@@ -358,10 +358,10 @@ async function checkProductUrl(
 /**
  * Get global part by ID (with listings for display)
  */
-async function getGlobalPart(
+async function getPart(
   partId: number,
-): Promise<ApiResponse<GlobalPartRead>> {
-  return apiRequest<GlobalPartRead>(`/global-parts/${partId}`, {
+): Promise<ApiResponse<PartRead>> {
+  return apiRequest<PartRead>(`/parts/${partId}`, {
     method: "GET",
   });
 }
@@ -373,25 +373,25 @@ async function getGlobalPart(
 async function findExistingPartByBrandAndPartNumber(
   brandId: number,
   partNumber: string,
-): Promise<ApiResponse<GlobalPartRead>> {
+): Promise<ApiResponse<PartRead>> {
   const trimmed = partNumber?.trim();
   if (!trimmed) {
     return { success: false, error: "Part number required" };
   }
-  const url = `/global-parts/find-by-brand-and-part-number?brand_id=${encodeURIComponent(
+  const url = `/parts/find-by-brand-and-part-number?brand_id=${encodeURIComponent(
     brandId,
   )}&part_number=${encodeURIComponent(trimmed)}`;
-  return apiRequest<GlobalPartRead>(url, { method: "GET" });
+  return apiRequest<PartRead>(url, { method: "GET" });
 }
 
 /**
  * Append image file keys to a global part's gallery
  */
-async function appendImagesToGlobalPart(
+async function appendImagesToPart(
   partId: number,
   fileKeys: string[],
-): Promise<ApiResponse<GlobalPartRead>> {
-  return apiRequest<GlobalPartRead>(`/global-parts/${partId}/append-images`, {
+): Promise<ApiResponse<PartRead>> {
+  return apiRequest<PartRead>(`/parts/${partId}/append-images`, {
     method: "POST",
     body: JSON.stringify({ file_keys: fileKeys }),
   });
@@ -443,7 +443,7 @@ async function checkUncachedImageUrls(
 async function addPartListing(
   data: PartListingCreate,
 ): Promise<ApiResponse<unknown>> {
-  return apiRequest(`/global-parts/${data.global_part_id}/listings`, {
+  return apiRequest(`/parts/${data.part_id}/listings`, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -452,10 +452,10 @@ async function addPartListing(
 /**
  * Create global part
  */
-async function createGlobalPart(
-  partData: GlobalPartCreate,
+async function createPart(
+  partData: PartCreate,
 ): Promise<ApiResponse<unknown>> {
-  return apiRequest("/global-parts/", {
+  return apiRequest("/parts/", {
     method: "POST",
     body: JSON.stringify(partData),
   });
@@ -516,7 +516,7 @@ async function uploadImage(
     formData.append("source_url", getCanonicalImageUrl(imageUrl));
 
     const uploadUrl = new URL(`${apiUrl}/images/upload`);
-    uploadUrl.searchParams.set("entity_type", "global_part");
+    uploadUrl.searchParams.set("entity_type", "part");
     if (entityId != null) {
       uploadUrl.searchParams.set("entity_id", String(entityId));
     }
@@ -607,7 +607,7 @@ chrome.runtime.onMessage.addListener(
       username?: string;
       password?: string;
       otp?: string;
-      partData?: GlobalPartCreate;
+      partData?: PartCreate;
       imageUrl?: string;
       partId?: number;
       fileKeys?: string[];
@@ -722,9 +722,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "getGlobalPart") {
+    if (request.action === "getPart") {
       if (request.partId != null) {
-        getGlobalPart(request.partId).then(sendResponse);
+        getPart(request.partId).then(sendResponse);
         return true;
       }
     }
@@ -750,9 +750,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "createGlobalPart") {
+    if (request.action === "createPart") {
       if (request.partData) {
-        createGlobalPart(request.partData).then(sendResponse);
+        createPart(request.partData).then(sendResponse);
         return true;
       }
     }
@@ -764,9 +764,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "appendImagesToGlobalPart") {
+    if (request.action === "appendImagesToPart") {
       if (request.partId != null && request.fileKeys) {
-        appendImagesToGlobalPart(
+        appendImagesToPart(
           request.partId,
           request.fileKeys as string[],
         ).then(sendResponse);

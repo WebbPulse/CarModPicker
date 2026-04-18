@@ -98,14 +98,14 @@ async def read_build_lists_with_votes(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Subquery: best price (min last_known_price_cents) per global_part
+    # Subquery: best price (min last_known_price_cents) per part
     min_prices = (
         db.query(
-            DBPartListing.global_part_id,
+            DBPartListing.part_id,
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
         .filter(DBPartListing.last_known_price_cents.isnot(None))
-        .group_by(DBPartListing.global_part_id)
+        .group_by(DBPartListing.part_id)
         .subquery()
     )
     # Subquery: total cost per build list (sum of quantity * best_price per part)
@@ -114,7 +114,7 @@ async def read_build_lists_with_votes(
             DBBuildListPart.build_list_id,
             func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("total_cost_cents"),
         )
-        .outerjoin(min_prices, DBBuildListPart.global_part_id == min_prices.c.global_part_id)
+        .outerjoin(min_prices, DBBuildListPart.part_id == min_prices.c.part_id)
         .group_by(DBBuildListPart.build_list_id)
         .subquery()
     )

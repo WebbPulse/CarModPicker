@@ -6,14 +6,14 @@ import apiClient, {
   brandsApi,
   carsApi,
   categoriesApi,
-  globalPartsApi,
+  partsApi,
 } from '../../services/Api';
 import type {
   BrandCreate,
   BrandResponse,
   CarRead,
   CategoryResponse,
-  GlobalPartCreate,
+  PartCreate,
 } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
@@ -28,17 +28,15 @@ import SearchableSelect, {
 } from '../common/SearchableSelect';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 
-interface CreateGlobalPartFormProps {
-  onGlobalPartCreated: () => void;
+interface CreatePartFormProps {
+  onPartCreated: () => void;
 }
 
-const createGlobalPartRequestFn = (globalPartData: GlobalPartCreate) =>
-  apiClient.post<GlobalPartCreate>('/global-parts/', globalPartData);
+const createPartRequestFn = (partData: PartCreate) =>
+  apiClient.post<PartCreate>('/parts/', partData);
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
-function CreateGlobalPartForm({
-  onGlobalPartCreated,
-}: CreateGlobalPartFormProps) {
+function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
@@ -164,7 +162,7 @@ function CreateGlobalPartForm({
     }
   };
 
-  const { isLoading, error } = useApiRequest(createGlobalPartRequestFn);
+  const { isLoading, error } = useApiRequest(createPartRequestFn);
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: carsData, executeRequest: fetchCars } =
@@ -235,7 +233,7 @@ function CreateGlobalPartForm({
     // Debounce the check - wait 500ms after user stops typing
     urlCheckTimeoutRef.current = window.setTimeout(async () => {
       try {
-        const response = await globalPartsApi.checkProductUrl(url);
+        const response = await partsApi.checkProductUrl(url);
         if (response.data.existing_part_id) {
           setDuplicatePartId(response.data.existing_part_id);
         } else {
@@ -319,7 +317,7 @@ function CreateGlobalPartForm({
       }
     }
 
-    const globalPartData: GlobalPartCreate = {
+    const partData: PartCreate = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
       image_urls: imageFileKey ? [imageFileKey] : null,
@@ -337,11 +335,11 @@ function CreateGlobalPartForm({
 
     try {
       // Call API directly to access full error response
-      await globalPartsApi.createGlobalPart(globalPartData);
+      await partsApi.createPart(partData);
       // Clear pending brand after successful creation
       setPendingBrandName(null);
       setIsCreating(false);
-      onGlobalPartCreated();
+      onPartCreated();
     } catch (err) {
       setIsCreating(false);
       // Handle duplicate URL error
@@ -509,7 +507,7 @@ function CreateGlobalPartForm({
                   in the catalog.
                 </p>
                 <Link
-                  to={`/global-parts/${duplicatePartId}`}
+                  to={`/parts/${duplicatePartId}`}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-300 hover:text-yellow-200 underline"
                 >
                   <span>View existing part</span>
@@ -576,7 +574,7 @@ function CreateGlobalPartForm({
 
       <ImageUpload
         currentImageUrl={imageFileKey}
-        entityType="global_part"
+        entityType="part"
         onImageUploaded={(fileKey) => {
           setImageFileKey(fileKey);
         }}
@@ -590,7 +588,7 @@ function CreateGlobalPartForm({
       <div className="flex justify-end space-x-3 pt-4">
         <SecondaryButton
           type="button"
-          onClick={() => void onGlobalPartCreated()}
+          onClick={() => void onPartCreated()}
           disabled={isLoading}
         >
           Cancel
@@ -603,4 +601,4 @@ function CreateGlobalPartForm({
   );
 }
 
-export default CreateGlobalPartForm;
+export default CreatePartForm;

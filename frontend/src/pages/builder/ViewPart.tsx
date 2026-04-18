@@ -7,14 +7,14 @@ import {
   buildListPartsApi,
   carsApi,
   categoriesApi,
-  globalPartsApi,
-  globalPartVotesApi,
+  partsApi,
+  partVotesApi,
   usersApi,
 } from '../../services/Api';
 import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type {
   CarRead,
-  GlobalPartReadWithVotes,
+  PartReadWithVotes,
   PartListingReadWithRetailer,
 } from '../../types/Api';
 
@@ -27,21 +27,20 @@ import DeleteConfirmationDialog from '../../components/common/DeleteConfirmation
 import Dialog from '../../components/common/Dialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
-import AddToBuildListDialog from '../../components/globalParts/AddToBuildListDialog';
-import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm';
-import ImageGallery from '../../components/globalParts/ImageGallery';
-import ImageGalleryManage from '../../components/globalParts/ImageGalleryManage';
-import PriceHistoryLineChart from '../../components/globalParts/PriceHistoryLineChart';
-import VoteButtons from '../../components/globalParts/VoteButtons';
+import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
+import EditPartForm from '../../components/parts/EditPartForm';
+import ImageGallery from '../../components/parts/ImageGallery';
+import ImageGalleryManage from '../../components/parts/ImageGalleryManage';
+import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
+import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchPartRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPart(partId);
+const fetchPartRequestFn = (partId: string) => partsApi.getPart(partId);
 
 const fetchPartWithVotesRequestFn = (partId: string) =>
-  globalPartVotesApi.getVoteSummary(partId);
+  partVotesApi.getVoteSummary(partId);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
@@ -49,22 +48,20 @@ const fetchUserRequestFn = (userId: string) => usersApi.getUser(userId);
 
 const fetchBrandRequestFn = (brandId: string) => brandsApi.getBrand(brandId);
 
-const deletePartRequestFn = (partId: string) =>
-  globalPartsApi.deleteGlobalPart(partId);
+const deletePartRequestFn = (partId: string) => partsApi.deletePart(partId);
 
 const fetchListingsRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPartListings(partId);
+  partsApi.getPartListings(partId);
 
 const fetchPriceHistoryRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPartPriceHistory(partId);
+  partsApi.getPartPriceHistory(partId);
 
-function ViewGlobalPart() {
+function ViewPart() {
   const { partId } = useParams<{ partId: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const [isEditGlobalPartFormOpen, setIsEditGlobalPartFormOpen] =
-    useState(false);
+  const [isEditPartFormOpen, setIsEditPartFormOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
@@ -194,7 +191,7 @@ function ViewGlobalPart() {
     };
   }, [part?.car_ids]);
 
-  const partWithVotes = useMemo<GlobalPartReadWithVotes | null>(() => {
+  const partWithVotes = useMemo<PartReadWithVotes | null>(() => {
     if (!part || !voteSummary) return null;
     const votes = voteOverride ?? voteSummary;
     return {
@@ -209,12 +206,12 @@ function ViewGlobalPart() {
   const categories = categoriesData ?? [];
   const brand = brandData ?? null;
 
-  const handleGlobalPartUpdated = async () => {
+  const handlePartUpdated = async () => {
     if (partId) {
       await fetchPart(partId); // Refresh part data
       await fetchVoteSummary(partId); // Refresh vote data
     }
-    setIsEditGlobalPartFormOpen(false);
+    setIsEditPartFormOpen(false);
   };
 
   const handleVoteUpdate = (
@@ -234,8 +231,8 @@ function ViewGlobalPart() {
     setVoteOverride({ upvotes, downvotes, user_vote: newVote });
   };
 
-  const openEditGlobalPartDialog = () => setIsEditGlobalPartFormOpen(true);
-  const closeEditGlobalPartDialog = () => setIsEditGlobalPartFormOpen(false);
+  const openEditPartDialog = () => setIsEditPartFormOpen(true);
+  const closeEditPartDialog = () => setIsEditPartFormOpen(false);
 
   const openDeleteConfirmDialog = async () => {
     setDeletePartError(null);
@@ -244,8 +241,9 @@ function ViewGlobalPart() {
     // Fetch build list count when opening the dialog
     if (part?.id) {
       try {
-        const response =
-          await buildListPartsApi.countBuildListsContainingGlobalPart(part.id);
+        const response = await buildListPartsApi.countBuildListsContainingPart(
+          part.id
+        );
         setBuildListCount(response.data.count);
       } catch {
         setBuildListCount(null);
@@ -270,7 +268,7 @@ function ViewGlobalPart() {
     const result = await executeDeletePart(partId);
     if (result !== null) {
       setIsDeleteConfirmOpen(false);
-      void navigate('/global-parts'); // Navigate to global parts catalog
+      void navigate('/parts'); // Navigate to global parts catalog
     }
   };
 
@@ -354,7 +352,7 @@ function ViewGlobalPart() {
               </ActionButton>
             )}
             {canEdit && (
-              <ActionButton onClick={openEditGlobalPartDialog}>
+              <ActionButton onClick={openEditPartDialog}>
                 Edit Part
               </ActionButton>
             )}
@@ -385,9 +383,8 @@ function ViewGlobalPart() {
                 userVote={partWithVotes.user_vote ?? null}
                 onVoteUpdate={handleVoteUpdate}
                 voteApi={{
-                  voteOnEntity: (id, data) =>
-                    globalPartVotesApi.voteOnGlobalPart(id, data),
-                  removeVote: (id) => globalPartVotesApi.removeVote(id),
+                  voteOnEntity: (id, data) => partVotesApi.voteOnPart(id, data),
+                  removeVote: (id) => partVotesApi.removeVote(id),
                 }}
                 size="lg"
               />
@@ -404,7 +401,7 @@ function ViewGlobalPart() {
                   imageUrls={part.image_urls ?? null}
                   altText={part.name}
                   partId={part.id}
-                  onPartUpdated={handleGlobalPartUpdated}
+                  onPartUpdated={handlePartUpdated}
                   layout="hero"
                 />
               ) : (
@@ -437,8 +434,8 @@ function ViewGlobalPart() {
               <Link
                 to={
                   part.car_ids?.length
-                    ? `/global-parts?mode=category_car&category_id=${category.id}&car_id=${part.car_ids[0]}`
-                    : `/global-parts?mode=category_car&category_id=${category.id}`
+                    ? `/parts?mode=category_car&category_id=${category.id}&car_id=${part.car_ids[0]}`
+                    : `/parts?mode=category_car&category_id=${category.id}`
                 }
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
               >
@@ -449,7 +446,7 @@ function ViewGlobalPart() {
           {brand && (
             <CardInfoItem label="Brand:">
               <Link
-                to={`/global-parts?mode=brand&brand_id=${brand.id}`}
+                to={`/parts?mode=brand&brand_id=${brand.id}`}
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
               >
                 {brand.name}
@@ -667,14 +664,14 @@ function ViewGlobalPart() {
       {/* Dialog for Editing Part */}
       {part && canEdit && (
         <Dialog
-          isOpen={isEditGlobalPartFormOpen}
-          onClose={closeEditGlobalPartDialog}
+          isOpen={isEditPartFormOpen}
+          onClose={closeEditPartDialog}
           title={`Edit ${part.name}`}
         >
-          <EditGlobalPartForm
-            globalPart={part}
-            onGlobalPartUpdated={handleGlobalPartUpdated}
-            onCancel={closeEditGlobalPartDialog}
+          <EditPartForm
+            part={part}
+            onPartUpdated={handlePartUpdated}
+            onCancel={closeEditPartDialog}
           />
         </Dialog>
       )}
@@ -708,7 +705,7 @@ function ViewGlobalPart() {
         <AddToBuildListDialog
           isOpen={isAddToBuildListDialogOpen}
           onClose={closeAddToBuildListDialog}
-          globalPart={partWithVotes}
+          part={partWithVotes}
           onPartAdded={handlePartAddedToBuildList}
         />
       )}
@@ -716,4 +713,4 @@ function ViewGlobalPart() {
   );
 }
 
-export default ViewGlobalPart;
+export default ViewPart;

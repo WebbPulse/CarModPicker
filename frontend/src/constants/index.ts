@@ -36,14 +36,14 @@ export const SEARCH_RESULTS_LIMIT = 20;
 export const SEARCH_INITIAL_LIMITS = {
   build_lists: 8,
   users: 8,
-  global_parts: 4,
+  parts: 4,
 } as const;
 
 /** Increment amount when loading more search results */
 export const SEARCH_LOAD_MORE_INCREMENT = {
   build_lists: 8,
   users: 8,
-  global_parts: 4,
+  parts: 4,
 } as const;
 
 // ============================================================================

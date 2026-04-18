@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { globalPartsApi } from '../../services/Api';
+import { partsApi } from '../../services/Api';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { ErrorAlert } from '../common/Alerts';
 import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
@@ -49,7 +49,7 @@ export default function ImageGalleryManage({
     setSettingPrimaryIndex(index);
     setRemoveError(null);
     try {
-      await globalPartsApi.setGlobalPartPrimaryImage(partId, index);
+      await partsApi.setPartPrimaryImage(partId, index);
       await onPartUpdated();
     } catch (e) {
       setRemoveError(
@@ -77,7 +77,7 @@ export default function ImageGalleryManage({
     setIsRemoving(true);
     setRemoveError(null);
     try {
-      await globalPartsApi.removeGlobalPartImage(partId, imageIndexToRemove);
+      await partsApi.removePartImage(partId, imageIndexToRemove);
       await onPartUpdated();
       closeRemoveDialog();
     } catch (e) {

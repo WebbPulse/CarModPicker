@@ -148,7 +148,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "downvote"
 
-    def test_vote_global_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully voting on a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
@@ -197,7 +197,7 @@ class TestUnifiedVotes:
             "category_id": str(category.id),
             "brand_id": str(brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=part_owner_headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=part_owner_headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -211,7 +211,7 @@ class TestUnifiedVotes:
         # Upvote the part
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/global_part/{part['id']}",
+            f"{settings.API_STR}/votes/part/{part['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
@@ -219,7 +219,7 @@ class TestUnifiedVotes:
 
         data = response.json()
         assert data["entity_id"] == part["id"]
-        assert data["entity_type"] == "global_part"
+        assert data["entity_type"] == "part"
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 

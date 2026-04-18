@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type {
   ApiResponse,
-  GlobalPartRead,
+  PartRead,
   Retailer,
   ScrapedProductData,
 } from "../../types";
 import { getCanonicalImageUrl } from "../../utils/imageUrlUtils";
 
 interface RecordPriceDialogProps {
-  existingPart: GlobalPartRead;
+  existingPart: PartRead;
   scrapedData: ScrapedProductData;
   retailer: Retailer | null;
   onClose: () => void;
@@ -16,7 +16,7 @@ interface RecordPriceDialogProps {
   sendMessage: (message: {
     action: string;
     listingData?: {
-      global_part_id: number;
+      part_id: number;
       retailer_id: number;
       product_url?: string;
       price_cents?: number;
@@ -100,7 +100,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
       if (selectedUrls.length > 0 && slotsLeft > 0) {
         const refsToAppend = selectedUrls.slice(0, slotsLeft);
         const appendRes = (await sendMessage({
-          action: "appendImagesToGlobalPart",
+          action: "appendImagesToPart",
           partId: existingPart.id,
           fileKeys: refsToAppend,
         })) as ApiResponse<unknown>;
@@ -111,12 +111,12 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
       }
 
       const listingData: {
-        global_part_id: number;
+        part_id: number;
         retailer_id: number;
         product_url?: string;
         price_cents?: number;
       } = {
-        global_part_id: existingPart.id,
+        part_id: existingPart.id,
         retailer_id: retailer.id,
         price_cents: scrapedPriceCents,
       };
@@ -148,7 +148,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
               } else if (apiUrl.includes("staging")) {
                 frontendUrl = "https://staging.carmodpicker.com";
               }
-              const partUrl = `${frontendUrl}/global-parts/${existingPart.id}`;
+              const partUrl = `${frontendUrl}/parts/${existingPart.id}`;
               if (openInNewTab) {
                 chrome.tabs.create({ url: partUrl });
               } else {

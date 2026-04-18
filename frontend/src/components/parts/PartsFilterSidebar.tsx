@@ -3,7 +3,7 @@ import Card from '../common/Card';
 import VehicleFilterSection from '../common/VehicleFilterSection';
 import type { BrandResponse, CarRead, CategoryResponse } from '../../types/Api';
 
-export interface GlobalPartsFilterSidebarProps {
+export interface PartsFilterSidebarProps {
   hasActiveFilters: boolean;
   clearAllFilters: () => void;
   // Car / Vehicle
@@ -39,9 +39,7 @@ export interface GlobalPartsFilterSidebarProps {
   setSelectedBrandIds: (ids: string[]) => void;
 }
 
-const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
-  props
-) => {
+const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
   const [brandSearchTerm, setBrandSearchTerm] = useState('');
   const {
     hasActiveFilters,
@@ -240,4 +238,4 @@ const GlobalPartsFilterSidebar: React.FC<GlobalPartsFilterSidebarProps> = (
   );
 };
 
-export default GlobalPartsFilterSidebar;
+export default PartsFilterSidebar;

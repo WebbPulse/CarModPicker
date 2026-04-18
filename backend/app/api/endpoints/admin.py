@@ -34,10 +34,10 @@ from app.api.models.car import Car as DBCar
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
-from app.api.models.global_part import GlobalPart as DBGlobalPart
-from app.api.models.global_part_car import global_part_cars
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.make import Make as DBMake
+from app.api.models.part import Part as DBPart
+from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.report import Report as DBReport
@@ -158,8 +158,8 @@ async def get_admin_table_counts(
     """
     _ = current_user
 
-    global_part_car_rows = db.query(func.count()).select_from(global_part_cars).scalar()
-    global_part_car_count = int(global_part_car_rows or 0)
+    part_car_rows = db.query(func.count()).select_from(part_cars).scalar()
+    part_car_count = int(part_car_rows or 0)
 
     vote_rows = db.query(DBVote.entity_type, func.count(DBVote.id)).group_by(DBVote.entity_type).all()
     votes_by_entity_type = {str(row[0]): int(row[1]) for row in vote_rows}
@@ -176,7 +176,7 @@ async def get_admin_table_counts(
         "part_price_histories": db.query(DBPartPriceHistory).count(),
         "image_source_mappings": db.query(DBImageSourceMapping).count(),
         "build_logs": db.query(DBBuildLog).count(),
-        "global_part_cars": global_part_car_count,
+        "part_cars": part_car_count,
         "votes_by_entity_type": votes_by_entity_type,
         "reports_by_entity_type": reports_by_entity_type,
         **crawl_bucket_stats,
@@ -438,7 +438,7 @@ async def delete_all_cars(
     Delete all cars / car generations (admin only).
 
     Unlinks build lists from cars (sets car_id to null), removes car votes and
-    global_part_cars links, then deletes all Car, CarModel, and Make rows so
+    part_cars links, then deletes all Car, CarModel, and Make rows so
     Init Car Generations can repopulate from a clean slate.
     This action cannot be undone.
     """
@@ -1421,38 +1421,38 @@ async def cancel_background_job(
 # ---------------------------------------------------------------------------
 
 
-class DeleteAllGlobalPartsResponse(BaseModel):
-    """Response for delete-all global parts (admin only)."""
+class DeleteAllPartsResponse(BaseModel):
+    """Response for delete-all parts (admin only)."""
 
-    deleted_count: int = Field(..., description="Number of global parts deleted")
+    deleted_count: int = Field(..., description="Number of parts deleted")
 
 
 @router.post(
-    "/global-parts/delete-all",
-    response_model=DeleteAllGlobalPartsResponse,
+    "/parts/delete-all",
+    response_model=DeleteAllPartsResponse,
     responses=standard_responses(
-        success_description="All global parts deleted",
+        success_description="All parts deleted",
         forbidden=True,
     ),
 )
-async def delete_all_global_parts(
+async def delete_all_parts(
     current_user: DBUser = Depends(get_current_admin_user),
-) -> DeleteAllGlobalPartsResponse:
+) -> DeleteAllPartsResponse:
     """
-    Delete all global parts (admin only).
+    Delete all parts (admin only).
 
     Cascades to part listings, votes, reports, build list parts, and car associations.
     This action cannot be undone.
     """
     db = SessionLocal()
     try:
-        parts = db.query(DBGlobalPart).all()
+        parts = db.query(DBPart).all()
         count = len(parts)
         for part in parts:
             db.delete(part)
         db.commit()
-        logger.info("Admin %s deleted all %s global parts", current_user.id, count)
-        return DeleteAllGlobalPartsResponse(deleted_count=count)
+        logger.info("Admin %s deleted all %s parts", current_user.id, count)
+        return DeleteAllPartsResponse(deleted_count=count)
     except Exception as e:
         db.rollback()
         logger.exception("Delete all global parts failed: %s", e)
@@ -1490,9 +1490,7 @@ async def delete_all_brands(
     """
     try:
         # Nullify brand_id on all global parts so we can delete brands
-        db.query(DBGlobalPart).filter(DBGlobalPart.brand_id.isnot(None)).update(
-            {DBGlobalPart.brand_id: None}, synchronize_session=False
-        )
+        db.query(DBPart).filter(DBPart.brand_id.isnot(None)).update({DBPart.brand_id: None}, synchronize_session=False)
         brands = db.query(DBBrand).all()
         count = len(brands)
         for brand in brands:

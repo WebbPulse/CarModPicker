@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LARGE_FETCH_LIMIT } from '../constants';
-import {
-  brandsApi,
-  carsApi,
-  categoriesApi,
-  globalPartsApi,
-} from '../services/Api';
+import { brandsApi, carsApi, categoriesApi, partsApi } from '../services/Api';
 import type {
   BrandResponse,
   CarRead,
@@ -18,14 +13,14 @@ import useApiRequest from './UseApiRequest';
 
 const PARTS_PER_PAGE = 100;
 
-export interface UseGlobalPartsFiltersOptions {
+export interface UsePartsFiltersOptions {
   /** When set, list and filter-options are scoped to this user (e.g. My Parts). */
   user_id?: string;
   /** When true, filter state is synced to URL and initialized from URL. */
   syncToUrl?: boolean;
 }
 
-export interface UseGlobalPartsFiltersReturn {
+export interface UsePartsFiltersReturn {
   // List API params (include sort so server sorts full result set; pagination then returns correct page)
   params: {
     skip: number;
@@ -103,9 +98,9 @@ export interface UseGlobalPartsFiltersReturn {
   isInitializedFromUrl: boolean;
 }
 
-export function useGlobalPartsFilters(
-  options: UseGlobalPartsFiltersOptions = {}
-): UseGlobalPartsFiltersReturn {
+export function usePartsFilters(
+  options: UsePartsFiltersOptions = {}
+): UsePartsFiltersReturn {
   const { user_id: userId, syncToUrl = false } = options;
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -261,9 +256,8 @@ export function useGlobalPartsFilters(
 
   useEffect(() => {
     let cancelled = false;
-    const filterOptionsParams: Parameters<
-      typeof globalPartsApi.getFilterOptions
-    >[0] = {};
+    const filterOptionsParams: Parameters<typeof partsApi.getFilterOptions>[0] =
+      {};
     if (selectedCategoryIds.length > 0)
       filterOptionsParams.category_ids = selectedCategoryIds;
     if (selectedBrandIds.length > 0)
@@ -273,7 +267,7 @@ export function useGlobalPartsFilters(
     if (showUniversalParts) filterOptionsParams.universal = true;
     if (searchTerm.trim()) filterOptionsParams.search = searchTerm;
     if (userId !== undefined) filterOptionsParams.user_id = userId;
-    void globalPartsApi
+    void partsApi
       .getFilterOptions(filterOptionsParams)
       .then((res) => {
         if (!cancelled) setFilterOptions(res.data);

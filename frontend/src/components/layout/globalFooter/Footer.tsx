@@ -99,7 +99,7 @@ function Footer() {
                 </li>
                 <li>
                   <Link
-                    to="/global-parts"
+                    to="/parts"
                     className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
                   >
                     Parts Catalog

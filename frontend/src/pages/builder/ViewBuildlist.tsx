@@ -21,8 +21,8 @@ import DeleteConfirmationDialog from '../../components/common/DeleteConfirmation
 import Dialog from '../../components/common/Dialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
-import ImageGallery from '../../components/globalParts/ImageGallery';
-import VoteButtons from '../../components/globalParts/VoteButtons';
+import ImageGallery from '../../components/parts/ImageGallery';
+import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';

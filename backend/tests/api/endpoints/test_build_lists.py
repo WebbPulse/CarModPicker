@@ -638,14 +638,14 @@ class TestBuildLists:
             "category_id": str(category.id),
             "brand_id": str(brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
-        global_part = response.json()
+        part = response.json()
 
         # Add part to original build list
         build_list_part_data = {"notes": "Original notes", "quantity": 2}
         response = client.post(
-            f"{settings.API_STR}/build-list-parts/{original_build_list['id']}/global-parts/{global_part['id']}",
+            f"{settings.API_STR}/build-list-parts/{original_build_list['id']}/parts/{part['id']}",
             json=build_list_part_data,
             headers=headers,
         )
@@ -675,7 +675,7 @@ class TestBuildLists:
         assert response.status_code == 200
         parts = response.json()
         assert len(parts) == 1
-        assert parts[0]["global_part_id"] == global_part["id"]
+        assert parts[0]["part_id"] == part["id"]
         assert parts[0]["notes"] == "Original notes"
         assert parts[0]["quantity"] == 2
 
