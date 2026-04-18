@@ -620,7 +620,7 @@ def handle_vote_operation(
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
         entity_type: Entity type for polymorphic association
-            ('car', 'build_list', 'global_part')
+            ('car', 'build_list', 'part')
         logger: Logger instance
         existing_vote: Existing vote if updating
 
@@ -682,7 +682,7 @@ def remove_vote_operation(
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
         entity_type: Entity type for polymorphic association
-            ('car', 'build_list', 'global_part')
+            ('car', 'build_list', 'part')
         logger: Logger instance
 
     Returns:
@@ -739,7 +739,7 @@ def get_vote_summary(
         vote_model: Model class for the vote
         entity_name: Human-readable name of the entity
         entity_type: Entity type for polymorphic association
-            ('car', 'build_list', 'global_part')
+            ('car', 'build_list', 'part')
         logger: Logger instance
 
     Returns:
@@ -813,7 +813,7 @@ def handle_report_creation(
         entity_model: Model class for the entity
         report_model: Model class for the report
         entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'part')
         logger: Logger instance
         additional_filters: Additional filters for entity lookup
 
@@ -887,7 +887,7 @@ def get_reports_by_entity(
         entity_model: Model class for the entity
         report_model: Model class for the report
         entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'global_part')
+        entity_type: Entity type for polymorphic association ('car', 'build_list', 'part')
         logger: Logger instance
         skip: Number of reports to skip
         limit: Maximum number of reports to return

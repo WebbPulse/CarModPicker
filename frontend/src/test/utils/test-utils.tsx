@@ -101,7 +101,7 @@ export const createMockBuildList = (overrides = {}) => ({
   ...overrides,
 });
 
-export const createMockGlobalPart = (overrides = {}) => ({
+export const createMockPart = (overrides = {}) => ({
   id: 1,
   name: 'Test Part',
   description: 'Test part description',

@@ -189,13 +189,13 @@ class CrawledPageRead(BaseModel):
     crawled_at: datetime
     last_parsed_at: Optional[datetime]
     parse_status: str
-    global_part_id: Optional[UUID]
+    part_id: Optional[UUID]
     html_sha256: Optional[str] = None
 
 
 class ReparseResponse(BaseModel):
     crawled_page_id: UUID
-    global_part_id: Optional[UUID]
+    part_id: Optional[UUID]
     parse_status: str
     message: str
 
@@ -464,7 +464,7 @@ async def reparse_crawled_page(
     if outcome == "parse_failed":
         return ReparseResponse(
             crawled_page_id=page.id,
-            global_part_id=page.global_part_id,
+            part_id=page.part_id,
             parse_status="failed",
             message="Adapter returned None — page is not a product page or parse failed.",
         )
@@ -474,7 +474,7 @@ async def reparse_crawled_page(
 
     return ReparseResponse(
         crawled_page_id=page.id,
-        global_part_id=part_id,
+        part_id=part_id,
         parse_status="parsed",
         message="Re-parse and ingest succeeded.",
     )

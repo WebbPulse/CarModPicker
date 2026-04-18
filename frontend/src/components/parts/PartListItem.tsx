@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import type { GlobalPartRead } from '../../types/Api';
+import type { PartRead } from '../../types/Api';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 
-interface GlobalPartListItemProps {
-  part: GlobalPartRead;
+interface PartListItemProps {
+  part: PartRead;
 }
 
-const GlobalPartListItem: React.FC<GlobalPartListItemProps> = ({ part }) => {
+const PartListItem: React.FC<PartListItemProps> = ({ part }) => {
   return (
-    <Link to={`/global-parts/${part.id}`} className="block hover:no-underline">
+    <Link to={`/parts/${part.id}`} className="block hover:no-underline">
       <Card className="flex flex-row items-start gap-4 p-4 border-2 border-transparent w-full">
         <ImageWithPlaceholder
           srcUrl={buildExternalImageUrl(part.image_urls?.[0], 'thumbnail')}
@@ -52,4 +52,4 @@ const GlobalPartListItem: React.FC<GlobalPartListItemProps> = ({ part }) => {
   );
 };
 
-export default GlobalPartListItem;
+export default PartListItem;

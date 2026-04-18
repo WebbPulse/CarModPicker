@@ -8,7 +8,7 @@ from .retailer import RetailerRead
 
 
 class PartListingBase(BaseModel):
-    global_part_id: UUID = Field(..., description="Global part ID")
+    part_id: UUID = Field(..., description="Part ID")
     retailer_id: UUID = Field(..., description="Retailer ID")
     product_url: Optional[str] = Field(None, description="Product page URL at this retailer")
     last_known_price_cents: Optional[int] = Field(None, ge=0, description="Last known price in cents")
@@ -16,7 +16,7 @@ class PartListingBase(BaseModel):
 
 
 class PartListingCreate(BaseModel):
-    global_part_id: UUID = Field(..., description="Global part ID")
+    part_id: UUID = Field(..., description="Part ID")
     retailer_id: UUID = Field(..., description="Retailer ID")
     product_url: Optional[str] = Field(None, description="Product page URL at this retailer")
     price_cents: Optional[int] = Field(None, ge=0, description="Initial price in cents (creates first price history)")

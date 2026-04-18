@@ -2,19 +2,18 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { globalPartsApi } from '../../services/Api';
+import { partsApi } from '../../services/Api';
 
 import SecondaryButton from '../../components/buttons/SecondaryButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import EditGlobalPartForm from '../../components/globalParts/EditGlobalPartForm';
+import EditPartForm from '../../components/parts/EditPartForm';
 import PageHeader from '../../components/layout/PageHeader';
 
-const fetchPartRequestFn = (partId: string) =>
-  globalPartsApi.getGlobalPart(partId);
+const fetchPartRequestFn = (partId: string) => partsApi.getPart(partId);
 
-function EditGlobalPart() {
+function EditPart() {
   const { partId } = useParams<{ partId: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -36,15 +35,15 @@ function EditGlobalPart() {
     if (partId) {
       await fetchPart(partId);
       // Navigate back to the part view page
-      void navigate(`/global-parts/${partId}`);
+      void navigate(`/parts/${partId}`);
     }
   };
 
   const handleCancel = () => {
     if (partId) {
-      void navigate(`/global-parts/${partId}`);
+      void navigate(`/parts/${partId}`);
     } else {
-      void navigate('/global-parts');
+      void navigate('/parts');
     }
   };
 
@@ -129,9 +128,9 @@ function EditGlobalPart() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader title={`Edit ${part.name}`} />
       <Card>
-        <EditGlobalPartForm
-          globalPart={part}
-          onGlobalPartUpdated={handlePartUpdated}
+        <EditPartForm
+          part={part}
+          onPartUpdated={handlePartUpdated}
           onCancel={handleCancel}
         />
       </Card>
@@ -139,4 +138,4 @@ function EditGlobalPart() {
   );
 }
 
-export default EditGlobalPart;
+export default EditPart;

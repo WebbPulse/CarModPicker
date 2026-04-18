@@ -297,7 +297,7 @@ class TestBrands:
             "category_id": category_id,
             "brand_id": brand_id,
         }
-        part_resp = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        part_resp = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert part_resp.status_code == 200
 
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_wp_admin")
@@ -308,7 +308,7 @@ class TestBrands:
         detail = body.get("detail", body.get("message", ""))
         assert "associated parts" in detail.lower() or "cannot delete" in detail.lower()
 
-    def test_get_global_parts_by_brand_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_parts_by_brand_success(self, client: TestClient, db_session: Session) -> None:
         """Test getting global parts by brand (public)."""
         _, token = create_and_login_user(client, "parts_by_brand", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandForParts"))
@@ -322,16 +322,16 @@ class TestBrands:
             "category_id": category_id,
             "brand_id": brand_id,
         }
-        client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
 
-        response = client.get(f"{settings.API_STR}/brands/{brand_id}/global-parts")
+        response = client.get(f"{settings.API_STR}/brands/{brand_id}/parts")
         assert response.status_code == 200
         parts = response.json()
         assert isinstance(parts, list)
         assert len(parts) >= 1
         assert all(p["brand_id"] == brand_id for p in parts)
 
-    def test_get_global_parts_by_brand_pagination(self, client: TestClient, db_session: Session) -> None:
+    def test_get_parts_by_brand_pagination(self, client: TestClient, db_session: Session) -> None:
         """Test pagination for parts by brand."""
         _, token = create_and_login_user(client, "parts_pag", db_session)
         created = create_brand_via_api(client, token, get_unique_name("BrandPag"))
@@ -346,10 +346,10 @@ class TestBrands:
                 "category_id": category_id,
                 "brand_id": brand_id,
             }
-            client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
 
         response = client.get(
-            f"{settings.API_STR}/brands/{brand_id}/global-parts",
+            f"{settings.API_STR}/brands/{brand_id}/parts",
             params={"skip": 1, "limit": 2},
         )
         assert response.status_code == 200
@@ -378,7 +378,7 @@ class TestBrands:
             "category_id": category_id,
             "brand_id": brand_id,
         }
-        client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
 
         response = client.get(f"{settings.API_STR}/brands/{brand_id}/parts-count")
         assert response.status_code == 200

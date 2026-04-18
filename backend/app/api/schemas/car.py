@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
-from app.api.schemas.global_part import apply_image_url_presigning
+from app.api.schemas.part import apply_image_url_presigning
 
 
 # Schema for request body when creating a car

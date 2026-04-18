@@ -3,7 +3,7 @@ import type {
   BuildListRead,
   CarRead,
   CategoryResponse,
-  GlobalPartRead,
+  PartRead,
   UserRead,
   VoteSummary,
 } from '../../types/Api';
@@ -48,7 +48,7 @@ export const mockBuildList: BuildListRead = {
 };
 
 // Mock global part data
-export const mockGlobalPart: GlobalPartRead = {
+export const mockPart: PartRead = {
   id: '44444444-4444-7444-8444-444444444444',
   name: 'Test Part',
   description: 'Test part description',
@@ -84,7 +84,7 @@ export const mockCategory: CategoryResponse = {
 // Mock vote summary
 export const mockVoteSummary: VoteSummary = {
   entity_id: '44444444-4444-7444-8444-444444444444',
-  entity_type: 'global_part',
+  entity_type: 'part',
   upvotes: 5,
   downvotes: 1,
   total_votes: 6,
@@ -108,9 +108,9 @@ export const mockApiResponses = {
   '/build-lists/1': { data: mockBuildList },
 
   // Global parts endpoints
-  '/global-parts': { data: [mockGlobalPart] },
-  '/global-parts/1': { data: mockGlobalPart },
-  '/global-parts/1/votes': { data: mockVoteSummary },
+  '/parts': { data: [mockPart] },
+  '/parts/1': { data: mockPart },
+  '/parts/1/votes': { data: mockVoteSummary },
 
   // Categories endpoints
   '/categories': { data: [mockCategory] },

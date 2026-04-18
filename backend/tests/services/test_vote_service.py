@@ -6,7 +6,7 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.global_part import GlobalPart
+from app.api.models.part import Part
 from app.api.models.user import User
 from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
@@ -69,7 +69,7 @@ class TestVoteService:
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"
 
-    def test_vote_on_global_part(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_part(self, db_session: Session, test_user: User) -> None:
         """Test voting on a global part."""
         # Create a global part
         from app.api.models.category import Category
@@ -86,25 +86,23 @@ class TestVoteService:
             db_session.add(category)
             db_session.commit()
 
-        global_part = GlobalPart(
+        part = Part(
             name=get_unique_name("test_part"),
             description="Test part",
             user_id=test_user.id,
             category_id=category.id,
         )
-        db_session.add(global_part)
+        db_session.add(part)
         db_session.commit()
 
         # Vote on global part
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote = service.vote_on_entity(
-            db_session, EntityType.GLOBAL_PART, global_part.id, test_user.id, vote_data, logger
-        )
+        vote = service.vote_on_entity(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, vote_data, logger)
 
-        assert vote.entity_type == "global_part"
-        assert vote.entity_id == global_part.id
+        assert vote.entity_type == "part"
+        assert vote.entity_id == part.id
         assert vote.user_id == test_user.id
         assert vote.vote_type == "downvote"
 

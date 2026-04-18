@@ -256,7 +256,7 @@ class TestCategoriesAdminAuthentication:
 
     def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
-        from app.api.models.global_part import GlobalPart as DBGlobalPart
+        from app.api.models.part import Part as DBPart
 
         user = DBUser(
             username="test_user_for_part",
@@ -280,7 +280,7 @@ class TestCategoriesAdminAuthentication:
         db_session.add(category)
         db_session.commit()
         db_session.refresh(category)
-        part = DBGlobalPart(
+        part = DBPart(
             name="Test Part",
             description="A test part",
             category_id=category.id,
@@ -321,8 +321,8 @@ class TestCategoriesAdminAuthentication:
         category_data = response.json()
         assert category_data["name"] == category.name
 
-        # Test GET /categories/{id}/global-parts (public)
-        response = client.get(f"{settings.API_STR}/categories/{category.id}/global-parts")
+        # Test GET /categories/{id}/parts (public)
+        response = client.get(f"{settings.API_STR}/categories/{category.id}/parts")
         assert response.status_code == 200, "Category global parts should be public"
 
         parts = response.json()

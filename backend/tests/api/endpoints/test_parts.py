@@ -27,10 +27,10 @@ def get_auth_token_and_headers(client: TestClient, username: str, password: str 
     return {"Authorization": f"Bearer {token}"}
 
 
-class TestGlobalParts:
+class TestParts:
     """Test cases for global parts endpoints."""
 
-    def test_create_global_part_success(
+    def test_create_part_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test successful creation of a global part."""
@@ -49,7 +49,7 @@ class TestGlobalParts:
             "brand_id": str(test_brand.id),
             "image_urls": ["https://example.com/image.jpg"],
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -61,9 +61,7 @@ class TestGlobalParts:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_create_global_part_unauthorized(
-        self, client: TestClient, test_category: Category, test_brand: Brand
-    ) -> None:
+    def test_create_part_unauthorized(self, client: TestClient, test_category: Category, test_brand: Brand) -> None:
         """Test creating a global part without authentication."""
         part_data = {
             "name": get_unique_name("test_part"),
@@ -71,10 +69,10 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data)
         assert response.status_code == 401
 
-    def test_get_global_parts_list(
+    def test_get_parts_list(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test retrieving list of global parts."""
@@ -91,18 +89,18 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Get the list
-        response = client.get(f"{settings.API_STR}/global-parts/", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/", headers=headers)
         assert response.status_code == 200
 
         data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
 
-    def test_get_global_parts_with_pagination(
+    def test_get_parts_with_pagination(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test pagination for global parts list."""
@@ -117,16 +115,16 @@ class TestGlobalParts:
                 "category_id": str(test_category.id),
                 "brand_id": str(test_brand.id),
             }
-            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
 
         # Test pagination
-        response = client.get(f"{settings.API_STR}/global-parts/?skip=0&limit=2", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/?skip=0&limit=2", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data) <= 2
 
-    def test_get_global_parts_with_category_filter(
+    def test_get_parts_with_category_filter(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test filtering global parts by category."""
@@ -139,11 +137,11 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Filter by category
-        response = client.get(f"{settings.API_STR}/global-parts/?category_id={test_category.id}", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/?category_id={test_category.id}", headers=headers)
         assert response.status_code == 200
         data: list[Any] = response.json()
         assert isinstance(data, list)
@@ -151,7 +149,7 @@ class TestGlobalParts:
         for part in data:
             assert part["category_id"] == str(test_category.id)
 
-    def test_get_global_parts_with_search(
+    def test_get_parts_with_search(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test searching global parts."""
@@ -165,18 +163,18 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Search by name
-        response = client.get(f"{settings.API_STR}/global-parts/?search={unique_name}", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/?search={unique_name}", headers=headers)
         assert response.status_code == 200
         data: list[Any] = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
         assert any(unique_name in part["name"] for part in data)  # type: ignore[misc]
 
-    def test_get_global_part_by_id(
+    def test_get_part_by_id(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test retrieving a specific global part by ID."""
@@ -189,23 +187,23 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         created_part = response.json()
 
         # Get the part by ID
-        response = client.get(f"{settings.API_STR}/global-parts/{created_part['id']}", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/{created_part['id']}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == created_part["id"]
         assert data["name"] == created_part["name"]
 
-    def test_get_global_part_not_found(self, client: TestClient) -> None:
+    def test_get_part_not_found(self, client: TestClient) -> None:
         """Test retrieving a non-existent global part."""
-        response = client.get(f"{settings.API_STR}/global-parts/{INVALID_UUID_STR}")
+        response = client.get(f"{settings.API_STR}/parts/{INVALID_UUID_STR}")
         assert response.status_code == 404
 
-    def test_update_global_part_success(
+    def test_update_part_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test successful update of a global part."""
@@ -218,7 +216,7 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         created_part = response.json()
 
@@ -228,15 +226,13 @@ class TestGlobalParts:
             "description": "Updated description",
             "brand_id": str(test_brand.id),
         }
-        response = client.put(
-            f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data, headers=headers
-        )
+        response = client.put(f"{settings.API_STR}/parts/{created_part['id']}", json=update_data, headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_global_part_unauthorized(
+    def test_update_part_unauthorized(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test updating a global part without proper authorization."""
@@ -249,16 +245,16 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         created_part = response.json()
 
         # Try to update without authentication
         update_data = {"name": "unauthorized_update"}
-        response = client.put(f"{settings.API_STR}/global-parts/{created_part['id']}", json=update_data)
+        response = client.put(f"{settings.API_STR}/parts/{created_part['id']}", json=update_data)
         assert response.status_code == 401
 
-    def test_delete_global_part_success(
+    def test_delete_part_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test successful deletion of a global part."""
@@ -271,19 +267,19 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         created_part = response.json()
 
         # Delete the part
-        response = client.delete(f"{settings.API_STR}/global-parts/{created_part['id']}", headers=headers)
+        response = client.delete(f"{settings.API_STR}/parts/{created_part['id']}", headers=headers)
         assert response.status_code == 200
 
         # Verify it's deleted
-        response = client.get(f"{settings.API_STR}/global-parts/{created_part['id']}", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/{created_part['id']}", headers=headers)
         assert response.status_code == 404
 
-    def test_delete_global_part_unauthorized(
+    def test_delete_part_unauthorized(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test deleting a global part without proper authorization."""
@@ -296,15 +292,15 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         created_part = response.json()
 
         # Try to delete without authentication
-        response = client.delete(f"{settings.API_STR}/global-parts/{created_part['id']}")
+        response = client.delete(f"{settings.API_STR}/parts/{created_part['id']}")
         assert response.status_code == 401
 
-    def test_get_global_parts_with_votes(
+    def test_get_parts_with_votes(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test retrieving global parts with vote data."""
@@ -317,11 +313,11 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Get parts with votes
-        response = client.get(f"{settings.API_STR}/global-parts/with-votes", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/with-votes", headers=headers)
         assert response.status_code == 200
         result: dict[str, Any] = response.json()
         assert isinstance(result, dict)
@@ -335,7 +331,7 @@ class TestGlobalParts:
             assert "downvotes" in part
             assert "user_vote" in part
 
-    def test_get_global_parts_with_votes_universal_filter(
+    def test_get_parts_with_votes_universal_filter(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test that universal=true returns only parts with is_universal=True."""
@@ -349,7 +345,7 @@ class TestGlobalParts:
             "brand_id": str(test_brand.id),
             "is_universal": True,
         }
-        r1 = client.post(f"{settings.API_STR}/global-parts/", json=universal_data, headers=headers)
+        r1 = client.post(f"{settings.API_STR}/parts/", json=universal_data, headers=headers)
         assert r1.status_code == 200
         universal_id = r1.json()["id"]
 
@@ -361,12 +357,12 @@ class TestGlobalParts:
             "brand_id": str(test_brand.id),
             "is_universal": False,
         }
-        r2 = client.post(f"{settings.API_STR}/global-parts/", json=non_universal_data, headers=headers)
+        r2 = client.post(f"{settings.API_STR}/parts/", json=non_universal_data, headers=headers)
         assert r2.status_code == 200
         non_universal_id = r2.json()["id"]
 
         # Without filter: both parts can appear
-        response = client.get(f"{settings.API_STR}/global-parts/with-votes", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/with-votes", headers=headers)
         assert response.status_code == 200
         all_data = response.json()["data"]
         all_ids = {p["id"] for p in all_data}
@@ -374,7 +370,7 @@ class TestGlobalParts:
         assert non_universal_id in all_ids
 
         # With universal=true: only universal part
-        response = client.get(f"{settings.API_STR}/global-parts/with-votes?universal=true", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/with-votes?universal=true", headers=headers)
         assert response.status_code == 200
         result = response.json()
         universal_only = result["data"]
@@ -383,7 +379,7 @@ class TestGlobalParts:
         assert non_universal_id not in universal_only_ids
         assert all(p["is_universal"] for p in universal_only)
 
-    def test_create_global_part_with_invalid_price_cents(
+    def test_create_part_with_invalid_price_cents(
         self, client: TestClient, test_user: Any, test_category: Any, test_brand: Brand
     ) -> None:
         """Test that creating a global part with invalid price_cents (for retailer listing) fails validation."""
@@ -398,7 +394,7 @@ class TestGlobalParts:
             "brand_id": str(test_brand.id),
             "price_cents": 2147483648,  # One more than max PostgreSQL integer
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 422
         error_detail = response.json()["details"][0]
         assert error_detail["type"] == "less_than_equal"
@@ -406,13 +402,13 @@ class TestGlobalParts:
 
         # Test with negative price_cents
         part_data["price_cents"] = -1
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 422
         error_detail = response.json()["details"][0]
         assert error_detail["type"] == "greater_than_equal"
         assert "price_cents" in error_detail["field"]
 
-    def test_get_global_parts_by_category_success(
+    def test_get_parts_by_category_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test retrieving global parts by category."""
@@ -429,12 +425,12 @@ class TestGlobalParts:
                 "category_id": str(test_category.id),
                 "brand_id": str(test_brand.id),
             }
-            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
             created_parts.append(response.json())
 
         # Get global parts by category (public endpoint, no auth required)
-        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}")
+        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -451,7 +447,7 @@ class TestGlobalParts:
         created_part_ids = {part["id"] for part in created_parts}
         assert created_part_ids.issubset(part_ids)
 
-    def test_get_global_parts_by_category_with_pagination(
+    def test_get_parts_by_category_with_pagination(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test pagination for global parts by category."""
@@ -466,18 +462,18 @@ class TestGlobalParts:
                 "category_id": str(test_category.id),
                 "brand_id": str(test_brand.id),
             }
-            response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+            response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
 
         # Get first page
-        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}?skip=0&limit=2")
+        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}?skip=0&limit=2")
         assert response.status_code == 200
         first_page = response.json()
         assert isinstance(first_page, list)
         assert len(first_page) <= 2
 
         # Get second page
-        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}?skip=2&limit=2")
+        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}?skip=2&limit=2")
         assert response.status_code == 200
         second_page = response.json()
         assert isinstance(second_page, list)
@@ -488,16 +484,16 @@ class TestGlobalParts:
         second_page_ids = {part["id"] for part in second_page}
         assert first_page_ids.isdisjoint(second_page_ids)
 
-    def test_get_global_parts_by_category_not_found(self, client: TestClient) -> None:
+    def test_get_parts_by_category_not_found(self, client: TestClient) -> None:
         """Test retrieving global parts for a non-existent category."""
         # Try to get parts for non-existent category (public endpoint, no auth required)
-        response = client.get(f"{settings.API_STR}/global-parts/category/{INVALID_UUID_STR}")
+        response = client.get(f"{settings.API_STR}/parts/category/{INVALID_UUID_STR}")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_get_global_parts_by_category_public_endpoint(
+    def test_get_parts_by_category_public_endpoint(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test that getting global parts by category works without authentication."""
@@ -511,16 +507,16 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Get global parts by category without authentication (public endpoint)
-        response = client.get(f"{settings.API_STR}/global-parts/category/{test_category.id}")
+        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
 
-    def test_count_global_parts_by_user_success(
+    def test_count_parts_by_user_success(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test counting global parts created by a specific user."""
@@ -528,7 +524,7 @@ class TestGlobalParts:
         headers = get_auth_token_and_headers(client, test_user.username)
 
         # Get initial count (public endpoint, no auth required)
-        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        response = client.get(f"{settings.API_STR}/parts/user/{test_user.id}/count")
         assert response.status_code == 200
         initial_data = response.json()
         assert "count" in initial_data
@@ -543,17 +539,17 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Count again (should be increased by 1)
-        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        response = client.get(f"{settings.API_STR}/parts/user/{test_user.id}/count")
         assert response.status_code == 200
         updated_data = response.json()
         assert "count" in updated_data
         assert updated_data["count"] == initial_count + 1
 
-    def test_count_global_parts_by_user_zero(self, client: TestClient, db_session: Session) -> None:
+    def test_count_parts_by_user_zero(self, client: TestClient, db_session: Session) -> None:
         """Test counting global parts for a user with no parts."""
         # Create a new user with no parts
         from app.api.dependencies.auth import get_password_hash
@@ -573,13 +569,13 @@ class TestGlobalParts:
         db_session.refresh(new_user)
 
         # Count global parts for this user (should be 0)
-        response = client.get(f"{settings.API_STR}/global-parts/user/{new_user.id}/count")
+        response = client.get(f"{settings.API_STR}/parts/user/{new_user.id}/count")
         assert response.status_code == 200
         data = response.json()
         assert "count" in data
         assert data["count"] == 0
 
-    def test_count_global_parts_by_user_public_endpoint(
+    def test_count_parts_by_user_public_endpoint(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test that counting global parts by user works without authentication."""
@@ -593,18 +589,18 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Count global parts by user without authentication (public endpoint)
-        response = client.get(f"{settings.API_STR}/global-parts/user/{test_user.id}/count")
+        response = client.get(f"{settings.API_STR}/parts/user/{test_user.id}/count")
         assert response.status_code == 200
         data = response.json()
         assert "count" in data
         assert isinstance(data["count"], int)
         assert data["count"] >= 0
 
-    def test_get_global_parts_filter_options(
+    def test_get_parts_filter_options(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test getting filter options for cascading filters."""
@@ -616,11 +612,11 @@ class TestGlobalParts:
             "category_id": str(test_category.id),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
         # Get filter options (public endpoint)
-        response = client.get(f"{settings.API_STR}/global-parts/filter-options")
+        response = client.get(f"{settings.API_STR}/parts/filter-options")
         assert response.status_code == 200
         data = response.json()
         assert "category_ids" in data
@@ -630,13 +626,12 @@ class TestGlobalParts:
         assert str(test_category.id) in data["category_ids"]
         assert str(test_brand.id) in data["brand_ids"]
 
-    def test_get_global_parts_filter_options_with_filters(
+    def test_get_parts_filter_options_with_filters(
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test filter options with category/brand filters."""
         response = client.get(
-            f"{settings.API_STR}/global-parts/filter-options"
-            f"?category_ids={test_category.id}&brand_ids={test_brand.id}"
+            f"{settings.API_STR}/parts/filter-options" f"?category_ids={test_category.id}&brand_ids={test_brand.id}"
         )
         assert response.status_code == 200
         data = response.json()
@@ -647,12 +642,12 @@ class TestGlobalParts:
         self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
     ) -> None:
         """Test check-url with no or empty product_url returns null."""
-        response = client.get(f"{settings.API_STR}/global-parts/check-url")
+        response = client.get(f"{settings.API_STR}/parts/check-url")
         assert response.status_code == 200
         data = response.json()
         assert data["existing_part_id"] is None
 
-        response = client.get(f"{settings.API_STR}/global-parts/check-url?product_url=")
+        response = client.get(f"{settings.API_STR}/parts/check-url?product_url=")
         assert response.status_code == 200
         data = response.json()
         assert data["existing_part_id"] is None
@@ -662,17 +657,15 @@ class TestGlobalParts:
     ) -> None:
         """Test check-url with non-existent URL returns null."""
         response = client.get(
-            f"{settings.API_STR}/global-parts/check-url" "?product_url=https://example.com/nonexistent/product"
+            f"{settings.API_STR}/parts/check-url" "?product_url=https://example.com/nonexistent/product"
         )
         assert response.status_code == 200
         data = response.json()
         assert data["existing_part_id"] is None
 
-    def test_count_global_parts(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
-    ) -> None:
+    def test_count_parts(self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand) -> None:
         """Test counting total global parts (public endpoint)."""
-        response = client.get(f"{settings.API_STR}/global-parts/count")
+        response = client.get(f"{settings.API_STR}/parts/count")
         assert response.status_code == 200
         data = response.json()
         assert "count" in data

@@ -8,7 +8,7 @@ from uuid6 import uuid7
 
 from app.db.base_class import Base
 
-from .global_part_car import global_part_cars
+from .part_car import part_cars
 
 if TYPE_CHECKING:
     from .brand import Brand
@@ -21,49 +21,42 @@ if TYPE_CHECKING:
     from .vote import Vote
 
 
-class GlobalPart(Base):
-    """
-    Global catalog part model - represents shared parts in the global catalog.
-    These parts can be added to multiple build lists by different users.
-    """
-
-    __tablename__ = "global_parts"
+class Part(Base):
+    __tablename__ = "parts"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
-    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Gallery images (file keys)
+    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
 
-    # New fields for shared architecture
     category_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Creator
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
-    """When True, part fits all cars; no need to list every car_id in global_part_cars."""
+    """When True, part fits all cars; no need to list every car_id in part_cars."""
     brand_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("brands.id"), nullable=True, index=True
-    )  # Optional brand association
+    )
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
-    gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)  # UPC/EAN/GTIN for dedup
+    gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
     specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
-    # Quality and moderation
     is_verified: Mapped[bool] = mapped_column(default=False)
-    source: Mapped[str] = mapped_column(default="user_created")  # 'user_created', 'scraped', 'verified'
+    source: Mapped[str] = mapped_column(default="user_created")
     edit_count: Mapped[int] = mapped_column(default=0)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    category: Mapped["Category"] = relationship("Category", back_populates="global_parts")
-    creator: Mapped["User"] = relationship("User", back_populates="global_parts")
+    category: Mapped["Category"] = relationship("Category", back_populates="parts")
+    creator: Mapped["User"] = relationship("User", back_populates="parts")
     cars: Mapped[List["Car"]] = relationship(
         "Car",
-        secondary=global_part_cars,
-        back_populates="global_parts",
+        secondary=part_cars,
+        back_populates="parts",
         lazy="selectin",
     )
-    brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="global_parts")
+    brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="parts")
 
     @property
     def car_ids(self) -> List[uuid.UUID]:
@@ -71,22 +64,22 @@ class GlobalPart(Base):
         return [c.id for c in self.cars]
 
     build_list_parts: Mapped[list["BuildListPart"]] = relationship(
-        "BuildListPart", back_populates="global_part", cascade="all, delete-orphan"
+        "BuildListPart", back_populates="part", cascade="all, delete-orphan"
     )
     votes: Mapped[list["Vote"]] = relationship(
         "Vote",
         foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == GlobalPart.id, Vote.entity_type == 'global_part')",
+        primaryjoin="and_(Vote.entity_id == Part.id, Vote.entity_type == 'part')",
         cascade="all, delete-orphan",
         overlaps="votes,votes",
     )
     reports: Mapped[list["Report"]] = relationship(
         "Report",
         foreign_keys="[Report.entity_id]",
-        primaryjoin="and_(Report.entity_id == GlobalPart.id, Report.entity_type == 'global_part')",
+        primaryjoin="and_(Report.entity_id == Part.id, Report.entity_type == 'part')",
         cascade="all, delete-orphan",
         overlaps="reports,reports",
     )
     part_listings: Mapped[list["PartListing"]] = relationship(
-        "PartListing", back_populates="global_part", cascade="all, delete-orphan"
+        "PartListing", back_populates="part", cascade="all, delete-orphan"
     )

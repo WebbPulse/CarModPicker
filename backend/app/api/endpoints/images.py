@@ -64,7 +64,7 @@ async def upload_image(
     in your database. Use the /presigned-url endpoint to get a URL for displaying.
 
     Args:
-        entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
+        entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')
         entity_id: Optional ID of the entity (for updates)
         file: Image file to upload
         current_user: Authenticated user (from JWT token)
@@ -77,7 +77,7 @@ async def upload_image(
         HTTPException: If upload fails, validation fails, or user is not authenticated
     """
     # Validate entity_type
-    allowed_entity_types = ["build_list", "global_part", "user", "car", "build_log_post"]
+    allowed_entity_types = ["build_list", "part", "user", "car", "build_log_post"]
     if entity_type not in allowed_entity_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -87,15 +87,15 @@ async def upload_image(
     # If entity_id is provided, verify the user owns the entity
     if entity_id:
         from app.api.models.build_list import BuildList as DBBuildList
-        from app.api.models.global_part import GlobalPart as DBGlobalPart
+        from app.api.models.part import Part as DBPart
 
         entity_owned = False
         if entity_type == "build_list":
             entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
-        elif entity_type == "global_part":
-            entity = db.query(DBGlobalPart).filter(DBGlobalPart.id == entity_id).first()
+        elif entity_type == "part":
+            entity = db.query(DBPart).filter(DBPart.id == entity_id).first()
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "user":
@@ -136,17 +136,17 @@ async def upload_image(
                 detail=f"Not authorized to upload images for this {entity_type}",
             )
 
-        # For global_part: reject upload if part already has max images (avoid expensive bucket uploads)
-        if entity_type == "global_part":
-            from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
+        # For part: reject upload if part already has max images (avoid expensive bucket uploads)
+        if entity_type == "part":
+            from app.api.schemas.part import MAX_IMAGES_PER_PART
 
-            part = db.query(DBGlobalPart).filter(DBGlobalPart.id == entity_id).first()
+            part = db.query(DBPart).filter(DBPart.id == entity_id).first()
             if part:
                 current_count = len(part.image_urls or [])
-                if current_count >= MAX_IMAGES_PER_GLOBAL_PART:
+                if current_count >= MAX_IMAGES_PER_PART:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Global part already has the maximum number of images ({MAX_IMAGES_PER_GLOBAL_PART}).",
+                        detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
                     )
 
     try:
@@ -179,8 +179,8 @@ async def upload_image(
 
         logger.info(f"User {current_user.id} uploaded image: {file_key}")
 
-        # Store source_url mapping for future deduplication (global_part only for now)
-        if source_url and source_url.strip() and entity_type == "global_part":
+        # Store source_url mapping for future deduplication (part only for now)
+        if source_url and source_url.strip() and entity_type == "part":
             try:
                 canonical = get_canonical_image_url(source_url)
                 mapping = DBImageSourceMapping(
@@ -422,7 +422,7 @@ async def purge_orphaned_bucket_objects(
     """
     Delete bucket objects that are not referenced by any entity (orphans).
     Admin only. Non-destructive: only objects with no DB reference are removed.
-    Referenced keys come from: global_part (image_urls), user (image_urls),
+    Referenced keys come from: part (image_urls), user (image_urls),
     car (image_urls), build_list (image_urls), image_source_mapping (file_key).
     """
     try:

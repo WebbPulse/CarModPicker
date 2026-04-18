@@ -322,7 +322,7 @@ function Profile() {
 
         <div className="mt-4 space-y-2">
           <ActionButton
-            onClick={() => (window.location.href = '/my-global-parts')}
+            onClick={() => (window.location.href = '/my-parts')}
             className="bg-blue-600 hover:bg-blue-700 w-full"
           >
             Manage My Parts

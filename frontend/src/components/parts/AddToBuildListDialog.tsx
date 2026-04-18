@@ -4,7 +4,7 @@ import { buildListPartsApi, buildListsApi } from '../../services/Api';
 import type {
   BuildListPartCreate,
   BuildListRead,
-  GlobalPartReadWithVotes,
+  PartReadWithVotes,
 } from '../../types/Api';
 
 import ActionButton from '../buttons/ActionButton';
@@ -18,14 +18,14 @@ import LoadingSpinner from '../common/LoadingSpinner';
 interface AddToBuildListDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  globalPart: GlobalPartReadWithVotes | null;
+  part: PartReadWithVotes | null;
   onPartAdded: () => void;
 }
 
 function AddToBuildListDialog({
   isOpen,
   onClose,
-  globalPart,
+  part,
   onPartAdded,
 }: AddToBuildListDialogProps) {
   const { user } = useAuth();
@@ -53,14 +53,13 @@ function AddToBuildListDialog({
 
   // Check if any selected build list is for a different car model than the part
   const hasCarMismatch =
-    globalPart != null &&
-    !globalPart.is_universal &&
-    (globalPart.car_ids?.length ?? 0) > 0 &&
+    part != null &&
+    !part.is_universal &&
+    (part.car_ids?.length ?? 0) > 0 &&
     Array.from(selectedBuildListIds).some((blId) => {
       const buildList = buildLists.find((bl) => bl.id === blId);
       return (
-        buildList?.car_id != null &&
-        !globalPart.car_ids.includes(buildList.car_id)
+        buildList?.car_id != null && !part.car_ids.includes(buildList.car_id)
       );
     });
 
@@ -97,7 +96,7 @@ function AddToBuildListDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!globalPart || selectedBuildListIds.size === 0) {
+    if (!part || selectedBuildListIds.size === 0) {
       setError('Please select at least one build list');
       return;
     }
@@ -112,9 +111,9 @@ function AddToBuildListDialog({
 
     try {
       for (const buildListId of selectedBuildListIds) {
-        await buildListPartsApi.addGlobalPartToBuildList(
+        await buildListPartsApi.addPartToBuildList(
           buildListId,
-          globalPart.id,
+          part.id,
           buildListPartData
         );
       }
@@ -130,7 +129,7 @@ function AddToBuildListDialog({
     }
   };
 
-  if (!globalPart) {
+  if (!part) {
     return null;
   }
 
@@ -138,7 +137,7 @@ function AddToBuildListDialog({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={`Add ${globalPart.name} to Build List`}
+      title={`Add ${part.name} to Build List`}
     >
       <form
         onSubmit={(e) => {
@@ -159,8 +158,8 @@ function AddToBuildListDialog({
           <div className="flex gap-4">
             <div className="flex-shrink-0">
               <ImageWithPlaceholder
-                srcUrl={globalPart.image_urls?.[0] ?? null}
-                altText={globalPart.name}
+                srcUrl={part.image_urls?.[0] ?? null}
+                altText={part.name}
                 imageClassName="w-24 h-24 object-cover rounded-lg"
                 containerClassName="w-24 h-24 flex justify-center items-center"
                 fallbackText="No image"
@@ -168,21 +167,21 @@ function AddToBuildListDialog({
             </div>
             <div className="flex-grow">
               <h3 className="text-lg font-semibold text-white mb-2">
-                {globalPart.name}
+                {part.name}
               </h3>
-              {globalPart.brand && (
-                <p className="text-sm text-gray-400 mb-1">{globalPart.brand}</p>
+              {part.brand && (
+                <p className="text-sm text-gray-400 mb-1">{part.brand}</p>
               )}
-              {globalPart.best_price_cents != null && (
+              {part.best_price_cents != null && (
                 <p className="text-sm font-medium text-green-400">
-                  ${(globalPart.best_price_cents / 100).toFixed(2)}
+                  ${(part.best_price_cents / 100).toFixed(2)}
                 </p>
               )}
-              {globalPart.description && (
+              {part.description && (
                 <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-                  {globalPart.description.length > 120
-                    ? `${globalPart.description.slice(0, 120).trim()}…`
-                    : globalPart.description}
+                  {part.description.length > 120
+                    ? `${part.description.slice(0, 120).trim()}…`
+                    : part.description}
                 </p>
               )}
             </div>
@@ -230,10 +229,10 @@ function AddToBuildListDialog({
               {buildLists.map((buildList: BuildListRead) => {
                 const isSelected = selectedBuildListIds.has(buildList.id);
                 const isCarMismatch =
-                  !globalPart.is_universal &&
-                  (globalPart.car_ids?.length ?? 0) > 0 &&
+                  !part.is_universal &&
+                  (part.car_ids?.length ?? 0) > 0 &&
                   buildList.car_id != null &&
-                  !globalPart.car_ids.includes(buildList.car_id);
+                  !part.car_ids.includes(buildList.car_id);
                 return (
                   <Card
                     key={buildList.id}

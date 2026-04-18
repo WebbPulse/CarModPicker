@@ -5,16 +5,16 @@ import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import Input from '../../components/common/Input';
 import Pagination from '../../components/common/Pagination';
-import GlobalPartList from '../../components/globalParts/GlobalPartList';
-import GlobalPartsFilterSidebar from '../../components/globalParts/GlobalPartsFilterSidebar';
-import GlobalPartsActiveFilterChips from '../../components/globalParts/GlobalPartsActiveFilterChips';
+import PartList from '../../components/parts/PartList';
+import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
+import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
 import { useAuth } from '../../hooks/useAuth';
-import { useGlobalPartsFilters } from '../../hooks/useGlobalPartsFilters';
-import { buildListPartsApi, globalPartsApi } from '../../services/Api';
-import type { GlobalPartReadWithVotes, PaginationInfo } from '../../types/Api';
+import { usePartsFilters } from '../../hooks/usePartsFilters';
+import { buildListPartsApi, partsApi } from '../../services/Api';
+import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
 
-const UserGlobalParts: React.FC = () => {
+const UserParts: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
@@ -23,11 +23,11 @@ const UserGlobalParts: React.FC = () => {
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
   const [listRefreshKey, setListRefreshKey] = useState(0);
 
-  const filterOptions: Parameters<typeof useGlobalPartsFilters>[0] = {
+  const filterOptions: Parameters<typeof usePartsFilters>[0] = {
     syncToUrl: false,
   };
   if (user?.id !== undefined) filterOptions.user_id = user.id;
-  const filters = useGlobalPartsFilters(filterOptions);
+  const filters = usePartsFilters(filterOptions);
 
   const handlePaginationChange = useCallback(
     (pagination: PaginationInfo | null) => {
@@ -36,13 +36,14 @@ const UserGlobalParts: React.FC = () => {
     [filters]
   );
 
-  const handleDeleteClick = useCallback((part: GlobalPartReadWithVotes) => {
+  const handleDeleteClick = useCallback((part: PartReadWithVotes) => {
     setDeletingPartId(part.id);
     setDeletingPartName(part.name);
     void (async () => {
       try {
-        const response =
-          await buildListPartsApi.countBuildListsContainingGlobalPart(part.id);
+        const response = await buildListPartsApi.countBuildListsContainingPart(
+          part.id
+        );
         setBuildListCount(response.data.count);
       } catch {
         setBuildListCount(null);
@@ -54,7 +55,7 @@ const UserGlobalParts: React.FC = () => {
     if (!deletingPartId) return;
     setIsDeleting(true);
     try {
-      await globalPartsApi.deleteGlobalPart(deletingPartId);
+      await partsApi.deletePart(deletingPartId);
       setDeletingPartId(null);
       setDeletingPartName('');
       setBuildListCount(null);
@@ -68,7 +69,7 @@ const UserGlobalParts: React.FC = () => {
   }, [deletingPartId, filters]);
 
   const canDelete = useCallback(
-    (part: GlobalPartReadWithVotes) =>
+    (part: PartReadWithVotes) =>
       !!user &&
       (part.user_id === user.id || user.is_admin || user.is_superuser),
     [user]
@@ -137,13 +138,13 @@ const UserGlobalParts: React.FC = () => {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="My Parts" />
-        <LinkButton to="/global-parts" variant="outline" size="md">
+        <LinkButton to="/parts" variant="outline" size="md">
           Browse All Parts
         </LinkButton>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        <GlobalPartsFilterSidebar {...sidebarProps} />
+        <PartsFilterSidebar {...sidebarProps} />
 
         <main className="flex-1 min-w-0">
           <div className="mb-4">
@@ -156,9 +157,9 @@ const UserGlobalParts: React.FC = () => {
             />
           </div>
 
-          <GlobalPartsActiveFilterChips {...chipsProps} />
+          <PartsActiveFilterChips {...chipsProps} />
 
-          <GlobalPartList
+          <PartList
             params={filters.params}
             refreshKey={listRefreshKey}
             title=""
@@ -205,4 +206,4 @@ const UserGlobalParts: React.FC = () => {
   );
 };
 
-export default UserGlobalParts;
+export default UserParts;

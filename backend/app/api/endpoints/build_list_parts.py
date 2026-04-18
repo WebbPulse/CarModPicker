@@ -1,8 +1,5 @@
 """
-Refactored build list parts endpoint using common patterns to eliminate redundancy.
-
-This endpoint now uses standardized patterns for pagination, error handling,
-and response documentation while maintaining build list part-specific functionality.
+Build list parts endpoint.
 """
 
 from typing import Any, Dict, List, Optional
@@ -17,18 +14,18 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.category import Category as DBCategory
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_part import (
     BuildListPartCreate,
     BuildListPartRead,
-    BuildListPartReadWithGlobalPart,
+    BuildListPartReadWithPart,
     BuildListPartUpdate,
-    CreateGlobalPartAndAddToBuildListRequest,
+    CreatePartAndAddToBuildListRequest,
 )
-from app.api.schemas.global_part import GlobalPartRead
+from app.api.schemas.part import PartRead
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_part_by_brand_and_part_number,
@@ -55,7 +52,7 @@ router = APIRouter()
 
 
 def _validate_phase_belongs_to_build_list(db, phase_id: Optional[UUID], build_list_id: UUID) -> None:
-    """If phase_id is set, verify the phase exists and belongs to the build list. Raises 404/400."""
+    """If phase_id is set, verify the phase exists and belongs to the build list."""
     if phase_id is None:
         return
     phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
@@ -66,9 +63,7 @@ def _validate_phase_belongs_to_build_list(db, phase_id: Optional[UUID], build_li
 @router.get(
     "/count",
     response_model=Dict[str, int],
-    responses=standard_responses(
-        success_description="Count of build list parts",
-    ),
+    responses=standard_responses(success_description="Count of build list parts"),
 )
 async def count_build_list_parts(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
@@ -87,51 +82,47 @@ async def count_build_list_parts(
 
 
 @router.post(
-    "/{build_list_id}/global-parts/{global_part_id}",
+    "/{build_list_id}/parts/{part_id}",
     response_model=BuildListPartRead,
     responses=standard_responses(
-        success_description="Global part added to build list successfully",
+        success_description="Part added to build list successfully",
         not_found=True,
         forbidden=True,
         conflict=True,
     ),
 )
-async def add_global_part_to_build_list(
+async def add_part_to_build_list(
     build_list_id: UUID,
-    global_part_id: UUID,
+    part_id: UUID,
     build_list_part: BuildListPartCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
-    """Add an existing global part to a build list as a build list part."""
+    """Add an existing part to a build list as a build list part."""
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
     verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
-    # Verify global part exists
-    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    _ = get_entity_or_404(db, DBPart, part_id, "part")
 
-    # Check if global part is already in build list
     existing_relationship = (
         db.query(DBBuildListPart)
         .filter(
             DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.global_part_id == global_part_id,
+            DBBuildListPart.part_id == part_id,
         )
         .first()
     )
     if existing_relationship:
-        ResponsePatterns.raise_conflict("Global part already exists in build list")
+        ResponsePatterns.raise_conflict("Part already exists in build list")
 
     _validate_phase_belongs_to_build_list(db, getattr(build_list_part, "build_list_phase_id", None), build_list_id)
 
-    # Create the relationship
     db_build_list_part = DBBuildListPart(
         build_list_id=build_list_id,
-        global_part_id=global_part_id,
+        part_id=part_id,
         added_by=current_user.id,
         quantity=build_list_part.quantity,
         notes=build_list_part.notes,
@@ -143,7 +134,7 @@ async def add_global_part_to_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Global part {global_part_id} added to build list {build_list_id} "
+        f"Part {part_id} added to build list {build_list_id} "
         f"as build list part {db_build_list_part.id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(db_build_list_part)
@@ -152,24 +143,17 @@ async def add_global_part_to_build_list(
 @router.get(
     "/{build_list_id}",
     response_model=List[BuildListPartRead],
-    responses=standard_responses(
-        success_description="Build list parts retrieved successfully",
-        not_found=True,
-    ),
+    responses=standard_responses(success_description="Build list parts retrieved successfully", not_found=True),
 )
 async def get_build_list_parts(
     build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[BuildListPartRead]:
-    """Get all build list parts in a build list.
-    Public read access - anyone can view build list parts.
-    Only owners can modify them.
-    """
+    """Get all build list parts in a build list. Public read access."""
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists - allow public read access
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     db_build_list_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
@@ -185,9 +169,7 @@ async def get_build_list_parts(
     "/{build_list_part_id}",
     response_model=BuildListPartRead,
     responses=standard_responses(
-        success_description="Build list part updated successfully",
-        not_found=True,
-        forbidden=True,
+        success_description="Build list part updated successfully", not_found=True, forbidden=True
     ),
 )
 async def update_build_list_part(
@@ -200,16 +182,11 @@ async def update_build_list_part(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Find the build list part
     db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
-
-    # Get the build list for authorization check
     db_build_list = get_entity_or_404(db, DBBuildList, db_build_list_part.build_list_id, "build list")
 
-    # Check authorization - user who added the part, build list owner, or admin can edit it
     require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
 
-    # Update the fields
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
         _validate_phase_belongs_to_build_list(
@@ -232,9 +209,7 @@ async def update_build_list_part(
     "/{build_list_part_id}",
     response_model=BuildListPartRead,
     responses=standard_responses(
-        success_description="Build list part deleted successfully",
-        not_found=True,
-        forbidden=True,
+        success_description="Build list part deleted successfully", not_found=True, forbidden=True
     ),
 )
 async def delete_build_list_part(
@@ -246,13 +221,9 @@ async def delete_build_list_part(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Find the build list part
     db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
-
-    # Check authorization - only the user who added the part or admin can delete it
     require_build_list_part_delete_permission(current_user, db_build_list_part)
 
-    # Convert to response model before deleting
     deleted_data = BuildListPartRead.model_validate(db_build_list_part)
 
     db.delete(db_build_list_part)
@@ -264,40 +235,35 @@ async def delete_build_list_part(
 
 @router.post(
     "/{build_list_id}/create-and-add-part",
-    response_model=BuildListPartReadWithGlobalPart,
+    response_model=BuildListPartReadWithPart,
     responses=standard_responses(
-        success_description="Global part created and added to build list successfully",
+        success_description="Part created and added to build list successfully",
         not_found=True,
         forbidden=True,
         conflict=True,
     ),
 )
-async def create_global_part_and_add_to_build_list(
+async def create_part_and_add_to_build_list(
     build_list_id: UUID,
-    request: CreateGlobalPartAndAddToBuildListRequest,
+    request: CreatePartAndAddToBuildListRequest,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
-) -> BuildListPartReadWithGlobalPart:
-    """
-    Create a new global part and automatically add it to the specified
-    build list as a build list part.
-    """
+) -> BuildListPartReadWithPart:
+    """Create a new part and automatically add it to the specified build list."""
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists and user owns it or is admin
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
     verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
-    # Verify category exists
     _ = get_entity_or_404(db, DBCategory, request.category_id, "category")
 
     _validate_phase_belongs_to_build_list(db, getattr(request, "build_list_phase_id", None), build_list_id)
 
     # Dedup: find existing part by URL, brand+part_number, or GTIN
-    part_by_url: Optional[DBGlobalPart] = None
-    part_by_brand: Optional[DBGlobalPart] = None
-    part_by_gtin: Optional[DBGlobalPart] = None
+    part_by_url: Optional[DBPart] = None
+    part_by_brand: Optional[DBPart] = None
+    part_by_gtin: Optional[DBPart] = None
     if request.product_url and request.product_url.strip():
         part_by_url = find_part_by_product_url(db, request.product_url)
     if request.brand_id and request.part_number and request.part_number.strip():
@@ -331,7 +297,7 @@ async def create_global_part_and_add_to_build_list(
             )
         db_build_list_part = DBBuildListPart(
             build_list_id=build_list_id,
-            global_part_id=existing_part.id,
+            part_id=existing_part.id,
             added_by=current_user.id,
             quantity=request.quantity,
             notes=request.notes,
@@ -346,16 +312,16 @@ async def create_global_part_and_add_to_build_list(
             f"{build_list_id} as build list part {db_build_list_part.id} (dedup)"
         )
         best = get_best_listing_for_part(db, existing_part.id)
-        global_part_dict = GlobalPartRead.model_validate(existing_part).model_dump()
-        global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+        part_dict = PartRead.model_validate(existing_part).model_dump()
+        part_dict["best_price_cents"] = best.last_known_price_cents if best else None
         phase_name = None
         if db_build_list_part.build_list_phase_id:
             ph = db.get(DBBuildListPhase, db_build_list_part.build_list_phase_id)
             phase_name = ph.name if ph else None
-        return BuildListPartReadWithGlobalPart(
+        return BuildListPartReadWithPart(
             id=db_build_list_part.id,
             build_list_id=db_build_list_part.build_list_id,
-            global_part_id=db_build_list_part.global_part_id,
+            part_id=db_build_list_part.part_id,
             added_by=db_build_list_part.added_by,
             quantity=db_build_list_part.quantity,
             notes=db_build_list_part.notes,
@@ -363,11 +329,11 @@ async def create_global_part_and_add_to_build_list(
             added_at=db_build_list_part.added_at,
             build_list_phase_id=db_build_list_part.build_list_phase_id,
             phase_name=phase_name,
-            global_part=GlobalPartRead(**global_part_dict),
+            part=PartRead(**part_dict),
         )
 
-    # No match: create new global part
-    global_part_dict: Dict[str, Any] = {
+    # No match: create new part
+    part_data: Dict[str, Any] = {
         "name": request.name,
         "description": request.description,
         "image_urls": request.image_urls,
@@ -379,28 +345,27 @@ async def create_global_part_and_add_to_build_list(
         "user_id": current_user.id,
     }
     if request.gtin and normalize_gtin(request.gtin):
-        global_part_dict["gtin"] = normalize_gtin(request.gtin)
+        part_data["gtin"] = normalize_gtin(request.gtin)
 
-    db_global_part = DBGlobalPart(**global_part_dict)
-    db.add(db_global_part)
+    db_part = DBPart(**part_data)
+    db.add(db_part)
     db.flush()
 
-    # Sync car associations
     if not request.is_universal and request.car_ids:
         from app.api.models.car import Car as DBCar
 
         for cid in request.car_ids:
             get_entity_or_404(db, DBCar, cid, "car")
-        db_global_part.cars = [db.get(DBCar, cid) for cid in request.car_ids]
+        db_part.cars = [db.get(DBCar, cid) for cid in request.car_ids]
     else:
-        db_global_part.cars = []
+        db_part.cars = []
     db.flush()
 
     if request.retailer_id and (request.product_url or request.price_cents is not None):
         _ = get_entity_or_404(db, DBRetailer, request.retailer_id, "retailer")
         create_or_update_listing_and_price(
             db,
-            db_global_part.id,
+            db_part.id,
             request.retailer_id,
             product_url=request.product_url,
             price_cents=request.price_cents,
@@ -408,7 +373,7 @@ async def create_global_part_and_add_to_build_list(
 
     db_build_list_part = DBBuildListPart(
         build_list_id=build_list_id,
-        global_part_id=db_global_part.id,
+        part_id=db_part.id,
         added_by=current_user.id,
         quantity=request.quantity,
         notes=request.notes,
@@ -416,24 +381,24 @@ async def create_global_part_and_add_to_build_list(
     )
     db.add(db_build_list_part)
     db.commit()
-    db.refresh(db_global_part)
+    db.refresh(db_part)
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Global part {db_global_part.id} created and added to build list "
+        f"Part {db_part.id} created and added to build list "
         f"{build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
     )
-    best = get_best_listing_for_part(db, db_global_part.id)
-    global_part_dict = GlobalPartRead.model_validate(db_global_part).model_dump()
-    global_part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+    best = get_best_listing_for_part(db, db_part.id)
+    part_dict = PartRead.model_validate(db_part).model_dump()
+    part_dict["best_price_cents"] = best.last_known_price_cents if best else None
     phase_name = None
     if db_build_list_part.build_list_phase_id:
         ph = db.get(DBBuildListPhase, db_build_list_part.build_list_phase_id)
         phase_name = ph.name if ph else None
-    return BuildListPartReadWithGlobalPart(
+    return BuildListPartReadWithPart(
         id=db_build_list_part.id,
         build_list_id=db_build_list_part.build_list_id,
-        global_part_id=db_build_list_part.global_part_id,
+        part_id=db_build_list_part.part_id,
         added_by=db_build_list_part.added_by,
         quantity=db_build_list_part.quantity,
         notes=db_build_list_part.notes,
@@ -441,71 +406,63 @@ async def create_global_part_and_add_to_build_list(
         added_at=db_build_list_part.added_at,
         build_list_phase_id=db_build_list_part.build_list_phase_id,
         phase_name=phase_name,
-        global_part=GlobalPartRead(**global_part_dict),
+        part=PartRead(**part_dict),
     )
 
 
 @router.get(
-    "/{build_list_id}/global-parts",
-    response_model=List[BuildListPartReadWithGlobalPart],
-    responses=standard_responses(
-        success_description="Global parts in build list retrieved successfully",
-        not_found=True,
-    ),
+    "/{build_list_id}/parts",
+    response_model=List[BuildListPartReadWithPart],
+    responses=standard_responses(success_description="Parts in build list retrieved successfully", not_found=True),
 )
-async def get_global_parts_in_build_list(
+async def get_parts_in_build_list(
     build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
-) -> List[BuildListPartReadWithGlobalPart]:
-    """Get all build list parts in a build list.
-    Public read access - anyone can view build list parts.
-    Only owners can modify them.
-    """
+) -> List[BuildListPartReadWithPart]:
+    """Get all build list parts in a build list. Public read access."""
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists - allow public read access
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
     db_build_list_parts = (
         db.query(DBBuildListPart)
         .options(
-            joinedload(DBBuildListPart.global_part),
+            joinedload(DBBuildListPart.part),
             joinedload(DBBuildListPart.build_list_phase),
         )
         .filter(DBBuildListPart.build_list_id == build_list_id)
         .all()
     )
 
-    # Pull lowest available price for every related global part (from retailer listings)
-    part_ids = [p.global_part_id for p in db_build_list_parts]
+    part_ids = [p.part_id for p in db_build_list_parts]
     best_price_cents_dict: Dict[UUID, int] = {}
     if part_ids:
         min_prices = (
             db.query(
-                DBPartListing.global_part_id,
+                DBPartListing.part_id,
                 func.min(DBPartListing.last_known_price_cents).label("min_price"),
             )
             .filter(
-                DBPartListing.global_part_id.in_(part_ids),
+                DBPartListing.part_id.in_(part_ids),
                 DBPartListing.last_known_price_cents.isnot(None),
             )
-            .group_by(DBPartListing.global_part_id)
+            .group_by(DBPartListing.part_id)
             .all()
         )
-        best_price_cents_dict = {gp_id: int(mp) for gp_id, mp in min_prices}
+        best_price_cents_dict = {p_id: int(mp) for p_id, mp in min_prices}
 
-    def global_part_read_with_best_price(db_global_part: DBGlobalPart) -> GlobalPartRead:
-        part_dict = GlobalPartRead.model_validate(db_global_part).model_dump()
-        part_dict["best_price_cents"] = best_price_cents_dict.get(db_global_part.id)
-        return GlobalPartRead(**part_dict)
+    def part_read_with_best_price(db_part: DBPart) -> PartRead:
+        part_dict = PartRead.model_validate(db_part).model_dump()
+        part_dict["best_price_cents"] = best_price_cents_dict.get(db_part.id)
+        return PartRead(**part_dict)
 
     build_list_parts = [
-        BuildListPartReadWithGlobalPart(
+        BuildListPartReadWithPart(
             id=part.id,
             build_list_id=part.build_list_id,
-            global_part_id=part.global_part_id,
+            part_id=part.part_id,
             added_by=part.added_by,
             quantity=part.quantity,
             notes=part.notes,
@@ -513,7 +470,7 @@ async def get_global_parts_in_build_list(
             added_at=part.added_at,
             build_list_phase_id=part.build_list_phase_id,
             phase_name=part.build_list_phase.name if part.build_list_phase else None,
-            global_part=global_part_read_with_best_price(part.global_part),
+            part=part_read_with_best_price(part.part),
         )
         for part in db_build_list_parts
     ]
@@ -524,17 +481,15 @@ async def get_global_parts_in_build_list(
 
 
 @router.put(
-    "/{build_list_id}/global-parts/{global_part_id}",
+    "/{build_list_id}/parts/{part_id}",
     response_model=BuildListPartRead,
     responses=standard_responses(
-        success_description="Global part in build list updated successfully",
-        not_found=True,
-        forbidden=True,
+        success_description="Part in build list updated successfully", not_found=True, forbidden=True
     ),
 )
-async def update_global_part_in_build_list(
+async def update_part_in_build_list(
     build_list_id: UUID,
-    global_part_id: UUID,
+    part_id: UUID,
     build_list_part: BuildListPartUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
@@ -543,25 +498,21 @@ async def update_global_part_in_build_list(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Find the relationship
     db_build_list_part = (
         db.query(DBBuildListPart)
         .filter(
             DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.global_part_id == global_part_id,
+            DBBuildListPart.part_id == part_id,
         )
         .first()
     )
     if not db_build_list_part:
         ResponsePatterns.raise_not_found("Build list part not found in build list")
 
-    # Check authorization - user who added the part, build list owner, or admin can edit it
     require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
 
-    # Update the notes (and optionally phase)
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
         _validate_phase_belongs_to_build_list(db, update_data["build_list_phase_id"], build_list_id)
@@ -573,23 +524,21 @@ async def update_global_part_in_build_list(
     db.refresh(db_build_list_part)
 
     logger.info(
-        f"Build list part {db_build_list_part.id} updated in build list " f"{build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} updated in build list {build_list_id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(db_build_list_part)
 
 
 @router.delete(
-    "/{build_list_id}/global-parts/{global_part_id}",
+    "/{build_list_id}/parts/{part_id}",
     response_model=BuildListPartRead,
     responses=standard_responses(
-        success_description="Global part removed from build list successfully",
-        not_found=True,
-        forbidden=True,
+        success_description="Part removed from build list successfully", not_found=True, forbidden=True
     ),
 )
-async def remove_global_part_from_build_list(
+async def remove_part_from_build_list(
     build_list_id: UUID,
-    global_part_id: UUID,
+    part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListPartRead:
@@ -597,62 +546,48 @@ async def remove_global_part_from_build_list(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify build list exists
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Find the relationship
     db_build_list_part = (
         db.query(DBBuildListPart)
         .filter(
             DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.global_part_id == global_part_id,
+            DBBuildListPart.part_id == part_id,
         )
         .first()
     )
     if not db_build_list_part:
         ResponsePatterns.raise_not_found("Build list part not found in build list")
 
-    # Check authorization - only the user who added the part or admin can delete it
     require_build_list_part_delete_permission(current_user, db_build_list_part)
 
-    # Convert to response model before deleting
     deleted_data = BuildListPartRead.model_validate(db_build_list_part)
 
     db.delete(db_build_list_part)
     db.commit()
 
     logger.info(
-        f"Build list part {db_build_list_part.id} removed from build list " f"{build_list_id} by user {current_user.id}"
+        f"Build list part {db_build_list_part.id} removed from build list {build_list_id} by user {current_user.id}"
     )
     return deleted_data
 
 
 @router.get(
-    "/global-parts/{global_part_id}/build-lists/count",
+    "/parts/{part_id}/build-lists/count",
     response_model=Dict[str, int],
-    responses=standard_responses(
-        success_description="Count of build lists containing the global part",
-        not_found=True,
-    ),
+    responses=standard_responses(success_description="Count of build lists containing the part", not_found=True),
 )
-async def count_build_lists_containing_global_part(
-    global_part_id: UUID,
+async def count_build_lists_containing_part(
+    part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
-    """Count the number of build lists that contain a specific global part."""
+    """Count the number of build lists that contain a specific part."""
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify global part exists
-    _ = get_entity_or_404(db, DBGlobalPart, global_part_id, "global part")
+    _ = get_entity_or_404(db, DBPart, part_id, "part")
 
-    # Count distinct build lists that contain this global part
-    count = (
-        db.query(DBBuildListPart.build_list_id)
-        .filter(DBBuildListPart.global_part_id == global_part_id)
-        .distinct()
-        .count()
-    )
+    count = db.query(DBBuildListPart.build_list_id).filter(DBBuildListPart.part_id == part_id).distinct().count()
 
-    logger.info(f"Global part {global_part_id} is contained in {count} build list(s)")
+    logger.info(f"Part {part_id} is contained in {count} build list(s)")
     return {"count": count}

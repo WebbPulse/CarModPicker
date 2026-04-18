@@ -7,7 +7,7 @@ import {
   buildListsApi,
   carsApi,
   categoriesApi,
-  globalPartsApi,
+  partsApi,
 } from '../../services/Api';
 import type {
   BrandCreate,
@@ -16,7 +16,7 @@ import type {
   BuildListPhaseRead,
   CarRead,
   CategoryResponse,
-  GlobalPartCreate,
+  PartCreate,
 } from '../../types/Api';
 
 import { LARGE_FETCH_LIMIT } from '../../constants';
@@ -38,7 +38,7 @@ interface CreateBuildListPartFormProps {
   onCancel: () => void;
 }
 
-const fetchGlobalPartsRequestFn = () => globalPartsApi.getGlobalParts();
+const fetchPartsRequestFn = () => partsApi.getParts();
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
@@ -49,9 +49,7 @@ function CreateBuildListPartForm({
   onCancel,
 }: CreateBuildListPartFormProps) {
   const [mode, setMode] = useState<'create' | 'select'>('select');
-  const [selectedGlobalPartId, setSelectedGlobalPartId] = useState<
-    string | null
-  >(null);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
@@ -83,11 +81,11 @@ function CreateBuildListPartForm({
   const urlCheckTimeoutRef = useRef<number | null>(null);
 
   const {
-    data: globalParts,
-    isLoading: isLoadingGlobalParts,
-    error: globalPartsError,
-    executeRequest: fetchGlobalParts,
-  } = useApiRequest(fetchGlobalPartsRequestFn);
+    data: parts,
+    isLoading: isLoadingParts,
+    error: partsError,
+    executeRequest: fetchParts,
+  } = useApiRequest(fetchPartsRequestFn);
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
@@ -101,7 +99,7 @@ function CreateBuildListPartForm({
     useApiRequest(fetchPhasesRequestFn);
 
   useEffect(() => {
-    void fetchGlobalParts();
+    void fetchParts();
     void fetchCars();
     void fetchCategories();
     void fetchBrands();
@@ -171,7 +169,7 @@ function CreateBuildListPartForm({
     // Debounce the check - wait 500ms after user stops typing
     urlCheckTimeoutRef.current = window.setTimeout(async () => {
       try {
-        const response = await globalPartsApi.checkProductUrl(url);
+        const response = await partsApi.checkProductUrl(url);
         if (response.data.existing_part_id) {
           setDuplicatePartId(response.data.existing_part_id);
         } else {
@@ -218,9 +216,9 @@ function CreateBuildListPartForm({
   );
 
   // Convert global parts to SearchableSelectOption format
-  const globalPartOptions: SearchableSelectOption[] = useMemo(() => {
-    if (!globalParts) return [];
-    return globalParts
+  const partOptions: SearchableSelectOption[] = useMemo(() => {
+    if (!parts) return [];
+    return parts
       .sort((a, b) => {
         // Sort by name first
         return a.name.localeCompare(b.name);
@@ -235,10 +233,10 @@ function CreateBuildListPartForm({
           label: `${part.name}${brandName ? ` - ${brandName}` : ''}${part.best_price_cents != null ? ` - $${(part.best_price_cents / 100).toFixed(2)}` : ''}`,
         };
       });
-  }, [globalParts, brands]);
+  }, [parts, brands]);
 
   // Filter function for global parts
-  const filterGlobalParts = useCallback(
+  const filterParts = useCallback(
     (
       options: SearchableSelectOption[],
       searchText: string
@@ -246,7 +244,7 @@ function CreateBuildListPartForm({
       if (!searchText.trim()) return options;
       const lowerText = searchText.toLowerCase();
       return options.filter((option) => {
-        const part = globalParts?.find((p) => p.id === option.value);
+        const part = parts?.find((p) => p.id === option.value);
         if (!part) return false;
         const brandName = part.brand_id
           ? brands.find((b) => b.id === part.brand_id)?.name
@@ -262,7 +260,7 @@ function CreateBuildListPartForm({
         );
       });
     },
-    [globalParts, brands]
+    [parts, brands]
   );
 
   // Convert categories to SearchableSelect options (only active categories)
@@ -380,7 +378,7 @@ function CreateBuildListPartForm({
   const handlePartSelect = useCallback(
     (partId: number | string | null) => {
       const nextPartId = partId ? String(partId) : null;
-      setSelectedGlobalPartId(nextPartId);
+      setSelectedPartId(nextPartId);
       if (validationError) setValidationError(null);
     },
     [validationError]
@@ -437,7 +435,7 @@ function CreateBuildListPartForm({
           }
         }
 
-        const globalPartData: GlobalPartCreate = {
+        const partData: PartCreate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           image_urls: imageFileKey ? [imageFileKey] : null,
@@ -455,9 +453,9 @@ function CreateBuildListPartForm({
           build_list_phase_id: selectedPhaseId,
         };
 
-        await buildListPartsApi.createGlobalPartAndAddToBuildList(
+        await buildListPartsApi.createPartAndAddToBuildList(
           buildListId,
-          globalPartData,
+          partData,
           buildListPartData
         );
 
@@ -474,7 +472,7 @@ function CreateBuildListPartForm({
         setIsCreating(false);
       }
     } else {
-      if (!selectedGlobalPartId) {
+      if (!selectedPartId) {
         setValidationError('Please select a global part');
         return;
       }
@@ -489,9 +487,9 @@ function CreateBuildListPartForm({
           build_list_phase_id: selectedPhaseId,
         };
 
-        await buildListPartsApi.addGlobalPartToBuildList(
+        await buildListPartsApi.addPartToBuildList(
           buildListId,
-          selectedGlobalPartId,
+          selectedPartId,
           buildListPartData
         );
 
@@ -534,7 +532,7 @@ function CreateBuildListPartForm({
       setPendingBrandName(null);
     } else {
       // Clear selection when switching to create mode
-      setSelectedGlobalPartId(null);
+      setSelectedPartId(null);
     }
   };
 
@@ -718,7 +716,7 @@ function CreateBuildListPartForm({
                       part in the catalog.
                     </p>
                     <Link
-                      to={`/global-parts/${duplicatePartId}`}
+                      to={`/parts/${duplicatePartId}`}
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-300 hover:text-yellow-200 underline"
                     >
                       <span>View existing part</span>
@@ -758,7 +756,7 @@ function CreateBuildListPartForm({
 
           <ImageUpload
             currentImageUrl={imageFileKey}
-            entityType="global_part"
+            entityType="part"
             onImageUploaded={(fileKey) => {
               setImageFileKey(fileKey);
             }}
@@ -810,13 +808,13 @@ function CreateBuildListPartForm({
             </p>
           </div>
 
-          {isLoadingGlobalParts ? (
+          {isLoadingParts ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner />
             </div>
-          ) : globalPartsError ? (
+          ) : partsError ? (
             <ErrorAlert message="Failed to load parts" />
-          ) : globalParts && globalParts.length === 0 ? (
+          ) : parts && parts.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <p>No parts found in the catalog.</p>
               <p className="text-sm mt-2">
@@ -827,24 +825,24 @@ function CreateBuildListPartForm({
             <div className="space-y-4">
               <SearchableSelect
                 id="select-global-part"
-                name="global_part_id"
+                name="part_id"
                 label="Search for Part"
                 placeholder="Type to search for a part (name, brand, part number, description)..."
-                value={selectedGlobalPartId}
+                value={selectedPartId}
                 onChange={handlePartSelect}
-                options={globalPartOptions}
-                disabled={isLoadingGlobalParts}
-                isLoading={isLoadingGlobalParts}
+                options={partOptions}
+                disabled={isLoadingParts}
+                isLoading={isLoadingParts}
                 emptyMessage="No parts found. Try a different search term or create a new part."
-                filterOptions={filterGlobalParts}
+                filterOptions={filterParts}
               />
 
               {/* Show selected part details */}
-              {selectedGlobalPartId && (
+              {selectedPartId && (
                 <div className="mt-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
                   {(() => {
-                    const selectedPart = globalParts?.find(
-                      (p) => p.id === selectedGlobalPartId
+                    const selectedPart = parts?.find(
+                      (p) => p.id === selectedPartId
                     );
                     if (!selectedPart) return null;
                     return (
@@ -872,7 +870,7 @@ function CreateBuildListPartForm({
                                     {selectedPart.name}
                                   </h4>
                                   <a
-                                    href={`/global-parts/${selectedPart.id}`}
+                                    href={`/parts/${selectedPart.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-shrink-0 text-blue-400 hover:text-blue-300 transition-colors"

@@ -5,7 +5,7 @@ import ActionButton from '../components/buttons/ActionButton';
 import { ErrorAlert } from '../components/common/Alerts';
 import Card from '../components/common/Card';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import GlobalPartList from '../components/globalParts/GlobalPartList';
+import PartList from '../components/parts/PartList';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import UserCard from '../components/users/UserCard';
@@ -18,8 +18,8 @@ import useApiRequest from '../hooks/UseApiRequest';
 import { searchApi } from '../services/Api';
 import type {
   BuildListRead,
-  GlobalPartRead,
-  GlobalPartReadWithVotes,
+  PartRead,
+  PartReadWithVotes,
   UserRead,
 } from '../types/Api';
 
@@ -38,46 +38,46 @@ function Search() {
   // Track accumulated results and pagination state for each category
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
   const [users, setUsers] = useState<UserRead[]>([]);
-  const [globalParts, setGlobalParts] = useState<GlobalPartRead[]>([]);
+  const [parts, setParts] = useState<PartRead[]>([]);
   const [displayedCounts, setDisplayedCounts] = useState<{
     build_lists: number;
     users: number;
-    global_parts: number;
+    parts: number;
   }>({
     build_lists: 0,
     users: 0,
-    global_parts: 0,
+    parts: 0,
   });
   const [pagination, setPagination] = useState<{
     build_lists: { has_next: boolean; skip: number };
     users: { has_next: boolean; skip: number };
-    global_parts: { has_next: boolean; skip: number };
+    parts: { has_next: boolean; skip: number };
   } | null>(null);
   const [currentQuery, setCurrentQuery] = useState<string>(
     () => searchParams.get('q') || ''
   );
 
   const sortedSections = useMemo(() => {
-    const sections: Array<'build_lists' | 'users' | 'global_parts'> = [
+    const sections: Array<'build_lists' | 'users' | 'parts'> = [
       'build_lists',
       'users',
-      'global_parts',
+      'parts',
     ];
     const counts = {
       build_lists: buildLists.length,
       users: users.length,
-      global_parts: globalParts.length,
+      parts: parts.length,
     };
     return [...sections].sort((a, b) => counts[b] - counts[a]);
-  }, [buildLists.length, users.length, globalParts.length]);
+  }, [buildLists.length, users.length, parts.length]);
 
-  // Convert GlobalPartRead to GlobalPartReadWithVotes for GlobalPartList (adds vote defaults)
-  const globalPartsWithVotes = useMemo((): GlobalPartReadWithVotes[] => {
+  // Convert PartRead to PartReadWithVotes for PartList (adds vote defaults)
+  const partsWithVotes = useMemo((): PartReadWithVotes[] => {
     const count =
-      displayedCounts.global_parts ||
-      Math.min(SEARCH_INITIAL_LIMITS.global_parts, globalParts.length);
-    return globalParts.slice(0, count).map(
-      (p): GlobalPartReadWithVotes => ({
+      displayedCounts.parts ||
+      Math.min(SEARCH_INITIAL_LIMITS.parts, parts.length);
+    return parts.slice(0, count).map(
+      (p): PartReadWithVotes => ({
         ...p,
         upvotes: 0,
         downvotes: 0,
@@ -85,7 +85,7 @@ function Search() {
         user_vote: null,
       })
     );
-  }, [globalParts, displayedCounts.global_parts]);
+  }, [parts, displayedCounts.parts]);
 
   const {
     data: searchResults,
@@ -102,11 +102,11 @@ function Search() {
       // Reset accumulated results for new search
       setBuildLists([]);
       setUsers([]);
-      setGlobalParts([]);
+      setParts([]);
       setDisplayedCounts({
         build_lists: 0,
         users: 0,
-        global_parts: 0,
+        parts: 0,
       });
       setPagination(null);
       void performSearch({ q: query, skip: 0, limit: SEARCH_RESULTS_LIMIT });
@@ -124,11 +124,11 @@ function Search() {
         setCurrentQuery('');
         setBuildLists([]);
         setUsers([]);
-        setGlobalParts([]);
+        setParts([]);
         setDisplayedCounts({
           build_lists: 0,
           users: 0,
-          global_parts: 0,
+          parts: 0,
         });
         setPagination(null);
       }
@@ -144,26 +144,26 @@ function Search() {
 
   // Load more results for a specific category
   const loadMore = useCallback(
-    (category: 'build_lists' | 'users' | 'global_parts') => {
+    (category: 'build_lists' | 'users' | 'parts') => {
       if (!pagination || !currentQuery) return;
 
       // Check if we have more results already fetched that we haven't displayed
       const currentDisplayed = displayedCounts[category];
-      let allResults: BuildListRead[] | UserRead[] | GlobalPartRead[] = [];
+      let allResults: BuildListRead[] | UserRead[] | PartRead[] = [];
 
       if (category === 'build_lists') {
         allResults = buildLists;
       } else if (category === 'users') {
         allResults = users;
       } else {
-        allResults = globalParts;
+        allResults = parts;
       }
 
       // If we have more results already fetched, just increase the displayed count
       if (currentDisplayed < allResults.length) {
         const increment =
-          category === 'global_parts'
-            ? SEARCH_LOAD_MORE_INCREMENT.global_parts
+          category === 'parts'
+            ? SEARCH_LOAD_MORE_INCREMENT.parts
             : SEARCH_LOAD_MORE_INCREMENT.build_lists;
         setDisplayedCounts((prev) => ({
           ...prev,
@@ -183,7 +183,7 @@ function Search() {
       displayedCounts,
       buildLists,
       users,
-      globalParts,
+      parts,
     ]
   );
 
@@ -243,24 +243,24 @@ function Search() {
         });
       }
 
-      if (searchResults.global_parts.skip === 0) {
-        setGlobalParts(searchResults.global_parts.data);
+      if (searchResults.parts.skip === 0) {
+        setParts(searchResults.parts.data);
         // Set initial displayed count to the limit or actual count, whichever is smaller
         setDisplayedCounts((prev) => ({
           ...prev,
-          global_parts: Math.min(
-            SEARCH_INITIAL_LIMITS.global_parts,
-            searchResults.global_parts.data.length
+          parts: Math.min(
+            SEARCH_INITIAL_LIMITS.parts,
+            searchResults.parts.data.length
           ),
         }));
       } else {
-        setGlobalParts((prev) => {
-          const newList = [...prev, ...searchResults.global_parts.data];
+        setParts((prev) => {
+          const newList = [...prev, ...searchResults.parts.data];
           // When loading more, increase displayed count by the increment
           setDisplayedCounts((prevCounts) => ({
             ...prevCounts,
-            global_parts: Math.min(
-              prevCounts.global_parts + SEARCH_INITIAL_LIMITS.global_parts,
+            parts: Math.min(
+              prevCounts.parts + SEARCH_INITIAL_LIMITS.parts,
               newList.length
             ),
           }));
@@ -279,11 +279,9 @@ function Search() {
           has_next: searchResults.users.has_next,
           skip: searchResults.users.skip + searchResults.users.data.length,
         },
-        global_parts: {
-          has_next: searchResults.global_parts.has_next,
-          skip:
-            searchResults.global_parts.skip +
-            searchResults.global_parts.data.length,
+        parts: {
+          has_next: searchResults.parts.has_next,
+          skip: searchResults.parts.skip + searchResults.parts.data.length,
         },
       });
     }
@@ -298,11 +296,11 @@ function Search() {
       // Reset accumulated results
       setBuildLists([]);
       setUsers([]);
-      setGlobalParts([]);
+      setParts([]);
       setDisplayedCounts({
         build_lists: 0,
         users: 0,
-        global_parts: 0,
+        parts: 0,
       });
       setPagination(null);
       void performSearch({
@@ -450,21 +448,21 @@ function Search() {
             }
 
             return (
-              <div key="global_parts" className="mb-6">
-                <GlobalPartList
-                  data={globalPartsWithVotes}
+              <div key="parts" className="mb-6">
+                <PartList
+                  data={partsWithVotes}
                   layout="table"
-                  title={`Parts (${pagination?.global_parts ? (searchResults?.global_parts.total ?? globalParts.length) : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
+                  title={`Parts (${pagination?.parts ? (searchResults?.parts.total ?? parts.length) : parts.length}${pagination?.parts ? ` of ${searchResults?.parts.total ?? 0}` : ''})`}
                   emptyMessage="No parts found."
                   categories={[]}
                   brands={[]}
                   carsById={{}}
                 />
-                {(pagination?.global_parts.has_next ||
-                  displayedCounts.global_parts < globalParts.length) && (
+                {(pagination?.parts.has_next ||
+                  displayedCounts.parts < parts.length) && (
                   <div className="mt-6 flex justify-center">
                     <ActionButton
-                      onClick={() => loadMore('global_parts')}
+                      onClick={() => loadMore('parts')}
                       disabled={isLoading}
                     >
                       {isLoading ? 'Loading...' : 'Load More Parts'}
@@ -478,7 +476,7 @@ function Search() {
           {/* No Results Message */}
           {buildLists.length === 0 &&
             users.length === 0 &&
-            globalParts.length === 0 &&
+            parts.length === 0 &&
             currentQuery && (
               <Card>
                 <div className="text-center py-12">

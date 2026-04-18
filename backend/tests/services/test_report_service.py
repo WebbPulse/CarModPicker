@@ -6,7 +6,7 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.global_part import GlobalPart
+from app.api.models.part import Part
 from app.api.models.report import Report
 from app.api.models.user import User
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
@@ -60,7 +60,7 @@ class TestReportService:
         assert report.reason == "spam"
         assert report.status == "pending"
 
-    def test_create_report_global_part(self, db_session: Session, test_user: User) -> None:
+    def test_create_report_part(self, db_session: Session, test_user: User) -> None:
         """Test creating a report for a global part."""
         # Create another user and their global part
         from app.api.dependencies.auth import get_password_hash
@@ -102,26 +102,24 @@ class TestReportService:
             db_session.add(brand)
             db_session.commit()
 
-        global_part = GlobalPart(
+        part = Part(
             name=get_unique_name("test_part"),
             description="Test part",
             user_id=other_user.id,
             category_id=category.id,
             brand_id=brand.id,
         )
-        db_session.add(global_part)
+        db_session.add(part)
         db_session.commit()
 
         # Create report
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT, description="Inappropriate")
-        report = service.create_report(
-            db_session, EntityType.GLOBAL_PART, global_part.id, test_user.id, report_data, logger
-        )
+        report = service.create_report(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, report_data, logger)
 
-        assert report.entity_type == "global_part"
-        assert report.entity_id == global_part.id
+        assert report.entity_type == "part"
+        assert report.entity_id == part.id
         assert report.user_id == test_user.id
         assert report.reason == "inappropriate_content"
         assert report.status == "pending"
@@ -285,14 +283,14 @@ class TestReportService:
             db_session.add(brand)
             db_session.commit()
 
-        global_part = GlobalPart(
+        part = Part(
             name=get_unique_name("test_part2"),
             description="Test part",
             user_id=other_user.id,
             category_id=category.id,
             brand_id=brand.id,
         )
-        db_session.add(global_part)
+        db_session.add(part)
         db_session.commit()
 
         # Create reports
@@ -301,7 +299,7 @@ class TestReportService:
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
         report_data2 = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT)
         service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
-        service.create_report(db_session, EntityType.GLOBAL_PART, global_part.id, test_user.id, report_data2, logger)
+        service.create_report(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, report_data2, logger)
 
         # Get reports filtered by entity type
         reports = service.get_reports(db_session, entity_type=EntityType.BUILD_LIST)

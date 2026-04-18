@@ -254,7 +254,7 @@ class StorageService:
         Generate a unique, secure file key for S3 bucket.
 
         Args:
-            entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
+            entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')
             entity_id: Optional ID of the entity
             user_id: ID of the user uploading the image
             file_extension: File extension
@@ -376,7 +376,7 @@ class StorageService:
 
         Args:
             file: FastAPI UploadFile object
-            entity_type: Type of entity (e.g., 'build_list', 'global_part', 'user', 'car')
+            entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')
             user_id: ID of the user uploading the image
             entity_id: Optional ID of the entity (for updates)
             force_square: If True, crop and resize image to square aspect ratio (default: False)

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_part import BuildListPart
     from .build_log import BuildLogPost
-    from .global_part import GlobalPart
+    from .part import Part
     from .report import Report
     from .vote import Vote
 
@@ -62,9 +62,7 @@ class User(Base):
     build_lists: Mapped[List["BuildList"]] = relationship(
         "BuildList", back_populates="owner", cascade="all, delete-orphan"
     )
-    global_parts: Mapped[List["GlobalPart"]] = relationship(
-        "GlobalPart", back_populates="creator", cascade="all, delete-orphan"
-    )
+    parts: Mapped[List["Part"]] = relationship("Part", back_populates="creator", cascade="all, delete-orphan")
     build_list_parts: Mapped[List["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="user", cascade="all, delete-orphan"
     )

@@ -9,7 +9,7 @@ from uuid6 import uuid7
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
-    from .global_part import GlobalPart
+    from .part import Part
 
 
 class Category(Base):
@@ -26,4 +26,4 @@ class Category(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    global_parts: Mapped[list["GlobalPart"]] = relationship("GlobalPart", back_populates="category")
+    parts: Mapped[list["Part"]] = relationship("Part", back_populates="category")

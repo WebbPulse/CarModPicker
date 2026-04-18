@@ -10,7 +10,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .global_part import GlobalPart
+    from .part import Part
     from .user import User
 
 
@@ -26,7 +26,7 @@ class Report(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     # Polymorphic entity reference
-    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'build_list', 'global_part'
+    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'build_list', 'part'
     entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
 
     reason: Mapped[str] = mapped_column(nullable=False)  # 'inappropriate', 'spam', 'inaccurate', 'duplicate', 'other'
@@ -51,10 +51,10 @@ class Report(Base):
         primaryjoin="and_(Report.entity_id == BuildList.id, Report.entity_type == 'build_list')",
         viewonly=True,
     )
-    global_part: Mapped[Optional["GlobalPart"]] = relationship(
-        "GlobalPart",
+    part: Mapped[Optional["Part"]] = relationship(
+        "Part",
         foreign_keys="[Report.entity_id]",
-        primaryjoin="and_(Report.entity_id == GlobalPart.id, Report.entity_type == 'global_part')",
+        primaryjoin="and_(Report.entity_id == Part.id, Report.entity_type == 'part')",
         viewonly=True,
     )
 

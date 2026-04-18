@@ -16,22 +16,17 @@ import { useAuth } from '../hooks/useAuth';
 import {
   brandsApi,
   buildListsApi,
-  globalPartsApi,
+  partsApi,
   retailersApi,
 } from '../services/Api';
-import type {
-  BuildListReadWithVotes,
-  GlobalPartReadWithVotes,
-} from '../types/Api';
+import type { BuildListReadWithVotes, PartReadWithVotes } from '../types/Api';
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
   const [featuredBuildLists, setFeaturedBuildLists] = useState<
     BuildListReadWithVotes[]
   >([]);
-  const [popularParts, setPopularParts] = useState<GlobalPartReadWithVotes[]>(
-    []
-  );
+  const [popularParts, setPopularParts] = useState<PartReadWithVotes[]>([]);
 
   // Fetch featured build lists (top 6 by votes)
   const fetchFeaturedBuildListsFn = useCallback(
@@ -53,7 +48,7 @@ export default function HomePage() {
   // Fetch popular parts (top 6 by votes)
   const fetchPopularPartsFn = useCallback(
     () =>
-      globalPartsApi.getGlobalPartsWithVotes({
+      partsApi.getPartsWithVotes({
         limit: HOME_FEATURED_ITEMS_LIMIT,
         skip: 0,
       }),
@@ -146,7 +141,7 @@ export default function HomePage() {
                   <BsTools className="mr-2" />
                   Create Build
                 </LinkButton>
-                <LinkButton to="/global-parts" variant="secondary" size="lg">
+                <LinkButton to="/parts" variant="secondary" size="lg">
                   <FaCogs className="mr-2" />
                   Browse Parts
                 </LinkButton>
@@ -239,7 +234,7 @@ export default function HomePage() {
                   {popularParts.slice(0, 4).map((part) => (
                     <Link
                       key={part.id}
-                      to={`/global-parts/${part.id}`}
+                      to={`/parts/${part.id}`}
                       className="block hover:no-underline"
                     >
                       <Card className="hover:border-primary-500 border-2 border-transparent transition-all duration-300 group">
@@ -269,7 +264,7 @@ export default function HomePage() {
                     </Link>
                   ))}
                   <Link
-                    to="/global-parts"
+                    to="/parts"
                     className="block text-center text-primary-400 hover:text-primary-300 transition-colors text-sm font-semibold mt-4"
                   >
                     View All Parts →
@@ -304,7 +299,7 @@ export default function HomePage() {
                       Create Build List
                     </LinkButton>
                     <LinkButton
-                      to="/global-parts"
+                      to="/parts"
                       variant="secondary"
                       className="w-full justify-start"
                     >

@@ -394,13 +394,13 @@ class TestRetailers:
             "brand_id": str(brand.id),
         }
         part_resp = client.post(
-            f"{settings.API_STR}/global-parts/", json=part_data, headers={"Authorization": f"Bearer {user_token}"}
+            f"{settings.API_STR}/parts/", json=part_data, headers={"Authorization": f"Bearer {user_token}"}
         )
         assert part_resp.status_code == 200, f"Failed to create part: {part_resp.text}"
-        global_part = part_resp.json()
+        part = part_resp.json()
 
         listing = PartListing(
-            global_part_id=UUID(global_part["id"]),
+            part_id=UUID(part["id"]),
             retailer_id=UUID(retailer_id),
             product_url="https://example.com/part",
         )

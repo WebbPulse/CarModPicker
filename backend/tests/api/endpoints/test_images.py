@@ -428,7 +428,7 @@ class TestImages:
         assert response.status_code == 404
         assert "not found" in response.json()["message"].lower()
 
-    def test_upload_image_global_part(
+    def test_upload_image_part(
         self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
     ) -> None:
         """Test uploading an image for a global part."""
@@ -445,7 +445,7 @@ class TestImages:
             "car_id": str(car["id"]),
             "brand_id": str(test_brand.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         part_id = response.json()["id"]
 
@@ -453,7 +453,7 @@ class TestImages:
         img_bytes = create_test_image()
         files = {"file": ("test_image.png", img_bytes, "image/png")}
         response = client.post(
-            f"{settings.API_STR}/images/upload?entity_type=global_part&entity_id={part_id}",
+            f"{settings.API_STR}/images/upload?entity_type=part&entity_id={part_id}",
             files=files,
             headers=headers,
         )

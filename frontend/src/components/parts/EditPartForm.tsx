@@ -4,15 +4,15 @@ import apiClient, {
   brandsApi,
   carsApi,
   categoriesApi,
-  globalPartsApi,
+  partsApi,
 } from '../../services/Api';
 import type {
   BrandCreate,
   BrandResponse,
   CarRead,
   CategoryResponse,
-  GlobalPartRead,
-  GlobalPartUpdate,
+  PartRead,
+  PartUpdate,
 } from '../../types/Api';
 
 import { LARGE_FETCH_LIMIT } from '../../constants';
@@ -27,30 +27,22 @@ import SearchableSelect, {
   type SearchableSelectOption,
 } from '../common/SearchableSelect';
 
-interface EditGlobalPartFormProps {
-  globalPart: GlobalPartRead;
-  onGlobalPartUpdated: () => Promise<void>;
+interface EditPartFormProps {
+  part: PartRead;
+  onPartUpdated: () => Promise<void>;
   onCancel: () => void;
 }
 
-const updateGlobalPartRequestFn = (payload: {
-  globalPartId: string;
-  globalPartData: GlobalPartUpdate;
-}) =>
-  apiClient.put<GlobalPartUpdate>(
-    `/global-parts/${payload.globalPartId}`,
-    payload.globalPartData
-  );
+const updatePartRequestFn = (payload: {
+  partId: string;
+  partData: PartUpdate;
+}) => apiClient.put<PartUpdate>(`/parts/${payload.partId}`, payload.partData);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
 
-function EditGlobalPartForm({
-  globalPart,
-  onGlobalPartUpdated,
-  onCancel,
-}: EditGlobalPartFormProps) {
+function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
@@ -74,8 +66,8 @@ function EditGlobalPartForm({
   const {
     isLoading,
     error,
-    executeRequest: updateGlobalPart,
-  } = useApiRequest(updateGlobalPartRequestFn);
+    executeRequest: updatePart,
+  } = useApiRequest(updatePartRequestFn);
 
   const { data: categoriesData, executeRequest: fetchCategories } =
     useApiRequest(fetchCategoriesRequestFn);
@@ -115,23 +107,23 @@ function EditGlobalPartForm({
 
   useEffect(() => {
     try {
-      const carIds = globalPart.car_ids ?? [];
+      const carIds = part.car_ids ?? [];
       setFormData({
-        name: globalPart.name ?? '',
-        part_number: globalPart.part_number ?? '',
-        brand_id: globalPart.brand_id ?? null,
-        description: globalPart.description ?? '',
-        category_id: globalPart.category_id ?? '',
+        name: part.name ?? '',
+        part_number: part.part_number ?? '',
+        brand_id: part.brand_id ?? null,
+        description: part.description ?? '',
+        category_id: part.category_id ?? '',
         car_ids: [...carIds],
-        is_universal: globalPart.is_universal ?? false,
+        is_universal: part.is_universal ?? false,
       });
-      // Note: globalPart.image_urls[0] is a presigned URL from the API
+      // Note: part.image_urls[0] is a presigned URL from the API
       setImageFileKey(null);
       setImageChanged(false);
     } catch {
       setValidationError('Failed to load part data. Please refresh the page.');
     }
-  }, [globalPart]);
+  }, [part]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -260,7 +252,7 @@ function EditGlobalPartForm({
       }
     }
 
-    const globalPartData: GlobalPartUpdate = {
+    const partData: PartUpdate = {
       name: formData.name.trim(),
       part_number: formData.part_number.trim() || null,
       brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
@@ -270,26 +262,24 @@ function EditGlobalPartForm({
       car_ids: formData.is_universal ? [] : formData.car_ids,
     };
 
-    const result = await updateGlobalPart({
-      globalPartId: globalPart.id,
-      globalPartData,
+    const result = await updatePart({
+      partId: part.id,
+      partData,
     });
     if (result !== null) {
       // Handle image changes separately so existing images are not wiped
       if (imageChanged) {
         if (imageFileKey) {
           // Append the new image to the gallery (preserves existing images)
-          await globalPartsApi.appendGlobalPartImages(globalPart.id, [
-            imageFileKey,
-          ]);
+          await partsApi.appendPartImages(part.id, [imageFileKey]);
         } else {
           // User removed the displayed image — delete only the first one (index 0)
-          await globalPartsApi.removeGlobalPartImage(globalPart.id, 0);
+          await partsApi.removePartImage(part.id, 0);
         }
       }
       // Clear pending brand after successful update
       setPendingBrandName(null);
-      await onGlobalPartUpdated();
+      await onPartUpdated();
     }
   };
 
@@ -437,9 +427,9 @@ function EditGlobalPartForm({
       )}
 
       <ImageUpload
-        currentImageUrl={globalPart.image_urls?.[0] ?? null}
-        entityType="global_part"
-        entityId={globalPart.id}
+        currentImageUrl={part.image_urls?.[0] ?? null}
+        entityType="part"
+        entityId={part.id}
         onImageUploaded={(fileKey) => {
           setImageFileKey(fileKey);
           setImageChanged(true);
@@ -468,4 +458,4 @@ function EditGlobalPartForm({
   );
 }
 
-export default EditGlobalPartForm;
+export default EditPartForm;

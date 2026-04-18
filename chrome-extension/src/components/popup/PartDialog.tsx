@@ -5,8 +5,8 @@ import type {
   Brand,
   Car,
   Category,
-  GlobalPartCreate,
-  GlobalPartRead,
+  PartCreate,
+  PartRead,
   Retailer,
   ScrapedProductData,
 } from "../../types";
@@ -21,7 +21,7 @@ interface PartDialogProps {
   onPartCreated: () => void;
   sendMessage: (message: {
     action: string;
-    partData?: GlobalPartCreate;
+    partData?: PartCreate;
     imageUrl?: string;
     limit?: number;
     searchTerm?: string;
@@ -32,7 +32,7 @@ interface PartDialogProps {
     partNumber?: string;
     domain?: string;
     listingData?: {
-      global_part_id: number;
+      part_id: number;
       retailer_id: number;
       product_url?: string;
       price_cents?: number;
@@ -80,11 +80,11 @@ const PartDialog: React.FC<PartDialogProps> = ({
   sendMessage,
 }) => {
   const [viewMode, setViewMode] = useState<PartDialogView>("checking");
-  const [existingPart, setExistingPart] = useState<GlobalPartRead | null>(null);
+  const [existingPart, setExistingPart] = useState<PartRead | null>(null);
   const [
     existingPartByBrandAndPartNumber,
     setExistingPartByBrandAndPartNumber,
-  ] = useState<GlobalPartRead | null>(null);
+  ] = useState<PartRead | null>(null);
   const [recordPriceRetailer, setRecordPriceRetailer] =
     useState<Retailer | null>(null);
 
@@ -163,9 +163,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
       }
 
       const partResponse = (await sendMessage({
-        action: "getGlobalPart",
+        action: "getPart",
         partId,
-      })) as ApiResponse<GlobalPartRead>;
+      })) as ApiResponse<PartRead>;
 
       if (!partResponse.success || !partResponse.data) {
         setViewMode("create");
@@ -223,7 +223,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         action: "findExistingPartByBrandAndPartNumber",
         brandId: numericBrandId,
         partNumber,
-      })) as ApiResponse<GlobalPartRead>;
+      })) as ApiResponse<PartRead>;
       if (cancelled) return;
       if (response.success && response.data) {
         setExistingPartByBrandAndPartNumber(response.data);
@@ -457,7 +457,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         ? Math.round(parseFloat(formData.price) * 100)
         : scrapedData.price; // Fallback to scraped price if user cleared the field
 
-      const partData: GlobalPartCreate = {
+      const partData: PartCreate = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         price: priceCents,
@@ -488,7 +488,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
       // Create part
       const response = (await sendMessage({
-        action: "createGlobalPart",
+        action: "createPart",
         partData,
       })) as ApiResponse<{ id: number }>;
 
@@ -509,7 +509,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
           const listingResponse = (await sendMessage({
             action: "addPartListing",
             listingData: {
-              global_part_id: partId,
+              part_id: partId,
               retailer_id: retailerForListing.id,
               product_url: productUrl,
               price_cents: priceCents,
@@ -547,7 +547,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                 frontendUrl = "https://staging.carmodpicker.com";
               }
 
-              const partUrl = `${frontendUrl}/global-parts/${partId}`;
+              const partUrl = `${frontendUrl}/parts/${partId}`;
 
               if (openInNewTab) {
                 chrome.tabs.create({ url: partUrl });

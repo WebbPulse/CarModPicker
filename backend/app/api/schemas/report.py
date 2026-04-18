@@ -23,7 +23,7 @@ class ReportStatus(str, Enum):
 
 class EntityType(str, Enum):
     BUILD_LIST = "build_list"
-    GLOBAL_PART = "global_part"
+    PART = "part"
 
 
 class ReportCreate(BaseModel):

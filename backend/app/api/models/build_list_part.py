@@ -11,7 +11,7 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_phase import BuildListPhase
-    from .global_part import GlobalPart
+    from .part import Part
     from .user import User
 
 
@@ -26,7 +26,7 @@ class BuildListPart(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     build_list_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("build_lists.id"), nullable=False)
-    global_part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("global_parts.id"), nullable=False)
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False)
     added_by: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
@@ -41,5 +41,5 @@ class BuildListPart(Base):
     build_list_phase: Mapped[Optional["BuildListPhase"]] = relationship(
         "BuildListPhase", back_populates="build_list_parts", foreign_keys=[build_list_phase_id]
     )
-    global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="build_list_parts")
+    part: Mapped["Part"] = relationship("Part", back_populates="build_list_parts")
     user: Mapped["User"] = relationship("User", back_populates="build_list_parts")

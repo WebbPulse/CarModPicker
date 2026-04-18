@@ -6,12 +6,12 @@ import os
 import pytest
 from sqlalchemy.orm import Session
 
-from app.api.endpoints.global_parts import GlobalPartService
+from app.api.endpoints.parts import PartService
 from app.api.models.brand import Brand
 from app.api.models.category import Category
 from app.api.models.retailer import Retailer
 from app.api.models.user import User
-from app.api.schemas.global_part import GlobalPartCreate
+from app.api.schemas.part import PartCreate
 from tests.conftest import get_default_category_id
 
 logger = logging.getLogger(__name__)
@@ -55,8 +55,8 @@ def test_dedupe_refresh_updates_category_and_name(
     db_session.refresh(retailer)
 
     url = f"https://dedupe-example.com/p/unique-{os.getpid()}"
-    svc = GlobalPartService()
-    first = GlobalPartCreate(
+    svc = PartService()
+    first = PartCreate(
         name="Original title",
         description="Desc",
         category_id=other_id,
@@ -68,7 +68,7 @@ def test_dedupe_refresh_updates_category_and_name(
     part = svc.create(db_session, first, test_user, logger, additional_data={"source": "scraped"})
     assert part.category_id == other_id
 
-    second = GlobalPartCreate(
+    second = PartCreate(
         name="Updated from archive",
         description="Desc",
         category_id=lighting_category.id,
@@ -109,8 +109,8 @@ def test_dedupe_without_refresh_keeps_category(
     db_session.refresh(retailer)
 
     url = f"https://dedupe2-example.com/p/u-{os.getpid()}"
-    svc = GlobalPartService()
-    first = GlobalPartCreate(
+    svc = PartService()
+    first = PartCreate(
         name="Keep me",
         category_id=other_id,
         brand_id=test_brand.id,
@@ -119,7 +119,7 @@ def test_dedupe_without_refresh_keeps_category(
         is_universal=True,
     )
     part = svc.create(db_session, first, test_user, logger, None)
-    second = GlobalPartCreate(
+    second = PartCreate(
         name="Would change name if refreshed",
         category_id=lighting_category.id,
         brand_id=test_brand.id,

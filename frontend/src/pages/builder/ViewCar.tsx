@@ -15,7 +15,7 @@ import CardInfoItem from '../../components/common/CardInfoItem';
 import Dialog from '../../components/common/Dialog';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import GlobalPartList from '../../components/globalParts/GlobalPartList';
+import PartList from '../../components/parts/PartList';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -258,7 +258,7 @@ function ViewCar(): React.JSX.Element {
         </div>
       )}
 
-      <GlobalPartList
+      <PartList
         params={{
           car_id: car.id,
           limit: CAR_VIEW_BUILD_LISTS_LIMIT,
@@ -275,7 +275,7 @@ function ViewCar(): React.JSX.Element {
         <Card className="inline-block">
           <div className="text-center">
             <Link
-              to={`/global-parts?car_id=${car.id}`}
+              to={`/parts?car_id=${car.id}`}
               className="text-blue-400 hover:text-blue-300 underline font-medium"
             >
               See more parts →

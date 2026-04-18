@@ -26,11 +26,11 @@ from uuid import UUID
 import requests
 from sqlalchemy.orm import Session
 
-from app.api.endpoints.global_parts import GlobalPartService
+from app.api.endpoints.parts import PartService
 from app.api.models.category import Category as DBCategory
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.user import User as DBUser
-from app.api.schemas.global_part import GlobalPartCreate
+from app.api.schemas.part import PartCreate
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     domain_from_url,
@@ -349,7 +349,7 @@ _robots_cache: Dict[str, RobotFileParser] = {}
 @dataclass
 class ScrapedPayload:
     """
-    Canonical output from any retailer adapter. Maps to GlobalPartCreate + listing/price.
+    Canonical output from any retailer adapter. Maps to PartCreate + listing/price.
     """
 
     name: str
@@ -560,7 +560,7 @@ def ingest_payload(
     default_category_id: UUID,
     logger: logging.Logger,
     source: str = "scraped",
-) -> DBGlobalPart:
+) -> DBPart:
     """
     Resolve retailer and brand, then create or update global part + PartListing/PartPriceHistory
     using the same dedup logic as the API (URL, brand+part_number, GTIN).
@@ -618,7 +618,7 @@ def ingest_payload(
             (payload.name or "")[:50],
         )
 
-    create_data = GlobalPartCreate(
+    create_data = PartCreate(
         name=payload.name,
         description=payload.description,
         image_urls=payload.image_urls[:12] if payload.image_urls else None,
@@ -633,10 +633,10 @@ def ingest_payload(
         price_cents=payload.price_cents,
     )
 
-    # Same resolution order as GlobalPartService.create (GTIN, product URL, brand+part_number).
-    part_by_url: Optional[DBGlobalPart] = None
-    part_by_brand: Optional[DBGlobalPart] = None
-    part_by_gtin: Optional[DBGlobalPart] = None
+    # Same resolution order as PartService.create (GTIN, product URL, brand+part_number).
+    part_by_url: Optional[DBPart] = None
+    part_by_brand: Optional[DBPart] = None
+    part_by_gtin: Optional[DBPart] = None
     if payload.product_url and payload.product_url.strip():
         part_by_url = find_part_by_product_url(db, payload.product_url)
     if brand.id and part_number_effective and str(part_number_effective).strip():
@@ -647,7 +647,7 @@ def ingest_payload(
     dedupe_ids = {p.id for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None}
     if len(dedupe_ids) > 1:
         logger.warning(
-            "Ingest: dedupe keys point to different global_parts %s; service.create will reject with conflict.",
+            "Ingest: dedupe keys point to different parts %s; service.create will reject with conflict.",
             dedupe_ids,
         )
 
@@ -664,7 +664,7 @@ def ingest_payload(
             brand.id,
         )
 
-    service = GlobalPartService()
+    service = PartService()
     part = service.create(
         db,
         create_data,

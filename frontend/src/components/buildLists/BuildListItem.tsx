@@ -10,7 +10,7 @@ import type {
 import { normalizeCarRead } from '../../utils/carUtils';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import VoteButtons from '../globalParts/VoteButtons';
+import VoteButtons from '../parts/VoteButtons';
 
 interface BuildListItemProps {
   buildList: BuildListRead | BuildListReadWithVotes;
