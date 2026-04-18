@@ -14,9 +14,9 @@ from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
-from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
@@ -90,7 +90,7 @@ async def search_all(
         db.query(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
         .outerjoin(DBCarModel, DBCar.car_model_id == DBCarModel.id)
-        .outerjoin(DBMake, DBCarModel.make_id == DBMake.id)
+        .outerjoin(DBMake, DBCarModel.car_make_id == DBMake.id)
         .filter(
             or_(
                 DBBuildList.name.ilike(f"%{search_term}%"),

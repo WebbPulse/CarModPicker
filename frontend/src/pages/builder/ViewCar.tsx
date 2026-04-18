@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { carsApi, categoriesApi } from '../../services/Api';
+import { carGenerationsApi, categoriesApi } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
 
 import BuildListList from '../../components/buildLists/BuildListList';
@@ -20,7 +20,7 @@ import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
 
-const fetchCarRequestFn = (carId: string) => carsApi.getCar(carId);
+const fetchCarRequestFn = (carId: string) => carGenerationsApi.getCar(carId);
 
 function ViewCar(): React.JSX.Element {
   const { carId } = useParams<{ carId: string }>();
@@ -135,7 +135,7 @@ function ViewCar(): React.JSX.Element {
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
-        title={`${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${formatCarYearRange(car.start_year, car.end_year)})`}
+        title={`${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${formatCarYearRange(car.start_year, car.end_year)})`}
       />
       <Card>
         <div className="mb-4">
@@ -144,7 +144,7 @@ function ViewCar(): React.JSX.Element {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           <div className="hidden md:block"></div> {/* Spacer */}
           <CardInfoItem label="Make:">
-            <p>{car.make ?? ''}</p>
+            <p>{car.car_make_name ?? ''}</p>
           </CardInfoItem>
           <CardInfoItem label="Model:">
             <p>{car.model ?? ''}</p>
@@ -169,7 +169,7 @@ function ViewCar(): React.JSX.Element {
       <Dialog
         isOpen={isCreateBuildListFormOpen}
         onClose={closeCreateBuildListDialog}
-        title={`Create Build List for ${car.make ?? ''} ${car.model ?? ''}`}
+        title={`Create Build List for ${car.car_make_name ?? ''} ${car.model ?? ''}`}
       >
         <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
       </Dialog>
@@ -179,7 +179,7 @@ function ViewCar(): React.JSX.Element {
         <>
           <div className="mb-4">
             <SectionHeader
-              title={`Build Lists for ${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
+              title={`Build Lists for ${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
             />
             <div className="mt-4">
               <Input
@@ -207,7 +207,7 @@ function ViewCar(): React.JSX.Element {
       {/* Related Parts Section */}
       <div className="mb-4">
         <SectionHeader
-          title={`Parts for ${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
+          title={`Parts for ${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
         />
         <div className="mt-4">
           <Input

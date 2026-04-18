@@ -12,7 +12,7 @@ from .part_car import part_cars
 
 if TYPE_CHECKING:
     from .build_list_part import BuildListPart
-    from .car import Car
+    from .car_generation import CarGeneration
     from .category import Category
     from .part_listing import PartListing
     from .part_manufacturer import PartManufacturer
@@ -50,7 +50,7 @@ class Part(Base):
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="parts")
     creator: Mapped["User"] = relationship("User", back_populates="parts")
-    cars: Mapped[List["Car"]] = relationship(
+    car_generations: Mapped[List["CarGeneration"]] = relationship(
         "Car",
         secondary=part_cars,
         back_populates="parts",
@@ -61,7 +61,7 @@ class Part(Base):
     @property
     def car_ids(self) -> List[uuid.UUID]:
         """IDs of cars this part is associated with (empty if is_universal)."""
-        return [c.id for c in self.cars]
+        return [c.id for c in self.car_generations]
 
     build_list_parts: Mapped[list["BuildListPart"]] = relationship(
         "BuildListPart", back_populates="part", cascade="all, delete-orphan"

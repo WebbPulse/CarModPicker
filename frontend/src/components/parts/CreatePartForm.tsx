@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, {
   partManufacturersApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
   partsApi,
 } from '../../services/Api';
 import type {
   PartManufacturerCreate,
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PartCreate,
 } from '../../types/Api';
@@ -34,7 +34,8 @@ interface CreatePartFormProps {
 
 const createPartRequestFn = (partData: PartCreate) =>
   apiClient.post<PartCreate>('/parts/', partData);
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () =>
+  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const [formData, setFormData] = useState({
@@ -51,7 +52,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [duplicatePartId, setDuplicatePartId] = useState<string | null>(null);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
-  const [cars, setCars] = useState<CarRead[]>([]);
+  const [cars, setCars] = useState<CarGenerationRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);

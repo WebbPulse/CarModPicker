@@ -10,9 +10,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.models.car import Car as DBCar
-from app.api.schemas.car import CarCreate, CarRead, CarUpdate
-from app.api.services.car_service import CarService
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarUpdate
+from app.api.services.car_generation_service import CarService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
@@ -27,14 +27,14 @@ from app.api.utils.endpoint_decorators import (
 
 # Create router
 router = APIRouter()
-car_service = CarService()
+car_generation_service = CarGenerationService()
 
 
 # Add custom endpoints specific to cars BEFORE base router
 # These need to be defined first to avoid conflicts with /{entity_id} route
 @router.get(
     "/search",
-    response_model=List[CarRead],
+    response_model=List[CarGenerationRead],
     responses=search_responses("car", allow_public_read=True),
 )
 async def search_cars(
@@ -42,19 +42,19 @@ async def search_cars(
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[CarRead]:
+) -> List[CarGenerationRead]:
     """Search cars by make or model with pagination."""
     db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.search_cars(db=db, search_term=q, skip=skip, limit=limit, logger=logger)
-    return [CarRead.model_validate(car) for car in cars]
+    cars = car_generation_service.search_cars(db=db, search_term=q, skip=skip, limit=limit, logger=logger)
+    return [CarGenerationRead.model_validate(car) for car in cars]
 
 
 @router.get(
     "/make/{make}",
-    response_model=List[CarRead],
+    response_model=List[CarGenerationRead],
     responses=pagination_responses("car", allow_public_read=True),
 )
 async def get_cars_by_make(
@@ -62,19 +62,19 @@ async def get_cars_by_make(
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[CarRead]:
+) -> List[CarGenerationRead]:
     """Get cars by make with pagination."""
     db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_cars_by_make_model(db=db, make=make, skip=skip, limit=limit, logger=logger)
-    return [CarRead.model_validate(car) for car in cars]
+    cars = car_generation_service.get_cars_by_make_model(db=db, make=make, skip=skip, limit=limit, logger=logger)
+    return [CarGenerationRead.model_validate(car) for car in cars]
 
 
 @router.get(
     "/make/{make}/model/{model}",
-    response_model=List[CarRead],
+    response_model=List[CarGenerationRead],
     responses=pagination_responses("car", allow_public_read=True),
 )
 async def get_cars_by_make_model(
@@ -83,14 +83,16 @@ async def get_cars_by_make_model(
     skip: int = Query(0, ge=0, description="Number of cars to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of cars to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[CarRead]:
+) -> List[CarGenerationRead]:
     """Get cars by make and model with pagination."""
     db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip, limit)
-    cars = car_service.get_cars_by_make_model(db=db, make=make, model=model, skip=skip, limit=limit, logger=logger)
-    return [CarRead.model_validate(car) for car in cars]
+    cars = car_generation_service.get_cars_by_make_model(
+        db=db, make=make, model=model, skip=skip, limit=limit, logger=logger
+    )
+    return [CarGenerationRead.model_validate(car) for car in cars]
 
 
 @router.get(
@@ -102,7 +104,7 @@ async def count_makes(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> dict:
     """Get total count of Make entities (e.g. Honda, Toyota)."""
-    from app.api.models.make import Make
+    from app.api.models.car_make import CarMake
 
     db = deps["db"]
     logger = deps["logger"]
@@ -140,8 +142,8 @@ async def get_car_make_stats(
     """Get statistics of cars by make (via Make entity)."""
     from sqlalchemy import func
 
+    from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
-    from app.api.models.make import Make
 
     db = deps["db"]
     logger = deps["logger"]
@@ -150,7 +152,7 @@ async def get_car_make_stats(
         db.query(Make.name, func.count(DBCar.id).label("count"))
         .select_from(DBCar)
         .join(DBCar.car_model)
-        .join(CarModel.make)
+        .join(CarModel.car_make)
         .group_by(Make.name)
         .order_by(func.count(DBCar.id).desc())
         .all()
@@ -163,31 +165,31 @@ async def get_car_make_stats(
 
 @router.get(
     "/by-ids",
-    response_model=List[CarRead],
+    response_model=List[CarGenerationRead],
     responses=standard_responses(success_description="Cars retrieved successfully"),
 )
 async def get_cars_by_ids(
     ids: List[UUID] = Query(..., description="Car IDs to fetch"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[CarRead]:
+) -> List[CarGenerationRead]:
     """Batch-fetch cars by a list of IDs. Used by the frontend to resolve car names for the catalog table."""
     db = deps["db"]
     logger = deps["logger"]
-    cars = car_service.get_by_ids(db=db, ids=ids, logger=logger)
-    return [CarRead.model_validate(car) for car in cars]
+    cars = car_generation_service.get_by_ids(db=db, ids=ids, logger=logger)
+    return [CarGenerationRead.model_validate(car) for car in cars]
 
 
 # Base endpoint router - read-only; cars are seeded from car_generations_data
 base_router = BaseEndpointRouter(
-    service=car_service,
+    service=car_generation_service,
     router=router,
-    entity_name="car",
+    entity_name="car_generation",
     allow_public_read=True,
     additional_create_data={},
     disable_endpoints=["create", "update", "delete"],
-    create_schema=CarCreate,
-    read_schema=CarRead,
-    update_schema=CarUpdate,
+    create_schema=CarGenerationCreate,
+    read_schema=CarGenerationRead,
+    update_schema=CarGenerationUpdate,
     search_fields=["make", "model", "generation_name"],
 )
 base_router.add_count_endpoint()

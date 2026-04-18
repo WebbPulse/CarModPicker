@@ -3,12 +3,12 @@
 # pyright: reportUnusedImport=false
 from app.api.models.build_list import BuildList  # noqa: F401
 from app.api.models.build_list_part import BuildListPart  # noqa: F401
-from app.api.models.car import Car  # noqa: F401
+from app.api.models.car_generation import CarGeneration  # noqa: F401
+from app.api.models.car_make import CarMake  # noqa: F401
 from app.api.models.car_model import CarModel  # noqa: F401
 from app.api.models.category import Category  # noqa: F401
 from app.api.models.crawled_page import CrawledPage  # noqa: F401
 from app.api.models.image_source_mapping import ImageSourceMapping  # noqa: F401
-from app.api.models.make import Make  # noqa: F401
 from app.api.models.part import Part  # noqa: F401
 from app.api.models.part_listing import PartListing  # noqa: F401
 from app.api.models.part_price_history import PartPriceHistory  # noqa: F401

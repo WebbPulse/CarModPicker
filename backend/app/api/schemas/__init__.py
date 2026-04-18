@@ -21,7 +21,7 @@ from .build_list_phase import (
     BuildListPhaseRead,
     BuildListPhaseUpdate,
 )
-from .car import CarCreate, CarRead, CarUpdate
+from .car_generation import CarGenerationCreate, CarGenerationRead, CarUpdate
 from .category import CategoryCreate, CategoryInDB, CategoryResponse, CategoryUpdate
 from .part import (
     PartCreate,

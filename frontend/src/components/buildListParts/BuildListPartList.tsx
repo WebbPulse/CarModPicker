@@ -7,7 +7,7 @@ import type {
   PartManufacturerResponse,
   BuildListPartReadWithPart,
   BuildListPhaseRead,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
 import ActionButton from '../buttons/ActionButton';
@@ -75,9 +75,9 @@ interface BuildListPartTableProps {
   canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
 }
 
-function formatCarName(car: CarRead): string {
+function formatCarName(car: CarGenerationRead): string {
   return (
-    `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
     'Vehicle'
   );
 }

@@ -424,9 +424,9 @@ def resolve_car_triples_to_ids(
     """
     if not triples:
         return []
-    from app.api.models.car import Car
+    from app.api.models.car_generation import CarGeneration
+    from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
-    from app.api.models.make import Make
 
     ids: list[UUID] = []
     seen_ids: set[UUID] = set()
@@ -434,7 +434,7 @@ def resolve_car_triples_to_ids(
         make = db.query(Make).filter(Make.name == make_name).first()
         if not make:
             continue
-        car_model = db.query(CarModel).filter(CarModel.make_id == make.id, CarModel.name == model_name).first()
+        car_model = db.query(CarModel).filter(CarModel.car_make_id == make.id, CarModel.name == model_name).first()
         if not car_model:
             continue
         car = (

@@ -77,7 +77,7 @@ async def upload_image(
         HTTPException: If upload fails, validation fails, or user is not authenticated
     """
     # Validate entity_type
-    allowed_entity_types = ["build_list", "part", "user", "car", "build_log_post"]
+    allowed_entity_types = ["build_list", "part", "user", "car_generation", "build_log_post"]
     if entity_type not in allowed_entity_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,7 +102,7 @@ async def upload_image(
             # Users can only upload images for themselves
             if entity_id == current_user.id:
                 entity_owned = True
-        elif entity_type == "car":
+        elif entity_type == "car_generation":
             # Cars are centrally managed - only admins can upload images
             if not current_user.is_admin:
                 raise HTTPException(

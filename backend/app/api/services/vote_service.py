@@ -11,7 +11,7 @@ from sqlalchemy import Float, and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.part import Part as DBPart
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
@@ -342,7 +342,7 @@ class VoteService:
 
     def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBPart]]:
         """Get the SQLAlchemy model for the entity type."""
-        if entity_type == EntityType.CAR:
+        if entity_type == EntityType.CAR_GENERATION:
             return DBCar
         elif entity_type == EntityType.BUILD_LIST:
             return DBBuildList
@@ -353,7 +353,7 @@ class VoteService:
 
     def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBPart], entity_type: EntityType) -> str:
         """Get the display name for an entity."""
-        if entity_type == EntityType.CAR:
+        if entity_type == EntityType.CAR_GENERATION:
             return str(f"{entity.make} {entity.model} {entity.generation_name} ({entity.start_year}-{entity.end_year})")
         elif entity_type == EntityType.BUILD_LIST:
             return str(entity.name)

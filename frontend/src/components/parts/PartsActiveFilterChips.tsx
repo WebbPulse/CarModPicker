@@ -2,7 +2,7 @@ import React from 'react';
 import { filterChipClass } from '../common/VehicleFilterChips';
 import type {
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
 
@@ -14,7 +14,7 @@ export interface PartsActiveFilterChipsProps {
   selectedPartManufacturerIds: string[];
   availablePartManufacturers: PartManufacturerResponse[];
   togglePartManufacturer: (id: string) => void;
-  selectedGeneration: CarRead | null;
+  selectedGeneration: CarGenerationRead | null;
   selectedMake?: string;
   selectedModel?: string;
   showUniversalParts: boolean;

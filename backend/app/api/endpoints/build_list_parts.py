@@ -354,13 +354,13 @@ async def create_part_and_add_to_build_list(
     db.flush()
 
     if not request.is_universal and request.car_ids:
-        from app.api.models.car import Car as DBCar
+        from app.api.models.car_generation import CarGeneration as DBCar
 
         for cid in request.car_ids:
             get_entity_or_404(db, DBCar, cid, "car")
-        db_part.cars = [db.get(DBCar, cid) for cid in request.car_ids]
+        db_part.car_generations = [db.get(DBCar, cid) for cid in request.car_ids]
     else:
-        db_part.cars = []
+        db_part.car_generations = []
     db.flush()
 
     if request.retailer_id and (request.product_url or request.price_cents is not None):

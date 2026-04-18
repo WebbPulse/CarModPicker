@@ -4,14 +4,14 @@ import SearchableSelect, {
   type SearchableSelectOption,
 } from './SearchableSelect';
 
-function formatCarLabel(car: CarRead): string {
-  return `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
+function formatCarLabel(car: CarGenerationRead): string {
+  return `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
     car.end_year ? `-${car.end_year}` : '+'
   })`;
 }
 
 interface CarModelMultiSelectProps {
-  cars: CarRead[];
+  cars: CarGenerationRead[];
   value: string[];
   onChange: (carIds: string[]) => void;
   label?: string;

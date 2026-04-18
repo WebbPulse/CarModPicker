@@ -40,9 +40,9 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.CAR, car.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(db_session, EntityType.CAR_GENERATION, car.id, test_user.id, vote_data, logger)
 
-        assert vote.entity_type == "car"
+        assert vote.entity_type == "car_generation"
         assert vote.entity_id == car.id
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"

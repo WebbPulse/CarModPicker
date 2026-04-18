@@ -29,12 +29,12 @@ from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
 from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
@@ -449,7 +449,7 @@ async def delete_all_cars(
             {DBBuildList.car_id: None}, synchronize_session=False
         )
         # Remove votes that reference cars
-        db.query(DBVote).filter(DBVote.entity_type == "car").delete(synchronize_session=False)
+        db.query(DBVote).filter(DBVote.entity_type == "car_generation").delete(synchronize_session=False)
         count = db.query(DBCar).count()
         db.query(DBCar).delete(synchronize_session=False)
         car_models_count = db.query(DBCarModel).count()

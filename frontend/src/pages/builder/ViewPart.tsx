@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   partManufacturersApi,
   buildListPartsApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
   partsApi,
   partVotesApi,
@@ -13,7 +13,7 @@ import {
 } from '../../services/Api';
 import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type {
-  CarRead,
+  CarGenerationRead,
   PartReadWithVotes,
   PartListingReadWithRetailer,
 } from '../../types/Api';
@@ -68,7 +68,7 @@ function ViewPart() {
   const [isAddToBuildListDialogOpen, setIsAddToBuildListDialogOpen] =
     useState(false);
   const [buildListCount, setBuildListCount] = useState<number | null>(null);
-  const [compatibleCars, setCompatibleCars] = useState<CarRead[]>([]);
+  const [compatibleCars, setCompatibleCars] = useState<CarGenerationRead[]>([]);
   const [isLoadingCompatibleCars, setIsLoadingCompatibleCars] = useState(false);
   const [voteOverride, setVoteOverride] = useState<{
     upvotes: number;
@@ -174,7 +174,7 @@ function ViewPart() {
     }
     let cancelled = false;
     setIsLoadingCompatibleCars(true);
-    Promise.all(carIds.map((id) => carsApi.getCar(id)))
+    Promise.all(carIds.map((id) => carGenerationsApi.getCar(id)))
       .then((responses) => {
         if (!cancelled) {
           setCompatibleCars(
@@ -513,7 +513,7 @@ function ViewPart() {
                 {compatibleCars.map((c) => (
                   <li key={c.id}>
                     <Link
-                      to={`/cars/${c.id}`}
+                      to={`/car-generations/${c.id}`}
                       className="text-blue-400 hover:text-blue-300 underline transition-colors"
                     >
                       {c.make} {c.model} {c.generation_name} (

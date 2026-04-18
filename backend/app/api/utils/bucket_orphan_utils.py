@@ -6,7 +6,7 @@ Collects all file keys referenced by entities so we can safely delete only unref
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.part import Part as DBPart
 from app.api.models.user import User as DBUser

@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import type {
   BuildListRead,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PartRead,
   UserRead,
@@ -24,7 +24,7 @@ export const mockUser: UserRead = {
 };
 
 // Mock car data
-export const mockCar: CarRead = {
+export const mockCar: CarGenerationRead = {
   id: '22222222-2222-7222-8222-222222222222',
   make: 'Toyota',
   model: 'Camry',
