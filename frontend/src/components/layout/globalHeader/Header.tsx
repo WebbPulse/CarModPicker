@@ -29,7 +29,7 @@ function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header className="w-full">
       {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95 backdrop-blur-md"></div>
 

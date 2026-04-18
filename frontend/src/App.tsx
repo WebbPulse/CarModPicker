@@ -145,8 +145,10 @@ function App() {
           ></div>
         </div>
 
-        <Header />
-        <BetaBanner />
+        <div className="sticky top-0 z-50">
+          <Header />
+          <BetaBanner />
+        </div>
 
         <main className="flex-grow relative z-10 flex w-full">
           {/* Left margin: ad or spacer (spacer keeps layout when premium hides ads) */}
