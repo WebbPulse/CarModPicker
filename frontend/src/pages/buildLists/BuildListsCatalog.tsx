@@ -592,41 +592,36 @@ const BuildListsCatalog: React.FC = () => {
             />
           ) : (
             <>
-              <Card>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                    All Build Lists
-                  </h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Select a vehicle in the sidebar to filter by car, or browse
-                    all build lists below. Search and cost filters apply.
-                  </p>
-                  {isLoadingAllBuildLists ? (
-                    <div className="flex justify-center py-12">
-                      <LoadingSpinner />
-                    </div>
-                  ) : allBuildListsError ? (
-                    <ErrorAlert
-                      message={`Failed to load build lists: ${allBuildListsError}`}
-                    />
-                  ) : allBuildListsResponse?.data &&
-                    allBuildListsResponse.data.length > 0 ? (
-                    <div className="tile-grid">
-                      {allBuildListsResponse.data.map((buildList) => (
-                        <BuildListCard
-                          key={buildList.id}
-                          buildList={buildList}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-400 text-center py-8">
-                      No build lists found. Try adjusting your search or cost
-                      filters.
-                    </p>
-                  )}
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                  All Build Lists
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Select a vehicle in the sidebar to filter by car, or browse
+                  all build lists below. Search and cost filters apply.
+                </p>
+              </div>
+              {isLoadingAllBuildLists ? (
+                <div className="flex justify-center py-12">
+                  <LoadingSpinner />
                 </div>
-              </Card>
+              ) : allBuildListsError ? (
+                <ErrorAlert
+                  message={`Failed to load build lists: ${allBuildListsError}`}
+                />
+              ) : allBuildListsResponse?.data &&
+                allBuildListsResponse.data.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {allBuildListsResponse.data.map((buildList) => (
+                    <BuildListCard key={buildList.id} buildList={buildList} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-center py-8">
+                  No build lists found. Try adjusting your search or cost
+                  filters.
+                </p>
+              )}
               {allBuildListsResponse?.pagination &&
                 allBuildListsResponse.pagination.total_pages > 1 && (
                   <div className="mt-6">

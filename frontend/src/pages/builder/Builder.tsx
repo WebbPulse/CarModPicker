@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import BuildListItem from '../../components/buildLists/BuildListItem';
+import BuildListCard from '../../components/buildLists/BuildListCard';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
 import AddItemTile from '../../components/common/AddItemTile';
 import { ErrorAlert } from '../../components/common/Alerts';
@@ -131,7 +131,7 @@ function Builder() {
       ) : (
         <div className="mt-8">
           <SectionHeader title="My Build Lists" />
-          <div className="tile-grid-compact mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
             {isFirstPage && (
               <AddItemTile
                 title="Create New Build List"
@@ -141,7 +141,7 @@ function Builder() {
             )}
             {buildLists && buildLists.length > 0 ? (
               buildLists.map((buildList) => (
-                <BuildListItem key={buildList.id} buildList={buildList} />
+                <BuildListCard key={buildList.id} buildList={buildList} />
               ))
             ) : isFirstPage ? (
               <div className="col-span-full text-center py-8 text-gray-400">

@@ -40,8 +40,8 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
           <ImageWithPlaceholder
             srcUrl={buildList.image_urls?.[0] ?? null}
             altText={buildList.name}
-            imageClassName="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
-            containerClassName="w-full h-48"
+            imageClassName="w-full h-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+            containerClassName="w-full aspect-video"
             fallbackText="No image"
           />
           {showVoteBadge && (
