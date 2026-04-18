@@ -51,7 +51,7 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
 };
 
 const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
-const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
+const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
 
 interface GroupedPart {
   category: CategoryResponse | null;
@@ -63,7 +63,7 @@ interface BuildListPartTableProps {
   categoryName: string;
   categoryIcon: string;
   part_manufacturers: PartManufacturerResponse[];
-  carsById: Record<string, CarRead>;
+  carsById: Record<string, CarGenerationRead>;
   containerWidth: number;
   onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
@@ -77,14 +77,14 @@ interface BuildListPartTableProps {
 
 function formatCarName(car: CarGenerationRead): string {
   return (
-    `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`.trim() ||
     'Vehicle'
   );
 }
 
 function getFitCell(
   part: BuildListPartReadWithPart,
-  carsById: Record<string, CarRead>
+  carsById: Record<string, CarGenerationRead>
 ): { label: string; title?: string } {
   const gp = part.part;
   if (gp.is_universal) return { label: 'Universal' };
@@ -98,7 +98,7 @@ function getFitCell(
   }
   const names = ids
     .map((id) => carsById[id])
-    .filter((c): c is CarRead => c != null)
+    .filter((c): c is CarGenerationRead => c != null)
     .map(formatCarName);
   const title = names.length > 0 ? names.join('\n') : undefined;
   return title != null
@@ -442,7 +442,7 @@ interface BuildListPartListProps {
   viewMode?: 'category' | 'phase';
   phases?: BuildListPhaseRead[];
   part_manufacturers?: PartManufacturerResponse[];
-  carsById?: Record<string, CarRead>;
+  carsById?: Record<string, CarGenerationRead>;
   loading?: boolean;
   onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;

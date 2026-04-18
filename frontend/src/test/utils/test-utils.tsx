@@ -82,8 +82,8 @@ export const createMockUser = (overrides = {}) => ({
 
 export const createMockCar = (overrides = {}) => ({
   id: 1,
-  make: 'Toyota',
-  model: 'Camry',
+  car_make_name: 'Toyota',
+  car_model_name: 'Camry',
   year: 2020,
   trim: 'SE',
   vin: '1HGBH41JXMN109186',

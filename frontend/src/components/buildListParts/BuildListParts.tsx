@@ -103,7 +103,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const carsById = useMemo(() => {
     const list = Array.isArray(carsData) ? carsData : [];
     const normalized = normalizeCarReadList(list);
-    const map: Record<string, CarRead> = {};
+    const map: Record<string, CarGenerationRead> = {};
     for (const car of normalized) {
       map[car.id] = car;
     }

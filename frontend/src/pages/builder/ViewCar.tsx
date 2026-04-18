@@ -135,7 +135,7 @@ function ViewCar(): React.JSX.Element {
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
-        title={`${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${formatCarYearRange(car.start_year, car.end_year)})`}
+        title={`${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''} (${formatCarYearRange(car.start_year, car.end_year)})`}
       />
       <Card>
         <div className="mb-4">
@@ -147,7 +147,7 @@ function ViewCar(): React.JSX.Element {
             <p>{car.car_make_name ?? ''}</p>
           </CardInfoItem>
           <CardInfoItem label="Model:">
-            <p>{car.model ?? ''}</p>
+            <p>{car.car_model_name ?? ''}</p>
           </CardInfoItem>
           <CardInfoItem label="Generation:">
             <p>{car.generation_name ?? ''}</p>
@@ -169,7 +169,7 @@ function ViewCar(): React.JSX.Element {
       <Dialog
         isOpen={isCreateBuildListFormOpen}
         onClose={closeCreateBuildListDialog}
-        title={`Create Build List for ${car.car_make_name ?? ''} ${car.model ?? ''}`}
+        title={`Create Build List for ${car.car_make_name ?? ''} ${car.car_model_name ?? ''}`}
       >
         <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
       </Dialog>
@@ -179,7 +179,7 @@ function ViewCar(): React.JSX.Element {
         <>
           <div className="mb-4">
             <SectionHeader
-              title={`Build Lists for ${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
+              title={`Build Lists for ${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`}
             />
             <div className="mt-4">
               <Input
@@ -207,7 +207,7 @@ function ViewCar(): React.JSX.Element {
       {/* Related Parts Section */}
       <div className="mb-4">
         <SectionHeader
-          title={`Parts for ${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`}
+          title={`Parts for ${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`}
         />
         <div className="mt-4">
           <Input

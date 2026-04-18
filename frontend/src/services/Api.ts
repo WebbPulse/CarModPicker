@@ -248,7 +248,7 @@ export const carGenerationsApi = {
     params?: { skip?: number; limit?: number }
   ) =>
     apiClient.get<CarGenerationRead[]>(
-      `/car-generations/car-makes/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+      `/car-generations/car-makes/${encodeURIComponent(make)}/car-models/${encodeURIComponent(model)}`,
       { params }
     ),
   getCarsByIds: (ids: string[]) =>
@@ -526,20 +526,23 @@ export const retailersApi = {
 // Unified Votes API
 export const votesApi = {
   voteOnEntity: (
-    entityType: 'car' | 'build_list' | 'part',
+    entityType: 'car_generation' | 'build_list' | 'part',
     entityId: string,
     data: VoteCreate
   ) => apiClient.post<VoteRead>(`/votes/${entityType}/${entityId}`, data),
-  removeVote: (entityType: 'car' | 'build_list' | 'part', entityId: string) =>
+  removeVote: (
+    entityType: 'car_generation' | 'build_list' | 'part',
+    entityId: string
+  ) =>
     apiClient.delete<Record<string, string>>(
       `/votes/${entityType}/${entityId}`
     ),
   getVoteSummary: (
-    entityType: 'car' | 'build_list' | 'part',
+    entityType: 'car_generation' | 'build_list' | 'part',
     entityId: string
   ) => apiClient.get<VoteSummary>(`/votes/${entityType}/${entityId}/summary`),
   getFlaggedEntities: (
-    entityType: 'car' | 'build_list' | 'part',
+    entityType: 'car_generation' | 'build_list' | 'part',
     limit?: number
   ) =>
     apiClient.get<FlaggedEntitySummary[]>(

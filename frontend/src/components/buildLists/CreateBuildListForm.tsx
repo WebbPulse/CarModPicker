@@ -3,7 +3,11 @@ import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carGenerationsApi } from '../../services/Api';
 import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
-import type { BuildListCreate, BuildListRead, CarRead } from '../../types/Api';
+import type {
+  BuildListCreate,
+  BuildListRead,
+  CarGenerationRead,
+} from '../../types/Api';
 import ButtonStretch from '../buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
@@ -26,9 +30,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
-    null
-  );
+  const [selectedGeneration, setSelectedGeneration] =
+    useState<CarGenerationRead | null>(null);
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [formMessage, setFormMessage] = useState<{
@@ -152,7 +155,9 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
 
   // Get unique models for selected make
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
+    new Set(
+      availableCars.map((car) => car.car_model_name ?? '').filter(Boolean)
+    )
   ).sort();
 
   // Get generations (cars) for selected make and model
@@ -160,7 +165,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
     .filter(
       (car) =>
         (car.car_make_name ?? '') === selectedMake &&
-        (car.model ?? '') === selectedModel
+        (car.car_model_name ?? '') === selectedModel
     )
     .sort((a, b) => {
       // Sort by start_year, then generation_name
@@ -295,8 +300,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 <div className="flex items-center justify-between p-3">
                   <div>
                     <h4 className="text-base font-semibold text-gray-200">
-                      Selected: {selectedGeneration.make}{' '}
-                      {selectedGeneration.model}{' '}
+                      Selected: {selectedGeneration.car_make_name}{' '}
+                      {selectedGeneration.car_model_name}{' '}
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">

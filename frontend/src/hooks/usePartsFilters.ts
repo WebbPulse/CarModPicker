@@ -13,10 +13,7 @@ import type {
   CategoryResponse,
   PaginationInfo,
 } from '../types/Api';
-import {
-  normalizeCarGenerationRead,
-  normalizeCarReadList,
-} from '../utils/carUtils';
+import { normalizeCarRead, normalizeCarReadList } from '../utils/carUtils';
 import useApiRequest from './UseApiRequest';
 
 const PARTS_PER_PAGE = 100;
@@ -115,9 +112,8 @@ export function usePartsFilters(
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
-    null
-  );
+  const [selectedGeneration, setSelectedGeneration] =
+    useState<CarGenerationRead | null>(null);
   const [showUniversalParts, setShowUniversalParts] = useState(false);
   const [selectedPartManufacturerIds, setSelectedPartManufacturerIds] =
     useState<string[]>([]);
@@ -236,7 +232,8 @@ export function usePartsFilters(
       availableCars
         .filter(
           (c) =>
-            (c.make ?? '') === selectedMake && (c.model ?? '') === selectedModel
+            (c.car_make_name ?? '') === selectedMake &&
+            (c.car_model_name ?? '') === selectedModel
         )
         .sort((a, b) => {
           if (a.start_year !== b.start_year) return a.start_year - b.start_year;
@@ -432,7 +429,7 @@ export function usePartsFilters(
       // Only clear model/generation when user changed make; preserve when restoring from URL (car_id)
       if (
         !selectedGeneration ||
-        (selectedGeneration.make ?? '') !== selectedMake
+        (selectedGeneration.car_make_name ?? '') !== selectedMake
       ) {
         setSelectedModel('');
         setSelectedGeneration(null);
@@ -536,7 +533,9 @@ export function usePartsFilters(
   const uniqueModels = useMemo(
     () =>
       Array.from(
-        new Set(availableCars.map((c) => c.model ?? '').filter(Boolean))
+        new Set(
+          availableCars.map((c) => c.car_model_name ?? '').filter(Boolean)
+        )
       ).sort(),
     [availableCars]
   );

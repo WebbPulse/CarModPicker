@@ -67,8 +67,8 @@ export interface AdminUserUpdate {
 }
 
 export interface CarGenerationCreate {
-  make: string;
-  model: string;
+  car_make_name: string;
+  car_model_name: string;
   generation_name: string;
   start_year: number;
   end_year: number;
@@ -78,8 +78,8 @@ export interface CarGenerationCreate {
 
 export interface CarGenerationRead {
   id: string;
-  make: string;
-  model: string;
+  car_make_name: string;
+  car_model_name: string;
   generation_name: string;
   start_year: number;
   end_year?: number | null; // null for current/ongoing generations
@@ -88,8 +88,8 @@ export interface CarGenerationRead {
 }
 
 export interface CarGenerationUpdate {
-  make?: string | null;
-  model?: string | null;
+  car_make_name?: string | null;
+  car_model_name?: string | null;
   generation_name?: string | null;
   start_year?: number | null;
   end_year?: number | null;
@@ -330,7 +330,7 @@ export interface PartManufacturerUpdate {
 // Unified voting system interfaces
 export interface VoteCreate {
   vote_type: 'upvote' | 'downvote';
-  entity_type: 'car' | 'build_list' | 'part';
+  entity_type: 'car_generation' | 'build_list' | 'part';
   entity_id: string;
 }
 
