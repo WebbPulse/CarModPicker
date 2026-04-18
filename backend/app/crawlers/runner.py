@@ -361,12 +361,15 @@ def run_crawlers(
     limits: Optional[dict[str, int]] = None,
     global_limit: Optional[int] = None,
     delay_sec: float = DEFAULT_REQUEST_DELAY_SEC,
+    delays: Optional[dict[str, float]] = None,
     parallel: bool = True,
     user_id: Optional[UUID] = None,
     default_category_id: Optional[UUID] = None,
+    default_category_ids: Optional[dict[str, UUID]] = None,
     crawl_html_save_dir: Optional[str] = None,
     stop_event: Optional[threading.Event] = None,
     skip_known_urls: bool = False,
+    skip_known_urls_by_adapter: Optional[dict[str, bool]] = None,
 ) -> dict:
     """
     Run one or more adapters. If multiple adapters, runs them in parallel threads by default.
@@ -375,12 +378,16 @@ def run_crawlers(
         adapter_names: List of adapter names (e.g. ["a90shop", "example"]).
         limits: Per-adapter limits: {"a90shop": 10, "example": 5}. Overrides global_limit when set.
         global_limit: Limit applied to all adapters when no per-adapter limit is set.
-        delay_sec: Delay between requests per crawler.
+        delay_sec: Default delay between requests per crawler when no per-adapter override is set.
+        delays: Per-adapter delay override: {"a90shop": 7.5}. Falls back to ``delay_sec``.
         parallel: If True and len(adapter_names) > 1, run in parallel threads.
+        default_category_id: Default category used when no per-adapter override is set.
+        default_category_ids: Per-adapter category override: {"a90shop": <uuid>}.
+            Falls back to ``default_category_id``.
         crawl_html_save_dir: Kept for backward compatibility; HTML is always archived for every URL.
         stop_event: Optional threading.Event for cooperative cancellation across all adapters.
-        skip_known_urls: If True, URLs already archived with parse_status='parsed' are filtered out
-            before the limit is applied.
+        skip_known_urls: Default skip flag when no per-adapter override is set.
+        skip_known_urls_by_adapter: Per-adapter override: {"a90shop": True}.
 
     Returns:
         {
@@ -390,6 +397,9 @@ def run_crawlers(
         }
     """
     limits = limits or {}
+    delays = delays or {}
+    default_category_ids = default_category_ids or {}
+    skip_known_urls_by_adapter = skip_known_urls_by_adapter or {}
     results: list[dict] = []
     failed: list[dict] = []
 
@@ -397,16 +407,19 @@ def run_crawlers(
         limit = limits.get(name)
         if limit is None and global_limit is not None:
             limit = global_limit
+        adapter_delay = delays.get(name, delay_sec)
+        adapter_skip = skip_known_urls_by_adapter.get(name, skip_known_urls)
+        adapter_category = default_category_ids.get(name, default_category_id)
         try:
             return run_crawler(
                 name,
                 limit=limit,
-                delay_sec=delay_sec,
+                delay_sec=adapter_delay,
                 user_id=user_id,
-                default_category_id=default_category_id,
+                default_category_id=adapter_category,
                 crawl_html_save_dir=crawl_html_save_dir,
                 stop_event=stop_event,
-                skip_known_urls=skip_known_urls,
+                skip_known_urls=adapter_skip,
             )
         except (CrawlerConfigError, KeyError) as e:
             return {"_error": str(e), "_adapter": name}

@@ -1,4 +1,3 @@
-from .adapter_schedule import AdapterSchedule
 from .background_job import BackgroundJob
 from .bug_report import BugReport
 from .build_list import BuildList
@@ -9,6 +8,8 @@ from .car_generation import CarGeneration
 from .car_make import CarMake
 from .car_model import CarModel
 from .category import Category
+from .crawler_adapter_config import CrawlerAdapterConfig
+from .crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
 from .image_source_mapping import ImageSourceMapping
 from .part import Part
 from .part_listing import PartListing
@@ -20,7 +21,6 @@ from .user import User
 from .vote import Vote
 
 __all__ = [
-    "AdapterSchedule",
     "BackgroundJob",
     "User",
     "CarGeneration",
@@ -30,6 +30,9 @@ __all__ = [
     "Part",
     "ImageSourceMapping",
     "Category",
+    "CrawlerAdapterConfig",
+    "CrawlerSchedule",
+    "CrawlerScheduleAdapter",
     "PartManufacturer",
     "BuildListPart",
     "BuildListPhase",

@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
-    adapter_schedules,
     admin,
     auth,
     bug_reports,
@@ -18,6 +17,8 @@ from .api.endpoints import (
     car_generations,
     categories,
     crawled_pages,
+    crawler_adapter_configs,
+    crawler_schedules,
     images,
     part_manufacturers,
     parts,
@@ -29,9 +30,10 @@ from .api.endpoints import (
 )
 from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
+from .api.services import crawler_schedule_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
-from .core.init_adapter_schedules import init_adapter_schedules
+from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
@@ -68,9 +70,18 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     except Exception:
         logger.exception("Failed to initialize service accounts on startup")
     try:
-        init_adapter_schedules(db)
+        init_crawler_adapter_configs(db)
     except Exception:
-        logger.exception("Failed to initialize adapter schedules on startup")
+        logger.exception("Failed to initialize crawler adapter configs on startup")
+    try:
+        # Best-effort: delete EventBridge schedules under our prefix that no
+        # longer correspond to a live crawler_schedules row. Also cleans up
+        # legacy per-adapter schedules from the previous implementation.
+        swept = crawler_schedule_service.sweep_orphan_schedules(db)
+        if swept:
+            logger.info("Swept %d orphan EventBridge schedule(s) on startup", len(swept))
+    except Exception:
+        logger.exception("Orphan EventBridge schedule sweep failed on startup")
     finally:
         db.close()
     yield
@@ -244,12 +255,20 @@ endpoint_registry.register_endpoint(
     description="Admin-only system management operations",
 )
 
-# Per-adapter crawler schedule management
+# User-defined crawler schedules (many-to-many with adapters)
 endpoint_registry.register_endpoint(
-    adapter_schedules.router,
-    prefix="/admin/adapter-schedules",
+    crawler_schedules.router,
+    prefix="/admin/crawler-schedules",
     tags=["admin"],
-    description="Per-adapter crawler schedule management (DB-backed, reconciled to EventBridge)",
+    description="Crawler schedule management (DB-backed, reconciled to EventBridge)",
+)
+
+# Per-adapter retailer tuning (delay, limit, skip flag, default category)
+endpoint_registry.register_endpoint(
+    crawler_adapter_configs.router,
+    prefix="/admin/crawler-adapter-configs",
+    tags=["admin"],
+    description="Per-adapter retailer tuning used by crawler schedules",
 )
 
 

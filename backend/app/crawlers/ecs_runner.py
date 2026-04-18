@@ -6,15 +6,18 @@ Invoked as: python -m app.crawlers.ecs_runner
 Per-run configuration is read from environment variables injected by
 App Runner at ecs.run_task() time:
 
-    JOB_ID                       — BackgroundJob UUID to update on completion
-    CRAWLER_ADAPTERS             — comma-separated adapter names, or "all"
-    CRAWLER_DEFAULT_CATEGORY_ID  — UUID; category ID for new parts (required)
-    CRAWLER_USER_ID              — optional UUID; defaults to crawler service account
-    CRAWLER_LIMITS               — optional JSON dict {"adapter": limit}
-    CRAWLER_GLOBAL_LIMIT         — optional integer
-    CRAWLER_DELAY_SEC            — optional float (default: DEFAULT_REQUEST_DELAY_SEC)
-    CRAWLER_PARALLEL             — "true"/"false" (default: "true")
-    CRAWLER_SKIP_KNOWN_URLS      — "true"/"false" (default: "false")
+    JOB_ID                            — BackgroundJob UUID to update on completion
+    CRAWLER_ADAPTERS                  — comma-separated adapter names, or "all"
+    CRAWLER_DEFAULT_CATEGORY_ID       — UUID; default category ID (required)
+    CRAWLER_DEFAULT_CATEGORY_IDS      — optional JSON dict {"adapter": "<uuid>"} per-adapter override
+    CRAWLER_USER_ID                   — optional UUID; defaults to crawler service account
+    CRAWLER_LIMITS                    — optional JSON dict {"adapter": limit}
+    CRAWLER_GLOBAL_LIMIT              — optional integer
+    CRAWLER_DELAY_SEC                 — optional float default (fallback for adapters without a per-adapter delay)
+    CRAWLER_DELAYS                    — optional JSON dict {"adapter": float} per-adapter override
+    CRAWLER_PARALLEL                  — "true"/"false" (default: "true")
+    CRAWLER_SKIP_KNOWN_URLS           — "true"/"false" default (fallback)
+    CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER— optional JSON dict {"adapter": bool} per-adapter override
 
 Static environment (baked into the ECS task definition by Terraform):
     DATABASE_URL, USER_IMAGES_BUCKET, CRAWL_BUCKET, AWS_REGION,
@@ -91,8 +94,23 @@ def main() -> None:
     delay_sec_str = os.environ.get("CRAWLER_DELAY_SEC")
     delay_sec = float(delay_sec_str) if delay_sec_str else DEFAULT_REQUEST_DELAY_SEC
 
+    delays_str = os.environ.get("CRAWLER_DELAYS")
+    delays: dict[str, float] | None = None
+    if delays_str:
+        delays = {k: float(v) for k, v in json.loads(delays_str).items()}
+
+    category_ids_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_IDS")
+    default_category_ids: dict[str, UUID] | None = None
+    if category_ids_str:
+        default_category_ids = {k: UUID(v) for k, v in json.loads(category_ids_str).items()}
+
     parallel = os.environ.get("CRAWLER_PARALLEL", "true").lower() not in ("false", "0", "no")
     skip_known_urls = os.environ.get("CRAWLER_SKIP_KNOWN_URLS", "false").lower() in ("true", "1", "yes")
+
+    skip_by_adapter_str = os.environ.get("CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER")
+    skip_known_urls_by_adapter: dict[str, bool] | None = None
+    if skip_by_adapter_str:
+        skip_known_urls_by_adapter = {k: bool(v) for k, v in json.loads(skip_by_adapter_str).items()}
 
     logger.info(
         "ECS crawler task starting: adapters=%s category_id=%s job_id=%s delay_sec=%s parallel=%s",
@@ -110,10 +128,13 @@ def main() -> None:
             limits=limits,
             global_limit=global_limit,
             delay_sec=delay_sec,
+            delays=delays,
             parallel=parallel,
             user_id=user_id,
             default_category_id=default_category_id,
+            default_category_ids=default_category_ids,
             skip_known_urls=skip_known_urls,
+            skip_known_urls_by_adapter=skip_known_urls_by_adapter,
         )
         logger.info("ECS crawler task completed: %s", result)
 
