@@ -75,7 +75,7 @@ from app.api.models.report import Report  # pyright: ignore[reportMissingImports
 from app.api.models.retailer import Retailer  # pyright: ignore[reportMissingImports]
 from app.api.services.part_listing_service import (  # pyright: ignore[reportMissingImports]
     create_or_update_listing_and_price,
-    get_or_create_brand_by_name,
+    get_or_create_part_manufacturer_by_name,
     get_or_create_retailer,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.user import User  # pyright: ignore[reportMissingImports]
@@ -487,12 +487,12 @@ def _ensure_sample_retailers(db: Session) -> list[Retailer]:
 def create_sample_global_parts(
     db: Session, users: list[User], categories: list[Category]
 ) -> list[GlobalPart]:
-    """Create sample global parts (refactored: brand_id, no price; prices via PartListing)."""
+    """Create sample global parts (refactored: part_manufacturer_id, no price; prices via PartListing)."""
     start_time = time.time()
     log_section("Creating sample global parts...")
 
-    # Collect all brand names we use, then get-or-create brands and build brand_id map
-    initial_brand_names = [
+    # Collect all part_manufacturer names we use, then get-or-create part_manufacturers and build part_manufacturer_id map
+    initial_part_manufacturer_names = [
         "AWE",
         "KW",
         "Garrett",
@@ -504,21 +504,21 @@ def create_sample_global_parts(
         "HKS",
         "Ohlins",
     ]
-    brand_map: dict[str, int] = {}
-    for name in initial_brand_names:
-        brand = get_or_create_brand_by_name(db, name)
-        if brand:
-            brand_map[name] = brand.id
+    part_manufacturer_map: dict[str, int] = {}
+    for name in initial_part_manufacturer_names:
+        part_manufacturer = get_or_create_part_manufacturer_by_name(db, name)
+        if part_manufacturer:
+            part_manufacturer_map[name] = part_manufacturer.id
     db.commit()
 
-    # Initial parts: use brand_id, no price/brand (price comes from PartListing later)
+    # Initial parts: use part_manufacturer_id, no price/part_manufacturer (price comes from PartListing later)
     initial_parts_raw = [
         {
             "name": "AWE Touring Exhaust System",
             "description": "High-quality cat-back exhaust system with deep, aggressive tone",
             "category_id": categories[0].id,
             "user_id": users[1].id,
-            "brand": "AWE",
+            "part_manufacturer": "AWE",
             "part_number": "AWE-EXH-001",
             "specifications": {
                 "material": "stainless_steel",
@@ -532,7 +532,7 @@ def create_sample_global_parts(
             "description": "Premium adjustable coilover suspension system",
             "category_id": categories[1].id,
             "user_id": users[2].id,
-            "brand": "KW",
+            "part_manufacturer": "KW",
             "part_number": "KW-SUS-001",
             "specifications": {
                 "adjustable": True,
@@ -546,7 +546,7 @@ def create_sample_global_parts(
             "description": "High-performance turbocharger for increased power",
             "category_id": categories[2].id,
             "user_id": users[3].id,
-            "brand": "Garrett",
+            "part_manufacturer": "Garrett",
             "part_number": "GAR-TUR-001",
             "specifications": {"max_boost": "25psi", "compressor": "dual_ball_bearing"},
             "is_verified": True,
@@ -556,7 +556,7 @@ def create_sample_global_parts(
             "description": "Lightweight forged wheels, 18x9.5 +22",
             "category_id": categories[3].id,
             "user_id": users[1].id,
-            "brand": "Rays",
+            "part_manufacturer": "Rays",
             "part_number": "VOLK-TE37-001",
             "specifications": {"size": "18x9.5", "offset": "+22", "weight": "18.5lbs"},
             "is_verified": True,
@@ -566,7 +566,7 @@ def create_sample_global_parts(
             "description": "Large carbon fiber rear wing for downforce",
             "category_id": categories[4].id,
             "user_id": users[4].id,
-            "brand": "APR",
+            "part_manufacturer": "APR",
             "part_number": "APR-AERO-001",
             "specifications": {"material": "carbon_fiber", "adjustable": True},
             "is_verified": False,
@@ -576,7 +576,7 @@ def create_sample_global_parts(
             "description": "Premium sport seats with heating",
             "category_id": categories[5].id,
             "user_id": users[2].id,
-            "brand": "Recaro",
+            "part_manufacturer": "Recaro",
             "part_number": "REC-INT-001",
             "specifications": {"heated": True, "adjustable": True},
             "is_verified": True,
@@ -586,7 +586,7 @@ def create_sample_global_parts(
             "description": "6-piston front brake kit with slotted rotors",
             "category_id": categories[6].id,
             "user_id": users[3].id,
-            "brand": "Brembo",
+            "part_manufacturer": "Brembo",
             "part_number": "BRE-BRK-001",
             "specifications": {
                 "pistons": 6,
@@ -600,7 +600,7 @@ def create_sample_global_parts(
             "description": "High-flow cold air intake system",
             "category_id": categories[2].id,
             "user_id": users[1].id,
-            "brand": "Injen",
+            "part_manufacturer": "Injen",
             "part_number": "INJ-INT-001",
             "specifications": {"filter_type": "dry", "material": "aluminum"},
             "is_verified": True,
@@ -610,7 +610,7 @@ def create_sample_global_parts(
             "description": "JDM-style exhaust with titanium tips",
             "category_id": categories[0].id,
             "user_id": users[4].id,
-            "brand": "HKS",
+            "part_manufacturer": "HKS",
             "part_number": "HKS-EXH-001",
             "specifications": {"material": "titanium", "tips": 2},
             "is_verified": True,
@@ -620,7 +620,7 @@ def create_sample_global_parts(
             "description": "Premium Swedish coilover system",
             "category_id": categories[1].id,
             "user_id": users[1].id,
-            "brand": "Ohlins",
+            "part_manufacturer": "Ohlins",
             "part_number": "OHL-SUS-001",
             "specifications": {"adjustable": True, "damping": "dual_flow_valve"},
             "is_verified": True,
@@ -628,15 +628,15 @@ def create_sample_global_parts(
     ]
     initial_parts = []
     for p in initial_parts_raw:
-        brand_id = brand_map.get(p["brand"])
-        if brand_id is None:
-            b = get_or_create_brand_by_name(db, p["brand"])
+        part_manufacturer_id = part_manufacturer_map.get(p["part_manufacturer"])
+        if part_manufacturer_id is None:
+            b = get_or_create_part_manufacturer_by_name(db, p["part_manufacturer"])
             if b:
-                brand_map[p["brand"]] = b.id
-                brand_id = b.id
-        if brand_id is not None:
-            part_data = {k: v for k, v in p.items() if k != "brand"}
-            part_data["brand_id"] = brand_id
+                part_manufacturer_map[p["part_manufacturer"]] = b.id
+                part_manufacturer_id = b.id
+        if part_manufacturer_id is not None:
+            part_data = {k: v for k, v in p.items() if k != "part_manufacturer"}
+            part_data["part_manufacturer_id"] = part_manufacturer_id
             initial_parts.append(part_data)
 
     # Part templates for each category
@@ -650,7 +650,7 @@ def create_sample_global_parts(
                 "Downpipe",
                 "Muffler",
             ],
-            "brands": [
+            "part_manufacturers": [
                 "AWE",
                 "HKS",
                 "Invidia",
@@ -676,7 +676,7 @@ def create_sample_global_parts(
                 "Shock Absorbers",
                 "Control Arms",
             ],
-            "brands": [
+            "part_manufacturers": [
                 "KW",
                 "Ohlins",
                 "Bilstein",
@@ -702,7 +702,7 @@ def create_sample_global_parts(
                 "Supercharger",
                 "Throttle Body",
             ],
-            "brands": ["Garrett", "Injen", "Cobb", "HKS", "Blitz", "Greddy", "APR"],
+            "part_manufacturers": ["Garrett", "Injen", "Cobb", "HKS", "Blitz", "Greddy", "APR"],
             "descriptions": [
                 "High-performance engine upgrade",
                 "Maximum power enhancement",
@@ -719,7 +719,7 @@ def create_sample_global_parts(
                 "Street Wheels",
                 "Racing Wheels",
             ],
-            "brands": ["Rays", "Work", "Enkei", "Volk", "WedsSport", "Rota", "Konig"],
+            "part_manufacturers": ["Rays", "Work", "Enkei", "Volk", "WedsSport", "Rota", "Konig"],
             "descriptions": [
                 "Lightweight forged wheel set",
                 "Premium alloy wheels",
@@ -737,7 +737,7 @@ def create_sample_global_parts(
                 "Hood",
                 "Fenders",
             ],
-            "brands": ["APR", "Seibon", "VIS", "Carbon Creations", "Verus", "Aeroflow"],
+            "part_manufacturers": ["APR", "Seibon", "VIS", "Carbon Creations", "Verus", "Aeroflow"],
             "descriptions": [
                 "Aerodynamic carbon fiber component",
                 "Lightweight body modification",
@@ -755,7 +755,7 @@ def create_sample_global_parts(
                 "Gauges",
                 "Harness",
             ],
-            "brands": ["Recaro", "Sparco", "Bride", "MOMO", "NRG", "Takata"],
+            "part_manufacturers": ["Recaro", "Sparco", "Bride", "MOMO", "NRG", "Takata"],
             "descriptions": [
                 "Premium sport interior component",
                 "Race-inspired interior upgrade",
@@ -772,7 +772,7 @@ def create_sample_global_parts(
                 "Brake Lines",
                 "Caliper Upgrade",
             ],
-            "brands": ["Brembo", "StopTech", "Wilwood", "EBC", "Hawk", "Carbotech"],
+            "part_manufacturers": ["Brembo", "StopTech", "Wilwood", "EBC", "Hawk", "Carbotech"],
             "descriptions": [
                 "High-performance brake system",
                 "Track-tested brake components",
@@ -783,15 +783,15 @@ def create_sample_global_parts(
         },
     }
 
-    # Ensure all template brands exist for generated parts
-    all_template_brands = set()
+    # Ensure all template part_manufacturers exist for generated parts
+    all_template_part_manufacturers = set()
     for template in part_templates.values():
-        all_template_brands.update(template["brands"])
-    for name in all_template_brands:
-        if name not in brand_map:
-            b = get_or_create_brand_by_name(db, name)
+        all_template_part_manufacturers.update(template["part_manufacturers"])
+    for name in all_template_part_manufacturers:
+        if name not in part_manufacturer_map:
+            b = get_or_create_part_manufacturer_by_name(db, name)
             if b:
-                brand_map[name] = b.id
+                part_manufacturer_map[name] = b.id
     db.commit()
 
     parts_data = initial_parts.copy()
@@ -803,27 +803,27 @@ def create_sample_global_parts(
         template = part_templates.get(category_name, part_templates["exhaust"])
 
         name_base = random.choice(template["names"])
-        brand_name = random.choice(template["brands"])
-        brand_id = brand_map.get(brand_name)
-        if brand_id is None:
-            b = get_or_create_brand_by_name(db, brand_name)
+        part_manufacturer_name = random.choice(template["part_manufacturers"])
+        part_manufacturer_id = part_manufacturer_map.get(part_manufacturer_name)
+        if part_manufacturer_id is None:
+            b = get_or_create_part_manufacturer_by_name(db, part_manufacturer_name)
             if b:
-                brand_map[brand_name] = b.id
-                brand_id = b.id
-        if brand_id is None:
+                part_manufacturer_map[part_manufacturer_name] = b.id
+                part_manufacturer_id = b.id
+        if part_manufacturer_id is None:
             continue
 
         name = (
-            f"{brand_name} {name_base} {i+1}"
+            f"{part_manufacturer_name} {name_base} {i+1}"
             if i < 30
-            else f"{name_base} {brand_name} Edition {i+1}"
+            else f"{name_base} {part_manufacturer_name} Edition {i+1}"
         )
         description = random.choice(template["descriptions"])
         user = random.choice(users)
         is_verified = random.choice([True, True, True, False])  # 75% verified
 
         part_number = (
-            f"{brand_name[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
+            f"{part_manufacturer_name[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
         )
 
         # Generate specifications based on category
@@ -872,7 +872,7 @@ def create_sample_global_parts(
                 "description": description,
                 "category_id": category.id,
                 "user_id": user.id,
-                "brand_id": brand_id,
+                "part_manufacturer_id": part_manufacturer_id,
                 "part_number": part_number,
                 "specifications": specs,
                 "is_verified": is_verified,
