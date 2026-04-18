@@ -153,7 +153,7 @@ def test_get_cars_by_make_success(client: TestClient, db_session: Session) -> No
     client.cookies.clear()
 
     # Get cars by make "Toyota"
-    response = client.get(f"{settings.API_STR}/cars/make/Toyota")
+    response = client.get(f"{settings.API_STR}/car-generations/car-makes/Toyota")
     assert response.status_code == 200, response.text
 
     cars: list[Any] = response.json()
@@ -168,7 +168,7 @@ def test_get_cars_by_make_no_results(client: TestClient, db_session: Session) ->
     """Test getting cars by make with no results."""
     client.cookies.clear()
 
-    response = client.get(f"{settings.API_STR}/cars/make/NonExistentMake")
+    response = client.get(f"{settings.API_STR}/car-generations/car-makes/NonExistentMake")
     assert response.status_code == 200, response.text
 
     cars: list[Any] = response.json()
@@ -185,7 +185,7 @@ def test_get_cars_by_make_model_success(client: TestClient, db_session: Session)
     client.cookies.clear()
 
     # Get Honda Civics
-    response = client.get(f"{settings.API_STR}/cars/make/Honda/model/Civic")
+    response = client.get(f"{settings.API_STR}/car-generations/car-makes/Honda/model/Civic")
     assert response.status_code == 200, response.text
 
     cars: list[Any] = response.json()
@@ -335,7 +335,7 @@ def test_count_cars_success(client: TestClient, db_session: Session) -> None:
     assert response.json()["count"] == initial_count + 1
 
     # Remove car via DB (no delete API)
-    from app.api.models.car import Car
+    from app.api.models.car_generation import CarGeneration
 
     db_session.query(Car).filter(Car.id == car["id"]).delete()
     db_session.commit()

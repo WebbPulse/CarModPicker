@@ -4,10 +4,10 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
 import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
-import { carsApi, partVotesApi, partsApi } from '../../services/Api';
+import { carGenerationsApi, partVotesApi, partsApi } from '../../services/Api';
 import type {
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PartReadWithVotes,
   PaginationInfo,
@@ -523,8 +523,8 @@ function PartList({
   );
 
   const formatCarName = useCallback(
-    (car: CarRead) =>
-      `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    (car: CarGenerationRead) =>
+      `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
       'Vehicle',
     []
   );

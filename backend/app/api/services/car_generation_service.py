@@ -9,11 +9,11 @@ from uuid import UUID
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_make import CarMake
 from app.api.models.car_model import CarModel
-from app.api.models.make import Make
 from app.api.models.user import User as DBUser
-from app.api.schemas.car import CarCreate, CarRead, CarUpdate
+from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import (
     apply_pagination_and_ordering,
@@ -27,11 +27,11 @@ from app.api.utils.common_operations import (
 def _car_query_with_make_model(db: Session):
     """Base query for Car with car_model and make eager-loaded (for make/model properties)."""
     return db.query(DBCar).options(
-        joinedload(DBCar.car_model).joinedload(CarModel.make),
+        joinedload(DBCar.car_model).joinedload(CarModel.car_make),
     )
 
 
-class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
+class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenerationRead, CarGenerationUpdate]):
     """
     Car service that provides CRUD operations for cars.
 
@@ -44,7 +44,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         """Initialize the car service."""
         super().__init__(
             model=DBCar,
-            entity_name="car",
+            entity_name="car_generation",
         )
 
     def get_by_id(
@@ -89,7 +89,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         # Search: make, model (via join), generation_name
         if search and search_fields:
             if "make" in search_fields or "model" in search_fields or "generation_name" in search_fields:
-                query = query.join(DBCar.car_model).join(CarModel.make)
+                query = query.join(DBCar.car_model).join(CarModel.car_make)
                 conditions = []
                 if "make" in search_fields:
                     conditions.append(Make.name.ilike(f"%{search}%"))
@@ -133,7 +133,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         Get cars filtered by make and/or model (via joins to Make and CarModel).
         """
         validate_pagination_params(skip, limit)
-        query = _car_query_with_make_model(db).join(DBCar.car_model).join(CarModel.make)
+        query = _car_query_with_make_model(db).join(DBCar.car_model).join(CarModel.car_make)
 
         if make:
             query = query.filter(Make.name == make)
@@ -161,7 +161,7 @@ class CarService(BaseCRUDService[DBCar, CarCreate, CarRead, CarUpdate]):
         query = (
             _car_query_with_make_model(db)
             .join(DBCar.car_model)
-            .join(CarModel.make)
+            .join(CarModel.car_make)
             .filter(
                 or_(
                     Make.name.ilike(f"%{search_term}%"),

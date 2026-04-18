@@ -66,38 +66,6 @@ export interface AdminUserUpdate {
   subscription_expires_at?: string | null;
 }
 
-export interface CarCreate {
-  make: string;
-  model: string;
-  generation_name: string;
-  start_year: number;
-  end_year: number;
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-export interface CarRead {
-  id: string;
-  make: string;
-  model: string;
-  generation_name: string;
-  start_year: number;
-  end_year?: number | null; // null for current/ongoing generations
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-export interface CarUpdate {
-  make?: string | null;
-  model?: string | null;
-  generation_name?: string | null;
-  start_year?: number | null;
-  end_year?: number | null;
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-// Car Generation interfaces
 export interface CarGenerationCreate {
   make: string;
   model: string;
@@ -105,6 +73,7 @@ export interface CarGenerationCreate {
   start_year: number;
   end_year: number;
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarGenerationRead {
@@ -115,6 +84,7 @@ export interface CarGenerationRead {
   start_year: number;
   end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarGenerationUpdate {
@@ -124,6 +94,7 @@ export interface CarGenerationUpdate {
   start_year?: number | null;
   end_year?: number | null;
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface BuildListCreate {

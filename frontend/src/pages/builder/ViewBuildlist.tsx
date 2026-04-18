@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import apiClient, { buildListVotesApi } from '../../services/Api';
 import type {
   BuildListRead,
-  CarRead,
+  CarGenerationRead,
   UserRead,
   VoteSummary,
 } from '../../types/Api';
@@ -32,7 +32,7 @@ const fetchBuildListRequestFn = (buildListId: string) =>
   apiClient.get<BuildListRead>(`/build-lists/${buildListId}`);
 
 const fetchCarRequestFn = (carId: string) =>
-  apiClient.get<CarRead>(`/cars/${carId}`);
+  apiClient.get<CarGenerationRead>(`/car-generations/${carId}`);
 
 const fetchUserRequestFn = (userId: string) =>
   apiClient.get<UserRead>(`/users/${userId}`);
@@ -176,7 +176,7 @@ function ViewBuildList() {
     if (result !== null) {
       setIsDeleteConfirmOpen(false);
       if (buildList.car_id) {
-        void navigate(`/cars/${buildList.car_id}`);
+        void navigate(`/car-generations/${buildList.car_id}`);
       } else {
         void navigate('/builder');
       }
@@ -333,7 +333,7 @@ function ViewBuildList() {
             {associatedCar && (
               <CardInfoItem label="Associated Car:">
                 <ParentNavigationLink
-                  linkTo={`/cars/${associatedCar.id}`}
+                  linkTo={`/car-generations/${associatedCar.id}`}
                   linkText={`${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
                 />
               </CardInfoItem>

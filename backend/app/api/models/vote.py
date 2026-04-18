@@ -10,7 +10,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .car import Car
+    from .car_generation import CarGeneration
     from .part import Part
     from .user import User
 
@@ -38,10 +38,10 @@ class Vote(Base):
     user: Mapped["User"] = relationship("User", back_populates="votes")
 
     # Polymorphic relationships (these will be handled by the entity models)
-    car: Mapped[Optional["Car"]] = relationship(
+    car_generation: Mapped[Optional["CarGeneration"]] = relationship(
         "Car",
         foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == Car.id, Vote.entity_type == 'car')",
+        primaryjoin="and_(Vote.entity_id == CarGeneration.id, Vote.entity_type == 'car_generation')",
         viewonly=True,
     )
     build_list: Mapped[Optional["BuildList"]] = relationship(

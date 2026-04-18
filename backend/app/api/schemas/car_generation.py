@@ -7,7 +7,7 @@ from app.api.schemas.part import apply_image_url_presigning
 
 
 # Schema for request body when creating a car
-class CarCreate(BaseModel):
+class CarGenerationCreate(BaseModel):
     make: str
     model: str
     generation_name: str
@@ -18,7 +18,7 @@ class CarCreate(BaseModel):
 
 
 # Schema for request body when updating a car (all fields optional)
-class CarUpdate(BaseModel):
+class CarGenerationUpdate(BaseModel):
     make: Optional[str] = None
     model: Optional[str] = None
     generation_name: Optional[str] = None
@@ -29,7 +29,7 @@ class CarUpdate(BaseModel):
 
 
 # Schema for response body when reading a car
-class CarRead(BaseModel):
+class CarGenerationRead(BaseModel):
     id: UUID
     make: str
     model: str

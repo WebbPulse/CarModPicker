@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, {
   partManufacturersApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
   partsApi,
 } from '../../services/Api';
 import type {
   PartManufacturerCreate,
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PartRead,
   PartUpdate,
@@ -39,7 +39,8 @@ const updatePartRequestFn = (payload: {
 }) => apiClient.put<PartUpdate>(`/parts/${payload.partId}`, payload.partData);
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () =>
+  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 const fetchPartManufacturersRequestFn = () =>
   partManufacturersApi.getPartManufacturers(true);
 
@@ -58,7 +59,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [cars, setCars] = useState<CarRead[]>([]);
+  const [cars, setCars] = useState<CarGenerationRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
   const [part_manufacturers, setPartManufacturers] = useState<
     PartManufacturerResponse[]

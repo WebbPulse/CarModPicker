@@ -24,13 +24,16 @@ import {
   LARGE_FETCH_LIMIT,
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListsApi, carsApi } from '../../services/Api';
+import { buildListsApi, carGenerationsApi } from '../../services/Api';
 import type {
   BuildListReadWithVotes,
-  CarRead,
+  CarGenerationRead,
   PaginatedResponse,
 } from '../../types/Api';
-import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
+import {
+  normalizeCarGenerationRead,
+  normalizeCarReadList,
+} from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,7 +43,7 @@ const BuildListsCatalog: React.FC = () => {
     null
   );
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
-  const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
+  const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [costMin, setCostMin] = useState('');
@@ -113,7 +116,10 @@ const BuildListsCatalog: React.FC = () => {
     Parameters<typeof buildListsApi.getBuildListsWithVotes>[0]
   >(fetchAllBuildListsFn);
 
-  const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
+  const fetchMakeStatsFn = useCallback(
+    () => carGenerationsApi.getCarMakeStats(),
+    []
+  );
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
@@ -121,7 +127,8 @@ const BuildListsCatalog: React.FC = () => {
   } = useApiRequest(fetchMakeStatsFn);
 
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
+    (make: string) =>
+      carGenerationsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
   const {
@@ -131,7 +138,7 @@ const BuildListsCatalog: React.FC = () => {
   } = useApiRequest(fetchCarsByMakeFn);
 
   const fetchCarByIdFn = useCallback(
-    (carId: string) => carsApi.getCar(carId),
+    (carId: string) => carGenerationsApi.getCar(carId),
     []
   );
   const { data: carFromUrl, executeRequest: fetchCarById } =
@@ -193,10 +200,10 @@ const BuildListsCatalog: React.FC = () => {
     if (carFromUrl && isInitializingFromUrlRef.current) {
       const car = normalizeCarRead(carFromUrl);
       if (car) {
-        setSelectedMake(car.make);
-        setSelectedModel(car.model);
+        setSelectedMake(car.car_make_name);
+        setSelectedModel(car.car_model_name);
         setSelectedGeneration(car);
-        void fetchCarsByMake(car.make);
+        void fetchCarsByMake(car.car_make_name);
       }
       isInitializingFromUrlRef.current = false;
       setIsInitializedFromUrl(true);
@@ -351,7 +358,8 @@ const BuildListsCatalog: React.FC = () => {
   const generations = availableCars
     .filter(
       (car) =>
-        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+        (car.car_make_name ?? '') === selectedMake &&
+        (car.model ?? '') === selectedModel
     )
     .sort((a, b) => {
       if (a.start_year !== b.start_year) return a.start_year - b.start_year;

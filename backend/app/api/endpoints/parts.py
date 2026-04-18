@@ -13,10 +13,10 @@ from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
-from app.api.models.make import Make as DBMake
 from app.api.models.part import Part as DBPart
 from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
@@ -217,9 +217,9 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         if not part.is_universal and data.car_ids:
             for cid in data.car_ids:
                 get_entity_or_404(db, DBCar, cid, "car")
-            part.cars = [db.get(DBCar, cid) for cid in data.car_ids]
+            part.car_generations = [db.get(DBCar, cid) for cid in data.car_ids]
         else:
-            part.cars = []
+            part.car_generations = []
         db.commit()
         db.refresh(part)
 
@@ -257,7 +257,7 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         update_payload = PartUpdate.model_validate(update_data)
         udict = update_payload.model_dump(exclude_unset=False)
         car_ids = udict.pop("car_ids", None)
-        before_car_ids = sorted([c.id for c in (existing_part.cars or [])])
+        before_car_ids = sorted([c.id for c in (existing_part.car_generations or [])])
         if udict.get("image_urls") is not None:
             udict["image_urls"] = udict["image_urls"][:MAX_IMAGES_PER_PART]
         if "gtin" in udict and udict["gtin"] is not None:
@@ -267,13 +267,13 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             if not is_universal_after and car_ids:
                 for cid in car_ids:
                     get_entity_or_404(db, DBCar, cid, "car")
-                existing_part.cars = [db.get(DBCar, cid) for cid in car_ids]
+                existing_part.car_generations = [db.get(DBCar, cid) for cid in car_ids]
             else:
-                existing_part.cars = []
+                existing_part.car_generations = []
         if "source" in entity_data:
             udict["source"] = entity_data["source"]
 
-        after_car_ids = sorted([c.id for c in (existing_part.cars or [])])
+        after_car_ids = sorted([c.id for c in (existing_part.car_generations or [])])
         _log_dedupe_metadata_refresh_apply(
             existing_part,
             udict,
@@ -316,9 +316,9 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             if not is_universal_after and car_ids:
                 for cid in car_ids:
                     get_entity_or_404(db, DBCar, cid, "car")
-                entity.cars = [db.get(DBCar, cid) for cid in car_ids]
+                entity.car_generations = [db.get(DBCar, cid) for cid in car_ids]
             else:
-                entity.cars = []
+                entity.car_generations = []
         return update_entity(
             db=db,
             entity=entity,
@@ -752,7 +752,7 @@ async def get_parts_filter_options(
         if available_car_ids:
             make_rows = (
                 db.query(DBMake.name)
-                .join(DBCarModel, DBCarModel.make_id == DBMake.id)
+                .join(DBCarModel, DBCarModel.car_make_id == DBMake.id)
                 .join(DBCar, DBCar.car_model_id == DBCarModel.id)
                 .filter(DBCar.id.in_(available_car_ids))
                 .distinct()

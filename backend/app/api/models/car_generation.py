@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from .vote import Vote
 
 
-class Car(Base):
+class CarGeneration(Base):
     """
     Centrally managed car entity representing a car generation.
     A generation groups multiple model years together (e.g., "5th Gen Civic" for 2006-2011).
@@ -23,7 +23,7 @@ class Car(Base):
     Build lists can be linked to cars (generations).
     """
 
-    __tablename__ = "cars"
+    __tablename__ = "car_generations"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     car_model_id: Mapped[uuid.UUID] = mapped_column(
@@ -39,25 +39,25 @@ class Car(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    car_model: Mapped["CarModel"] = relationship("CarModel", back_populates="cars")
-    build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car")
+    car_model: Mapped["CarModel"] = relationship("CarModel", back_populates="car_generations")
+    build_lists: Mapped[List["BuildList"]] = relationship("BuildList", back_populates="car_generation")
     parts: Mapped[List["Part"]] = relationship(
         "Part",
         secondary="part_cars",
-        back_populates="cars",
+        back_populates="car_generations",
     )
     votes: Mapped[List["Vote"]] = relationship(
         "Vote",
         foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == Car.id, Vote.entity_type == 'car')",
+        primaryjoin="and_(Vote.entity_id == CarGeneration.id, Vote.entity_type == 'car_generation')",
         cascade="all, delete-orphan",
         overlaps="votes",
     )
 
-    # API backward compatibility: expose make/model as properties (from car_model.make.name, car_model.name)
+    # API backward compatibility: expose make/model as properties (from car_model.car_make.name, car_model.name)
     @property
     def make(self) -> str:
-        return self.car_model.make.name
+        return self.car_model.car_make.name
 
     @property
     def model(self) -> str:

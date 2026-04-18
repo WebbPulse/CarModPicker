@@ -16,12 +16,12 @@ export function formatCarYearRange(
  * Handles backend refactor where make/model come from related Make/CarModel entities.
  */
 export function normalizeCarRead(
-  car: CarRead | null | undefined
-): CarRead | null {
+  car: CarGenerationRead | null | undefined
+): CarGenerationRead | null {
   if (car == null) return null;
   return {
     ...car,
-    make: car.make ?? '',
+    make: car.car_make_name ?? '',
     model: car.model ?? '',
     generation_name: car.generation_name ?? '',
   };
@@ -31,8 +31,10 @@ export function normalizeCarRead(
  * Normalize a list of cars from the API; returns empty array if input is null/undefined.
  */
 export function normalizeCarReadList(
-  cars: CarRead[] | null | undefined
-): CarRead[] {
+  cars: CarGenerationRead[] | null | undefined
+): CarGenerationRead[] {
   if (cars == null || !Array.isArray(cars)) return [];
-  return cars.map(normalizeCarRead).filter((c): c is CarRead => c != null);
+  return cars
+    .map(normalizeCarGenerationRead)
+    .filter((c): c is CarRead => c != null);
 }

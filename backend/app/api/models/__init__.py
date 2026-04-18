@@ -4,11 +4,11 @@ from .build_list import BuildList
 from .build_list_part import BuildListPart
 from .build_list_phase import BuildListPhase
 from .build_log import BuildLog, BuildLogPost
-from .car import Car
+from .car_generation import CarGeneration
+from .car_make import CarMake
 from .car_model import CarModel
 from .category import Category
 from .image_source_mapping import ImageSourceMapping
-from .make import Make
 from .part import Part
 from .part_listing import PartListing
 from .part_manufacturer import PartManufacturer

@@ -44,7 +44,7 @@ if env_path.exists():
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_generation import CarGeneration  # pyright: ignore[reportMissingImports]
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import GlobalPart  # pyright: ignore[reportMissingImports]
 from app.db.session import SessionLocal  # pyright: ignore[reportMissingImports]
@@ -97,7 +97,7 @@ CAR_GENERATION_DISPLAY_OVERRIDES: dict[tuple[str, str, str], str] = {
 
 def car_to_generation_display(c: Car) -> str:
     """Format a Car (generation) as 'Make Model Generation (start-end)'."""
-    make = c.car_model.make.name if c.car_model and c.car_model.make else "?"
+    make = c.car_model.car_make.name if c.car_model and c.car_model.make else "?"
     model = c.car_model.name if c.car_model else "?"
     gen = (c.generation_name or "").strip()
     end = str(c.end_year) if c.end_year else ""
@@ -142,9 +142,9 @@ def part_to_record(p: GlobalPart) -> dict:
         "source": p.source or None,
         "is_verified": p.is_verified,
         "is_universal": p.is_universal,
-        "car_count": len(p.cars) if p.cars is not None else 0,
+        "car_count": len(p.car_generations) if p.car_generations is not None else 0,
         "car_generations": (
-            [car_to_generation_display(c) for c in p.cars] if p.cars else []
+            [car_to_generation_display(c) for c in p.car_generations] if p.car_generations else []
         ),
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
@@ -287,9 +287,9 @@ def main() -> None:
             .options(
                 joinedload(GlobalPart.category),
                 joinedload(GlobalPart.part_manufacturer),
-                joinedload(GlobalPart.cars)
+                joinedload(GlobalPart.car_generations)
                 .joinedload(Car.car_model)
-                .joinedload(CarModel.make),
+                .joinedload(CarModel.car_make),
             )
             .order_by(GlobalPart.id)
             .all()

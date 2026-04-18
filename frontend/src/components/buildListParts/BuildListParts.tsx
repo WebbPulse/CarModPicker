@@ -7,14 +7,14 @@ import {
   buildListPartsApi,
   buildListPhasesApi,
   buildListsApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
 } from '../../services/Api';
 import type {
   BuildListPartReadWithPart,
   BuildListPartUpdate,
   BuildListPhaseRead,
-  CarRead,
+  CarGenerationRead,
 } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
 import ActionButton from '../buttons/ActionButton';
@@ -44,7 +44,8 @@ const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 const fetchPartManufacturersRequestFn = () =>
   partManufacturersApi.getPartManufacturers(true);
 
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () =>
+  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);

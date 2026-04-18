@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { carsApi } from '../../services/Api';
+import apiClient, { carGenerationsApi } from '../../services/Api';
 import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
 import type { BuildListCreate, BuildListRead, CarRead } from '../../types/Api';
 import ButtonStretch from '../buttons/StretchButton';
@@ -30,7 +30,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
     null
   );
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
-  const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
+  const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [formMessage, setFormMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -44,7 +44,10 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   } = useApiRequest(createBuildListRequestFn);
 
   // Memoize request functions to prevent infinite re-renders
-  const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
+  const fetchMakeStatsFn = useCallback(
+    () => carGenerationsApi.getCarMakeStats(),
+    []
+  );
 
   // Fetch available manufacturers
   const {
@@ -55,7 +58,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
 
   // Memoize cars by make request function
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
+    (make: string) =>
+      carGenerationsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
 
@@ -155,7 +159,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   const generations = availableCars
     .filter(
       (car) =>
-        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+        (car.car_make_name ?? '') === selectedMake &&
+        (car.model ?? '') === selectedModel
     )
     .sort((a, b) => {
       // Sort by start_year, then generation_name

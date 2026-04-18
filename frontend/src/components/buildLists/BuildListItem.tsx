@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { buildListVotesApi, carsApi } from '../../services/Api';
+import { buildListVotesApi, carGenerationsApi } from '../../services/Api';
 import type {
   BuildListRead,
   BuildListReadWithVotes,
-  CarRead,
+  CarGenerationRead,
   VoteSummary,
 } from '../../types/Api';
 import { normalizeCarRead } from '../../utils/carUtils';

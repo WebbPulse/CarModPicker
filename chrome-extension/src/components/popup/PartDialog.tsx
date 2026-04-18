@@ -596,7 +596,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
   const carOptions = cars.map((car) => ({
     id: car.id,
-    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${
+    label: `${car.car_make_name} ${car.car_model_name} ${car.generation_name} (${car.start_year}${
       car.end_year ? `-${car.end_year}` : ""
     })`,
     value: car.id,
@@ -834,7 +834,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                       const searchResults = await searchCars(searchText);
                       return searchResults.map((car) => ({
                         id: car.id,
-                        label: `${car.make} ${car.model} ${
+                        label: `${car.car_make_name} ${car.car_model_name} ${
                           car.generation_name
                         } (${car.start_year}${
                           car.end_year ? `-${car.end_year}` : ""

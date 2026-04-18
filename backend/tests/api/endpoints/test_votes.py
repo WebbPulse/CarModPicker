@@ -81,7 +81,7 @@ class TestUnifiedVotes:
 
         data = response.json()
         assert data["entity_id"] == str(car["id"])
-        assert data["entity_type"] == "car"
+        assert data["entity_type"] == "car_generation"
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
@@ -350,7 +350,7 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         summary = response.json()
         assert summary["entity_id"] == str(car["id"])
-        assert summary["entity_type"] == "car"
+        assert summary["entity_type"] == "car_generation"
         assert summary["upvotes"] == 1
         assert summary["downvotes"] == 0
         assert summary["total_votes"] == 1

@@ -5,7 +5,7 @@ import {
   partManufacturersApi,
   buildListPartsApi,
   buildListsApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
   partsApi,
 } from '../../services/Api';
@@ -14,7 +14,7 @@ import type {
   PartManufacturerResponse,
   BuildListPartCreate,
   BuildListPhaseRead,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PartCreate,
 } from '../../types/Api';
@@ -39,7 +39,8 @@ interface CreateBuildListPartFormProps {
 }
 
 const fetchPartsRequestFn = () => partsApi.getParts();
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () =>
+  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
 
@@ -71,7 +72,7 @@ function CreateBuildListPartForm({
   const [isAddingExisting, setIsAddingExisting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [addExistingError, setAddExistingError] = useState<string | null>(null);
-  const [cars, setCars] = useState<CarRead[]>([]);
+  const [cars, setCars] = useState<CarGenerationRead[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);

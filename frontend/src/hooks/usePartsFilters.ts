@@ -3,17 +3,20 @@ import { useSearchParams } from 'react-router-dom';
 import { LARGE_FETCH_LIMIT } from '../constants';
 import {
   partManufacturersApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
   partsApi,
 } from '../services/Api';
 import type {
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
   PaginationInfo,
 } from '../types/Api';
-import { normalizeCarRead, normalizeCarReadList } from '../utils/carUtils';
+import {
+  normalizeCarGenerationRead,
+  normalizeCarReadList,
+} from '../utils/carUtils';
 import useApiRequest from './UseApiRequest';
 
 const PARTS_PER_PAGE = 100;
@@ -52,8 +55,8 @@ export interface UsePartsFiltersReturn {
   setSelectedPartManufacturerIds: (ids: string[]) => void;
   selectedMake: string;
   selectedModel: string;
-  selectedGeneration: CarRead | null;
-  setSelectedGeneration: (car: CarRead | null) => void;
+  selectedGeneration: CarGenerationRead | null;
+  setSelectedGeneration: (car: CarGenerationRead | null) => void;
   showUniversalParts: boolean;
   setShowUniversalParts: (v: boolean) => void;
   setSelectedMake: (make: string) => void;
@@ -72,11 +75,11 @@ export interface UsePartsFiltersReturn {
   // Data
   categories: CategoryResponse[];
   availableMakes: string[];
-  availableCars: CarRead[];
+  availableCars: CarGenerationRead[];
   availablePartManufacturers: PartManufacturerResponse[];
   activeCategories: CategoryResponse[];
   uniqueModels: string[];
-  generations: CarRead[];
+  generations: CarGenerationRead[];
   filterOptions: {
     category_ids: string[];
     part_manufacturer_ids: string[];
@@ -131,7 +134,7 @@ export function usePartsFilters(
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
-  const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
+  const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [availablePartManufacturers, setAvailablePartManufacturers] = useState<
     PartManufacturerResponse[]
   >([]);
@@ -142,7 +145,10 @@ export function usePartsFilters(
   const [isInitializedFromUrl, setIsInitializedFromUrl] = useState(false);
   const isInitializingFromUrlRef = useRef(false);
 
-  const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
+  const fetchMakeStatsFn = useCallback(
+    () => carGenerationsApi.getCarMakeStats(),
+    []
+  );
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
@@ -150,7 +156,8 @@ export function usePartsFilters(
   } = useApiRequest(fetchMakeStatsFn);
 
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
+    (make: string) =>
+      carGenerationsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
   const {
@@ -160,7 +167,7 @@ export function usePartsFilters(
   } = useApiRequest(fetchCarsByMakeFn);
 
   const fetchCarByIdFn = useCallback(
-    (carId: string) => carsApi.getCar(carId),
+    (carId: string) => carGenerationsApi.getCar(carId),
     []
   );
   const { data: carFromUrl, executeRequest: fetchCarById } =
@@ -387,11 +394,11 @@ export function usePartsFilters(
     if (carFromUrl && isInitializingFromUrlRef.current) {
       const car = normalizeCarRead(carFromUrl);
       if (car) {
-        setSelectedMake(car.make);
-        setSelectedModel(car.model);
+        setSelectedMake(car.car_make_name);
+        setSelectedModel(car.car_model_name);
         setSelectedGeneration(car);
         setShowUniversalParts(false);
-        void fetchCarsByMake(car.make);
+        void fetchCarsByMake(car.car_make_name);
       }
       isInitializingFromUrlRef.current = false;
       setIsInitializedFromUrl(true);

@@ -31,9 +31,9 @@ def init_car_generations(db: Session) -> None:
     - If Car exists for that car_model_id + generation_name: update synced fields.
     - Otherwise create the Car.
     """
-    from app.api.models.car import Car
+    from app.api.models.car_generation import CarGeneration
+    from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
-    from app.api.models.make import Make
 
     logger.info("Initializing car generations...")
 
@@ -61,9 +61,9 @@ def init_car_generations(db: Session) -> None:
             db.flush()
 
         # Get or create CarModel
-        car_model = db.query(CarModel).filter(CarModel.make_id == make.id, CarModel.name == model_name).first()
+        car_model = db.query(CarModel).filter(CarModel.car_make_id == make.id, CarModel.name == model_name).first()
         if car_model is None:
-            car_model = CarModel(make_id=make.id, name=model_name)
+            car_model = CarModel(car_make_id=make.id, name=model_name)
             db.add(car_model)
             db.flush()
 

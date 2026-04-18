@@ -11,5 +11,5 @@ part_cars = Table(
     "part_cars",
     Base.metadata,
     Column("part_id", Uuid(as_uuid=True), ForeignKey("parts.id", ondelete="CASCADE"), primary_key=True),
-    Column("car_id", Uuid(as_uuid=True), ForeignKey("cars.id", ondelete="CASCADE"), primary_key=True),
+    Column("car_id", Uuid(as_uuid=True), ForeignKey("car_generations.id", ondelete="CASCADE"), primary_key=True),
 )

@@ -5,10 +5,10 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.api.models.car import Car
+from app.api.models.car_generation import CarGeneration
 from app.api.models.user import User
-from app.api.schemas.car import CarCreate, CarUpdate
-from app.api.services.car_service import CarService
+from app.api.schemas.car_generation import CarGenerationCreate, CarUpdate
+from app.api.services.car_generation_service import CarService
 from tests.conftest import create_car_orm_in_db
 
 
@@ -34,11 +34,11 @@ class TestCarService:
             db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024
         )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.get_cars_by_make_model(db_session, make="Honda")
         assert isinstance(result, list)
         assert len(result) == 2
-        assert all(car.make == "Honda" for car in result)
+        assert all(car.car_make_name == "Honda" for car in result)
 
     def test_get_cars_by_make_model_with_make_and_model(self, db_session: Session) -> None:
         """Test getting cars filtered by make and model."""
@@ -52,11 +52,11 @@ class TestCarService:
             db_session, make="Honda", model="Accord", generation_name="10th Gen", start_year=2018, end_year=2022
         )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.get_cars_by_make_model(db_session, make="Honda", model="Civic")
         assert isinstance(result, list)
         assert len(result) == 2
-        assert all(car.make == "Honda" and car.model == "Civic" for car in result)
+        assert all(car.car_make_name == "Honda" and car.model == "Civic" for car in result)
 
     def test_get_cars_by_make_model_with_no_filters(self, db_session: Session) -> None:
         """Test getting cars with no filters."""
@@ -67,7 +67,7 @@ class TestCarService:
             db_session, make="Toyota", model="Camry", generation_name="8th Gen", start_year=2018, end_year=2024
         )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.get_cars_by_make_model(db_session)
         assert isinstance(result, list)
         assert len(result) >= 2
@@ -84,7 +84,7 @@ class TestCarService:
                 end_year=2021 + i,
             )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.get_cars_by_make_model(db_session, make="Honda", skip=2, limit=2)
         assert isinstance(result, list)
         assert len(result) == 2
@@ -98,18 +98,18 @@ class TestCarService:
             db_session, make="Toyota", model="Corolla", generation_name="12th Gen", start_year=2019, end_year=2022
         )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.search_cars(db_session, search_term="Tesla")
         assert isinstance(result, list)
         assert len(result) >= 1
-        assert any(car.make == "Tesla" for car in result)
+        assert any(car.car_make_name == "Tesla" for car in result)
 
     def test_search_cars_by_model(self, db_session: Session) -> None:
         """Test searching cars by model."""
         create_car_orm_in_db(db_session, make="BMW", model="M3", generation_name="G80", start_year=2021, end_year=2024)
         create_car_orm_in_db(db_session, make="BMW", model="M4", generation_name="G82", start_year=2021, end_year=2024)
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.search_cars(db_session, search_term="M3")
         assert isinstance(result, list)
         assert len(result) >= 1
@@ -124,7 +124,7 @@ class TestCarService:
             db_session, make="Honda", model="Civic", generation_name="11th Gen", start_year=2022, end_year=2024
         )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.search_cars(db_session, search_term="10th Gen")
         assert isinstance(result, list)
         assert len(result) >= 1
@@ -132,7 +132,7 @@ class TestCarService:
 
     def test_search_cars_no_results(self, db_session: Session) -> None:
         """Test searching cars with no matching results."""
-        service = CarService()
+        service = CarGenerationService()
         result = service.search_cars(db_session, search_term="NonExistentCarBrandXYZ123")
         assert isinstance(result, list)
         assert len(result) == 0
@@ -149,7 +149,7 @@ class TestCarService:
                 end_year=2021 + i,
             )
 
-        service = CarService()
+        service = CarGenerationService()
         result = service.search_cars(db_session, search_term="Honda", skip=2, limit=2)
         assert isinstance(result, list)
         assert len(result) <= 2
@@ -165,19 +165,19 @@ class TestCarService:
             end_year=2021,
         )
 
-        service = CarService()
+        service = CarGenerationService()
         logger = logging.getLogger(__name__)
         deleted_car = service.delete(db_session, car.id, test_user, logger)
 
         assert deleted_car.id == car.id
-        assert deleted_car.make == car.make
+        assert deleted_car.car_make_name == car.car_make_name
 
         result = db_session.query(Car).filter(Car.id == car.id).first()
         assert result is None
 
     def test_delete_car_not_found(self, db_session: Session, test_user: User) -> None:
         """Test deleting a non-existent car."""
-        service = CarService()
+        service = CarGenerationService()
         logger = logging.getLogger(__name__)
 
         from fastapi import HTTPException

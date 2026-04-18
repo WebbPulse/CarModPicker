@@ -12,9 +12,9 @@ from sqlalchemy.pool import StaticPool
 # Disable rate limiting for tests
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
-from app.api.models.car import Car  # noqa: E402
+from app.api.models.car_generation import CarGeneration  # noqa: E402
+from app.api.models.car_make import CarMake  # noqa: E402
 from app.api.models.car_model import CarModel  # noqa: E402
-from app.api.models.make import Make  # noqa: E402
 from app.api.utils.pagination_utils import (  # noqa: E402
     apply_search_filter,
     apply_sorting,
@@ -48,10 +48,10 @@ def test_db_session() -> Generator[Session, None, None]:
             session.add(make_entity)
             session.flush()
         car_model_entity = (
-            session.query(CarModel).filter(CarModel.make_id == make_entity.id, CarModel.name == model_name).first()
+            session.query(CarModel).filter(CarModel.car_make_id == make_entity.id, CarModel.name == model_name).first()
         )
         if car_model_entity is None:
-            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
             session.add(car_model_entity)
             session.flush()
         car = Car(
@@ -144,7 +144,7 @@ class TestTotalCount:
 
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
         """Test getting total count of filtered query (by make via join)."""
-        query = test_db_session.query(Car).join(Car.car_model).join(CarModel.make).filter(Make.name == "Make1")
+        query = test_db_session.query(Car).join(Car.car_model).join(CarModel.car_make).filter(Make.name == "Make1")
         total = get_total_count(query)
 
         assert total == 4  # 20 total / 5 makes = 4 per make

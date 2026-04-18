@@ -16,7 +16,7 @@ from app.api.dependencies.auth import get_current_user, get_optional_current_use
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote

@@ -370,7 +370,7 @@ class TestImages:
         body = r2.json()
         assert body["total"] == 5
         assert body["by_entity_type"]["user"] == 2
-        assert body["by_entity_type"]["car"] == 1
+        assert body["by_entity_type"]["car_generation"] == 1
         assert body["other"] == 2
 
     def test_get_bucket_object_count_admin_503_without_s3(

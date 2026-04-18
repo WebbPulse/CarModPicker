@@ -3,7 +3,7 @@ import Card from '../common/Card';
 import VehicleFilterSection from '../common/VehicleFilterSection';
 import type {
   PartManufacturerResponse,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
 
@@ -15,13 +15,13 @@ export interface PartsFilterSidebarProps {
   setShowUniversalParts: (v: boolean) => void;
   selectedMake: string;
   selectedModel: string;
-  selectedGeneration: CarRead | null;
+  selectedGeneration: CarGenerationRead | null;
   setSelectedMake: (make: string) => void;
   setSelectedModel: (model: string) => void;
-  setSelectedGeneration: (car: CarRead | null) => void;
+  setSelectedGeneration: (car: CarGenerationRead | null) => void;
   availableMakes: string[];
   uniqueModels: string[];
-  generations: CarRead[];
+  generations: CarGenerationRead[];
   isLoadingMakes: boolean;
   isLoadingCars: boolean;
   // Price

@@ -58,10 +58,10 @@ from app.api.models.build_log import (  # pyright: ignore[reportMissingImports]
     BuildLog,
     BuildLogPost,
 )  # pyright: ignore[reportMissingImports]
-from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_generation import CarGeneration  # pyright: ignore[reportMissingImports]
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
-from app.api.models.make import Make  # pyright: ignore[reportMissingImports]
+from app.api.models.car_make import CarMake  # pyright: ignore[reportMissingImports]
 from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
     GlobalPart,
 )  # pyright: ignore[reportMissingImports]
@@ -379,11 +379,11 @@ def create_sample_cars(db: Session) -> list[Car]:
         # Get or create CarModel
         car_model_entity = (
             db.query(CarModel)
-            .filter(CarModel.make_id == make_entity.id, CarModel.name == model_name)
+            .filter(CarModel.car_make_id == make_entity.id, CarModel.name == model_name)
             .first()
         )
         if car_model_entity is None:
-            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
             db.add(car_model_entity)
             db.flush()
 
@@ -969,7 +969,7 @@ def create_sample_build_lists(
         make: str, model: str, generation_name: str | None = None
     ) -> Car | None:
         for car in cars:
-            if car.make == make and car.model == model:
+            if car.car_make_name == make and car.model == model:
                 if generation_name is None or car.generation_name == generation_name:
                     return car
         return cars[0] if cars else None  # Fallback to first car
@@ -1068,7 +1068,7 @@ def create_sample_build_lists(
         description = random.choice(descriptions)
 
         # Make build list name specific to car
-        build_name = f"{car.make} {car.model} {build_type}"
+        build_name = f"{car.car_make_name} {car.car_model_name} {build_type}"
         if i > 30:
             build_name = f"My {build_type}"
 
@@ -1355,7 +1355,7 @@ def create_admin_build_lists(
             # Try to find the specific car
             for car in cars:
                 if (
-                    car.make.lower() == target_car_make.lower()
+                    car.car_make_name.lower() == target_car_make.lower()
                     and car.model.lower() == target_car_model.lower()
                 ):
                     if target_car_generation:
@@ -1376,7 +1376,7 @@ def create_admin_build_lists(
             popular_cars = ["Honda", "Toyota", "Subaru", "Nissan", "Mazda", "Ford"]
             for make in popular_cars:
                 for car in cars:
-                    if car.make == make:
+                    if car.car_make_name == make:
                         target_car = car
                         break
                 if target_car:
@@ -1388,8 +1388,8 @@ def create_admin_build_lists(
 
         log_info(f"\n{'='*60}")
         log_info(f"TARGET CAR GENERATION FOR MULTIPLE BUILD LISTS:")
-        log_info(f"  Make: {target_car.make}")
-        log_info(f"  Model: {target_car.model}")
+        log_info(f"  Make: {target_car.car_make_name}")
+        log_info(f"  Model: {target_car.car_model_name}")
         log_info(f"  Generation: {target_car.generation_name or 'N/A'}")
         log_info(f"  Car ID: {target_car.id}")
         log_info(f"  Will create {num_build_lists_for_car:,} build lists for this car")
@@ -1450,14 +1450,14 @@ def create_admin_build_lists(
 
     # The first build list will be the one with many parts
     large_build_list_car = target_car if target_car else random.choice(cars)
-    large_build_list_name = f"Admin's Ultimate {large_build_list_car.make} {large_build_list_car.model} Build"
+    large_build_list_name = f"Admin's Ultimate {large_build_list_car.car_make_name} {large_build_list_car.car_model_name} Build"
 
     total_build_lists_to_create = num_build_lists + num_build_lists_for_car
     log_info(f"Creating {total_build_lists_to_create:,} build lists for admin user...")
     log_info(f"  - {num_build_lists:,} general build lists")
     if num_build_lists_for_car > 0:
         log_info(
-            f"  - {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}"
+            f"  - {num_build_lists_for_car:,} build lists for {target_car.car_make_name} {target_car.car_model_name}"
         )
 
     build_list_counter = 0
@@ -1476,13 +1476,13 @@ def create_admin_build_lists(
     # Create build lists for the target car generation
     if num_build_lists_for_car > 0 and target_car:
         log_info(
-            f"Creating {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}..."
+            f"Creating {num_build_lists_for_car:,} build lists for {target_car.car_make_name} {target_car.car_model_name}..."
         )
         for i in range(num_build_lists_for_car):
             build_type = random.choice(build_types)
             description = random.choice(descriptions)
             build_name = (
-                f"Admin's {target_car.make} {target_car.model} {build_type} #{i+1}"
+                f"Admin's {target_car.car_make_name} {target_car.car_model_name} {build_type} #{i+1}"
             )
 
             build_lists_data.append(
@@ -1503,7 +1503,7 @@ def create_admin_build_lists(
         car = random.choice(cars)
         build_type = random.choice(build_types)
         description = random.choice(descriptions)
-        build_name = f"Admin's {car.make} {car.model} {build_type}"
+        build_name = f"Admin's {car.car_make_name} {car.car_model_name} {build_type}"
 
         build_lists_data.append(
             {
@@ -1547,7 +1547,7 @@ def create_admin_build_lists(
     log_info(f"LARGE BUILD LIST IDENTIFIED:")
     log_info(f"  Name: {large_build_list.name}")
     log_info(f"  ID: {large_build_list.id}")
-    log_info(f"  Car: {large_build_list_car.make} {large_build_list_car.model}")
+    log_info(f"  Car: {large_build_list_car.car_make_name} {large_build_list_car.car_model_name}")
     log_info(f"{'='*60}\n")
 
     # Now create build list parts
@@ -1653,7 +1653,7 @@ def create_admin_build_lists(
         target_car_build_lists = [
             bl for bl in build_lists if bl.car_id == target_car.id
         ]
-        log_info(f"\n  TARGET CAR GENERATION ({target_car.make} {target_car.model}):")
+        log_info(f"\n  TARGET CAR GENERATION ({target_car.car_make_name} {target_car.car_model_name}):")
         log_info(f"    Car ID: {target_car.id}")
         log_info(f"    Generation: {target_car.generation_name or 'N/A'}")
         log_info(f"    Build lists count: {len(target_car_build_lists):,}")
@@ -1802,7 +1802,7 @@ def create_sample_votes(
         vote_type = random.choice(vote_types)
 
         # Choose entity based on type
-        if entity_type == "car" and cars is not None and len(cars) > 0:
+        if entity_type == "car_generation" and cars is not None and len(cars) > 0:
             entity_id = random.choice(cars).id
         elif (
             entity_type == "build_list"
@@ -2286,8 +2286,8 @@ def main() -> None:
                 log_info(f"\n{'='*60}")
                 log_info("IMPORTANT: Target car generation with many build lists")
                 log_info(f"{'='*60}")
-                log_info(f"  Car Make: {target_car.make}")
-                log_info(f"  Car Model: {target_car.model}")
+                log_info(f"  Car Make: {target_car.car_make_name}")
+                log_info(f"  Car Model: {target_car.car_model_name}")
                 log_info(f"  Car Generation: {target_car.generation_name or 'N/A'}")
                 log_info(f"  Car ID: {target_car.id}")
                 log_info(f"  Build Lists Count: {len(target_car_build_lists):,}")

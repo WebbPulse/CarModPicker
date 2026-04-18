@@ -27,7 +27,6 @@ import type {
   BuildLogPostUpdate,
   BuildLogReadPaginated,
   CarGenerationRead,
-  CarRead,
   CategoryResponse,
   FlaggedEntitySummary,
   PartCreate,
@@ -227,63 +226,43 @@ export const usersApi = {
 };
 
 // Car API (read-only; cars are seeded from backend car_generations_data)
-export const carsApi = {
-  getCar: (carId: string) => apiClient.get<CarRead>(`/cars/${carId}`),
+export const carGenerationsApi = {
+  getCar: (carId: string) =>
+    apiClient.get<CarGenerationRead>(`/car-generations/${carId}`),
   listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
-    apiClient.get<CarRead[]>('/cars/', { params }),
+    apiClient.get<CarGenerationRead[]>('/car-generations/', { params }),
   searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>('/cars/search', { params: { q, ...params } }),
-  getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarRead[]>(`/cars/make/${encodeURIComponent(make)}`, {
-      params,
+    apiClient.get<CarGenerationRead[]>('/car-generations/search', {
+      params: { q, ...params },
     }),
+  getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
+    apiClient.get<CarGenerationRead[]>(
+      `/car-generations/car-makes/${encodeURIComponent(make)}`,
+      {
+        params,
+      }
+    ),
   getCarsByMakeModel: (
     make: string,
     model: string,
     params?: { skip?: number; limit?: number }
   ) =>
-    apiClient.get<CarRead[]>(
-      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
+    apiClient.get<CarGenerationRead[]>(
+      `/car-generations/car-makes/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
       { params }
     ),
   getCarsByIds: (ids: string[]) =>
-    apiClient.get<CarRead[]>('/cars/by-ids', { params: { ids } }),
+    apiClient.get<CarGenerationRead[]>('/car-generations/by-ids', {
+      params: { ids },
+    }),
   // Stats and count endpoints
   getCarMakeStats: () =>
-    apiClient.get<Record<string, number>>('/cars/stats/makes'),
-  countCars: () => apiClient.get<{ count: number }>('/cars/count'),
-  countMakes: () => apiClient.get<{ count: number }>('/cars/makes/count'),
+    apiClient.get<Record<string, number>>('/car-generations/stats/car-makes'),
+  countCars: () => apiClient.get<{ count: number }>('/car-generations/count'),
+  countMakes: () =>
+    apiClient.get<{ count: number }>('/car-generations/car-makes/count'),
   countCarModels: () =>
-    apiClient.get<{ count: number }>('/cars/car-models/count'),
-};
-
-// Car Generation API (read-only; uses /cars endpoints; Car = generation in backend)
-export const carGenerationsApi = {
-  getCarGeneration: (generationId: string) =>
-    apiClient.get<CarGenerationRead>(`/cars/${generationId}`),
-  listCarGenerations: (params?: {
-    skip?: number;
-    limit?: number;
-    search?: string;
-  }) => apiClient.get<CarGenerationRead[]>('/cars/', { params }),
-  getCarGenerationsByMake: (
-    make: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<CarGenerationRead[]>(
-      `/cars/make/${encodeURIComponent(make)}`,
-      { params }
-    ),
-  getCarGenerationsByMakeModel: (
-    make: string,
-    model: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<CarGenerationRead[]>(
-      `/cars/make/${encodeURIComponent(make)}/model/${encodeURIComponent(model)}`,
-      { params }
-    ),
-  countCarGenerations: () => apiClient.get<{ count: number }>('/cars/count'),
+    apiClient.get<{ count: number }>('/car-generations/car-models/count'),
 };
 
 // Build List API

@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from .car_model import CarModel
 
 
-class Make(Base):
-    __tablename__ = "makes"
+class CarMake(Base):
+    __tablename__ = "car_makes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     name: Mapped[str] = mapped_column(unique=True, nullable=False, index=True)
@@ -27,4 +27,6 @@ class Make(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    car_models: Mapped[List["CarModel"]] = relationship("CarModel", back_populates="make", cascade="all, delete-orphan")
+    car_models: Mapped[List["CarModel"]] = relationship(
+        "CarModel", back_populates="car_make", cascade="all, delete-orphan"
+    )
