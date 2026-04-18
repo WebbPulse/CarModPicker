@@ -193,7 +193,7 @@ class TestImages:
         img_bytes = create_test_image()
         files = {"file": ("test_image.png", img_bytes, "image/png")}
         response = client.post(
-            f"{settings.API_STR}/images/upload?entity_type=car&entity_id={car['id']}",
+            f"{settings.API_STR}/images/upload?entity_type=car_generation&entity_id={car['id']}",
             files=files,
             headers=headers,
         )
@@ -356,7 +356,7 @@ class TestImages:
         # Standard layout: entity_type / 16-hex user hash / filename
         s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/1.bin", Body=b"a")
         s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/2.bin", Body=b"b")
-        s3.put_object(Bucket=bucket, Key="car/bbbbbbbbbbbbbbbb/3.bin", Body=b"c")
+        s3.put_object(Bucket=bucket, Key="car_generation/bbbbbbbbbbbbbbbb/3.bin", Body=b"c")
         # Second path segment is not 16 lowercase hex digits -> counted as other
         s3.put_object(Bucket=bucket, Key="user/000000000000000g/4.bin", Body=b"d")
         s3.put_object(Bucket=bucket, Key="not-standard-root-key", Body=b"e")

@@ -21,9 +21,9 @@ from .vote import Vote
 __all__ = [
     "BackgroundJob",
     "User",
-    "Car",
+    "CarGeneration",
     "CarModel",
-    "Make",
+    "CarMake",
     "BuildList",
     "Part",
     "ImageSourceMapping",

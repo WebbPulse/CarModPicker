@@ -418,9 +418,9 @@ def resolve_car_triples_to_ids(
     triples: list[tuple[str, str, str]],
 ) -> list[UUID]:
     """
-    Resolve (make, model, generation_name) triples to car IDs using the database.
+    Resolve (car_make_name, car_model_name, generation_name) triples to car_generation IDs.
 
-    Only returns IDs for cars that exist (Make + CarModel + Car with that generation_name).
+    Only returns IDs for car_generations that exist (CarMake + CarModel + CarGeneration with that generation_name).
     """
     if not triples:
         return []
@@ -430,22 +430,24 @@ def resolve_car_triples_to_ids(
 
     ids: list[UUID] = []
     seen_ids: set[UUID] = set()
-    for make_name, model_name, gen_name in triples:
-        make = db.query(Make).filter(Make.name == make_name).first()
-        if not make:
+    for car_make_name, car_model_name, gen_name in triples:
+        car_make = db.query(CarMake).filter(CarMake.name == car_make_name).first()
+        if not car_make:
             continue
-        car_model = db.query(CarModel).filter(CarModel.car_make_id == make.id, CarModel.name == model_name).first()
+        car_model = (
+            db.query(CarModel).filter(CarModel.car_make_id == car_make.id, CarModel.name == car_model_name).first()
+        )
         if not car_model:
             continue
-        car = (
-            db.query(Car)
+        car_generation = (
+            db.query(CarGeneration)
             .filter(
-                Car.car_model_id == car_model.id,
-                Car.generation_name == gen_name,
+                CarGeneration.car_model_id == car_model.id,
+                CarGeneration.generation_name == gen_name,
             )
             .first()
         )
-        if car and car.id not in seen_ids:
-            seen_ids.add(car.id)
-            ids.append(car.id)
+        if car_generation and car_generation.id not in seen_ids:
+            seen_ids.add(car_generation.id)
+            ids.append(car_generation.id)
     return ids

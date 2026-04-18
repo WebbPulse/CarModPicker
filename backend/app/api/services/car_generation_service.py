@@ -1,5 +1,5 @@
 """
-Car service that extends BaseCRUDService to eliminate redundancy.
+CarGeneration service that extends BaseCRUDService to eliminate redundancy.
 """
 
 import logging
@@ -9,11 +9,11 @@ from uuid import UUID
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_generation import CarGeneration as DBCarGeneration
 from app.api.models.car_make import CarMake
 from app.api.models.car_model import CarModel
 from app.api.models.user import User as DBUser
-from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarUpdate
+from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarGenerationUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import (
     apply_pagination_and_ordering,
@@ -24,26 +24,25 @@ from app.api.utils.common_operations import (
 )
 
 
-def _car_query_with_make_model(db: Session):
-    """Base query for Car with car_model and make eager-loaded (for make/model properties)."""
-    return db.query(DBCar).options(
-        joinedload(DBCar.car_model).joinedload(CarModel.car_make),
+def _car_generation_query_with_make_model(db: Session):
+    """Base query for CarGeneration with car_model and car_make eager-loaded."""
+    return db.query(DBCarGeneration).options(
+        joinedload(DBCarGeneration.car_model).joinedload(CarModel.car_make),
     )
 
 
-class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenerationRead, CarGenerationUpdate]):
+class CarGenerationService(
+    BaseCRUDService[DBCarGeneration, CarGenerationCreate, CarGenerationRead, CarGenerationUpdate]
+):
     """
-    Car service that provides CRUD operations for cars.
+    CarGeneration service that provides CRUD operations for car generations.
 
-    This service eliminates redundancy by extending BaseCRUDService
-    and only implementing car-specific logic. Make/model filtering uses
-    joins to Make and CarModel.
+    car_make/car_model filtering uses joins to CarMake and CarModel.
     """
 
     def __init__(self) -> None:
-        """Initialize the car service."""
         super().__init__(
-            model=DBCar,
+            model=DBCarGeneration,
             entity_name="car_generation",
         )
 
@@ -54,21 +53,21 @@ class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenera
         current_user: Optional[DBUser] = None,
         allow_public: bool = False,
         logger: Optional[logging.Logger] = None,
-    ) -> DBCar:
-        """Get car by ID with car_model and make loaded (for make/model properties)."""
+    ) -> DBCarGeneration:
+        """Get car generation by ID with car_model and car_make loaded."""
         if current_user and not allow_public:
             verify_entity_access(db, self.model, entity_id, current_user, self.entity_name, allow_public)
         else:
             verify_entity_exists(db, self.model, entity_id, self.entity_name)
 
-        car = _car_query_with_make_model(db).filter(DBCar.id == entity_id).first()
-        if car is None:
+        gen = _car_generation_query_with_make_model(db).filter(DBCarGeneration.id == entity_id).first()
+        if gen is None:
             from fastapi import HTTPException
 
             raise HTTPException(status_code=404, detail=f"{self.entity_name.title()} not found")
         if logger:
             logger.info(f"Retrieved {self.entity_name} {entity_id}")
-        return car
+        return gen
 
     def list_all(
         self,
@@ -81,22 +80,25 @@ class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenera
         order_by: str = "created_at",
         order_direction: str = "desc",
         logger: Optional[logging.Logger] = None,
-    ) -> List[DBCar]:
-        """List cars with car_model and make loaded. Ignores make/model filters (use get_cars_by_make_model)."""
+    ) -> List[DBCarGeneration]:
+        """List car generations with car_model and car_make loaded."""
         validate_pagination_params(skip, limit)
-        query = _car_query_with_make_model(db)
+        query = _car_generation_query_with_make_model(db)
 
-        # Search: make, model (via join), generation_name
         if search and search_fields:
-            if "make" in search_fields or "model" in search_fields or "generation_name" in search_fields:
-                query = query.join(DBCar.car_model).join(CarModel.car_make)
+            if (
+                "car_make_name" in search_fields
+                or "car_model_name" in search_fields
+                or "generation_name" in search_fields
+            ):
+                query = query.join(DBCarGeneration.car_model).join(CarModel.car_make)
                 conditions = []
-                if "make" in search_fields:
-                    conditions.append(Make.name.ilike(f"%{search}%"))
-                if "model" in search_fields:
+                if "car_make_name" in search_fields:
+                    conditions.append(CarMake.name.ilike(f"%{search}%"))
+                if "car_model_name" in search_fields:
                     conditions.append(CarModel.name.ilike(f"%{search}%"))
                 if "generation_name" in search_fields:
-                    conditions.append(DBCar.generation_name.ilike(f"%{search}%"))
+                    conditions.append(DBCarGeneration.generation_name.ilike(f"%{search}%"))
                 if conditions:
                     query = query.filter(or_(*conditions))
 
@@ -111,69 +113,69 @@ class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenera
         db: Session,
         ids: List[UUID],
         logger: Optional[logging.Logger] = None,
-    ) -> List[DBCar]:
-        """Return cars whose IDs are in the provided list."""
+    ) -> List[DBCarGeneration]:
+        """Return car generations whose IDs are in the provided list."""
         if not ids:
             return []
-        cars = _car_query_with_make_model(db).filter(DBCar.id.in_(ids)).all()
+        gens = _car_generation_query_with_make_model(db).filter(DBCarGeneration.id.in_(ids)).all()
         if logger:
-            logger.info(f"Retrieved {len(cars)} cars by ID batch")
-        return cars
+            logger.info(f"Retrieved {len(gens)} car_generations by ID batch")
+        return gens
 
-    def get_cars_by_make_model(
+    def get_car_generations_by_make_model(
         self,
         db: Session,
-        make: Optional[str] = None,
-        model: Optional[str] = None,
+        car_make_name: Optional[str] = None,
+        car_model_name: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
-    ) -> List[DBCar]:
+    ) -> List[DBCarGeneration]:
         """
-        Get cars filtered by make and/or model (via joins to Make and CarModel).
+        Get car generations filtered by car_make and/or car_model.
         """
         validate_pagination_params(skip, limit)
-        query = _car_query_with_make_model(db).join(DBCar.car_model).join(CarModel.car_make)
+        query = _car_generation_query_with_make_model(db).join(DBCarGeneration.car_model).join(CarModel.car_make)
 
-        if make:
-            query = query.filter(Make.name == make)
-        if model:
-            query = query.filter(CarModel.name == model)
+        if car_make_name:
+            query = query.filter(CarMake.name == car_make_name)
+        if car_model_name:
+            query = query.filter(CarModel.name == car_model_name)
 
         query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
         entities = query.all()
         if logger:
-            logger.info(f"Retrieved {len(entities)} cars by make/model")
+            logger.info(f"Retrieved {len(entities)} car_generations by car_make/car_model")
         return entities
 
-    def search_cars(
+    def search_car_generations(
         self,
         db: Session,
         search_term: str,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
-    ) -> List[DBCar]:
+    ) -> List[DBCarGeneration]:
         """
-        Search cars by make, model (via join), or generation name.
+        Search car generations by car_make, car_model, or generation name.
         """
         validate_pagination_params(skip, limit)
         query = (
-            _car_query_with_make_model(db)
-            .join(DBCar.car_model)
+            _car_generation_query_with_make_model(db)
+            .join(DBCarGeneration.car_model)
             .join(CarModel.car_make)
             .filter(
                 or_(
-                    Make.name.ilike(f"%{search_term}%"),
+                    CarMake.name.ilike(f"%{search_term}%"),
                     CarModel.name.ilike(f"%{search_term}%"),
-                    DBCar.generation_name.ilike(f"%{search_term}%"),
+                    DBCarGeneration.generation_name.ilike(f"%{search_term}%"),
                 )
             )
         )
         query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
         entities = query.all()
         if logger:
-            logger.info(f"Retrieved {len(entities)} cars for search")
+            logger.info(f"Retrieved {len(entities)} car_generations for search")
         return entities
 
     def delete(
@@ -182,14 +184,14 @@ class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenera
         entity_id: UUID,
         current_user: DBUser,
         logger: Optional[logging.Logger] = None,
-    ) -> DBCar:
+    ) -> DBCarGeneration:
         """
-        Delete a car (admin only, no ownership check since cars are centrally managed).
+        Delete a car generation (admin only; no ownership check since managed centrally).
         """
         if logger is None:
             logger = logging.getLogger(__name__)
 
-        car = self.get_by_id(
+        gen = self.get_by_id(
             db=db,
             entity_id=entity_id,
             allow_public=True,
@@ -198,9 +200,9 @@ class CarGenerationService(BaseCRUDService[DBCar, CarGenerationCreate, CarGenera
 
         delete_entity(
             db=db,
-            entity=car,
+            entity=gen,
             user_id=current_user.id,
             logger=logger,
             entity_name=self.entity_name,
         )
-        return car
+        return gen

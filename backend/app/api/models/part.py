@@ -51,7 +51,7 @@ class Part(Base):
     category: Mapped["Category"] = relationship("Category", back_populates="parts")
     creator: Mapped["User"] = relationship("User", back_populates="parts")
     car_generations: Mapped[List["CarGeneration"]] = relationship(
-        "Car",
+        "CarGeneration",
         secondary=part_cars,
         back_populates="parts",
         lazy="selectin",

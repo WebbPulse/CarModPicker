@@ -21,7 +21,7 @@ from .build_list_phase import (
     BuildListPhaseRead,
     BuildListPhaseUpdate,
 )
-from .car_generation import CarGenerationCreate, CarGenerationRead, CarUpdate
+from .car_generation import CarGenerationCreate, CarGenerationRead, CarGenerationUpdate
 from .category import CategoryCreate, CategoryInDB, CategoryResponse, CategoryUpdate
 from .part import (
     PartCreate,
@@ -74,9 +74,9 @@ __all__ = [
     "TOTPVerifyResponse",
     "TOTPLoginRequest",
     "TOTPDisableRequest",
-    "CarRead",
-    "CarCreate",
-    "CarUpdate",
+    "CarGenerationRead",
+    "CarGenerationCreate",
+    "CarGenerationUpdate",
     "BuildListRead",
     "BuildListCreate",
     "BuildListUpdate",
