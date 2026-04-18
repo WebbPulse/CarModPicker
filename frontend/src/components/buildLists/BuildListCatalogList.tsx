@@ -201,6 +201,27 @@ function BuildListCatalogList({
     );
   }
 
+  if (layout === 'card') {
+    return (
+      <>
+        <div className="flex justify-between items-center mb-4">
+          <SectionHeader title={title} />
+        </div>
+        {finalBuildLists.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <p>{emptyMessage}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {finalBuildLists.map((buildList) => (
+              <BuildListCard key={buildList.id} buildList={buildList} />
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
@@ -210,12 +231,6 @@ function BuildListCatalogList({
       {finalBuildLists.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
           <p>{emptyMessage}</p>
-        </div>
-      ) : layout === 'card' ? (
-        <div className="tile-grid">
-          {finalBuildLists.map((buildList) => (
-            <BuildListCard key={buildList.id} buildList={buildList} />
-          ))}
         </div>
       ) : (
         <div className="tile-grid-compact">
