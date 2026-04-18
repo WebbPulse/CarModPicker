@@ -24,8 +24,10 @@ const PartListItem: React.FC<PartListItemProps> = ({ part }) => {
           <h3 className="text-xl font-semibold text-gray-200 mb-1 truncate">
             {part.name}
           </h3>
-          {part.brand && (
-            <p className="text-sm text-gray-400">By: {part.brand}</p>
+          {part.part_manufacturer && (
+            <p className="text-sm text-gray-400">
+              By: {part.part_manufacturer}
+            </p>
           )}
           <div className="flex justify-between items-center mt-2 text-sm">
             {part.part_number && (

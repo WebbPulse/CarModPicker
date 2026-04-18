@@ -169,8 +169,10 @@ function AddToBuildListDialog({
               <h3 className="text-lg font-semibold text-white mb-2">
                 {part.name}
               </h3>
-              {part.brand && (
-                <p className="text-sm text-gray-400 mb-1">{part.brand}</p>
+              {part.part_manufacturer && (
+                <p className="text-sm text-gray-400 mb-1">
+                  {part.part_manufacturer}
+                </p>
               )}
               {part.best_price_cents != null && (
                 <p className="text-sm font-medium text-green-400">

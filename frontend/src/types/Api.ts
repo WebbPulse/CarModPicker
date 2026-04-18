@@ -208,7 +208,7 @@ export interface PartCreate {
   category_id: string;
   car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean; // When true, part fits all cars
-  brand_id: string; // Required brand association
+  part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   retailer_id?: string | null;
@@ -225,8 +225,8 @@ export interface PartRead {
   user_id: string;
   car_ids: string[]; // Car IDs this part is associated with
   is_universal: boolean; // When true, part fits all cars
-  brand_id?: string | null; // Optional brand association
-  brand?: string | null;
+  part_manufacturer_id?: string | null; // Optional part_manufacturer association
+  part_manufacturer?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   is_verified: boolean;
@@ -298,7 +298,7 @@ export interface PartUpdate {
   category_id?: string | null;
   car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean | null;
-  brand_id: string; // Required brand association
+  part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
@@ -334,8 +334,8 @@ export interface CategoryUpdate {
   sort_order?: number | null;
 }
 
-// Brand interfaces
-export interface BrandResponse {
+// PartManufacturer interfaces
+export interface PartManufacturerResponse {
   id: string;
   name: string;
   description?: string | null;
@@ -344,13 +344,13 @@ export interface BrandResponse {
   updated_at: string;
 }
 
-export interface BrandCreate {
+export interface PartManufacturerCreate {
   name: string;
   description?: string | null;
   is_active?: boolean;
 }
 
-export interface BrandUpdate {
+export interface PartManufacturerUpdate {
   name?: string | null;
   description?: string | null;
   is_active?: boolean | null;

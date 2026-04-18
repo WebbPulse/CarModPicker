@@ -120,7 +120,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                 </label>
               </div>
             )}
-            {/* Left side: Part name, category, brand, notes */}
+            {/* Left side: Part name, category, part_manufacturer, notes */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3
@@ -139,8 +139,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                     {category.display_name || category.name}
                   </span>
                 )}
-                {part.brand && (
-                  <span className="text-xs text-gray-500">{part.brand}</span>
+                {part.part_manufacturer && (
+                  <span className="text-xs text-gray-500">
+                    {part.part_manufacturer}
+                  </span>
                 )}
                 {notes && (
                   <span className="text-xs text-gray-500 italic line-clamp-1">

@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, {
-  brandsApi,
+  partManufacturersApi,
   carsApi,
   categoriesApi,
   partsApi,
 } from '../../services/Api';
 import type {
-  BrandCreate,
-  BrandResponse,
+  PartManufacturerCreate,
+  PartManufacturerResponse,
   CarRead,
   CategoryResponse,
   PartCreate,
@@ -40,7 +40,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
-    brand_id: null as string | null,
+    part_manufacturer_id: null as string | null,
     description: '',
     product_url: '',
     category_id: null as string | null,
@@ -55,9 +55,13 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const [isLoadingCars, setIsLoadingCars] = useState(true);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [brands, setBrands] = useState<BrandResponse[]>([]);
-  const [isLoadingBrands, setIsLoadingBrands] = useState(true);
-  const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
+  const [part_manufacturers, setPartManufacturers] = useState<
+    PartManufacturerResponse[]
+  >([]);
+  const [isLoadingPartManufacturers, setIsLoadingPartManufacturers] =
+    useState(true);
+  const [pendingPartManufacturerName, setPendingPartManufacturerName] =
+    useState<string | null>(null);
   const urlCheckTimeoutRef = useRef<number | null>(null);
 
   // Convert categories to SearchableSelect options (only active categories)
@@ -94,20 +98,20 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
     [categories]
   );
 
-  // Convert brands to SearchableSelect options
-  const brandOptions: SearchableSelectOption[] = useMemo(() => {
-    return brands
-      .filter((brand) => brand.is_active)
+  // Convert part_manufacturers to SearchableSelect options
+  const part_manufacturerOptions: SearchableSelectOption[] = useMemo(() => {
+    return part_manufacturers
+      .filter((part_manufacturer) => part_manufacturer.is_active)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((brand) => ({
-        id: brand.id,
-        label: brand.name,
-        value: brand.id,
+      .map((part_manufacturer) => ({
+        id: part_manufacturer.id,
+        label: part_manufacturer.name,
+        value: part_manufacturer.id,
       }));
-  }, [brands]);
+  }, [part_manufacturers]);
 
-  // Filter function for brands
-  const filterBrands = useCallback(
+  // Filter function for part_manufacturers
+  const filterPartManufacturers = useCallback(
     (
       options: SearchableSelectOption[],
       searchText: string
@@ -115,16 +119,18 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       if (!searchText.trim()) return options;
       const lowerText = searchText.toLowerCase();
       return options.filter((opt) => {
-        const brand = brands.find((b) => b.id === opt.value);
-        if (!brand) return false;
+        const part_manufacturer = part_manufacturers.find(
+          (b) => b.id === opt.value
+        );
+        if (!part_manufacturer) return false;
         return (
           opt.label.toLowerCase().includes(lowerText) ||
-          (brand.description &&
-            brand.description.toLowerCase().includes(lowerText))
+          (part_manufacturer.description &&
+            part_manufacturer.description.toLowerCase().includes(lowerText))
         );
       });
     },
-    [brands]
+    [part_manufacturers]
   );
 
   const handleCategoryChange = (value: number | string | null) => {
@@ -133,32 +139,41 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
     if (validationError) setValidationError(null);
   };
 
-  const handleBrandChange = (value: number | string | null) => {
-    const brandId = value !== null && value !== '' ? String(value) : null;
-    setFormData((prev) => ({ ...prev, brand_id: brandId }));
-    // Clear pending brand if an existing brand is selected or value is cleared
-    if (brandId !== null || value === null) {
-      setPendingBrandName(null);
+  const handlePartManufacturerChange = (value: number | string | null) => {
+    const part_manufacturerId =
+      value !== null && value !== '' ? String(value) : null;
+    setFormData((prev) => ({
+      ...prev,
+      part_manufacturer_id: part_manufacturerId,
+    }));
+    // Clear pending part_manufacturer if an existing part_manufacturer is selected or value is cleared
+    if (part_manufacturerId !== null || value === null) {
+      setPendingPartManufacturerName(null);
     }
     if (validationError) setValidationError(null);
   };
 
-  const createBrandRequestFn = (data: BrandCreate) =>
-    brandsApi.createBrand(data);
-  const { executeRequest: createBrand } = useApiRequest(createBrandRequestFn);
+  const createPartManufacturerRequestFn = (data: PartManufacturerCreate) =>
+    partManufacturersApi.createPartManufacturer(data);
+  const { executeRequest: createPartManufacturer } = useApiRequest(
+    createPartManufacturerRequestFn
+  );
 
-  const handleCreateNewBrand = (brandName: string) => {
-    // Store the brand name to be created later, don't create it yet
-    setPendingBrandName(brandName.trim());
-    // Clear the brand_id since we're creating a new brand
-    setFormData((prev) => ({ ...prev, brand_id: null }));
+  const handleCreateNewPartManufacturer = (part_manufacturerName: string) => {
+    // Store the part_manufacturer name to be created later, don't create it yet
+    setPendingPartManufacturerName(part_manufacturerName.trim());
+    // Clear the part_manufacturer_id since we're creating a new part_manufacturer
+    setFormData((prev) => ({ ...prev, part_manufacturer_id: null }));
     if (validationError) setValidationError(null);
   };
 
-  const handleBrandInputChange = (text: string) => {
-    // Clear pending brand if user types something different
-    if (pendingBrandName && text.trim() !== pendingBrandName) {
-      setPendingBrandName(null);
+  const handlePartManufacturerInputChange = (text: string) => {
+    // Clear pending part_manufacturer if user types something different
+    if (
+      pendingPartManufacturerName &&
+      text.trim() !== pendingPartManufacturerName
+    ) {
+      setPendingPartManufacturerName(null);
     }
   };
 
@@ -170,14 +185,17 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
   const { data: categoriesData, executeRequest: fetchCategories } =
     useApiRequest(fetchCategoriesRequestFn);
-  const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
-  const { data: brandsData, executeRequest: fetchBrands } =
-    useApiRequest(fetchBrandsRequestFn);
+  const fetchPartManufacturersRequestFn = () =>
+    partManufacturersApi.getPartManufacturers(true);
+  const {
+    data: part_manufacturersData,
+    executeRequest: fetchPartManufacturers,
+  } = useApiRequest(fetchPartManufacturersRequestFn);
 
   useEffect(() => {
     void fetchCars();
     void fetchCategories();
-    void fetchBrands();
+    void fetchPartManufacturers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch once on mount - request functions are stable
 
@@ -196,11 +214,11 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
   }, [categoriesData]);
 
   useEffect(() => {
-    if (brandsData && Array.isArray(brandsData)) {
-      setBrands(brandsData);
-      setIsLoadingBrands(false);
+    if (part_manufacturersData && Array.isArray(part_manufacturersData)) {
+      setPartManufacturers(part_manufacturersData);
+      setIsLoadingPartManufacturers(false);
     }
-  }, [brandsData]);
+  }, [part_manufacturersData]);
 
   // Debounced URL checking effect
   useEffect(() => {
@@ -286,32 +304,34 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       return;
     }
 
-    if (!formData.brand_id && !pendingBrandName) {
-      setValidationError('Brand is required');
+    if (!formData.part_manufacturer_id && !pendingPartManufacturerName) {
+      setValidationError('PartManufacturer is required');
       return;
     }
 
-    // Create brand first if there's a pending brand name
-    let brandId = formData.brand_id;
-    if (pendingBrandName) {
+    // Create part manufacturer first if there's a pending part_manufacturer name
+    let part_manufacturerId = formData.part_manufacturer_id;
+    if (pendingPartManufacturerName) {
       try {
-        const brandResult = await createBrand({
-          name: pendingBrandName,
+        const part_manufacturerResult = await createPartManufacturer({
+          name: pendingPartManufacturerName,
           description: null,
         });
-        if (brandResult !== null && brandResult.id) {
-          brandId = brandResult.id;
-          // Refresh brands list
-          await fetchBrands();
+        if (part_manufacturerResult !== null && part_manufacturerResult.id) {
+          part_manufacturerId = part_manufacturerResult.id;
+          // Refresh part_manufacturers list
+          await fetchPartManufacturers();
         } else {
-          setValidationError('Failed to create brand. Please try again.');
+          setValidationError(
+            'Failed to create part_manufacturer. Please try again.'
+          );
           return;
         }
       } catch (error) {
         setValidationError(
           error instanceof Error
             ? error.message
-            : 'Failed to create brand. Please try again.'
+            : 'Failed to create part_manufacturer. Please try again.'
         );
         return;
       }
@@ -325,7 +345,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       category_id: formData.category_id,
       is_universal: formData.is_universal,
       car_ids: formData.is_universal ? [] : formData.car_ids,
-      brand_id: brandId!, // brandId is guaranteed to be set at this point due to validation
+      part_manufacturer_id: part_manufacturerId!, // part_manufacturerId is guaranteed to be set at this point due to validation
       part_number: formData.part_number.trim() || null,
     };
 
@@ -336,8 +356,8 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
     try {
       // Call API directly to access full error response
       await partsApi.createPart(partData);
-      // Clear pending brand after successful creation
-      setPendingBrandName(null);
+      // Clear pending part_manufacturer after successful creation
+      setPendingPartManufacturerName(null);
       setIsCreating(false);
       onPartCreated();
     } catch (err) {
@@ -415,23 +435,23 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
 
       <div>
         <SearchableSelect
-          id="global-part-brand"
-          name="brand_id"
-          label="Brand *"
-          placeholder="Type to search for a brand or create new..."
-          value={formData.brand_id}
-          onChange={handleBrandChange}
-          options={brandOptions}
-          disabled={isLoadingBrands}
-          isLoading={isLoadingBrands}
-          emptyMessage="No brands found. Type a name to create a new brand."
-          filterOptions={filterBrands}
-          onCreateNew={handleCreateNewBrand}
-          createNewLabel="Create brand"
-          displayValue={pendingBrandName}
-          onInputChange={handleBrandInputChange}
+          id="global-part-part_manufacturer"
+          name="part_manufacturer_id"
+          label="PartManufacturer *"
+          placeholder="Type to search for a part manufacturer or create new..."
+          value={formData.part_manufacturer_id}
+          onChange={handlePartManufacturerChange}
+          options={part_manufacturerOptions}
+          disabled={isLoadingPartManufacturers}
+          isLoading={isLoadingPartManufacturers}
+          emptyMessage="No part manufacturers found. Type a name to create a new part manufacturer."
+          filterOptions={filterPartManufacturers}
+          onCreateNew={handleCreateNewPartManufacturer}
+          createNewLabel="Create part manufacturer"
+          displayValue={pendingPartManufacturerName}
+          onInputChange={handlePartManufacturerInputChange}
         />
-        {pendingBrandName && (
+        {pendingPartManufacturerName && (
           <div className="mt-2 px-3 py-2 bg-blue-500/20 border border-blue-500/50 rounded-lg">
             <div className="flex items-center gap-2 text-sm text-blue-300">
               <svg
@@ -448,7 +468,8 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
                 />
               </svg>
               <span>
-                New brand <strong>&quot;{pendingBrandName}&quot;</strong> will
+                New part_manufacturer{' '}
+                <strong>&quot;{pendingPartManufacturerName}&quot;</strong> will
                 be created when you submit this form.
               </span>
             </div>

@@ -58,11 +58,11 @@ const PartsCatalog: React.FC = () => {
     selectedCategoryIds: filters.selectedCategoryIds,
     toggleCategory: filters.toggleCategory,
     setSelectedCategoryIds: filters.setSelectedCategoryIds,
-    availableBrands: filters.availableBrands,
-    availableBrandIds: filters.availableBrandIds,
-    selectedBrandIds: filters.selectedBrandIds,
-    toggleBrand: filters.toggleBrand,
-    setSelectedBrandIds: filters.setSelectedBrandIds,
+    availablePartManufacturers: filters.availablePartManufacturers,
+    availablePartManufacturerIds: filters.availablePartManufacturerIds,
+    selectedPartManufacturerIds: filters.selectedPartManufacturerIds,
+    togglePartManufacturer: filters.togglePartManufacturer,
+    setSelectedPartManufacturerIds: filters.setSelectedPartManufacturerIds,
   };
 
   const chipsProps = {
@@ -70,9 +70,9 @@ const PartsCatalog: React.FC = () => {
     selectedCategoryIds: filters.selectedCategoryIds,
     activeCategories: filters.activeCategories,
     toggleCategory: filters.toggleCategory,
-    selectedBrandIds: filters.selectedBrandIds,
-    availableBrands: filters.availableBrands,
-    toggleBrand: filters.toggleBrand,
+    selectedPartManufacturerIds: filters.selectedPartManufacturerIds,
+    availablePartManufacturers: filters.availablePartManufacturers,
+    togglePartManufacturer: filters.togglePartManufacturer,
     selectedGeneration: filters.selectedGeneration,
     selectedMake: filters.selectedMake,
     selectedModel: filters.selectedModel,
@@ -124,7 +124,7 @@ const PartsCatalog: React.FC = () => {
             onSortChange={filters.setSortParam}
             layout="table"
             categories={filters.activeCategories}
-            brands={filters.availableBrands}
+            part_manufacturers={filters.availablePartManufacturers}
           />
 
           {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (

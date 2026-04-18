@@ -14,7 +14,7 @@ import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
 import {
-  brandsApi,
+  partManufacturersApi,
   buildListsApi,
   partsApi,
   retailersApi,
@@ -62,27 +62,32 @@ export default function HomePage() {
     executeRequest: fetchPopularParts,
   } = useApiRequest(fetchPopularPartsFn);
 
-  // Stats bar: retailers and brands count
+  // Stats bar: retailers and part_manufacturers count
   const fetchRetailersCountFn = useCallback(
     () => retailersApi.countRetailers(),
     []
   );
-  const fetchBrandsCountFn = useCallback(() => brandsApi.countBrands(), []);
+  const fetchPartManufacturersCountFn = useCallback(
+    () => partManufacturersApi.countPartManufacturers(),
+    []
+  );
   const { data: retailersCountData, executeRequest: fetchRetailersCount } =
     useApiRequest(fetchRetailersCountFn);
-  const { data: brandsCountData, executeRequest: fetchBrandsCount } =
-    useApiRequest(fetchBrandsCountFn);
+  const {
+    data: partManufacturersCountData,
+    executeRequest: fetchPartManufacturersCount,
+  } = useApiRequest(fetchPartManufacturersCountFn);
 
   useEffect(() => {
     void fetchFeaturedBuildLists();
     void fetchPopularParts();
     void fetchRetailersCount();
-    void fetchBrandsCount();
+    void fetchPartManufacturersCount();
   }, [
     fetchFeaturedBuildLists,
     fetchPopularParts,
     fetchRetailersCount,
-    fetchBrandsCount,
+    fetchPartManufacturersCount,
   ]);
 
   useEffect(() => {
@@ -372,9 +377,11 @@ export default function HomePage() {
                 style={{ animationDelay: '0.3s' }}
               >
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
-                  {brandsCountData?.count ?? '—'}
+                  {partManufacturersCountData?.count ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">Part Brands</div>
+                <div className="text-sm text-neutral-400">
+                  Part PartManufacturers
+                </div>
               </div>
             </div>
           </Card>

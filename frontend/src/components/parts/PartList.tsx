@@ -6,7 +6,7 @@ import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
 import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import { carsApi, partVotesApi, partsApi } from '../../services/Api';
 import type {
-  BrandResponse,
+  PartManufacturerResponse,
   CarRead,
   CategoryResponse,
   PartReadWithVotes,
@@ -37,7 +37,7 @@ const carByIdCache: Record<string, CarRead> = {};
 
 type TableColumnKey =
   | 'part'
-  | 'brand'
+  | 'part_manufacturer'
   | 'part_number'
   | 'category'
   | 'fit'
@@ -50,7 +50,7 @@ const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
   part: 0,
   price: 1,
   rating: 2,
-  brand: 3,
+  part_manufacturer: 3,
   category: 4,
   fit: 5,
   part_number: 6,
@@ -58,7 +58,7 @@ const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
 };
 
 // Minimum width where a column's content renders without truncation for typical
-// values (brand names, part numbers, fit strings, etc.). A column is dropped
+// values (part_manufacturer names, part numbers, fit strings, etc.). A column is dropped
 // once the sum of these values across visible columns would exceed the
 // container width. Also used as the flex share for proportional width
 // distribution among the surviving columns.
@@ -68,18 +68,18 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
   fit: 160,
   rating: 160,
   actions: 200,
-  brand: 160,
+  part_manufacturer: 160,
   part_number: 150,
   category: 140,
 };
 
 const DEFAULT_CATEGORIES: CategoryResponse[] = [];
-const DEFAULT_BRANDS: BrandResponse[] = [];
+const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
 
 type SortColumn =
   | 'part'
-  | 'brand'
+  | 'part_manufacturer'
   | 'part_number'
   | 'category'
   | 'fit'
@@ -140,8 +140,8 @@ function getCacheKey(params?: {
   category_ids?: string[];
   car_id?: string;
   car_ids?: string[];
-  brand_id?: string;
-  brand_ids?: string[];
+  part_manufacturer_id?: string;
+  part_manufacturer_ids?: string[];
   user_id?: string;
   search?: string;
   sort?: string;
@@ -169,8 +169,14 @@ function sortParamToColumnAndDirection(sortParam: string): {
     name_desc: { sortColumn: 'part', sortDirection: 'desc' },
     part_number_asc: { sortColumn: 'part_number', sortDirection: 'asc' },
     part_number_desc: { sortColumn: 'part_number', sortDirection: 'desc' },
-    brand_asc: { sortColumn: 'brand', sortDirection: 'asc' },
-    brand_desc: { sortColumn: 'brand', sortDirection: 'desc' },
+    part_manufacturer_asc: {
+      sortColumn: 'part_manufacturer',
+      sortDirection: 'asc',
+    },
+    part_manufacturer_desc: {
+      sortColumn: 'part_manufacturer',
+      sortDirection: 'desc',
+    },
     category_asc: { sortColumn: 'category', sortDirection: 'asc' },
     category_desc: { sortColumn: 'category', sortDirection: 'desc' },
     fit_asc: { sortColumn: 'fit', sortDirection: 'asc' },
@@ -188,8 +194,8 @@ function columnAndDirectionToSortParam(
   const map: Record<string, string> = {
     part_asc: 'name_asc',
     part_desc: 'name_desc',
-    brand_asc: 'brand_asc',
-    brand_desc: 'brand_desc',
+    part_manufacturer_asc: 'part_manufacturer_asc',
+    part_manufacturer_desc: 'part_manufacturer_desc',
     part_number_asc: 'part_number_asc',
     part_number_desc: 'part_number_desc',
     category_asc: 'category_asc',
@@ -226,8 +232,8 @@ interface PartListProps {
     category_ids?: string[];
     car_id?: string;
     car_ids?: string[];
-    brand_id?: string;
-    brand_ids?: string[];
+    part_manufacturer_id?: string;
+    part_manufacturer_ids?: string[];
     user_id?: string;
     search?: string;
     sort?: string;
@@ -256,10 +262,10 @@ interface PartListProps {
   sortParam?: string;
   /** When controlled: called with new API sort param. When uncontrolled: called with no args when sort changes (e.g. to reset pagination). */
   onSortChange?: (newSortParam?: string) => void;
-  /** Table layout: dense columns (Part | Brand | P/N | Category | Fit | Rating | Price). Requires categories for Category column, brands for Brand column lookup. */
+  /** Table layout: dense columns (Part | PartManufacturer | P/N | Category | Fit | Rating | Price). Requires categories for Category column, part_manufacturers for PartManufacturer column lookup. */
   layout?: 'card' | 'table';
   categories?: CategoryResponse[];
-  brands?: BrandResponse[];
+  part_manufacturers?: PartManufacturerResponse[];
   /** Map of car ID to CarRead for Fit column car names. */
   carsById?: Record<string, CarRead>;
 }
@@ -271,8 +277,8 @@ const fetchPartsRequestFn = (params?: {
   category_ids?: string[];
   car_id?: string;
   car_ids?: string[];
-  brand_id?: string;
-  brand_ids?: string[];
+  part_manufacturer_id?: string;
+  part_manufacturer_ids?: string[];
   user_id?: string;
   search?: string;
   sort?: string;
@@ -301,7 +307,7 @@ function PartList({
   sortParam: controlledSortParam,
   layout = 'card',
   categories = DEFAULT_CATEGORIES,
-  brands = DEFAULT_BRANDS,
+  part_manufacturers = DEFAULT_PART_MANUFACTURERS,
   carsById = DEFAULT_CARS_BY_ID,
 }: PartListProps) {
   const [localSortColumn, setLocalSortColumn] = useState<SortColumn>('rating');
@@ -317,7 +323,7 @@ function PartList({
   const [tableWrapperRef, containerWidth] = useContainerWidth<HTMLDivElement>();
 
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
-    const keys: TableColumnKey[] = ['part', 'brand', 'part_number'];
+    const keys: TableColumnKey[] = ['part', 'part_manufacturer', 'part_number'];
     if (categories.length > 0) keys.push('category');
     keys.push('fit');
     if (showVoteButtons) keys.push('rating');
@@ -502,16 +508,18 @@ function PartList({
     [categories]
   );
 
-  const getBrandName = useCallback(
+  const getPartManufacturerName = useCallback(
     (part: PartReadWithVotes) => {
-      if (part.brand) return part.brand;
-      if (part.brand_id && brands.length > 0) {
-        const b = brands.find((br) => br.id === part.brand_id);
+      if (part.part_manufacturer) return part.part_manufacturer;
+      if (part.part_manufacturer_id && part_manufacturers.length > 0) {
+        const b = part_manufacturers.find(
+          (br) => br.id === part.part_manufacturer_id
+        );
         return b?.name ?? '—';
       }
       return '—';
     },
-    [brands]
+    [part_manufacturers]
   );
 
   const formatCarName = useCallback(
@@ -558,9 +566,12 @@ function PartList({
       switch (sortColumn) {
         case 'part':
           return mult * (a.name ?? '').localeCompare(b.name ?? '');
-        case 'brand':
+        case 'part_manufacturer':
           return (
-            mult * (getBrandName(a) ?? '').localeCompare(getBrandName(b) ?? '')
+            mult *
+            (getPartManufacturerName(a) ?? '').localeCompare(
+              getPartManufacturerName(b) ?? ''
+            )
           );
         case 'part_number':
           return (
@@ -595,7 +606,7 @@ function PartList({
     sortColumn,
     sortDirection,
     getCategoryName,
-    getBrandName,
+    getPartManufacturerName,
     getFitCell,
   ]);
 
@@ -659,9 +670,9 @@ function PartList({
                     Part name
                   </SortableTh>
                 )}
-                {visibleColumns.includes('brand') && (
-                  <SortableTh {...sortableThProps} column="brand">
-                    Brand
+                {visibleColumns.includes('part_manufacturer') && (
+                  <SortableTh {...sortableThProps} column="part_manufacturer">
+                    PartManufacturer
                   </SortableTh>
                 )}
                 {visibleColumns.includes('part_number') && (
@@ -731,13 +742,13 @@ function PartList({
                       </Link>
                     </td>
                   )}
-                  {visibleColumns.includes('brand') && (
+                  {visibleColumns.includes('part_manufacturer') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={getBrandName(part)}
+                      title={getPartManufacturerName(part)}
                     >
                       <span className="block truncate">
-                        {getBrandName(part)}
+                        {getPartManufacturerName(part)}
                       </span>
                     </td>
                   )}
@@ -898,10 +909,12 @@ function PartList({
                           {part.name}
                         </h3>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                          {part.brand && (
+                          {part.part_manufacturer && (
                             <span className="text-gray-400">
-                              <span className="text-gray-500">Brand:</span>{' '}
-                              {part.brand}
+                              <span className="text-gray-500">
+                                PartManufacturer:
+                              </span>{' '}
+                              {part.part_manufacturer}
                             </span>
                           )}
                           {part.part_number && (

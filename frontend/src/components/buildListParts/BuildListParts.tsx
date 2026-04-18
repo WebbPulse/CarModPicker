@@ -3,7 +3,7 @@ import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  brandsApi,
+  partManufacturersApi,
   buildListPartsApi,
   buildListPhasesApi,
   buildListsApi,
@@ -41,7 +41,8 @@ const fetchBuildListPartsRequestFn = (buildListId: string) =>
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
-const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
+const fetchPartManufacturersRequestFn = () =>
+  partManufacturersApi.getPartManufacturers(true);
 
 const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
@@ -86,8 +87,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     executeRequest: fetchCategories,
   } = useApiRequest(fetchCategoriesRequestFn);
 
-  const { data: brandsData, executeRequest: fetchBrands } =
-    useApiRequest(fetchBrandsRequestFn);
+  const {
+    data: part_manufacturersData,
+    executeRequest: fetchPartManufacturers,
+  } = useApiRequest(fetchPartManufacturersRequestFn);
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
@@ -95,7 +98,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const { data: phases, executeRequest: fetchPhases } =
     useApiRequest(fetchPhasesRequestFn);
 
-  const brands = brandsData ?? [];
+  const part_manufacturers = part_manufacturersData ?? [];
   const carsById = useMemo(() => {
     const list = Array.isArray(carsData) ? carsData : [];
     const normalized = normalizeCarReadList(list);
@@ -121,7 +124,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   useEffect(() => {
     void fetchBuildListParts(buildListId);
     void fetchCategories();
-    void fetchBrands();
+    void fetchPartManufacturers();
     void fetchCars();
     void fetchPhases(buildListId);
   }, [
@@ -129,7 +132,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     refreshKey,
     fetchBuildListParts,
     fetchCategories,
-    fetchBrands,
+    fetchPartManufacturers,
     fetchCars,
     fetchPhases,
   ]);
@@ -548,7 +551,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         categories={categories || []}
         viewMode={viewMode}
         phases={phasesList}
-        brands={brands}
+        part_manufacturers={part_manufacturers}
         carsById={carsById}
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}

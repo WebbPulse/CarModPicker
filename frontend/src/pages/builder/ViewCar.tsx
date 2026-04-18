@@ -213,7 +213,7 @@ function ViewCar(): React.JSX.Element {
           <Input
             id="search-parts"
             type="text"
-            placeholder="Search parts by name, description, brand, or part number..."
+            placeholder="Search parts by name, description, part manufacturer, or part number..."
             value={partsSearchTerm}
             onChange={handlePartsSearchChange}
             className="w-full"
