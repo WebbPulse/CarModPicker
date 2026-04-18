@@ -99,7 +99,7 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.GLOBAL_PART, part.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(db_session, EntityType.PART, part.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "part"
         assert vote.entity_id == part.id

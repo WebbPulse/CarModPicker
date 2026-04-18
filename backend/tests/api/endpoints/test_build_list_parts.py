@@ -403,11 +403,11 @@ class TestBuildListParts:
 
         data = response.json()
         assert len(data) == 1
-        part = data[0]
-        assert part["build_list_id"] == build_list["id"]
-        assert part["part_id"] == part["id"]
-        assert part["quantity"] == 2
-        assert part["notes"] == "Test notes"
+        build_list_part = data[0]
+        assert build_list_part["build_list_id"] == build_list["id"]
+        assert build_list_part["part_id"] == part["id"]
+        assert build_list_part["quantity"] == 2
+        assert build_list_part["notes"] == "Test notes"
 
     def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test getting parts from a non-existent build list."""
@@ -1194,12 +1194,12 @@ class TestBuildListParts:
 
         data = response.json()
         assert len(data) == 1
-        part = data[0]
-        assert part["build_list_id"] == build_list["id"]
-        assert part["part_id"] == part["id"]
-        assert part["quantity"] == 2
-        assert "part" in part
-        assert part["part"]["name"] == part["name"]
+        build_list_part = data[0]
+        assert build_list_part["build_list_id"] == build_list["id"]
+        assert build_list_part["part_id"] == part["id"]
+        assert build_list_part["quantity"] == 2
+        assert "part" in build_list_part
+        assert build_list_part["part"]["name"] == part["name"]
 
     def test_update_part_in_build_list_success(
         self,
