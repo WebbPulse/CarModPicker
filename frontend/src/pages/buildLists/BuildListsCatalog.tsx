@@ -30,18 +30,14 @@ import type {
   CarGenerationRead,
   PaginatedResponse,
 } from '../../types/Api';
-import {
-  normalizeCarGenerationRead,
-  normalizeCarReadList,
-} from '../../utils/carUtils';
+import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
-    null
-  );
+  const [selectedGeneration, setSelectedGeneration] =
+    useState<CarGenerationRead | null>(null);
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -282,7 +278,7 @@ const BuildListsCatalog: React.FC = () => {
       // Only clear model/generation when user changed make; skip when restoring from URL
       if (
         !selectedGeneration ||
-        (selectedGeneration.make ?? '') !== selectedMake
+        (selectedGeneration.car_make_name ?? '') !== selectedMake
       ) {
         setSelectedModel('');
         setSelectedGeneration(null);
@@ -301,7 +297,10 @@ const BuildListsCatalog: React.FC = () => {
   useEffect(() => {
     if (selectedModel) {
       // Only clear generation when user changed model; skip when restoring from URL
-      if (!selectedGeneration || selectedGeneration.model !== selectedModel) {
+      if (
+        !selectedGeneration ||
+        selectedGeneration.car_model_name !== selectedModel
+      ) {
         setSelectedGeneration(null);
       }
     }
@@ -352,14 +351,16 @@ const BuildListsCatalog: React.FC = () => {
     selectedMake !== '' || searchTerm.trim() !== '' || hasCostRange;
 
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
+    new Set(
+      availableCars.map((car) => car.car_model_name ?? '').filter(Boolean)
+    )
   ).sort();
 
   const generations = availableCars
     .filter(
       (car) =>
         (car.car_make_name ?? '') === selectedMake &&
-        (car.model ?? '') === selectedModel
+        (car.car_model_name ?? '') === selectedModel
     )
     .sort((a, b) => {
       if (a.start_year !== b.start_year) return a.start_year - b.start_year;
@@ -580,7 +581,7 @@ const BuildListsCatalog: React.FC = () => {
               params={buildListCatalogListParams}
               title={
                 selectedGeneration
-                  ? `${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`
+                  ? `${selectedGeneration.car_make_name} ${selectedGeneration.car_model_name} ${selectedGeneration.generation_name} Build Lists`
                   : selectedModel
                     ? `${selectedMake} ${selectedModel} Build Lists`
                     : `${selectedMake} Build Lists`

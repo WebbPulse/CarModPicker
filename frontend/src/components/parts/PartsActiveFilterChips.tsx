@@ -95,7 +95,7 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
           {showUniversalParts
             ? 'Universal'
             : selectedGeneration
-              ? `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim()
+              ? `${selectedGeneration.car_make_name ?? ''} ${selectedGeneration.car_model_name ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim()
               : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() ||
                 'Vehicle'}
           <button

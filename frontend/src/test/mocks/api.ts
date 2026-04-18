@@ -18,6 +18,7 @@ export const mockUser: UserRead = {
   image_urls: ['https://example.com/user.jpg'],
   is_superuser: false,
   is_admin: false,
+  is_service_account: false,
   subscription_tier: 'free',
   subscription_status: 'active',
   totp_enabled: false,
@@ -26,8 +27,8 @@ export const mockUser: UserRead = {
 // Mock car data
 export const mockCar: CarGenerationRead = {
   id: '22222222-2222-7222-8222-222222222222',
-  make: 'Toyota',
-  model: 'Camry',
+  car_make_name: 'Toyota',
+  car_model_name: 'Camry',
   generation_name: 'XV70',
   start_year: 2018,
   end_year: 2023,

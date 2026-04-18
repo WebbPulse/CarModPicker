@@ -4,10 +4,14 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carGenerationsApi } from '../../services/Api';
 import {
   formatCarYearRange,
-  normalizeCarGenerationRead,
+  normalizeCarRead,
   normalizeCarReadList,
 } from '../../utils/carUtils';
-import type { BuildListRead, BuildListUpdate, CarRead } from '../../types/Api';
+import type {
+  BuildListRead,
+  BuildListUpdate,
+  CarGenerationRead,
+} from '../../types/Api';
 import SecondaryButton from '../buttons/SecondaryButton';
 import ButtonStretch from '../buttons/StretchButton';
 import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
@@ -42,9 +46,8 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   const [imageChanged, setImageChanged] = useState(false);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
-    null
-  );
+  const [selectedGeneration, setSelectedGeneration] =
+    useState<CarGenerationRead | null>(null);
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [formMessage, setFormMessage] = useState<{
@@ -204,7 +207,9 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 
   // Get unique models for selected make
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
+    new Set(
+      availableCars.map((car) => car.car_model_name ?? '').filter(Boolean)
+    )
   ).sort();
 
   // Get generations (cars) for selected make and model
@@ -212,7 +217,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
     .filter(
       (car) =>
         (car.car_make_name ?? '') === selectedMake &&
-        (car.model ?? '') === selectedModel
+        (car.car_model_name ?? '') === selectedModel
     )
     .sort((a, b) => {
       // Sort by start_year, then generation_name
@@ -349,8 +354,8 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                 <div className="flex items-center justify-between p-3">
                   <div>
                     <h4 className="text-base font-semibold text-gray-200">
-                      Selected: {selectedGeneration.make}{' '}
-                      {selectedGeneration.model}{' '}
+                      Selected: {selectedGeneration.car_make_name}{' '}
+                      {selectedGeneration.car_model_name}{' '}
                       {selectedGeneration.generation_name}
                     </h4>
                     <p className="text-sm text-gray-400">

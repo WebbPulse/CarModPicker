@@ -40,7 +40,7 @@ function getHttpStatus(error: unknown): number | undefined {
 /** Preferred order for S3 key prefix labels (matches upload entity_type values). */
 const BUCKET_ENTITY_TYPE_ORDER = [
   'user',
-  'car',
+  'car_generation',
   'build_list',
   'part',
   'build_log_post',

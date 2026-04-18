@@ -33,7 +33,7 @@ interface CachedData {
 const partsCache = new Map<string, CachedData>();
 
 // Persistent car lookup cache — populated on-demand, survives page navigations
-const carByIdCache: Record<string, CarRead> = {};
+const carByIdCache: Record<string, CarGenerationRead> = {};
 
 type TableColumnKey =
   | 'part'
@@ -75,7 +75,7 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
 
 const DEFAULT_CATEGORIES: CategoryResponse[] = [];
 const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
-const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
+const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
 
 type SortColumn =
   | 'part'
@@ -266,8 +266,8 @@ interface PartListProps {
   layout?: 'card' | 'table';
   categories?: CategoryResponse[];
   part_manufacturers?: PartManufacturerResponse[];
-  /** Map of car ID to CarRead for Fit column car names. */
-  carsById?: Record<string, CarRead>;
+  /** Map of car ID to CarGenerationRead for Fit column car names. */
+  carsById?: Record<string, CarGenerationRead>;
 }
 
 const fetchPartsRequestFn = (params?: {
@@ -414,9 +414,9 @@ function PartList({
     });
 
   // On-demand car lookup: fetch only the car IDs that appear in the current page
-  const [localCarsById, setLocalCarsById] = useState<Record<string, CarRead>>(
-    () => ({ ...carByIdCache })
-  );
+  const [localCarsById, setLocalCarsById] = useState<
+    Record<string, CarGenerationRead>
+  >(() => ({ ...carByIdCache }));
 
   useEffect(() => {
     const needed = [
@@ -424,10 +424,10 @@ function PartList({
     ].filter((id) => !(id in carByIdCache));
     if (!needed.length) return;
 
-    carsApi
+    carGenerationsApi
       .getCarsByIds(needed)
       .then((res) => {
-        const incoming: Record<string, CarRead> = {};
+        const incoming: Record<string, CarGenerationRead> = {};
         for (const car of res.data ?? []) {
           if (car.id != null) {
             carByIdCache[car.id] = car;
@@ -524,7 +524,7 @@ function PartList({
 
   const formatCarName = useCallback(
     (car: CarGenerationRead) =>
-      `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+      `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`.trim() ||
       'Vehicle',
     []
   );
@@ -545,7 +545,7 @@ function PartList({
       }
       const names = ids
         .map((id) => effectiveCarsById[id])
-        .filter((c): c is CarRead => c != null)
+        .filter((c): c is CarGenerationRead => c != null)
         .map(formatCarName);
       return {
         label: `${n} vehicles`,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatCarYearRange } from '../../utils/carUtils';
-import type { CarRead } from '../../types/Api';
+import type { CarGenerationRead } from '../../types/Api';
 import Card from '../common/Card';
 import CardInfoItem from '../common/CardInfoItem';
 
@@ -19,7 +19,7 @@ const CarListItem: React.FC<CarListItemProps> = ({ car }) => {
         {/* Add hover effect */}
         <div className="flex-grow flex flex-col">
           <h3 className="text-lg font-semibold text-indigo-400 mb-2">
-            {car.car_make_name ?? ''} {car.model ?? ''}{' '}
+            {car.car_make_name ?? ''} {car.car_model_name ?? ''}{' '}
             {car.generation_name ?? ''}
           </h3>
           <div className="grid grid-cols-1 gap-1 text-xs flex-grow">

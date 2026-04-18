@@ -516,7 +516,7 @@ function ViewPart() {
                       to={`/car-generations/${c.id}`}
                       className="text-blue-400 hover:text-blue-300 underline transition-colors"
                     >
-                      {c.make} {c.model} {c.generation_name} (
+                      {c.car_make_name} {c.car_model_name} {c.generation_name} (
                       {formatCarYearRange(c.start_year, c.end_year)})
                     </Link>
                   </li>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatCarYearRange } from '../../utils/carUtils';
-import type { CarRead } from '../../types/Api';
+import type { CarGenerationRead } from '../../types/Api';
 import LoadingSpinner from './LoadingSpinner';
 
 export interface VehicleFilterSectionProps {

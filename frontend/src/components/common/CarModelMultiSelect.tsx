@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
-import type { CarRead } from '../../types/Api';
+import type { CarGenerationRead } from '../../types/Api';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from './SearchableSelect';
 
 function formatCarLabel(car: CarGenerationRead): string {
-  return `${car.car_make_name ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
+  return `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
     car.end_year ? `-${car.end_year}` : '+'
   })`;
 }
@@ -45,8 +45,10 @@ function CarModelMultiSelect({
       cars
         .filter((c) => !value.includes(c.id))
         .sort((a, b) => {
-          if (a.make !== b.make) return a.make.localeCompare(b.make);
-          if (a.model !== b.model) return a.model.localeCompare(b.model);
+          if (a.car_make_name !== b.car_make_name)
+            return a.car_make_name.localeCompare(b.car_make_name);
+          if (a.car_model_name !== b.car_model_name)
+            return a.car_model_name.localeCompare(b.car_model_name);
           return a.generation_name.localeCompare(b.generation_name);
         })
         .map((car) => ({
