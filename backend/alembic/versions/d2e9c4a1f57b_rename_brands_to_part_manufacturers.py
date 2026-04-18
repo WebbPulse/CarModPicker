@@ -28,8 +28,15 @@ def upgrade() -> None:
     op.execute("ALTER INDEX ix_brands_name RENAME TO ix_part_manufacturers_name")
     op.execute("ALTER INDEX ix_parts_brand_id RENAME TO ix_parts_part_manufacturer_id")
 
+    # Rename PK and FK constraints (Postgres does not auto-rename on table/column rename)
+    op.execute("ALTER TABLE part_manufacturers RENAME CONSTRAINT brands_pkey TO part_manufacturers_pkey")
+    op.execute("ALTER TABLE parts RENAME CONSTRAINT parts_brand_id_fkey TO parts_part_manufacturer_id_fkey")
+
 
 def downgrade() -> None:
+    op.execute("ALTER TABLE parts RENAME CONSTRAINT parts_part_manufacturer_id_fkey TO parts_brand_id_fkey")
+    op.execute("ALTER TABLE part_manufacturers RENAME CONSTRAINT part_manufacturers_pkey TO brands_pkey")
+
     op.execute("ALTER INDEX ix_parts_part_manufacturer_id RENAME TO ix_parts_brand_id")
     op.execute("ALTER INDEX ix_part_manufacturers_name RENAME TO ix_brands_name")
     op.execute("ALTER INDEX ix_part_manufacturers_id RENAME TO ix_brands_id")
