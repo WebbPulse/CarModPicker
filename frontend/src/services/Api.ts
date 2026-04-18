@@ -288,6 +288,7 @@ export const buildListsApi = {
     search?: string;
     car_id?: string;
     car_ids?: string[];
+    owner_id?: string;
     min_cost_cents?: number;
     max_cost_cents?: number;
     sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
@@ -306,10 +307,6 @@ export const buildListsApi = {
       `/build-lists/car/${carId}`,
       { params }
     ),
-  getMyBuildLists: (params?: { skip?: number; limit?: number }) =>
-    apiClient.get<PaginatedResponse<BuildListRead>>('/build-lists/user/me', {
-      params,
-    }),
   getBuildListsByUser: (
     userId: string,
     params?: { skip?: number; limit?: number }
@@ -1096,19 +1093,47 @@ export interface AdminTableCountsResponse {
   crawl_bucket_error?: string;
 }
 
-export interface CrawlerCronStatus {
+/** One per-adapter crawler schedule row (source of truth, reconciled to EventBridge). */
+export interface AdapterSchedule {
+  id: string;
+  adapter_name: string;
   enabled: boolean;
   schedule_expression: string;
-  preset: 'monthly' | 'weekly' | 'daily' | 'custom';
-  presets: Record<string, string>;
-  schedule_name: string;
-  group_name: string;
+  delay_sec: number;
+  per_run_limit: number | null;
+  skip_known_urls: boolean;
+  default_category_id: string;
+  last_reconciled_at: string | null;
+  last_reconcile_error: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface CrawlerCronUpdate {
+export interface AdapterScheduleList {
+  items: AdapterSchedule[];
+  presets: Record<string, string>;
+}
+
+export interface AdapterScheduleUpdate {
   enabled?: boolean;
   schedule_expression?: string;
   preset?: 'monthly' | 'weekly' | 'daily';
+  delay_sec?: number;
+  per_run_limit?: number | null;
+  /** Set true to clear per_run_limit (unlimited). Takes precedence over per_run_limit. */
+  clear_per_run_limit?: boolean;
+  skip_known_urls?: boolean;
+  default_category_id?: string;
+}
+
+export interface AdapterReconcileResult {
+  adapter_name: string;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface AdapterReconcileAllResponse {
+  results: AdapterReconcileResult[];
 }
 
 export const adminApi = {
@@ -1168,10 +1193,18 @@ export const adminApi = {
   cancelJob: (jobId: string) =>
     apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
 
-  // Cron schedule management
-  getCrawlerCron: () => apiClient.get<CrawlerCronStatus>('/admin/cron/crawler'),
-  updateCrawlerCron: (body: CrawlerCronUpdate) =>
-    apiClient.patch<CrawlerCronStatus>('/admin/cron/crawler', body),
+  // Per-adapter schedule management (DB-backed, reconciled to EventBridge on save)
+  listAdapterSchedules: () =>
+    apiClient.get<AdapterScheduleList>('/admin/adapter-schedules/'),
+  updateAdapterSchedule: (adapterName: string, body: AdapterScheduleUpdate) =>
+    apiClient.patch<AdapterSchedule>(
+      `/admin/adapter-schedules/${adapterName}`,
+      body
+    ),
+  reconcileAdapterSchedules: () =>
+    apiClient.post<AdapterReconcileAllResponse>(
+      '/admin/adapter-schedules/reconcile'
+    ),
 };
 
 export default apiClient;

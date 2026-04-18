@@ -18,8 +18,12 @@
 # Archive rescrapes are never triggered automatically — admins run them
 # manually from the admin UI.
 #
-# The crawler schedule is DISABLED by default. Toggle it on/off from the
-# admin UI or by setting crawler_cron_enabled = true in HCP workspace vars.
+# Per-adapter schedules are managed dynamically by the backend via boto3,
+# sourced from the adapter_schedules DB table. Terraform provisions only the
+# target plumbing below (connection, API destination, event bus rule, IAM);
+# the individual aws_scheduler_schedule resources are created/updated/deleted
+# by the backend reconciler. All per-adapter schedules share the default
+# scheduler group and share this Target plumbing.
 # ---------------------------------------------------------------------------
 
 
@@ -152,53 +156,10 @@ resource "aws_cloudwatch_event_target" "crawler_run" {
 
 
 # ---------------------------------------------------------------------------
-# Crawler run schedule
-# Default: 2 AM UTC on the 1st of each month; disabled until enabled.
-# State and expression can be updated live from the admin UI.
+# Per-adapter schedules are managed by the backend reconciler, not Terraform.
+# See app/api/services/adapter_schedule_service.py — each row in the
+# adapter_schedules DB table produces one aws_scheduler_schedule named
+# "${local.prefix}-crawler-<adapter_name>" in the default scheduler group,
+# with Target pointing at the default event bus (above). No schedule resources
+# are declared here.
 # ---------------------------------------------------------------------------
-resource "aws_scheduler_schedule" "crawler_run" {
-  name        = "${local.prefix}-crawler-run"
-  group_name  = "default"
-  description = "Scheduled crawler run for all adapters"
-  # Always starts DISABLED. Enable/disable from the admin UI — that is the
-  # only authoritative control point. Terraform will not override a live state
-  # change thanks to lifecycle.ignore_changes below.
-  state = "DISABLED"
-
-  schedule_expression          = var.crawler_cron_schedule
-  schedule_expression_timezone = "UTC"
-
-  flexible_time_window {
-    mode = "OFF"
-  }
-
-  target {
-    arn      = "arn:aws:events:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:event-bus/default"
-    role_arn = aws_iam_role.eventbridge_scheduler.arn
-
-    eventbridge_parameters {
-      detail_type = "crawler-run"
-      source      = "carmodpicker.scheduler"
-    }
-
-    # JSON body forwarded as $.detail by EventBridge; the input_transformer on
-    # the event rule target strips the envelope before posting to App Runner.
-    input = jsonencode({
-      adapters                    = ["all"]
-      crawler_default_category_id = var.crawler_default_category_id
-      parallel                    = true
-      delay_sec                   = var.crawler_delay_sec
-    })
-
-    retry_policy {
-      maximum_retry_attempts       = 1
-      maximum_event_age_in_seconds = 3600
-    }
-  }
-
-  # Ignore live state/expression changes made via the admin UI so Terraform
-  # doesn't clobber them on the next apply.
-  lifecycle {
-    ignore_changes = [state, schedule_expression]
-  }
-}

@@ -143,8 +143,23 @@ class Settings(BaseSettings):
     SCHEDULER_CRAWLER_SCHEDULE_NAME: str = Field(
         default="",
         description=(
-            "EventBridge Scheduler schedule name for the crawler run job. "
+            "Name prefix used when managing per-adapter EventBridge schedules "
+            "(stripped of any '-crawler-run' suffix). "
             "Defaults to 'carmodpicker-<APP_ENVIRONMENT>-crawler-run'."
+        ),
+    )
+    SCHEDULER_TARGET_EVENT_BUS_ARN: str = Field(
+        default="",
+        description=(
+            "ARN of the EventBridge event bus that per-adapter schedules fire onto. "
+            "Populated by Terraform from the default event bus ARN."
+        ),
+    )
+    SCHEDULER_TARGET_ROLE_ARN: str = Field(
+        default="",
+        description=(
+            "IAM role ARN that EventBridge Scheduler assumes to PutEvents on the event bus. "
+            "Populated by Terraform ({prefix}-eventbridge-scheduler)."
         ),
     )
 

@@ -9,10 +9,10 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import type {
+  AdapterSchedule,
+  AdapterScheduleUpdate,
   BackgroundJob,
   BackgroundJobList,
-  CrawlerCronStatus,
-  CrawlerCronUpdate,
   CrawlerRunRequest,
   CrawlerRunResponse,
   CrawlerServiceAccount,
@@ -317,15 +317,23 @@ function CrawlerAdmin() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-  // Cron
-  const [cronStatus, setCronStatus] = useState<CrawlerCronStatus | null>(null);
-  const [cronDraft, setCronDraft] = useState<{
-    preset: string;
-    customExpression: string;
-  }>({ preset: 'monthly', customExpression: '' });
-  const [isCronUnavailable, setIsCronUnavailable] = useState(false);
-  const [isSavingCron, setIsSavingCron] = useState(false);
-  const [cronSaveError, setCronSaveError] = useState<string | null>(null);
+  // Per-adapter crawler schedules (DB-backed, reconciled to EventBridge on save)
+  const [adapterSchedules, setAdapterSchedules] = useState<AdapterSchedule[]>(
+    []
+  );
+  const [schedulePresets, setSchedulePresets] = useState<
+    Record<string, string>
+  >({});
+  const [scheduleDrafts, setScheduleDrafts] = useState<
+    Record<string, { preset: string; customExpression: string }>
+  >({});
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
+  const [isSchedulesUnavailable, setIsSchedulesUnavailable] = useState(false);
+  const [savingAdapter, setSavingAdapter] = useState<string | null>(null);
+  const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(
+    null
+  );
+  const [isReconcilingAll, setIsReconcilingAll] = useState(false);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -375,58 +383,108 @@ function CrawlerAdmin() {
     }
   }, [user?.is_admin]);
 
-  const fetchCronStatus = useCallback(async () => {
-    if (!user?.is_admin) return;
-    try {
-      const res = await adminApi.getCrawlerCron();
-      setCronStatus(res.data);
-      setCronDraft({
-        preset: res.data.preset === 'custom' ? 'custom' : res.data.preset,
-        customExpression:
-          res.data.preset === 'custom' ? res.data.schedule_expression : '',
-      });
-      setIsCronUnavailable(false);
-    } catch {
-      setIsCronUnavailable(true);
-    }
-  }, [user?.is_admin]);
-
-  const handleSaveCron = async (patch: {
-    enabled?: boolean;
-    preset?: string;
-    customExpression?: string;
-  }) => {
-    setIsSavingCron(true);
-    setCronSaveError(null);
-    try {
-      const body: CrawlerCronUpdate = {};
-      if (patch.enabled !== undefined) body.enabled = patch.enabled;
-      if (patch.preset && patch.preset !== 'custom') {
-        body.preset = patch.preset as 'monthly' | 'weekly' | 'daily';
-      } else if (patch.customExpression) {
-        body.schedule_expression = patch.customExpression;
+  const presetForExpression = useCallback(
+    (expression: string, presets: Record<string, string>): string => {
+      for (const [name, expr] of Object.entries(presets)) {
+        if (expr === expression) return name;
       }
-      const res = await adminApi.updateCrawlerCron(body);
-      setCronStatus(res.data);
-      setCronDraft({
-        preset: res.data.preset === 'custom' ? 'custom' : res.data.preset,
-        customExpression:
-          res.data.preset === 'custom' ? res.data.schedule_expression : '',
-      });
+      return 'custom';
+    },
+    []
+  );
+
+  const fetchAdapterSchedules = useCallback(async () => {
+    if (!user?.is_admin) return;
+    setIsLoadingSchedules(true);
+    try {
+      const res = await adminApi.listAdapterSchedules();
+      setAdapterSchedules(res.data.items);
+      setSchedulePresets(res.data.presets);
+      setScheduleDrafts(
+        Object.fromEntries(
+          res.data.items.map((row) => {
+            const preset = presetForExpression(
+              row.schedule_expression,
+              res.data.presets
+            );
+            return [
+              row.adapter_name,
+              {
+                preset,
+                customExpression:
+                  preset === 'custom' ? row.schedule_expression : '',
+              },
+            ];
+          })
+        )
+      );
+      setIsSchedulesUnavailable(false);
+    } catch {
+      setIsSchedulesUnavailable(true);
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  }, [user?.is_admin, presetForExpression]);
+
+  const mergeScheduleRow = (row: AdapterSchedule) => {
+    setAdapterSchedules((prev) =>
+      prev.map((r) => (r.adapter_name === row.adapter_name ? row : r))
+    );
+    setScheduleDrafts((prev) => {
+      const preset = presetForExpression(
+        row.schedule_expression,
+        schedulePresets
+      );
+      return {
+        ...prev,
+        [row.adapter_name]: {
+          preset,
+          customExpression: preset === 'custom' ? row.schedule_expression : '',
+        },
+      };
+    });
+  };
+
+  const handleSaveSchedule = async (
+    adapterName: string,
+    patch: AdapterScheduleUpdate
+  ) => {
+    setSavingAdapter(adapterName);
+    setScheduleSaveError(null);
+    try {
+      const res = await adminApi.updateAdapterSchedule(adapterName, patch);
+      mergeScheduleRow(res.data);
     } catch (e) {
-      setCronSaveError(
-        e instanceof Error ? e.message : 'Failed to update schedule.'
+      setScheduleSaveError(
+        e instanceof Error
+          ? `${adapterName}: ${e.message}`
+          : `${adapterName}: failed to update schedule.`
       );
     } finally {
-      setIsSavingCron(false);
+      setSavingAdapter(null);
+    }
+  };
+
+  const handleReconcileAll = async () => {
+    setIsReconcilingAll(true);
+    setScheduleSaveError(null);
+    try {
+      await adminApi.reconcileAdapterSchedules();
+      await fetchAdapterSchedules();
+    } catch (e) {
+      setScheduleSaveError(
+        e instanceof Error ? e.message : 'Failed to reconcile schedules.'
+      );
+    } finally {
+      setIsReconcilingAll(false);
     }
   };
 
   useEffect(() => {
     void fetchCrawlers();
     void fetchJobs();
-    void fetchCronStatus();
-  }, [fetchCrawlers, fetchJobs, fetchCronStatus]);
+    void fetchAdapterSchedules();
+  }, [fetchCrawlers, fetchJobs, fetchAdapterSchedules]);
 
   // Poll jobs every 5 s while any job is running
   useEffect(() => {
@@ -896,160 +954,359 @@ function CrawlerAdmin() {
 
         {/* Right column: Schedule + Jobs */}
         <div className="flex flex-col gap-4 mt-4 xl:mt-0">
-          {/* Crawler Schedule */}
+          {/* Per-Adapter Crawler Schedules */}
           <Card>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-white">
-                Crawler Schedule
-              </h2>
-              <p className="text-sm text-gray-400 mt-0.5">
-                Monthly automated run of all crawler adapters via EventBridge
-                Scheduler. Changes take effect immediately — no deploy needed.
-              </p>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  Adapter Schedules
+                </h2>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  One EventBridge schedule per adapter. Each row stores its own
+                  cadence, per-page delay, and per-run limit — tune these to
+                  stay unbanned. Saves reconcile to AWS immediately.
+                </p>
+              </div>
+              <ActionButton
+                onClick={() => void handleReconcileAll()}
+                disabled={
+                  isReconcilingAll ||
+                  isLoadingSchedules ||
+                  isSchedulesUnavailable
+                }
+                className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 px-3 shrink-0"
+              >
+                {isReconcilingAll ? 'Reconciling…' : 'Reconcile all'}
+              </ActionButton>
             </div>
 
-            {isCronUnavailable && (
+            {isSchedulesUnavailable && (
               <div className="flex items-start gap-2 p-3 mb-4 rounded-lg border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-sm">
                 <span className="mt-0.5 shrink-0">⚠</span>
                 <span>
-                  Schedule unavailable — could not connect to EventBridge. This
-                  feature requires AWS infrastructure that may not be configured
-                  in this environment.
+                  Schedules unavailable — could not load from the backend. This
+                  feature requires AWS EventBridge plumbing that may not be
+                  configured in this environment.
                 </span>
               </div>
             )}
 
-            {!isCronUnavailable && cronStatus === null ? (
+            {scheduleSaveError && (
+              <div className="mb-4">
+                <ErrorAlert message={scheduleSaveError} />
+              </div>
+            )}
+
+            {isLoadingSchedules && adapterSchedules.length === 0 ? (
               <div className="flex justify-center py-6">
                 <LoadingSpinner size="sm" />
               </div>
-            ) : !isCronUnavailable && cronStatus !== null ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-700 bg-gray-900/40">
-                  <div>
-                    <p className="text-sm font-medium text-gray-200">
-                      Scheduled runs
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {cronStatus.enabled
-                        ? `Active — ${cronStatus.schedule_expression}`
-                        : 'Disabled — no automatic runs'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      void handleSaveCron({ enabled: !cronStatus.enabled })
-                    }
-                    disabled={isSavingCron}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                      cronStatus.enabled ? 'bg-emerald-600' : 'bg-gray-600'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
-                        cronStatus.enabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/40 space-y-3">
-                  <p className="text-sm font-medium text-gray-200">
-                    Run interval
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {(['monthly', 'weekly', 'daily'] as const).map((p) => (
-                      <button
-                        key={p}
-                        onClick={() =>
-                          setCronDraft((d) => ({
-                            ...d,
-                            preset: p,
-                            customExpression: '',
-                          }))
-                        }
-                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                          cronDraft.preset === p
-                            ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                        }`}
-                      >
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() =>
-                        setCronDraft((d) => ({
-                          ...d,
-                          preset: 'custom',
-                          customExpression:
-                            d.customExpression ||
-                            cronStatus.schedule_expression,
-                        }))
-                      }
-                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                        cronDraft.preset === 'custom'
-                          ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                          : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                      }`}
+            ) : adapterSchedules.length === 0 ? (
+              <p className="text-sm text-gray-500 py-3">
+                No adapters registered yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {adapterSchedules.map((row) => {
+                  const draft = scheduleDrafts[row.adapter_name] ?? {
+                    preset: presetForExpression(
+                      row.schedule_expression,
+                      schedulePresets
+                    ),
+                    customExpression: '',
+                  };
+                  const isSaving = savingAdapter === row.adapter_name;
+                  const reconcileFailed = !!row.last_reconcile_error;
+                  return (
+                    <div
+                      key={row.id}
+                      className="p-3 rounded-lg border border-gray-700 bg-gray-900/40"
                     >
-                      Custom
-                    </button>
-                  </div>
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-100 font-mono truncate">
+                            {row.adapter_name}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {row.enabled ? (
+                              <span className="text-emerald-400">Enabled</span>
+                            ) : (
+                              <span>Disabled</span>
+                            )}
+                            {' · '}
+                            <span className="font-mono">
+                              {row.schedule_expression}
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            void handleSaveSchedule(row.adapter_name, {
+                              enabled: !row.enabled,
+                            })
+                          }
+                          disabled={isSaving}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                            row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                              row.enabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                  {cronDraft.preset === 'custom' && (
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        value={cronDraft.customExpression}
-                        onChange={(e) =>
-                          setCronDraft((d) => ({
-                            ...d,
-                            customExpression: e.target.value,
-                          }))
-                        }
-                        placeholder="cron(0 2 1 * ? *)"
-                        className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                      />
+                      <div className="space-y-3">
+                        {/* Interval pills */}
+                        <div>
+                          <p className="text-xs font-medium text-gray-400 mb-1.5">
+                            Interval
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(['monthly', 'weekly', 'daily'] as const).map(
+                              (p) => (
+                                <button
+                                  key={p}
+                                  onClick={() =>
+                                    setScheduleDrafts((prev) => ({
+                                      ...prev,
+                                      [row.adapter_name]: {
+                                        preset: p,
+                                        customExpression: '',
+                                      },
+                                    }))
+                                  }
+                                  className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
+                                    draft.preset === p
+                                      ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                                      : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                                </button>
+                              )
+                            )}
+                            <button
+                              onClick={() =>
+                                setScheduleDrafts((prev) => ({
+                                  ...prev,
+                                  [row.adapter_name]: {
+                                    preset: 'custom',
+                                    customExpression:
+                                      draft.customExpression ||
+                                      row.schedule_expression,
+                                  },
+                                }))
+                              }
+                              className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
+                                draft.preset === 'custom'
+                                  ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                                  : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                              }`}
+                            >
+                              Custom
+                            </button>
+                          </div>
+                          {draft.preset === 'custom' && (
+                            <input
+                              type="text"
+                              value={draft.customExpression}
+                              onChange={(e) =>
+                                setScheduleDrafts((prev) => ({
+                                  ...prev,
+                                  [row.adapter_name]: {
+                                    ...draft,
+                                    customExpression: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="cron(0 2 1 * ? *)"
+                              className="mt-1.5 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                            />
+                          )}
+                          {draft.preset !== 'custom' &&
+                            schedulePresets[draft.preset] && (
+                              <p className="text-xs text-gray-500 font-mono mt-1">
+                                {schedulePresets[draft.preset]}
+                              </p>
+                            )}
+                        </div>
+
+                        {/* Delay + limit + skip + category */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              htmlFor={`delay-${row.adapter_name}`}
+                              className="block text-xs font-medium text-gray-400 mb-1"
+                            >
+                              Delay (s)
+                            </label>
+                            <select
+                              id={`delay-${row.adapter_name}`}
+                              value={String(row.delay_sec)}
+                              onChange={(e) =>
+                                void handleSaveSchedule(row.adapter_name, {
+                                  delay_sec: Number(e.target.value),
+                                })
+                              }
+                              disabled={isSaving}
+                              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                            >
+                              {[2.5, 5, 10, 15, 30].map((v) => (
+                                <option key={v} value={String(v)}>
+                                  {v}s
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label
+                              htmlFor={`limit-${row.adapter_name}`}
+                              className="block text-xs font-medium text-gray-400 mb-1"
+                            >
+                              Per-run limit
+                            </label>
+                            <Input
+                              id={`limit-${row.adapter_name}`}
+                              type="number"
+                              min="1"
+                              value={
+                                row.per_run_limit == null
+                                  ? ''
+                                  : String(row.per_run_limit)
+                              }
+                              placeholder="Unlimited"
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                if (raw === '') {
+                                  if (row.per_run_limit != null) {
+                                    void handleSaveSchedule(row.adapter_name, {
+                                      clear_per_run_limit: true,
+                                    });
+                                  }
+                                } else {
+                                  const n = Number(raw);
+                                  if (
+                                    Number.isFinite(n) &&
+                                    n >= 1 &&
+                                    n !== row.per_run_limit
+                                  ) {
+                                    void handleSaveSchedule(row.adapter_name, {
+                                      per_run_limit: n,
+                                    });
+                                  }
+                                }
+                              }}
+                              disabled={isSaving}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+                            <input
+                              type="checkbox"
+                              checked={row.skip_known_urls}
+                              onChange={(e) =>
+                                void handleSaveSchedule(row.adapter_name, {
+                                  skip_known_urls: e.target.checked,
+                                })
+                              }
+                              disabled={isSaving}
+                              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                            />
+                            Skip URLs already archived as parsed
+                          </label>
+
+                          <div>
+                            <label
+                              htmlFor={`cat-${row.adapter_name}`}
+                              className="block text-xs font-medium text-gray-400 mb-1"
+                            >
+                              Default category (new parts)
+                            </label>
+                            <select
+                              id={`cat-${row.adapter_name}`}
+                              value={row.default_category_id}
+                              onChange={(e) =>
+                                void handleSaveSchedule(row.adapter_name, {
+                                  default_category_id: e.target.value,
+                                })
+                              }
+                              disabled={
+                                isSaving || crawlerCategories.length === 0
+                              }
+                              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                            >
+                              {crawlerCategories.map((c) => (
+                                <option key={c.id} value={String(c.id)}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Save interval row */}
+                        {draft.preset === 'custom' ||
+                        presetForExpression(
+                          row.schedule_expression,
+                          schedulePresets
+                        ) !== draft.preset ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <ActionButton
+                              onClick={() =>
+                                void handleSaveSchedule(row.adapter_name, {
+                                  preset:
+                                    draft.preset === 'custom'
+                                      ? undefined
+                                      : (draft.preset as
+                                          | 'monthly'
+                                          | 'weekly'
+                                          | 'daily'),
+                                  schedule_expression:
+                                    draft.preset === 'custom'
+                                      ? draft.customExpression
+                                      : undefined,
+                                })
+                              }
+                              disabled={
+                                isSaving ||
+                                (draft.preset === 'custom' &&
+                                  !draft.customExpression.trim())
+                              }
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
+                            >
+                              {isSaving ? 'Saving…' : 'Save interval'}
+                            </ActionButton>
+                          </div>
+                        ) : null}
+
+                        {/* Reconcile status */}
+                        <div className="text-xs text-gray-500 pt-1 border-t border-gray-700/50">
+                          {reconcileFailed ? (
+                            <span className="text-red-400">
+                              Last reconcile failed: {row.last_reconcile_error}
+                            </span>
+                          ) : row.last_reconciled_at ? (
+                            <span>
+                              Last reconciled{' '}
+                              {parseServerDate(
+                                row.last_reconciled_at
+                              ).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span>Not yet reconciled to AWS.</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
-
-                  {cronDraft.preset !== 'custom' &&
-                    cronStatus.presets[cronDraft.preset] && (
-                      <p className="text-xs text-gray-500 font-mono">
-                        {cronStatus.presets[cronDraft.preset]}
-                      </p>
-                    )}
-
-                  <div className="flex items-center gap-3 pt-1">
-                    <ActionButton
-                      onClick={() =>
-                        void handleSaveCron({
-                          preset: cronDraft.preset,
-                          customExpression: cronDraft.customExpression,
-                        })
-                      }
-                      disabled={
-                        isSavingCron ||
-                        (cronDraft.preset === 'custom' &&
-                          !cronDraft.customExpression.trim())
-                      }
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
-                    >
-                      {isSavingCron ? 'Saving…' : 'Save interval'}
-                    </ActionButton>
-                    {cronStatus.preset !== 'custom' &&
-                      cronDraft.preset === cronStatus.preset && (
-                        <span className="text-xs text-gray-500">
-                          Current: {cronStatus.preset}
-                        </span>
-                      )}
-                  </div>
-                </div>
-
-                {cronSaveError && <ErrorAlert message={cronSaveError} />}
+                  );
+                })}
               </div>
-            ) : null}
+            )}
           </Card>
 
           {/* Background Jobs */}

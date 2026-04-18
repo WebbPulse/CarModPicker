@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
+    adapter_schedules,
     admin,
     auth,
     bug_reports,
@@ -30,6 +31,7 @@ from .api.middleware import crawl_upload_content_length_middleware, rate_limit_m
 from .api.middleware.error_handler import register_error_handlers
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.init_adapter_schedules import init_adapter_schedules
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
@@ -65,6 +67,10 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
         init_crawler_service_account(db)
     except Exception:
         logger.exception("Failed to initialize service accounts on startup")
+    try:
+        init_adapter_schedules(db)
+    except Exception:
+        logger.exception("Failed to initialize adapter schedules on startup")
     finally:
         db.close()
     yield
@@ -236,6 +242,14 @@ endpoint_registry.register_endpoint(
     prefix="/admin",
     tags=["admin"],
     description="Admin-only system management operations",
+)
+
+# Per-adapter crawler schedule management
+endpoint_registry.register_endpoint(
+    adapter_schedules.router,
+    prefix="/admin/adapter-schedules",
+    tags=["admin"],
+    description="Per-adapter crawler schedule management (DB-backed, reconciled to EventBridge)",
 )
 
 
