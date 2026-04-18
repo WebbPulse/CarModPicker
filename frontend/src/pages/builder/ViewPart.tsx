@@ -450,7 +450,7 @@ function ViewPart() {
             </CardInfoItem>
           )}
           {part_manufacturer && (
-            <CardInfoItem label="PartManufacturer:">
+            <CardInfoItem label="Part Manufacturer:">
               <Link
                 to={`/parts?mode=part_manufacturer&part_manufacturer_id=${part_manufacturer.id}`}
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
@@ -525,6 +525,11 @@ function ViewPart() {
             ) : (
               <p className="text-gray-500 italic">Not linked to any car yet.</p>
             )}
+            <p className="mt-2 text-xs text-amber-300/90">
+              Fitment info is community-sourced and may be incomplete or
+              inaccurate. Always verify compatibility with the manufacturer or a
+              trusted shop before purchasing.
+            </p>
           </CardInfoItem>
           <CardInfoItem label="Created:">
             <p>{new Date(part.created_at).toLocaleDateString()}</p>
@@ -660,7 +665,7 @@ function ViewPart() {
         )}
         {part_manufacturerApiError && (
           <ErrorAlert
-            message={`Error loading part_manufacturer information: ${part_manufacturerApiError}`}
+            message={`Error loading part manufacturer information: ${part_manufacturerApiError}`}
           />
         )}
       </Card>

@@ -306,7 +306,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
     }
 
     if (!formData.part_manufacturer_id && !pendingPartManufacturerName) {
-      setValidationError('PartManufacturer is required');
+      setValidationError('Part manufacturer is required');
       return;
     }
 
@@ -324,7 +324,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
           await fetchPartManufacturers();
         } else {
           setValidationError(
-            'Failed to create part_manufacturer. Please try again.'
+            'Failed to create part manufacturer. Please try again.'
           );
           return;
         }
@@ -332,7 +332,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
         setValidationError(
           error instanceof Error
             ? error.message
-            : 'Failed to create part_manufacturer. Please try again.'
+            : 'Failed to create part manufacturer. Please try again.'
         );
         return;
       }
@@ -438,7 +438,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
         <SearchableSelect
           id="global-part-part_manufacturer"
           name="part_manufacturer_id"
-          label="PartManufacturer *"
+          label="Part Manufacturer *"
           placeholder="Type to search for a part manufacturer or create new..."
           value={formData.part_manufacturer_id}
           onChange={handlePartManufacturerChange}
@@ -469,7 +469,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
                 />
               </svg>
               <span>
-                New part_manufacturer{' '}
+                New part manufacturer{' '}
                 <strong>&quot;{pendingPartManufacturerName}&quot;</strong> will
                 be created when you submit this form.
               </span>

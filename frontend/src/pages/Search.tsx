@@ -500,7 +500,7 @@ function Search() {
               Enter a search term to find build lists, users, and parts
             </p>
             <p className="text-gray-500">
-              Search across names, descriptions, part_manufacturers, and more
+              Search across names, descriptions, part manufacturers, and more
             </p>
           </div>
         </Card>

@@ -476,7 +476,7 @@ function SystemAdmin() {
           <details className="group border border-red-800/50 rounded-lg overflow-hidden">
             <summary className="cursor-pointer list-none px-3 py-2 bg-red-900/20 hover:bg-red-900/30 transition-colors flex items-center justify-between text-sm">
               <span className="font-semibold text-red-400">
-                Deletion options (cars, global parts, part_manufacturers,
+                Deletion options (cars, global parts, part manufacturers,
                 bucket)
               </span>
               <span className="text-red-400/80 group-open:rotate-180 transition-transform inline-block">
@@ -541,7 +541,7 @@ function SystemAdmin() {
                   Permanently remove every global part from the catalog (also
                   removes their part listings, votes, reports, and build list
                   part associations). Or remove only part manufacturers (parts
-                  keep their data; part_manufacturer references are cleared).
+                  keep their data; part manufacturer references are cleared).
                   These actions cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">

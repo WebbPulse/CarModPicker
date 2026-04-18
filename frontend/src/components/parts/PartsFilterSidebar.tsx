@@ -197,7 +197,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
 
           {/* PartManufacturer Filter */}
           <div>
-            <h3 className={sectionTitleClass}>Part PartManufacturer</h3>
+            <h3 className={sectionTitleClass}>Part Manufacturer</h3>
             <div className="space-y-2">
               <input
                 type="text"
@@ -212,7 +212,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                   onClick={() => setSelectedPartManufacturerIds([])}
                   className={clearButtonClass}
                 >
-                  Clear part_manufacturers
+                  Clear part manufacturers
                 </button>
               )}
               {availablePartManufacturers

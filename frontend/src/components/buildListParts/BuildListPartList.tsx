@@ -199,7 +199,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
               )}
               {visibleColumns.includes('part_manufacturer') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  PartManufacturer
+                  Part Manufacturer
                 </th>
               )}
               {visibleColumns.includes('part_number') && (

@@ -293,7 +293,7 @@ function AdminDashboard() {
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
         fetchCount(
           () => partManufacturersApi.countPartManufacturers(),
-          'part_manufacturers'
+          'part manufacturers'
         ),
         fetchCount(() => retailersApi.countRetailers(), 'retailers'),
         fetchBucketEntitySummary(),
