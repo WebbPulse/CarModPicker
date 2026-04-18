@@ -62,8 +62,8 @@ from app.api.models.car_generation import CarGeneration  # pyright: ignore[repor
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
 from app.api.models.car_make import CarMake  # pyright: ignore[reportMissingImports]
-from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
-    GlobalPart,
+from app.api.models.part import (  # pyright: ignore[reportMissingImports]
+    Part,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.part_listing import (
     PartListing,
@@ -353,15 +353,15 @@ def create_sample_categories(db: Session) -> list[Category]:
     return categories
 
 
-def create_sample_cars(db: Session) -> list[Car]:
+def create_sample_cars(db: Session) -> list[CarGeneration]:
     """Create sample centrally managed car generations using the canonical data source.
-    Uses Make and CarModel entities; same logic as init_car_generations.
+    Uses CarMake and CarModel entities; same logic as init_car_generations.
     """
     start_time = time.time()
     log_section("Creating sample car generations...")
 
     cars_data = get_all_car_generations()
-    cars: list[Car] = []
+    cars: list[CarGeneration] = []
     created_count = 0
     skipped_count = 0
 
@@ -369,10 +369,10 @@ def create_sample_cars(db: Session) -> list[Car]:
         make_name = car_data["make"]
         model_name = car_data["model"]
 
-        # Get or create Make
-        make_entity = db.query(Make).filter(Make.name == make_name).first()
+        # Get or create CarMake
+        make_entity = db.query(CarMake).filter(CarMake.name == make_name).first()
         if make_entity is None:
-            make_entity = Make(name=make_name)
+            make_entity = CarMake(name=make_name)
             db.add(make_entity)
             db.flush()
 
@@ -389,10 +389,10 @@ def create_sample_cars(db: Session) -> list[Car]:
 
         # Check if car generation already exists
         existing = (
-            db.query(Car)
+            db.query(CarGeneration)
             .filter(
-                Car.car_model_id == car_model_entity.id,
-                Car.generation_name == car_data["generation_name"],
+                CarGeneration.car_model_id == car_model_entity.id,
+                CarGeneration.generation_name == car_data["generation_name"],
             )
             .first()
         )
@@ -400,7 +400,7 @@ def create_sample_cars(db: Session) -> list[Car]:
             cars.append(existing)
             skipped_count += 1
         else:
-            car = Car(
+            car = CarGeneration(
                 car_model_id=car_model_entity.id,
                 generation_name=car_data["generation_name"],
                 start_year=car_data["start_year"],
@@ -486,7 +486,7 @@ def _ensure_sample_retailers(db: Session) -> list[Retailer]:
 
 def create_sample_global_parts(
     db: Session, users: list[User], categories: list[Category]
-) -> list[GlobalPart]:
+) -> list[Part]:
     """Create sample global parts (refactored: part_manufacturer_id, no price; prices via PartListing)."""
     start_time = time.time()
     log_section("Creating sample global parts...")
@@ -886,7 +886,7 @@ def create_sample_global_parts(
     log_info(f"Processing {total:,} global parts in batches of {batch_size}...")
 
     for i, part_data in enumerate(parts_data):
-        part = GlobalPart(**part_data)
+        part = Part(**part_data)
         db.add(part)
         parts.append(part)
 
@@ -957,7 +957,7 @@ def create_sample_global_parts(
 
 
 def create_sample_build_lists(
-    db: Session, users: list[User], cars: list[Car]
+    db: Session, users: list[User], cars: list[CarGeneration]
 ) -> list[BuildList]:
     """Create sample build lists."""
     start_time = time.time()
@@ -967,9 +967,9 @@ def create_sample_build_lists(
     # Helper to find a car by make and model
     def find_car(
         make: str, model: str, generation_name: str | None = None
-    ) -> Car | None:
+    ) -> CarGeneration | None:
         for car in cars:
-            if car.car_make_name == make and car.model == model:
+            if car.car_make_name == make and car.car_model_name == model:
                 if generation_name is None or car.generation_name == generation_name:
                     return car
         return cars[0] if cars else None  # Fallback to first car
@@ -1111,7 +1111,7 @@ def create_sample_build_lists(
 def create_sample_build_list_parts(
     db: Session,
     build_lists: list[BuildList],
-    global_parts: list[GlobalPart],
+    global_parts: list[Part],
     users: list[User],
 ) -> list[BuildListPart]:
     """Create sample build list parts."""
@@ -1296,8 +1296,8 @@ def create_sample_build_list_parts(
 def create_admin_build_lists(
     db: Session,
     users: list[User],
-    cars: list[Car],
-    global_parts: list[GlobalPart],
+    cars: list[CarGeneration],
+    global_parts: list[Part],
     num_build_lists: int = 100,
     parts_per_regular_list: int = 5,
     parts_per_large_list: int = 200,
@@ -1305,7 +1305,7 @@ def create_admin_build_lists(
     target_car_make: str | None = None,
     target_car_model: str | None = None,
     target_car_generation: str | None = None,
-) -> tuple[list[BuildList], BuildList, Car | None]:
+) -> tuple[list[BuildList], BuildList, CarGeneration | None]:
     """
     Create many build lists for the admin user, with one build list having many parts.
     Also creates many build lists for a specific car generation.
@@ -1671,9 +1671,9 @@ def create_admin_build_lists(
 def create_sample_votes(
     db: Session,
     users: list[User],
-    cars: Optional[list[Car]],
+    cars: Optional[list[CarGeneration]],
     build_lists: Optional[list[BuildList]],
-    global_parts: list[GlobalPart],
+    global_parts: list[Part],
 ) -> list[Vote]:
     """Create sample votes."""
     start_time = time.time()
@@ -1867,7 +1867,7 @@ def create_sample_votes(
 
 
 def create_sample_reports(
-    db: Session, users: list[User], global_parts: list[GlobalPart]
+    db: Session, users: list[User], global_parts: list[Part]
 ) -> list[Report]:
     """Create sample reports."""
     start_time = time.time()
@@ -2118,10 +2118,10 @@ def check_section_complete(db: Session, section_name: str, min_count: int) -> bo
             count = db.query(Category).count()
             return count >= min_count
         elif section_name == "cars":
-            count = db.query(Car).count()
+            count = db.query(CarGeneration).count()
             return count >= min_count
         elif section_name == "global_parts":
-            count = db.query(GlobalPart).count()
+            count = db.query(Part).count()
             return count >= min_count
         elif section_name == "build_lists":
             count = db.query(BuildList).count()
@@ -2240,13 +2240,13 @@ def main() -> None:
                     "No users found. Please run the main script first to create users."
                 )
 
-            cars = db.query(Car).all()
+            cars = db.query(CarGeneration).all()
             if not cars:
                 raise ValueError(
                     "No cars found. Please run the main script first to create cars."
                 )
 
-            global_parts = db.query(GlobalPart).all()
+            global_parts = db.query(Part).all()
             if not global_parts:
                 raise ValueError(
                     "No global parts found. Please run the main script first to create global parts."
@@ -2286,9 +2286,9 @@ def main() -> None:
                 log_info(f"\n{'='*60}")
                 log_info("IMPORTANT: Target car generation with many build lists")
                 log_info(f"{'='*60}")
-                log_info(f"  Car Make: {target_car.car_make_name}")
-                log_info(f"  Car Model: {target_car.car_model_name}")
-                log_info(f"  Car Generation: {target_car.generation_name or 'N/A'}")
+                log_info(f"  Make: {target_car.car_make_name}")
+                log_info(f"  Model: {target_car.car_model_name}")
+                log_info(f"  Generation: {target_car.generation_name or 'N/A'}")
                 log_info(f"  Car ID: {target_car.id}")
                 log_info(f"  Build Lists Count: {len(target_car_build_lists):,}")
                 log_info(f"  User: admin")
@@ -2338,7 +2338,7 @@ def main() -> None:
             cars = create_sample_cars(db)
         else:
             log_section("Skipping cars (already complete or skipped)")
-            cars = db.query(Car).all()
+            cars = db.query(CarGeneration).all()
 
         # Global Parts
         if "global_parts" not in skip_list and not (
@@ -2347,7 +2347,7 @@ def main() -> None:
             global_parts = create_sample_global_parts(db, users, categories)
         else:
             log_section("Skipping global_parts (already complete or skipped)")
-            global_parts = db.query(GlobalPart).all()
+            global_parts = db.query(Part).all()
 
         # Build lists require a car_id (now mandatory)
         if "build_lists" not in skip_list and not (
