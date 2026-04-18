@@ -10,11 +10,11 @@ A Chrome extension that allows you to quickly scrape part information from web p
   - Description
   - Price
   - Image URL
-  - Brand (part manufacturer)
+  - PartManufacturer (part manufacturer)
   - Part number/SKU
   - Product URL
 - **Easy Part Creation**: Review and edit scraped data before creating parts
-- **Brand Selection**: Search and select from existing brands or create new ones
+- **PartManufacturer Selection**: Search and select from existing part_manufacturers or create new ones
 - **Retailer & Price History**: Automatically gets or creates retailers by domain, so PartListing and PartPriceHistory are always created when scraping—enabling price history and best-retailer features
 - **Re-scrape for Price Updates**: When you scrape a product URL that already exists in the catalog, the extension shows a read-only view and lets you record the current price (adds to price history) without editing the part
 - **Category Selection**: Choose from available categories

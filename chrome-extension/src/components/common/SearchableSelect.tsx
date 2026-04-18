@@ -24,7 +24,7 @@ interface SearchableSelectProps {
   /** When provided, show "Create X" option when no matches. Called when user selects it. */
   onCreateNew?: (searchText: string) => void | Promise<void>;
   createNewLabel?: string;
-  /** Display text when value is null (e.g. pending brand creation) */
+  /** Display text when value is null (e.g. pending part_manufacturer creation) */
   displayValue?: string | null;
 }
 
