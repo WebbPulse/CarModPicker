@@ -66,64 +66,35 @@ export interface AdminUserUpdate {
   subscription_expires_at?: string | null;
 }
 
-export interface CarCreate {
-  make: string;
-  model: string;
-  generation_name: string;
-  start_year: number;
-  end_year: number;
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-export interface CarRead {
-  id: string;
-  make: string;
-  model: string;
-  generation_name: string;
-  start_year: number;
-  end_year?: number | null; // null for current/ongoing generations
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-export interface CarUpdate {
-  make?: string | null;
-  model?: string | null;
-  generation_name?: string | null;
-  start_year?: number | null;
-  end_year?: number | null;
-  description?: string | null;
-  image_urls?: string[] | null;
-}
-
-// Car Generation interfaces
 export interface CarGenerationCreate {
-  make: string;
-  model: string;
+  car_make_name: string;
+  car_model_name: string;
   generation_name: string;
   start_year: number;
   end_year: number;
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarGenerationRead {
   id: string;
-  make: string;
-  model: string;
+  car_make_name: string;
+  car_model_name: string;
   generation_name: string;
   start_year: number;
   end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface CarGenerationUpdate {
-  make?: string | null;
-  model?: string | null;
+  car_make_name?: string | null;
+  car_model_name?: string | null;
   generation_name?: string | null;
   start_year?: number | null;
   end_year?: number | null;
   description?: string | null;
+  image_urls?: string[] | null;
 }
 
 export interface BuildListCreate {
@@ -200,7 +171,7 @@ export interface BuildLogReadPaginated {
 }
 
 // Updated Part interfaces to match new backend schema
-export interface GlobalPartCreate {
+export interface PartCreate {
   name: string;
   description?: string | null;
   image_urls?: string[] | null;
@@ -208,14 +179,14 @@ export interface GlobalPartCreate {
   category_id: string;
   car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean; // When true, part fits all cars
-  brand_id: string; // Required brand association
+  part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   retailer_id?: string | null;
   price_cents?: number | null; // Price for this retailer (creates/updates listing)
 }
 
-export interface GlobalPartRead {
+export interface PartRead {
   id: string;
   name: string;
   description?: string | null;
@@ -225,8 +196,8 @@ export interface GlobalPartRead {
   user_id: string;
   car_ids: string[]; // Car IDs this part is associated with
   is_universal: boolean; // When true, part fits all cars
-  brand_id?: string | null; // Optional brand association
-  brand?: string | null;
+  part_manufacturer_id?: string | null; // Optional part_manufacturer association
+  part_manufacturer?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
   is_verified: boolean;
@@ -236,7 +207,7 @@ export interface GlobalPartRead {
   updated_at: string;
 }
 
-export interface GlobalPartReadWithVotes extends GlobalPartRead {
+export interface PartReadWithVotes extends PartRead {
   upvotes: number;
   downvotes: number;
   total_votes: number;
@@ -257,7 +228,7 @@ export interface RetailerRead {
 /** Part listing at a retailer with current price */
 export interface PartListingReadWithRetailer {
   id: string;
-  global_part_id: string;
+  part_id: string;
   retailer_id: string;
   product_url?: string | null;
   last_known_price_cents?: number | null;
@@ -291,14 +262,14 @@ export interface PaginatedResponse<T> {
   pagination: PaginationInfo;
 }
 
-export interface GlobalPartUpdate {
+export interface PartUpdate {
   name?: string | null;
   description?: string | null;
   image_urls?: string[] | null;
   category_id?: string | null;
   car_ids?: string[] | null; // Car IDs this part fits; ignored when is_universal
   is_universal?: boolean | null;
-  brand_id: string; // Required brand association
+  part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
 }
@@ -334,8 +305,8 @@ export interface CategoryUpdate {
   sort_order?: number | null;
 }
 
-// Brand interfaces
-export interface BrandResponse {
+// PartManufacturer interfaces
+export interface PartManufacturerResponse {
   id: string;
   name: string;
   description?: string | null;
@@ -344,13 +315,13 @@ export interface BrandResponse {
   updated_at: string;
 }
 
-export interface BrandCreate {
+export interface PartManufacturerCreate {
   name: string;
   description?: string | null;
   is_active?: boolean;
 }
 
-export interface BrandUpdate {
+export interface PartManufacturerUpdate {
   name?: string | null;
   description?: string | null;
   is_active?: boolean | null;
@@ -359,7 +330,7 @@ export interface BrandUpdate {
 // Unified voting system interfaces
 export interface VoteCreate {
   vote_type: 'upvote' | 'downvote';
-  entity_type: 'car' | 'build_list' | 'global_part';
+  entity_type: 'car_generation' | 'build_list' | 'part';
   entity_id: string;
 }
 
@@ -501,7 +472,7 @@ export interface BuildListPhaseUpdate {
 
 // Build list part relationship
 export interface BuildListPartCreate {
-  global_part_id?: string | null;
+  part_id?: string | null;
   quantity?: number;
   notes?: string | null;
   build_list_phase_id?: string | null;
@@ -510,7 +481,7 @@ export interface BuildListPartCreate {
 export interface BuildListPartRead {
   id: string;
   build_list_id: string;
-  global_part_id: string;
+  part_id: string;
   added_by: string;
   quantity: number;
   notes?: string | null;
@@ -519,9 +490,9 @@ export interface BuildListPartRead {
   build_list_phase_id?: string | null;
 }
 
-export interface BuildListPartReadWithGlobalPart extends BuildListPartRead {
+export interface BuildListPartReadWithPart extends BuildListPartRead {
   phase_name?: string | null;
-  global_part: GlobalPartRead;
+  part: PartRead;
 }
 
 export interface BuildListPartUpdate {

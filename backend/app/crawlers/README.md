@@ -2,7 +2,7 @@
 
 Per-retailer crawlers for scraping part information at scale. Run from the **backend** directory.
 
-**Brands are central:** All crawlers and the chrome extension use the same database. `get_or_create_brand_by_name` ensures a brand is only defined once; you define or edit brands in the app and they apply everywhere.
+**PartManufacturers are central:** All crawlers and the chrome extension use the same database. `get_or_create_part_manufacturer_by_name` ensures a part_manufacturer is only defined once; you define or edit part_manufacturers in the app and they apply everywhere.
 
 ## Run
 
@@ -62,4 +62,4 @@ Files are stored as `CRAWL_HTML_SAVE_DIR/<adapter>/<url_hash>.html` with a sidec
    - `parse_product_page(html, url)` – return a `ScrapedPayload` or `None`.
 3. Register in `adapters/__init__.py`: add to `ADAPTER_REGISTRY` and optionally `get_adapter` choices.
 
-See `adapters/a90shop.py` and `adapters/studiorsr.py` for examples; `parsing.py` for shared helpers (JSON-LD, meta_content, extract_dom_price, brand_from_title); and `base.py` for the `ScrapedPayload` contract.
+See `adapters/a90shop.py` and `adapters/studiorsr.py` for examples; `parsing.py` for shared helpers (JSON-LD, meta_content, extract_dom_price, part_manufacturer_from_title); and `base.py` for the `ScrapedPayload` contract.

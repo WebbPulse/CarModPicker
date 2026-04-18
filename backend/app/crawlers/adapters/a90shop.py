@@ -25,15 +25,15 @@ from app.crawlers.base import (
     fetch_page,
 )
 from app.crawlers.parsing import (
-    brand_fallback_from_title,
-    brand_from_description,
-    brand_from_title,
     extract_dom_price,
     extract_json_ld_product,
     extract_part_number_candidate_from_title,
     extract_sku_from_text,
     meta_content,
     normalize_part_number,
+    part_manufacturer_fallback_from_title,
+    part_manufacturer_from_description,
+    part_manufacturer_from_title,
     scraped_payload_from_json_ld,
 )
 
@@ -302,7 +302,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
                         product_url=payload.product_url,
                         description=payload.description,
                         price_cents=price_cents,
-                        brand=payload.brand,
+                        part_manufacturer=payload.part_manufacturer,
                         part_number=payload.part_number,
                         image_urls=dom_images[:12] if dom_images else payload.image_urls,
                         gtin=payload.gtin,
@@ -355,11 +355,11 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
-        brand = brand_from_title(str(name))
-        if not brand and description:
-            brand = brand_from_description(description, product_name=str(name))
-        if not brand:
-            brand = brand_fallback_from_title(str(name))
+        part_manufacturer = part_manufacturer_from_title(str(name))
+        if not part_manufacturer and description:
+            part_manufacturer = part_manufacturer_from_description(description, product_name=str(name))
+        if not part_manufacturer:
+            part_manufacturer = part_manufacturer_fallback_from_title(str(name))
 
         image_urls = dom_images[:12] if dom_images else None
 
@@ -368,7 +368,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
             product_url=url,
             description=description if description else None,
             price_cents=price_cents,
-            brand=brand,
+            part_manufacturer=part_manufacturer,
             part_number=part_number,
             image_urls=image_urls,
         )

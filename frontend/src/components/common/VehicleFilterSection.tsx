@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatCarYearRange } from '../../utils/carUtils';
-import type { CarRead } from '../../types/Api';
+import type { CarGenerationRead } from '../../types/Api';
 import LoadingSpinner from './LoadingSpinner';
 
 export interface VehicleFilterSectionProps {
@@ -8,13 +8,13 @@ export interface VehicleFilterSectionProps {
   setShowUniversalParts: (v: boolean) => void;
   selectedMake: string;
   selectedModel: string;
-  selectedGeneration: CarRead | null;
+  selectedGeneration: CarGenerationRead | null;
   setSelectedMake: (make: string) => void;
   setSelectedModel: (model: string) => void;
-  setSelectedGeneration: (car: CarRead | null) => void;
+  setSelectedGeneration: (car: CarGenerationRead | null) => void;
   availableMakes: string[];
   uniqueModels: string[];
-  generations: CarRead[];
+  generations: CarGenerationRead[];
   isLoadingMakes: boolean;
   isLoadingCars: boolean;
   /** When true, hide the "Universal Parts" option (e.g. for build lists catalog). */

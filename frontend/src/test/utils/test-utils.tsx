@@ -82,8 +82,8 @@ export const createMockUser = (overrides = {}) => ({
 
 export const createMockCar = (overrides = {}) => ({
   id: 1,
-  make: 'Toyota',
-  model: 'Camry',
+  car_make_name: 'Toyota',
+  car_model_name: 'Camry',
   year: 2020,
   trim: 'SE',
   vin: '1HGBH41JXMN109186',
@@ -101,7 +101,7 @@ export const createMockBuildList = (overrides = {}) => ({
   ...overrides,
 });
 
-export const createMockGlobalPart = (overrides = {}) => ({
+export const createMockPart = (overrides = {}) => ({
   id: 1,
   name: 'Test Part',
   description: 'Test part description',
@@ -111,7 +111,7 @@ export const createMockGlobalPart = (overrides = {}) => ({
   user_id: 1,
   car_ids: [],
   is_universal: false,
-  brand: 'TestBrand',
+  part_manufacturer: 'TestPartManufacturer',
   part_number: 'TP001',
   specifications: { weight: '2.5kg', material: 'aluminum' },
   is_verified: true,

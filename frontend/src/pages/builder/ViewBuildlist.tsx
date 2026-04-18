@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import apiClient, { buildListVotesApi } from '../../services/Api';
 import type {
   BuildListRead,
-  CarRead,
+  CarGenerationRead,
   UserRead,
   VoteSummary,
 } from '../../types/Api';
@@ -21,8 +21,8 @@ import DeleteConfirmationDialog from '../../components/common/DeleteConfirmation
 import Dialog from '../../components/common/Dialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ParentNavigationLink from '../../components/common/ParentNavigationLink';
-import ImageGallery from '../../components/globalParts/ImageGallery';
-import VoteButtons from '../../components/globalParts/VoteButtons';
+import ImageGallery from '../../components/parts/ImageGallery';
+import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -32,7 +32,7 @@ const fetchBuildListRequestFn = (buildListId: string) =>
   apiClient.get<BuildListRead>(`/build-lists/${buildListId}`);
 
 const fetchCarRequestFn = (carId: string) =>
-  apiClient.get<CarRead>(`/cars/${carId}`);
+  apiClient.get<CarGenerationRead>(`/car-generations/${carId}`);
 
 const fetchUserRequestFn = (userId: string) =>
   apiClient.get<UserRead>(`/users/${userId}`);
@@ -51,7 +51,9 @@ function ViewBuildList() {
   const [isEditBuildListFormOpen, setIsEditBuildListFormOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] =
     useState<boolean>(false);
-  const [associatedCar, setAssociatedCar] = useState<CarRead | null>(null);
+  const [associatedCar, setAssociatedCar] = useState<CarGenerationRead | null>(
+    null
+  );
   const [buildListOwner, setBuildListOwner] = useState<UserRead | null>(null);
   const [partsRefreshTrigger, setPartsRefreshTrigger] = useState<number>(0);
   const [isCreatePartFormOpen, setIsCreatePartFormOpen] = useState(false);
@@ -176,7 +178,7 @@ function ViewBuildList() {
     if (result !== null) {
       setIsDeleteConfirmOpen(false);
       if (buildList.car_id) {
-        void navigate(`/cars/${buildList.car_id}`);
+        void navigate(`/car-generations/${buildList.car_id}`);
       } else {
         void navigate('/builder');
       }
@@ -248,7 +250,7 @@ function ViewBuildList() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title={buildList.name}
-        subtitle={`For car: ${associatedCar ? `${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
+        subtitle={`For car: ${associatedCar ? `${associatedCar.car_make_name} ${associatedCar.car_model_name} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
       />
 
       {/* Warning when build list has no car assigned */}
@@ -333,8 +335,8 @@ function ViewBuildList() {
             {associatedCar && (
               <CardInfoItem label="Associated Car:">
                 <ParentNavigationLink
-                  linkTo={`/cars/${associatedCar.id}`}
-                  linkText={`${associatedCar.make} ${associatedCar.model} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
+                  linkTo={`/car-generations/${associatedCar.id}`}
+                  linkText={`${associatedCar.car_make_name} ${associatedCar.car_model_name} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
                 />
               </CardInfoItem>
             )}

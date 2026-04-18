@@ -9,24 +9,22 @@ from uuid6 import uuid7
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
-    from .global_part import GlobalPart
+    from .part import Part
     from .part_price_history import PartPriceHistory
     from .retailer import Retailer
 
 
 class PartListing(Base):
     """
-    "This global part at this retailer" - one row per (global_part_id, retailer_id).
+    "This part at this retailer" - one row per (part_id, retailer_id).
     Holds the product URL for that part at that retailer and optional latest price snapshot.
     """
 
     __tablename__ = "part_listings"
-    __table_args__ = (UniqueConstraint("global_part_id", "retailer_id", name="uq_part_listing_global_part_retailer"),)
+    __table_args__ = (UniqueConstraint("part_id", "retailer_id", name="uq_part_listing_part_retailer"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
-    global_part_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("global_parts.id"), nullable=False, index=True
-    )
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
     retailer_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("retailers.id"), nullable=False, index=True
     )
@@ -38,7 +36,7 @@ class PartListing(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    global_part: Mapped["GlobalPart"] = relationship("GlobalPart", back_populates="part_listings")
+    part: Mapped["Part"] = relationship("Part", back_populates="part_listings")
     retailer: Mapped["Retailer"] = relationship("Retailer", back_populates="part_listings")
     price_history: Mapped[list["PartPriceHistory"]] = relationship(
         "PartPriceHistory",

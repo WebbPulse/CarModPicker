@@ -1,8 +1,8 @@
 import React from 'react';
-import type { CarRead } from '../../types/Api';
+import type { CarGenerationRead } from '../../types/Api';
 
 export interface VehicleFilterChipsProps {
-  selectedGeneration: CarRead | null;
+  selectedGeneration: CarGenerationRead | null;
   selectedMake?: string;
   selectedModel?: string;
   showUniversalParts: boolean;
@@ -20,7 +20,7 @@ const removeButtonClass =
   'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0';
 
 function vehicleChipLabel(
-  selectedGeneration: CarRead | null,
+  selectedGeneration: CarGenerationRead | null,
   selectedMake: string,
   selectedModel: string,
   showUniversalParts: boolean
@@ -28,7 +28,7 @@ function vehicleChipLabel(
   if (showUniversalParts) return 'Universal';
   if (selectedGeneration)
     return (
-      `${selectedGeneration.make ?? ''} ${selectedGeneration.model ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() ||
+      `${selectedGeneration.car_make_name ?? ''} ${selectedGeneration.car_model_name ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() ||
       'Vehicle'
     );
   if (selectedMake) {

@@ -184,7 +184,7 @@ def _upsert_crawled_page(
         "parse_status": "pending",
         "html_s3_key": html_s3_key,
         "html_local_path": html_local_path,
-        "global_part_id": part_id,
+        "part_id": part_id,
     }
     if part_id is not None:
         insert_values["parse_status"] = "parsed"
@@ -198,7 +198,7 @@ def _upsert_crawled_page(
     if html_local_path is not None:
         update_values["html_local_path"] = html_local_path
     if part_id is not None:
-        update_values["global_part_id"] = part_id
+        update_values["part_id"] = part_id
         update_values["parse_status"] = "parsed"
         update_values["last_parsed_at"] = now
     if html_sha256 is not None:

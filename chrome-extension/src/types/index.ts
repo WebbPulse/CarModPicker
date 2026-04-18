@@ -41,7 +41,7 @@ export interface Car {
   updated_at: string;
 }
 
-export interface Brand {
+export interface PartManufacturer {
   id: number;
   name: string;
   description?: string | null;
@@ -60,23 +60,23 @@ export interface Retailer {
   updated_at: string;
 }
 
-export interface GlobalPartCreate {
+export interface PartCreate {
   name: string;
   description?: string | null;
-  price?: number | null; // Price in cents (legacy GlobalPart field)
+  price?: number | null; // Price in cents (legacy Part field)
   image_urls?: string[] | null;
   product_url?: string | null;
   category_id: number;
   car_ids?: number[] | null;
   is_universal?: boolean;
-  brand_id: number; // Required - part manufacturer (e.g. HKS, Borla)
+  part_manufacturer_id: number; // Required - part manufacturer (e.g. HKS, Borla)
   part_number?: string | null;
   specifications?: Record<string, unknown> | null;
   retailer_id?: number | null; // Optional - store/site where part is sold
   price_cents?: number | null; // Optional - for PartListing/price history when retailer_id set
 }
 
-export interface GlobalPartRead {
+export interface PartRead {
   id: number;
   name: string;
   description?: string | null;
@@ -86,7 +86,7 @@ export interface GlobalPartRead {
   user_id: number;
   car_ids: number[];
   is_universal: boolean;
-  brand_id?: number | null;
+  part_manufacturer_id?: number | null;
   part_number?: string | null;
   is_verified: boolean;
   source: string;
@@ -101,7 +101,7 @@ export interface ScrapedProductData {
   price: number | null; // Price in cents
   image_urls: string[]; // Product images; first entry is the primary/display image
   product_url: string;
-  brand: string | null;
+  part_manufacturer: string | null;
   part_number: string | null;
   inferred_category: string | null; // server-inferred category name slug, e.g. "exhaust"
 }
@@ -127,7 +127,7 @@ export interface ImageUploadResponse {
 }
 
 export interface PartListingCreate {
-  global_part_id: number;
+  part_id: number;
   retailer_id: number;
   product_url?: string | null;
   price_cents?: number | null;
@@ -137,11 +137,11 @@ export interface ExtensionMessage {
   action: string;
   username?: string;
   password?: string;
-  partData?: GlobalPartCreate;
+  partData?: PartCreate;
   imageUrl?: string;
   limit?: number;
   searchTerm?: string;
-  brandName?: string;
+  part_manufacturerName?: string;
   productUrl?: string;
   partId?: number;
   domain?: string;

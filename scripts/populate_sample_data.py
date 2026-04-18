@@ -58,12 +58,12 @@ from app.api.models.build_log import (  # pyright: ignore[reportMissingImports]
     BuildLog,
     BuildLogPost,
 )  # pyright: ignore[reportMissingImports]
-from app.api.models.car import Car  # pyright: ignore[reportMissingImports]
+from app.api.models.car_generation import CarGeneration  # pyright: ignore[reportMissingImports]
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
 from app.api.models.category import Category  # pyright: ignore[reportMissingImports]
-from app.api.models.make import Make  # pyright: ignore[reportMissingImports]
-from app.api.models.global_part import (  # pyright: ignore[reportMissingImports]
-    GlobalPart,
+from app.api.models.car_make import CarMake  # pyright: ignore[reportMissingImports]
+from app.api.models.part import (  # pyright: ignore[reportMissingImports]
+    Part,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.part_listing import (
     PartListing,
@@ -75,7 +75,7 @@ from app.api.models.report import Report  # pyright: ignore[reportMissingImports
 from app.api.models.retailer import Retailer  # pyright: ignore[reportMissingImports]
 from app.api.services.part_listing_service import (  # pyright: ignore[reportMissingImports]
     create_or_update_listing_and_price,
-    get_or_create_brand_by_name,
+    get_or_create_part_manufacturer_by_name,
     get_or_create_retailer,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.user import User  # pyright: ignore[reportMissingImports]
@@ -353,15 +353,15 @@ def create_sample_categories(db: Session) -> list[Category]:
     return categories
 
 
-def create_sample_cars(db: Session) -> list[Car]:
+def create_sample_cars(db: Session) -> list[CarGeneration]:
     """Create sample centrally managed car generations using the canonical data source.
-    Uses Make and CarModel entities; same logic as init_car_generations.
+    Uses CarMake and CarModel entities; same logic as init_car_generations.
     """
     start_time = time.time()
     log_section("Creating sample car generations...")
 
     cars_data = get_all_car_generations()
-    cars: list[Car] = []
+    cars: list[CarGeneration] = []
     created_count = 0
     skipped_count = 0
 
@@ -369,30 +369,30 @@ def create_sample_cars(db: Session) -> list[Car]:
         make_name = car_data["make"]
         model_name = car_data["model"]
 
-        # Get or create Make
-        make_entity = db.query(Make).filter(Make.name == make_name).first()
+        # Get or create CarMake
+        make_entity = db.query(CarMake).filter(CarMake.name == make_name).first()
         if make_entity is None:
-            make_entity = Make(name=make_name)
+            make_entity = CarMake(name=make_name)
             db.add(make_entity)
             db.flush()
 
         # Get or create CarModel
         car_model_entity = (
             db.query(CarModel)
-            .filter(CarModel.make_id == make_entity.id, CarModel.name == model_name)
+            .filter(CarModel.car_make_id == make_entity.id, CarModel.name == model_name)
             .first()
         )
         if car_model_entity is None:
-            car_model_entity = CarModel(make_id=make_entity.id, name=model_name)
+            car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
             db.add(car_model_entity)
             db.flush()
 
         # Check if car generation already exists
         existing = (
-            db.query(Car)
+            db.query(CarGeneration)
             .filter(
-                Car.car_model_id == car_model_entity.id,
-                Car.generation_name == car_data["generation_name"],
+                CarGeneration.car_model_id == car_model_entity.id,
+                CarGeneration.generation_name == car_data["generation_name"],
             )
             .first()
         )
@@ -400,7 +400,7 @@ def create_sample_cars(db: Session) -> list[Car]:
             cars.append(existing)
             skipped_count += 1
         else:
-            car = Car(
+            car = CarGeneration(
                 car_model_id=car_model_entity.id,
                 generation_name=car_data["generation_name"],
                 start_year=car_data["start_year"],
@@ -486,13 +486,13 @@ def _ensure_sample_retailers(db: Session) -> list[Retailer]:
 
 def create_sample_global_parts(
     db: Session, users: list[User], categories: list[Category]
-) -> list[GlobalPart]:
-    """Create sample global parts (refactored: brand_id, no price; prices via PartListing)."""
+) -> list[Part]:
+    """Create sample global parts (refactored: part_manufacturer_id, no price; prices via PartListing)."""
     start_time = time.time()
     log_section("Creating sample global parts...")
 
-    # Collect all brand names we use, then get-or-create brands and build brand_id map
-    initial_brand_names = [
+    # Collect all part_manufacturer names we use, then get-or-create part_manufacturers and build part_manufacturer_id map
+    initial_part_manufacturer_names = [
         "AWE",
         "KW",
         "Garrett",
@@ -504,21 +504,21 @@ def create_sample_global_parts(
         "HKS",
         "Ohlins",
     ]
-    brand_map: dict[str, int] = {}
-    for name in initial_brand_names:
-        brand = get_or_create_brand_by_name(db, name)
-        if brand:
-            brand_map[name] = brand.id
+    part_manufacturer_map: dict[str, int] = {}
+    for name in initial_part_manufacturer_names:
+        part_manufacturer = get_or_create_part_manufacturer_by_name(db, name)
+        if part_manufacturer:
+            part_manufacturer_map[name] = part_manufacturer.id
     db.commit()
 
-    # Initial parts: use brand_id, no price/brand (price comes from PartListing later)
+    # Initial parts: use part_manufacturer_id, no price/part_manufacturer (price comes from PartListing later)
     initial_parts_raw = [
         {
             "name": "AWE Touring Exhaust System",
             "description": "High-quality cat-back exhaust system with deep, aggressive tone",
             "category_id": categories[0].id,
             "user_id": users[1].id,
-            "brand": "AWE",
+            "part_manufacturer": "AWE",
             "part_number": "AWE-EXH-001",
             "specifications": {
                 "material": "stainless_steel",
@@ -532,7 +532,7 @@ def create_sample_global_parts(
             "description": "Premium adjustable coilover suspension system",
             "category_id": categories[1].id,
             "user_id": users[2].id,
-            "brand": "KW",
+            "part_manufacturer": "KW",
             "part_number": "KW-SUS-001",
             "specifications": {
                 "adjustable": True,
@@ -546,7 +546,7 @@ def create_sample_global_parts(
             "description": "High-performance turbocharger for increased power",
             "category_id": categories[2].id,
             "user_id": users[3].id,
-            "brand": "Garrett",
+            "part_manufacturer": "Garrett",
             "part_number": "GAR-TUR-001",
             "specifications": {"max_boost": "25psi", "compressor": "dual_ball_bearing"},
             "is_verified": True,
@@ -556,7 +556,7 @@ def create_sample_global_parts(
             "description": "Lightweight forged wheels, 18x9.5 +22",
             "category_id": categories[3].id,
             "user_id": users[1].id,
-            "brand": "Rays",
+            "part_manufacturer": "Rays",
             "part_number": "VOLK-TE37-001",
             "specifications": {"size": "18x9.5", "offset": "+22", "weight": "18.5lbs"},
             "is_verified": True,
@@ -566,7 +566,7 @@ def create_sample_global_parts(
             "description": "Large carbon fiber rear wing for downforce",
             "category_id": categories[4].id,
             "user_id": users[4].id,
-            "brand": "APR",
+            "part_manufacturer": "APR",
             "part_number": "APR-AERO-001",
             "specifications": {"material": "carbon_fiber", "adjustable": True},
             "is_verified": False,
@@ -576,7 +576,7 @@ def create_sample_global_parts(
             "description": "Premium sport seats with heating",
             "category_id": categories[5].id,
             "user_id": users[2].id,
-            "brand": "Recaro",
+            "part_manufacturer": "Recaro",
             "part_number": "REC-INT-001",
             "specifications": {"heated": True, "adjustable": True},
             "is_verified": True,
@@ -586,7 +586,7 @@ def create_sample_global_parts(
             "description": "6-piston front brake kit with slotted rotors",
             "category_id": categories[6].id,
             "user_id": users[3].id,
-            "brand": "Brembo",
+            "part_manufacturer": "Brembo",
             "part_number": "BRE-BRK-001",
             "specifications": {
                 "pistons": 6,
@@ -600,7 +600,7 @@ def create_sample_global_parts(
             "description": "High-flow cold air intake system",
             "category_id": categories[2].id,
             "user_id": users[1].id,
-            "brand": "Injen",
+            "part_manufacturer": "Injen",
             "part_number": "INJ-INT-001",
             "specifications": {"filter_type": "dry", "material": "aluminum"},
             "is_verified": True,
@@ -610,7 +610,7 @@ def create_sample_global_parts(
             "description": "JDM-style exhaust with titanium tips",
             "category_id": categories[0].id,
             "user_id": users[4].id,
-            "brand": "HKS",
+            "part_manufacturer": "HKS",
             "part_number": "HKS-EXH-001",
             "specifications": {"material": "titanium", "tips": 2},
             "is_verified": True,
@@ -620,7 +620,7 @@ def create_sample_global_parts(
             "description": "Premium Swedish coilover system",
             "category_id": categories[1].id,
             "user_id": users[1].id,
-            "brand": "Ohlins",
+            "part_manufacturer": "Ohlins",
             "part_number": "OHL-SUS-001",
             "specifications": {"adjustable": True, "damping": "dual_flow_valve"},
             "is_verified": True,
@@ -628,15 +628,15 @@ def create_sample_global_parts(
     ]
     initial_parts = []
     for p in initial_parts_raw:
-        brand_id = brand_map.get(p["brand"])
-        if brand_id is None:
-            b = get_or_create_brand_by_name(db, p["brand"])
+        part_manufacturer_id = part_manufacturer_map.get(p["part_manufacturer"])
+        if part_manufacturer_id is None:
+            b = get_or_create_part_manufacturer_by_name(db, p["part_manufacturer"])
             if b:
-                brand_map[p["brand"]] = b.id
-                brand_id = b.id
-        if brand_id is not None:
-            part_data = {k: v for k, v in p.items() if k != "brand"}
-            part_data["brand_id"] = brand_id
+                part_manufacturer_map[p["part_manufacturer"]] = b.id
+                part_manufacturer_id = b.id
+        if part_manufacturer_id is not None:
+            part_data = {k: v for k, v in p.items() if k != "part_manufacturer"}
+            part_data["part_manufacturer_id"] = part_manufacturer_id
             initial_parts.append(part_data)
 
     # Part templates for each category
@@ -650,7 +650,7 @@ def create_sample_global_parts(
                 "Downpipe",
                 "Muffler",
             ],
-            "brands": [
+            "part_manufacturers": [
                 "AWE",
                 "HKS",
                 "Invidia",
@@ -676,7 +676,7 @@ def create_sample_global_parts(
                 "Shock Absorbers",
                 "Control Arms",
             ],
-            "brands": [
+            "part_manufacturers": [
                 "KW",
                 "Ohlins",
                 "Bilstein",
@@ -702,7 +702,7 @@ def create_sample_global_parts(
                 "Supercharger",
                 "Throttle Body",
             ],
-            "brands": ["Garrett", "Injen", "Cobb", "HKS", "Blitz", "Greddy", "APR"],
+            "part_manufacturers": ["Garrett", "Injen", "Cobb", "HKS", "Blitz", "Greddy", "APR"],
             "descriptions": [
                 "High-performance engine upgrade",
                 "Maximum power enhancement",
@@ -719,7 +719,7 @@ def create_sample_global_parts(
                 "Street Wheels",
                 "Racing Wheels",
             ],
-            "brands": ["Rays", "Work", "Enkei", "Volk", "WedsSport", "Rota", "Konig"],
+            "part_manufacturers": ["Rays", "Work", "Enkei", "Volk", "WedsSport", "Rota", "Konig"],
             "descriptions": [
                 "Lightweight forged wheel set",
                 "Premium alloy wheels",
@@ -737,7 +737,7 @@ def create_sample_global_parts(
                 "Hood",
                 "Fenders",
             ],
-            "brands": ["APR", "Seibon", "VIS", "Carbon Creations", "Verus", "Aeroflow"],
+            "part_manufacturers": ["APR", "Seibon", "VIS", "Carbon Creations", "Verus", "Aeroflow"],
             "descriptions": [
                 "Aerodynamic carbon fiber component",
                 "Lightweight body modification",
@@ -755,7 +755,7 @@ def create_sample_global_parts(
                 "Gauges",
                 "Harness",
             ],
-            "brands": ["Recaro", "Sparco", "Bride", "MOMO", "NRG", "Takata"],
+            "part_manufacturers": ["Recaro", "Sparco", "Bride", "MOMO", "NRG", "Takata"],
             "descriptions": [
                 "Premium sport interior component",
                 "Race-inspired interior upgrade",
@@ -772,7 +772,7 @@ def create_sample_global_parts(
                 "Brake Lines",
                 "Caliper Upgrade",
             ],
-            "brands": ["Brembo", "StopTech", "Wilwood", "EBC", "Hawk", "Carbotech"],
+            "part_manufacturers": ["Brembo", "StopTech", "Wilwood", "EBC", "Hawk", "Carbotech"],
             "descriptions": [
                 "High-performance brake system",
                 "Track-tested brake components",
@@ -783,15 +783,15 @@ def create_sample_global_parts(
         },
     }
 
-    # Ensure all template brands exist for generated parts
-    all_template_brands = set()
+    # Ensure all template part_manufacturers exist for generated parts
+    all_template_part_manufacturers = set()
     for template in part_templates.values():
-        all_template_brands.update(template["brands"])
-    for name in all_template_brands:
-        if name not in brand_map:
-            b = get_or_create_brand_by_name(db, name)
+        all_template_part_manufacturers.update(template["part_manufacturers"])
+    for name in all_template_part_manufacturers:
+        if name not in part_manufacturer_map:
+            b = get_or_create_part_manufacturer_by_name(db, name)
             if b:
-                brand_map[name] = b.id
+                part_manufacturer_map[name] = b.id
     db.commit()
 
     parts_data = initial_parts.copy()
@@ -803,27 +803,27 @@ def create_sample_global_parts(
         template = part_templates.get(category_name, part_templates["exhaust"])
 
         name_base = random.choice(template["names"])
-        brand_name = random.choice(template["brands"])
-        brand_id = brand_map.get(brand_name)
-        if brand_id is None:
-            b = get_or_create_brand_by_name(db, brand_name)
+        part_manufacturer_name = random.choice(template["part_manufacturers"])
+        part_manufacturer_id = part_manufacturer_map.get(part_manufacturer_name)
+        if part_manufacturer_id is None:
+            b = get_or_create_part_manufacturer_by_name(db, part_manufacturer_name)
             if b:
-                brand_map[brand_name] = b.id
-                brand_id = b.id
-        if brand_id is None:
+                part_manufacturer_map[part_manufacturer_name] = b.id
+                part_manufacturer_id = b.id
+        if part_manufacturer_id is None:
             continue
 
         name = (
-            f"{brand_name} {name_base} {i+1}"
+            f"{part_manufacturer_name} {name_base} {i+1}"
             if i < 30
-            else f"{name_base} {brand_name} Edition {i+1}"
+            else f"{name_base} {part_manufacturer_name} Edition {i+1}"
         )
         description = random.choice(template["descriptions"])
         user = random.choice(users)
         is_verified = random.choice([True, True, True, False])  # 75% verified
 
         part_number = (
-            f"{brand_name[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
+            f"{part_manufacturer_name[:3].upper()}-{category_name[:3].upper()}-{i+100:03d}"
         )
 
         # Generate specifications based on category
@@ -872,7 +872,7 @@ def create_sample_global_parts(
                 "description": description,
                 "category_id": category.id,
                 "user_id": user.id,
-                "brand_id": brand_id,
+                "part_manufacturer_id": part_manufacturer_id,
                 "part_number": part_number,
                 "specifications": specs,
                 "is_verified": is_verified,
@@ -886,7 +886,7 @@ def create_sample_global_parts(
     log_info(f"Processing {total:,} global parts in batches of {batch_size}...")
 
     for i, part_data in enumerate(parts_data):
-        part = GlobalPart(**part_data)
+        part = Part(**part_data)
         db.add(part)
         parts.append(part)
 
@@ -957,7 +957,7 @@ def create_sample_global_parts(
 
 
 def create_sample_build_lists(
-    db: Session, users: list[User], cars: list[Car]
+    db: Session, users: list[User], cars: list[CarGeneration]
 ) -> list[BuildList]:
     """Create sample build lists."""
     start_time = time.time()
@@ -967,9 +967,9 @@ def create_sample_build_lists(
     # Helper to find a car by make and model
     def find_car(
         make: str, model: str, generation_name: str | None = None
-    ) -> Car | None:
+    ) -> CarGeneration | None:
         for car in cars:
-            if car.make == make and car.model == model:
+            if car.car_make_name == make and car.car_model_name == model:
                 if generation_name is None or car.generation_name == generation_name:
                     return car
         return cars[0] if cars else None  # Fallback to first car
@@ -1068,7 +1068,7 @@ def create_sample_build_lists(
         description = random.choice(descriptions)
 
         # Make build list name specific to car
-        build_name = f"{car.make} {car.model} {build_type}"
+        build_name = f"{car.car_make_name} {car.car_model_name} {build_type}"
         if i > 30:
             build_name = f"My {build_type}"
 
@@ -1111,7 +1111,7 @@ def create_sample_build_lists(
 def create_sample_build_list_parts(
     db: Session,
     build_lists: list[BuildList],
-    global_parts: list[GlobalPart],
+    global_parts: list[Part],
     users: list[User],
 ) -> list[BuildListPart]:
     """Create sample build list parts."""
@@ -1296,8 +1296,8 @@ def create_sample_build_list_parts(
 def create_admin_build_lists(
     db: Session,
     users: list[User],
-    cars: list[Car],
-    global_parts: list[GlobalPart],
+    cars: list[CarGeneration],
+    global_parts: list[Part],
     num_build_lists: int = 100,
     parts_per_regular_list: int = 5,
     parts_per_large_list: int = 200,
@@ -1305,7 +1305,7 @@ def create_admin_build_lists(
     target_car_make: str | None = None,
     target_car_model: str | None = None,
     target_car_generation: str | None = None,
-) -> tuple[list[BuildList], BuildList, Car | None]:
+) -> tuple[list[BuildList], BuildList, CarGeneration | None]:
     """
     Create many build lists for the admin user, with one build list having many parts.
     Also creates many build lists for a specific car generation.
@@ -1355,7 +1355,7 @@ def create_admin_build_lists(
             # Try to find the specific car
             for car in cars:
                 if (
-                    car.make.lower() == target_car_make.lower()
+                    car.car_make_name.lower() == target_car_make.lower()
                     and car.model.lower() == target_car_model.lower()
                 ):
                     if target_car_generation:
@@ -1376,7 +1376,7 @@ def create_admin_build_lists(
             popular_cars = ["Honda", "Toyota", "Subaru", "Nissan", "Mazda", "Ford"]
             for make in popular_cars:
                 for car in cars:
-                    if car.make == make:
+                    if car.car_make_name == make:
                         target_car = car
                         break
                 if target_car:
@@ -1388,8 +1388,8 @@ def create_admin_build_lists(
 
         log_info(f"\n{'='*60}")
         log_info(f"TARGET CAR GENERATION FOR MULTIPLE BUILD LISTS:")
-        log_info(f"  Make: {target_car.make}")
-        log_info(f"  Model: {target_car.model}")
+        log_info(f"  Make: {target_car.car_make_name}")
+        log_info(f"  Model: {target_car.car_model_name}")
         log_info(f"  Generation: {target_car.generation_name or 'N/A'}")
         log_info(f"  Car ID: {target_car.id}")
         log_info(f"  Will create {num_build_lists_for_car:,} build lists for this car")
@@ -1450,14 +1450,14 @@ def create_admin_build_lists(
 
     # The first build list will be the one with many parts
     large_build_list_car = target_car if target_car else random.choice(cars)
-    large_build_list_name = f"Admin's Ultimate {large_build_list_car.make} {large_build_list_car.model} Build"
+    large_build_list_name = f"Admin's Ultimate {large_build_list_car.car_make_name} {large_build_list_car.car_model_name} Build"
 
     total_build_lists_to_create = num_build_lists + num_build_lists_for_car
     log_info(f"Creating {total_build_lists_to_create:,} build lists for admin user...")
     log_info(f"  - {num_build_lists:,} general build lists")
     if num_build_lists_for_car > 0:
         log_info(
-            f"  - {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}"
+            f"  - {num_build_lists_for_car:,} build lists for {target_car.car_make_name} {target_car.car_model_name}"
         )
 
     build_list_counter = 0
@@ -1476,13 +1476,13 @@ def create_admin_build_lists(
     # Create build lists for the target car generation
     if num_build_lists_for_car > 0 and target_car:
         log_info(
-            f"Creating {num_build_lists_for_car:,} build lists for {target_car.make} {target_car.model}..."
+            f"Creating {num_build_lists_for_car:,} build lists for {target_car.car_make_name} {target_car.car_model_name}..."
         )
         for i in range(num_build_lists_for_car):
             build_type = random.choice(build_types)
             description = random.choice(descriptions)
             build_name = (
-                f"Admin's {target_car.make} {target_car.model} {build_type} #{i+1}"
+                f"Admin's {target_car.car_make_name} {target_car.car_model_name} {build_type} #{i+1}"
             )
 
             build_lists_data.append(
@@ -1503,7 +1503,7 @@ def create_admin_build_lists(
         car = random.choice(cars)
         build_type = random.choice(build_types)
         description = random.choice(descriptions)
-        build_name = f"Admin's {car.make} {car.model} {build_type}"
+        build_name = f"Admin's {car.car_make_name} {car.car_model_name} {build_type}"
 
         build_lists_data.append(
             {
@@ -1547,7 +1547,7 @@ def create_admin_build_lists(
     log_info(f"LARGE BUILD LIST IDENTIFIED:")
     log_info(f"  Name: {large_build_list.name}")
     log_info(f"  ID: {large_build_list.id}")
-    log_info(f"  Car: {large_build_list_car.make} {large_build_list_car.model}")
+    log_info(f"  Car: {large_build_list_car.car_make_name} {large_build_list_car.car_model_name}")
     log_info(f"{'='*60}\n")
 
     # Now create build list parts
@@ -1653,7 +1653,7 @@ def create_admin_build_lists(
         target_car_build_lists = [
             bl for bl in build_lists if bl.car_id == target_car.id
         ]
-        log_info(f"\n  TARGET CAR GENERATION ({target_car.make} {target_car.model}):")
+        log_info(f"\n  TARGET CAR GENERATION ({target_car.car_make_name} {target_car.car_model_name}):")
         log_info(f"    Car ID: {target_car.id}")
         log_info(f"    Generation: {target_car.generation_name or 'N/A'}")
         log_info(f"    Build lists count: {len(target_car_build_lists):,}")
@@ -1671,9 +1671,9 @@ def create_admin_build_lists(
 def create_sample_votes(
     db: Session,
     users: list[User],
-    cars: Optional[list[Car]],
+    cars: Optional[list[CarGeneration]],
     build_lists: Optional[list[BuildList]],
-    global_parts: list[GlobalPart],
+    global_parts: list[Part],
 ) -> list[Vote]:
     """Create sample votes."""
     start_time = time.time()
@@ -1802,7 +1802,7 @@ def create_sample_votes(
         vote_type = random.choice(vote_types)
 
         # Choose entity based on type
-        if entity_type == "car" and cars is not None and len(cars) > 0:
+        if entity_type == "car_generation" and cars is not None and len(cars) > 0:
             entity_id = random.choice(cars).id
         elif (
             entity_type == "build_list"
@@ -1867,7 +1867,7 @@ def create_sample_votes(
 
 
 def create_sample_reports(
-    db: Session, users: list[User], global_parts: list[GlobalPart]
+    db: Session, users: list[User], global_parts: list[Part]
 ) -> list[Report]:
     """Create sample reports."""
     start_time = time.time()
@@ -2118,10 +2118,10 @@ def check_section_complete(db: Session, section_name: str, min_count: int) -> bo
             count = db.query(Category).count()
             return count >= min_count
         elif section_name == "cars":
-            count = db.query(Car).count()
+            count = db.query(CarGeneration).count()
             return count >= min_count
         elif section_name == "global_parts":
-            count = db.query(GlobalPart).count()
+            count = db.query(Part).count()
             return count >= min_count
         elif section_name == "build_lists":
             count = db.query(BuildList).count()
@@ -2240,13 +2240,13 @@ def main() -> None:
                     "No users found. Please run the main script first to create users."
                 )
 
-            cars = db.query(Car).all()
+            cars = db.query(CarGeneration).all()
             if not cars:
                 raise ValueError(
                     "No cars found. Please run the main script first to create cars."
                 )
 
-            global_parts = db.query(GlobalPart).all()
+            global_parts = db.query(Part).all()
             if not global_parts:
                 raise ValueError(
                     "No global parts found. Please run the main script first to create global parts."
@@ -2286,9 +2286,9 @@ def main() -> None:
                 log_info(f"\n{'='*60}")
                 log_info("IMPORTANT: Target car generation with many build lists")
                 log_info(f"{'='*60}")
-                log_info(f"  Car Make: {target_car.make}")
-                log_info(f"  Car Model: {target_car.model}")
-                log_info(f"  Car Generation: {target_car.generation_name or 'N/A'}")
+                log_info(f"  Make: {target_car.car_make_name}")
+                log_info(f"  Model: {target_car.car_model_name}")
+                log_info(f"  Generation: {target_car.generation_name or 'N/A'}")
                 log_info(f"  Car ID: {target_car.id}")
                 log_info(f"  Build Lists Count: {len(target_car_build_lists):,}")
                 log_info(f"  User: admin")
@@ -2338,7 +2338,7 @@ def main() -> None:
             cars = create_sample_cars(db)
         else:
             log_section("Skipping cars (already complete or skipped)")
-            cars = db.query(Car).all()
+            cars = db.query(CarGeneration).all()
 
         # Global Parts
         if "global_parts" not in skip_list and not (
@@ -2347,7 +2347,7 @@ def main() -> None:
             global_parts = create_sample_global_parts(db, users, categories)
         else:
             log_section("Skipping global_parts (already complete or skipped)")
-            global_parts = db.query(GlobalPart).all()
+            global_parts = db.query(Part).all()
 
         # Build lists require a car_id (now mandatory)
         if "build_lists" not in skip_list and not (

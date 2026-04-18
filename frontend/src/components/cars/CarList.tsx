@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { carsApi } from '../../services/Api';
-import type { CarRead } from '../../types/Api';
+import { carGenerationsApi } from '../../services/Api';
+import type { CarGenerationRead } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
 import AddItemTile from '../common/AddItemTile';
 import { ErrorAlert } from '../common/Alerts';
@@ -36,27 +36,38 @@ const CarList: React.FC<CarListProps> = ({
   limit = 100,
   skip = 0,
 }) => {
-  const [internalCars, setInternalCars] = useState<CarRead[] | null>(null);
+  const [internalCars, setInternalCars] = useState<CarGenerationRead[] | null>(
+    null
+  );
 
   const fetchCarsRequestFn = useCallback(
     // Payload unused; useApiRequest requires matching signature
     async (payload?: unknown) => {
       void payload;
-      let response: Awaited<ReturnType<typeof carsApi.listCars>>;
+      let response: Awaited<ReturnType<typeof carGenerationsApi.listCars>>;
       if (searchQuery) {
-        response = await carsApi.searchCars(searchQuery, { skip, limit });
+        response = await carGenerationsApi.searchCars(searchQuery, {
+          skip,
+          limit,
+        });
       } else if (generationId) {
         // In the new backend, a Car is a generation; get single car by id
-        const single = await carsApi.getCar(generationId);
+        const single = await carGenerationsApi.getCar(generationId);
         return { ...single, data: [single.data] };
       } else if (make && year) {
-        response = await carsApi.searchCars(`${make} ${year}`, { skip, limit });
+        response = await carGenerationsApi.searchCars(`${make} ${year}`, {
+          skip,
+          limit,
+        });
       } else if (make) {
-        response = await carsApi.getCarsByMake(make, { skip, limit });
+        response = await carGenerationsApi.getCarsByMake(make, { skip, limit });
       } else if (year) {
-        response = await carsApi.searchCars(String(year), { skip, limit });
+        response = await carGenerationsApi.searchCars(String(year), {
+          skip,
+          limit,
+        });
       } else {
-        response = await carsApi.listCars({ skip, limit });
+        response = await carGenerationsApi.listCars({ skip, limit });
       }
       return response;
     },
@@ -68,7 +79,7 @@ const CarList: React.FC<CarListProps> = ({
     isLoading,
     error,
     executeRequest: fetchCars,
-  } = useApiRequest<CarRead[]>(fetchCarsRequestFn);
+  } = useApiRequest<CarGenerationRead[]>(fetchCarsRequestFn);
 
   useEffect(() => {
     void fetchCars();

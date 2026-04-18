@@ -4,7 +4,7 @@ Search endpoint that searches across multiple entity types.
 This endpoint provides unified search functionality across:
 - Build lists (name, description, and associated car make/model/generation/year range)
 - User profiles (username, email)
-- Global parts (name, description, brand name, part_number)
+- Global parts (name, description, part_manufacturer name, part_number)
 """
 
 from typing import Any, Dict
@@ -13,15 +13,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car import Car as DBCar
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
-from app.api.models.global_part import GlobalPart as DBGlobalPart
-from app.api.models.make import Make as DBMake
+from app.api.models.part import Part as DBPart
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListRead
-from app.api.schemas.global_part import GlobalPartRead
+from app.api.schemas.part import PartRead
 from app.api.schemas.user import PublicUserRead
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
@@ -72,7 +72,7 @@ async def search_all(
                 "skip": skip,
                 "limit": limit,
             },
-            "global_parts": {
+            "parts": {
                 "data": [],
                 "total": 0,
                 "has_next": False,
@@ -84,13 +84,12 @@ async def search_all(
 
     search_term = q.strip()
 
-    # Search build lists (name, description, and associated car make/model/generation/year range)
-    # Car.make and Car.model are properties; join CarModel and Make for DB-level search
+    # Search build lists (name, description, and associated car_make/car_model/generation/year range)
     build_list_query = (
         db.query(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
         .outerjoin(DBCarModel, DBCar.car_model_id == DBCarModel.id)
-        .outerjoin(DBMake, DBCarModel.make_id == DBMake.id)
+        .outerjoin(DBMake, DBCarModel.car_make_id == DBMake.id)
         .filter(
             or_(
                 DBBuildList.name.ilike(f"%{search_term}%"),
@@ -98,12 +97,11 @@ async def search_all(
                 DBMake.name.ilike(f"%{search_term}%"),
                 DBCarModel.name.ilike(f"%{search_term}%"),
                 DBCar.generation_name.ilike(f"%{search_term}%"),
-                # Search years as strings to match partial year searches
                 cast(DBCar.start_year, String).ilike(f"%{search_term}%"),
                 cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
             )
         )
-        .options(joinedload(DBBuildList.car).joinedload(DBCar.car_model).joinedload(DBCarModel.make))
+        .options(joinedload(DBBuildList.car_generation).joinedload(DBCar.car_model).joinedload(DBCarModel.car_make))
     )
     build_list_total = get_total_count(build_list_query)
     build_lists = build_list_query.offset(skip).limit(limit).all()
@@ -123,29 +121,29 @@ async def search_all(
     user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
 
-    # Search global parts (name, description, brand name, part_number)
-    global_part_query = (
-        db.query(DBGlobalPart)
-        .outerjoin(DBBrand, DBGlobalPart.brand_id == DBBrand.id)
+    # Search parts (name, description, part_manufacturer name, part_number)
+    part_query = (
+        db.query(DBPart)
+        .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
         .filter(
             or_(
-                DBGlobalPart.name.ilike(f"%{search_term}%"),
-                DBGlobalPart.description.ilike(f"%{search_term}%"),
-                DBBrand.name.ilike(f"%{search_term}%"),
-                DBBrand.description.ilike(f"%{search_term}%"),
-                DBGlobalPart.part_number.ilike(f"%{search_term}%"),
+                DBPart.name.ilike(f"%{search_term}%"),
+                DBPart.description.ilike(f"%{search_term}%"),
+                DBPartManufacturer.name.ilike(f"%{search_term}%"),
+                DBPartManufacturer.description.ilike(f"%{search_term}%"),
+                DBPart.part_number.ilike(f"%{search_term}%"),
             )
         )
-        .options(joinedload(DBGlobalPart.brand))
+        .options(joinedload(DBPart.part_manufacturer))
     )
-    global_part_total = get_total_count(global_part_query)
-    global_parts = global_part_query.offset(skip).limit(limit).all()
-    global_part_results = [GlobalPartRead.model_validate(gp) for gp in global_parts]
-    global_part_has_next = (skip + limit) < global_part_total
+    part_total = get_total_count(part_query)
+    parts_list = part_query.offset(skip).limit(limit).all()
+    part_results = [PartRead.model_validate(p) for p in parts_list]
+    part_has_next = (skip + limit) < part_total
 
     logger.info(
         f"Search for '{search_term}' returned {len(build_list_results)}/{build_list_total} build lists, "
-        f"{len(user_results)}/{user_total} users, and {len(global_part_results)}/{global_part_total} global parts"
+        f"{len(user_results)}/{user_total} users, and {len(part_results)}/{part_total} parts"
     )
 
     return {
@@ -163,10 +161,10 @@ async def search_all(
             "skip": skip,
             "limit": limit,
         },
-        "global_parts": {
-            "data": global_part_results,
-            "total": global_part_total,
-            "has_next": global_part_has_next,
+        "parts": {
+            "data": part_results,
+            "total": part_total,
+            "has_next": part_has_next,
             "skip": skip,
             "limit": limit,
         },

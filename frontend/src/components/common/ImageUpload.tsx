@@ -7,7 +7,7 @@ import LoadingSpinner from './LoadingSpinner';
 interface ImageUploadProps {
   /** Current image URL or file key (S3 object key from upload endpoint) */
   currentImageUrl?: string | null;
-  /** Entity type for organizing uploads (e.g., 'build_list', 'global_part', 'user', 'car') */
+  /** Entity type for organizing uploads (e.g., 'build_list', 'part', 'user', 'car') */
   entityType: string;
   /** Optional entity ID for organizing uploads */
   entityId?: string;

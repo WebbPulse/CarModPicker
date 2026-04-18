@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .build_list_part import BuildListPart
     from .build_list_phase import BuildListPhase
     from .build_log import BuildLog
-    from .car import Car
+    from .car_generation import CarGeneration
     from .report import Report
     from .user import User
     from .vote import Vote
@@ -25,14 +25,16 @@ class BuildList(Base):
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(index=True, nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Build list cover image(s)
-    car_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("cars.id"), nullable=True)
+    car_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    car: Mapped[Optional["Car"]] = relationship("Car", back_populates="build_lists")
+    car_generation: Mapped[Optional["CarGeneration"]] = relationship("CarGeneration", back_populates="build_lists")
     owner: Mapped["User"] = relationship("User", back_populates="build_lists")
     build_list_parts: Mapped[List["BuildListPart"]] = relationship(
         "BuildListPart",

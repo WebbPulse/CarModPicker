@@ -2,11 +2,11 @@ import type { FormEvent } from "react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApiResponse,
-  Brand,
+  PartManufacturer,
   Car,
   Category,
-  GlobalPartCreate,
-  GlobalPartRead,
+  PartCreate,
+  PartRead,
   Retailer,
   ScrapedProductData,
 } from "../../types";
@@ -21,18 +21,18 @@ interface PartDialogProps {
   onPartCreated: () => void;
   sendMessage: (message: {
     action: string;
-    partData?: GlobalPartCreate;
+    partData?: PartCreate;
     imageUrl?: string;
     limit?: number;
     searchTerm?: string;
-    brandName?: string;
+    part_manufacturerName?: string;
     productUrl?: string;
     partId?: number;
-    brandId?: number;
+    part_manufacturerId?: number;
     partNumber?: string;
     domain?: string;
     listingData?: {
-      global_part_id: number;
+      part_id: number;
       retailer_id: number;
       product_url?: string;
       price_cents?: number;
@@ -80,17 +80,17 @@ const PartDialog: React.FC<PartDialogProps> = ({
   sendMessage,
 }) => {
   const [viewMode, setViewMode] = useState<PartDialogView>("checking");
-  const [existingPart, setExistingPart] = useState<GlobalPartRead | null>(null);
+  const [existingPart, setExistingPart] = useState<PartRead | null>(null);
   const [
-    existingPartByBrandAndPartNumber,
-    setExistingPartByBrandAndPartNumber,
-  ] = useState<GlobalPartRead | null>(null);
+    existingPartByPartManufacturerAndPartNumber,
+    setExistingPartByPartManufacturerAndPartNumber,
+  ] = useState<PartRead | null>(null);
   const [recordPriceRetailer, setRecordPriceRetailer] =
     useState<Retailer | null>(null);
 
   const [formData, setFormData] = useState({
     name: scrapedData.name || "",
-    brandId: null as number | string | null,
+    part_manufacturerId: null as number | string | null,
     partNumber: scrapedData.part_number || "",
     description: scrapedData.description || "",
     price: scrapedData.price ? (scrapedData.price / 100).toFixed(2) : "",
@@ -101,12 +101,12 @@ const PartDialog: React.FC<PartDialogProps> = ({
     carId: null as number | string | null,
   });
 
-  const [pendingBrandName, setPendingBrandName] = useState<string | null>(null);
-  const hasInitializedBrand = useRef(false);
+  const [pendingPartManufacturerName, setPendingPartManufacturerName] = useState<string | null>(null);
+  const hasInitializedPartManufacturer = useRef(false);
   const hasInitializedCategory = useRef(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [cars, setCars] = useState<Car[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
+  const [part_manufacturers, setPartManufacturers] = useState<PartManufacturer[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -163,9 +163,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
       }
 
       const partResponse = (await sendMessage({
-        action: "getGlobalPart",
+        action: "getPart",
         partId,
-      })) as ApiResponse<GlobalPartRead>;
+      })) as ApiResponse<PartRead>;
 
       if (!partResponse.success || !partResponse.data) {
         setViewMode("create");
@@ -195,80 +195,80 @@ const PartDialog: React.FC<PartDialogProps> = ({
     if (viewMode !== "create") return;
     loadCategories();
     loadCars();
-    loadBrands();
+    loadPartManufacturers();
     loadRetailers();
   }, [viewMode]);
 
-  // When brand + part number are set, check if this part already exists (update mode)
+  // When part_manufacturer + part number are set, check if this part already exists (update mode)
   useEffect(() => {
     if (viewMode !== "create") {
-      setExistingPartByBrandAndPartNumber(null);
+      setExistingPartByPartManufacturerAndPartNumber(null);
       return;
     }
-    const brandId = formData.brandId;
+    const part_manufacturerId = formData.part_manufacturerId;
     const partNumber = formData.partNumber?.trim();
-    if (brandId == null || brandId === "" || !partNumber) {
-      setExistingPartByBrandAndPartNumber(null);
+    if (part_manufacturerId == null || part_manufacturerId === "" || !partNumber) {
+      setExistingPartByPartManufacturerAndPartNumber(null);
       return;
     }
-    const numericBrandId =
-      typeof brandId === "string" ? parseInt(brandId, 10) : brandId;
-    if (Number.isNaN(numericBrandId)) {
-      setExistingPartByBrandAndPartNumber(null);
+    const numericPartManufacturerId =
+      typeof part_manufacturerId === "string" ? parseInt(part_manufacturerId, 10) : part_manufacturerId;
+    if (Number.isNaN(numericPartManufacturerId)) {
+      setExistingPartByPartManufacturerAndPartNumber(null);
       return;
     }
     let cancelled = false;
     (async () => {
       const response = (await sendMessage({
-        action: "findExistingPartByBrandAndPartNumber",
-        brandId: numericBrandId,
+        action: "findExistingPartByPartManufacturerAndPartNumber",
+        part_manufacturerId: numericPartManufacturerId,
         partNumber,
-      })) as ApiResponse<GlobalPartRead>;
+      })) as ApiResponse<PartRead>;
       if (cancelled) return;
       if (response.success && response.data) {
-        setExistingPartByBrandAndPartNumber(response.data);
+        setExistingPartByPartManufacturerAndPartNumber(response.data);
       } else {
-        setExistingPartByBrandAndPartNumber(null);
+        setExistingPartByPartManufacturerAndPartNumber(null);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [viewMode, formData.brandId, formData.partNumber, sendMessage]);
+  }, [viewMode, formData.part_manufacturerId, formData.partNumber, sendMessage]);
 
-  const isUpdateMode = existingPartByBrandAndPartNumber != null;
+  const isUpdateMode = existingPartByPartManufacturerAndPartNumber != null;
 
   // When entering update mode, prefill hidden fields from existing part so submit payload is valid
   useEffect(() => {
-    if (!existingPartByBrandAndPartNumber) return;
+    if (!existingPartByPartManufacturerAndPartNumber) return;
     setFormData((prev) => ({
       ...prev,
-      name: existingPartByBrandAndPartNumber.name,
-      description: existingPartByBrandAndPartNumber.description ?? "",
+      name: existingPartByPartManufacturerAndPartNumber.name,
+      description: existingPartByPartManufacturerAndPartNumber.description ?? "",
       categoryId:
-        existingPartByBrandAndPartNumber.category_id ?? prev.categoryId,
-      carId: existingPartByBrandAndPartNumber.car_ids?.[0] ?? prev.carId,
+        existingPartByPartManufacturerAndPartNumber.category_id ?? prev.categoryId,
+      carId: existingPartByPartManufacturerAndPartNumber.car_ids?.[0] ?? prev.carId,
     }));
-  }, [existingPartByBrandAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
+  }, [existingPartByPartManufacturerAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
 
-  // Pre-select brand from scraped data when brands first load
+  // Pre-select part_manufacturer from scraped data when part_manufacturers first load
   useEffect(() => {
     if (
-      hasInitializedBrand.current ||
-      brands.length === 0 ||
-      !scrapedData.brand?.trim()
+      hasInitializedPartManufacturer.current ||
+      part_manufacturers.length === 0 ||
+      !scrapedData.part_manufacturer?.trim()
     )
       return;
-    hasInitializedBrand.current = true;
-    const match = brands.find(
-      (b) => b.name.toLowerCase() === scrapedData.brand!.toLowerCase(),
+    hasInitializedPartManufacturer.current = true;
+    const match = part_manufacturers.find(
+      (b) => b.name.toLowerCase() === scrapedData.part_manufacturer!.toLowerCase(),
     );
     if (match) {
-      setFormData((prev) => ({ ...prev, brandId: match.id }));
+      setFormData((prev) => ({ ...prev, part_manufacturerId: match.id }));
     } else {
-      setPendingBrandName(scrapedData.brand.trim());
+      setPendingPartManufacturerName(scrapedData.part_manufacturer.trim());
     }
-  }, [brands, scrapedData.brand]);
+  }, [part_manufacturers, scrapedData.part_manufacturer]);
 
   // Pre-select inferred category from server when categories first load
   useEffect(() => {
@@ -309,16 +309,16 @@ const PartDialog: React.FC<PartDialogProps> = ({
     }
   };
 
-  const loadBrands = async () => {
+  const loadPartManufacturers = async () => {
     try {
       const response = (await sendMessage({
-        action: "getBrands",
-      })) as ApiResponse<Brand[]>;
+        action: "getPartManufacturers",
+      })) as ApiResponse<PartManufacturer[]>;
       if (response.success && Array.isArray(response.data)) {
-        setBrands(response.data);
+        setPartManufacturers(response.data);
       }
     } catch {
-      // Brands failed to load
+      // PartManufacturers failed to load
     }
   };
 
@@ -371,20 +371,20 @@ const PartDialog: React.FC<PartDialogProps> = ({
     return null;
   };
 
-  const searchBrands = async (searchTerm: string): Promise<Brand[]> => {
-    if (!searchTerm || searchTerm.length <= 1) return brands;
+  const searchPartManufacturers = async (searchTerm: string): Promise<PartManufacturer[]> => {
+    if (!searchTerm || searchTerm.length <= 1) return part_manufacturers;
     try {
       const response = (await sendMessage({
-        action: "searchBrands",
+        action: "searchPartManufacturers",
         searchTerm,
-      })) as ApiResponse<Brand[]>;
+      })) as ApiResponse<PartManufacturer[]>;
       if (response.success && Array.isArray(response.data)) {
         return response.data;
       }
     } catch {
       // Search failed
     }
-    return brands;
+    return part_manufacturers;
   };
 
   const searchCars = async (searchTerm: string): Promise<Car[]> => {
@@ -428,26 +428,26 @@ const PartDialog: React.FC<PartDialogProps> = ({
         return;
       }
 
-      if (!formData.brandId && !pendingBrandName) {
-        setError("Brand is required");
+      if (!formData.part_manufacturerId && !pendingPartManufacturerName) {
+        setError("PartManufacturer is required");
         setIsLoading(false);
         return;
       }
 
-      // Resolve brand_id: create brand if pending
-      let brandId = formData.brandId
-        ? parseInt(formData.brandId.toString())
+      // Resolve part_manufacturer_id: create part_manufacturer if pending
+      let part_manufacturerId = formData.part_manufacturerId
+        ? parseInt(formData.part_manufacturerId.toString())
         : null;
-      if (!brandId && pendingBrandName) {
-        const brandResult = (await sendMessage({
-          action: "createBrand",
-          brandName: pendingBrandName,
-        })) as ApiResponse<Brand>;
-        if (brandResult.success && brandResult.data) {
-          brandId = brandResult.data.id;
-          setBrands((prev) => [...prev, brandResult.data!]);
+      if (!part_manufacturerId && pendingPartManufacturerName) {
+        const part_manufacturerResult = (await sendMessage({
+          action: "createPartManufacturer",
+          part_manufacturerName: pendingPartManufacturerName,
+        })) as ApiResponse<PartManufacturer>;
+        if (part_manufacturerResult.success && part_manufacturerResult.data) {
+          part_manufacturerId = part_manufacturerResult.data.id;
+          setPartManufacturers((prev) => [...prev, part_manufacturerResult.data!]);
         } else {
-          setError(brandResult.error || "Failed to create brand");
+          setError(part_manufacturerResult.error || "Failed to create part_manufacturer");
           setIsLoading(false);
           return;
         }
@@ -457,7 +457,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         ? Math.round(parseFloat(formData.price) * 100)
         : scrapedData.price; // Fallback to scraped price if user cleared the field
 
-      const partData: GlobalPartCreate = {
+      const partData: PartCreate = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         price: priceCents,
@@ -465,7 +465,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
         category_id: parseInt(formData.categoryId.toString()),
         is_universal: false,
         car_ids: formData.carId ? [parseInt(formData.carId.toString())] : [],
-        brand_id: brandId!,
+        part_manufacturer_id: part_manufacturerId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
         image_urls: null,
         retailer_id: retailer?.id ?? null,
@@ -488,7 +488,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
       // Create part
       const response = (await sendMessage({
-        action: "createGlobalPart",
+        action: "createPart",
         partData,
       })) as ApiResponse<{ id: number }>;
 
@@ -509,7 +509,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
           const listingResponse = (await sendMessage({
             action: "addPartListing",
             listingData: {
-              global_part_id: partId,
+              part_id: partId,
               retailer_id: retailerForListing.id,
               product_url: productUrl,
               price_cents: priceCents,
@@ -547,7 +547,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                 frontendUrl = "https://staging.carmodpicker.com";
               }
 
-              const partUrl = `${frontendUrl}/global-parts/${partId}`;
+              const partUrl = `${frontendUrl}/parts/${partId}`;
 
               if (openInNewTab) {
                 chrome.tabs.create({ url: partUrl });
@@ -584,19 +584,19 @@ const PartDialog: React.FC<PartDialogProps> = ({
     value: cat.id,
   }));
 
-  const brandOptions = useMemo(
+  const part_manufacturerOptions = useMemo(
     () =>
-      brands.map((b) => ({
+      part_manufacturers.map((b) => ({
         id: b.id,
         label: b.name,
         value: b.id,
       })),
-    [brands],
+    [part_manufacturers],
   );
 
   const carOptions = cars.map((car) => ({
     id: car.id,
-    label: `${car.make} ${car.model} ${car.generation_name} (${car.start_year}${
+    label: `${car.car_make_name} ${car.car_model_name} ${car.generation_name} (${car.start_year}${
       car.end_year ? `-${car.end_year}` : ""
     })`,
     value: car.id,
@@ -675,26 +675,26 @@ const PartDialog: React.FC<PartDialogProps> = ({
             {!isUpdateMode && (
               <div>
                 <SearchableSelect
-                  options={brandOptions}
-                  value={formData.brandId}
+                  options={part_manufacturerOptions}
+                  value={formData.part_manufacturerId}
                   onChange={(value) => {
                     const id = value !== null && value !== "" ? value : null;
-                    setFormData((prev) => ({ ...prev, brandId: id }));
-                    setPendingBrandName(null); // Clear pending when selecting or clearing
+                    setFormData((prev) => ({ ...prev, part_manufacturerId: id }));
+                    setPendingPartManufacturerName(null); // Clear pending when selecting or clearing
                   }}
-                  placeholder="Search or create brand..."
-                  label="Brand *"
+                  placeholder="Search or create part_manufacturer..."
+                  label="PartManufacturer *"
                   disabled={isLoading}
-                  emptyMessage="No brands found"
-                  createNewLabel="Create brand"
-                  displayValue={pendingBrandName}
+                  emptyMessage="No part_manufacturers found"
+                  createNewLabel="Create part_manufacturer"
+                  displayValue={pendingPartManufacturerName}
                   onCreateNew={(text) => {
-                    setPendingBrandName(text.trim());
-                    setFormData((prev) => ({ ...prev, brandId: null }));
+                    setPendingPartManufacturerName(text.trim());
+                    setFormData((prev) => ({ ...prev, part_manufacturerId: null }));
                   }}
                   filterOptions={async (opts, searchText) => {
                     if (!searchText || searchText.length <= 1) return opts;
-                    const results = await searchBrands(searchText);
+                    const results = await searchPartManufacturers(searchText);
                     return results.map((b) => ({
                       id: b.id,
                       label: b.name,
@@ -702,9 +702,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
                     }));
                   }}
                 />
-                {pendingBrandName && (
+                {pendingPartManufacturerName && (
                   <p className="mt-1 text-xs text-neutral-400">
-                    New brand &quot;{pendingBrandName}&quot; will be created
+                    New part_manufacturer &quot;{pendingPartManufacturerName}&quot; will be created
                   </p>
                 )}
               </div>
@@ -723,12 +723,12 @@ const PartDialog: React.FC<PartDialogProps> = ({
               </div>
             )}
 
-            {existingPartByBrandAndPartNumber != null && (
+            {existingPartByPartManufacturerAndPartNumber != null && (
               <div className="p-3 rounded-xl bg-primary-500/15 border border-primary-500/40 text-sm text-neutral-200">
                 <span className="font-medium text-primary-200">
                   This part already exists
                 </span>{" "}
-                (same brand + part number). Saving will add this retailer&apos;s
+                (same part_manufacturer + part number). Saving will add this retailer&apos;s
                 listing and price to the existing part instead of creating a
                 duplicate.
               </div>
@@ -834,7 +834,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                       const searchResults = await searchCars(searchText);
                       return searchResults.map((car) => ({
                         id: car.id,
-                        label: `${car.make} ${car.model} ${
+                        label: `${car.car_make_name} ${car.car_model_name} ${
                           car.generation_name
                         } (${car.start_year}${
                           car.end_year ? `-${car.end_year}` : ""

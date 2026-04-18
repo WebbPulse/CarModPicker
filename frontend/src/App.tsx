@@ -66,16 +66,10 @@ const BuildListsCatalog = lazy(
 );
 const ViewBuildLog = lazy(() => import('./pages/buildLists/ViewBuildLog.tsx'));
 const ViewBuildList = lazy(() => import('./pages/builder/ViewBuildlist.tsx'));
-const ViewGlobalPart = lazy(() => import('./pages/builder/ViewGlobalPart.tsx'));
-const EditGlobalPart = lazy(
-  () => import('./pages/globalParts/EditGlobalPart.tsx')
-);
-const GlobalPartsCatalog = lazy(
-  () => import('./pages/globalParts/GlobalPartsCatalog.tsx')
-);
-const UserGlobalParts = lazy(
-  () => import('./pages/globalParts/UserGlobalParts.tsx')
-);
+const ViewPart = lazy(() => import('./pages/builder/ViewPart.tsx'));
+const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
+const PartsCatalog = lazy(() => import('./pages/parts/PartsCatalog.tsx'));
+const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
 
 /** Paths where neither ads nor spacers are shown (landing + auth). */
 const NO_AD_SPACE_PATHS = new Set([
@@ -219,15 +213,9 @@ function App() {
                   element={<ViewBuildLog />}
                 />
                 <Route path="/build-lists" element={<BuildListsCatalog />} />
-                <Route
-                  path="/global-parts/:partId/edit"
-                  element={<EditGlobalPart />}
-                />
-                <Route
-                  path="/global-parts/:partId"
-                  element={<ViewGlobalPart />}
-                />
-                <Route path="/global-parts" element={<GlobalPartsCatalog />} />
+                <Route path="/parts/:partId/edit" element={<EditPart />} />
+                <Route path="/parts/:partId" element={<ViewPart />} />
+                <Route path="/parts" element={<PartsCatalog />} />
 
                 {/* Protected Routes */}
                 <Route element={<ProtectedRoute />}>
@@ -235,10 +223,7 @@ function App() {
                   <Route element={<EmailVerifiedRoute />}>
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/builder" element={<Builder />} />
-                    <Route
-                      path="/my-global-parts"
-                      element={<UserGlobalParts />}
-                    />
+                    <Route path="/my-parts" element={<UserParts />} />
                   </Route>
                 </Route>
 

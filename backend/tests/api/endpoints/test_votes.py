@@ -73,7 +73,7 @@ class TestUnifiedVotes:
         # Upvote the car
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
@@ -81,7 +81,7 @@ class TestUnifiedVotes:
 
         data = response.json()
         assert data["entity_id"] == str(car["id"])
-        assert data["entity_type"] == "car"
+        assert data["entity_type"] == "car_generation"
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
@@ -148,7 +148,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "downvote"
 
-    def test_vote_global_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test successfully voting on a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
@@ -175,13 +175,15 @@ class TestUnifiedVotes:
         db_session.commit()
         db_session.refresh(category)
 
-        # Create a brand
-        from app.api.models.brand import Brand as DBBrand
+        # Create a part_manufacturer
+        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 
-        brand = DBBrand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
-        db_session.add(brand)
+        part_manufacturer = DBPartManufacturer(
+            name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
+        )
+        db_session.add(part_manufacturer)
         db_session.commit()
-        db_session.refresh(brand)
+        db_session.refresh(part_manufacturer)
 
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
@@ -195,9 +197,9 @@ class TestUnifiedVotes:
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
             "category_id": str(category.id),
-            "brand_id": str(brand.id),
+            "part_manufacturer_id": str(part_manufacturer.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=part_owner_headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=part_owner_headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -211,7 +213,7 @@ class TestUnifiedVotes:
         # Upvote the part
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/global_part/{part['id']}",
+            f"{settings.API_STR}/votes/part/{part['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
@@ -219,7 +221,7 @@ class TestUnifiedVotes:
 
         data = response.json()
         assert data["entity_id"] == part["id"]
-        assert data["entity_type"] == "global_part"
+        assert data["entity_type"] == "part"
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
@@ -227,7 +229,7 @@ class TestUnifiedVotes:
         """Test voting without authentication."""
         # Try to upvote without authentication
         vote_data = {"vote_type": "upvote"}
-        response = client.post(f"{settings.API_STR}/votes/car/{INVALID_UUID_STR}", json=vote_data)
+        response = client.post(f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}", json=vote_data)
         assert response.status_code == 401
 
     def test_vote_entity_not_found(self, client: TestClient, test_user: User) -> None:
@@ -241,7 +243,9 @@ class TestUnifiedVotes:
 
         # Try to vote on non-existent entity
         vote_data = {"vote_type": "upvote"}
-        response = client.post(f"{settings.API_STR}/votes/car/{INVALID_UUID_STR}", json=vote_data, headers=headers)
+        response = client.post(
+            f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}", json=vote_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -260,7 +264,7 @@ class TestUnifiedVotes:
         # First upvote
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
@@ -271,7 +275,7 @@ class TestUnifiedVotes:
         # Change to downvote
         vote_data = {"vote_type": "downvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
@@ -295,14 +299,14 @@ class TestUnifiedVotes:
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
         assert response.status_code == 200
 
         # Remove the vote
-        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}", headers=test_user_headers)
+        response = client.delete(f"{settings.API_STR}/votes/car_generation/{car['id']}", headers=test_user_headers)
         assert response.status_code == 200
         assert response.json()["message"] == "Vote removed successfully"
 
@@ -319,7 +323,7 @@ class TestUnifiedVotes:
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        response = client.delete(f"{settings.API_STR}/votes/car/{car['id']}", headers=test_user_headers)
+        response = client.delete(f"{settings.API_STR}/votes/car_generation/{car['id']}", headers=test_user_headers)
         assert response.status_code == 404
 
     def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -337,18 +341,18 @@ class TestUnifiedVotes:
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )
         assert response.status_code == 200
 
         # Get vote summary
-        response = client.get(f"{settings.API_STR}/votes/car/{car['id']}/summary", headers=test_user_headers)
+        response = client.get(f"{settings.API_STR}/votes/car_generation/{car['id']}/summary", headers=test_user_headers)
         assert response.status_code == 200
         summary = response.json()
         assert summary["entity_id"] == str(car["id"])
-        assert summary["entity_type"] == "car"
+        assert summary["entity_type"] == "car_generation"
         assert summary["upvotes"] == 1
         assert summary["downvotes"] == 0
         assert summary["total_votes"] == 1
@@ -365,7 +369,7 @@ class TestUnifiedVotes:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Try to get vote summary for non-existent entity
-        response = client.get(f"{settings.API_STR}/votes/car/{INVALID_UUID_STR}/summary", headers=headers)
+        response = client.get(f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}/summary", headers=headers)
         assert response.status_code == 404
 
     def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -378,7 +382,7 @@ class TestUnifiedVotes:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Try to get flagged entities
-        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car", headers=headers)
+        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 403
 
     def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
@@ -391,7 +395,7 @@ class TestUnifiedVotes:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Get flagged entities
-        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car", headers=headers)
+        response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 200
         # Should return empty list if no entities meet flagging criteria
         assert isinstance(response.json(), list)
@@ -427,7 +431,7 @@ class TestUnifiedVotes:
 
         # Try to vote with invalid vote type
         vote_data = {"vote_type": "invalid_vote"}
-        response = client.post(f"{settings.API_STR}/votes/car/{car['id']}", json=vote_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/votes/car_generation/{car['id']}", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error
 
     def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
@@ -455,7 +459,7 @@ class TestUnifiedVotes:
         # Upvote the car
         vote_data = {"vote_type": "upvote"}
         response = client.post(
-            f"{settings.API_STR}/votes/car/{car['id']}",
+            f"{settings.API_STR}/votes/car_generation/{car['id']}",
             json=vote_data,
             headers=test_user_headers,
         )

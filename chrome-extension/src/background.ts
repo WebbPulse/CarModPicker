@@ -4,11 +4,11 @@
 
 import type {
   ApiResponse,
-  Brand,
+  PartManufacturer,
   Car,
   Category,
-  GlobalPartCreate,
-  GlobalPartRead,
+  PartCreate,
+  PartRead,
   ImageUploadResponse,
   LoginResponse,
   PartListingCreate,
@@ -280,34 +280,34 @@ async function searchCars(
 }
 
 /**
- * Get brands (optionally filtered to active only)
+ * Get part_manufacturers (optionally filtered to active only)
  */
-async function getBrands(
+async function getPartManufacturers(
   activeOnly: boolean = true,
-): Promise<ApiResponse<Brand[]>> {
-  return apiRequest<Brand[]>(`/brands/?active_only=${activeOnly}`, {
+): Promise<ApiResponse<PartManufacturer[]>> {
+  return apiRequest<PartManufacturer[]>(`/part-manufacturers/?active_only=${activeOnly}`, {
     method: "GET",
   });
 }
 
 /**
- * Search brands by name
+ * Search part_manufacturers by name
  */
-async function searchBrands(
+async function searchPartManufacturers(
   searchTerm: string,
   limit: number = 100,
-): Promise<ApiResponse<Brand[]>> {
-  return apiRequest<Brand[]>(
-    `/brands/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
+): Promise<ApiResponse<PartManufacturer[]>> {
+  return apiRequest<PartManufacturer[]>(
+    `/part-manufacturers/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
     { method: "GET" },
   );
 }
 
 /**
- * Create a brand (get-or-create: returns existing if same name exists)
+ * Create a part_manufacturer (get-or-create: returns existing if same name exists)
  */
-async function createBrand(name: string): Promise<ApiResponse<Brand>> {
-  return apiRequest<Brand>("/brands/", {
+async function createPartManufacturer(name: string): Promise<ApiResponse<PartManufacturer>> {
+  return apiRequest<PartManufacturer>("/part-manufacturers/", {
     method: "POST",
     body: JSON.stringify({ name: name.trim(), is_active: true }),
   });
@@ -350,7 +350,7 @@ async function checkProductUrl(
   productUrl: string,
 ): Promise<ApiResponse<{ existing_part_id: number | null }>> {
   return apiRequest<{ existing_part_id: number | null }>(
-    `/global-parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
+    `/parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
     { method: "GET" },
   );
 }
@@ -358,40 +358,40 @@ async function checkProductUrl(
 /**
  * Get global part by ID (with listings for display)
  */
-async function getGlobalPart(
+async function getPart(
   partId: number,
-): Promise<ApiResponse<GlobalPartRead>> {
-  return apiRequest<GlobalPartRead>(`/global-parts/${partId}`, {
+): Promise<ApiResponse<PartRead>> {
+  return apiRequest<PartRead>(`/parts/${partId}`, {
     method: "GET",
   });
 }
 
 /**
- * Find existing global part by brand ID and part number (for scraper update-mode detection).
+ * Find existing global part by part_manufacturer ID and part number (for scraper update-mode detection).
  * Returns the part if found, or { success: false } when not found (404).
  */
-async function findExistingPartByBrandAndPartNumber(
-  brandId: number,
+async function findExistingPartByPartManufacturerAndPartNumber(
+  part_manufacturerId: number,
   partNumber: string,
-): Promise<ApiResponse<GlobalPartRead>> {
+): Promise<ApiResponse<PartRead>> {
   const trimmed = partNumber?.trim();
   if (!trimmed) {
     return { success: false, error: "Part number required" };
   }
-  const url = `/global-parts/find-by-brand-and-part-number?brand_id=${encodeURIComponent(
-    brandId,
+  const url = `/parts/find-by-part-manufacturer-and-part-number?part_manufacturer_id=${encodeURIComponent(
+    part_manufacturerId,
   )}&part_number=${encodeURIComponent(trimmed)}`;
-  return apiRequest<GlobalPartRead>(url, { method: "GET" });
+  return apiRequest<PartRead>(url, { method: "GET" });
 }
 
 /**
  * Append image file keys to a global part's gallery
  */
-async function appendImagesToGlobalPart(
+async function appendImagesToPart(
   partId: number,
   fileKeys: string[],
-): Promise<ApiResponse<GlobalPartRead>> {
-  return apiRequest<GlobalPartRead>(`/global-parts/${partId}/append-images`, {
+): Promise<ApiResponse<PartRead>> {
+  return apiRequest<PartRead>(`/parts/${partId}/append-images`, {
     method: "POST",
     body: JSON.stringify({ file_keys: fileKeys }),
   });
@@ -443,7 +443,7 @@ async function checkUncachedImageUrls(
 async function addPartListing(
   data: PartListingCreate,
 ): Promise<ApiResponse<unknown>> {
-  return apiRequest(`/global-parts/${data.global_part_id}/listings`, {
+  return apiRequest(`/parts/${data.part_id}/listings`, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -452,10 +452,10 @@ async function addPartListing(
 /**
  * Create global part
  */
-async function createGlobalPart(
-  partData: GlobalPartCreate,
+async function createPart(
+  partData: PartCreate,
 ): Promise<ApiResponse<unknown>> {
-  return apiRequest("/global-parts/", {
+  return apiRequest("/parts/", {
     method: "POST",
     body: JSON.stringify(partData),
   });
@@ -516,7 +516,7 @@ async function uploadImage(
     formData.append("source_url", getCanonicalImageUrl(imageUrl));
 
     const uploadUrl = new URL(`${apiUrl}/images/upload`);
-    uploadUrl.searchParams.set("entity_type", "global_part");
+    uploadUrl.searchParams.set("entity_type", "part");
     if (entityId != null) {
       uploadUrl.searchParams.set("entity_id", String(entityId));
     }
@@ -562,7 +562,7 @@ async function scrapeAndParsePage(
   price: number | null;
   image_urls: string[];
   product_url: string;
-  brand: string | null;
+  part_manufacturer: string | null;
   part_number: string | null;
   adapter_used: string;
   inferred_category: string | null;
@@ -577,7 +577,7 @@ async function scrapeAndParsePage(
     price: number | null;
     image_urls: string[];
     product_url: string;
-    brand: string | null;
+    part_manufacturer: string | null;
     part_number: string | null;
     adapter_used: string;
     inferred_category: string | null;
@@ -607,16 +607,16 @@ chrome.runtime.onMessage.addListener(
       username?: string;
       password?: string;
       otp?: string;
-      partData?: GlobalPartCreate;
+      partData?: PartCreate;
       imageUrl?: string;
       partId?: number;
       fileKeys?: string[];
       sourceUrls?: string[];
       limit?: number;
       searchTerm?: string;
-      brandName?: string;
+      part_manufacturerName?: string;
       productUrl?: string;
-      brandId?: number;
+      part_manufacturerId?: number;
       partNumber?: string;
       domain?: string;
       listingData?: PartListingCreate;
@@ -684,21 +684,21 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "getBrands") {
-      getBrands().then(sendResponse);
+    if (request.action === "getPartManufacturers") {
+      getPartManufacturers().then(sendResponse);
       return true;
     }
 
-    if (request.action === "searchBrands") {
+    if (request.action === "searchPartManufacturers") {
       if (request.searchTerm) {
-        searchBrands(request.searchTerm).then(sendResponse);
+        searchPartManufacturers(request.searchTerm).then(sendResponse);
         return true;
       }
     }
 
-    if (request.action === "createBrand") {
-      if (request.brandName) {
-        createBrand(request.brandName).then(sendResponse);
+    if (request.action === "createPartManufacturer") {
+      if (request.part_manufacturerName) {
+        createPartManufacturer(request.part_manufacturerName).then(sendResponse);
         return true;
       }
     }
@@ -722,21 +722,21 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "getGlobalPart") {
+    if (request.action === "getPart") {
       if (request.partId != null) {
-        getGlobalPart(request.partId).then(sendResponse);
+        getPart(request.partId).then(sendResponse);
         return true;
       }
     }
 
-    if (request.action === "findExistingPartByBrandAndPartNumber") {
+    if (request.action === "findExistingPartByPartManufacturerAndPartNumber") {
       if (
-        request.brandId != null &&
+        request.part_manufacturerId != null &&
         request.partNumber != null &&
         String(request.partNumber).trim()
       ) {
-        findExistingPartByBrandAndPartNumber(
-          Number(request.brandId),
+        findExistingPartByPartManufacturerAndPartNumber(
+          Number(request.part_manufacturerId),
           String(request.partNumber),
         ).then(sendResponse);
         return true;
@@ -750,9 +750,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "createGlobalPart") {
+    if (request.action === "createPart") {
       if (request.partData) {
-        createGlobalPart(request.partData).then(sendResponse);
+        createPart(request.partData).then(sendResponse);
         return true;
       }
     }
@@ -764,9 +764,9 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    if (request.action === "appendImagesToGlobalPart") {
+    if (request.action === "appendImagesToPart") {
       if (request.partId != null && request.fileKeys) {
-        appendImagesToGlobalPart(
+        appendImagesToPart(
           request.partId,
           request.fileKeys as string[],
         ).then(sendResponse);

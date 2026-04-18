@@ -414,12 +414,12 @@ def update_entity(
     try:
         # Handle image_urls deletion when gallery is being updated
         if "image_urls" in update_data and hasattr(entity, "image_urls"):
-            from app.api.schemas.global_part import MAX_IMAGES_PER_GLOBAL_PART
+            from app.api.schemas.part import MAX_IMAGES_PER_PART
             from app.api.services.storage_service import storage_service
             from app.api.utils.image_utils import is_file_key
 
             old_urls = cast(list[str], getattr(entity, "image_urls", None) or [])
-            new_urls = (update_data["image_urls"] or [])[:MAX_IMAGES_PER_GLOBAL_PART]
+            new_urls = (update_data["image_urls"] or [])[:MAX_IMAGES_PER_PART]
             update_data["image_urls"] = new_urls
 
             for old_key in old_urls:

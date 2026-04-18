@@ -29,8 +29,8 @@ function SingleAd({
   index,
 }: {
   canServeAds: boolean;
-  slotId?: string;
-  clientId?: string;
+  slotId?: string | undefined;
+  clientId?: string | undefined;
   index: number;
 }) {
   const insRef = useRef<HTMLModElement>(null);
