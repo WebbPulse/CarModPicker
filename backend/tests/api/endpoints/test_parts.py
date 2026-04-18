@@ -4,8 +4,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.brand import Brand
 from app.api.models.category import Category
+from app.api.models.part_manufacturer import PartManufacturer
 from app.api.models.user import User
 from app.core.config import settings
 from tests.conftest import INVALID_UUID_STR
@@ -31,7 +31,7 @@ class TestParts:
     """Test cases for global parts endpoints."""
 
     def test_create_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test successful creation of a global part."""
         # Login as test user and get token
@@ -46,7 +46,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
             "image_urls": ["https://example.com/image.jpg"],
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
@@ -61,19 +61,21 @@ class TestParts:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_create_part_unauthorized(self, client: TestClient, test_category: Category, test_brand: Brand) -> None:
+    def test_create_part_unauthorized(
+        self, client: TestClient, test_category: Category, test_part_manufacturer: PartManufacturer
+    ) -> None:
         """Test creating a global part without authentication."""
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data)
         assert response.status_code == 401
 
     def test_get_parts_list(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test retrieving list of global parts."""
         # Login and create a part first
@@ -87,7 +89,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -101,7 +103,7 @@ class TestParts:
         assert len(data) >= 1
 
     def test_get_parts_with_pagination(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test pagination for global parts list."""
         # Login and create multiple parts
@@ -113,7 +115,7 @@ class TestParts:
                 "name": get_unique_name(f"test_part_{i}"),
                 "description": f"Test part {i}",
                 "category_id": str(test_category.id),
-                "brand_id": str(test_brand.id),
+                "part_manufacturer_id": str(test_part_manufacturer.id),
             }
             response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
@@ -125,7 +127,7 @@ class TestParts:
         assert len(data) <= 2
 
     def test_get_parts_with_category_filter(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test filtering global parts by category."""
         # Login and create a part
@@ -135,7 +137,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -150,7 +152,7 @@ class TestParts:
             assert part["category_id"] == str(test_category.id)
 
     def test_get_parts_with_search(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test searching global parts."""
         # Login and create a part
@@ -161,7 +163,7 @@ class TestParts:
             "name": unique_name,
             "description": "A searchable part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -175,7 +177,7 @@ class TestParts:
         assert any(unique_name in part["name"] for part in data)  # type: ignore[misc]
 
     def test_get_part_by_id(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test retrieving a specific global part by ID."""
         # Login and create a part
@@ -185,7 +187,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -204,7 +206,7 @@ class TestParts:
         assert response.status_code == 404
 
     def test_update_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test successful update of a global part."""
         # Login and create a part
@@ -214,7 +216,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -224,7 +226,7 @@ class TestParts:
         update_data = {
             "name": get_unique_name("updated_part"),
             "description": "Updated description",
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.put(f"{settings.API_STR}/parts/{created_part['id']}", json=update_data, headers=headers)
         assert response.status_code == 200
@@ -233,7 +235,7 @@ class TestParts:
         assert data["description"] == update_data["description"]
 
     def test_update_part_unauthorized(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test updating a global part without proper authorization."""
         # Create a part as test_user
@@ -243,7 +245,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -255,7 +257,7 @@ class TestParts:
         assert response.status_code == 401
 
     def test_delete_part_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test successful deletion of a global part."""
         # Login and create a part
@@ -265,7 +267,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -280,7 +282,7 @@ class TestParts:
         assert response.status_code == 404
 
     def test_delete_part_unauthorized(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test deleting a global part without proper authorization."""
         # Create a part as test_user
@@ -290,7 +292,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -301,7 +303,7 @@ class TestParts:
         assert response.status_code == 401
 
     def test_get_parts_with_votes(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test retrieving global parts with vote data."""
         # Login and create a part
@@ -311,7 +313,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -332,7 +334,7 @@ class TestParts:
             assert "user_vote" in part
 
     def test_get_parts_with_votes_universal_filter(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test that universal=true returns only parts with is_universal=True."""
         headers = get_auth_token_and_headers(client, test_user.username)
@@ -342,7 +344,7 @@ class TestParts:
             "name": get_unique_name("universal_part"),
             "description": "Universal part",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
             "is_universal": True,
         }
         r1 = client.post(f"{settings.API_STR}/parts/", json=universal_data, headers=headers)
@@ -354,7 +356,7 @@ class TestParts:
             "name": get_unique_name("car_specific_part"),
             "description": "Car-specific part",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
             "is_universal": False,
         }
         r2 = client.post(f"{settings.API_STR}/parts/", json=non_universal_data, headers=headers)
@@ -380,7 +382,7 @@ class TestParts:
         assert all(p["is_universal"] for p in universal_only)
 
     def test_create_part_with_invalid_price_cents(
-        self, client: TestClient, test_user: Any, test_category: Any, test_brand: Brand
+        self, client: TestClient, test_user: Any, test_category: Any, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test that creating a global part with invalid price_cents (for retailer listing) fails validation."""
         # Login as test user
@@ -391,7 +393,7 @@ class TestParts:
             "name": "Test Part with Invalid Price Cents",
             "description": "A test part",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
             "price_cents": 2147483648,  # One more than max PostgreSQL integer
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
@@ -409,7 +411,7 @@ class TestParts:
         assert "price_cents" in error_detail["field"]
 
     def test_get_parts_by_category_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test retrieving global parts by category."""
         # Login as test user and get token
@@ -423,7 +425,7 @@ class TestParts:
                 "name": part_name,
                 "description": "A test part description",
                 "category_id": str(test_category.id),
-                "brand_id": str(test_brand.id),
+                "part_manufacturer_id": str(test_part_manufacturer.id),
             }
             response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
@@ -448,7 +450,7 @@ class TestParts:
         assert created_part_ids.issubset(part_ids)
 
     def test_get_parts_by_category_with_pagination(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test pagination for global parts by category."""
         # Login as test user and get token
@@ -460,7 +462,7 @@ class TestParts:
                 "name": get_unique_name(f"test_part_{i}"),
                 "description": "A test part description",
                 "category_id": str(test_category.id),
-                "brand_id": str(test_brand.id),
+                "part_manufacturer_id": str(test_part_manufacturer.id),
             }
             response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
@@ -494,7 +496,7 @@ class TestParts:
         assert len(data) == 0
 
     def test_get_parts_by_category_public_endpoint(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test that getting global parts by category works without authentication."""
         # Login as test user to create data
@@ -505,7 +507,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -517,7 +519,7 @@ class TestParts:
         assert isinstance(data, list)
 
     def test_count_parts_by_user_success(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test counting global parts created by a specific user."""
         # Login as test user and get token
@@ -537,7 +539,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -576,7 +578,7 @@ class TestParts:
         assert data["count"] == 0
 
     def test_count_parts_by_user_public_endpoint(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test that counting global parts by user works without authentication."""
         # Login as test user to create data
@@ -587,7 +589,7 @@ class TestParts:
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -601,7 +603,7 @@ class TestParts:
         assert data["count"] >= 0
 
     def test_get_parts_filter_options(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test getting filter options for cascading filters."""
         # Create a part first
@@ -610,7 +612,7 @@ class TestParts:
             "name": get_unique_name("filter_options_part"),
             "description": "Test part for filter options",
             "category_id": str(test_category.id),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
@@ -620,26 +622,27 @@ class TestParts:
         assert response.status_code == 200
         data = response.json()
         assert "category_ids" in data
-        assert "brand_ids" in data
+        assert "part_manufacturer_ids" in data
         assert isinstance(data["category_ids"], list)
-        assert isinstance(data["brand_ids"], list)
+        assert isinstance(data["part_manufacturer_ids"], list)
         assert str(test_category.id) in data["category_ids"]
-        assert str(test_brand.id) in data["brand_ids"]
+        assert str(test_part_manufacturer.id) in data["part_manufacturer_ids"]
 
     def test_get_parts_filter_options_with_filters(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
-        """Test filter options with category/brand filters."""
+        """Test filter options with category/part_manufacturer filters."""
         response = client.get(
-            f"{settings.API_STR}/parts/filter-options" f"?category_ids={test_category.id}&brand_ids={test_brand.id}"
+            f"{settings.API_STR}/parts/filter-options"
+            f"?category_ids={test_category.id}&part_manufacturer_ids={test_part_manufacturer.id}"
         )
         assert response.status_code == 200
         data = response.json()
         assert "category_ids" in data
-        assert "brand_ids" in data
+        assert "part_manufacturer_ids" in data
 
     def test_check_product_url_exists_empty(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test check-url with no or empty product_url returns null."""
         response = client.get(f"{settings.API_STR}/parts/check-url")
@@ -653,7 +656,7 @@ class TestParts:
         assert data["existing_part_id"] is None
 
     def test_check_product_url_exists_nonexistent(
-        self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test check-url with non-existent URL returns null."""
         response = client.get(
@@ -663,7 +666,9 @@ class TestParts:
         data = response.json()
         assert data["existing_part_id"] is None
 
-    def test_count_parts(self, client: TestClient, test_user: User, test_category: Category, test_brand: Brand) -> None:
+    def test_count_parts(
+        self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
+    ) -> None:
         """Test counting total global parts (public endpoint)."""
         response = client.get(f"{settings.API_STR}/parts/count")
         assert response.status_code == 200

@@ -623,20 +623,22 @@ class TestBuildLists:
         db_session.commit()
         db_session.refresh(category)
 
-        # Create a brand for the global part
-        from app.api.models.brand import Brand as DBBrand
+        # Create a part_manufacturer for the global part
+        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 
-        brand = DBBrand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
-        db_session.add(brand)
+        part_manufacturer = DBPartManufacturer(
+            name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
+        )
+        db_session.add(part_manufacturer)
         db_session.commit()
-        db_session.refresh(brand)
+        db_session.refresh(part_manufacturer)
 
         # Create a global part
         part_data = {
             "name": get_unique_name("test_part"),
             "description": "A test part description",
             "category_id": str(category.id),
-            "brand_id": str(brand.id),
+            "part_manufacturer_id": str(part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200

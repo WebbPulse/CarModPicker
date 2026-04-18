@@ -8,8 +8,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.part_listing import PartListing
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.core.config import settings
@@ -378,11 +378,13 @@ class TestRetailers:
         )
         retailer_id = created["id"]
 
-        # Create brand for global part
-        brand = DBBrand(name=get_unique_name("RetBrand"), description="Brand", is_active=True)
-        db_session.add(brand)
+        # Create part_manufacturer for global part
+        part_manufacturer = DBPartManufacturer(
+            name=get_unique_name("RetPartManufacturer"), description="PartManufacturer", is_active=True
+        )
+        db_session.add(part_manufacturer)
         db_session.commit()
-        db_session.refresh(brand)
+        db_session.refresh(part_manufacturer)
 
         # Create global part and part listing
         _, user_token = create_and_login_user(client, "ret_listings_user", db_session)
@@ -391,7 +393,7 @@ class TestRetailers:
             "name": get_unique_name("PartForListing"),
             "description": "Part",
             "category_id": str(category_id),
-            "brand_id": str(brand.id),
+            "part_manufacturer_id": str(part_manufacturer.id),
         }
         part_resp = client.post(
             f"{settings.API_STR}/parts/", json=part_data, headers={"Authorization": f"Bearer {user_token}"}

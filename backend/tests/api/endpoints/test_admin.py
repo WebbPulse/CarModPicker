@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.brand import Brand as DBBrand
 from app.api.models.part import Part as DBPart
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import INVALID_UUID_STR
@@ -175,39 +175,43 @@ class TestAdminRescrapeArchives:
         assert "message" in data
 
 
-class TestAdminDeleteAllBrands:
-    """Test cases for admin delete-all-brands endpoint."""
+class TestAdminDeleteAllPartManufacturers:
+    """Test cases for admin delete-all-part_manufacturers endpoint."""
 
-    def test_delete_all_brands_unauthorized(self, client: TestClient) -> None:
-        """Test delete all brands without auth returns 401."""
-        response = client.post(f"{settings.API_STR}/admin/brands/delete-all")
+    def test_delete_all_part_manufacturers_unauthorized(self, client: TestClient) -> None:
+        """Test delete all part_manufacturers without auth returns 401."""
+        response = client.post(f"{settings.API_STR}/admin/part-manufacturers/delete-all")
         assert response.status_code == 401
 
-    def test_delete_all_brands_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
-        """Test delete all brands as non-admin returns 403."""
-        token = create_and_login_user(client, db_session, "delete_brands_forbidden")
+    def test_delete_all_part_manufacturers_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        """Test delete all part_manufacturers as non-admin returns 403."""
+        token = create_and_login_user(client, db_session, "delete_part_manufacturers_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/brands/delete-all",
+            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 403
 
-    def test_delete_all_brands_success_admin(
+    def test_delete_all_part_manufacturers_success_admin(
         self, client: TestClient, db_session: Session, test_category, test_user
     ) -> None:
-        """Test delete all brands as admin returns 200 with deleted_count."""
-        brand1 = DBBrand(name="brand_delete_1", description="Brand 1", is_active=True)
-        brand2 = DBBrand(name="brand_delete_2", description="Brand 2", is_active=True)
-        db_session.add_all([brand1, brand2])
+        """Test delete all part_manufacturers as admin returns 200 with deleted_count."""
+        part_manufacturer1 = DBPartManufacturer(
+            name="part_manufacturer_delete_1", description="PartManufacturer 1", is_active=True
+        )
+        part_manufacturer2 = DBPartManufacturer(
+            name="part_manufacturer_delete_2", description="PartManufacturer 2", is_active=True
+        )
+        db_session.add_all([part_manufacturer1, part_manufacturer2])
         db_session.commit()
-        db_session.refresh(brand1)
-        db_session.refresh(brand2)
+        db_session.refresh(part_manufacturer1)
+        db_session.refresh(part_manufacturer2)
 
-        token = create_and_login_admin_user(client, db_session, "delete_brands_success")
+        token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_success")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/brands/delete-all",
+            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200
@@ -215,52 +219,54 @@ class TestAdminDeleteAllBrands:
         assert "deleted_count" in data
         assert data["deleted_count"] == 2
 
-        # Verify brands are gone
-        remaining = db_session.query(DBBrand).count()
+        # Verify part_manufacturers are gone
+        remaining = db_session.query(DBPartManufacturer).count()
         assert remaining == 0
 
-    def test_delete_all_brands_nullifies_part_brand_ids(
+    def test_delete_all_part_manufacturers_nullifies_part_part_manufacturer_ids(
         self, client: TestClient, db_session: Session, test_category, test_user
     ) -> None:
-        """Test that deleting all brands nullifies brand_id on global parts."""
-        brand = DBBrand(name="brand_for_part", description="Brand", is_active=True)
-        db_session.add(brand)
+        """Test that deleting all part_manufacturers nullifies part_manufacturer_id on global parts."""
+        part_manufacturer = DBPartManufacturer(
+            name="part_manufacturer_for_part", description="PartManufacturer", is_active=True
+        )
+        db_session.add(part_manufacturer)
         db_session.commit()
-        db_session.refresh(brand)
+        db_session.refresh(part_manufacturer)
 
         part = DBPart(
-            name="Part with brand",
+            name="Part with part_manufacturer",
             description="Test part",
             category_id=test_category.id,
             user_id=test_user.id,
-            brand_id=brand.id,
+            part_manufacturer_id=part_manufacturer.id,
         )
         db_session.add(part)
         db_session.commit()
         db_session.refresh(part)
         part_id = part.id
 
-        token = create_and_login_admin_user(client, db_session, "delete_brands_nullify")
+        token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_nullify")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/brands/delete-all",
+            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200
         assert response.json()["deleted_count"] == 1
 
-        # Verify part still exists but brand_id is null
+        # Verify part still exists but part_manufacturer_id is null
         db_session.expire_all()  # Clear any cached state
         part_after = db_session.query(DBPart).filter(DBPart.id == part_id).first()
         assert part_after is not None
-        assert part_after.brand_id is None
+        assert part_after.part_manufacturer_id is None
 
-    def test_delete_all_brands_empty_success(self, client: TestClient, db_session: Session) -> None:
-        """Test delete all brands when no brands exist returns 200 with deleted_count=0."""
-        token = create_and_login_admin_user(client, db_session, "delete_brands_empty")
+    def test_delete_all_part_manufacturers_empty_success(self, client: TestClient, db_session: Session) -> None:
+        """Test delete all part_manufacturers when no part_manufacturers exist returns 200 with deleted_count=0."""
+        token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_empty")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/brands/delete-all",
+            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200
