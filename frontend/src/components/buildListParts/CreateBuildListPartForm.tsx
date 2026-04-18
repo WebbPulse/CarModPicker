@@ -421,7 +421,7 @@ function CreateBuildListPartForm({
       }
 
       if (!formData.part_manufacturer_id && !pendingPartManufacturerName) {
-        setValidationError('PartManufacturer is required');
+        setValidationError('Part manufacturer is required');
         return;
       }
 
@@ -446,7 +446,7 @@ function CreateBuildListPartForm({
               await fetchPartManufacturers();
             } else {
               setCreateError(
-                'Failed to create part_manufacturer. Please try again.'
+                'Failed to create part manufacturer. Please try again.'
               );
               setIsCreating(false);
               return;
@@ -455,7 +455,7 @@ function CreateBuildListPartForm({
             setCreateError(
               error instanceof Error
                 ? error.message
-                : 'Failed to create part_manufacturer. Please try again.'
+                : 'Failed to create part manufacturer. Please try again.'
             );
             setIsCreating(false);
             return;
@@ -653,7 +653,7 @@ function CreateBuildListPartForm({
             <SearchableSelect
               id="global-part-part_manufacturer"
               name="part_manufacturer_id"
-              label="PartManufacturer *"
+              label="Part Manufacturer *"
               placeholder="Type to search for a part manufacturer or create new..."
               value={formData.part_manufacturer_id}
               onChange={handlePartManufacturerChange}
@@ -684,7 +684,7 @@ function CreateBuildListPartForm({
                     />
                   </svg>
                   <span>
-                    New part_manufacturer{' '}
+                    New part manufacturer{' '}
                     <strong>&quot;{pendingPartManufacturerName}&quot;</strong>{' '}
                     will be created when you submit this form.
                   </span>
@@ -923,7 +923,7 @@ function CreateBuildListPartForm({
                                 {selectedPart.part_manufacturer_id && (
                                   <p className="text-sm text-gray-400 mt-1">
                                     <span className="font-medium">
-                                      PartManufacturer:
+                                      Part Manufacturer:
                                     </span>{' '}
                                     {part_manufacturers.find(
                                       (b) =>

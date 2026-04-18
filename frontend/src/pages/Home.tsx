@@ -380,7 +380,7 @@ export default function HomePage() {
                   {partManufacturersCountData?.count ?? '—'}
                 </div>
                 <div className="text-sm text-neutral-400">
-                  Part PartManufacturers
+                  Part Manufacturers
                 </div>
               </div>
             </div>
