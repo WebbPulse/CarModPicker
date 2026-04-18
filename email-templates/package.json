@@ -11,6 +11,9 @@
     "@react-email/components": "^0.0.32",
     "@react-email/render": "^1.0.5"
   },
+  "overrides": {
+    "prismjs": "^1.30.0"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
