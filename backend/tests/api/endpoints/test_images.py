@@ -429,7 +429,7 @@ class TestImages:
         assert "not found" in response.json()["message"].lower()
 
     def test_upload_image_part(
-        self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Session
     ) -> None:
         """Test uploading an image for a global part."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -443,7 +443,7 @@ class TestImages:
             "description": "A test part description",
             "category_id": str(test_category.id),
             "car_id": str(car["id"]),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200

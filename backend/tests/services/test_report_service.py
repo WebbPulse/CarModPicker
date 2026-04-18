@@ -89,17 +89,17 @@ class TestReportService:
             db_session.add(category)
             db_session.commit()
 
-        # Get or create a brand
-        from app.api.models.brand import Brand
+        # Get or create a part_manufacturer
+        from app.api.models.part_manufacturer import PartManufacturer
 
-        brand = db_session.query(Brand).first()
-        if not brand:
-            brand = Brand(
-                name="test_brand",
-                description="Test brand",
+        part_manufacturer = db_session.query(PartManufacturer).first()
+        if not part_manufacturer:
+            part_manufacturer = PartManufacturer(
+                name="test_part_manufacturer",
+                description="Test part_manufacturer",
                 is_active=True,
             )
-            db_session.add(brand)
+            db_session.add(part_manufacturer)
             db_session.commit()
 
         part = Part(
@@ -107,7 +107,7 @@ class TestReportService:
             description="Test part",
             user_id=other_user.id,
             category_id=category.id,
-            brand_id=brand.id,
+            part_manufacturer_id=part_manufacturer.id,
         )
         db_session.add(part)
         db_session.commit()
@@ -270,17 +270,17 @@ class TestReportService:
             db_session.add(category)
             db_session.commit()
 
-        # Get or create a brand
-        from app.api.models.brand import Brand
+        # Get or create a part_manufacturer
+        from app.api.models.part_manufacturer import PartManufacturer
 
-        brand = db_session.query(Brand).first()
-        if not brand:
-            brand = Brand(
-                name="test_brand2",
-                description="Test brand 2",
+        part_manufacturer = db_session.query(PartManufacturer).first()
+        if not part_manufacturer:
+            part_manufacturer = PartManufacturer(
+                name="test_part_manufacturer2",
+                description="Test part_manufacturer 2",
                 is_active=True,
             )
-            db_session.add(brand)
+            db_session.add(part_manufacturer)
             db_session.commit()
 
         part = Part(
@@ -288,7 +288,7 @@ class TestReportService:
             description="Test part",
             user_id=other_user.id,
             category_id=category.id,
-            brand_id=brand.id,
+            part_manufacturer_id=part_manufacturer.id,
         )
         db_session.add(part)
         db_session.commit()

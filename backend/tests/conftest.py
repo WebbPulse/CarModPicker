@@ -20,8 +20,8 @@ INVALID_UUID_STR: str = str(INVALID_UUID)
 
 # Import after environment setup - environment variables must be set before importing app code
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
-from app.api.models.brand import Brand  # noqa: E402
 from app.api.models.category import Category  # noqa: E402
+from app.api.models.part_manufacturer import PartManufacturer  # noqa: E402
 from app.api.models.user import User  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
@@ -238,17 +238,17 @@ def test_category(db_session: Session) -> Category:
 
 
 @pytest.fixture(scope="function")
-def test_brand(db_session: Session) -> Brand:
-    """Create a test brand for testing."""
-    brand = Brand(
-        name=f"test_brand_{os.getpid()}_{id(db_session)}",  # Make unique per worker
-        description="A test brand",
+def test_part_manufacturer(db_session: Session) -> PartManufacturer:
+    """Create a test part_manufacturer for testing."""
+    part_manufacturer = PartManufacturer(
+        name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        description="A test part_manufacturer",
         is_active=True,
     )
-    db_session.add(brand)
+    db_session.add(part_manufacturer)
     db_session.commit()
-    db_session.refresh(brand)
-    return brand
+    db_session.refresh(part_manufacturer)
+    return part_manufacturer
 
 
 @pytest.fixture(scope="function")

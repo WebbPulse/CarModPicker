@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.api.endpoints.parts import PartService
-from app.api.models.brand import Brand
 from app.api.models.category import Category
+from app.api.models.part_manufacturer import PartManufacturer
 from app.api.models.retailer import Retailer
 from app.api.models.user import User
 from app.api.schemas.part import PartCreate
@@ -39,7 +39,7 @@ def lighting_category(db_session: Session) -> Category:
 def test_dedupe_refresh_updates_category_and_name(
     db_session: Session,
     test_user: User,
-    test_brand: Brand,
+    test_part_manufacturer: PartManufacturer,
     lighting_category: Category,
 ) -> None:
     """When refresh_metadata_on_dedupe is set, second create merges payload onto existing part."""
@@ -60,7 +60,7 @@ def test_dedupe_refresh_updates_category_and_name(
         name="Original title",
         description="Desc",
         category_id=other_id,
-        brand_id=test_brand.id,
+        part_manufacturer_id=test_part_manufacturer.id,
         retailer_id=retailer.id,
         product_url=url,
         is_universal=True,
@@ -72,7 +72,7 @@ def test_dedupe_refresh_updates_category_and_name(
         name="Updated from archive",
         description="Desc",
         category_id=lighting_category.id,
-        brand_id=test_brand.id,
+        part_manufacturer_id=test_part_manufacturer.id,
         retailer_id=retailer.id,
         product_url=url,
         is_universal=True,
@@ -93,7 +93,7 @@ def test_dedupe_refresh_updates_category_and_name(
 def test_dedupe_without_refresh_keeps_category(
     db_session: Session,
     test_user: User,
-    test_brand: Brand,
+    test_part_manufacturer: PartManufacturer,
     lighting_category: Category,
 ) -> None:
     """Default dedupe path does not overwrite category."""
@@ -113,7 +113,7 @@ def test_dedupe_without_refresh_keeps_category(
     first = PartCreate(
         name="Keep me",
         category_id=other_id,
-        brand_id=test_brand.id,
+        part_manufacturer_id=test_part_manufacturer.id,
         retailer_id=retailer.id,
         product_url=url,
         is_universal=True,
@@ -122,7 +122,7 @@ def test_dedupe_without_refresh_keeps_category(
     second = PartCreate(
         name="Would change name if refreshed",
         category_id=lighting_category.id,
-        brand_id=test_brand.id,
+        part_manufacturer_id=test_part_manufacturer.id,
         retailer_id=retailer.id,
         product_url=url,
         is_universal=True,
