@@ -46,7 +46,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.car_generation import CarGeneration  # pyright: ignore[reportMissingImports]
 from app.api.models.car_model import CarModel  # pyright: ignore[reportMissingImports]
-from app.api.models.global_part import GlobalPart  # pyright: ignore[reportMissingImports]
+from app.api.models.part import Part  # pyright: ignore[reportMissingImports]
 from app.db.session import SessionLocal  # pyright: ignore[reportMissingImports]
 
 # PartManufacturer names that look like chassis/platform codes (E46, E9x, F80) — likely wrong attributions.
@@ -95,8 +95,8 @@ CAR_GENERATION_DISPLAY_OVERRIDES: dict[tuple[str, str, str], str] = {
 }
 
 
-def car_to_generation_display(c: Car) -> str:
-    """Format a Car (generation) as 'Make Model Generation (start-end)'."""
+def car_to_generation_display(c: CarGeneration) -> str:
+    """Format a CarGeneration (generation) as 'Make Model Generation (start-end)'."""
     make = c.car_model.car_make.name if c.car_model and c.car_model.make else "?"
     model = c.car_model.name if c.car_model else "?"
     gen = (c.generation_name or "").strip()
@@ -120,8 +120,8 @@ def serialize_specs(specs: dict | None) -> str | None:
     return str(specs)
 
 
-def part_to_record(p: GlobalPart) -> dict:
-    """Turn a GlobalPart (with category and part_manufacturer loaded) into a flat record for export."""
+def part_to_record(p: Part) -> dict:
+    """Turn a Part (with category and part_manufacturer loaded) into a flat record for export."""
     category = p.category
     part_manufacturer = p.part_manufacturer
     part_manufacturer_name = part_manufacturer.name if part_manufacturer else None
@@ -283,15 +283,15 @@ def main() -> None:
     db: Session = SessionLocal()
     try:
         parts = (
-            db.query(GlobalPart)
+            db.query(Part)
             .options(
-                joinedload(GlobalPart.category),
-                joinedload(GlobalPart.part_manufacturer),
-                joinedload(GlobalPart.car_generations)
-                .joinedload(Car.car_model)
+                joinedload(Part.category),
+                joinedload(Part.part_manufacturer),
+                joinedload(Part.car_generations)
+                .joinedload(CarGeneration.car_model)
                 .joinedload(CarModel.car_make),
             )
-            .order_by(GlobalPart.id)
+            .order_by(Part.id)
             .all()
         )
 

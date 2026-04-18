@@ -84,7 +84,7 @@ Browser / Chrome Extension
 ### Backend (`backend/app/`)
 
 - **`main.py`** — App factory: registers all routers via `EndpointRegistry`, adds CORS, rate-limiting, and error-handler middleware. The `lifespan` hook initializes a crawler service account on startup.
-- **`api/endpoints/`** — One file per domain (`auth`, `users`, `cars`, `global_parts`, `build_lists`, `build_list_parts`, `build_list_phases`, `build_logs`, `votes`, `reports`, `images`, `search`, `admin`, `crawled_pages`, `part_manufacturers`, `categories`, `retailers`, `bug_reports`).
+- **`api/endpoints/`** — One file per domain (`auth`, `users`, `car_generations`, `parts`, `build_lists`, `build_list_parts`, `build_list_phases`, `build_logs`, `votes`, `reports`, `images`, `search`, `admin`, `crawled_pages`, `part_manufacturers`, `categories`, `retailers`, `bug_reports`).
 - **`api/models/`** — SQLAlchemy 2.0 ORM models (22+ tables).
 - **`api/schemas/`** — Pydantic v2 request/response schemas.
 - **`api/services/`** — Business logic layer called by endpoints.
