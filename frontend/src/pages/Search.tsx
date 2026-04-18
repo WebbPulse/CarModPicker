@@ -57,6 +57,20 @@ function Search() {
     () => searchParams.get('q') || ''
   );
 
+  const sortedSections = useMemo(() => {
+    const sections: Array<'build_lists' | 'users' | 'global_parts'> = [
+      'build_lists',
+      'users',
+      'global_parts',
+    ];
+    const counts = {
+      build_lists: buildLists.length,
+      users: users.length,
+      global_parts: globalParts.length,
+    };
+    return [...sections].sort((a, b) => counts[b] - counts[a]);
+  }, [buildLists.length, users.length, globalParts.length]);
+
   // Convert GlobalPartRead to GlobalPartReadWithVotes for GlobalPartList (adds vote defaults)
   const globalPartsWithVotes = useMemo((): GlobalPartReadWithVotes[] => {
     const count =
@@ -345,106 +359,121 @@ function Search() {
       {/* Search Results (including "no results" state when currentQuery is set) */}
       {!isLoading && !error && currentQuery && (
         <>
-          {/* Build Lists Results */}
-          <Card className="mb-6">
-            <SectionHeader
-              title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
-            />
-            {buildLists.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <p>No build lists found.</p>
-              </div>
-            ) : (
-              <>
-                <div className="tile-grid-compact">
-                  {buildLists
-                    .slice(
-                      0,
-                      displayedCounts.build_lists ||
-                        Math.min(
-                          SEARCH_INITIAL_LIMITS.build_lists,
-                          buildLists.length
-                        )
-                    )
-                    .map((buildList) => (
-                      <BuildListItem key={buildList.id} buildList={buildList} />
-                    ))}
-                </div>
-                {(pagination?.build_lists.has_next ||
-                  displayedCounts.build_lists < buildLists.length) && (
+          {sortedSections.map((section) => {
+            if (section === 'build_lists') {
+              return (
+                <Card key="build_lists" className="mb-6">
+                  <SectionHeader
+                    title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
+                  />
+                  {buildLists.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <p>No build lists found.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="tile-grid-compact">
+                        {buildLists
+                          .slice(
+                            0,
+                            displayedCounts.build_lists ||
+                              Math.min(
+                                SEARCH_INITIAL_LIMITS.build_lists,
+                                buildLists.length
+                              )
+                          )
+                          .map((buildList) => (
+                            <BuildListItem
+                              key={buildList.id}
+                              buildList={buildList}
+                            />
+                          ))}
+                      </div>
+                      {(pagination?.build_lists.has_next ||
+                        displayedCounts.build_lists < buildLists.length) && (
+                        <div className="mt-6 flex justify-center">
+                          <ActionButton
+                            onClick={() => loadMore('build_lists')}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? 'Loading...' : 'Load More Build Lists'}
+                          </ActionButton>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              );
+            }
+
+            if (section === 'users') {
+              return (
+                <Card key="users" className="mb-6">
+                  <SectionHeader
+                    title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
+                  />
+                  {users.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <p>No users found.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="tile-grid-compact">
+                        {users
+                          .slice(
+                            0,
+                            displayedCounts.users ||
+                              Math.min(
+                                SEARCH_INITIAL_LIMITS.users,
+                                users.length
+                              )
+                          )
+                          .map((user) => (
+                            <UserCard key={user.id} user={user} />
+                          ))}
+                      </div>
+                      {(pagination?.users.has_next ||
+                        displayedCounts.users < users.length) && (
+                        <div className="mt-6 flex justify-center">
+                          <ActionButton
+                            onClick={() => loadMore('users')}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? 'Loading...' : 'Load More Users'}
+                          </ActionButton>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              );
+            }
+
+            return (
+              <div key="global_parts" className="mb-6">
+                <GlobalPartList
+                  data={globalPartsWithVotes}
+                  layout="table"
+                  title={`Parts (${pagination?.global_parts ? (searchResults?.global_parts.total ?? globalParts.length) : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
+                  emptyMessage="No parts found."
+                  categories={[]}
+                  brands={[]}
+                  carsById={{}}
+                />
+                {(pagination?.global_parts.has_next ||
+                  displayedCounts.global_parts < globalParts.length) && (
                   <div className="mt-6 flex justify-center">
                     <ActionButton
-                      onClick={() => loadMore('build_lists')}
+                      onClick={() => loadMore('global_parts')}
                       disabled={isLoading}
                     >
-                      {isLoading ? 'Loading...' : 'Load More Build Lists'}
+                      {isLoading ? 'Loading...' : 'Load More Parts'}
                     </ActionButton>
                   </div>
                 )}
-              </>
-            )}
-          </Card>
-
-          {/* Users Results */}
-          <Card className="mb-6">
-            <SectionHeader
-              title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
-            />
-            {users.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <p>No users found.</p>
               </div>
-            ) : (
-              <>
-                <div className="tile-grid-compact">
-                  {users
-                    .slice(
-                      0,
-                      displayedCounts.users ||
-                        Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
-                    )
-                    .map((user) => (
-                      <UserCard key={user.id} user={user} />
-                    ))}
-                </div>
-                {(pagination?.users.has_next ||
-                  displayedCounts.users < users.length) && (
-                  <div className="mt-6 flex justify-center">
-                    <ActionButton
-                      onClick={() => loadMore('users')}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Loading...' : 'Load More Users'}
-                    </ActionButton>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-
-          {/* Parts Results - table layout matching parts catalog (no filters) */}
-          <div className="mb-6">
-            <GlobalPartList
-              data={globalPartsWithVotes}
-              layout="table"
-              title={`Parts (${pagination?.global_parts ? (searchResults?.global_parts.total ?? globalParts.length) : globalParts.length}${pagination?.global_parts ? ` of ${searchResults?.global_parts.total ?? 0}` : ''})`}
-              emptyMessage="No parts found."
-              categories={[]}
-              brands={[]}
-              carsById={{}}
-            />
-            {(pagination?.global_parts.has_next ||
-              displayedCounts.global_parts < globalParts.length) && (
-              <div className="mt-6 flex justify-center">
-                <ActionButton
-                  onClick={() => loadMore('global_parts')}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Loading...' : 'Load More Parts'}
-                </ActionButton>
-              </div>
-            )}
-          </div>
+            );
+          })}
 
           {/* No Results Message */}
           {buildLists.length === 0 &&

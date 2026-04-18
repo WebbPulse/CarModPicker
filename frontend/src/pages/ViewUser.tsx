@@ -71,7 +71,7 @@ function ViewUser() {
     );
   }
 
-  if (!user) {
+  if (!user || user.is_service_account) {
     return (
       <div>
         <PageHeader title="User Profile" />

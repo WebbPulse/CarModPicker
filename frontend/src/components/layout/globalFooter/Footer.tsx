@@ -115,7 +115,7 @@ function Footer() {
               </h3>
               <div className="flex space-x-4">
                 <a
-                  href="https://github.com"
+                  href="https://github.com/TW-WebbPulse"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
@@ -131,7 +131,7 @@ function Footer() {
                   <FaTwitter className="text-lg" />
                 </a>
                 <a
-                  href="https://linkedin.com"
+                  href="https://www.linkedin.com/in/tylert2610/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"

@@ -77,8 +77,8 @@ const UserGlobalParts = lazy(
   () => import('./pages/globalParts/UserGlobalParts.tsx')
 );
 
-/** Paths where ad banners are not shown (landing + auth). */
-const AD_BANNER_EXCLUDED_PATHS = new Set([
+/** Paths where neither ads nor spacers are shown (landing + auth). */
+const NO_AD_SPACE_PATHS = new Set([
   '/',
   '/login',
   '/register',
@@ -88,16 +88,28 @@ const AD_BANNER_EXCLUDED_PATHS = new Set([
   '/verify-email/confirm',
 ]);
 
+/** Paths that get spacers for consistent layout but never show ads. */
+const NO_ADS_PATHS = new Set([
+  '/about',
+  '/contact-us',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/support',
+  '/bug-report',
+]);
+
 /** Side margin on landing page (lg+): 180px = AdBanner 20px outer + 160px ad. Keep in sync with lg:pl-[180px] lg:pr-[180px] in main-content. */
 
 function App() {
   const location = useLocation();
   const { user } = useAuth();
   const { consent } = useCookieConsent();
-  // On non-excluded paths: show ads for free users, or a same-size spacer for premium (keeps layout consistent).
+  // showAdSpace: render the side columns (ad or spacer) for layout consistency.
+  // showAds: only show actual ads on content pages for free users.
   // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
-  const showAdSpace = !AD_BANNER_EXCLUDED_PATHS.has(location.pathname);
-  const showAds = showAdSpace && !isPremium(user);
+  const showAdSpace = !NO_AD_SPACE_PATHS.has(location.pathname);
+  const showAds =
+    showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremium(user);
   const isLandingPage = location.pathname === '/';
 
   const adsenseClientId = import.meta.env['VITE_ADSENSE_CLIENT_ID'] as
@@ -112,7 +124,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
+      <div className="relative flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
         {/* Background Pattern */}
         <div className="fixed inset-0 opacity-5">
           <div
@@ -121,6 +133,21 @@ function App() {
               backgroundImage: `radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
                                radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)`,
             }}
+          ></div>
+        </div>
+        {/* Global ambient orbs — scroll with the page */}
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden opacity-50"
+          style={{ zIndex: 0 }}
+        >
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-float"></div>
+          <div
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-pink-500/20 to-red-500/20 rounded-full blur-3xl animate-float"
+            style={{ animationDelay: '1s' }}
+          ></div>
+          <div
+            className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-full blur-3xl animate-float"
+            style={{ animationDelay: '2s' }}
           ></div>
         </div>
 

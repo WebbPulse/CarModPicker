@@ -85,8 +85,8 @@
   );
   --gradient-glass: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.1) 100%
   );
   --gradient-hero: linear-gradient(
     135deg,
@@ -304,8 +304,8 @@ body {
 .glass:hover {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.08) 100%
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.14) 100%
   );
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
@@ -330,8 +330,8 @@ body {
 .glass-card.card-interactive:hover {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.14) 100%
   );
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-4px);
