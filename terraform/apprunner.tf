@@ -113,15 +113,19 @@ resource "aws_iam_role_policy" "apprunner_instance_scheduler" {
         Effect = "Allow"
         Action = [
           "scheduler:GetSchedule",
+          "scheduler:CreateSchedule",
           "scheduler:UpdateSchedule",
+          "scheduler:DeleteSchedule",
+          "scheduler:ListSchedules",
         ]
-        # Scoped to only the crawler schedule managed by this deployment.
-        Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-run"
+        # Scoped to every per-adapter schedule this deployment manages in the
+        # default group (e.g. "${local.prefix}-crawler-a90shop").
+        Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.prefix}-crawler-*"
       },
       {
         Effect = "Allow"
         Action = "iam:PassRole"
-        # Required so UpdateSchedule can pass the scheduler's execution role back to AWS.
+        # Required so Create/UpdateSchedule can pass the scheduler's execution role back to AWS.
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.prefix}-eventbridge-scheduler"
       },
     ]
@@ -227,6 +231,13 @@ resource "aws_apprunner_service" "backend" {
           CRAWLER_ECS_TASK_DEFINITION = aws_ecs_task_definition.crawler.arn
           CRAWLER_ECS_SUBNETS         = "${aws_subnet.public_a.id},${aws_subnet.public_b.id}"
           CRAWLER_ECS_SECURITY_GROUP  = aws_security_group.crawler_task.id
+
+          # Per-adapter EventBridge Scheduler plumbing. The backend reconciler
+          # uses these to build Target payloads for each dynamic schedule.
+          SCHEDULER_CRAWLER_SCHEDULE_NAME = "${local.prefix}-crawler-run"
+          SCHEDULER_GROUP_NAME            = "default"
+          SCHEDULER_TARGET_EVENT_BUS_ARN  = "arn:aws:events:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:event-bus/default"
+          SCHEDULER_TARGET_ROLE_ARN       = aws_iam_role.eventbridge_scheduler.arn
         }
 
         # Sensitive values pulled from Secrets Manager at startup

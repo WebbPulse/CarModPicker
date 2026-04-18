@@ -1,3 +1,4 @@
+from .adapter_schedule import AdapterSchedule
 from .background_job import BackgroundJob
 from .bug_report import BugReport
 from .build_list import BuildList
@@ -19,6 +20,7 @@ from .user import User
 from .vote import Vote
 
 __all__ = [
+    "AdapterSchedule",
     "BackgroundJob",
     "User",
     "CarGeneration",
