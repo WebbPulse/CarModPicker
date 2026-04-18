@@ -1,9 +1,9 @@
 import { vi } from 'vitest';
 import type {
   BuildListRead,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
-  GlobalPartRead,
+  PartRead,
   UserRead,
   VoteSummary,
 } from '../../types/Api';
@@ -18,16 +18,17 @@ export const mockUser: UserRead = {
   image_urls: ['https://example.com/user.jpg'],
   is_superuser: false,
   is_admin: false,
+  is_service_account: false,
   subscription_tier: 'free',
   subscription_status: 'active',
   totp_enabled: false,
 };
 
 // Mock car data
-export const mockCar: CarRead = {
+export const mockCar: CarGenerationRead = {
   id: '22222222-2222-7222-8222-222222222222',
-  make: 'Toyota',
-  model: 'Camry',
+  car_make_name: 'Toyota',
+  car_model_name: 'Camry',
   generation_name: 'XV70',
   start_year: 2018,
   end_year: 2023,
@@ -48,7 +49,7 @@ export const mockBuildList: BuildListRead = {
 };
 
 // Mock global part data
-export const mockGlobalPart: GlobalPartRead = {
+export const mockPart: PartRead = {
   id: '44444444-4444-7444-8444-444444444444',
   name: 'Test Part',
   description: 'Test part description',
@@ -58,7 +59,7 @@ export const mockGlobalPart: GlobalPartRead = {
   user_id: '11111111-1111-7111-8111-111111111111',
   car_ids: [],
   is_universal: false,
-  brand: 'TestBrand',
+  part_manufacturer: 'TestPartManufacturer',
   part_number: 'TP001',
   specifications: { weight: '2.5kg', material: 'aluminum' },
   is_verified: true,
@@ -84,7 +85,7 @@ export const mockCategory: CategoryResponse = {
 // Mock vote summary
 export const mockVoteSummary: VoteSummary = {
   entity_id: '44444444-4444-7444-8444-444444444444',
-  entity_type: 'global_part',
+  entity_type: 'part',
   upvotes: 5,
   downvotes: 1,
   total_votes: 6,
@@ -108,9 +109,9 @@ export const mockApiResponses = {
   '/build-lists/1': { data: mockBuildList },
 
   // Global parts endpoints
-  '/global-parts': { data: [mockGlobalPart] },
-  '/global-parts/1': { data: mockGlobalPart },
-  '/global-parts/1/votes': { data: mockVoteSummary },
+  '/parts': { data: [mockPart] },
+  '/parts/1': { data: mockPart },
+  '/parts/1/votes': { data: mockVoteSummary },
 
   // Categories endpoints
   '/categories': { data: [mockCategory] },

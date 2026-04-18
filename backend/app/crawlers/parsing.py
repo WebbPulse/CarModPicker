@@ -49,7 +49,7 @@ def extract_dom_price(soup: BeautifulSoup) -> Optional[int]:
 
 
 # Chassis/platform codes that are often the first word of product titles (e.g. "E46 M3 VF570", "E9x M3").
-# We should not use these as brand names; prefer " by BrandName" or a later token.
+# We should not use these as part_manufacturer names; prefer " by PartManufacturerName" or a later token.
 _CHASSIS_LIKE_PATTERN = re.compile(
     r"^[A-Z][0-9]{1,3}x?$|^[A-Z][0-9]{2,}$",  # E46, E9x, E90, F80, G82, etc.
     re.IGNORECASE,
@@ -57,13 +57,13 @@ _CHASSIS_LIKE_PATTERN = re.compile(
 
 
 def _looks_like_chassis_code(word: str) -> bool:
-    """True if word looks like a chassis/platform code (E46, E9x, F80, G82) rather than a brand."""
+    """True if word looks like a chassis/platform code (E46, E9x, F80, G82) rather than a part manufacturer."""
     if not word or len(word) < 2:
         return False
     return bool(_CHASSIS_LIKE_PATTERN.match(word.strip()))
 
 
-# Part/model codes in titles (e.g. VF540, VF620, VF570) — use as part_number, not brand.
+# Part/model codes in titles (e.g. VF540, VF620, VF570) — use as part_number, not part_manufacturer.
 _PART_CODE_PATTERN = re.compile(
     r"^[A-Za-z]{2,}[0-9]{2,}$|^[A-Za-z]+[0-9]+[A-Za-z]*$",  # VF540, VF620, VF570, or alphanumeric
     re.IGNORECASE,
@@ -71,7 +71,7 @@ _PART_CODE_PATTERN = re.compile(
 
 
 def _looks_like_part_or_model_code(word: str) -> bool:
-    """True if word looks like a part/model code (VF540, VF620) rather than a brand name."""
+    """True if word looks like a part/model code (VF540, VF620) rather than a part manufacturer name."""
     if not word or len(word) < 2:
         return False
     w = word.strip()
@@ -82,7 +82,7 @@ def _looks_like_part_or_model_code(word: str) -> bool:
     return bool(_PART_CODE_PATTERN.match(w))
 
 
-# Generic product-type words that must never be used as brand (Supercharger, Oil, System, etc.).
+# Generic product-type words that must never be used as part_manufacturer (Supercharger, Oil, System, etc.).
 _GENERIC_PRODUCT_WORDS = frozenset(
     {
         "supercharger",
@@ -113,26 +113,26 @@ _GENERIC_PRODUCT_WORDS = frozenset(
 )
 
 
-def brand_from_title(title: str) -> Optional[str]:
+def part_manufacturer_from_title(title: str) -> Optional[str]:
     """
-    Heuristic for brand from product title when JSON-LD brand is missing.
+    Heuristic for part_manufacturer from product title when JSON-LD part_manufacturer is missing.
 
-    1. Prefer explicit " by BrandName" (e.g. "... by VF-Engineering").
+    1. Prefer explicit " by PartManufacturerName" (e.g. "... by VF-Engineering").
     2. Otherwise use first word that is not a chassis code (E46, E9x) and not a part code (VF540, VF620).
-       Part codes in the title should go to part_number, not brand.
+       Part codes in the title should go to part_number, not part_manufacturer.
     """
     if not title or len(title) < 2:
         return None
     title = title.strip()
 
-    # 1. Explicit " by BrandName" or " By BrandName"
+    # 1. Explicit " by PartManufacturerName" or " By PartManufacturerName"
     by_match = re.search(r"\s+by\s+([A-Za-z0-9][A-Za-z0-9\-\.\s&]+?)(?:\s*$|\s+by\s+)", title, re.IGNORECASE)
     if by_match:
-        brand_candidate = by_match.group(1).strip()
-        if brand_candidate and len(brand_candidate) >= 2:
-            return brand_candidate
+        part_manufacturer_candidate = by_match.group(1).strip()
+        if part_manufacturer_candidate and len(part_manufacturer_candidate) >= 2:
+            return part_manufacturer_candidate
 
-    # 2. Two-word brands (title often "Brand Name Product...")
+    # 2. Two-word part_manufacturers (title often "PartManufacturer Name Product...")
     if re.search(r"\bAC\s+Schnitzer\b", title, re.IGNORECASE):
         return "AC Schnitzer"
     if re.search(r"\bRogue\s+Engineering\b", title, re.IGNORECASE):
@@ -140,7 +140,7 @@ def brand_from_title(title: str) -> Optional[str]:
     if re.search(r"\bRadium\s+Engineering\b", title, re.IGNORECASE):
         return "Radium Engineering"
 
-    # 3. First token that looks like a brand (not chassis, not part code, not generic product word)
+    # 3. First token that looks like a part_manufacturer (not chassis, not part code, not generic product word)
     parts = title.split()
     for token in parts:
         if not token or len(token) < 3:
@@ -174,14 +174,14 @@ def extract_part_number_candidate_from_title(title: str) -> Optional[str]:
     return None
 
 
-def brand_from_description(
+def part_manufacturer_from_description(
     description: str | None,
     *,
     max_chars: int = 800,
     product_name: str | None = None,
 ) -> Optional[str]:
     """
-    Heuristic for brand from product description when title didn't yield a brand.
+    Heuristic for part_manufacturer from product description when title didn't yield a part_manufacturer.
     Looks for common patterns like "VF-Engineering", "CSF Radiators", "Studio RSR".
 
     Only searches the first max_chars so suggested/related-product boilerplate
@@ -206,22 +206,22 @@ def brand_from_description(
         (r"\bStudio\s+RSR\b", "Studio RSR"),
         (r"\bHex\s+Tuning\b", "Hex Tuning"),
     ]
-    for pattern, brand in patterns:
+    for pattern, part_manufacturer in patterns:
         if not re.search(pattern, search_text, re.IGNORECASE):
             continue
         # If product name has "VF" (e.g. "E9x M3 VF Oil Cooler"), don't assign CSF from
         # a related-product snippet; prefer VF-Engineering if it appears in main description
-        if brand == "CSF" and name_has_vf:
+        if part_manufacturer == "CSF" and name_has_vf:
             if re.search(r"\bVF-?Engineering\b|\bVF\s+Engineering\b", search_text, re.IGNORECASE):
                 return "VF-Engineering"
             return None
-        return brand
+        return part_manufacturer
     return None
 
 
-def brand_fallback_from_title(title: str) -> Optional[str]:
+def part_manufacturer_fallback_from_title(title: str) -> Optional[str]:
     """
-    When no brand was found from JSON-LD, title heuristic, or description, infer from
+    When no part_manufacturer was found from JSON-LD, title heuristic, or description, infer from
     known title patterns. E.g. "E9x M3 VF650 Supercharger" has no standalone "VF" but
     "VF650" is a VF-Engineering part code — match VF as prefix of digits or standalone.
     """
@@ -236,7 +236,7 @@ def brand_fallback_from_title(title: str) -> Optional[str]:
 def extract_json_ld_product(html: str) -> Optional[Dict[str, Any]]:
     """
     Extract the first Product from JSON-LD script(s). Returns a dict with
-    name, description, brand, sku, price (from offers), image(s).
+    name, description, part_manufacturer, sku, price (from offers), image(s).
     """
     soup = BeautifulSoup(html, "html.parser")
     for script in soup.find_all("script", type="application/ld+json"):
@@ -265,12 +265,12 @@ def extract_json_ld_product(html: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _brand_from_json_ld(item: Dict[str, Any]) -> Optional[str]:
-    brand = item.get("brand")
-    if isinstance(brand, str) and brand.strip():
-        return brand.strip()
-    if isinstance(brand, dict):
-        name = brand.get("name")
+def _part_manufacturer_from_json_ld(item: Dict[str, Any]) -> Optional[str]:
+    part_manufacturer = item.get("brand")
+    if isinstance(part_manufacturer, str) and part_manufacturer.strip():
+        return part_manufacturer.strip()
+    if isinstance(part_manufacturer, dict):
+        name = part_manufacturer.get("name")
         if isinstance(name, str) and name.strip():
             return name.strip()
     return None
@@ -325,7 +325,7 @@ def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Opti
     description = None
     if isinstance(desc, str) and len(desc.strip()) > 10:
         description = normalize_description_text(desc, max_len=2000)
-    brand = _brand_from_json_ld(item)
+    part_manufacturer = _part_manufacturer_from_json_ld(item)
     sku_val = item.get("sku") or item.get("mpn")
     part_number: Optional[str] = None
     if isinstance(sku_val, str) and sku_val.strip():
@@ -337,7 +337,7 @@ def scraped_payload_from_json_ld(item: Dict[str, Any], product_url: str) -> Opti
         product_url=product_url,
         description=description,
         price_cents=price_cents,
-        brand=brand,
+        part_manufacturer=part_manufacturer,
         part_number=part_number,
         image_urls=images[:12] if images else None,
     )

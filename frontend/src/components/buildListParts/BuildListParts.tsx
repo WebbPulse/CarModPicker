@@ -3,18 +3,18 @@ import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  brandsApi,
+  partManufacturersApi,
   buildListPartsApi,
   buildListPhasesApi,
   buildListsApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
 } from '../../services/Api';
 import type {
-  BuildListPartReadWithGlobalPart,
+  BuildListPartReadWithPart,
   BuildListPartUpdate,
   BuildListPhaseRead,
-  CarRead,
+  CarGenerationRead,
 } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
 import ActionButton from '../buttons/ActionButton';
@@ -41,9 +41,11 @@ const fetchBuildListPartsRequestFn = (buildListId: string) =>
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 
-const fetchBrandsRequestFn = () => brandsApi.getBrands(true);
+const fetchPartManufacturersRequestFn = () =>
+  partManufacturersApi.getPartManufacturers(true);
 
-const fetchCarsRequestFn = () => carsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+const fetchCarsRequestFn = () =>
+  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
 
 const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
@@ -59,7 +61,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 }) => {
   const { user: currentUser } = useAuth();
   const [editingPart, setEditingPart] =
-    useState<BuildListPartReadWithGlobalPart | null>(null);
+    useState<BuildListPartReadWithPart | null>(null);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
@@ -86,8 +88,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     executeRequest: fetchCategories,
   } = useApiRequest(fetchCategoriesRequestFn);
 
-  const { data: brandsData, executeRequest: fetchBrands } =
-    useApiRequest(fetchBrandsRequestFn);
+  const {
+    data: part_manufacturersData,
+    executeRequest: fetchPartManufacturers,
+  } = useApiRequest(fetchPartManufacturersRequestFn);
 
   const { data: carsData, executeRequest: fetchCars } =
     useApiRequest(fetchCarsRequestFn);
@@ -95,11 +99,11 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const { data: phases, executeRequest: fetchPhases } =
     useApiRequest(fetchPhasesRequestFn);
 
-  const brands = brandsData ?? [];
+  const part_manufacturers = part_manufacturersData ?? [];
   const carsById = useMemo(() => {
     const list = Array.isArray(carsData) ? carsData : [];
     const normalized = normalizeCarReadList(list);
-    const map: Record<string, CarRead> = {};
+    const map: Record<string, CarGenerationRead> = {};
     for (const car of normalized) {
       map[car.id] = car;
     }
@@ -108,7 +112,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
   // Local state for optimistic updates - sync with API data
   const [localBuildListParts, setLocalBuildListParts] = useState<
-    BuildListPartReadWithGlobalPart[] | null
+    BuildListPartReadWithPart[] | null
   >(null);
 
   // Sync local state with API data when it changes
@@ -121,7 +125,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   useEffect(() => {
     void fetchBuildListParts(buildListId);
     void fetchCategories();
-    void fetchBrands();
+    void fetchPartManufacturers();
     void fetchCars();
     void fetchPhases(buildListId);
   }, [
@@ -129,23 +133,19 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     refreshKey,
     fetchBuildListParts,
     fetchCategories,
-    fetchBrands,
+    fetchPartManufacturers,
     fetchCars,
     fetchPhases,
   ]);
 
   // Helper function to check if user can edit a specific build list part
-  const canEditBuildListPart = (
-    buildListPart: BuildListPartReadWithGlobalPart
-  ) => {
+  const canEditBuildListPart = (buildListPart: BuildListPartReadWithPart) => {
     if (!currentUser) return false;
     return buildListPart.added_by === currentUser.id;
   };
 
   // Helper function to check if user can delete a specific build list part
-  const canDeleteBuildListPart = (
-    buildListPart: BuildListPartReadWithGlobalPart
-  ) => {
+  const canDeleteBuildListPart = (buildListPart: BuildListPartReadWithPart) => {
     if (!currentUser) return false;
     return (
       buildListPart.added_by === currentUser.id ||
@@ -154,7 +154,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     );
   };
 
-  const handleEdit = (buildListPart: BuildListPartReadWithGlobalPart) => {
+  const handleEdit = (buildListPart: BuildListPartReadWithPart) => {
     if (!canEditBuildListPart(buildListPart)) {
       return;
     }
@@ -170,7 +170,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       setIsUpdating(true);
       await buildListPartsApi.updateBuildListPart(
         buildListId,
-        editingPart!.global_part_id,
+        editingPart!.part_id,
         data
       );
       // Refresh the build list parts
@@ -183,7 +183,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   };
 
   const handleDelete = (buildListPartId: string) => {
-    // Find the build list part to get the global_part_id
+    // Find the build list part to get the part_id
     const buildListPart = buildListParts?.find(
       (part) => part.id === buildListPartId
     );
@@ -201,7 +201,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const handleConfirmDelete = async () => {
     if (deletingPartId === null) return;
 
-    // Find the build list part to get the global_part_id
+    // Find the build list part to get the part_id
     const buildListPart = buildListParts?.find(
       (part) => part.id === deletingPartId
     );
@@ -216,7 +216,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     try {
       await buildListPartsApi.removeBuildListPart(
         buildListId,
-        buildListPart.global_part_id
+        buildListPart.part_id
       );
       await fetchBuildListParts(buildListId);
       setDeletingPartId(null);
@@ -306,7 +306,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   };
 
   const handleTogglePurchased = useCallback(
-    async (buildListPart: BuildListPartReadWithGlobalPart) => {
+    async (buildListPart: BuildListPartReadWithPart) => {
       if (!canManageParts) return;
 
       const newPurchasedStatus = !buildListPart.purchased;
@@ -324,7 +324,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       try {
         await buildListPartsApi.updateBuildListPart(
           buildListId,
-          buildListPart.global_part_id,
+          buildListPart.part_id,
           { purchased: newPurchasedStatus }
         );
         // Optionally sync with server, but don't refetch to avoid full re-render
@@ -346,7 +346,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
 
   // Wrapper to match the expected void return type
   const handleTogglePurchasedWrapper = useCallback(
-    (part: BuildListPartReadWithGlobalPart) => {
+    (part: BuildListPartReadWithPart) => {
       void handleTogglePurchased(part);
     },
     [handleTogglePurchased]
@@ -356,7 +356,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const hasCarMismatchParts =
     buildListCarId != null &&
     parts.some((p) => {
-      const gp = p.global_part;
+      const gp = p.part;
       if (!gp) return false;
       if (gp.is_universal) return false;
       const carIds = gp.car_ids ?? [];
@@ -552,7 +552,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         categories={categories || []}
         viewMode={viewMode}
         phases={phasesList}
-        brands={brands}
+        part_manufacturers={part_manufacturers}
         carsById={carsById}
         loading={isLoading || isLoadingCategories}
         onEdit={handleEdit}
@@ -586,8 +586,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         onClose={handleCloseDeleteDialog}
         onConfirm={() => void handleConfirmDelete()}
         itemName={
-          buildListParts?.find((p) => p.id === deletingPartId)?.global_part
-            .name || ''
+          buildListParts?.find((p) => p.id === deletingPartId)?.part.name || ''
         }
         itemType="part"
         isProcessing={isDeleting}

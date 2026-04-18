@@ -35,7 +35,7 @@ CarModPicker Part Scraper makes it effortless to build your car parts collection
 - Product name and description
 - Price (automatically converted to correct format)
 - Product images (handled automatically)
-- Brand name (intelligently detected)
+- PartManufacturer name (intelligently detected)
 - Part number/SKU
 - Product URL
 
@@ -94,7 +94,7 @@ Stop wasting time manually entering product details. CarModPicker Part Scraper a
 
 **What It Does:**
 
-- Extracts product name, description, price, images, brand, and part numbers
+- Extracts product name, description, price, images, part_manufacturer, and part numbers
 - Works on most e-commerce websites
 - Lets you review and edit data before saving
 - Automatically uploads images and creates parts in your CarModPicker account
@@ -131,7 +131,7 @@ Our intelligent scraper recognizes product information across different website 
 - Product names and descriptions
 - Prices (with automatic currency conversion)
 - High-quality product images
-- Brand names (with smart detection)
+- PartManufacturer names (with smart detection)
 - Part numbers and SKUs
 - Product URLs
 

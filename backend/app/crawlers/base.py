@@ -26,18 +26,18 @@ from uuid import UUID
 import requests
 from sqlalchemy.orm import Session
 
-from app.api.endpoints.global_parts import GlobalPartService
+from app.api.endpoints.parts import PartService
 from app.api.models.category import Category as DBCategory
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.user import User as DBUser
-from app.api.schemas.global_part import GlobalPartCreate
+from app.api.schemas.part import PartCreate
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     domain_from_url,
-    find_part_by_brand_and_part_number,
     find_part_by_gtin,
+    find_part_by_part_manufacturer_and_part_number,
     find_part_by_product_url,
-    get_or_create_brand_by_name,
+    get_or_create_part_manufacturer_by_name,
     get_or_create_retailer,
     normalize_gtin,
 )
@@ -349,14 +349,14 @@ _robots_cache: Dict[str, RobotFileParser] = {}
 @dataclass
 class ScrapedPayload:
     """
-    Canonical output from any retailer adapter. Maps to GlobalPartCreate + listing/price.
+    Canonical output from any retailer adapter. Maps to PartCreate + listing/price.
     """
 
     name: str
     product_url: str
     description: Optional[str] = None
     price_cents: Optional[int] = None
-    brand: Optional[str] = None
+    part_manufacturer: Optional[str] = None
     part_number: Optional[str] = None
     image_urls: Optional[List[str]] = None
     gtin: Optional[str] = None
@@ -560,10 +560,10 @@ def ingest_payload(
     default_category_id: UUID,
     logger: logging.Logger,
     source: str = "scraped",
-) -> DBGlobalPart:
+) -> DBPart:
     """
-    Resolve retailer and brand, then create or update global part + PartListing/PartPriceHistory
-    using the same dedup logic as the API (URL, brand+part_number, GTIN).
+    Resolve retailer and part_manufacturer, then create or update global part + PartListing/PartPriceHistory
+    using the same dedup logic as the API (URL, part_manufacturer+part_number, GTIN).
     """
     domain = domain_from_url(payload.product_url)
     if not domain:
@@ -582,12 +582,12 @@ def ingest_payload(
         db.add(retailer)
     db.flush()
 
-    # Central brand list: all crawlers and the extension use the same DB. get_or_create_brand_by_name
-    # ensures a brand is only defined once; manual edits in the app apply everywhere.
-    brand_name = (payload.brand or "").strip() or "Unknown"
-    brand = get_or_create_brand_by_name(db, brand_name)
-    if not brand:
-        raise ValueError("Could not resolve or create brand")
+    # Central part_manufacturer list: all crawlers and the extension use the same DB. get_or_create_part_manufacturer_by_name
+    # ensures a part_manufacturer is only defined once; manual edits in the app apply everywhere.
+    part_manufacturer_name = (payload.part_manufacturer or "").strip() or "Unknown"
+    part_manufacturer = get_or_create_part_manufacturer_by_name(db, part_manufacturer_name)
+    if not part_manufacturer:
+        raise ValueError("Could not resolve or create part manufacturer")
     db.flush()
 
     part_number_effective = payload.part_number
@@ -618,7 +618,7 @@ def ingest_payload(
             (payload.name or "")[:50],
         )
 
-    create_data = GlobalPartCreate(
+    create_data = PartCreate(
         name=payload.name,
         description=payload.description,
         image_urls=payload.image_urls[:12] if payload.image_urls else None,
@@ -626,45 +626,49 @@ def ingest_payload(
         category_id=category_id,
         car_ids=inferred_car_ids if inferred_car_ids else [],
         is_universal=not inferred_car_ids,
-        brand_id=brand.id,
+        part_manufacturer_id=part_manufacturer.id,
         part_number=part_number_effective,
         gtin=payload.gtin,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
     )
 
-    # Same resolution order as GlobalPartService.create (GTIN, product URL, brand+part_number).
-    part_by_url: Optional[DBGlobalPart] = None
-    part_by_brand: Optional[DBGlobalPart] = None
-    part_by_gtin: Optional[DBGlobalPart] = None
+    # Same resolution order as PartService.create (GTIN, product URL, part_manufacturer+part_number).
+    part_by_url: Optional[DBPart] = None
+    part_by_part_manufacturer: Optional[DBPart] = None
+    part_by_gtin: Optional[DBPart] = None
     if payload.product_url and payload.product_url.strip():
         part_by_url = find_part_by_product_url(db, payload.product_url)
-    if brand.id and part_number_effective and str(part_number_effective).strip():
-        part_by_brand = find_part_by_brand_and_part_number(db, brand.id, str(part_number_effective))
+    if part_manufacturer.id and part_number_effective and str(part_number_effective).strip():
+        part_by_part_manufacturer = find_part_by_part_manufacturer_and_part_number(
+            db, part_manufacturer.id, str(part_number_effective)
+        )
     if payload.gtin and normalize_gtin(payload.gtin):
         part_by_gtin = find_part_by_gtin(db, payload.gtin)
 
-    dedupe_ids = {p.id for p in (part_by_gtin, part_by_url, part_by_brand) if p is not None}
+    dedupe_ids = {p.id for p in (part_by_gtin, part_by_url, part_by_part_manufacturer) if p is not None}
     if len(dedupe_ids) > 1:
         logger.warning(
-            "Ingest: dedupe keys point to different global_parts %s; service.create will reject with conflict.",
+            "Ingest: dedupe keys point to different parts %s; service.create will reject with conflict.",
             dedupe_ids,
         )
 
-    existing_part = part_by_gtin or part_by_url or part_by_brand
+    existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
     if existing_part is not None:
         dedupe_how = (
-            "gtin" if part_by_gtin is not None else ("product_url" if part_by_url is not None else "brand_part_number")
+            "gtin"
+            if part_by_gtin is not None
+            else ("product_url" if part_by_url is not None else "part_manufacturer_part_number")
         )
         logger.debug(
-            "Existing part %s matched (%s); part_number=%r brand_id=%s",
+            "Existing part %s matched (%s); part_number=%r part_manufacturer_id=%s",
             existing_part.id,
             dedupe_how,
             part_number_effective,
-            brand.id,
+            part_manufacturer.id,
         )
 
-    service = GlobalPartService()
+    service = PartService()
     part = service.create(
         db,
         create_data,

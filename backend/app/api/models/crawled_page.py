@@ -9,7 +9,7 @@ from uuid6 import uuid7
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
-    from .global_part import GlobalPart
+    from .part import Part
 
 
 class CrawledPage(Base):
@@ -37,10 +37,10 @@ class CrawledPage(Base):
     last_parsed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     parse_status: Mapped[str] = mapped_column(default="pending", nullable=False)
 
-    global_part_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    part_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("global_parts.id", ondelete="SET NULL"),
+        ForeignKey("parts.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    global_part: Mapped[Optional["GlobalPart"]] = relationship("GlobalPart")
+    part: Mapped[Optional["Part"]] = relationship("Part")

@@ -12,7 +12,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.models.report import Report as DBReport
 from app.api.models.user import User as DBUser
 from app.api.schemas.report import (
@@ -387,12 +387,12 @@ class ReportService:
             reviewer_username=reviewer_username,
         )
 
-    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBBuildList, DBGlobalPart]]:
+    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBBuildList, DBPart]]:
         """Get the SQLAlchemy model for the entity type."""
         if entity_type == EntityType.BUILD_LIST:
             return DBBuildList
-        elif entity_type == EntityType.GLOBAL_PART:
-            return DBGlobalPart
+        elif entity_type == EntityType.PART:
+            return DBPart
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
@@ -402,8 +402,8 @@ class ReportService:
             entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
             if entity:
                 return {"name": entity.name, "description": entity.description}
-        elif entity_type == "global_part":
-            entity = db.query(DBGlobalPart).filter(DBGlobalPart.id == entity_id).first()
+        elif entity_type == "part":
+            entity = db.query(DBPart).filter(DBPart.id == entity_id).first()
             if entity:
                 return {"name": entity.name, "description": entity.description}
 

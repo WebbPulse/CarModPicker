@@ -118,7 +118,7 @@ function Header() {
                 <NavLink to="/build-lists" icon={<GiRaceCar />}>
                   Build Lists
                 </NavLink>
-                <NavLink to="/global-parts" icon={<FaCogs />}>
+                <NavLink to="/parts" icon={<FaCogs />}>
                   Parts Catalog
                 </NavLink>
                 <NavLink to="/search" icon={<FaSearch />}>
@@ -194,7 +194,7 @@ function Header() {
                     Builder
                   </MobileNavLink>
                   <MobileNavLink
-                    to="/global-parts"
+                    to="/parts"
                     icon={<FaCogs />}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >

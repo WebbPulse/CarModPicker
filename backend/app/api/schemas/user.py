@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
-from app.api.schemas.global_part import apply_image_url_presigning
+from app.api.schemas.part import apply_image_url_presigning
 
 # Max length for social profile URLs (RFC 7230 recommends 8000; we use 500 for profile links)
 SOCIAL_URL_MAX_LENGTH = 500

@@ -12,9 +12,9 @@ class VoteType(str, Enum):
 
 
 class EntityType(str, Enum):
-    CAR = "car"
+    CAR_GENERATION = "car_generation"
     BUILD_LIST = "build_list"
-    GLOBAL_PART = "global_part"
+    PART = "part"
 
 
 class VoteCreate(BaseModel):

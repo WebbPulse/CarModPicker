@@ -193,7 +193,7 @@ class TestImages:
         img_bytes = create_test_image()
         files = {"file": ("test_image.png", img_bytes, "image/png")}
         response = client.post(
-            f"{settings.API_STR}/images/upload?entity_type=car&entity_id={car['id']}",
+            f"{settings.API_STR}/images/upload?entity_type=car_generation&entity_id={car['id']}",
             files=files,
             headers=headers,
         )
@@ -356,7 +356,7 @@ class TestImages:
         # Standard layout: entity_type / 16-hex user hash / filename
         s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/1.bin", Body=b"a")
         s3.put_object(Bucket=bucket, Key="user/aaaaaaaaaaaaaaaa/2.bin", Body=b"b")
-        s3.put_object(Bucket=bucket, Key="car/bbbbbbbbbbbbbbbb/3.bin", Body=b"c")
+        s3.put_object(Bucket=bucket, Key="car_generation/bbbbbbbbbbbbbbbb/3.bin", Body=b"c")
         # Second path segment is not 16 lowercase hex digits -> counted as other
         s3.put_object(Bucket=bucket, Key="user/000000000000000g/4.bin", Body=b"d")
         s3.put_object(Bucket=bucket, Key="not-standard-root-key", Body=b"e")
@@ -370,7 +370,7 @@ class TestImages:
         body = r2.json()
         assert body["total"] == 5
         assert body["by_entity_type"]["user"] == 2
-        assert body["by_entity_type"]["car"] == 1
+        assert body["by_entity_type"]["car_generation"] == 1
         assert body["other"] == 2
 
     def test_get_bucket_object_count_admin_503_without_s3(
@@ -428,8 +428,8 @@ class TestImages:
         assert response.status_code == 404
         assert "not found" in response.json()["message"].lower()
 
-    def test_upload_image_global_part(
-        self, client: TestClient, test_user: DBUser, test_category, test_brand, db_session: Session
+    def test_upload_image_part(
+        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Session
     ) -> None:
         """Test uploading an image for a global part."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -443,9 +443,9 @@ class TestImages:
             "description": "A test part description",
             "category_id": str(test_category.id),
             "car_id": str(car["id"]),
-            "brand_id": str(test_brand.id),
+            "part_manufacturer_id": str(test_part_manufacturer.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         part_id = response.json()["id"]
 
@@ -453,7 +453,7 @@ class TestImages:
         img_bytes = create_test_image()
         files = {"file": ("test_image.png", img_bytes, "image/png")}
         response = client.post(
-            f"{settings.API_STR}/images/upload?entity_type=global_part&entity_id={part_id}",
+            f"{settings.API_STR}/images/upload?entity_type=part&entity_id={part_id}",
             files=files,
             headers=headers,
         )

@@ -50,26 +50,28 @@ function SystemAdmin() {
     deleted_makes_count: number;
   } | null>(null);
 
-  const [
-    isDeleteAllGlobalPartsConfirmOpen,
-    setIsDeleteAllGlobalPartsConfirmOpen,
-  ] = useState(false);
-  const [isDeletingAllGlobalParts, setIsDeletingAllGlobalParts] =
+  const [isDeleteAllPartsConfirmOpen, setIsDeleteAllPartsConfirmOpen] =
     useState(false);
-  const [deleteAllGlobalPartsError, setDeleteAllGlobalPartsError] = useState<
-    string | null
-  >(null);
-  const [deleteAllGlobalPartsResult, setDeleteAllGlobalPartsResult] = useState<{
+  const [isDeletingAllParts, setIsDeletingAllParts] = useState(false);
+  const [deleteAllPartsError, setDeleteAllPartsError] = useState<string | null>(
+    null
+  );
+  const [deleteAllPartsResult, setDeleteAllPartsResult] = useState<{
     deleted_count: number;
   } | null>(null);
 
-  const [isDeleteAllBrandsConfirmOpen, setIsDeleteAllBrandsConfirmOpen] =
+  const [
+    isDeleteAllPartManufacturersConfirmOpen,
+    setIsDeleteAllPartManufacturersConfirmOpen,
+  ] = useState(false);
+  const [isDeletingAllPartManufacturers, setIsDeletingAllPartManufacturers] =
     useState(false);
-  const [isDeletingAllBrands, setIsDeletingAllBrands] = useState(false);
-  const [deleteAllBrandsError, setDeleteAllBrandsError] = useState<
-    string | null
-  >(null);
-  const [deleteAllBrandsResult, setDeleteAllBrandsResult] = useState<{
+  const [deleteAllPartManufacturersError, setDeleteAllPartManufacturersError] =
+    useState<string | null>(null);
+  const [
+    deleteAllPartManufacturersResult,
+    setDeleteAllPartManufacturersResult,
+  ] = useState<{
     deleted_count: number;
   } | null>(null);
 
@@ -183,39 +185,39 @@ function SystemAdmin() {
     }
   };
 
-  const handleConfirmDeleteAllGlobalParts = async () => {
-    setIsDeletingAllGlobalParts(true);
-    setDeleteAllGlobalPartsError(null);
+  const handleConfirmDeleteAllParts = async () => {
+    setIsDeletingAllParts(true);
+    setDeleteAllPartsError(null);
     try {
-      const response = await adminApi.deleteAllGlobalParts();
-      setDeleteAllGlobalPartsResult(response.data);
-      setIsDeleteAllGlobalPartsConfirmOpen(false);
+      const response = await adminApi.deleteAllParts();
+      setDeleteAllPartsResult(response.data);
+      setIsDeleteAllPartsConfirmOpen(false);
     } catch (error) {
-      setDeleteAllGlobalPartsError(
+      setDeleteAllPartsError(
         error instanceof Error
           ? error.message
           : 'Failed to delete all global parts.'
       );
     } finally {
-      setIsDeletingAllGlobalParts(false);
+      setIsDeletingAllParts(false);
     }
   };
 
-  const handleConfirmDeleteAllBrands = async () => {
-    setIsDeletingAllBrands(true);
-    setDeleteAllBrandsError(null);
+  const handleConfirmDeleteAllPartManufacturers = async () => {
+    setIsDeletingAllPartManufacturers(true);
+    setDeleteAllPartManufacturersError(null);
     try {
-      const response = await adminApi.deleteAllBrands();
-      setDeleteAllBrandsResult(response.data);
-      setIsDeleteAllBrandsConfirmOpen(false);
+      const response = await adminApi.deleteAllPartManufacturers();
+      setDeleteAllPartManufacturersResult(response.data);
+      setIsDeleteAllPartManufacturersConfirmOpen(false);
     } catch (error) {
-      setDeleteAllBrandsError(
+      setDeleteAllPartManufacturersError(
         error instanceof Error
           ? error.message
-          : 'Failed to delete all part brands.'
+          : 'Failed to delete all part manufacturers.'
       );
     } finally {
-      setIsDeletingAllBrands(false);
+      setIsDeletingAllPartManufacturers(false);
     }
   };
 
@@ -474,7 +476,8 @@ function SystemAdmin() {
           <details className="group border border-red-800/50 rounded-lg overflow-hidden">
             <summary className="cursor-pointer list-none px-3 py-2 bg-red-900/20 hover:bg-red-900/30 transition-colors flex items-center justify-between text-sm">
               <span className="font-semibold text-red-400">
-                Deletion options (cars, global parts, brands, bucket)
+                Deletion options (cars, global parts, part_manufacturers,
+                bucket)
               </span>
               <span className="text-red-400/80 group-open:rotate-180 transition-transform inline-block">
                 ▼
@@ -529,29 +532,29 @@ function SystemAdmin() {
                 )}
               </div>
 
-              {/* Delete all global parts / brands */}
+              {/* Delete all global parts / part manufacturers */}
               <div className="p-3 bg-red-900/20 border-t border-red-700/50">
                 <h3 className="text-base font-semibold text-red-400 mb-1">
-                  Delete all global parts / part brands
+                  Delete all global parts / part manufacturers
                 </h3>
                 <p className="text-neutral-400 mb-2 text-xs">
                   Permanently remove every global part from the catalog (also
                   removes their part listings, votes, reports, and build list
-                  part associations). Or remove only part brands (parts keep
-                  their data; brand references are cleared). These actions
-                  cannot be undone.
+                  part associations). Or remove only part manufacturers (parts
+                  keep their data; part_manufacturer references are cleared).
+                  These actions cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
                   <ActionButton
                     onClick={() => {
-                      setDeleteAllGlobalPartsError(null);
-                      setDeleteAllGlobalPartsResult(null);
-                      setIsDeleteAllGlobalPartsConfirmOpen(true);
+                      setDeleteAllPartsError(null);
+                      setDeleteAllPartsResult(null);
+                      setIsDeleteAllPartsConfirmOpen(true);
                     }}
-                    disabled={isDeletingAllGlobalParts}
+                    disabled={isDeletingAllParts}
                     className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
                   >
-                    {isDeletingAllGlobalParts ? (
+                    {isDeletingAllParts ? (
                       <span className="flex items-center">
                         <span className="mr-2">
                           <LoadingSpinner size="sm" inline />
@@ -564,14 +567,14 @@ function SystemAdmin() {
                   </ActionButton>
                   <ActionButton
                     onClick={() => {
-                      setDeleteAllBrandsError(null);
-                      setDeleteAllBrandsResult(null);
-                      setIsDeleteAllBrandsConfirmOpen(true);
+                      setDeleteAllPartManufacturersError(null);
+                      setDeleteAllPartManufacturersResult(null);
+                      setIsDeleteAllPartManufacturersConfirmOpen(true);
                     }}
-                    disabled={isDeletingAllBrands}
+                    disabled={isDeletingAllPartManufacturers}
                     className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
                   >
-                    {isDeletingAllBrands ? (
+                    {isDeletingAllPartManufacturers ? (
                       <span className="flex items-center">
                         <span className="mr-2">
                           <LoadingSpinner size="sm" inline />
@@ -579,36 +582,36 @@ function SystemAdmin() {
                         Deleting...
                       </span>
                     ) : (
-                      'Delete all part brands'
+                      'Delete all part manufacturers'
                     )}
                   </ActionButton>
                 </div>
-                {(deleteAllGlobalPartsResult || deleteAllBrandsResult) && (
+                {(deleteAllPartsResult || deleteAllPartManufacturersResult) && (
                   <div className="space-y-1 mt-2">
-                    {deleteAllGlobalPartsResult && (
+                    {deleteAllPartsResult && (
                       <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
                         <p className="font-semibold">
                           Deleted{' '}
-                          {deleteAllGlobalPartsResult.deleted_count.toLocaleString()}{' '}
+                          {deleteAllPartsResult.deleted_count.toLocaleString()}{' '}
                           global part(s).
                         </p>
                       </div>
                     )}
-                    {deleteAllBrandsResult && (
+                    {deleteAllPartManufacturersResult && (
                       <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
                         <p className="font-semibold">
                           Deleted{' '}
-                          {deleteAllBrandsResult.deleted_count.toLocaleString()}{' '}
-                          part brand(s). Parts keep their data; brand references
-                          were cleared.
+                          {deleteAllPartManufacturersResult.deleted_count.toLocaleString()}{' '}
+                          part manufacturer(s). Parts keep their data; part
+                          manufacturer references were cleared.
                         </p>
                       </div>
                     )}
-                    {deleteAllGlobalPartsError && (
-                      <ErrorAlert message={deleteAllGlobalPartsError} />
+                    {deleteAllPartsError && (
+                      <ErrorAlert message={deleteAllPartsError} />
                     )}
-                    {deleteAllBrandsError && (
-                      <ErrorAlert message={deleteAllBrandsError} />
+                    {deleteAllPartManufacturersError && (
+                      <ErrorAlert message={deleteAllPartManufacturersError} />
                     )}
                   </div>
                 )}
@@ -710,28 +713,28 @@ function SystemAdmin() {
         error={purgeOrphanError}
       />
       <DeleteConfirmationDialog
-        isOpen={isDeleteAllGlobalPartsConfirmOpen}
+        isOpen={isDeleteAllPartsConfirmOpen}
         onClose={() => {
-          setIsDeleteAllGlobalPartsConfirmOpen(false);
-          setDeleteAllGlobalPartsError(null);
+          setIsDeleteAllPartsConfirmOpen(false);
+          setDeleteAllPartsError(null);
         }}
-        onConfirm={() => void handleConfirmDeleteAllGlobalParts()}
+        onConfirm={() => void handleConfirmDeleteAllParts()}
         itemName="all global parts"
         itemType="catalog"
-        isProcessing={isDeletingAllGlobalParts}
-        error={deleteAllGlobalPartsError}
+        isProcessing={isDeletingAllParts}
+        error={deleteAllPartsError}
       />
       <DeleteConfirmationDialog
-        isOpen={isDeleteAllBrandsConfirmOpen}
+        isOpen={isDeleteAllPartManufacturersConfirmOpen}
         onClose={() => {
-          setIsDeleteAllBrandsConfirmOpen(false);
-          setDeleteAllBrandsError(null);
+          setIsDeleteAllPartManufacturersConfirmOpen(false);
+          setDeleteAllPartManufacturersError(null);
         }}
-        onConfirm={() => void handleConfirmDeleteAllBrands()}
-        itemName="all part brands"
+        onConfirm={() => void handleConfirmDeleteAllPartManufacturers()}
+        itemName="all part manufacturers"
         itemType="catalog"
-        isProcessing={isDeletingAllBrands}
-        error={deleteAllBrandsError}
+        isProcessing={isDeletingAllPartManufacturers}
+        error={deleteAllPartManufacturersError}
       />
       <DeleteConfirmationDialog
         isOpen={isDeleteAllCarsConfirmOpen}

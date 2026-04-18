@@ -10,8 +10,8 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .car import Car
-    from .global_part import GlobalPart
+    from .car_generation import CarGeneration
+    from .part import Part
     from .user import User
 
 
@@ -28,7 +28,7 @@ class Vote(Base):
     vote_type: Mapped[str] = mapped_column(nullable=False)  # 'upvote', 'downvote'
 
     # Polymorphic entity reference
-    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'car', 'build_list', 'global_part'
+    entity_type: Mapped[str] = mapped_column(nullable=False)  # 'car', 'build_list', 'part'
     entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -38,10 +38,10 @@ class Vote(Base):
     user: Mapped["User"] = relationship("User", back_populates="votes")
 
     # Polymorphic relationships (these will be handled by the entity models)
-    car: Mapped[Optional["Car"]] = relationship(
-        "Car",
+    car_generation: Mapped[Optional["CarGeneration"]] = relationship(
+        "CarGeneration",
         foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == Car.id, Vote.entity_type == 'car')",
+        primaryjoin="and_(Vote.entity_id == CarGeneration.id, Vote.entity_type == 'car_generation')",
         viewonly=True,
     )
     build_list: Mapped[Optional["BuildList"]] = relationship(
@@ -50,10 +50,10 @@ class Vote(Base):
         primaryjoin="and_(Vote.entity_id == BuildList.id, Vote.entity_type == 'build_list')",
         viewonly=True,
     )
-    global_part: Mapped[Optional["GlobalPart"]] = relationship(
-        "GlobalPart",
+    part: Mapped[Optional["Part"]] = relationship(
+        "Part",
         foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == GlobalPart.id, Vote.entity_type == 'global_part')",
+        primaryjoin="and_(Vote.entity_id == Part.id, Vote.entity_type == 'part')",
         viewonly=True,
     )
 

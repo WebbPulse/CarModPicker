@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class Retailer(Base):
     """
     Retailer (store/site) where parts are sold.
-    Distinct from Brand (part manufacturer). e.g. A90Shop, Summit Racing.
+    Distinct from PartManufacturer (part manufacturer). e.g. A90Shop, Summit Racing.
     """
 
     __tablename__ = "retailers"

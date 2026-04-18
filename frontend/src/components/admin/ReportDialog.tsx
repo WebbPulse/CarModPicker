@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { globalPartReportsApi } from '../../services/Api';
+import { partReportsApi } from '../../services/Api';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import Dialog from '../common/Dialog';
@@ -36,7 +36,7 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
 
     try {
       setIsSubmitting(true);
-      await globalPartReportsApi.reportGlobalPart(partId, {
+      await partReportsApi.reportPart(partId, {
         reason: reason.trim(),
         description: description.trim() || null,
       });

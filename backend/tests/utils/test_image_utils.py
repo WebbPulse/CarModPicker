@@ -10,7 +10,7 @@ class TestImageUtils:
 
     def test_is_file_key_with_file_key(self) -> None:
         """Test detecting a file key."""
-        file_key = "global_parts/user_hash/123-abc.jpg"
+        file_key = "parts/user_hash/123-abc.jpg"
         assert is_file_key(file_key) is True
 
     def test_is_file_key_with_http_url(self) -> None:
@@ -33,7 +33,7 @@ class TestImageUtils:
 
     def test_get_presigned_url_from_file_key_with_file_key(self) -> None:
         """Test converting file key to presigned URL."""
-        file_key = "global_parts/user_hash/123-abc.jpg"
+        file_key = "parts/user_hash/123-abc.jpg"
         expected_url = "https://storage.example.com/presigned-url"
 
         with patch("app.api.utils.image_utils.storage_service") as mock_storage:
@@ -55,7 +55,7 @@ class TestImageUtils:
 
     def test_get_presigned_url_from_file_key_error_handling(self) -> None:
         """Test error handling when presigned URL generation fails."""
-        file_key = "global_parts/user_hash/123-abc.jpg"
+        file_key = "parts/user_hash/123-abc.jpg"
 
         with patch("app.api.utils.image_utils.storage_service") as mock_storage:
             mock_storage.get_presigned_url.side_effect = Exception("Storage error")

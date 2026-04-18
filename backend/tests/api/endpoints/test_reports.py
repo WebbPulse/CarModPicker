@@ -126,7 +126,7 @@ class TestUnifiedReports:
         assert data["description"] == "This build list is spam"
         assert data["status"] == "pending"
 
-    def test_create_global_part_report_success(
+    def test_create_part_report_success(
         self,
         client: TestClient,
         test_user: User,
@@ -158,13 +158,15 @@ class TestUnifiedReports:
         db_session.commit()
         db_session.refresh(category)
 
-        # Create a brand
-        from app.api.models.brand import Brand as DBBrand
+        # Create a part_manufacturer
+        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 
-        brand = DBBrand(name=get_unique_name("Test Brand"), description="Test brand", is_active=True)
-        db_session.add(brand)
+        part_manufacturer = DBPartManufacturer(
+            name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
+        )
+        db_session.add(part_manufacturer)
         db_session.commit()
-        db_session.refresh(brand)
+        db_session.refresh(part_manufacturer)
 
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
@@ -178,9 +180,9 @@ class TestUnifiedReports:
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
             "category_id": str(category.id),
-            "brand_id": str(brand.id),
+            "part_manufacturer_id": str(part_manufacturer.id),
         }
-        response = client.post(f"{settings.API_STR}/global-parts/", json=part_data, headers=headers)
+        response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
         part = response.json()
 
@@ -197,7 +199,7 @@ class TestUnifiedReports:
             "description": "This part information is inaccurate",
         }
         response = client.post(
-            f"{settings.API_STR}/reports/global_part/{part['id']}",
+            f"{settings.API_STR}/reports/part/{part['id']}",
             json=report_data,
             headers=test_user_headers,
         )
@@ -205,7 +207,7 @@ class TestUnifiedReports:
 
         data = response.json()
         assert data["entity_id"] == part["id"]
-        assert data["entity_type"] == "global_part"
+        assert data["entity_type"] == "part"
         assert data["user_id"] == str(test_user.id)
         assert data["reason"] == "inaccurate"
         assert data["description"] == "This part information is inaccurate"

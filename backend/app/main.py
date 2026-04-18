@@ -9,17 +9,17 @@ from fastapi.responses import JSONResponse
 from .api.endpoints import (
     admin,
     auth,
-    brands,
     bug_reports,
     build_list_parts,
     build_list_phases,
     build_lists,
     build_logs,
-    cars,
+    car_generations,
     categories,
     crawled_pages,
-    global_parts,
     images,
+    part_manufacturers,
+    parts,
     reports,
     retailers,
     search,
@@ -121,7 +121,9 @@ endpoint_registry = EndpointRegistry(app)
 # Core CRUD endpoints
 endpoint_registry.register_crud_endpoint(users.router, entity_name="users", description="User management operations")
 
-endpoint_registry.register_crud_endpoint(cars.router, entity_name="cars", description="Car management operations")
+endpoint_registry.register_crud_endpoint(
+    car_generations.router, entity_name="car-generations", description="Car generation management operations"
+)
 
 endpoint_registry.register_crud_endpoint(
     build_lists.router,
@@ -130,9 +132,9 @@ endpoint_registry.register_crud_endpoint(
 )
 
 endpoint_registry.register_crud_endpoint(
-    global_parts.router,
-    entity_name="global-parts",
-    description="Global part catalog operations",
+    parts.router,
+    entity_name="parts",
+    description="Part catalog operations",
 )
 
 endpoint_registry.register_crud_endpoint(
@@ -154,9 +156,9 @@ endpoint_registry.register_crud_endpoint(
 )
 
 endpoint_registry.register_crud_endpoint(
-    brands.router,
-    entity_name="brands",
-    description="Brand management operations",
+    part_manufacturers.router,
+    entity_name="part_manufacturers",
+    description="Part manufacturer management operations",
 )
 
 endpoint_registry.register_crud_endpoint(

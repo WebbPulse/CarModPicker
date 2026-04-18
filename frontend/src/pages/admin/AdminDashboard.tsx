@@ -15,14 +15,14 @@ import type {
 } from '../../services/Api';
 import {
   adminApi,
-  brandsApi,
+  partManufacturersApi,
   bugReportsApi,
   buildListPartsApi,
   buildListsApi,
   buildLogsApi,
-  carsApi,
+  carGenerationsApi,
   categoriesApi,
-  globalPartsApi,
+  partsApi,
   imageApi,
   reportsApi,
   retailersApi,
@@ -40,9 +40,9 @@ function getHttpStatus(error: unknown): number | undefined {
 /** Preferred order for S3 key prefix labels (matches upload entity_type values). */
 const BUCKET_ENTITY_TYPE_ORDER = [
   'user',
-  'car',
+  'car_generation',
   'build_list',
-  'global_part',
+  'part',
   'build_log_post',
 ] as const;
 
@@ -135,9 +135,9 @@ interface EntityCounts {
   makes: number | null;
   carModels: number | null;
   buildLists: number | null;
-  globalParts: number | null;
+  parts: number | null;
   categories: number | null;
-  brands: number | null;
+  part_manufacturers: number | null;
   retailers: number | null;
   bucketObjects: number | null;
   buildLogPosts: number | null;
@@ -148,7 +148,7 @@ interface EntityCounts {
   partPriceHistories: number | null;
   imageSourceMappings: number | null;
   buildLogs: number | null;
-  globalPartCars: number | null;
+  partCars: number | null;
   votes: number | null;
   reports: number | null;
   bugReports: number | null;
@@ -163,9 +163,9 @@ function AdminDashboard() {
     makes: null,
     carModels: null,
     buildLists: null,
-    globalParts: null,
+    parts: null,
     categories: null,
-    brands: null,
+    part_manufacturers: null,
     retailers: null,
     bucketObjects: null,
     buildLogPosts: null,
@@ -176,7 +176,7 @@ function AdminDashboard() {
     partPriceHistories: null,
     imageSourceMappings: null,
     buildLogs: null,
-    globalPartCars: null,
+    partCars: null,
     votes: null,
     reports: null,
     bugReports: null,
@@ -272,9 +272,9 @@ function AdminDashboard() {
         makesCount,
         carModelsCount,
         buildListsCount,
-        globalPartsCount,
+        partsCount,
         categoriesCount,
-        brandsCount,
+        partManufacturersCount,
         retailersCount,
         bucketSummary,
         adminTable,
@@ -285,13 +285,16 @@ function AdminDashboard() {
         bugReportsCount,
       ] = await Promise.all([
         fetchCount(() => usersApi.countUsers(), 'users'),
-        fetchCount(() => carsApi.countCars(), 'cars'),
-        fetchCount(() => carsApi.countMakes(), 'makes'),
-        fetchCount(() => carsApi.countCarModels(), 'car models'),
+        fetchCount(() => carGenerationsApi.countCars(), 'cars'),
+        fetchCount(() => carGenerationsApi.countMakes(), 'makes'),
+        fetchCount(() => carGenerationsApi.countCarModels(), 'car models'),
         fetchCount(() => buildListsApi.countBuildLists(), 'build lists'),
-        fetchCount(() => globalPartsApi.countGlobalParts(), 'global parts'),
+        fetchCount(() => partsApi.countParts(), 'global parts'),
         fetchCount(() => categoriesApi.countCategories(), 'categories'),
-        fetchCount(() => brandsApi.countBrands(), 'brands'),
+        fetchCount(
+          () => partManufacturersApi.countPartManufacturers(),
+          'part_manufacturers'
+        ),
         fetchCount(() => retailersApi.countRetailers(), 'retailers'),
         fetchBucketEntitySummary(),
         fetchAdminTableStats(),
@@ -314,9 +317,9 @@ function AdminDashboard() {
         makes: makesCount,
         carModels: carModelsCount,
         buildLists: buildListsCount,
-        globalParts: globalPartsCount,
+        parts: partsCount,
         categories: categoriesCount,
-        brands: brandsCount,
+        part_manufacturers: partManufacturersCount,
         retailers: retailersCount,
         bucketObjects: bucketSummary?.total ?? null,
         buildLogPosts: buildLogPostsCount,
@@ -327,7 +330,7 @@ function AdminDashboard() {
         partPriceHistories: adminTable?.part_price_histories ?? null,
         imageSourceMappings: adminTable?.image_source_mappings ?? null,
         buildLogs: adminTable?.build_logs ?? null,
-        globalPartCars: adminTable?.global_part_cars ?? null,
+        partCars: adminTable?.part_cars ?? null,
         votes: votesCount,
         reports: reportsCount,
         bugReports: bugReportsCount,
@@ -339,9 +342,9 @@ function AdminDashboard() {
         makesCount === null &&
         carModelsCount === null &&
         buildListsCount === null &&
-        globalPartsCount === null &&
+        partsCount === null &&
         categoriesCount === null &&
-        brandsCount === null &&
+        partManufacturersCount === null &&
         retailersCount === null &&
         bucketSummary === null &&
         adminTable === null &&
@@ -519,14 +522,14 @@ function AdminDashboard() {
               </StatPanel>
 
               <StatPanel title="Parts & catalog">
-                <StatRow label="Global parts" value={counts.globalParts} />
+                <StatRow label="Global parts" value={counts.parts} />
                 <StatRow label="Categories" value={counts.categories} />
-                <StatRow label="Brands" value={counts.brands} />
-                <StatRow label="Retailers" value={counts.retailers} />
                 <StatRow
-                  label="Part ↔ car links"
-                  value={counts.globalPartCars}
+                  label="Part Manufacturers"
+                  value={counts.part_manufacturers}
                 />
+                <StatRow label="Retailers" value={counts.retailers} />
+                <StatRow label="Part ↔ car links" value={counts.partCars} />
               </StatPanel>
 
               <StatPanel title="Crawling & listings">

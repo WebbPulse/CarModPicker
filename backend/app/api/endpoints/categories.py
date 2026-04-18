@@ -12,9 +12,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
-from app.api.models.global_part import GlobalPart as DBGlobalPart
+from app.api.models.part import Part as DBPart
 from app.api.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
-from app.api.schemas.global_part import GlobalPartRead
+from app.api.schemas.part import PartRead
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
@@ -82,22 +82,22 @@ async def get_category(
 
 
 @router.get(
-    "/{category_id}/global-parts",
-    response_model=List[GlobalPartRead],
-    responses=pagination_responses("global part", allow_public_read=True),
+    "/{category_id}/parts",
+    response_model=List[PartRead],
+    responses=pagination_responses("part", allow_public_read=True),
 )
-async def get_global_parts_by_category(
+async def get_parts_by_category(
     category_id: UUID,
     skip: int = Query(0, ge=0, description="Number of parts to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[GlobalPartRead]:
-    """Get global parts by category with pagination."""
+) -> List[PartRead]:
+    """Get parts by category with pagination."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBCategory, category_id, "category")
     skip, limit = validate_pagination_params(skip, limit)
-    parts = db.query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).offset(skip).limit(limit).all()
-    return [GlobalPartRead.model_validate(part) for part in parts]
+    parts = db.query(DBPart).filter(DBPart.category_id == category_id).offset(skip).limit(limit).all()
+    return [PartRead.model_validate(part) for part in parts]
 
 
 @router.get(
@@ -117,7 +117,7 @@ async def get_category_parts_count(
     # Verify category exists
     get_entity_or_404(deps["db"], DBCategory, category_id, "category")
 
-    parts_count = deps["db"].query(DBGlobalPart).filter(DBGlobalPart.category_id == category_id).count()
+    parts_count = deps["db"].query(DBPart).filter(DBPart.category_id == category_id).count()
     return {"parts_count": parts_count}
 
 

@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { buildListVotesApi, carsApi } from '../../services/Api';
+import { buildListVotesApi, carGenerationsApi } from '../../services/Api';
 import type {
   BuildListRead,
   BuildListReadWithVotes,
-  CarRead,
+  CarGenerationRead,
   VoteSummary,
 } from '../../types/Api';
 import { normalizeCarRead } from '../../utils/carUtils';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import VoteButtons from '../globalParts/VoteButtons';
+import VoteButtons from '../parts/VoteButtons';
 
 interface BuildListItemProps {
   buildList: BuildListRead | BuildListReadWithVotes;
@@ -34,7 +34,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
   const [isLoadingVotes, setIsLoadingVotes] = useState(false);
 
   // Fetch car information if car_id is available
-  const [carInfo, setCarInfo] = useState<CarRead | null>(null);
+  const [carInfo, setCarInfo] = useState<CarGenerationRead | null>(null);
   const [isLoadingCar, setIsLoadingCar] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
     // Fetch car information if car_id is available
     if (buildList.car_id && !isLoadingCar && !carInfo) {
       setIsLoadingCar(true);
-      carsApi
+      carGenerationsApi
         .getCar(buildList.car_id)
         .then((response) => {
           setCarInfo(normalizeCarRead(response.data) ?? null);
@@ -144,7 +144,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
             )}
             {carInfo && (
               <p className="text-xs text-gray-300 mb-2">
-                {carInfo?.make ?? ''} {carInfo?.model ?? ''}{' '}
+                {carInfo?.car_make_name ?? ''} {carInfo?.car_model_name ?? ''}{' '}
                 {carInfo?.generation_name ?? ''}
               </p>
             )}

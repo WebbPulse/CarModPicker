@@ -24,10 +24,10 @@ import {
   LARGE_FETCH_LIMIT,
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { buildListsApi, carsApi } from '../../services/Api';
+import { buildListsApi, carGenerationsApi } from '../../services/Api';
 import type {
   BuildListReadWithVotes,
-  CarRead,
+  CarGenerationRead,
   PaginatedResponse,
 } from '../../types/Api';
 import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
@@ -36,11 +36,10 @@ const BuildListsCatalog: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedGeneration, setSelectedGeneration] = useState<CarRead | null>(
-    null
-  );
+  const [selectedGeneration, setSelectedGeneration] =
+    useState<CarGenerationRead | null>(null);
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
-  const [availableCars, setAvailableCars] = useState<CarRead[]>([]);
+  const [availableCars, setAvailableCars] = useState<CarGenerationRead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [costMin, setCostMin] = useState('');
@@ -113,7 +112,10 @@ const BuildListsCatalog: React.FC = () => {
     Parameters<typeof buildListsApi.getBuildListsWithVotes>[0]
   >(fetchAllBuildListsFn);
 
-  const fetchMakeStatsFn = useCallback(() => carsApi.getCarMakeStats(), []);
+  const fetchMakeStatsFn = useCallback(
+    () => carGenerationsApi.getCarMakeStats(),
+    []
+  );
   const {
     data: makeStats,
     isLoading: isLoadingMakes,
@@ -121,7 +123,8 @@ const BuildListsCatalog: React.FC = () => {
   } = useApiRequest(fetchMakeStatsFn);
 
   const fetchCarsByMakeFn = useCallback(
-    (make: string) => carsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
+    (make: string) =>
+      carGenerationsApi.getCarsByMake(make, { limit: LARGE_FETCH_LIMIT }),
     []
   );
   const {
@@ -131,7 +134,7 @@ const BuildListsCatalog: React.FC = () => {
   } = useApiRequest(fetchCarsByMakeFn);
 
   const fetchCarByIdFn = useCallback(
-    (carId: string) => carsApi.getCar(carId),
+    (carId: string) => carGenerationsApi.getCar(carId),
     []
   );
   const { data: carFromUrl, executeRequest: fetchCarById } =
@@ -141,7 +144,7 @@ const BuildListsCatalog: React.FC = () => {
     void fetchMakes();
   }, [fetchMakes]);
 
-  // Initialize filter state from URL (deeplinking), same param names as global-parts where applicable
+  // Initialize filter state from URL (deeplinking), same param names as parts where applicable
   const initializeFromUrl = useCallback(() => {
     if (isInitializedFromUrl || !makeStats) return;
     const hasUrlParams = Array.from(searchParams.keys()).length > 0;
@@ -193,10 +196,10 @@ const BuildListsCatalog: React.FC = () => {
     if (carFromUrl && isInitializingFromUrlRef.current) {
       const car = normalizeCarRead(carFromUrl);
       if (car) {
-        setSelectedMake(car.make);
-        setSelectedModel(car.model);
+        setSelectedMake(car.car_make_name);
+        setSelectedModel(car.car_model_name);
         setSelectedGeneration(car);
-        void fetchCarsByMake(car.make);
+        void fetchCarsByMake(car.car_make_name);
       }
       isInitializingFromUrlRef.current = false;
       setIsInitializedFromUrl(true);
@@ -275,7 +278,7 @@ const BuildListsCatalog: React.FC = () => {
       // Only clear model/generation when user changed make; skip when restoring from URL
       if (
         !selectedGeneration ||
-        (selectedGeneration.make ?? '') !== selectedMake
+        (selectedGeneration.car_make_name ?? '') !== selectedMake
       ) {
         setSelectedModel('');
         setSelectedGeneration(null);
@@ -294,7 +297,10 @@ const BuildListsCatalog: React.FC = () => {
   useEffect(() => {
     if (selectedModel) {
       // Only clear generation when user changed model; skip when restoring from URL
-      if (!selectedGeneration || selectedGeneration.model !== selectedModel) {
+      if (
+        !selectedGeneration ||
+        selectedGeneration.car_model_name !== selectedModel
+      ) {
         setSelectedGeneration(null);
       }
     }
@@ -345,13 +351,16 @@ const BuildListsCatalog: React.FC = () => {
     selectedMake !== '' || searchTerm.trim() !== '' || hasCostRange;
 
   const uniqueModels = Array.from(
-    new Set(availableCars.map((car) => car.model ?? '').filter(Boolean))
+    new Set(
+      availableCars.map((car) => car.car_model_name ?? '').filter(Boolean)
+    )
   ).sort();
 
   const generations = availableCars
     .filter(
       (car) =>
-        (car.make ?? '') === selectedMake && (car.model ?? '') === selectedModel
+        (car.car_make_name ?? '') === selectedMake &&
+        (car.car_model_name ?? '') === selectedModel
     )
     .sort((a, b) => {
       if (a.start_year !== b.start_year) return a.start_year - b.start_year;
@@ -415,7 +424,7 @@ const BuildListsCatalog: React.FC = () => {
         <PageHeader title="Build Lists Catalog" />
       </div>
 
-      {/* Same layout as global-parts: sidebar + main from the start */}
+      {/* Same layout as parts: sidebar + main from the start */}
       <div className="flex flex-col lg:flex-row gap-6">
         <aside className="lg:w-64 flex-shrink-0">
           <Card className="sticky top-4 overflow-hidden">
@@ -572,7 +581,7 @@ const BuildListsCatalog: React.FC = () => {
               params={buildListCatalogListParams}
               title={
                 selectedGeneration
-                  ? `${selectedGeneration.make} ${selectedGeneration.model} ${selectedGeneration.generation_name} Build Lists`
+                  ? `${selectedGeneration.car_make_name} ${selectedGeneration.car_model_name} ${selectedGeneration.generation_name} Build Lists`
                   : selectedModel
                     ? `${selectedMake} ${selectedModel} Build Lists`
                     : `${selectedMake} Build Lists`

@@ -4,10 +4,10 @@ import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
 import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
 import type {
-  BrandResponse,
-  BuildListPartReadWithGlobalPart,
+  PartManufacturerResponse,
+  BuildListPartReadWithPart,
   BuildListPhaseRead,
-  CarRead,
+  CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
 import ActionButton from '../buttons/ActionButton';
@@ -20,7 +20,7 @@ import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 type TableColumnKey =
   | 'checkbox'
   | 'part'
-  | 'brand'
+  | 'part_manufacturer'
   | 'part_number'
   | 'fit'
   | 'qty'
@@ -35,7 +35,7 @@ const COLUMN_PRIORITY: Record<TableColumnKey, number> = {
   actions: 3,
   checkbox: 4,
   fit: 5,
-  brand: 6,
+  part_manufacturer: 6,
   part_number: 7,
 };
 
@@ -46,47 +46,47 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
   actions: 130,
   checkbox: 60,
   fit: 160,
-  brand: 140,
+  part_manufacturer: 140,
   part_number: 140,
 };
 
-const DEFAULT_BRANDS: BrandResponse[] = [];
-const DEFAULT_CARS_BY_ID: Record<string, CarRead> = {};
+const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
+const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
 
 interface GroupedPart {
   category: CategoryResponse | null;
-  parts: BuildListPartReadWithGlobalPart[];
+  parts: BuildListPartReadWithPart[];
 }
 
 interface BuildListPartTableProps {
   group: GroupedPart;
   categoryName: string;
   categoryIcon: string;
-  brands: BrandResponse[];
-  carsById: Record<string, CarRead>;
+  part_manufacturers: PartManufacturerResponse[];
+  carsById: Record<string, CarGenerationRead>;
   containerWidth: number;
-  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
-  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
   canMarkPurchased?: boolean;
-  canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
-  canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+  canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
 }
 
-function formatCarName(car: CarRead): string {
+function formatCarName(car: CarGenerationRead): string {
   return (
-    `${car.make ?? ''} ${car.model ?? ''} ${car.generation_name ?? ''}`.trim() ||
+    `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`.trim() ||
     'Vehicle'
   );
 }
 
 function getFitCell(
-  part: BuildListPartReadWithGlobalPart,
-  carsById: Record<string, CarRead>
+  part: BuildListPartReadWithPart,
+  carsById: Record<string, CarGenerationRead>
 ): { label: string; title?: string } {
-  const gp = part.global_part;
+  const gp = part.part;
   if (gp.is_universal) return { label: 'Universal' };
   const ids = gp.car_ids ?? [];
   const n = ids.length;
@@ -98,7 +98,7 @@ function getFitCell(
   }
   const names = ids
     .map((id) => carsById[id])
-    .filter((c): c is CarRead => c != null)
+    .filter((c): c is CarGenerationRead => c != null)
     .map(formatCarName);
   const title = names.length > 0 ? names.join('\n') : undefined;
   return title != null
@@ -106,14 +106,16 @@ function getFitCell(
     : { label: `${n} vehicles` };
 }
 
-function getBrandName(
-  part: BuildListPartReadWithGlobalPart,
-  brands: BrandResponse[]
+function getPartManufacturerName(
+  part: BuildListPartReadWithPart,
+  part_manufacturers: PartManufacturerResponse[]
 ): string {
-  const gp = part.global_part;
-  if (gp.brand) return gp.brand;
-  if (gp.brand_id != null && brands.length > 0) {
-    const b = brands.find((br) => br.id === gp.brand_id);
+  const gp = part.part;
+  if (gp.part_manufacturer) return gp.part_manufacturer;
+  if (gp.part_manufacturer_id != null && part_manufacturers.length > 0) {
+    const b = part_manufacturers.find(
+      (br) => br.id === gp.part_manufacturer_id
+    );
     return b?.name ?? '—';
   }
   return '—';
@@ -123,7 +125,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   group,
   categoryName,
   categoryIcon,
-  brands,
+  part_manufacturers,
   carsById,
   containerWidth,
   onEdit,
@@ -141,7 +143,14 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
     const keys: TableColumnKey[] = [];
     if (showCheckbox) keys.push('checkbox');
-    keys.push('part', 'brand', 'part_number', 'fit', 'qty', 'price');
+    keys.push(
+      'part',
+      'part_manufacturer',
+      'part_number',
+      'fit',
+      'qty',
+      'price'
+    );
     if (showActions) keys.push('actions');
     return keys;
   }, [showCheckbox, showActions]);
@@ -166,7 +175,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
         </span>
       </div>
 
-      {/* Table - matching global-parts/search layout; columns use % so table fills width */}
+      {/* Table - matching parts/search layout; columns use % so table fills width */}
       <Card className="p-0 !overflow-visible">
         <ResponsiveTableWrapper
           visibleColumns={visibleColumns}
@@ -188,9 +197,9 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                   Part name
                 </th>
               )}
-              {visibleColumns.includes('brand') && (
+              {visibleColumns.includes('part_manufacturer') && (
                 <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Brand
+                  PartManufacturer
                 </th>
               )}
               {visibleColumns.includes('part_number') && (
@@ -223,8 +232,8 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
           </thead>
           <tbody>
             {group.parts.map((buildListPart) => {
-              const { global_part, notes, quantity, purchased } = buildListPart;
-              const gp = global_part;
+              const { part, notes, quantity, purchased } = buildListPart;
+              const gp = part;
               const qty = quantity || 1;
               const partPriceInCents = gp.best_price_cents;
               const totalPriceInCents =
@@ -293,7 +302,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                     }
                   >
                     <Link
-                      to={`/global-parts/${gp.id}`}
+                      to={`/parts/${gp.id}`}
                       className="flex items-center gap-2 hover:no-underline"
                     >
                       <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
@@ -319,13 +328,19 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                       </span>
                     </Link>
                   </td>
-                  {visibleColumns.includes('brand') && (
+                  {visibleColumns.includes('part_manufacturer') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden"
-                      title={getBrandName(buildListPart, brands)}
+                      title={getPartManufacturerName(
+                        buildListPart,
+                        part_manufacturers
+                      )}
                     >
                       <span className="block truncate">
-                        {getBrandName(buildListPart, brands)}
+                        {getPartManufacturerName(
+                          buildListPart,
+                          part_manufacturers
+                        )}
                       </span>
                     </td>
                   )}
@@ -422,21 +437,21 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 };
 
 interface BuildListPartListProps {
-  buildListParts: BuildListPartReadWithGlobalPart[];
+  buildListParts: BuildListPartReadWithPart[];
   categories: CategoryResponse[];
   viewMode?: 'category' | 'phase';
   phases?: BuildListPhaseRead[];
-  brands?: BrandResponse[];
-  carsById?: Record<string, CarRead>;
+  part_manufacturers?: PartManufacturerResponse[];
+  carsById?: Record<string, CarGenerationRead>;
   loading?: boolean;
-  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
-  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
   canMarkPurchased?: boolean;
-  canEditPart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
-  canDeletePart?: (buildListPart: BuildListPartReadWithGlobalPart) => boolean;
+  canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   emptyMessage?: string;
 }
 
@@ -449,7 +464,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   categories,
   viewMode = 'category',
   phases = DEFAULT_PHASES,
-  brands = DEFAULT_BRANDS,
+  part_manufacturers = DEFAULT_PART_MANUFACTURERS,
   carsById = DEFAULT_CARS_BY_ID,
   loading = false,
   onEdit,
@@ -477,13 +492,13 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       string,
       {
         category: CategoryResponse | null;
-        parts: BuildListPartReadWithGlobalPart[];
+        parts: BuildListPartReadWithPart[];
       }
     >();
 
     // Group parts by category_id
     buildListParts.forEach((part) => {
-      const categoryId = part.global_part.category_id;
+      const categoryId = part.part.category_id;
       if (!groups.has(categoryId)) {
         groups.set(categoryId, {
           category: categoryMap.get(categoryId) || null,
@@ -495,9 +510,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
 
     // Sort parts within each category alphabetically by part name
     groups.forEach((group) => {
-      group.parts.sort((a, b) =>
-        a.global_part.name.localeCompare(b.global_part.name)
-      );
+      group.parts.sort((a, b) => a.part.name.localeCompare(b.part.name));
     });
 
     // Convert to array and sort by category display_name
@@ -529,7 +542,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       {
         phaseName: string;
         phaseSortOrder: number;
-        parts: BuildListPartReadWithGlobalPart[];
+        parts: BuildListPartReadWithPart[];
       }
     >();
 
@@ -552,9 +565,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     });
 
     groups.forEach((group) => {
-      group.parts.sort((a, b) =>
-        a.global_part.name.localeCompare(b.global_part.name)
-      );
+      group.parts.sort((a, b) => a.part.name.localeCompare(b.part.name));
     });
 
     return Array.from(groups.values()).sort(
@@ -583,7 +594,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   // Calculate total price (from best_price_cents when available)
   const totalPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -596,7 +607,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (part.purchased) return sum; // Skip purchased parts
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -609,7 +620,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const purchasedPrice = useMemo(() => {
     return buildListParts.reduce((sum, part) => {
       if (!part.purchased) return sum; // Skip unpurchased parts
-      const price = part.global_part.best_price_cents;
+      const price = part.part.best_price_cents;
       const quantity = part.quantity || 1;
       if (price != null) {
         return sum + price * quantity;
@@ -741,14 +752,14 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         </div>
       </Card>
 
-      {/* Parts grouped by category or phase - table layout matching global-parts/search */}
+      {/* Parts grouped by category or phase - table layout matching parts/search */}
       {displayGroups.map((group, index) => {
         const groupKey =
           viewMode === 'phase'
             ? `phase-${group.groupLabel}-${index}`
             : String(
                 group.category?.id ??
-                  group.parts[0]?.global_part.category_id ??
+                  group.parts[0]?.part.category_id ??
                   'uncategorized'
               );
         return (
@@ -757,7 +768,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             group={group}
             categoryName={group.groupLabel}
             categoryIcon={group.groupIcon}
-            brands={brands}
+            part_manufacturers={part_manufacturers}
             carsById={carsById}
             containerWidth={containerWidth}
             {...(onEdit != null && { onEdit })}

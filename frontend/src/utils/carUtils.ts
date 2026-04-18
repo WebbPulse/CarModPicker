@@ -1,4 +1,4 @@
-import type { CarRead } from '../types/Api';
+import type { CarGenerationRead } from '../types/Api';
 
 /**
  * Format year range for display; handles null end_year (current/ongoing generation).
@@ -11,28 +11,23 @@ export function formatCarYearRange(
   return `${startYear}–${endYear}`;
 }
 
-/**
- * Normalize a car from the API so make/model/generation_name are always strings.
- * Handles backend refactor where make/model come from related Make/CarModel entities.
- */
 export function normalizeCarRead(
-  car: CarRead | null | undefined
-): CarRead | null {
+  car: CarGenerationRead | null | undefined
+): CarGenerationRead | null {
   if (car == null) return null;
   return {
     ...car,
-    make: car.make ?? '',
-    model: car.model ?? '',
+    car_make_name: car.car_make_name ?? '',
+    car_model_name: car.car_model_name ?? '',
     generation_name: car.generation_name ?? '',
   };
 }
 
-/**
- * Normalize a list of cars from the API; returns empty array if input is null/undefined.
- */
 export function normalizeCarReadList(
-  cars: CarRead[] | null | undefined
-): CarRead[] {
+  cars: CarGenerationRead[] | null | undefined
+): CarGenerationRead[] {
   if (cars == null || !Array.isArray(cars)) return [];
-  return cars.map(normalizeCarRead).filter((c): c is CarRead => c != null);
+  return cars
+    .map(normalizeCarRead)
+    .filter((c): c is CarGenerationRead => c != null);
 }

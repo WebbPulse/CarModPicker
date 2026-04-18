@@ -21,13 +21,13 @@ from .build_list_phase import (
     BuildListPhaseRead,
     BuildListPhaseUpdate,
 )
-from .car import CarCreate, CarRead, CarUpdate
+from .car_generation import CarGenerationCreate, CarGenerationRead, CarGenerationUpdate
 from .category import CategoryCreate, CategoryInDB, CategoryResponse, CategoryUpdate
-from .global_part import (
-    GlobalPartCreate,
-    GlobalPartRead,
-    GlobalPartReadWithVotes,
-    GlobalPartUpdate,
+from .part import (
+    PartCreate,
+    PartRead,
+    PartReadWithVotes,
+    PartUpdate,
 )
 from .part_listing import (
     PartListingCreate,
@@ -74,16 +74,16 @@ __all__ = [
     "TOTPVerifyResponse",
     "TOTPLoginRequest",
     "TOTPDisableRequest",
-    "CarRead",
-    "CarCreate",
-    "CarUpdate",
+    "CarGenerationRead",
+    "CarGenerationCreate",
+    "CarGenerationUpdate",
     "BuildListRead",
     "BuildListCreate",
     "BuildListUpdate",
-    "GlobalPartRead",
-    "GlobalPartCreate",
-    "GlobalPartUpdate",
-    "GlobalPartReadWithVotes",
+    "PartRead",
+    "PartCreate",
+    "PartUpdate",
+    "PartReadWithVotes",
     "BuildListPartRead",
     "BuildListPartCreate",
     "BuildListPartUpdate",

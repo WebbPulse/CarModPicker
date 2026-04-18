@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type {
-  BuildListPartReadWithGlobalPart,
+  BuildListPartReadWithPart,
   CategoryResponse,
 } from '../../types/Api';
 import ActionButton from '../buttons/ActionButton';
@@ -9,11 +9,11 @@ import SecondaryButton from '../buttons/SecondaryButton';
 import Card from '../common/Card';
 
 interface BuildListPartListItemProps {
-  buildListPart: BuildListPartReadWithGlobalPart;
+  buildListPart: BuildListPartReadWithPart;
   category?: CategoryResponse | null;
-  onEdit?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
-  onTogglePurchased?: (buildListPart: BuildListPartReadWithGlobalPart) => void;
+  onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
   canEdit?: boolean;
   canDelete?: boolean;
   canMarkPurchased?: boolean;
@@ -31,10 +31,10 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
     canMarkPurchased = false,
   }) => {
     const navigate = useNavigate();
-    const { global_part, notes, quantity, purchased } = buildListPart;
+    const { part, notes, quantity, purchased } = buildListPart;
 
     // Prices from retailer listings (best_price_cents when available)
-    const partPriceInCents = global_part.best_price_cents;
+    const partPriceInCents = part.best_price_cents;
     const qty = quantity || 1;
     const totalPriceInCents =
       partPriceInCents !== null && partPriceInCents !== undefined
@@ -53,7 +53,7 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
       : 'grid-cols-[1fr_auto_auto]';
 
     const handleCardClick = () => {
-      void navigate(`/global-parts/${global_part.id}`);
+      void navigate(`/parts/${part.id}`);
     };
 
     const handleCardClickWithCheck = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -120,18 +120,18 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                 </label>
               </div>
             )}
-            {/* Left side: Part name, category, brand, notes */}
+            {/* Left side: Part name, category, part_manufacturer, notes */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3
                   className={`text-sm font-semibold ${purchased ? 'text-gray-400 line-through' : 'text-white'}`}
                 >
                   <Link
-                    to={`/global-parts/${global_part.id}`}
+                    to={`/parts/${part.id}`}
                     className="hover:text-blue-400 transition-colors"
                     onClick={handleInteractiveClick}
                   >
-                    {global_part.name}
+                    {part.name}
                   </Link>
                 </h3>
                 {category && (
@@ -139,9 +139,9 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
                     {category.display_name || category.name}
                   </span>
                 )}
-                {global_part.brand && (
+                {part.part_manufacturer && (
                   <span className="text-xs text-gray-500">
-                    {global_part.brand}
+                    {part.part_manufacturer}
                   </span>
                 )}
                 {notes && (
@@ -217,8 +217,8 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
       prevProps.buildListPart.purchased === nextProps.buildListPart.purchased &&
       prevProps.buildListPart.quantity === nextProps.buildListPart.quantity &&
       prevProps.buildListPart.notes === nextProps.buildListPart.notes &&
-      prevProps.buildListPart.global_part.best_price_cents ===
-        nextProps.buildListPart.global_part.best_price_cents &&
+      prevProps.buildListPart.part.best_price_cents ===
+        nextProps.buildListPart.part.best_price_cents &&
       prevProps.canEdit === nextProps.canEdit &&
       prevProps.canDelete === nextProps.canDelete &&
       prevProps.canMarkPurchased === nextProps.canMarkPurchased &&
