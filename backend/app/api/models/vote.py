@@ -39,7 +39,7 @@ class Vote(Base):
 
     # Polymorphic relationships (these will be handled by the entity models)
     car_generation: Mapped[Optional["CarGeneration"]] = relationship(
-        "Car",
+        "CarGeneration",
         foreign_keys="[Vote.entity_id]",
         primaryjoin="and_(Vote.entity_id == CarGeneration.id, Vote.entity_type == 'car_generation')",
         viewonly=True,

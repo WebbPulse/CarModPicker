@@ -84,8 +84,7 @@ async def search_all(
 
     search_term = q.strip()
 
-    # Search build lists (name, description, and associated car make/model/generation/year range)
-    # Car.make and Car.model are properties; join CarModel and Make for DB-level search
+    # Search build lists (name, description, and associated car_make/car_model/generation/year range)
     build_list_query = (
         db.query(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
@@ -98,12 +97,11 @@ async def search_all(
                 DBMake.name.ilike(f"%{search_term}%"),
                 DBCarModel.name.ilike(f"%{search_term}%"),
                 DBCar.generation_name.ilike(f"%{search_term}%"),
-                # Search years as strings to match partial year searches
                 cast(DBCar.start_year, String).ilike(f"%{search_term}%"),
                 cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
             )
         )
-        .options(joinedload(DBBuildList.car).joinedload(DBCar.car_model).joinedload(DBCarModel.make))
+        .options(joinedload(DBBuildList.car_generation).joinedload(DBCar.car_model).joinedload(DBCarModel.car_make))
     )
     build_list_total = get_total_count(build_list_query)
     build_lists = build_list_query.offset(skip).limit(limit).all()

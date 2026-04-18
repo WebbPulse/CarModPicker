@@ -14,7 +14,7 @@ from .api.endpoints import (
     build_list_phases,
     build_lists,
     build_logs,
-    cars,
+    car_generations,
     categories,
     crawled_pages,
     images,
@@ -121,7 +121,9 @@ endpoint_registry = EndpointRegistry(app)
 # Core CRUD endpoints
 endpoint_registry.register_crud_endpoint(users.router, entity_name="users", description="User management operations")
 
-endpoint_registry.register_crud_endpoint(cars.router, entity_name="cars", description="Car management operations")
+endpoint_registry.register_crud_endpoint(
+    car_generations.router, entity_name="car-generations", description="Car generation management operations"
+)
 
 endpoint_registry.register_crud_endpoint(
     build_lists.router,

@@ -398,16 +398,16 @@ def create_car_in_db(
 ) -> Dict[str, Any]:
     """Create a car directly in the database for test setup. Cars are seeded from
     backend source code in production; this helper is for tests that need a specific car.
-    Creates Make and CarModel if needed, then Car (generation).
+    Creates CarMake and CarModel if needed, then CarGeneration.
     Returns a dict with id, make, model, generation_name, start_year, end_year (API shape).
     """
     from app.api.models.car_generation import CarGeneration
     from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
 
-    make_entity = db.query(Make).filter(Make.name == make).first()
+    make_entity = db.query(CarMake).filter(CarMake.name == make).first()
     if make_entity is None:
-        make_entity = Make(name=make)
+        make_entity = CarMake(name=make)
         db.add(make_entity)
         db.flush()
 
@@ -417,7 +417,7 @@ def create_car_in_db(
         db.add(car_model_entity)
         db.flush()
 
-    car = Car(
+    car = CarGeneration(
         car_model_id=car_model_entity.id,
         generation_name=generation_name,
         start_year=start_year,
@@ -449,8 +449,8 @@ def create_car_orm_in_db(
     end_year: int = 2021,
     description: Optional[str] = None,
 ):
-    """Create a car in the DB and return the Car ORM instance (with relationships loaded).
-    Use when tests need the Car object (e.g. car.car_make_name, car.id) rather than the API dict.
+    """Create a car in the DB and return the CarGeneration ORM instance (with relationships loaded).
+    Use when tests need the CarGeneration object (e.g. car.car_make_name, car.id) rather than the API dict.
     """
     from sqlalchemy.orm import joinedload
 
@@ -458,9 +458,9 @@ def create_car_orm_in_db(
     from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
 
-    make_entity = db.query(Make).filter(Make.name == make).first()
+    make_entity = db.query(CarMake).filter(CarMake.name == make).first()
     if make_entity is None:
-        make_entity = Make(name=make)
+        make_entity = CarMake(name=make)
         db.add(make_entity)
         db.flush()
 
@@ -470,7 +470,7 @@ def create_car_orm_in_db(
         db.add(car_model_entity)
         db.flush()
 
-    car = Car(
+    car = CarGeneration(
         car_model_id=car_model_entity.id,
         generation_name=generation_name,
         start_year=start_year,
@@ -480,9 +480,12 @@ def create_car_orm_in_db(
     db.add(car)
     db.commit()
     db.refresh(car)
-    # Reload with relationships so car.car_make_name / car.model work
+    # Reload with relationships so car.car_make_name / car.car_model_name work
     car = (
-        db.query(Car).options(joinedload(Car.car_model).joinedload(CarModel.car_make)).filter(Car.id == car.id).first()
+        db.query(CarGeneration)
+        .options(joinedload(CarGeneration.car_model).joinedload(CarModel.car_make))
+        .filter(CarGeneration.id == car.id)
+        .first()
     )
     return car
 

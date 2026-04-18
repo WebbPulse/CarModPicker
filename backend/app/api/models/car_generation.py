@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 class CarGeneration(Base):
     """
-    Centrally managed car entity representing a car generation.
+    Centrally managed car generation entity.
     A generation groups multiple model years together (e.g., "5th Gen Civic" for 2006-2011).
-    Links to Make via CarModel (car_model_id -> CarModel -> Make).
-    Build lists can be linked to cars (generations).
+    Links to CarMake via CarModel (car_model_id -> CarModel -> CarMake).
+    Build lists can be linked to car generations.
     """
 
     __tablename__ = "car_generations"
@@ -33,7 +33,7 @@ class CarGeneration(Base):
     start_year: Mapped[int] = mapped_column(nullable=False)
     end_year: Mapped[Optional[int]] = mapped_column(nullable=True)  # None for current/ongoing generations
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
-    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Car image(s)
+    image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
@@ -54,11 +54,11 @@ class CarGeneration(Base):
         overlaps="votes",
     )
 
-    # API backward compatibility: expose make/model as properties (from car_model.car_make.name, car_model.name)
+    # Denormalized name accessors from the CarMake/CarModel chain
     @property
-    def make(self) -> str:
+    def car_make_name(self) -> str:
         return self.car_model.car_make.name
 
     @property
-    def model(self) -> str:
+    def car_model_name(self) -> str:
         return self.car_model.name
