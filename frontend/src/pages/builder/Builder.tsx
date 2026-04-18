@@ -34,18 +34,20 @@ function Builder() {
     ? BUILDER_FIRST_PAGE_BUILD_LISTS
     : BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
 
-  // Fetch user's build lists with pagination
+  // Fetch user's build lists (with vote + total-cost enrichment) with pagination
   const fetchMyBuildListsFn = useCallback(() => {
+    if (!user) return Promise.reject(new Error('Not authenticated'));
     // Calculate skip: page 1 = 0, page 2 = 7, page 3 = 15, page 4 = 23, etc.
     const skip = isFirstPage
       ? 0
       : BUILDER_FIRST_PAGE_BUILD_LISTS +
         (currentPage - 2) * BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS;
-    return buildListsApi.getMyBuildLists({
+    return buildListsApi.getBuildListsWithVotes({
       skip,
       limit: buildListsPerPage,
+      owner_id: user.id,
     });
-  }, [currentPage, isFirstPage, buildListsPerPage]);
+  }, [currentPage, isFirstPage, buildListsPerPage, user]);
 
   const {
     data: buildListsResponse,

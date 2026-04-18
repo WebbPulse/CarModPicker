@@ -1059,6 +1059,60 @@ class TestBuildLists:
         found = any(bl["id"] == build_list1["id"] for bl in data["data"])
         assert found
 
+    def test_get_build_lists_with_votes_filter_by_owner(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """Test filtering /with-votes by owner_id returns only that user's build lists."""
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        car = create_car_in_db(db_session)
+
+        # Create a build list owned by test_user
+        build_list_data = {
+            "name": get_unique_name("owned_build_list"),
+            "description": "Owned by test_user",
+            "car_id": str(car["id"]),
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
+        assert response.status_code == 200
+        owned_build_list = response.json()
+
+        # Create a second user with their own build list
+        other_user = DBUser(
+            username=get_unique_name("other_owner"),
+            email=f"{get_unique_name('other_owner')}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+            is_admin=False,
+            is_superuser=False,
+        )
+        db_session.add(other_user)
+        db_session.commit()
+        db_session.refresh(other_user)
+        other_token = get_auth_token(client, other_user.username)
+        other_headers = get_auth_headers(other_token)
+        other_build_list_data = {
+            "name": get_unique_name("other_build_list"),
+            "description": "Owned by other user",
+            "car_id": str(car["id"]),
+        }
+        response = client.post(f"{settings.API_STR}/build-lists/", json=other_build_list_data, headers=other_headers)
+        assert response.status_code == 200
+        other_build_list = response.json()
+
+        # Filter by test_user's id
+        response = client.get(
+            f"{settings.API_STR}/build-lists/with-votes?owner_id={test_user.id}",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data: Dict[str, Any] = response.json()
+        returned_ids = {bl["id"] for bl in data["data"]}
+        assert owned_build_list["id"] in returned_ids
+        assert other_build_list["id"] not in returned_ids
+
     def test_get_build_lists_with_votes_multiple_votes(
         self, client: TestClient, test_user: User, db_session: Session
     ) -> None:
