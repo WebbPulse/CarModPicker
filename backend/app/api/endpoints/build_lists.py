@@ -83,6 +83,7 @@ async def read_build_lists_with_votes(
     car_ids: Optional[List[UUID]] = Query(
         None, description="Filter by car IDs (e.g. all generations for a make or model)"
     ),
+    owner_id: Optional[UUID] = Query(None, description="Filter by owner (user) ID"),
     min_cost_cents: Optional[int] = Query(None, ge=0, description="Minimum total build list cost (cents)"),
     max_cost_cents: Optional[int] = Query(None, ge=0, description="Maximum total build list cost (cents)"),
     sort: Optional[str] = Query(
@@ -160,6 +161,8 @@ async def read_build_lists_with_votes(
         base_query = base_query.filter(DBBuildList.car_id.in_(car_ids))
     elif car_id is not None:
         base_query = base_query.filter(DBBuildList.car_id == car_id)
+    if owner_id is not None:
+        base_query = base_query.filter(DBBuildList.user_id == owner_id)
     if min_cost_cents is not None:
         base_query = base_query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
     if max_cost_cents is not None:
@@ -187,6 +190,8 @@ async def read_build_lists_with_votes(
         query = query.filter(DBBuildList.car_id.in_(car_ids))
     elif car_id is not None:
         query = query.filter(DBBuildList.car_id == car_id)
+    if owner_id is not None:
+        query = query.filter(DBBuildList.user_id == owner_id)
     if min_cost_cents is not None:
         query = query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
     if max_cost_cents is not None:
