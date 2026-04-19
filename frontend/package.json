@@ -21,6 +21,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "@simplewebauthn/browser": "^11.0.0",
     "@tailwindcss/vite": "^4.1.7",
     "axios": "^1.15.0",
     "eslint-plugin-react-dom": "^2.12.4",

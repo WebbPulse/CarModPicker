@@ -24,9 +24,13 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth
 # --- Password Utilities ---
 
 
-def verify_password(plain_password: str, hashed_password_str: str) -> bool:
-    """Verifies a plain password against a hashed password."""
-    # Ensure hashed_password_str is bytes, as bcrypt expects
+def verify_password(plain_password: str, hashed_password_str: Optional[str]) -> bool:
+    """Verifies a plain password against a hashed password.
+
+    Returns False if the user has no password set (OAuth-only account).
+    """
+    if not hashed_password_str:
+        return False
     hashed_password_bytes = hashed_password_str.encode("utf-8")
     plain_password_bytes = plain_password.encode("utf-8")
     return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)

@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
+from app.api.schemas.auth import OAuthAccountRead
 from app.api.schemas.part import apply_image_url_presigning
 
 # Max length for social profile URLs (RFC 7230 recommends 8000; we use 500 for profile links)
@@ -174,6 +175,10 @@ class UserRead(BaseModel):
     youtube_url: Optional[str] = None
     tiktok_url: Optional[str] = None
     session_expire_minutes: Optional[int] = None
+    # Linked third-party sign-in providers. Empty list when none. Eagerly loaded
+    # in admin list endpoint via selectinload to avoid N+1; safely lazy elsewhere
+    # (each UserRead serialization triggers at most one extra query for one user).
+    oauth_accounts: List[OAuthAccountRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 

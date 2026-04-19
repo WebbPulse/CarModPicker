@@ -32,6 +32,8 @@ bcrypt==4.3.0
 python-multipart==0.0.26
 pyotp==2.9.0
 qrcode[pil]==7.4.2
+webauthn==2.5.2
+google-auth==2.45.0
 
 requests==2.33.0
 beautifulsoup4==4.12.3

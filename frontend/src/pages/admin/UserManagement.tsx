@@ -347,6 +347,7 @@ function UserManagement() {
                   <th className="p-2 text-gray-300">Status</th>
                   <th className="p-2 text-gray-300">Email Verified</th>
                   <th className="p-2 text-gray-300">2FA</th>
+                  <th className="p-2 text-gray-300">Sign-in</th>
                   <th className="p-2 text-gray-300">Subscription</th>
                   <th className="p-2 text-gray-300">Admin</th>
                   <th className="p-2 text-gray-300">Superuser</th>
@@ -391,6 +392,29 @@ function UserManagement() {
                       >
                         {user.totp_enabled ? 'Enabled' : 'Disabled'}
                       </span>
+                    </td>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {user.oauth_accounts?.some(
+                          (a) => a.provider === 'google'
+                        ) && (
+                          <span
+                            className="px-2 py-1 rounded text-xs bg-blue-600 text-blue-100"
+                            title={
+                              user.oauth_accounts.find(
+                                (a) => a.provider === 'google'
+                              )?.email || undefined
+                            }
+                          >
+                            Google
+                          </span>
+                        )}
+                        {!user.oauth_accounts?.length && (
+                          <span className="text-gray-400 text-xs">
+                            Password
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-2">
                       <span

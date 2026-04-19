@@ -50,6 +50,13 @@ import type {
   UserCreate,
   UserRead,
   UserUpdate,
+  GoogleSignInRequest,
+  GoogleSignInResponse,
+  GoogleLinkRequest,
+  GoogleSignupRequest,
+  OAuthTwoFactorRequest,
+  GoogleConnectRequest,
+  OAuthAccountRead,
   VoteCreate,
   VoteRead,
   VoteSummary,
@@ -798,7 +805,113 @@ export const authApi = {
     removeStoredToken();
     return response;
   },
+
+  webauthnRegisterOptions: (nickname: string) =>
+    apiClient.post<WebAuthnOptionsResponse>('/auth/webauthn/register/options', {
+      nickname,
+    }),
+  webauthnRegisterVerify: (data: {
+    challenge_token: string;
+    credential: unknown;
+    nickname: string;
+  }) =>
+    apiClient.post<WebAuthnCredentialSummary>(
+      '/auth/webauthn/register/verify',
+      data
+    ),
+  webauthnLoginOptions: (username?: string) =>
+    apiClient.post<WebAuthnOptionsResponse>('/auth/webauthn/login/options', {
+      username,
+    }),
+  webauthnLoginVerify: async (data: {
+    challenge_token: string;
+    credential: unknown;
+  }): Promise<AxiosResponse<UserRead>> => {
+    const response = await apiClient.post<{
+      access_token: string;
+      token_type: string;
+      user: UserRead;
+    }>('/auth/webauthn/login/verify', data);
+    if (response.data.access_token) {
+      setStoredToken(response.data.access_token);
+    }
+    return {
+      ...response,
+      data: response.data.user,
+    } as AxiosResponse<UserRead>;
+  },
+  webauthnListCredentials: () =>
+    apiClient.get<WebAuthnCredentialSummary[]>('/auth/webauthn/credentials'),
+  webauthnRenameCredential: (id: string, nickname: string) =>
+    apiClient.patch<WebAuthnCredentialSummary>(
+      `/auth/webauthn/credentials/${id}`,
+      { nickname }
+    ),
+  webauthnDeleteCredential: (id: string) =>
+    apiClient.delete<Record<string, string>>(
+      `/auth/webauthn/credentials/${id}`
+    ),
+
+  // Google sign-in. The first call returns one of four shapes (token / 2fa / link
+  // required / signup required); the caller dispatches on the discriminator. Token
+  // storage happens in the page handler so the merge / signup flows can complete first.
+  googleSignIn: (data: GoogleSignInRequest) =>
+    apiClient.post<GoogleSignInResponse>('/auth/google', data),
+  googleLink: async (
+    data: GoogleLinkRequest
+  ): Promise<AxiosResponse<UserRead>> => {
+    const response = await apiClient.post<{
+      access_token: string;
+      token_type: string;
+      user: UserRead;
+    }>('/auth/google/link', data);
+    if (response.data.access_token) setStoredToken(response.data.access_token);
+    return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
+  },
+  googleSignup: async (
+    data: GoogleSignupRequest
+  ): Promise<AxiosResponse<UserRead>> => {
+    const response = await apiClient.post<{
+      access_token: string;
+      token_type: string;
+      user: UserRead;
+    }>('/auth/google/signup', data);
+    if (response.data.access_token) setStoredToken(response.data.access_token);
+    return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
+  },
+  oauthTwoFactor: async (
+    data: OAuthTwoFactorRequest
+  ): Promise<AxiosResponse<UserRead>> => {
+    const response = await apiClient.post<{
+      access_token: string;
+      token_type: string;
+      user: UserRead;
+    }>('/auth/oauth/2fa', data);
+    if (response.data.access_token) setStoredToken(response.data.access_token);
+    return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
+  },
+  googleConnect: (data: GoogleConnectRequest) =>
+    apiClient.post<OAuthAccountRead>('/auth/google/connect', data),
+  listOAuthAccounts: () => apiClient.get<OAuthAccountRead[]>('/auth/oauth'),
+  deleteOAuthAccount: (id: string) =>
+    apiClient.delete<Record<string, string>>(`/auth/oauth/${id}`),
 };
+
+export interface WebAuthnOptionsResponse {
+  options: Record<string, unknown>;
+  challenge_token: string;
+}
+
+export interface WebAuthnCredentialSummary {
+  id: string;
+  nickname: string;
+  aaguid?: string | null;
+  transports?: string[] | null;
+  backup_eligible: boolean;
+  backup_state: boolean;
+  created_at: string;
+  last_used_at?: string | null;
+}
 
 // Search API
 export interface SearchCategoryResults<T> {

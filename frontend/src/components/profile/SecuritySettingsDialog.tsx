@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaClock, FaLock, FaShieldAlt } from 'react-icons/fa';
+import { FaClock, FaKey, FaLink, FaLock, FaShieldAlt } from 'react-icons/fa';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, usersApi } from '../../services/Api';
@@ -10,6 +10,8 @@ import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
 import Dialog from '../common/Dialog';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
+import ConnectedAccountsSettings from './ConnectedAccountsSettings';
+import PasskeySettings from './PasskeySettings';
 
 const SESSION_EXPIRE_OPTIONS: { value: number | null; label: string }[] = [
   { value: null, label: 'Use server default (60 min)' },
@@ -31,7 +33,7 @@ interface SecuritySettingsDialogProps {
   onSessionUpdated?: () => void;
 }
 
-type TabType = 'password' | '2fa' | 'session';
+type TabType = 'password' | '2fa' | 'passkeys' | 'connected' | 'session';
 
 function SecuritySettingsDialog({
   isOpen,
@@ -341,6 +343,34 @@ function SecuritySettingsDialog({
             <div className="flex items-center justify-center space-x-2">
               <FaShieldAlt />
               <span>Two-Factor Authentication</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('passkeys')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'passkeys'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <FaKey />
+              <span>Passkeys</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('connected')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'connected'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <FaLink />
+              <span>Connected</span>
             </div>
           </button>
           <button
@@ -720,6 +750,8 @@ function SecuritySettingsDialog({
             </ActionButton>
           </div>
         )}
+        {activeTab === 'passkeys' && <PasskeySettings />}
+        {activeTab === 'connected' && <ConnectedAccountsSettings />}
       </div>
     </Dialog>
   );

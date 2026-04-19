@@ -7,6 +7,7 @@ hashing and admin management.
 """
 
 import logging
+import os
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
@@ -353,11 +354,10 @@ async def create_user(
     hashed_password = get_password_hash(user.password)
 
     # Create DBUser instance (excluding plain password)
-    # Auto-verify email in test environment (when using SQLite in-memory database)
-    is_test_environment = (
-        "sqlite:///:memory:" in str(getattr(db.bind, "url", "")) if db.bind and hasattr(db.bind, "url") else False
-    )
-    email_verified = True if is_test_environment else False
+    # Auto-verify email in the test environment. conftest sets TESTING=true at import,
+    # before any app code loads — checking the env var avoids relying on `db.bind.url`,
+    # which depends on whether the Session is bound to an Engine or a Connection.
+    email_verified = os.environ.get("TESTING") == "true"
 
     db_user = DBUser(
         username=user.username,
@@ -557,13 +557,14 @@ async def get_all_users(
     Get all users (admin only) with pagination and search.
     """
     from sqlalchemy import or_
+    from sqlalchemy.orm import selectinload
 
     from app.api.utils.common_patterns import create_paginated_response
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Build query
-    query = db.query(DBUser)
+    # Eager-load oauth_accounts so the listing isn't N+1 when serializing UserRead.
+    query = db.query(DBUser).options(selectinload(DBUser.oauth_accounts))
 
     # Apply search if provided
     if search:

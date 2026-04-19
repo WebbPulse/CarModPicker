@@ -11,6 +11,7 @@ from .category import Category
 from .crawler_adapter_config import CrawlerAdapterConfig
 from .crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
 from .image_source_mapping import ImageSourceMapping
+from .oauth_account import OAuthAccount
 from .part import Part
 from .part_listing import PartListing
 from .part_manufacturer import PartManufacturer
@@ -19,6 +20,7 @@ from .report import Report
 from .retailer import Retailer
 from .user import User
 from .vote import Vote
+from .webauthn_credential import WebAuthnCredential
 
 __all__ = [
     "BackgroundJob",
@@ -29,6 +31,7 @@ __all__ = [
     "BuildList",
     "Part",
     "ImageSourceMapping",
+    "OAuthAccount",
     "Category",
     "CrawlerAdapterConfig",
     "CrawlerSchedule",
@@ -37,6 +40,7 @@ __all__ = [
     "BuildListPart",
     "BuildListPhase",
     "Vote",
+    "WebAuthnCredential",
     "Report",
     "BugReport",
     "BuildLog",

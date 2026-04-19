@@ -35,6 +35,45 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES_MIN: int = 15
     ACCESS_TOKEN_EXPIRE_MINUTES_MAX: int = 10080  # 7 days
 
+    # Google OAuth — frontend uses this client id to mint ID tokens; backend uses it as the
+    # `audience` when verifying. The client id itself is not a secret (it's embedded in the
+    # frontend bundle anyway), so it lives in source. Override via env if/when rotated.
+    GOOGLE_CLIENT_ID: str = Field(
+        default="1073035138993-bvba9dfi4pdr354p3d550bi95die8e83.apps.googleusercontent.com",
+        description="Google OAuth 2.0 client id. Used as the audience when verifying ID tokens.",
+    )
+
+    @property
+    def google_oauth_enabled(self) -> bool:
+        return bool(self.GOOGLE_CLIENT_ID)
+
+    # WebAuthn / passkeys — RP ID and origins are derived from APP_ENVIRONMENT.
+    # RP ID is the registrable domain users see; origins are the frontend URLs
+    # that will call navigator.credentials.*. Passkeys registered on one
+    # environment cannot be used on another (different RP IDs).
+    @property
+    def webauthn_rp_id(self) -> str:
+        if not self.is_production:
+            return "localhost"
+        if self.APP_ENVIRONMENT.lower() == "staging":
+            return "staging.carmodpicker.com"
+        return "carmodpicker.com"
+
+    @property
+    def webauthn_rp_name(self) -> str:
+        return self.PROJECT_NAME
+
+    @property
+    def webauthn_origins_list(self) -> list[str]:
+        if not self.is_production:
+            return ["http://localhost:4000", "http://localhost:8000"]
+        if self.APP_ENVIRONMENT.lower() == "staging":
+            return ["https://staging.carmodpicker.com"]
+        return [
+            "https://carmodpicker.com",
+            "https://www.carmodpicker.com",
+        ]
+
     @model_validator(mode="after")
     def validate_and_normalize_settings(self) -> "Settings":
         """Validate settings and normalize storage variable names."""
