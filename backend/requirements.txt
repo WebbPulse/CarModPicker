@@ -40,8 +40,8 @@ beautifulsoup4==4.12.3
 defusedxml==0.7.1
 
 # Image storage and processing
-boto3==1.35.0
-boto3-stubs[s3,sesv2]==1.35.0  # Type stubs for boto3 S3 and SES clients
+boto3==1.42.91
+boto3-stubs[s3,sesv2]==1.42.91  # Type stubs for boto3 S3 and SES clients
 Pillow==12.2.0
 
 # Testing: in-memory S3 mock (used with pytest fixtures; never runs in production)

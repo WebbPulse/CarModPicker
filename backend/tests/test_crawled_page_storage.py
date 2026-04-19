@@ -129,7 +129,8 @@ class TestSaveCrawlPageHtml:
             assert key is not None
             assert key.startswith("/"), "Expected absolute local path"
             assert os.path.exists(key)
-            assert open(key).read() == html
+            with open(key) as f:
+                assert f.read() == html
 
 
 # ---------------------------------------------------------------------------
