@@ -14,12 +14,16 @@ from app.crawlers.adapters.a90shop import A90ShopAdapter
 from app.crawlers.adapters.adro import AdroAdapter
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.adapters.generic import GenericHtmlParser
+from app.crawlers.adapters.maperformance import MAPerformanceAdapter
 from app.crawlers.adapters.studiorsr import StudioRSRAdapter
+from app.crawlers.adapters.summitracing import SummitRacingAdapter
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "a90shop": A90ShopAdapter,
     "adro": AdroAdapter,
+    "maperformance": MAPerformanceAdapter,
     "studiorsr": StudioRSRAdapter,
+    "summitracing": SummitRacingAdapter,
     "generic": GenericHtmlParser,
 }
 
@@ -47,6 +51,10 @@ def adapter_name_for_product_url(url: str) -> str:
         return "a90shop"
     if host == "adro.com" or host.endswith(".adro.com"):
         return "adro"
+    if host == "summitracing.com" or host.endswith(".summitracing.com"):
+        return "summitracing"
+    if host == "maperformance.com" or host.endswith(".maperformance.com"):
+        return "maperformance"
     return "generic"
 
 
