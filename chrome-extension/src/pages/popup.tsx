@@ -156,9 +156,6 @@ function Popup() {
 
   type SendMessageParams = {
     action: string;
-    username?: string;
-    password?: string;
-    otp?: string;
     partData?: unknown;
     imageUrl?: string;
     limit?: number;
