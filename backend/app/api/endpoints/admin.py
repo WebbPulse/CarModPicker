@@ -26,6 +26,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.models.associations.part_car import part_cars
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
@@ -38,7 +39,6 @@ from app.api.models.crawler_adapter_config import CrawlerAdapterConfig as DBCraw
 from app.api.models.crawler_schedule import CrawlerSchedule as DBCrawlerSchedule
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.part import Part as DBPart
-from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory

@@ -1,3 +1,5 @@
+from .associations.crawler_schedule_adapter import CrawlerScheduleAdapter
+from .associations.part_car import part_cars
 from .background_job import BackgroundJob
 from .bug_report import BugReport
 from .build_list import BuildList
@@ -9,7 +11,7 @@ from .car_make import CarMake
 from .car_model import CarModel
 from .category import Category
 from .crawler_adapter_config import CrawlerAdapterConfig
-from .crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
+from .crawler_schedule import CrawlerSchedule
 from .image_source_mapping import ImageSourceMapping
 from .oauth_account import OAuthAccount
 from .part import Part
@@ -48,4 +50,5 @@ __all__ = [
     "Retailer",
     "PartListing",
     "PartPriceHistory",
+    "part_cars",
 ]

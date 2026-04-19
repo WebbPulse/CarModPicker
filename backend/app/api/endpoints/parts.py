@@ -13,12 +13,12 @@ from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.associations.part_car import part_cars
 from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.category import Category as DBCategory
 from app.api.models.part import Part as DBPart
-from app.api.models.part_car import part_cars
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
