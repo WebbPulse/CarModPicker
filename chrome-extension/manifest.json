@@ -21,9 +21,7 @@
     {
       "matches": [
         "*://carmodpicker.com/*",
-        "*://*.carmodpicker.com/*",
-        "http://localhost/*",
-        "http://localhost:*/*"
+        "*://*.carmodpicker.com/*"
       ],
       "js": ["dist/content.js"],
       "run_at": "document_idle"
