@@ -8,6 +8,7 @@ import ChromeExtensionPromo from './components/common/ChromeExtensionPromo';
 import CookieConsentBanner from './components/common/CookieConsentBanner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import SubscriptionPromo from './components/common/SubscriptionPromo';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
@@ -54,6 +55,8 @@ const ContactUs = lazy(() => import('./pages/ContactUs.tsx'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.tsx'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService.tsx'));
 const Support = lazy(() => import('./pages/Support.tsx'));
+const Pricing = lazy(() => import('./pages/Pricing.tsx'));
+const Checkout = lazy(() => import('./pages/Checkout.tsx'));
 const Search = lazy(() => import('./pages/Search.tsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.tsx'));
 const ReportReview = lazy(() => import('./pages/admin/ReportReview.tsx'));
@@ -91,6 +94,8 @@ const NO_ADS_PATHS = new Set([
   '/terms-of-service',
   '/support',
   '/bug-report',
+  '/pricing',
+  '/checkout',
 ]);
 
 /** Side margin on landing page (lg+): 180px = AdBanner 20px outer + 160px ad. Keep in sync with lg:pl-[180px] lg:pr-[180px] in main-content. */
@@ -195,6 +200,7 @@ function App() {
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/support" element={<Support />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/bug-report" element={<BugReport />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/user/:userId" element={<ViewUser />} />
@@ -227,6 +233,7 @@ function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/builder" element={<Builder />} />
                     <Route path="/my-parts" element={<UserParts />} />
+                    <Route path="/checkout" element={<Checkout />} />
                   </Route>
                 </Route>
 
@@ -284,7 +291,11 @@ function App() {
 
         <Footer />
         <CookieConsentBanner />
-        <ChromeExtensionPromo />
+        {/* Stacked promo popups, bottom-right. Each child is null when dismissed/ineligible. */}
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 items-end max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none">
+          <ChromeExtensionPromo />
+          <SubscriptionPromo />
+        </div>
       </div>
     </ErrorBoundary>
   );

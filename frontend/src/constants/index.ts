@@ -117,3 +117,13 @@ export const CHROME_EXTENSION_STORE_URL =
  * In the DOM this appears as the attribute `data-carmodpicker-extension`.
  */
 export const EXTENSION_INSTALLED_DATA_ATTR = 'carmodpickerExtension';
+
+// ============================================================================
+// Subscription / Pricing
+// ============================================================================
+
+/** Max build lists a free-tier user can create. Mirrors backend enforcement. */
+export const FREE_TIER_BUILD_LIST_LIMIT = 1;
+
+/** Monthly price (USD) shown on the pricing page for the Premium tier. */
+export const PREMIUM_MONTHLY_PRICE_USD = 4.99;
