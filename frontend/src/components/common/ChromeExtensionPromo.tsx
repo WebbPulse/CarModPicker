@@ -6,8 +6,9 @@ import {
   EXTENSION_INSTALLED_DATA_ATTR,
 } from '../../constants';
 import { useCookieConsent } from '../../hooks/useCookieConsent';
+import { dismissForToday, isDismissedToday } from '../../utils/dailyDismiss';
 
-const DISMISS_KEY = 'chrome_extension_promo_dismissed_v1';
+const DISMISS_KEY = 'chrome_extension_promo_last_dismissed';
 // Content scripts run at document_idle, which can land after our first effect.
 // Poll briefly so we don't flash the banner at users who already have the extension.
 const DETECTION_TIMEOUT_MS = 2000;
@@ -30,14 +31,6 @@ function isChromiumBrowser(): boolean {
   return /Chrome\//i.test(ua) || /Chromium\//i.test(ua);
 }
 
-function wasDismissed(): boolean {
-  try {
-    return localStorage.getItem(DISMISS_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 function ChromeExtensionPromo() {
   const [visible, setVisible] = useState(false);
   const { consent } = useCookieConsent();
@@ -45,7 +38,7 @@ function ChromeExtensionPromo() {
   useEffect(() => {
     // Wait until the cookie consent decision is made — both render at bottom z-50.
     if (consent === null) return;
-    if (wasDismissed() || !isChromiumBrowser()) return;
+    if (isDismissedToday(DISMISS_KEY) || !isChromiumBrowser()) return;
 
     let cancelled = false;
 
@@ -71,11 +64,7 @@ function ChromeExtensionPromo() {
   if (!visible) return null;
 
   const handleDismiss = () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, 'true');
-    } catch {
-      // ignore
-    }
+    dismissForToday(DISMISS_KEY);
     setVisible(false);
   };
 
@@ -88,7 +77,7 @@ function ChromeExtensionPromo() {
     <div
       role="dialog"
       aria-label="Install CarModPicker Chrome extension"
-      className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100%-2rem)] sm:w-96 bg-neutral-950 rounded-2xl border border-white/10 shadow-2xl animate-slideInUp"
+      className="relative w-full pointer-events-auto bg-neutral-950 rounded-2xl border border-white/10 shadow-2xl animate-slideInUp"
     >
       <button
         type="button"

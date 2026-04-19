@@ -1,19 +1,43 @@
-import { FaCoffee, FaHeart } from 'react-icons/fa';
+import { FaCoffee, FaCrown, FaHeart } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
+import { Link } from 'react-router-dom';
 import ActionButton from '../components/buttons/ActionButton';
 import Card from '../components/common/Card';
 
+type SupportOption = {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  link: string;
+  buttonText: string;
+  external: boolean;
+};
+
 function Support() {
-  const supportOptions = [
+  const supportOptions: SupportOption[] = [
+    {
+      id: 'premium',
+      title: 'Subscribe to Premium',
+      description:
+        'Go ad-free, unlock unlimited build lists, and support ongoing development with a monthly subscription.',
+      icon: <FaCrown className="text-3xl" />,
+      color: 'from-amber-400 to-orange-500',
+      link: '/pricing',
+      buttonText: 'See Pricing',
+      external: false,
+    },
     {
       id: 'coffee',
       title: 'Buy Me a Coffee',
       description:
-        'Support the project with a one-time donation. Every contribution helps keep CarModPicker running!',
+        'Prefer a one-time donation? Every contribution helps keep CarModPicker running!',
       icon: <FaCoffee className="text-3xl" />,
       color: 'from-amber-500 to-orange-500',
       link: 'https://buymeacoffee.com/webbpulse', // Replace with actual link
       buttonText: 'Buy Me a Coffee',
+      external: true,
     },
   ];
 
@@ -68,13 +92,13 @@ function Support() {
             </p>
           </div>
 
-          <div className="flex justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {supportOptions.map((option, index) => (
               <Card
                 key={option.id}
                 variant="glass"
                 interactive
-                className="group animate-slideInUp text-center max-w-md w-full"
+                className="group animate-slideInUp text-center flex flex-col"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div
@@ -85,19 +109,27 @@ function Support() {
                 <h3 className="text-2xl font-semibold text-white mb-3 group-hover:text-gradient transition-colors">
                   {option.title}
                 </h3>
-                <p className="text-neutral-400 mb-4 leading-relaxed">
+                <p className="text-neutral-400 mb-4 leading-relaxed flex-grow">
                   {option.description}
                 </p>
-                <a
-                  href={option.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <ActionButton className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
-                    {option.buttonText}
-                  </ActionButton>
-                </a>
+                {option.external ? (
+                  <a
+                    href={option.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <ActionButton className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                      {option.buttonText}
+                    </ActionButton>
+                  </a>
+                ) : (
+                  <Link to={option.link} className="block">
+                    <ActionButton className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                      {option.buttonText}
+                    </ActionButton>
+                  </Link>
+                )}
               </Card>
             ))}
           </div>

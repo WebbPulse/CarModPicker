@@ -3,6 +3,8 @@ import React from 'react';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
+  /** Classes applied to the inner content wrapper (e.g. `h-full flex flex-col` for equal-height layouts). */
+  contentClassName?: string;
   variant?: 'default' | 'glass' | 'elevated';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   onClick?: () => void;
@@ -13,6 +15,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({
   children,
   className = '',
+  contentClassName = '',
   variant = 'default',
   padding = 'md',
   onClick,
@@ -46,7 +49,7 @@ const Card: React.FC<CardProps> = ({
       <div className="absolute inset-0 rounded-inherit bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
 
       {/* Content */}
-      <div className="relative z-10">{children}</div>
+      <div className={`relative z-10 ${contentClassName}`}>{children}</div>
 
       {/* Hover glow effect */}
       {interactive && (
