@@ -8,6 +8,7 @@ Register new adapters in ADAPTER_REGISTRY so the runner can run them by name.
 crawler runner CLI (it has no discover_product_urls implementation).
 """
 
+from typing import Optional
 from urllib.parse import urlparse
 
 from app.crawlers.adapters.a90shop import A90ShopAdapter
@@ -17,6 +18,7 @@ from app.crawlers.adapters.generic import GenericHtmlParser
 from app.crawlers.adapters.maperformance import MAPerformanceAdapter
 from app.crawlers.adapters.studiorsr import StudioRSRAdapter
 from app.crawlers.adapters.summitracing import SummitRacingAdapter
+from app.crawlers.fetchers import Fetcher
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "a90shop": A90ShopAdapter,
@@ -58,8 +60,14 @@ def adapter_name_for_product_url(url: str) -> str:
     return "generic"
 
 
-def get_adapter(name: str) -> RetailerCrawlerAdapter:
-    """Return an adapter instance by name. Raises KeyError if unknown."""
+def get_adapter(name: str, fetcher: Optional[Fetcher] = None) -> RetailerCrawlerAdapter:
+    """
+    Return an adapter instance by name. Raises KeyError if unknown.
+
+    When ``fetcher`` is provided (runner path), the adapter uses it directly.
+    When omitted (tests, one-off scripts), the adapter constructs a fetcher
+    matching its declared ``FETCHER_TIER``.
+    """
     if name not in ADAPTER_REGISTRY:
         raise KeyError(f"Unknown adapter: {name}. Available: {list(ADAPTER_REGISTRY.keys())}")
-    return ADAPTER_REGISTRY[name]()
+    return ADAPTER_REGISTRY[name](fetcher=fetcher) if fetcher is not None else ADAPTER_REGISTRY[name]()

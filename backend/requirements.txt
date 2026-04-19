@@ -39,6 +39,13 @@ requests==2.33.0
 beautifulsoup4==4.12.3
 defusedxml==0.7.1
 
+# Crawler Tier 1 (TLS impersonation). Mimics real Chrome's TLS/JA3 handshake to
+# get past Cloudflare fingerprint checks where the IP is not banned but plain
+# Python's handshake is flagged (e.g. Vivid Racing). Ships native libcurl-
+# impersonate binaries — Linux x86_64 wheels available on PyPI. Not required
+# for Tier 0 adapters; safe to install regardless. See app/crawlers/fetchers.py.
+curl_cffi==0.7.4
+
 # Image storage and processing
 boto3==1.42.91
 boto3-stubs[s3,sesv2]==1.42.91  # Type stubs for boto3 S3 and SES clients
