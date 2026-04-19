@@ -12,9 +12,11 @@ if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_part import BuildListPart
     from .build_log import BuildLogPost
+    from .oauth_account import OAuthAccount
     from .part import Part
     from .report import Report
     from .vote import Vote
+    from .webauthn_credential import WebAuthnCredential
 
 
 class User(Base):
@@ -25,7 +27,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Profile picture(s)
     email_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(nullable=False)
+    # Nullable: OAuth-only users (e.g. signed up via Google) have no password set.
+    hashed_password: Mapped[Optional[str]] = mapped_column(nullable=True)
     disabled: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
@@ -75,3 +78,9 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     build_log_posts: Mapped[List["BuildLogPost"]] = relationship("BuildLogPost", back_populates="author")
+    webauthn_credentials: Mapped[List["WebAuthnCredential"]] = relationship(
+        "WebAuthnCredential", back_populates="user", cascade="all, delete-orphan"
+    )
+    oauth_accounts: Mapped[List["OAuthAccount"]] = relationship(
+        "OAuthAccount", back_populates="user", cascade="all, delete-orphan"
+    )

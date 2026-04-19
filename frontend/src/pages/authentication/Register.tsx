@@ -3,8 +3,11 @@ import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/buttons/Button';
+import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import Input from '../../components/common/Input';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { useAuth } from '../../hooks/useAuth';
+import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
 import apiClient from '../../services/Api';
 import type { UserCreate, UserRead } from '../../types/Api';
 
@@ -16,6 +19,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
 
   const registerRequestFn = (payload: UserCreate) =>
     apiClient.post<UserRead>('/users/', payload);
@@ -186,6 +190,26 @@ function Register() {
             >
               {isLoading ? 'Creating account...' : 'Create account'}
             </Button>
+
+            {isGoogleConfigured() && (
+              <>
+                <div className="flex items-center gap-3 my-2">
+                  <div className="h-px flex-1 bg-neutral-700"></div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                    or
+                  </span>
+                  <div className="h-px flex-1 bg-neutral-700"></div>
+                </div>
+                <GoogleAuthFlow
+                  onLoggedIn={(user) => {
+                    authLogin(user);
+                    void navigate('/');
+                  }}
+                  onError={(message) => setApiError(message)}
+                  disabled={isLoading}
+                />
+              </>
+            )}
           </form>
 
           {/* Footer */}

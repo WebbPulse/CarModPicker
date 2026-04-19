@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { FaEye, FaEyeSlash, FaLock, FaShieldAlt, FaUser } from 'react-icons/fa';
+import {
+  FaEye,
+  FaEyeSlash,
+  FaKey,
+  FaLock,
+  FaShieldAlt,
+  FaUser,
+} from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  browserSupportsWebAuthn,
+  startAuthentication,
+} from '@simplewebauthn/browser';
 import Button from '../../components/buttons/Button';
+import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import Input from '../../components/common/Input';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
+import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
 import { authApi } from '../../services/Api';
 
 function Login() {
@@ -14,8 +27,10 @@ function Login() {
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const navigate = useNavigate();
   const { login: authLogin } = useAuth();
+  const passkeySupported = browserSupportsWebAuthn();
 
   const loginRequestFn = (payload: URLSearchParams) =>
     authApi.login(payload as unknown as { username: string; password: string });
@@ -26,6 +41,46 @@ function Login() {
     executeRequest: performLogin,
     setError: setApiError,
   } = useApiRequest(loginRequestFn);
+
+  const handlePasskeyLogin = async () => {
+    setApiError(null);
+    setIsPasskeyLoading(true);
+    try {
+      const optsResp = await authApi.webauthnLoginOptions(
+        username.trim() || undefined
+      );
+      const { options, challenge_token } = optsResp.data;
+      const credential = await startAuthentication({
+        optionsJSON: options as unknown as Parameters<
+          typeof startAuthentication
+        >[0]['optionsJSON'],
+      });
+      const result = await authApi.webauthnLoginVerify({
+        challenge_token,
+        credential,
+      });
+      if (result.data) {
+        authLogin(result.data);
+        void navigate('/');
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'NotAllowedError') {
+        setApiError('Passkey sign-in was cancelled.');
+      } else {
+        const axiosError = err as {
+          response?: { data?: { detail?: string } };
+          message?: string;
+        };
+        setApiError(
+          axiosError.response?.data?.detail ||
+            axiosError.message ||
+            'Passkey sign-in failed.'
+        );
+      }
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -215,12 +270,47 @@ function Login() {
             <Button
               type="submit"
               loading={isLoading}
-              disabled={isLoading}
+              disabled={isLoading || isPasskeyLoading}
               className="w-full"
               size="lg"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
+
+            {!requires2FA && (passkeySupported || isGoogleConfigured()) && (
+              <>
+                <div className="flex items-center gap-3 my-2">
+                  <div className="h-px flex-1 bg-neutral-700"></div>
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                    or
+                  </span>
+                  <div className="h-px flex-1 bg-neutral-700"></div>
+                </div>
+                {passkeySupported && (
+                  <button
+                    type="button"
+                    onClick={() => void handlePasskeyLogin()}
+                    disabled={isLoading || isPasskeyLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-neutral-700 text-neutral-200 hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                  >
+                    <FaKey />
+                    <span>
+                      {isPasskeyLoading
+                        ? 'Waiting for your passkey…'
+                        : 'Sign in with a passkey'}
+                    </span>
+                  </button>
+                )}
+                <GoogleAuthFlow
+                  onLoggedIn={(user) => {
+                    authLogin(user);
+                    void navigate('/');
+                  }}
+                  onError={(message) => setApiError(message)}
+                  disabled={isLoading || isPasskeyLoading}
+                />
+              </>
+            )}
           </form>
 
           {/* Footer */}
