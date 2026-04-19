@@ -91,8 +91,8 @@ resource "aws_iam_role_policy" "apprunner_instance_ecs" {
       },
       {
         # App Runner must be able to pass the ECS task role when calling RunTask.
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
         Resource = [
           aws_iam_role.ecs_task_execution.arn,
           aws_iam_role.ecs_task.arn,
@@ -231,6 +231,15 @@ resource "aws_apprunner_service" "backend" {
           CRAWLER_ECS_TASK_DEFINITION = aws_ecs_task_definition.crawler.arn
           CRAWLER_ECS_SUBNETS         = "${aws_subnet.public_a.id},${aws_subnet.public_b.id}"
           CRAWLER_ECS_SECURITY_GROUP  = aws_security_group.crawler_task.id
+
+          # FlareSolverr — Tier 2 (browser) crawler fetcher. Empty flaresolverr_url
+          # keeps the browser tier disabled (adapters with FETCHER_TIER="browser"
+          # fail at first fetch with a clear "not configured" error). The App
+          # Runner service itself doesn't fetch; these are forwarded to the
+          # crawler task below so background-task crawls can use them too.
+          FLARESOLVERR_URL            = var.flaresolverr_url
+          FLARESOLVERR_MAX_TIMEOUT_MS = tostring(var.flaresolverr_max_timeout_ms)
+          FLARESOLVERR_SESSION_NAME   = var.flaresolverr_session_name
 
           # Per-adapter EventBridge Scheduler plumbing. The backend reconciler
           # uses these to build Target payloads for each dynamic schedule.

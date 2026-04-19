@@ -79,8 +79,8 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
@@ -198,14 +198,21 @@ resource "aws_ecs_task_definition" "crawler" {
     # Static environment — same values App Runner gets, minus auth secrets.
     # Per-run values (adapters, job_id, etc.) are injected at RunTask time.
     environment = [
-      { name = "APP_ENVIRONMENT",     value = "production" },
+      { name = "APP_ENVIRONMENT", value = "production" },
       { name = "RAILWAY_ENVIRONMENT", value = "production" },
-      { name = "USER_IMAGES_BUCKET",  value = aws_s3_bucket.user_images.bucket },
-      { name = "CRAWL_BUCKET",        value = aws_s3_bucket.crawl_data.bucket },
-      { name = "AWS_REGION",          value = var.aws_region },
-      { name = "S3_ENDPOINT_URL",     value = "" },
-      { name = "EMAIL_FROM",          value = var.email_from },
-      { name = "EMAIL_ENABLED",       value = "true" },
+      { name = "USER_IMAGES_BUCKET", value = aws_s3_bucket.user_images.bucket },
+      { name = "CRAWL_BUCKET", value = aws_s3_bucket.crawl_data.bucket },
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "S3_ENDPOINT_URL", value = "" },
+      { name = "EMAIL_FROM", value = var.email_from },
+      { name = "EMAIL_ENABLED", value = "true" },
+
+      # FlareSolverr — Tier 2 (browser) crawler fetcher. Crawler tasks read
+      # FLARESOLVERR_URL to reach the FlareSolverr service. Empty = tier
+      # disabled; adapters with FETCHER_TIER="browser" will fail fast.
+      { name = "FLARESOLVERR_URL", value = var.flaresolverr_url },
+      { name = "FLARESOLVERR_MAX_TIMEOUT_MS", value = tostring(var.flaresolverr_max_timeout_ms) },
+      { name = "FLARESOLVERR_SESSION_NAME", value = var.flaresolverr_session_name },
     ]
 
     secrets = [
