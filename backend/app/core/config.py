@@ -238,6 +238,38 @@ class Settings(BaseSettings):
             and self.CRAWLER_ECS_SECURITY_GROUP
         )
 
+    # FlareSolverr — external service used by the Tier 2 (browser) crawler
+    # fetcher to bypass Cloudflare managed JS challenges. When FLARESOLVERR_URL
+    # is unset, adapters with FETCHER_TIER="browser" will fail on fetch with a
+    # clear "not configured" error (they will not silently fall back to plain
+    # HTTP). See backend/app/crawlers/README.md for the operational runbook,
+    # including known failure modes and alternative browser-tier options.
+    FLARESOLVERR_URL: str = Field(
+        default="",
+        description=(
+            "Base URL of a running FlareSolverr instance (e.g. http://flaresolverr:8191). "
+            "Empty disables the Tier 2 browser fetcher."
+        ),
+    )
+    FLARESOLVERR_MAX_TIMEOUT_MS: int = Field(
+        default=60_000,
+        description=(
+            "Per-request timeout (ms) passed to FlareSolverr. FlareSolverr needs real wall-clock "
+            "time to solve challenges; 60s covers the documented default."
+        ),
+    )
+    FLARESOLVERR_SESSION_NAME: str = Field(
+        default="carmodpicker-crawler",
+        description=(
+            "Name of the FlareSolverr session reused across all crawler requests. Keeping a "
+            "single long-lived session amortizes challenge cost across many page fetches."
+        ),
+    )
+
+    @property
+    def flaresolverr_configured(self) -> bool:
+        return bool((self.FLARESOLVERR_URL or "").strip())
+
     # Rate limiting settings
     ENABLE_RATE_LIMITING: bool = True
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60

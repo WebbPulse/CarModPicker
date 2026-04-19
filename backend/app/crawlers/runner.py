@@ -39,11 +39,11 @@ from app.crawlers.base import (
     can_fetch_url,
     canonicalize_url,
     crawl_html_fingerprint,
-    fetch_page,
     get_crawl_delay_sec,
     ingest_payload,
     save_crawl_page_html,
 )
+from app.crawlers.fetchers import get_fetcher
 from app.db.session import SessionLocal
 
 logging.basicConfig(
@@ -235,10 +235,24 @@ def run_crawler(
     Raises CrawlerConfigError or KeyError (unknown adapter) on setup failure.
     """
     db: Session = SessionLocal()
+    # Fetcher is constructed inside the try block (after we know the adapter
+    # exists); bound here at None so the finally block's cleanup pass is safe
+    # even when we fail before construction.
+    fetcher = None
     try:
         user = resolve_crawler_user(db, user_id)
         cat_id = resolve_default_category_id(db, default_category_id)
-        adapter = get_adapter(adapter_name)
+        # Construct the fetcher matching this adapter's declared tier before the
+        # adapter itself, so the adapter's discover_product_urls() (which may
+        # need the upgraded fetcher for sitemap calls on Tier 1/2 sites) can
+        # use self.fetcher. Existing Tier 0 adapters that call module-level
+        # fetch_page() directly are unaffected — they get an HttpFetcher they
+        # simply don't touch.
+        adapter_cls = ADAPTER_REGISTRY[adapter_name] if adapter_name in ADAPTER_REGISTRY else None
+        tier = adapter_cls.FETCHER_TIER if adapter_cls is not None else "http"
+        fetcher = get_fetcher(tier)
+        logger.info("Adapter %s: using fetcher tier %r (%s)", adapter_name, tier, fetcher.__class__.__name__)
+        adapter = get_adapter(adapter_name, fetcher=fetcher)
 
         urls = list(adapter.discover_product_urls())
         if skip_known_urls and urls:
@@ -289,7 +303,7 @@ def run_crawler(
                         url,
                     )
                     continue
-                html = fetch_page(url)
+                html = adapter.fetcher.fetch(url)
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
                     skipped += 1
@@ -352,6 +366,14 @@ def run_crawler(
             "total": total,
         }
     finally:
+        # Close the fetcher if we got far enough to create one. FlareSolverr
+        # in particular holds a server-side browser session we want to destroy
+        # cleanly so we don't pile up orphaned Chromium instances in its pool.
+        if fetcher is not None:
+            try:
+                fetcher.close()
+            except Exception as e:
+                logger.warning("Fetcher cleanup failed: %s", e)
         db.close()
 
 
