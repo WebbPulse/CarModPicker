@@ -6,6 +6,13 @@
  * that server-side adapters have the full rendered HTML to work with.
  */
 
+// Mark CarModPicker hosts so the web app can detect this extension is installed.
+// Scoped to our own domains to avoid mutating arbitrary pages.
+const CARMODPICKER_HOST_PATTERN = /(^|\.)carmodpicker\.com$|^localhost$/i;
+if (CARMODPICKER_HOST_PATTERN.test(window.location.hostname)) {
+  document.documentElement.dataset["carmodpickerExtension"] = "installed";
+}
+
 chrome.runtime.onMessage.addListener(
   (
     request: { action: string },
