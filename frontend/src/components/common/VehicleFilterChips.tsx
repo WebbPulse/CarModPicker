@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CarGenerationRead } from '../../types/Api';
+import { carFullDisplayName } from '../../utils/carUtils';
 
 export interface VehicleFilterChipsProps {
   selectedGeneration: CarGenerationRead | null;
@@ -27,10 +28,7 @@ function vehicleChipLabel(
 ): string {
   if (showUniversalParts) return 'Universal';
   if (selectedGeneration)
-    return (
-      `${selectedGeneration.car_make_name ?? ''} ${selectedGeneration.car_model_name ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim() ||
-      'Vehicle'
-    );
+    return carFullDisplayName(selectedGeneration).trim() || 'Vehicle';
   if (selectedMake) {
     const makeModel =
       `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim();

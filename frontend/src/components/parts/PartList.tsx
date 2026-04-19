@@ -15,6 +15,7 @@ import type {
 
 import { CACHE_DURATION_MS } from '../../constants';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
+import { carFullDisplayName } from '../../utils/carUtils';
 import ActionButton from '../buttons/ActionButton';
 import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
@@ -523,9 +524,7 @@ function PartList({
   );
 
   const formatCarName = useCallback(
-    (car: CarGenerationRead) =>
-      `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`.trim() ||
-      'Vehicle',
+    (car: CarGenerationRead) => carFullDisplayName(car).trim() || 'Vehicle',
     []
   );
 

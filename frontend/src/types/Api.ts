@@ -28,6 +28,7 @@ export interface UserRead {
   youtube_url?: string | null;
   tiktok_url?: string | null;
   session_expire_minutes?: number | null;
+  oauth_accounts?: OAuthAccountRead[];
 }
 
 export interface UserCreate {
@@ -35,6 +36,71 @@ export interface UserCreate {
   email: string;
   password: string;
 }
+
+export interface OAuthAccountRead {
+  id: string;
+  provider: string;
+  email?: string | null;
+  created_at: string;
+}
+
+export interface GoogleSignInRequest {
+  id_token: string;
+  nonce: string;
+}
+
+export interface GoogleLinkRequest {
+  link_token: string;
+  password: string;
+  otp?: string;
+}
+
+export interface GoogleSignupRequest {
+  signup_token: string;
+  username: string;
+}
+
+export interface OAuthTwoFactorRequest {
+  otp_token: string;
+  otp: string;
+}
+
+export interface GoogleConnectRequest {
+  id_token: string;
+  nonce: string;
+}
+
+export interface GoogleSignInLinkRequired {
+  requires_link: true;
+  link_token: string;
+  email: string;
+  display_name?: string | null;
+  has_totp: boolean;
+}
+
+export interface GoogleSignInSignupRequired {
+  requires_signup: true;
+  signup_token: string;
+  email: string;
+  suggested_username: string;
+}
+
+export interface GoogleSignInTokenResponse {
+  access_token: string;
+  token_type: string;
+  user: UserRead;
+}
+
+export interface OAuthTwoFactorRequired {
+  requires_2fa: true;
+  otp_token: string;
+}
+
+export type GoogleSignInResponse =
+  | GoogleSignInTokenResponse
+  | GoogleSignInLinkRequired
+  | GoogleSignInSignupRequired
+  | OAuthTwoFactorRequired;
 
 export interface UserUpdate {
   username?: string | null;
@@ -70,6 +136,7 @@ export interface CarGenerationCreate {
   car_make_name: string;
   car_model_name: string;
   generation_name: string;
+  display_name?: string | null;
   start_year: number;
   end_year: number;
   description?: string | null;
@@ -80,7 +147,12 @@ export interface CarGenerationRead {
   id: string;
   car_make_name: string;
   car_model_name: string;
+  car_model_display_name?: string | null;
   generation_name: string;
+  display_name?: string | null;
+  // Server-computed fall-throughs. Guaranteed non-null; prefer these for rendering.
+  display_label: string;
+  car_model_display_label: string;
   start_year: number;
   end_year?: number | null; // null for current/ongoing generations
   description?: string | null;
@@ -91,6 +163,7 @@ export interface CarGenerationUpdate {
   car_make_name?: string | null;
   car_model_name?: string | null;
   generation_name?: string | null;
+  display_name?: string | null;
   start_year?: number | null;
   end_year?: number | null;
   description?: string | null;

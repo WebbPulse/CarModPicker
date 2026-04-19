@@ -54,6 +54,17 @@ AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
         "VII",
         "VIII",
         "IX",  # Lancer Evolution Roman numerals
+        # Cross-make chassis-code collisions — require explicit model+code alias to fire.
+        "C8",  # Chevrolet Corvette C8 ↔ Audi A6/RS6/A7/RS7/S6/S7 C8
+        "G60",  # BMW i5 M60 G60 ↔ VW Corrado G60 (G-Lader 1.8L)
+        "970",  # Porsche Panamera 970 — "970%" in hyperbolic marketing copy triggers it
+        # BMW G-codes that collide with Genesis model names. Require make+model or model+code
+        # disambiguating aliases ("m3 g80", "bmw i7", "genesis g80", etc.).
+        "G70",  # BMW i7 M70 G70 ↔ Genesis G70 (sedan model)
+        "G80",  # BMW M3 G80 ↔ Genesis G80 (sedan model)
+        "G87",  # BMW M2 G87 — safer to require "m2 g87" / "g87 m2" context
+        # Tesla trim name shared across models. Require "model s plaid" / "model x plaid" context.
+        "Plaid",
     }
 )
 
@@ -173,25 +184,69 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("corolla gr", "Toyota", "GR Corolla", "1st Gen"),
     ("gr corolla e210", "Toyota", "GR Corolla", "1st Gen"),
     ("toyota gr corolla", "Toyota", "GR Corolla", "1st Gen"),
-    # Toyota GR 86 / 86 ZN8 (product text: "GR Supra/GR 86/GR Corolla" etc.)
-    ("toyota gr 86", "Toyota", "86", "ZN8"),
-    ("gr 86", "Toyota", "86", "ZN8"),
-    ("gr86", "Toyota", "86", "ZN8"),
+    # Toyota GR86 (ZN8, MY 2022+) — distinct model from the original Toyota 86 (ZN6).
+    # Product text uses "GR 86", "GR86", "2022+ GR86" etc. The ZN6-era Toyota 86 is
+    # not matched by these aliases; for that, use "Toyota 86" full phrase triples.
+    ("toyota gr 86", "Toyota", "GR86", "ZN8"),
+    ("gr 86", "Toyota", "GR86", "ZN8"),
+    ("gr86", "Toyota", "GR86", "ZN8"),
+    ("toyota gr86", "Toyota", "GR86", "ZN8"),
     # Toyota GR86 / Subaru BRZ (product text: "Toyota GR86 - BRZ/GR86", "BRZ/GR86")
-    ("brz/gr86", "Toyota", "86", "ZN8"),
+    ("brz/gr86", "Toyota", "GR86", "ZN8"),
     ("brz/gr86", "Subaru", "BRZ", "ZD8"),
-    ("gr86 - brz", "Toyota", "86", "ZN8"),
+    ("gr86 - brz", "Toyota", "GR86", "ZN8"),
     ("gr86 - brz", "Subaru", "BRZ", "ZD8"),
     # BMW i4 M50 G26
     ("i4 m50", "BMW", "i4 M50", "G26"),
     ("i4 g26", "BMW", "i4 M50", "G26"),
     ("bmw i4 m50", "BMW", "i4 M50", "G26"),
     ("bmw i4 g26", "BMW", "i4 M50", "G26"),
+    # Toyota Supra A80 friendly forms (engineering "a80" is auto-built via PHRASE_TRIPLES)
+    ("mk4 supra", "Toyota", "Supra", "A80"),
+    ("mkiv supra", "Toyota", "Supra", "A80"),
+    ("mkiv toyota supra", "Toyota", "Supra", "A80"),
+    ("toyota supra mk4", "Toyota", "Supra", "A80"),
+    ("supra mk4", "Toyota", "Supra", "A80"),
+    ("a80 supra", "Toyota", "Supra", "A80"),
+    ("supra a80", "Toyota", "Supra", "A80"),
     # Mazda Miata NA
     ("miata na", "Mazda", "Miata", "NA"),
     ("na miata", "Mazda", "Miata", "NA"),
     ("mx-5 na", "Mazda", "Miata", "NA"),
     ("mx5 na", "Mazda", "Miata", "NA"),
+    ("mk1 miata", "Mazda", "Miata", "NA"),
+    ("miata mk1", "Mazda", "Miata", "NA"),
+    # Mazda Miata NB/NC/ND
+    ("miata nb", "Mazda", "Miata", "NB"),
+    ("nb miata", "Mazda", "Miata", "NB"),
+    ("mx-5 nb", "Mazda", "Miata", "NB"),
+    ("mx5 nb", "Mazda", "Miata", "NB"),
+    ("mk2 miata", "Mazda", "Miata", "NB"),
+    ("miata mk2", "Mazda", "Miata", "NB"),
+    ("miata nc", "Mazda", "Miata", "NC"),
+    ("nc miata", "Mazda", "Miata", "NC"),
+    ("mx-5 nc", "Mazda", "Miata", "NC"),
+    ("mx5 nc", "Mazda", "Miata", "NC"),
+    ("mk3 miata", "Mazda", "Miata", "NC"),
+    ("miata mk3", "Mazda", "Miata", "NC"),
+    ("miata nd", "Mazda", "Miata", "ND"),
+    ("nd miata", "Mazda", "Miata", "ND"),
+    ("mx-5 nd", "Mazda", "Miata", "ND"),
+    ("mx5 nd", "Mazda", "Miata", "ND"),
+    ("mk4 miata", "Mazda", "Miata", "ND"),
+    ("miata mk4", "Mazda", "Miata", "ND"),
+    # Mazda RX-7 (SA/FB has a slash so PHRASE_TRIPLES skips the standalone alias for it)
+    ("fb rx-7", "Mazda", "RX-7", "SA/FB"),
+    ("rx-7 fb", "Mazda", "RX-7", "SA/FB"),
+    ("fb rx7", "Mazda", "RX-7", "SA/FB"),
+    ("rx7 fb", "Mazda", "RX-7", "SA/FB"),
+    ("sa22c rx-7", "Mazda", "RX-7", "SA/FB"),
+    ("1st gen rx-7", "Mazda", "RX-7", "SA/FB"),
+    ("1st gen rx7", "Mazda", "RX-7", "SA/FB"),
+    ("2nd gen rx-7", "Mazda", "RX-7", "FC"),
+    ("2nd gen rx7", "Mazda", "RX-7", "FC"),
+    ("3rd gen rx-7", "Mazda", "RX-7", "FD"),
+    ("3rd gen rx7", "Mazda", "RX-7", "FD"),
     # Dodge Charger 2024+
     ("charger lb", "Dodge", "Charger", "2024+"),
     ("dodge charger lb", "Dodge", "Charger", "2024+"),
@@ -205,6 +260,24 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("genesis g90 hi", "Genesis", "G90", "1st Gen"),
     ("g90 rs4", "Genesis", "G90", "2nd Gen"),
     ("genesis g90 rs4", "Genesis", "G90", "2nd Gen"),
+    # Genesis G70 / G80 — model names collide with BMW chassis codes (G70=i7 M70, G80=M3).
+    # AMBIGUOUS_STANDALONE_CODES blocks the bare BMW chassis match; require "genesis" context here.
+    ("genesis g70", "Genesis", "G70", "RG"),
+    ("genesis g70 fl", "Genesis", "G70", "RG"),
+    ("genesis g80", "Genesis", "G80", "RG3"),
+    # BMW i7 M70 (electric M-performance flagship; generation_name="G70" collides with Genesis G70)
+    ("i7 m70", "BMW", "i7 M70", "G70"),
+    ("bmw i7 m70", "BMW", "i7 M70", "G70"),
+    # BMW M3 G80 / M4 G82 reverse form (chassis-first ordering seen in titles like "G80 M3").
+    # Needed because G80/G82/G87 are in AMBIGUOUS_STANDALONE_CODES to block Genesis collisions.
+    ("g80 m3", "BMW", "M3", "G80"),
+    ("bmw g80 m3", "BMW", "M3", "G80"),
+    # Product copy commonly writes "M3 (G80)" and "M4 (G82)" with the chassis in parens —
+    # the plain "m3 g80" phrase won't match because the parens break the space separator.
+    ("m3 (g80)", "BMW", "M3", "G80"),
+    ("m4 (g82)", "BMW", "M4", "G82/G83"),
+    ("m4 (g83)", "BMW", "M4", "G82/G83"),
+    ("m2 (g87)", "BMW", "M2", "G87"),
     # VW Mk4 platform (Golf, Jetta, R32) - product titles often say "Mk4" or "MK4"
     ("golf mk4", "Volkswagen", "Golf", "Mk4"),
     ("jetta mk4", "Volkswagen", "Jetta", "Mk4"),
@@ -318,6 +391,165 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("bmw f82 m4", "BMW", "M4", "F82/F83"),
     ("m3 f80 / f82 m4", "BMW", "M3", "F80"),
     ("m3 f80 / f82 m4", "BMW", "M4", "F82/F83"),
+    # BMW F8X = shared chassis code for F80 M3 + F82/F83 M4. Titles commonly read
+    # "F8X M3/M4 …"; without these aliases the phrase doesn't resolve to either gen.
+    ("f8x m3", "BMW", "M3", "F80"),
+    ("f8x m4", "BMW", "M4", "F82/F83"),
+    ("bmw f8x", "BMW", "M4", "F82/F83"),
+    ("f8x m3/m4", "BMW", "M3", "F80"),
+    ("f8x m3/m4", "BMW", "M4", "F82/F83"),
+    ("f8x m2c", "BMW", "M2", "F87"),  # "M2 Competition" F87
+    ("f8x m3 / m4", "BMW", "M3", "F80"),
+    ("f8x m3 / m4", "BMW", "M4", "F82/F83"),
+    # BMW X3 M (F97) / X4 M (F98)
+    ("f97 x3m", "BMW", "X3 M", "F97"),
+    ("x3m f97", "BMW", "X3 M", "F97"),
+    ("bmw f97", "BMW", "X3 M", "F97"),
+    ("bmw x3m", "BMW", "X3 M", "F97"),
+    ("x3 m f97", "BMW", "X3 M", "F97"),
+    ("f98 x4m", "BMW", "X4 M", "F98"),
+    ("bmw x4m", "BMW", "X4 M", "F98"),
+    # BMW X5M / X6M / XM (F9X platform; titles like "F9X X3M/X4M" are short-hand)
+    ("f9x x3m", "BMW", "X3 M", "F97"),
+    ("f9x x4m", "BMW", "X4 M", "F98"),
+    ("f95 x5m", "BMW", "X5 M", "F95"),
+    ("f96 x6m", "BMW", "X6 M", "F96"),
+    ("bmw f95", "BMW", "X5 M", "F95"),
+    ("x5m / x6m / xm", "BMW", "X5 M", "F95"),
+    ("x5m / x6m / xm", "BMW", "X6 M", "F96"),
+    ("x5m / x6m / xm", "BMW", "XM", "F95"),
+    ("x5m/x6m/xm", "BMW", "X5 M", "F95"),
+    ("x5m/x6m/xm", "BMW", "X6 M", "F96"),
+    ("x5m/x6m/xm", "BMW", "XM", "F95"),
+    ("bmw xm", "BMW", "XM", "F95"),
+    # BMW M5 G90/G99 (current gen). ADRO pages say "BMW G90 M5" or "G9X M5".
+    ("g90 m5", "BMW", "M5", "G90/G99"),
+    ("m5 g90", "BMW", "M5", "G90/G99"),
+    ("g99 m5", "BMW", "M5", "G90/G99"),
+    ("m5 g99", "BMW", "M5", "G90/G99"),
+    ("g9x m5", "BMW", "M5", "G90/G99"),
+    ("m5 g9x", "BMW", "M5", "G90/G99"),
+    ("bmw g90", "BMW", "M5", "G90/G99"),
+    ("bmw g99", "BMW", "M5", "G90/G99"),
+    # BMW F9X = F95 X5M / F96 X6M / F91/F92/F93 M8; for ADRO we mostly need X5M.
+    ("f9x m5", "BMW", "M5", "F90"),
+    ("f9x m5/m8", "BMW", "M5", "F90"),
+    # BMW F1X M5/M6 — F10/F11/F12/F13 era.
+    ("f1x m5", "BMW", "M5", "F10"),
+    ("f1x m5/m6", "BMW", "M5", "F10"),
+    ("f1x m5/m6", "BMW", "M6", "F12/F13/F06"),
+    # Corvette C8 — disambiguate from Audi C8 platform
+    ("corvette c8", "Chevrolet", "Corvette", "C8"),
+    ("c8 corvette", "Chevrolet", "Corvette", "C8"),
+    ("chevrolet corvette c8", "Chevrolet", "Corvette", "C8"),
+    ("chevy corvette c8", "Chevrolet", "Corvette", "C8"),
+    # Audi C8 (RS6/RS7/S6/S7) — only fires with explicit Audi model names
+    ("rs6 c8", "Audi", "RS6 Avant", "C8"),
+    ("audi rs6 c8", "Audi", "RS6 Avant", "C8"),
+    ("c8 rs6", "Audi", "RS6 Avant", "C8"),
+    ("rs7 c8", "Audi", "RS7 Sportback", "C8"),
+    ("audi rs7 c8", "Audi", "RS7 Sportback", "C8"),
+    ("c8 rs7", "Audi", "RS7 Sportback", "C8"),
+    ("s6 c8", "Audi", "S6", "C8"),
+    ("audi s6 c8", "Audi", "S6", "C8"),
+    ("s7 c8", "Audi", "S7 Sportback", "C8"),
+    ("audi s7 c8", "Audi", "S7 Sportback", "C8"),
+    # Porsche Panamera 970 — require "panamera" in text
+    ("panamera 970", "Porsche", "Panamera", "970"),
+    ("970 panamera", "Porsche", "Panamera", "970"),
+    ("porsche panamera 970", "Porsche", "Panamera", "970"),
+    # BMW i5 M60 / Corrado G60 — require model name
+    ("i5 m60", "BMW", "i5 M60", "G60"),
+    ("bmw i5", "BMW", "i5 M60", "G60"),
+    ("m60 i5", "BMW", "i5 M60", "G60"),
+    ("bmw g60", "BMW", "i5 M60", "G60"),  # BMW G60 = i5 chassis; without "BMW" don't guess
+    ("g60 m5", "BMW", "i5 M60", "G60"),  # occasional "G60 5-Series" from ADRO
+    ("g60 5-series", "BMW", "i5 M60", "G60"),
+    ("corrado g60", "Volkswagen", "Corrado", "G60"),
+    ("vw corrado", "Volkswagen", "Corrado", "G60"),
+    ("volkswagen corrado", "Volkswagen", "Corrado", "G60"),
+    # Porsche 911 992 / 992.1 (GT3 is a 992 variant — product text says "992 GT3" / "992.1 GT3")
+    ("992 gt3", "Porsche", "911", "992"),
+    ("992.1 gt3", "Porsche", "911", "992"),
+    ("992.2 gt3", "Porsche", "911", "992"),
+    ("porsche 992", "Porsche", "911", "992"),
+    ("porsche 991", "Porsche", "911", "991"),
+    ("991 gt3", "Porsche", "911", "991"),
+    ("991.1 gt3", "Porsche", "911", "991"),
+    ("991.2 gt3", "Porsche", "911", "991"),
+    ("991 turbo", "Porsche", "911", "991"),
+    # Porsche 718 (982 chassis; ADRO titles: "PORSCHE 718 PREPREG ...")
+    ("porsche 718", "Porsche", "718", "982"),
+    ("718 boxster", "Porsche", "718", "982"),
+    ("718 cayman", "Porsche", "718", "982"),
+    ("718 gt4", "Porsche", "718", "982"),
+    ("718 spyder", "Porsche", "718", "982"),
+    # Tesla Model 3 (Highland = 2024+ facelift)
+    ("tesla model 3", "Tesla", "Model 3", "Pre-Highland"),
+    ("model 3 highland", "Tesla", "Model 3", "Highland"),
+    ("tesla model 3 highland", "Tesla", "Model 3", "Highland"),
+    ("model 3 performance", "Tesla", "Model 3", "Highland"),  # marketing "Performance" = Highland era
+    ("model 3 highland performance", "Tesla", "Model 3", "Highland"),
+    # Tesla Model Y (Juniper = 2025+ facelift)
+    ("tesla model y", "Tesla", "Model Y", "1st Gen"),
+    ("model y juniper", "Tesla", "Model Y", "Juniper"),
+    ("tesla model y juniper", "Tesla", "Model Y", "Juniper"),
+    ("model y performance", "Tesla", "Model Y", "1st Gen"),
+    # Tesla Model S / X (Plaid = 2021+ refresh)
+    ("tesla model s", "Tesla", "Model S", "Pre-Refresh"),
+    ("model s plaid", "Tesla", "Model S", "Plaid"),
+    ("tesla model s plaid", "Tesla", "Model S", "Plaid"),
+    ("tesla model x", "Tesla", "Model X", "Pre-Refresh"),
+    ("model x plaid", "Tesla", "Model X", "Plaid"),
+    # Kia Stinger (CK; ADRO has many Stinger body kits)
+    ("kia stinger", "Kia", "Stinger", "CK"),
+    ("stinger gt", "Kia", "Stinger", "CK"),
+    ("stinger ck", "Kia", "Stinger", "CK"),
+    # Toyota GR Yaris (1st Gen = 2020-2023 GXPA16; 2nd Gen = 2024+ facelift on same chassis)
+    # Plain "gr yaris" maps to 1st Gen. 2nd Gen aliases fire in addition when explicit refresh
+    # language is present, so "GR Yaris (Gen 1 & 2)" titles end up linked to both rows.
+    ("gr yaris", "Toyota", "GR Yaris", "1st Gen"),
+    ("toyota gr yaris", "Toyota", "GR Yaris", "1st Gen"),
+    ("yaris gr", "Toyota", "GR Yaris", "1st Gen"),
+    ("gen 2 gr yaris", "Toyota", "GR Yaris", "2nd Gen"),
+    ("2nd gen gr yaris", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris gen 2", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris 2nd gen", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris (gen 2)", "Toyota", "GR Yaris", "2nd Gen"),
+    ("2024 gr yaris", "Toyota", "GR Yaris", "2nd Gen"),
+    ("2025 gr yaris", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris (gen 1 & 2)", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris gen 1 & 2", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris (gen 1 and 2)", "Toyota", "GR Yaris", "2nd Gen"),
+    ("gr yaris gen 1 and 2", "Toyota", "GR Yaris", "2nd Gen"),
+    # Subaru BRZ (ZD8 gen 2 common in ADRO text as "22+ GR86/BRZ")
+    ("subaru brz", "Subaru", "BRZ", "ZD8"),
+    ("brz zd8", "Subaru", "BRZ", "ZD8"),
+    ("zd8 brz", "Subaru", "BRZ", "ZD8"),
+    ("22+ brz", "Subaru", "BRZ", "ZD8"),
+    ("22+ gr86", "Toyota", "GR86", "ZN8"),
+    # BMW G87 M2 additional spellings (titles like "2023+ G87 BMW M2")
+    ("2023+ g87", "BMW", "M2", "G87"),
+    # Honda Civic Type R (FL5 newest, FK8 previous) — plain text in ADRO titles
+    ("fl5 civic type r", "Honda", "Civic Type R", "FL5"),
+    ("honda fl5", "Honda", "Civic Type R", "FL5"),
+    ("fk8 civic type r", "Honda", "Civic Type R", "FK8"),
+    # Hyundai Elantra N (only one gen CN7, including "PE" facelift trim)
+    ("elantra n", "Hyundai", "Elantra N", "CN7"),
+    ("hyundai elantra n", "Hyundai", "Elantra N", "CN7"),
+    ("elantra n pe", "Hyundai", "Elantra N", "CN7"),
+    # Hyundai Veloster N — performance trim of the JS-generation Veloster (2019-2022)
+    ("veloster n", "Hyundai", "Veloster", "JS"),
+    ("hyundai veloster n", "Hyundai", "Veloster", "JS"),
+    # Genesis GV70 (only one gen JK1)
+    ("genesis gv70", "Genesis", "GV70", "JK1"),
+    ("gv70", "Genesis", "GV70", "JK1"),
+    # Ford Mustang chassis codes (ADRO titles say "FORD MUSTANG", desc names S550/S650)
+    ("s550", "Ford", "Mustang", "6th Gen"),
+    ("mustang s550", "Ford", "Mustang", "6th Gen"),
+    ("s650", "Ford", "Mustang", "7th Gen"),
+    ("mustang s650", "Ford", "Mustang", "7th Gen"),
+    ("s197", "Ford", "Mustang", "5th Gen"),
 ]
 
 # Word-boundary for short codes so "A90" doesn't match inside "BA90", and "nd" not inside "random"
@@ -326,6 +558,45 @@ _SHORT_PHRASE_MAX_LEN = 8
 # Aliases that need extra context so we don't match numbers/units: "42" in 0.42 Mu, "lb" in ft-lb / lug bolt
 _AUDI_R8_42_PHRASES = ("r8 42", "42 r8", "r8 type 42", "audi r8 42", "audi r8 type 42")
 _CHARGER_LB_PHRASES = ("charger lb", "dodge charger lb")
+
+
+# Units / suffixes that turn a bare numeric phrase into a measurement rather than a chassis code.
+# "970% downforce", "992 kph", "718 nm", "911 hp" are not car-generation references.
+_NUMERIC_UNIT_SUFFIXES = (
+    "%",
+    "mm",
+    "cm",
+    "kph",
+    "mph",
+    "kw",
+    "hp",
+    "bhp",
+    "whp",
+    "nm",
+    "lb",
+    "lbs",
+    "lb-ft",
+    "ft-lb",
+    "ft/lb",
+)
+
+
+def _is_numeric_measurement_context(text_lower: str, phrase_lower: str) -> bool:
+    """
+    True if a bare-numeric phrase (e.g. "970", "992") appears only as "<number><unit>"
+    or "<number> <unit>" in the text — i.e. it's describing a measurement, not a chassis.
+    Checks every occurrence; if any is not a measurement, inference can still fire.
+    """
+    if not phrase_lower.isdigit():
+        return False
+    pattern = re.compile(r"\b" + re.escape(phrase_lower) + r"\b\s*([A-Za-z%\-/]+)?")
+    any_match = False
+    for m in pattern.finditer(text_lower):
+        any_match = True
+        suffix = (m.group(1) or "").lower()
+        if not suffix.startswith(_NUMERIC_UNIT_SUFFIXES):
+            return False
+    return any_match
 
 
 def _phrase_matches(text: str, phrase: str) -> bool:
@@ -338,7 +609,13 @@ def _phrase_matches(text: str, phrase: str) -> bool:
         return False
     # For short alphanumeric codes (e.g. A90, G82, ND), require word boundary to avoid false positives
     if len(phrase) <= _SHORT_PHRASE_MAX_LEN and phrase.replace("/", "").replace(" ", "").isalnum():
-        return bool(re.search(r"\b" + re.escape(phrase_lower.replace("/", r"/")) + r"\b", lower))
+        if not re.search(r"\b" + re.escape(phrase_lower.replace("/", r"/")) + r"\b", lower):
+            return False
+        # Bare numeric codes (e.g. "970", "992") that appear only in unit-suffixed contexts
+        # ("970%", "992 kph") are measurements, not chassis references.
+        if phrase_lower.isdigit() and _is_numeric_measurement_context(lower, phrase_lower):
+            return False
+        return True
     return True
 
 
@@ -387,7 +664,10 @@ def infer_car_generations(
     name = (name or "").strip()
     description = (description or "").strip()
     url = (product_url or "").strip()
-    combined = f"{name} {description} {url}".strip()
+    # URL slugs use '-'/'_' as word separators ("tesla-model-s-plaid"). Normalize those to
+    # spaces so multi-word aliases like "tesla model s plaid" can match the URL portion.
+    url_normalized = re.sub(r"[-_/]+", " ", url)
+    combined = f"{name} {description} {url_normalized}".strip()
     if not combined:
         return []
 

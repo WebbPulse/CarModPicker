@@ -2,10 +2,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import JSON, ForeignKey, Uuid
+from sqlalchemy import JSON, ForeignKey, UniqueConstraint, Uuid, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import uuid7
 
+from app.core.car_generations_data import slugify
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
@@ -24,12 +25,19 @@ class CarGeneration(Base):
     """
 
     __tablename__ = "car_generations"
+    __table_args__ = (UniqueConstraint("car_model_id", "slug", name="uq_car_generations_car_model_id_slug"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     car_model_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("car_models.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # Stable identifier used by init_cars for lookup. Pin it explicitly in seed data to rename
+    # `generation_name` without losing the row. Defaults to slugify(generation_name) on first insert.
+    slug: Mapped[str] = mapped_column(nullable=False, index=True)
     generation_name: Mapped[str] = mapped_column(nullable=False)  # e.g., "5th Gen", "MK7", "F30"
+    # Presentation-only label. NEVER feed into car_inference (CAR_ALIASES / PHRASE_TRIPLES).
+    # NULL means "fall back to generation_name" in the UI; inference always operates on generation_name.
+    display_name: Mapped[Optional[str]] = mapped_column(nullable=True)
     start_year: Mapped[int] = mapped_column(nullable=False)
     end_year: Mapped[Optional[int]] = mapped_column(nullable=True)  # None for current/ongoing generations
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
@@ -62,3 +70,14 @@ class CarGeneration(Base):
     @property
     def car_model_name(self) -> str:
         return self.car_model.name
+
+    @property
+    def car_model_display_name(self) -> Optional[str]:
+        return self.car_model.display_name
+
+
+@event.listens_for(CarGeneration, "before_insert")
+def _autofill_car_generation_slug(_mapper, _conn, target: CarGeneration) -> None:
+    """Default `slug` from `generation_name` when not pinned. Matches the field's docstring."""
+    if not getattr(target, "slug", None) and getattr(target, "generation_name", None):
+        target.slug = slugify(target.generation_name)

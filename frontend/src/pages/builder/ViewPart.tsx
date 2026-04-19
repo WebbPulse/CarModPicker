@@ -11,7 +11,11 @@ import {
   partVotesApi,
   usersApi,
 } from '../../services/Api';
-import { formatCarYearRange, normalizeCarReadList } from '../../utils/carUtils';
+import {
+  carFullDisplayName,
+  formatCarYearRange,
+  normalizeCarReadList,
+} from '../../utils/carUtils';
 import type {
   CarGenerationRead,
   PartReadWithVotes,
@@ -516,7 +520,7 @@ function ViewPart() {
                       to={`/car-generations/${c.id}`}
                       className="text-blue-400 hover:text-blue-300 underline transition-colors"
                     >
-                      {c.car_make_name} {c.car_model_name} {c.generation_name} (
+                      {carFullDisplayName(c)} (
                       {formatCarYearRange(c.start_year, c.end_year)})
                     </Link>
                   </li>

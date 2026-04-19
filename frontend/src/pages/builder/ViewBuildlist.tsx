@@ -26,7 +26,7 @@ import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
-import { formatCarYearRange } from '../../utils/carUtils';
+import { carFullDisplayName, formatCarYearRange } from '../../utils/carUtils';
 
 const fetchBuildListRequestFn = (buildListId: string) =>
   apiClient.get<BuildListRead>(`/build-lists/${buildListId}`);
@@ -250,7 +250,7 @@ function ViewBuildList() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title={buildList.name}
-        subtitle={`For car: ${associatedCar ? `${associatedCar.car_make_name} ${associatedCar.car_model_name} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
+        subtitle={`For car: ${associatedCar ? `${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})` : buildList.car_id ? 'Loading...' : 'No car assigned'}`}
       />
 
       {/* Warning when build list has no car assigned */}
@@ -336,7 +336,7 @@ function ViewBuildList() {
               <CardInfoItem label="Associated Car:">
                 <ParentNavigationLink
                   linkTo={`/car-generations/${associatedCar.id}`}
-                  linkText={`${associatedCar.car_make_name} ${associatedCar.car_model_name} ${associatedCar.generation_name} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
+                  linkText={`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
                 />
               </CardInfoItem>
             )}

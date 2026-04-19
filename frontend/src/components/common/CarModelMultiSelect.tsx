@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import type { CarGenerationRead } from '../../types/Api';
+import { carFullDisplayName } from '../../utils/carUtils';
 import SearchableSelect, {
   type SearchableSelectOption,
 } from './SearchableSelect';
 
 function formatCarLabel(car: CarGenerationRead): string {
-  return `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''} (${car.start_year ?? ''}${
+  return `${carFullDisplayName(car)} (${car.start_year ?? ''}${
     car.end_year ? `-${car.end_year}` : '+'
   })`;
 }

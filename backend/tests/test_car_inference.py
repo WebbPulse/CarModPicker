@@ -233,7 +233,7 @@ class TestInferCarGenerations:
             "Applications: GR Supra, GR 86, GR Corolla.",
         )
         assert ("Toyota", "Supra", "A90") in result
-        assert ("Toyota", "86", "ZN8") in result
+        assert ("Toyota", "GR86", "ZN8") in result
         assert ("Toyota", "GR Corolla", "1st Gen") in result
 
     def test_deatschwerks_m2_m3_m4_g8x_s58(self) -> None:
@@ -267,12 +267,12 @@ class TestInferCarGenerations:
         assert ("BMW", "4 Series", "G22/G23/G26") in result
 
     def test_gr_86_no_subaru_wrx_gr(self) -> None:
-        """'GR 86' should infer Toyota 86 ZN8, not Subaru WRX GR."""
+        """'GR 86' should infer Toyota GR86 ZN8, not Subaru WRX GR."""
         result = infer_car_generations(
             "HKS Cold Air Intake Full Kit, GR 86 ZN8 BRZ ZD8",
             "For Toyota GR 86 and Subaru BRZ.",
         )
-        assert ("Toyota", "86", "ZN8") in result
+        assert ("Toyota", "GR86", "ZN8") in result
         assert ("Subaru", "WRX", "GR") not in result
 
     def test_csf_bmw_m3_m4_s58_g8x(self) -> None:
@@ -309,12 +309,12 @@ class TestInferCarGenerations:
         assert ("Toyota", "Supra", "A90") in result
 
     def test_nitron_toyota_gr86_brz(self) -> None:
-        """Nitron Toyota GR86 - BRZ/GR86 should infer Toyota 86 ZN8 and Subaru BRZ ZD8."""
+        """Nitron Toyota GR86 - BRZ/GR86 should infer Toyota GR86 ZN8 and Subaru BRZ ZD8."""
         result = infer_car_generations(
             "Nitron R3 System Coilover - Toyota GR86 - BRZ/GR86",
             "For Toyota GR86 and Subaru BRZ/GR86.",
         )
-        assert ("Toyota", "86", "ZN8") in result
+        assert ("Toyota", "GR86", "ZN8") in result
         assert ("Subaru", "BRZ", "ZD8") in result
 
     def test_burger_gen_2_b58_bmw_catch_can(self) -> None:
@@ -355,3 +355,168 @@ class TestInferCarGenerations:
         assert ("BMW", "M3", "E46") in result
         assert ("BMW", "M3", "E36") in result
         assert len(result) == 2
+
+
+class TestFriendlyGenerationAliases:
+    """
+    Friendly / consumer-facing names must resolve to the engineering-code generation.
+    display_name is presentation-only; inference operates on generation_name.
+    """
+
+    def test_mk4_supra_maps_to_a80(self) -> None:
+        result = infer_car_generations("Mk4 Supra Downpipe", "For the Mk4 Supra 2JZ.")
+        assert ("Toyota", "Supra", "A80") in result
+
+    def test_mkiv_supra_maps_to_a80(self) -> None:
+        result = infer_car_generations("MKIV Supra Intercooler", None)
+        assert ("Toyota", "Supra", "A80") in result
+
+    def test_a80_supra_still_works(self) -> None:
+        # Engineering-code form unchanged
+        result = infer_car_generations("HKS Exhaust A80 Supra", None)
+        assert ("Toyota", "Supra", "A80") in result
+
+    def test_mk1_miata_maps_to_na(self) -> None:
+        result = infer_car_generations("Mk1 Miata Rollbar", "Mk1 Miata owners.")
+        assert ("Mazda", "Miata", "NA") in result
+
+    def test_mk2_miata_maps_to_nb(self) -> None:
+        result = infer_car_generations("Mk2 Miata Coilovers", None)
+        assert ("Mazda", "Miata", "NB") in result
+
+    def test_mk3_miata_maps_to_nc(self) -> None:
+        result = infer_car_generations("Mk3 Miata Header", None)
+        assert ("Mazda", "Miata", "NC") in result
+
+    def test_mk4_miata_maps_to_nd(self) -> None:
+        result = infer_car_generations("Mk4 Miata Roll Cage", None)
+        assert ("Mazda", "Miata", "ND") in result
+
+    def test_mk4_miata_does_not_match_supra(self) -> None:
+        # "Mk4" combined with "Miata" must not also pull Supra A80
+        result = infer_car_generations("Mk4 Miata ND Exhaust", None)
+        assert ("Toyota", "Supra", "A80") not in result
+
+    def test_1st_gen_rx7_maps_to_sa_fb(self) -> None:
+        result = infer_car_generations("1st Gen RX-7 Fuel Pump", None)
+        assert ("Mazda", "RX-7", "SA/FB") in result
+
+    def test_2nd_gen_rx7_maps_to_fc(self) -> None:
+        result = infer_car_generations("2nd Gen RX-7 Spoiler", None)
+        assert ("Mazda", "RX-7", "FC") in result
+
+    def test_3rd_gen_rx7_maps_to_fd(self) -> None:
+        result = infer_car_generations("3rd Gen RX-7 Twin Turbo Manifold", None)
+        assert ("Mazda", "RX-7", "FD") in result
+
+
+class TestAdroFalsePositiveFixes:
+    """Regression tests for chassis-code collisions seen in the adro.com crawl."""
+
+    def test_corvette_c8_does_not_match_audi_c8(self) -> None:
+        # ADRO title "CHEVROLET CORVETTE C8 PREPREG FRONT LIP" used to match
+        # Audi RS6/RS7/S6/S7 C8 because C8 was in PHRASE_TRIPLES as bare code.
+        result = infer_car_generations(
+            "CHEVROLET CORVETTE C8 PREPREG FRONT LIP",
+            "The ADRO C8 Corvette front lip is made completely from dry carbon fiber...",
+        )
+        assert ("Chevrolet", "Corvette", "C8") in result
+        assert ("Audi", "RS6 Avant", "C8") not in result
+        assert ("Audi", "RS7 Sportback", "C8") not in result
+        assert ("Audi", "S6", "C8") not in result
+        assert ("Audi", "S7 Sportback", "C8") not in result
+
+    def test_audi_rs6_c8_still_matches(self) -> None:
+        result = infer_car_generations("Milltek Audi RS6 C8 Cat-Back Exhaust", None)
+        assert ("Audi", "RS6 Avant", "C8") in result
+
+    def test_supra_description_with_970_percent_no_panamera(self) -> None:
+        # GR Supra description literally contained "970% increase in downforce"
+        # which previously triggered Porsche Panamera 970 as a false match.
+        description = (
+            "Transform your GR Supra with the ADRO Facelift kit. "
+            "ADRO delivers a huge 970% increase in downforce for a minimal 10% increase in drag."
+        )
+        result = infer_car_generations("TOYOTA GR SUPRA FRONT BUMPER", description)
+        assert ("Toyota", "Supra", "A90") in result
+        assert ("Porsche", "Panamera", "970") not in result
+
+    def test_panamera_970_still_matches_when_explicit(self) -> None:
+        result = infer_car_generations("Panamera 970 Cat-Back Exhaust", None)
+        assert ("Porsche", "Panamera", "970") in result
+
+    def test_bmw_g60_no_vw_corrado(self) -> None:
+        # ADRO title "BMW G60 5-SERIES CARBON FIBER FRONT LIP" matched VW Corrado G60
+        # because G60 was in PHRASE_TRIPLES as bare code.
+        result = infer_car_generations("BMW G60 5-SERIES CARBON FIBER FRONT LIP", None)
+        assert ("Volkswagen", "Corrado", "G60") not in result
+        assert ("BMW", "i5 M60", "G60") in result
+
+    def test_corrado_g60_still_matches_when_explicit(self) -> None:
+        result = infer_car_generations("Neuspeed VW Corrado G60 Exhaust", None)
+        assert ("Volkswagen", "Corrado", "G60") in result
+
+
+class TestExpandedAliases:
+    """Aliases added after ADRO audit found universal-flagged products that should have had cars."""
+
+    def test_f8x_m3_m4_matches_both_bmw_models(self) -> None:
+        # ADRO universal-flagged "BMW F8X M3/M4 CARBON FIBER AIR DUCTS" previously
+        # failed inference because F8X wasn't aliased.
+        result = infer_car_generations("BMW F8X M3/M4 CARBON FIBER AIR DUCTS", None)
+        assert ("BMW", "M3", "F80") in result
+        assert ("BMW", "M4", "F82/F83") in result
+
+    def test_f97_x3m_matches(self) -> None:
+        result = infer_car_generations("BMW F97 X3M PREPREG FRONT LIP", None)
+        assert ("BMW", "X3 M", "F97") in result
+
+    def test_tesla_model_3_highland(self) -> None:
+        result = infer_car_generations("TESLA MODEL 3 HIGHLAND CARBON FIBER FRONT LIP", None)
+        assert ("Tesla", "Model 3", "Highland") in result
+
+    def test_tesla_model_y(self) -> None:
+        result = infer_car_generations("TESLA MODEL Y PREPREG FRONT LIP V1", None)
+        assert ("Tesla", "Model Y", "1st Gen") in result
+
+    def test_tesla_model_s_plaid(self) -> None:
+        result = infer_car_generations("TESLA MODEL S PLAID PREPREG CARBON FIBER FRONT LIP", None)
+        assert ("Tesla", "Model S", "Plaid") in result
+
+    def test_kia_stinger(self) -> None:
+        result = infer_car_generations("KIA STINGER CARBON FIBER SPOILER V2", None)
+        assert ("Kia", "Stinger", "CK") in result
+
+    def test_porsche_718(self) -> None:
+        result = infer_car_generations("PORSCHE 718 PREPREG FRONT LIP", None)
+        assert ("Porsche", "718", "982") in result
+
+    def test_porsche_992_gt3(self) -> None:
+        result = infer_car_generations("PORSCHE 992.1 GT3 PREPREG LOWER FRONT SPLITTER", None)
+        assert ("Porsche", "911", "992") in result
+
+    def test_gr_yaris(self) -> None:
+        result = infer_car_generations("TOYOTA GR YARIS (GEN 1 & 2) CARBON FIBER SIDE SKIRTS", None)
+        assert ("Toyota", "GR Yaris", "1st Gen") in result
+        assert ("Toyota", "GR Yaris", "2nd Gen") in result
+
+    def test_gr_yaris_gen_1_only(self) -> None:
+        result = infer_car_generations("TOYOTA GR YARIS DRY CARBON ROOF", None)
+        assert ("Toyota", "GR Yaris", "1st Gen") in result
+        assert ("Toyota", "GR Yaris", "2nd Gen") not in result
+
+    def test_gr_yaris_gen_2_only(self) -> None:
+        result = infer_car_generations("2nd Gen GR Yaris carbon spoiler", None)
+        assert ("Toyota", "GR Yaris", "1st Gen") in result  # "gr yaris" alias still fires
+        assert ("Toyota", "GR Yaris", "2nd Gen") in result
+
+    def test_g90_m5(self) -> None:
+        result = infer_car_generations("BMW G90 M5 PREPREG FRONT LIP", None)
+        assert ("BMW", "M5", "G90/G99") in result
+
+    def test_x5m_x6m_xm(self) -> None:
+        # ADRO title: "CSF BMW X5M / X6M / XM HIGH-PERFORMANCE CHARGE-AIR-COOLERS"
+        result = infer_car_generations("CSF BMW X5M / X6M / XM HIGH-PERFORMANCE CHARGE-AIR-COOLERS", None)
+        assert ("BMW", "X5 M", "F95") in result
+        assert ("BMW", "X6 M", "F96") in result
+        assert ("BMW", "XM", "F95") in result

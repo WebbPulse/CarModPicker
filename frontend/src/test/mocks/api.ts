@@ -30,6 +30,8 @@ export const mockCar: CarGenerationRead = {
   car_make_name: 'Toyota',
   car_model_name: 'Camry',
   generation_name: 'XV70',
+  display_label: 'Toyota Camry XV70 (2018-2023)',
+  car_model_display_label: 'Camry',
   start_year: 2018,
   end_year: 2023,
   description: 'Test car description',

@@ -33,6 +33,7 @@ from .api.middleware.error_handler import register_error_handlers
 from .api.services import crawler_schedule_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
+from .core.init_cars import init_car_generations
 from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
@@ -73,6 +74,10 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
         init_crawler_adapter_configs(db)
     except Exception:
         logger.exception("Failed to initialize crawler adapter configs on startup")
+    try:
+        init_car_generations(db)
+    except Exception:
+        logger.exception("Failed to initialize car generations on startup")
     try:
         # Best-effort: delete EventBridge schedules under our prefix that no
         # longer correspond to a live crawler_schedules row. Also cleans up

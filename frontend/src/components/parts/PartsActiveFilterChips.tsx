@@ -5,6 +5,7 @@ import type {
   CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
+import { carFullDisplayName } from '../../utils/carUtils';
 
 export interface PartsActiveFilterChipsProps {
   hasActiveFilters: boolean;
@@ -95,7 +96,7 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
           {showUniversalParts
             ? 'Universal'
             : selectedGeneration
-              ? `${selectedGeneration.car_make_name ?? ''} ${selectedGeneration.car_model_name ?? ''} ${selectedGeneration.generation_name ?? ''}`.trim()
+              ? carFullDisplayName(selectedGeneration).trim()
               : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() ||
                 'Vehicle'}
           <button

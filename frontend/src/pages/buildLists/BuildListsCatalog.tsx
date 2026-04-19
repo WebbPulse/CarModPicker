@@ -30,7 +30,11 @@ import type {
   CarGenerationRead,
   PaginatedResponse,
 } from '../../types/Api';
-import { normalizeCarRead, normalizeCarReadList } from '../../utils/carUtils';
+import {
+  carFullDisplayName,
+  normalizeCarRead,
+  normalizeCarReadList,
+} from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -581,7 +585,7 @@ const BuildListsCatalog: React.FC = () => {
               params={buildListCatalogListParams}
               title={
                 selectedGeneration
-                  ? `${selectedGeneration.car_make_name} ${selectedGeneration.car_model_name} ${selectedGeneration.generation_name} Build Lists`
+                  ? `${carFullDisplayName(selectedGeneration)} Build Lists`
                   : selectedModel
                     ? `${selectedMake} ${selectedModel} Build Lists`
                     : `${selectedMake} Build Lists`
