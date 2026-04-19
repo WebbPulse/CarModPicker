@@ -3,6 +3,8 @@ import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import apiClient, { carGenerationsApi } from '../../services/Api';
 import {
+  carFullDisplayName,
+  carGenerationDisplayName,
   formatCarYearRange,
   normalizeCarRead,
   normalizeCarReadList,
@@ -337,7 +339,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                       className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors p-5"
                     >
                       <h4 className="text-base font-semibold text-indigo-400 mb-1 break-words px-1">
-                        {car.generation_name}
+                        {carGenerationDisplayName(car)}
                       </h4>
                       <p className="text-xs text-gray-400">
                         {formatCarYearRange(car.start_year, car.end_year)}
@@ -354,9 +356,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                 <div className="flex items-center justify-between p-3">
                   <div>
                     <h4 className="text-base font-semibold text-gray-200">
-                      Selected: {selectedGeneration.car_make_name}{' '}
-                      {selectedGeneration.car_model_name}{' '}
-                      {selectedGeneration.generation_name}
+                      Selected: {carFullDisplayName(selectedGeneration)}
                     </h4>
                     <p className="text-sm text-gray-400">
                       {formatCarYearRange(

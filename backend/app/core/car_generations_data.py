@@ -10,9 +10,21 @@ To add a new car generation:
 3. The initialization logic will automatically create it in the database
 """
 
+import re
 from typing import TypedDict
 
 from typing_extensions import NotRequired
+
+
+def slugify(value: str) -> str:
+    """
+    Convert a name into a stable, url-safe slug used for init_cars lookup.
+
+    Lowercases, collapses non-alphanumeric runs into single hyphens, and trims
+    leading/trailing hyphens. "Mk5 Supra" → "mk5-supra", "RX-7" → "rx-7",
+    "SA/FB" → "sa-fb", "911 (992)" → "911-992".
+    """
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", value.lower())).strip("-")
 
 
 class CarGenerationData(TypedDict):
@@ -22,6 +34,12 @@ class CarGenerationData(TypedDict):
     start_year: int
     end_year: int | None  # None for current/ongoing generations
     description: NotRequired[str]  # Optional field
+    # Consumer-friendly label (e.g. "Mk4 Supra" for A80). Presentation-only — never used by inference.
+    display_name: NotRequired[str]
+    # Optional stable slug override. Pin to the old slugify(generation_name) when renaming
+    # `generation_name` in seed to preserve the existing DB row instead of creating a duplicate.
+    # When absent, init_cars uses slugify(generation_name).
+    slug: NotRequired[str]
 
 
 class CarModelData(TypedDict):
@@ -29,6 +47,11 @@ class CarModelData(TypedDict):
 
     model: str
     generations: list[CarGenerationData]
+    # Consumer-friendly model label. Presentation-only — never used by inference.
+    model_display_name: NotRequired[str]
+    # Optional stable slug override. Pin to the old slugify(model) when renaming `model` in seed
+    # to preserve the existing DB row. When absent, init_cars uses slugify(model).
+    slug: NotRequired[str]
 
 
 # Car generations organized by make and model
@@ -548,12 +571,14 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
                 {
                     "generation_name": "A80",
+                    "display_name": "Mk4 Supra",
                     "start_year": 1993,
                     "end_year": 2002,
                     "description": "The legendary MK4 Supra with 2JZ engine. Iconic in tuning culture, known for incredible power potential. Twin-turbo model produced 320 horsepower. Highly collectible.",
                 },
                 {
                     "generation_name": "A90",
+                    "display_name": "Mk5 Supra",
                     "start_year": 2019,
                     "end_year": 2026,
                     "description": "Modern Supra revival co-developed with BMW. Features turbocharged inline-6 engine producing up to 382 horsepower. Excellent handling and modern technology while honoring Supra heritage.",
@@ -654,13 +679,19 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "generation_name": "ZN6",
                     "start_year": 2012,
                     "end_year": 2020,
-                    "description": "Toyota's modern rear-wheel-drive sports car co-developed with Subaru. Features boxer engine, perfect weight distribution, and exceptional handling. Revived affordable sports car segment. Note: Sold as Scion FR-S in North America from 2012-2016, then rebadged as Toyota 86.",
+                    "description": "Toyota's modern rear-wheel-drive sports car co-developed with Subaru. Features 2.0L boxer engine, perfect weight distribution, and exceptional handling. Revived affordable sports car segment. Sold as Scion FR-S in North America from 2012-2016, then rebadged as Toyota 86 for 2017-2020. Succeeded by the GR86 (ZN8) model line, which Toyota branded as a separate GR-series car.",
                 },
+            ],
+        },
+        {
+            "model": "GR86",
+            "generations": [
                 {
                     "generation_name": "ZN8",
-                    "start_year": 2021,
-                    "end_year": 2024,
-                    "description": "Refined second generation with improved engine (2.4L), producing 228 horsepower. Better handling and technology while maintaining the 86's focus on driver engagement and affordability.",
+                    "start_year": 2022,
+                    "end_year": None,
+                    "description": "Second generation (MY 2022+), marketed under the Toyota GAZOO Racing sub-brand as the GR86 — distinct from the original Toyota 86 (ZN6). Upgraded 2.4L boxer engine (FA24) producing 228 horsepower. Retains rear-wheel drive, six-speed manual, and the Subaru co-development with the BRZ (ZD8). Still in production.",
+                    "display_name": "GR86 (ZN8)",
                 },
             ],
         },
@@ -763,8 +794,14 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 {
                     "generation_name": "1st Gen",
                     "start_year": 2020,
-                    "end_year": 2024,
+                    "end_year": 2023,
                     "description": "Toyota's rally-inspired hot hatch co-developed with Gazoo Racing. Features turbocharged 1.6L 3-cylinder engine producing 257-268 horsepower, all-wheel drive, and lightweight construction. Limited production, highly sought after for track and rally modifications.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2024,
+                    "end_year": None,
+                    "description": "Mid-cycle refresh of the GXPA16 platform with retuned 1.6L turbo three-cylinder (up to ~300 hp in some markets), new 8-speed automatic option (GR-DAT), revised interior with relocated touchscreen and driver-focused instrument cluster, and suspension/cooling updates. Same chassis as the 1st Gen so many aftermarket parts (body panels, aero, exhausts) fit both generations.",
                 },
             ],
         },
@@ -1380,24 +1417,28 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "generations": [
                 {
                     "generation_name": "NA",
+                    "display_name": "Mk1 Miata",
                     "start_year": 1989,
                     "end_year": 1997,
                     "description": "The original Miata (MX-5) that revived the affordable roadster segment. Featured pop-up headlights, perfect 50/50 weight distribution, and exceptional handling. Pure driving joy.",
                 },
                 {
                     "generation_name": "NB",
+                    "display_name": "Mk2 Miata",
                     "start_year": 1998,
                     "end_year": 2005,
                     "description": "Refined second generation with fixed headlights. Improved engines and handling. Maintained the Miata's focus on lightweight, driver-focused experience. Mazdaspeed variant offered turbocharged performance.",
                 },
                 {
                     "generation_name": "NC",
+                    "display_name": "Mk3 Miata",
                     "start_year": 2006,
                     "end_year": 2015,
                     "description": "Larger platform with improved safety features. Featured MZR engines and retractable hardtop option. Some enthusiasts preferred previous generations, but still excellent handling.",
                 },
                 {
                     "generation_name": "ND",
+                    "display_name": "Mk4 Miata",
                     "start_year": 2016,
                     "end_year": 2024,
                     "description": "Return to lightweight philosophy with Skyactiv technology. Featured improved fuel economy and handling. RF (retractable fastback) variant introduced. Maintains Miata's reputation as the best affordable sports car.",
@@ -1409,18 +1450,21 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "generations": [
                 {
                     "generation_name": "SA/FB",
+                    "display_name": "1st Gen RX-7",
                     "start_year": 1978,
                     "end_year": 1985,
                     "description": "Mazda's rotary-powered sports car. Featured Wankel rotary engine and established RX-7 as a unique sports car. Turbocharged variant introduced in later years.",
                 },
                 {
                     "generation_name": "FC",
+                    "display_name": "2nd Gen RX-7",
                     "start_year": 1986,
                     "end_year": 1991,
                     "description": "Second generation with turbocharged 13B rotary engine. Featured improved handling and styling. Turbo II model produced 200 horsepower. Popular in tuning and racing scenes.",
                 },
                 {
                     "generation_name": "FD",
+                    "display_name": "3rd Gen RX-7",
                     "start_year": 1992,
                     "end_year": 2002,
                     "description": "The ultimate RX-7 with sequential twin-turbo 13B-REW engine producing 255-280 horsepower. Iconic styling and exceptional handling. Highly sought after and collectible. Legendary in tuning culture.",
@@ -2331,8 +2375,15 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 {
                     "generation_name": "F90",
                     "start_year": 2018,
-                    "end_year": 2024,
-                    "description": "Latest M5 with S63 twin-turbo V8 engine producing 600-617 horsepower. All-wheel drive standard. Competition and CS variants available.",
+                    "end_year": 2023,
+                    "description": "Sixth generation M5 with S63 twin-turbo V8 engine producing 600-617 horsepower. All-wheel drive standard. Competition and CS variants available.",
+                },
+                {
+                    "generation_name": "G90/G99",
+                    "start_year": 2024,
+                    "end_year": None,
+                    "description": "Seventh generation M5 (G90 sedan, G99 Touring). S68 twin-turbo V8 plus electric motor plug-in hybrid producing 717 horsepower combined. xDrive all-wheel drive standard. First M5 Touring in the US market.",
+                    "display_name": "G90/G99 M5",
                 },
             ],
         },
@@ -2587,6 +2638,28 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2000,
                     "end_year": 2003,
                     "description": "Limited production roadster with aluminum space frame. Featured S62 V8 engine producing 400 horsepower. 6-speed manual transmission. Only ~5,703 units produced. Highly collectible.",
+                },
+            ],
+        },
+        {
+            "model": "X3 M",
+            "generations": [
+                {
+                    "generation_name": "F97",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "First generation X3 M with S58 twin-turbo inline-6 engine producing 473-503 horsepower. Competition variant standard for 2021+. xDrive all-wheel drive standard.",
+                },
+            ],
+        },
+        {
+            "model": "X4 M",
+            "generations": [
+                {
+                    "generation_name": "F98",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "First generation X4 M coupe-SUV with S58 twin-turbo inline-6 engine producing 473-503 horsepower. Shares platform with F97 X3 M. Competition variant standard for 2021+.",
                 },
             ],
         },
@@ -6447,18 +6520,24 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "generations": [
                 {
                     "generation_name": "Vanquish",
+                    "slug": "vanquish-i",
+                    "display_name": "Vanquish I",
                     "start_year": 2001,
                     "end_year": 2007,
                     "description": "Original flagship with 5.9L V12 producing 460-520 horsepower. Available as coupe. Popular for exhaust upgrades, ECU tuning, intake modifications, and suspension improvements. Strong aftermarket support.",
                 },
                 {
                     "generation_name": "Vanquish",
+                    "slug": "vanquish-ii",
+                    "display_name": "Vanquish II",
                     "start_year": 2012,
                     "end_year": 2018,
                     "description": "VH-platform Vanquish with 5.9L V12 producing 565-600 horsepower. Available as coupe and Volante. Vanquish S variant available. Popular for exhaust upgrades, ECU tuning, aero enhancements, and luxury customization. Strong aftermarket support.",
                 },
                 {
                     "generation_name": "Vanquish",
+                    "slug": "vanquish-iii",
+                    "display_name": "Vanquish III",
                     "start_year": 2024,
                     "end_year": 2024,
                     "description": "Revived flagship with new twin-turbo V12 engine. Replaces DBS Superleggera as top model. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, and performance modifications. Growing aftermarket support.",
@@ -6510,6 +6589,84 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             ],
         },
     ],
+    "Tesla": [
+        {
+            "model": "Model 3",
+            "generations": [
+                {
+                    "generation_name": "Pre-Highland",
+                    "start_year": 2017,
+                    "end_year": 2023,
+                    "description": "First generation Model 3 (pre-facelift). Mass-market compact electric sedan. RWD, Long Range AWD, and Performance trims. Popular platform for aftermarket aero, wheels, and interior upgrades.",
+                    "display_name": "Model 3 Pre-Highland",
+                },
+                {
+                    "generation_name": "Highland",
+                    "start_year": 2024,
+                    "end_year": None,
+                    "description": "Facelifted Model 3 (project Highland). Revised front fascia, interior, and noise insulation. Long Range and Performance variants available. Performance trim produces 510 horsepower.",
+                    "display_name": "Model 3 Highland",
+                },
+            ],
+        },
+        {
+            "model": "Model Y",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2020,
+                    "end_year": 2025,
+                    "description": "Compact electric SUV based on the Model 3 platform. Long Range, Performance, and Standard Range variants. Tesla's best-selling vehicle globally.",
+                    "display_name": "1st Gen Model Y",
+                },
+                {
+                    "generation_name": "Juniper",
+                    "start_year": 2025,
+                    "end_year": None,
+                    "description": "Facelifted Model Y (project Juniper). Refreshed styling inspired by Cybertruck and Model 3 Highland, improved interior, and updated powertrain.",
+                    "display_name": "Juniper Model Y",
+                },
+            ],
+        },
+        {
+            "model": "Model S",
+            "generations": [
+                {
+                    "generation_name": "Pre-Refresh",
+                    "start_year": 2012,
+                    "end_year": 2020,
+                    "description": "Original Model S full-size electric sedan. P85, P85D, P90D, P100D, and Ludicrous variants. Established Tesla's premium electric reputation.",
+                    "display_name": "Model S Pre-Refresh",
+                },
+                {
+                    "generation_name": "Plaid",
+                    "start_year": 2021,
+                    "end_year": None,
+                    "description": "Refreshed Model S with updated styling, yoke steering wheel, and tri-motor Plaid variant producing 1,020 horsepower. 0-60 mph in under 2 seconds.",
+                    "display_name": "Model S Plaid",
+                },
+            ],
+        },
+        {
+            "model": "Model X",
+            "generations": [
+                {
+                    "generation_name": "Pre-Refresh",
+                    "start_year": 2016,
+                    "end_year": 2020,
+                    "description": "Original Model X full-size electric SUV with signature falcon wing doors. Long Range, Performance, and Ludicrous variants.",
+                    "display_name": "Model X Pre-Refresh",
+                },
+                {
+                    "generation_name": "Plaid",
+                    "start_year": 2021,
+                    "end_year": None,
+                    "description": "Refreshed Model X with updated interior, yoke steering wheel, and tri-motor Plaid variant producing 1,020 horsepower. Retains falcon wing doors.",
+                    "display_name": "Model X Plaid",
+                },
+            ],
+        },
+    ],
 }
 
 
@@ -6518,17 +6675,33 @@ def get_all_car_generations() -> list[dict[str, str | int | None]]:
     Flatten the nested car generations structure into a flat list.
 
     Returns:
-        List of dictionaries with make, model, generation_name, start_year, end_year, and optionally description
+        List of dictionaries with make, model, model_slug, generation_name, generation_slug,
+        start_year, end_year, and optionally description, display_name, model_display_name.
+
+    Slug semantics: every row always has "model_slug" and "generation_slug" keys, non-None.
+    These are the stable lookup keys used by init_cars. They default to slugify(model) /
+    slugify(generation_name) but can be pinned via explicit "slug" in the source dict to
+    survive a name rename.
+
+    Tri-state semantics: every row always has "display_name" and "model_display_name" keys.
+    The value is None when no friendly name is defined in source — init_cars uses that
+    explicit None to clear any stale DB value (rather than leaving it in place).
     """
     generations: list[dict[str, str | int | None]] = []
     for make, models in CAR_GENERATIONS.items():
         for model_data in models:
             model = model_data["model"]
+            model_display_name = model_data.get("model_display_name")
+            model_slug = model_data.get("slug") or slugify(model)
             for gen in model_data["generations"]:
-                gen_dict = {
+                gen_dict: dict[str, str | int | None] = {
                     "make": make,
                     "model": model,
+                    "model_slug": model_slug,
+                    "model_display_name": model_display_name,
                     "generation_name": gen["generation_name"],
+                    "generation_slug": gen.get("slug") or slugify(gen["generation_name"]),
+                    "display_name": gen.get("display_name"),
                     "start_year": gen["start_year"],
                     "end_year": gen["end_year"],
                 }

@@ -7,7 +7,7 @@ import type {
   CarGenerationRead,
   VoteSummary,
 } from '../../types/Api';
-import { normalizeCarRead } from '../../utils/carUtils';
+import { carFullDisplayName, normalizeCarRead } from '../../utils/carUtils';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import VoteButtons from '../parts/VoteButtons';
@@ -144,8 +144,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
             )}
             {carInfo && (
               <p className="text-xs text-gray-300 mb-2">
-                {carInfo?.car_make_name ?? ''} {carInfo?.car_model_name ?? ''}{' '}
-                {carInfo?.generation_name ?? ''}
+                {carFullDisplayName(carInfo)}
               </p>
             )}
           </div>

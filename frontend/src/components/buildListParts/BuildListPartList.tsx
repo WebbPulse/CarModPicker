@@ -16,6 +16,7 @@ import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
+import { carFullDisplayName } from '../../utils/carUtils';
 
 type TableColumnKey =
   | 'checkbox'
@@ -76,10 +77,7 @@ interface BuildListPartTableProps {
 }
 
 function formatCarName(car: CarGenerationRead): string {
-  return (
-    `${car.car_make_name ?? ''} ${car.car_model_name ?? ''} ${car.generation_name ?? ''}`.trim() ||
-    'Vehicle'
-  );
+  return carFullDisplayName(car).trim() || 'Vehicle';
 }
 
 function getFitCell(
