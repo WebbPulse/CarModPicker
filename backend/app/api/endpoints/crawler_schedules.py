@@ -19,7 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
-from app.api.models.crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
+from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter
+from app.api.models.crawler_schedule import CrawlerSchedule
 from app.api.models.user import User as DBUser
 from app.api.schemas.crawler_schedule import (
     CrawlerScheduleCreate,

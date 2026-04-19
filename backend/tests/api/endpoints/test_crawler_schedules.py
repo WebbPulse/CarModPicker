@@ -7,8 +7,9 @@ from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter
 from app.api.models.crawler_adapter_config import CrawlerAdapterConfig
-from app.api.models.crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
+from app.api.models.crawler_schedule import CrawlerSchedule
 from app.api.services import crawler_schedule_service
 from app.core.config import settings
 from tests.api.endpoints.test_admin import create_and_login_admin_user, create_and_login_user

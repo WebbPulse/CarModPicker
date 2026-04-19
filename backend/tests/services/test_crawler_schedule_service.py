@@ -7,7 +7,8 @@ import pytest
 from botocore.exceptions import ClientError
 from sqlalchemy.orm import Session
 
-from app.api.models.crawler_schedule import CrawlerSchedule, CrawlerScheduleAdapter
+from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter
+from app.api.models.crawler_schedule import CrawlerSchedule
 from app.api.services import crawler_schedule_service
 
 

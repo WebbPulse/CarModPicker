@@ -8,7 +8,7 @@ from uuid6 import uuid7
 
 from app.db.base_class import Base
 
-from .part_car import part_cars
+from .associations.part_car import part_cars
 
 if TYPE_CHECKING:
     from .build_list_part import BuildListPart
