@@ -83,8 +83,9 @@ _CAR_MAKES = frozenset(
 )
 
 # Tokens that the fallback title heuristic sometimes picks as brand but are not
-# manufacturers (e.g. "NOT" from "NOT FOR EVERYBODY DOOR DECAL").
-_BRAND_REJECT_TOKENS = frozenset({"not", "the", "new"})
+# manufacturers. "NOT" comes from "NOT FOR EVERYBODY"; "AERO" is ADRO's internal
+# aero program name from the "AERO PROGRAM DECAL" title, not a third-party brand.
+_BRAND_REJECT_TOKENS = frozenset({"not", "the", "new", "aero"})
 
 # Shopify CDN thumbnail size suffix (e.g. file_300x300.jpg, file_100x100.webp).
 # Stripped / rejected so we prefer full-resolution product media over the
@@ -131,22 +132,58 @@ def _is_bundle_page(soup: BeautifulSoup) -> bool:
     return len(picker_titles) >= 2
 
 
+def _json_ld_offer_price_is_zero(item: dict) -> bool:
+    """
+    True if the JSON-LD Product's offers block explicitly sets price to 0.
+
+    ``_price_from_json_ld`` collapses 0 and "missing" into the same None, so we inspect
+    the raw dict here — a literal 0.00 means Shopify rendered a bundle/picker landing
+    page, while an absent price could just be a back-ordered real product we want to keep.
+    """
+    offers = item.get("offers")
+    if isinstance(offers, list) and offers:
+        offer = offers[0] if isinstance(offers[0], dict) else None
+    elif isinstance(offers, dict):
+        offer = offers
+    else:
+        offer = None
+    if not isinstance(offer, dict):
+        return False
+    for key in ("price", "lowPrice"):
+        raw = offer.get(key)
+        if raw is None:
+            continue
+        try:
+            return float(str(raw).replace(",", "")) == 0.0
+        except (ValueError, TypeError):
+            continue
+    return False
+
+
 def _normalize_part_manufacturer(part_manufacturer: Optional[str], product_name: str) -> str:
     """
     Return the canonical manufacturer for an ADRO product.
 
-    - "NOT FOR EVERYBODY ..." titles -> "Not For Everybody" (known collab).
-    - Empty / car-make / reject-token brands -> "ADRO".
-    - Everything else is passed through.
+    - Empty / car-make / reject-token brands / ADRO name variants -> "ADRO".
+    - "NOT FOR EVERYBODY" decals/apparel are ADRO-branded collabs sold under the
+      ADRO storefront; they previously got their own "Not For Everybody" row, but
+      that just split ADRO into two manufacturers. Collapse to "ADRO".
+    - Everything else (CSF, JQ Werks, GoldenWrench, …) is passed through so third
+      parties sold through ADRO keep their own identities.
+
+    product_name is unused today but kept in the signature so callers don't change
+    when we need title-level overrides again in the future.
     """
-    name = (product_name or "").strip()
-    if name.upper().startswith("NOT FOR EVERYBODY"):
-        return "Not For Everybody"
+    _ = product_name
     brand = (part_manufacturer or "").strip()
     if not brand:
         return "ADRO"
     low = brand.lower()
     if low in _CAR_MAKES or low in _BRAND_REJECT_TOKENS:
+        return "ADRO"
+    # ADRO's own vendor string on Shopify has historically been "ADRO", "ADRO US",
+    # "ADRO USA" — all the same brand. Collapse any "adro …" prefix.
+    if low == "adro" or low.startswith("adro ") or low.startswith("adro-"):
         return "ADRO"
     return brand
 
@@ -386,8 +423,8 @@ class AdroAdapter(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse an ADRO product page. Returns None for bundle/kit pages (detected
-        by URL and by the DOM-level product picker), which are category-like
-        landing pages we shouldn't store as products.
+        by URL, by the DOM-level product picker, and by a 0-price JSON-LD payload
+        which Shopify emits for category-style picker landing pages).
         """
         if _is_bundle_url(url):
             return None
@@ -401,6 +438,12 @@ class AdroAdapter(RetailerCrawlerAdapter):
         # 1. JSON-LD (authoritative on Shopify): name, description, brand, sku, price, image.
         item = extract_json_ld_product(html)
         if item:
+            # Shopify emits price=0.00 for picker/bundle landing pages that have no
+            # SKU of their own (sub-products are priced). Real ADRO products are all
+            # > $0, so a hard 0 in JSON-LD is a bundle flag. We check the raw item
+            # because _price_from_json_ld returns None for both 0 and missing.
+            if _json_ld_offer_price_is_zero(item) and dom_price in (None, 0):
+                return None
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:
                 # Trust JSON-LD description when it's substantive; only fall
