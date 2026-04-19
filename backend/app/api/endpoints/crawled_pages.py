@@ -27,6 +27,7 @@ from app.core.category_inference import infer_category
 from app.core.config import settings
 from app.crawlers.adapters import adapter_name_for_product_url, get_adapter
 from app.crawlers.base import canonicalize_url, crawl_html_fingerprint, save_crawl_page_html
+from app.crawlers.sanitize import sanitize_crawled_html
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -232,18 +233,24 @@ async def scrape_page_from_extension(
 
     url = canonicalize_url(raw_url)
     now = datetime.now(timezone.utc)
-    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(body.html)
+    _, raw_size_bytes, _ = crawl_html_fingerprint(body.html)
     _enforce_max_crawl_html_size(
-        html_size_bytes,
+        raw_size_bytes,
         user_id=current_user.id,
         url=url,
         content_length=request.headers.get("content-length"),
     )
 
+    # Strip PII-risk content (autofilled form values, personalized scripts, etc.)
+    # before anything leaves this request — archive and parse operate on the
+    # sanitized HTML only. JSON-LD scripts are preserved for adapters.
+    sanitized_html = sanitize_crawled_html(body.html)
+    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(sanitized_html)
+
     _, archived, skipped_dup = _persist_extension_crawl_archive(
         db,
         url=url,
-        html=body.html,
+        html=sanitized_html,
         html_utf8=html_utf8,
         html_sha256=html_sha256,
         now=now,
@@ -256,7 +263,7 @@ async def scrape_page_from_extension(
     adapter = get_adapter(adapter_name)
 
     try:
-        payload = adapter.parse_product_page(body.html, url)
+        payload = adapter.parse_product_page(sanitized_html, url)
     except Exception as exc:
         logger.warning("Adapter %s failed to parse %s: %s", adapter_name, url, exc)
         payload = None
@@ -321,18 +328,21 @@ async def upload_html_from_extension(
 
     url = canonicalize_url(raw_url)
     now = datetime.now(timezone.utc)
-    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(body.html)
+    _, raw_size_bytes, _ = crawl_html_fingerprint(body.html)
     _enforce_max_crawl_html_size(
-        html_size_bytes,
+        raw_size_bytes,
         user_id=current_user.id,
         url=url,
         content_length=request.headers.get("content-length"),
     )
 
+    sanitized_html = sanitize_crawled_html(body.html)
+    html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(sanitized_html)
+
     _, archived, skipped_dup = _persist_extension_crawl_archive(
         db,
         url=url,
-        html=body.html,
+        html=sanitized_html,
         html_utf8=html_utf8,
         html_sha256=html_sha256,
         now=now,

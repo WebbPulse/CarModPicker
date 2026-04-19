@@ -16,14 +16,14 @@ interface RecordPriceDialogProps {
   sendMessage: (message: {
     action: string;
     listingData?: {
-      part_id: number;
-      retailer_id: number;
+      part_id: string;
+      retailer_id: string;
       product_url?: string;
       price_cents?: number;
     };
     domain?: string;
     sourceUrls?: string[];
-    partId?: number;
+    partId?: string;
     fileKeys?: string[];
     imageUrl?: string;
   }) => Promise<unknown>;
@@ -111,8 +111,8 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
       }
 
       const listingData: {
-        part_id: number;
-        retailer_id: number;
+        part_id: string;
+        retailer_id: string;
         product_url?: string;
         price_cents?: number;
       } = {

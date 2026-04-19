@@ -263,7 +263,7 @@ async function getCategories(): Promise<ApiResponse<Category[]>> {
  * Get cars
  */
 async function getCars(limit: number = 1000): Promise<ApiResponse<Car[]>> {
-  return apiRequest<Car[]>(`/cars/?limit=${limit}`, { method: "GET" });
+  return apiRequest<Car[]>(`/car-generations/?limit=${limit}`, { method: "GET" });
 }
 
 /**
@@ -274,7 +274,7 @@ async function searchCars(
   limit: number = 100,
 ): Promise<ApiResponse<Car[]>> {
   return apiRequest<Car[]>(
-    `/cars/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
+    `/car-generations/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
     { method: "GET" },
   );
 }
@@ -348,8 +348,8 @@ async function getOrCreateRetailerByDomain(
  */
 async function checkProductUrl(
   productUrl: string,
-): Promise<ApiResponse<{ existing_part_id: number | null }>> {
-  return apiRequest<{ existing_part_id: number | null }>(
+): Promise<ApiResponse<{ existing_part_id: string | null }>> {
+  return apiRequest<{ existing_part_id: string | null }>(
     `/parts/check-url?product_url=${encodeURIComponent(productUrl)}`,
     { method: "GET" },
   );
@@ -359,7 +359,7 @@ async function checkProductUrl(
  * Get global part by ID (with listings for display)
  */
 async function getPart(
-  partId: number,
+  partId: string,
 ): Promise<ApiResponse<PartRead>> {
   return apiRequest<PartRead>(`/parts/${partId}`, {
     method: "GET",
@@ -371,7 +371,7 @@ async function getPart(
  * Returns the part if found, or { success: false } when not found (404).
  */
 async function findExistingPartByPartManufacturerAndPartNumber(
-  part_manufacturerId: number,
+  part_manufacturerId: string,
   partNumber: string,
 ): Promise<ApiResponse<PartRead>> {
   const trimmed = partNumber?.trim();
@@ -388,7 +388,7 @@ async function findExistingPartByPartManufacturerAndPartNumber(
  * Append image file keys to a global part's gallery
  */
 async function appendImagesToPart(
-  partId: number,
+  partId: string,
   fileKeys: string[],
 ): Promise<ApiResponse<PartRead>> {
   return apiRequest<PartRead>(`/parts/${partId}/append-images`, {
@@ -485,7 +485,7 @@ async function getImageBySourceUrl(
  */
 async function uploadImage(
   imageUrl: string,
-  entityId?: number,
+  entityId?: string,
 ): Promise<ApiResponse<{ fileKey: string }>> {
   try {
     const apiUrl = await getApiUrl();
@@ -518,7 +518,7 @@ async function uploadImage(
     const uploadUrl = new URL(`${apiUrl}/images/upload`);
     uploadUrl.searchParams.set("entity_type", "part");
     if (entityId != null) {
-      uploadUrl.searchParams.set("entity_id", String(entityId));
+      uploadUrl.searchParams.set("entity_id", entityId);
     }
 
     const response = await fetch(uploadUrl.toString(), {
@@ -609,14 +609,14 @@ chrome.runtime.onMessage.addListener(
       otp?: string;
       partData?: PartCreate;
       imageUrl?: string;
-      partId?: number;
+      partId?: string;
       fileKeys?: string[];
       sourceUrls?: string[];
       limit?: number;
       searchTerm?: string;
       part_manufacturerName?: string;
       productUrl?: string;
-      part_manufacturerId?: number;
+      part_manufacturerId?: string;
       partNumber?: string;
       domain?: string;
       listingData?: PartListingCreate;
@@ -736,7 +736,7 @@ chrome.runtime.onMessage.addListener(
         String(request.partNumber).trim()
       ) {
         findExistingPartByPartManufacturerAndPartNumber(
-          Number(request.part_manufacturerId),
+          request.part_manufacturerId,
           String(request.partNumber),
         ).then(sendResponse);
         return true;

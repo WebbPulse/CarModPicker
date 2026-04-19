@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface SearchableSelectOption {
-  id: number | string;
+  id: string;
   label: string;
-  value: number | string | null;
+  value: string | null;
 }
 
 interface SearchableSelectProps {
   options: SearchableSelectOption[];
-  value: number | string | null;
-  onChange: (value: number | string | null) => void;
+  value: string | null;
+  onChange: (value: string | null) => void;
   placeholder?: string;
   label?: string;
   id?: string;
@@ -91,7 +91,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Handle selection
   const handleSelect = useCallback(
-    (selectedValue: number | string | null) => {
+    (selectedValue: string | null) => {
       onChange(selectedValue);
       setIsOpen(false);
       setHighlightedIndex(-1);

@@ -5,7 +5,6 @@
   "description": "Quickly scrape part information from web pages and add them to CarModPicker",
   "homepage_url": "https://carmodpicker.com",
   "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -20,7 +19,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "*://carmodpicker.com/*",
+        "*://*.carmodpicker.com/*",
+        "http://localhost/*",
+        "http://localhost:*/*"
+      ],
       "js": ["dist/content.js"],
       "run_at": "document_idle"
     }

@@ -3,7 +3,7 @@
  */
 
 export interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   image_urls?: string[] | null;
@@ -19,7 +19,7 @@ export interface User {
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   display_name?: string | null;
   description?: string | null;
@@ -31,18 +31,18 @@ export interface Category {
 }
 
 export interface Car {
-  id: number;
-  make: string;
-  model: string;
+  id: string;
+  car_make_name: string;
+  car_model_name: string;
   generation_name: string;
   start_year: number;
   end_year?: number | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface PartManufacturer {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   is_active: boolean;
@@ -51,7 +51,7 @@ export interface PartManufacturer {
 }
 
 export interface Retailer {
-  id: number;
+  id: string;
   name: string;
   domain?: string | null;
   base_url?: string | null;
@@ -66,27 +66,27 @@ export interface PartCreate {
   price?: number | null; // Price in cents (legacy Part field)
   image_urls?: string[] | null;
   product_url?: string | null;
-  category_id: number;
-  car_ids?: number[] | null;
+  category_id: string;
+  car_ids?: string[] | null;
   is_universal?: boolean;
-  part_manufacturer_id: number; // Required - part manufacturer (e.g. HKS, Borla)
+  part_manufacturer_id: string; // Required - part manufacturer (e.g. HKS, Borla)
   part_number?: string | null;
   specifications?: Record<string, unknown> | null;
-  retailer_id?: number | null; // Optional - store/site where part is sold
+  retailer_id?: string | null; // Optional - store/site where part is sold
   price_cents?: number | null; // Optional - for PartListing/price history when retailer_id set
 }
 
 export interface PartRead {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   price?: number | null;
   image_urls?: string[] | null;
-  category_id: number;
-  user_id: number;
-  car_ids: number[];
+  category_id: string;
+  user_id: string;
+  car_ids: string[];
   is_universal: boolean;
-  part_manufacturer_id?: number | null;
+  part_manufacturer_id?: string | null;
   part_number?: string | null;
   is_verified: boolean;
   source: string;
@@ -127,8 +127,8 @@ export interface ImageUploadResponse {
 }
 
 export interface PartListingCreate {
-  part_id: number;
-  retailer_id: number;
+  part_id: string;
+  retailer_id: string;
   product_url?: string | null;
   price_cents?: number | null;
 }
@@ -143,7 +143,7 @@ export interface ExtensionMessage {
   searchTerm?: string;
   part_manufacturerName?: string;
   productUrl?: string;
-  partId?: number;
+  partId?: string;
   domain?: string;
   listingData?: PartListingCreate;
 }
