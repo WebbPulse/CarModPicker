@@ -153,12 +153,16 @@ def run_rescrape_all_archived_pages(
     default_category_id: UUID,
     log: logging.Logger,
     stop_event: Optional[threading.Event] = None,
+    source: Optional[str] = None,
 ) -> dict[str, int]:
     """
     Re-parse every crawled page that has archived HTML (S3 or local).
 
     ``ingest_payload`` records listing and price history when the parsed payload includes a price.
     If stop_event is provided and set, the loop exits early (cooperative cancellation).
+
+    Pass ``source`` (e.g. ``"adro"``) to re-parse only one adapter's archive — useful after
+    adapter-specific parsing fixes so other retailers' data isn't touched.
     """
     counts: dict[str, int] = {
         "parsed_ok": 0,
@@ -177,6 +181,8 @@ def run_rescrape_all_archived_pages(
         )
         .order_by(DBCrawledPage.id)
     )
+    if source is not None:
+        q = q.filter(DBCrawledPage.source == source)
     for page in q:
         if stop_event is not None and stop_event.is_set():
             log.info("Archive rescrape: stop requested, exiting early.")

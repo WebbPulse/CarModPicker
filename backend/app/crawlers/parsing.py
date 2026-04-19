@@ -139,6 +139,12 @@ def part_manufacturer_from_title(title: str) -> Optional[str]:
         return "Rogue Engineering"
     if re.search(r"\bRadium\s+Engineering\b", title, re.IGNORECASE):
         return "Radium Engineering"
+    # JQ Werks — first-token scan below falls through because "JQ" is 2 chars
+    # and gets rejected, leaving "WERKS" as the split-off manufacturer. Match
+    # the full brand up front so we don't split JQ Werks steering wheel SKUs
+    # across two manufacturer rows.
+    if re.search(r"\bJQ\s+Werks\b", title, re.IGNORECASE):
+        return "JQ Werks"
 
     # 3. First token that looks like a part_manufacturer (not chassis, not part code, not generic product word)
     parts = title.split()
@@ -436,17 +442,45 @@ def normalize_part_number(raw: Optional[str]) -> Optional[str]:
 def extract_sku_from_text(text: str) -> Optional[str]:
     """
     Find SKU/part number from body text. Tries "SKU: X", "SKU: X - Y", "Part #: X".
+
+    Cue words are whole-word only so "partners" doesn't bleed into "Part". The bare
+    words "Part" and "Item" are not accepted — they are too common; require a "#"
+    or the word "Number" so we match explicit callouts like "Part #: X", not a
+    random noun. Captured value must be ≥ 4 chars so 3-letter words that happen
+    to follow a cue (e.g. "CSF") don't leak in as SKUs.
     """
     if not text:
         return None
-    # "SKU: WGCR425MA2 - WGCR635MA2" -> take full value or first segment
     match = re.search(
-        r"(?:SKU|Part\s*#?|Item\s*#?|P/N)\s*:?\s*([A-Za-z0-9\-\.]+(?:\s*-\s*[A-Za-z0-9\-\.]+)*)",
+        r"\b(?:SKU|P/N|(?:Part|Item)\s*(?:#|No\.?|Number))\s*:?\s*"
+        r"([A-Za-z0-9][A-Za-z0-9\-\.]{2,}(?:\s*-\s*[A-Za-z0-9\-\.]+)*)",
         text,
         re.IGNORECASE,
     )
     if match:
-        candidate = normalize_part_number(match.group(1))
-        if candidate and len(candidate) >= 2:
+        # Trim trailing sentence punctuation; "SKU: X." is a sentence, "X" is the value.
+        raw = match.group(1).rstrip(".")
+        candidate = normalize_part_number(raw)
+        if candidate and len(candidate) >= 4:
             return candidate
     return None
+
+
+def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[str]) -> bool:
+    """
+    Reject part numbers that are almost certainly scraper noise rather than a real SKU:
+    empty, shorter than 4 chars, or equal to the manufacturer name (case/space-insensitive).
+
+    Used as a last-mile guard in ingest so a JSON-LD sku of "CSF" on a CSF-branded page
+    doesn't become the part's part_number and cause spurious cross-URL dedupe.
+    """
+    if not part_number or not part_number.strip():
+        return True
+    normalized = re.sub(r"\s+", "", part_number).lower()
+    if len(normalized) < 4:
+        return True
+    if part_manufacturer:
+        manufacturer_key = re.sub(r"\s+", "", part_manufacturer).lower()
+        if manufacturer_key and normalized == manufacturer_key:
+            return True
+    return False

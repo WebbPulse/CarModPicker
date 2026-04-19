@@ -590,7 +590,20 @@ def ingest_payload(
         raise ValueError("Could not resolve or create part manufacturer")
     db.flush()
 
+    # Lazy import: parsing.py imports ScrapedPayload from this module, so we keep
+    # the reverse-direction import local to avoid a circular import at load time.
+    from app.crawlers.parsing import is_junk_part_number
+
     part_number_effective = payload.part_number
+    if is_junk_part_number(part_number_effective, part_manufacturer_name):
+        if part_number_effective:
+            logger.debug(
+                "Dropping junk part_number %r for manufacturer %r on %s",
+                part_number_effective,
+                part_manufacturer_name,
+                payload.product_url,
+            )
+        part_number_effective = None
 
     # Infer category from name/description when possible; else use default
     category_id = default_category_id
