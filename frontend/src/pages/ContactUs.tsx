@@ -49,6 +49,32 @@ function ContactUs() {
         </div>
       </section>
 
+      {/* Tech Support Section */}
+      <section className="py-8 px-4">
+        <div className="container mx-auto text-center">
+          <Card variant="glass" className="max-w-4xl mx-auto p-8">
+            <div className="animate-fadeInScale">
+              <h2 className="text-5xl md:text-6xl font-bold mb-4">
+                <span className="text-gradient">Tech Support</span>
+              </h2>
+              <p className="text-xl text-neutral-400 mb-4 max-w-2xl mx-auto leading-relaxed">
+                Running into a bug or need help with the site? Reach out and
+                we'll get you sorted.
+              </p>
+              <p className="text-lg text-neutral-300 mb-3">
+                For tech support, email:
+              </p>
+              <a
+                href="mailto:tyler@webbpulse.com"
+                className="text-2xl font-semibold text-gradient hover:underline inline-block"
+              >
+                tyler@webbpulse.com
+              </a>
+            </div>
+          </Card>
+        </div>
+      </section>
+
       {/* DMCA / Copyright Section */}
       <section className="py-8 px-4">
         <div className="container mx-auto text-center">
