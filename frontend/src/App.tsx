@@ -47,6 +47,9 @@ const VerifyEmail = lazy(
 const VerifyEmailConfirm = lazy(
   () => import('./pages/authentication/VerifyEmailConfirm.tsx')
 );
+const ExtensionAuth = lazy(
+  () => import('./pages/authentication/ExtensionAuth.tsx')
+);
 const Builder = lazy(() => import('./pages/builder/Builder.tsx'));
 const ViewCar = lazy(() => import('./pages/builder/ViewCar.tsx'));
 const ViewUser = lazy(() => import('./pages/ViewUser.tsx'));
@@ -84,6 +87,7 @@ const NO_AD_SPACE_PATHS = new Set([
   '/forgot-password/confirm',
   '/verify-email',
   '/verify-email/confirm',
+  '/extension-auth',
 ]);
 
 /** Paths that get spacers for consistent layout but never show ads. */
@@ -212,6 +216,7 @@ function App() {
                   path="/forgot-password/confirm"
                   element={<ForgotPasswordConfirm />}
                 />
+                <Route path="/extension-auth" element={<ExtensionAuth />} />
                 <Route path="/car-generations/:carId" element={<ViewCar />} />
                 <Route
                   path="/build-lists/:buildListId"

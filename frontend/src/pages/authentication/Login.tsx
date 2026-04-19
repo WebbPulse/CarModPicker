@@ -8,7 +8,7 @@ import {
   FaUser,
 } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   browserSupportsWebAuthn,
   startAuthentication,
@@ -21,6 +21,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
 import { authApi } from '../../services/Api';
 
+/**
+ * Only accept returnTo values that look like a local path. Blocks protocol-
+ * relative and absolute URLs so a crafted /login?returnTo=... link can't be
+ * used as an open-redirect gadget.
+ */
+const safeReturnTo = (value: string | null): string => {
+  if (!value) return '/';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/';
+  return value;
+};
+
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,6 +40,8 @@ function Login() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const { login: authLogin } = useAuth();
   const passkeySupported = browserSupportsWebAuthn();
 
@@ -61,7 +74,7 @@ function Login() {
       });
       if (result.data) {
         authLogin(result.data);
-        void navigate('/');
+        void navigate(returnTo);
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'NotAllowedError') {
@@ -106,7 +119,7 @@ function Login() {
         });
         if (result.data) {
           authLogin(result.data);
-          void navigate('/');
+          void navigate(returnTo);
         }
       } catch (error: unknown) {
         const axiosError = error as {
@@ -134,7 +147,7 @@ function Login() {
       } else if (result && 'id' in result) {
         // Regular login success
         authLogin(result);
-        void navigate('/');
+        void navigate(returnTo);
       }
     } catch {
       // Login failed - error is handled by useApiRequest
@@ -304,7 +317,7 @@ function Login() {
                 <GoogleAuthFlow
                   onLoggedIn={(user) => {
                     authLogin(user);
-                    void navigate('/');
+                    void navigate(returnTo);
                   }}
                   onError={(message) => setApiError(message)}
                   disabled={isLoading || isPasskeyLoading}

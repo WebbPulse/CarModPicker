@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 const API_URLS = {
   production: "https://api.carmodpicker.com/api",
   staging: "https://api.staging.carmodpicker.com/api",
-  localhost: "http://localhost:4000/api",
+  localhost: "http://localhost:8000/api",
 } as const;
 
 type ApiEnvironment = keyof typeof API_URLS;

@@ -10,7 +10,6 @@ import type {
   PartCreate,
   PartRead,
   ImageUploadResponse,
-  LoginResponse,
   PartListingCreate,
   Retailer,
   User,
@@ -29,6 +28,15 @@ const LEGACY_PROD_API_URLS = [
   "https://api.carmodpicker.com", // api host without /api path
 ];
 
+/** Old localhost URLs to migrate (Vite proxy doesn't add CORS headers for
+ * chrome-extension:// origins, so the extension must talk directly to the
+ * backend on :8000 instead of the :4000 frontend proxy). */
+const LEGACY_LOCAL_API_URLS = [
+  "http://localhost:4000/api",
+  "http://127.0.0.1:4000/api",
+];
+const DEFAULT_LOCAL_API_URL = "http://localhost:8000/api";
+
 /**
  * Get API base URL from storage
  */
@@ -37,6 +45,9 @@ async function getApiUrl(): Promise<string> {
   let apiUrl = (result["apiUrl"] as string) || DEFAULT_API_URL;
   if (LEGACY_PROD_API_URLS.includes(apiUrl)) {
     apiUrl = DEFAULT_API_URL;
+    await chrome.storage.sync.set({ apiUrl });
+  } else if (LEGACY_LOCAL_API_URLS.includes(apiUrl)) {
+    apiUrl = DEFAULT_LOCAL_API_URL;
     await chrome.storage.sync.set({ apiUrl });
   }
   return apiUrl;
@@ -111,139 +122,150 @@ async function apiRequest<T>(
 }
 
 /**
- * Login to CarModPicker
+ * Delegated auth: the extension opens the CarModPicker web app in a new tab,
+ * the user signs in there (with password manager / passkey / Google / 2FA — all
+ * the methods the web app supports), and the web page posts the resulting JWT
+ * back to the extension via chrome.runtime.sendMessage. The `externally_connectable`
+ * manifest entry restricts which origins can reach us, and a per-session state
+ * nonce binds the response to the request the user just initiated.
  */
-async function login(
-  username: string,
-  password: string,
-): Promise<ApiResponse<User> & { requires2FA?: boolean }> {
-  const apiUrl = await getApiUrl();
-  const loginUrl = `${apiUrl}/auth/token`;
+const AUTH_NONCE_STORAGE_KEY = "pendingWebAuth";
+const AUTH_NONCE_TTL_MS = 10 * 60 * 1000;
+const ALLOWED_WEB_HOSTS: ReadonlyArray<string> = [
+  "carmodpicker.com",
+  "staging.carmodpicker.com",
+  "localhost",
+  "127.0.0.1",
+];
 
-  const formData = new URLSearchParams();
-  formData.append("username", username);
-  formData.append("password", password);
+type PendingWebAuth = {
+  state: string;
+  createdAt: number;
+  tabId?: number;
+};
 
-  try {
-    const response = await fetch(loginUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    });
-
-    let data: LoginResponse | { detail?: string };
-    try {
-      data = (await response.json()) as LoginResponse | { detail?: string };
-    } catch (_parseError) {
-      const text = await response.text();
-
-      // Check for CORS errors
-      if (
-        response.status === 0 ||
-        (!response.ok && response.statusText === "")
-      ) {
-        return {
-          success: false,
-          error:
-            "CORS error: Server is not allowing requests from this extension. Check backend CORS configuration.",
-        };
-      }
-
-      return {
-        success: false,
-        error: `Invalid response from server: ${response.status} ${
-          response.statusText
-        }. Response: ${text.substring(0, 200)}`,
-      };
-    }
-
-    if (!response.ok) {
-      const errorData = data as { detail?: string };
-      const errorMessage =
-        errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-
-    const loginData = data as LoginResponse;
-
-    // Check for 2FA requirement - return success so extension can show OTP step
-    if (loginData.requires_2fa) {
-      return {
-        success: false,
-        requires2FA: true,
-      };
-    }
-
-    if (loginData.access_token) {
-      await setToken(loginData.access_token);
-      return { success: true, data: loginData.user };
-    }
-
-    return { success: false, error: "No access token received" };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Login failed";
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
+function generateNonce(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
- * Complete login with 2FA OTP code.
- * User must have called /token first to verify username/password.
+ * Derive the web origin (where /extension-auth lives) from the configured API
+ * URL. In prod/staging, the API is at api.<domain> and the web app at <domain>
+ * on the same port. In local dev, the backend runs on :8000 and the frontend
+ * dev server on :4000, so we swap the port.
  */
-async function loginWith2FA(
-  username: string,
-  password: string,
-  otp: string,
-): Promise<ApiResponse<User> & { requires2FA?: boolean }> {
+async function getWebAuthUrl(state: string): Promise<string> {
   const apiUrl = await getApiUrl();
-  const loginUrl = `${apiUrl}/auth/token/2fa`;
+  const u = new URL(apiUrl);
+  let host = u.host;
+  if (host.startsWith("api.")) {
+    host = host.slice(4);
+  } else if (host === "localhost:8000" || host === "127.0.0.1:8000") {
+    host = host.replace(":8000", ":4000");
+  }
+  const origin = `${u.protocol}//${host}`;
+  return `${origin}/extension-auth?extensionId=${encodeURIComponent(
+    chrome.runtime.id,
+  )}&state=${encodeURIComponent(state)}`;
+}
 
+async function getPendingWebAuth(): Promise<PendingWebAuth | null> {
+  const result = await chrome.storage.local.get(AUTH_NONCE_STORAGE_KEY);
+  const pending = result[AUTH_NONCE_STORAGE_KEY] as PendingWebAuth | undefined;
+  if (!pending) return null;
+  if (Date.now() - pending.createdAt > AUTH_NONCE_TTL_MS) {
+    await chrome.storage.local.remove(AUTH_NONCE_STORAGE_KEY);
+    return null;
+  }
+  return pending;
+}
+
+async function clearPendingWebAuth(): Promise<void> {
+  await chrome.storage.local.remove(AUTH_NONCE_STORAGE_KEY);
+}
+
+async function initiateWebAuth(): Promise<ApiResponse<{ authUrl: string }>> {
+  const state = generateNonce();
+  const pending: PendingWebAuth = { state, createdAt: Date.now() };
+  await chrome.storage.local.set({ [AUTH_NONCE_STORAGE_KEY]: pending });
+
+  let authUrl: string;
   try {
-    const response = await fetch(loginUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password, otp }),
-    });
-
-    const data = (await response.json()) as
-      | LoginResponse
-      | { detail?: string; message?: string };
-
-    if (!response.ok) {
-      const errorData = data as { detail?: string };
-      return {
-        success: false,
-        error: errorData.detail || "Invalid OTP code",
-      };
-    }
-
-    const loginData = data as LoginResponse;
-    if (loginData.access_token) {
-      await setToken(loginData.access_token);
-      return { success: true, data: loginData.user };
-    }
-
-    return { success: false, error: "No access token received" };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Login failed";
+    authUrl = await getWebAuthUrl(state);
+  } catch (e) {
+    await clearPendingWebAuth();
     return {
       success: false,
-      error: errorMessage,
+      error: `Failed to build auth URL: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  try {
+    const tab = await chrome.tabs.create({ url: authUrl, active: true });
+    await chrome.storage.local.set({
+      [AUTH_NONCE_STORAGE_KEY]: { ...pending, tabId: tab.id },
+    });
+    return { success: true, data: { authUrl } };
+  } catch (e) {
+    await clearPendingWebAuth();
+    return {
+      success: false,
+      error: `Failed to open auth tab: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
 }
+
+async function handleExternalMessage(
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+): Promise<{ success: boolean; error?: string }> {
+  const senderUrl = sender.url ? new URL(sender.url) : null;
+  if (!senderUrl || !ALLOWED_WEB_HOSTS.includes(senderUrl.hostname)) {
+    return { success: false, error: "Unauthorized sender" };
+  }
+
+  const msg = message as {
+    type?: string;
+    token?: string;
+    state?: string;
+  };
+
+  if (msg.type !== "carmodpicker-auth-handoff") {
+    return { success: false, error: "Unknown message type" };
+  }
+  if (!msg.token || !msg.state) {
+    return { success: false, error: "Missing token or state" };
+  }
+
+  const pending = await getPendingWebAuth();
+  if (!pending) {
+    return { success: false, error: "No pending auth session" };
+  }
+  if (msg.state !== pending.state) {
+    return { success: false, error: "State mismatch" };
+  }
+
+  await setToken(msg.token);
+  const tabId = pending.tabId;
+  await clearPendingWebAuth();
+  if (typeof tabId === "number") {
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch {
+      // tab may already be closed by the user — ignore
+    }
+  }
+  return { success: true };
+}
+
+chrome.runtime.onMessageExternal.addListener(
+  (message, sender, sendResponse) => {
+    handleExternalMessage(message, sender).then(sendResponse);
+    return true;
+  },
+);
 
 /**
  * Get current user
@@ -604,9 +626,6 @@ chrome.runtime.onMessage.addListener(
   (
     request: {
       action: string;
-      username?: string;
-      password?: string;
-      otp?: string;
       partData?: PartCreate;
       imageUrl?: string;
       partId?: string;
@@ -626,32 +645,21 @@ chrome.runtime.onMessage.addListener(
     _sender,
     sendResponse: (response: unknown) => void,
   ) => {
-    if (request.action === "login") {
-      if (request.username && request.password) {
-        login(request.username, request.password).then(sendResponse);
-        return true; // Keep channel open for async
-      } else {
-        sendResponse({
-          success: false,
-          error: "Username and password required",
-        });
-        return false;
-      }
+    if (request.action === "initiateWebAuth") {
+      initiateWebAuth().then(sendResponse);
+      return true;
     }
 
-    if (request.action === "loginWith2FA") {
-      if (request.username && request.password && request.otp) {
-        loginWith2FA(request.username, request.password, request.otp).then(
-          sendResponse,
-        );
-        return true;
-      } else {
-        sendResponse({
-          success: false,
-          error: "Username, password, and OTP code required",
-        });
-        return false;
-      }
+    if (request.action === "getPendingWebAuth") {
+      getPendingWebAuth().then((pending) => {
+        sendResponse({ success: true, data: { pending: !!pending } });
+      });
+      return true;
+    }
+
+    if (request.action === "cancelWebAuth") {
+      clearPendingWebAuth().then(() => sendResponse({ success: true }));
+      return true;
     }
 
     if (request.action === "logout") {
