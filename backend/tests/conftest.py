@@ -1,4 +1,3 @@
-import gc
 import os
 import uuid
 from typing import Any, Dict, Generator, Optional
@@ -6,19 +5,20 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # Set test environment variables BEFORE importing any app code
-# This ensures storage service and other services can detect test environment
+# so storage service, rate limiter, etc. detect the test environment at import time.
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
-# Import after environment setup - environment variables must be set before importing app code
+# Imports deferred until after env setup.
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
 from app.api.models.category import Category  # noqa: E402
 from app.api.models.part_manufacturer import PartManufacturer  # noqa: E402
@@ -28,158 +28,85 @@ from app.db.session import get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
 
-# Get worker ID for parallel testing
-def get_worker_id() -> Optional[str]:
-    """Get the worker ID for parallel testing, or None if not in parallel mode."""
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
-    if worker_id:
-        # Extract the worker number from the worker ID
-        return worker_id.replace("gw", "")
-    return None
-
-
-def get_test_database_url() -> str:
-    """Get the test database URL - always use SQLite in-memory for tests."""
-    # Always use in-memory database for tests to avoid file system dependencies
-    # and ensure complete isolation between tests
-    return "sqlite:///:memory:"
-
-
-# Global session factory for testing
-TestingSessionLocal: Optional[sessionmaker[Session]] = None
-_test_engine: Optional[Any] = None
-
-
-def get_test_session_factory() -> sessionmaker[Session]:
-    """Get the test session factory, creating it if needed."""
-    global TestingSessionLocal, _test_engine
-
-    # Always create a fresh session factory for each test
-    # Create engine for session factory
-    database_url = get_test_database_url()
-
-    _test_engine = create_engine(
-        database_url,
+@pytest.fixture(scope="session")
+def engine() -> Generator[Engine, None, None]:
+    """
+    One SQLite in-memory engine per xdist worker, shared across every test in that
+    worker. Tables are created once; per-test isolation is achieved via nested
+    transactions (SAVEPOINTs) in db_session, not by tearing down the engine.
+    """
+    eng = create_engine(
+        "sqlite:///:memory:",
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
 
-    # Create all tables
-    Base.metadata.create_all(bind=_test_engine)
+    # SQLite defaults to autocommit-ish behavior that breaks SAVEPOINT nesting.
+    # This disables pysqlite's implicit BEGIN so SQLAlchemy fully controls transactions.
+    @event.listens_for(eng, "connect")
+    def _disable_pysqlite_autobegin(dbapi_connection, _):  # type: ignore[no-untyped-def]
+        dbapi_connection.isolation_level = None
 
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_test_engine)
-    return TestingSessionLocal
+    @event.listens_for(eng, "begin")
+    def _emit_begin(conn):  # type: ignore[no-untyped-def]
+        conn.exec_driver_sql("BEGIN")
 
+    Base.metadata.create_all(bind=eng)
 
-def cleanup_test_engine() -> None:
-    """Clean up the test engine and force garbage collection."""
-    global TestingSessionLocal, _test_engine
+    yield eng
 
-    if TestingSessionLocal:
-        # Use the recommended method instead of the deprecated close_all()
-        from sqlalchemy.orm import close_all_sessions
-
-        close_all_sessions()
-        TestingSessionLocal = None
-
-    if _test_engine:
-        _test_engine.dispose()
-        _test_engine = None
-
-    # Force garbage collection to clean up any remaining connections
-    gc.collect()
-
-
-@pytest.fixture(scope="session")
-def engine() -> Generator[Any, None, None]:
-    """Create a test database engine."""
-    database_url = get_test_database_url()
-
-    # Create engine with specific settings for testing
-    engine = create_engine(
-        database_url,
-        poolclass=StaticPool,  # Use static pool for testing
-        connect_args={"check_same_thread": False},
-    )
-
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-
-    yield engine
-
-    # Clean up - drop all tables
-    Base.metadata.drop_all(bind=engine)
-
-    # Close the engine to release file handles
-    engine.dispose()
-
-    # Force garbage collection
-    gc.collect()
-
-
-def override_get_db() -> Generator[Session, None, None]:
-    """Override the database dependency for testing."""
-    session_factory = get_test_session_factory()
-    db = None
-    try:
-        db = session_factory()
-        yield db
-    finally:
-        if db:
-            db.rollback()
-            db.close()
-
-
-# Override the dependency
-fastapi_app.dependency_overrides[get_db] = override_get_db
+    eng.dispose()
 
 
 @pytest.fixture(scope="function")
-def db_session() -> Generator[Session, None, None]:
-    """Create a new database session for a test."""
-    session_factory = get_test_session_factory()
-    session = session_factory()
+def db_session(engine: Engine) -> Generator[Session, None, None]:
+    """
+    Per-test session wrapped in an outer transaction that always rolls back.
+    `join_transaction_mode="create_savepoint"` lets test code call session.commit()
+    without ending the outer transaction — commits become SAVEPOINT releases.
+    """
+    connection = engine.connect()
+    transaction = connection.begin()
+
+    SessionLocal = sessionmaker(
+        bind=connection,
+        autocommit=False,
+        autoflush=False,
+        join_transaction_mode="create_savepoint",
+    )
+    session = SessionLocal()
 
     try:
         yield session
     finally:
-        # Clean up all data from the session
-        session.rollback()
         session.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_after_session() -> Generator[None, None, None]:
-    """Clean up database connections after all tests complete."""
-    yield
-    cleanup_test_engine()
-
-
-@pytest.fixture(autouse=True)
-def cleanup_after_test() -> Generator[None, None, None]:
-    """Clean up database connections after each test."""
-    yield
-    cleanup_test_engine()
+        if transaction.is_active:
+            transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture
 def client(db_session: Session) -> Generator[TestClient, None, None]:
-    """Create a test client with a fresh database session."""
+    """
+    TestClient bound to the current test's db_session.
 
-    # Override the database dependency to use the same session as the test
-    def override_get_db_for_test() -> Generator[Session, None, None]:
+    Intentionally NOT used as a context manager — that would trigger app lifespan,
+    which runs init_car_generations() (6500+ rows) and crawler/service-account seeding
+    on every test. Tests that need that seed data must invoke the init functions
+    explicitly (see test_init_cars_display_name.py for the pattern).
+    """
+
+    def override_get_db() -> Generator[Session, None, None]:
         try:
             yield db_session
         finally:
-            pass  # Don't close the session here, it's managed by the fixture
+            pass  # session lifecycle is owned by the db_session fixture
 
-    fastapi_app.dependency_overrides[get_db] = override_get_db_for_test
-
-    with TestClient(fastapi_app) as test_client:
-        yield test_client
-
-    # Clean up the override
-    fastapi_app.dependency_overrides.pop(get_db, None)
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(fastapi_app)
+    finally:
+        fastapi_app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture(scope="function")
