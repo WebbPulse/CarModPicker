@@ -57,6 +57,26 @@ python -m app.crawlers --adapter adro --limit 5
 
 Optional: `CRAWLER_ADRO_START_URLS` (comma-separated) overrides product URLs for the adro adapter. By default, product URLs are discovered via sitemap.xml (all URLs containing `/products/`). Brand is always normalized to `ADRO` (titles lead with the target vehicle, so the generic title heuristic would otherwise pick the car make).
 
+**Example (Summit Racing):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=brakes
+python -m app.crawlers --adapter summitracing --limit 5
+```
+
+Optional: `CRAWLER_SUMMITRACING_START_URLS` (comma-separated) overrides the starting category/search URLs. Defaults to the diesel exhaust brakes category. Discovery walks `?page=N` pagination and collects all `/parts/<slug>` product URLs from the configured categories. Parsing uses the page's JSON-LD `Product` block and pulls the full image gallery from the `part-media-files` JSON. Summit's SKU is retailer-prefixed (e.g. `BDD-2001102`); the adapter uses the JSON-LD `mpn` (`2001102`) as the part number so cross-retailer dedupe still works.
+
+**Example (MAPerformance):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=engine
+python -m app.crawlers --adapter maperformance --limit 5
+```
+
+Optional: `CRAWLER_MAPERFORMANCE_START_URLS` (comma-separated) overrides product URLs. By default, product URLs are discovered via sitemap.xml (a Shopify sitemap index pointing at `sitemap_products_N.xml` children). MAP emits JSON-LD as `ProductGroup` with a `hasVariant` array (not the plain `Product` schema the shared extractor handles), so the adapter has its own ProductGroup-aware extractor that reads the first variant for sku/price/image. Brands are passed through unchanged (Perrin Performance, COBB Tuning, Cusco, Mishimoto, …) since MAP carries many third-party manufacturers.
+
 **Full-page archive (optional):** To keep a copy of each product page for post-processing or re-parsing:
 
 - **CRAWL_HTML_SAVE_DIR** – Directory to save HTML (e.g. `./crawl_cache`). When set, we save a full page copy for **new URLs only** (first time we see that product URL). Recrawls (known URLs) still fetch and update price but do not write HTML by default.
