@@ -68,13 +68,24 @@ function Popup() {
         return;
       }
 
-      // Programmatically inject content script if not already loaded (e.g. tab was
-      // open before extension install/reload, or content script failed to inject)
+      showStatus("Analyzing page...", "info");
+
+      // On-demand injection using activeTab grant — no broad host permissions needed.
+      let pageHtml: string;
       try {
-        await chrome.scripting.executeScript({
+        const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          files: ["content.js"],
+          func: () => document.documentElement.outerHTML,
         });
+        const firstResult = results?.[0]?.result;
+        if (typeof firstResult !== "string" || !firstResult) {
+          showStatus(
+            "Failed to capture page HTML. Try refreshing the page.",
+            "error"
+          );
+          return;
+        }
+        pageHtml = firstResult;
       } catch (injectError) {
         const msg =
           injectError instanceof Error
@@ -87,64 +98,36 @@ function Popup() {
           );
         } else {
           showStatus(
-            `Failed to load scraper: ${msg}. Try refreshing the page.`,
+            `Failed to capture page: ${msg}. Try refreshing the page.`,
             "error"
           );
         }
         return;
       }
 
-      showStatus("Analyzing page...", "info");
-
-      chrome.tabs.sendMessage(
-        tab.id,
-        { action: "scrapePage" },
+      chrome.runtime.sendMessage(
+        { action: "scrapeAndParse", url: tab.url, html: pageHtml },
         (
-          response:
-            | { success: boolean; html: string }
+          serverResponse:
+            | {
+                success: boolean;
+                data?: ScrapedProductData & { adapter_used?: string };
+                error?: string;
+              }
             | undefined
         ) => {
-          if (chrome.runtime.lastError) {
+          void chrome.runtime.lastError; // suppress unchecked error if popup closed
+          if (!serverResponse?.success || !serverResponse.data) {
             showStatus(
-              "Failed to capture page. Make sure you are on a product page and refresh if needed.",
+              serverResponse?.error ||
+                "Server failed to parse page. Check your connection and try again.",
               "error"
             );
             return;
           }
-          if (!response?.success || !response.html) {
-            showStatus(
-              "Failed to capture page HTML. Try refreshing the page.",
-              "error"
-            );
-            return;
-          }
-
-          // Send HTML to server for archival + server-side parsing
-          chrome.runtime.sendMessage(
-            { action: "scrapeAndParse", url: tab.url, html: response.html },
-            (
-              serverResponse:
-                | {
-                    success: boolean;
-                    data?: ScrapedProductData & { adapter_used?: string };
-                    error?: string;
-                  }
-                | undefined
-            ) => {
-              void chrome.runtime.lastError; // suppress unchecked error if popup closed
-              if (!serverResponse?.success || !serverResponse.data) {
-                showStatus(
-                  serverResponse?.error ||
-                    "Server failed to parse page. Check your connection and try again.",
-                  "error"
-                );
-                return;
-              }
-              setScrapedData(serverResponse.data);
-              setShowPartDialog(true);
-              setStatusMessage(null);
-            }
-          );
+          setScrapedData(serverResponse.data);
+          setShowPartDialog(true);
+          setStatusMessage(null);
         }
       );
     } catch (error) {

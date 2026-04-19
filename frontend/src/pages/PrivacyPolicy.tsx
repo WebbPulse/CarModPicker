@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = 'April 15, 2026';
+const LAST_UPDATED = 'April 18, 2026';
 const CONTACT_EMAIL = 'tyler@webbpulse.com';
 
 function PrivacyPolicy() {
@@ -55,10 +55,33 @@ function PrivacyPolicy() {
               </li>
               <li>
                 <strong>Data from our Chrome extension</strong>: if you install
-                our optional extension, it collects publicly displayed product
-                information from retailer pages and sends it to our servers when
-                you choose to submit it. It does not passively track your
-                browsing history.
+                our optional extension, it does <em>not</em> run in the
+                background and does <em>not</em> passively track your browsing
+                history. When — and only when — you click the extension's action
+                button on a page, it captures that page's URL and its rendered
+                HTML and sends them to our servers for parsing into product
+                information. Before the HTML is stored or parsed, our servers
+                remove scripts (other than product structured data), styles,
+                iframes, and form field values so that autofilled inputs and
+                inline user-state blobs are not retained. The extension does not
+                read cookies, browser storage, or request headers.
+              </li>
+              <li>
+                <strong>Google Sign-In</strong>: if you choose to sign in with
+                Google, we receive your Google account email address and basic
+                profile information (name, profile picture) from Google to
+                create or authenticate your account. We do not request access to
+                any other Google APIs, Drive, Gmail, Calendar, or contacts. Our
+                use of information received from Google APIs adheres to the{' '}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-400 underline"
+                >
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements.
               </li>
             </ul>
           </section>
@@ -140,16 +163,79 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              4. Data Retention and Deletion
+              4. Chrome Extension: Limited Use of Data
+            </h2>
+            <p>
+              Our Chrome extension is built to comply with the{' '}
+              <a
+                href="https://developer.chrome.com/docs/webstore/program-policies/limited-use/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-400 underline"
+              >
+                Chrome Web Store User Data Policy
+              </a>
+              , including the Limited Use requirements. Specifically:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>
+                Data captured by the extension (the URL and sanitized HTML of
+                the page you explicitly scrape) is used <strong>only</strong> to
+                parse product information for you and to let you add that part
+                to your CarModPicker account.
+              </li>
+              <li>
+                We do not sell or transfer this data to third parties for
+                advertising, resale, marketing, credit-scoring, or any unrelated
+                purpose.
+              </li>
+              <li>
+                We do not use this data for personalized advertising of any
+                kind.
+              </li>
+              <li>
+                We do not allow humans to read this data except: (a) with your
+                explicit consent, (b) to investigate security incidents or
+                policy abuse, (c) to comply with applicable law, or (d) where
+                the data has been aggregated or anonymized such that it no
+                longer identifies you.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-3">
+              5. Data Retention and Deletion
             </h2>
             <p>
               We do <strong>not</strong> guarantee any particular retention
               period for your data. The Service is in active development and is
               operated on a best-effort basis. We may, at any time and without
               prior notice, reset, migrate, wipe, or delete accounts, databases,
-              uploaded images, or any other stored content — for example during
-              schema changes, infrastructure moves, abuse cleanup, or simply
-              because we decide to.
+              uploaded images, or any other stored content — for example:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>during schema changes or infrastructure moves;</li>
+              <li>during abuse cleanup or moderation actions;</li>
+              <li>or simply because we decide to.</li>
+            </ul>
+            <p>
+              <strong>Scraped page archives.</strong> Sanitized HTML captured
+              via the Chrome extension is stored so that the parsed product
+              information can be refreshed or corrected later. We retain it only
+              for as long as it remains useful for that purpose, and we may
+              delete or overwrite it at any time without notice — for example:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>when the associated part is removed;</li>
+              <li>
+                when an archive is superseded by a newer capture of the same
+                URL;
+              </li>
+              <li>or during routine storage cleanup.</li>
+            </ul>
+            <p>
+              You can request deletion of pages you submitted by emailing us.
             </p>
             <p>
               You should keep your own copies of anything you care about. Do not
@@ -173,7 +259,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              5. Security
+              6. Security
             </h2>
             <p>
               We take reasonable steps to protect your data, including hashing
@@ -187,7 +273,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              6. Minors
+              7. Minors
             </h2>
             <p>
               <strong>
@@ -209,7 +295,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              7. EEA / UK Residents (GDPR / UK GDPR)
+              8. EEA / UK Residents (GDPR / UK GDPR)
             </h2>
             <p>
               If you are located in the European Economic Area or the United
@@ -247,7 +333,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              8. California Residents (CCPA / CPRA)
+              9. California Residents (CCPA / CPRA)
             </h2>
             <p>
               In the past twelve months, we have collected the following
@@ -276,7 +362,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              9. International Users
+              10. International Users
             </h2>
             <p>
               The Service is operated from the United States and your data will
@@ -287,7 +373,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              10. Changes to This Policy
+              11. Changes to This Policy
             </h2>
             <p>
               We may update this policy at any time. Material changes will be
@@ -298,7 +384,7 @@ function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">
-              11. Contact
+              12. Contact
             </h2>
             <p>
               Questions about this policy? Email{' '}

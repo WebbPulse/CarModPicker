@@ -27,13 +27,13 @@ interface PartDialogProps {
     searchTerm?: string;
     part_manufacturerName?: string;
     productUrl?: string;
-    partId?: number;
-    part_manufacturerId?: number;
+    partId?: string;
+    part_manufacturerId?: string;
     partNumber?: string;
     domain?: string;
     listingData?: {
-      part_id: number;
-      retailer_id: number;
+      part_id: string;
+      retailer_id: string;
       product_url?: string;
       price_cents?: number;
     };
@@ -90,15 +90,15 @@ const PartDialog: React.FC<PartDialogProps> = ({
 
   const [formData, setFormData] = useState({
     name: scrapedData.name || "",
-    part_manufacturerId: null as number | string | null,
+    part_manufacturerId: null as string | null,
     partNumber: scrapedData.part_number || "",
     description: scrapedData.description || "",
     price: scrapedData.price ? (scrapedData.price / 100).toFixed(2) : "",
     url: scrapedData.product_url || "",
     imageUrl: "",
     imageUrls: scrapedData.image_urls || [],
-    categoryId: null as number | string | null,
-    carId: null as number | string | null,
+    categoryId: null as string | null,
+    carId: null as string | null,
   });
 
   const [pendingPartManufacturerName, setPendingPartManufacturerName] = useState<string | null>(null);
@@ -149,7 +149,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       const response = (await sendMessage({
         action: "checkProductUrl",
         productUrl,
-      })) as ApiResponse<{ existing_part_id: number | null }>;
+      })) as ApiResponse<{ existing_part_id: string | null }>;
 
       if (!response.success || !response.data) {
         setViewMode("create");
@@ -211,17 +211,11 @@ const PartDialog: React.FC<PartDialogProps> = ({
       setExistingPartByPartManufacturerAndPartNumber(null);
       return;
     }
-    const numericPartManufacturerId =
-      typeof part_manufacturerId === "string" ? parseInt(part_manufacturerId, 10) : part_manufacturerId;
-    if (Number.isNaN(numericPartManufacturerId)) {
-      setExistingPartByPartManufacturerAndPartNumber(null);
-      return;
-    }
     let cancelled = false;
     (async () => {
       const response = (await sendMessage({
         action: "findExistingPartByPartManufacturerAndPartNumber",
-        part_manufacturerId: numericPartManufacturerId,
+        part_manufacturerId,
         partNumber,
       })) as ApiResponse<PartRead>;
       if (cancelled) return;
@@ -435,9 +429,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       }
 
       // Resolve part_manufacturer_id: create part_manufacturer if pending
-      let part_manufacturerId = formData.part_manufacturerId
-        ? parseInt(formData.part_manufacturerId.toString())
-        : null;
+      let part_manufacturerId: string | null = formData.part_manufacturerId;
       if (!part_manufacturerId && pendingPartManufacturerName) {
         const part_manufacturerResult = (await sendMessage({
           action: "createPartManufacturer",
@@ -462,9 +454,9 @@ const PartDialog: React.FC<PartDialogProps> = ({
         description: formData.description.trim() || null,
         price: priceCents,
         product_url: formData.url.trim() || null,
-        category_id: parseInt(formData.categoryId.toString()),
+        category_id: formData.categoryId!,
         is_universal: false,
-        car_ids: formData.carId ? [parseInt(formData.carId.toString())] : [],
+        car_ids: formData.carId ? [formData.carId] : [],
         part_manufacturer_id: part_manufacturerId!,
         part_number: normalizePartNumber(formData.partNumber) || null,
         image_urls: null,
@@ -490,7 +482,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
       const response = (await sendMessage({
         action: "createPart",
         partData,
-      })) as ApiResponse<{ id: number }>;
+      })) as ApiResponse<{ id: string }>;
 
       if (response.success && response.data?.id) {
         const partId = response.data.id;
