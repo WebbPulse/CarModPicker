@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
 
-from app.api.schemas.auth import OAuthAccountRead
+from app.api.schemas.auth import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, OAuthAccountRead
 from app.api.schemas.part import apply_image_url_presigning
 
 # Max length for social profile URLs (RFC 7230 recommends 8000; we use 500 for profile links)
@@ -43,7 +43,7 @@ def _validate_social_url(value: Any, platform: str, allowed_host_substrings: lis
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
 
 
 # Schema for request body when updating a user
@@ -51,7 +51,7 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     image_urls: Optional[List[str]] = None
     current_password: Optional[str] = None
     otp: Optional[str] = None  # Required if 2FA is enabled and changing password
@@ -96,7 +96,7 @@ class AdminUserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     image_urls: Optional[List[str]] = None
     is_superuser: Optional[bool] = None
     is_admin: Optional[bool] = None

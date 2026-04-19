@@ -688,6 +688,10 @@ async def webauthn_login_verify(
         ResponsePatterns.raise_bad_request("Inactive user")
     if user.is_service_account:
         ResponsePatterns.raise_unauthorized("Unknown credential")
+    # Mirrors get_current_user: unverified users must not be able to acquire a
+    # session, even via a previously-registered passkey.
+    if not user.email_verified:
+        ResponsePatterns.raise_unauthorized("Email not verified")
 
     try:
         verified = verify_authentication_response(

@@ -2,11 +2,16 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+# bcrypt silently truncates anything past 72 bytes. Capping here so users can't
+# set a password whose tail is ignored on verification.
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 72
 
 
 class NewPassword(BaseModel):
-    password: str
+    password: str = Field(..., min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
 
 
 class TOTPSetupResponse(BaseModel):
