@@ -47,6 +47,16 @@ python -m app.crawlers --adapter studiorsr --limit 5
 
 Optional: `CRAWLER_STUDIORSR_START_URLS` (comma-separated) overrides product URLs for the studiorsr adapter. By default, product URLs are discovered via sitemap.xml (all URLs containing `/products/`).
 
+**Example (ADRO):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=aero
+python -m app.crawlers --adapter adro --limit 5
+```
+
+Optional: `CRAWLER_ADRO_START_URLS` (comma-separated) overrides product URLs for the adro adapter. By default, product URLs are discovered via sitemap.xml (all URLs containing `/products/`). Brand is always normalized to `ADRO` (titles lead with the target vehicle, so the generic title heuristic would otherwise pick the car make).
+
 **Full-page archive (optional):** To keep a copy of each product page for post-processing or re-parsing:
 
 - **CRAWL_HTML_SAVE_DIR** – Directory to save HTML (e.g. `./crawl_cache`). When set, we save a full page copy for **new URLs only** (first time we see that product URL). Recrawls (known URLs) still fetch and update price but do not write HTML by default.

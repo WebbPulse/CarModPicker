@@ -13,6 +13,11 @@ def test_studiorsr_hosts() -> None:
     assert adapter_name_for_product_url("https://www.studiorsr.com/products/bar") == "studiorsr"
 
 
+def test_adro_hosts() -> None:
+    assert adapter_name_for_product_url("https://adro.com/products/baz") == "adro"
+    assert adapter_name_for_product_url("https://www.adro.com/products/baz") == "adro"
+
+
 def test_unknown_host() -> None:
     # Unknown hosts now fall back to "generic" instead of None
     assert adapter_name_for_product_url("https://example.com/p/1") == "generic"

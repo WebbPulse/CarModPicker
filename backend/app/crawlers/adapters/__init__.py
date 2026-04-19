@@ -11,12 +11,14 @@ crawler runner CLI (it has no discover_product_urls implementation).
 from urllib.parse import urlparse
 
 from app.crawlers.adapters.a90shop import A90ShopAdapter
+from app.crawlers.adapters.adro import AdroAdapter
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.adapters.generic import GenericHtmlParser
 from app.crawlers.adapters.studiorsr import StudioRSRAdapter
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "a90shop": A90ShopAdapter,
+    "adro": AdroAdapter,
     "studiorsr": StudioRSRAdapter,
     "generic": GenericHtmlParser,
 }
@@ -43,6 +45,8 @@ def adapter_name_for_product_url(url: str) -> str:
         return "studiorsr"
     if host.endswith("a90shop.com"):
         return "a90shop"
+    if host == "adro.com" or host.endswith(".adro.com"):
+        return "adro"
     return "generic"
 
 
