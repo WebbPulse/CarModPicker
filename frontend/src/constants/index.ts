@@ -99,3 +99,21 @@ export const BUILDER_FIRST_PAGE_BUILD_LISTS = 7;
 
 /** Build lists per page on subsequent pages */
 export const BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS = 8;
+
+// ============================================================================
+// Chrome Extension
+// ============================================================================
+
+/**
+ * Chrome Web Store listing for the CarModPicker Part Scraper extension.
+ * Update this once the extension is published.
+ */
+export const CHROME_EXTENSION_STORE_URL =
+  'https://chromewebstore.google.com/category/extensions';
+
+/**
+ * `dataset` key the extension's content script sets on <html> when running on
+ * a CarModPicker host. Used to detect that the extension is installed.
+ * In the DOM this appears as the attribute `data-carmodpicker-extension`.
+ */
+export const EXTENSION_INSTALLED_DATA_ATTR = 'carmodpickerExtension';

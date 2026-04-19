@@ -3,6 +3,7 @@ import { BsTools } from 'react-icons/bs';
 import {
   FaBars,
   FaBug,
+  FaChrome,
   FaCoffee,
   FaCogs,
   FaSearch,
@@ -12,6 +13,7 @@ import {
 } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
+import { CHROME_EXTENSION_STORE_URL } from '../../../constants';
 import { useAuth } from '../../../hooks/useAuth';
 import LoadingSpinner from '../../common/LoadingSpinner';
 
@@ -126,6 +128,12 @@ function Header() {
                 </NavLink>
               </div>
               <div className="flex items-center space-x-1">
+                <ExternalNavLink
+                  href={CHROME_EXTENSION_STORE_URL}
+                  icon={<FaChrome />}
+                >
+                  Get Extension
+                </ExternalNavLink>
                 <NavLink to="/bug-report" icon={<FaBug />}>
                   Report a Bug
                 </NavLink>
@@ -215,6 +223,13 @@ function Header() {
                   >
                     Search
                   </MobileNavLink>
+                  <MobileExternalNavLink
+                    href={CHROME_EXTENSION_STORE_URL}
+                    icon={<FaChrome />}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Get Extension
+                  </MobileExternalNavLink>
                   <MobileNavLink
                     to="/bug-report"
                     icon={<FaBug />}
@@ -292,6 +307,57 @@ function MobileNavLink({
       <span className="text-lg">{icon}</span>
       <span>{children}</span>
     </Link>
+  );
+}
+
+// Desktop External Link Component (opens in new tab)
+function ExternalNavLink({
+  href,
+  icon,
+  children,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group"
+    >
+      <span className="group-hover:scale-110 transition-transform duration-300">
+        {icon}
+      </span>
+      <span>{children}</span>
+    </a>
+  );
+}
+
+// Mobile External Link Component (opens in new tab)
+function MobileExternalNavLink({
+  href,
+  icon,
+  children,
+  onClick,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onClick}
+      className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
+    >
+      <span className="text-lg">{icon}</span>
+      <span>{children}</span>
+    </a>
   );
 }
 
