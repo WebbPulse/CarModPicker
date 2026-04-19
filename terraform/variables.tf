@@ -91,3 +91,37 @@ variable "crawler_ecs_memory" {
   type        = string
   default     = "512"
 }
+
+# ---------------------------------------------------------------------------
+# FlareSolverr — Tier 2 (browser) crawler fetcher
+#
+# FlareSolverr is a standalone service that wraps a headless Chromium to
+# solve Cloudflare managed JS challenges (JEGS, FCP Euro, etc.). The crawler
+# posts to it when an adapter declares FETCHER_TIER="browser".
+#
+# Leave flaresolverr_url empty to keep the Tier 2 path disabled — adapters
+# with FETCHER_TIER="browser" will raise a clear "not configured" error at
+# first fetch rather than silently falling back to plain HTTP.
+#
+# To enable: run a FlareSolverr service somewhere reachable from the crawler
+# (ECS Fargate service, EC2, or external) and set flaresolverr_url to its
+# base URL (e.g. "http://flaresolverr.crawler.local:8191"). See
+# backend/app/crawlers/README.md "Deploying FlareSolverr" for concrete steps.
+# ---------------------------------------------------------------------------
+variable "flaresolverr_url" {
+  description = "Base URL of a running FlareSolverr service (empty to disable the browser-tier fetcher)"
+  type        = string
+  default     = ""
+}
+
+variable "flaresolverr_max_timeout_ms" {
+  description = "Per-request timeout (ms) passed to FlareSolverr. 60s covers most challenges."
+  type        = number
+  default     = 60000
+}
+
+variable "flaresolverr_session_name" {
+  description = "Name of the FlareSolverr session reused across crawler requests (amortizes challenge cost)"
+  type        = string
+  default     = "carmodpicker-crawler"
+}
