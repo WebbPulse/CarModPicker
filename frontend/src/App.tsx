@@ -206,7 +206,7 @@ function App() {
                   path="/forgot-password/confirm"
                   element={<ForgotPasswordConfirm />}
                 />
-                <Route path="/cars/:carId" element={<ViewCar />} />
+                <Route path="/car-generations/:carId" element={<ViewCar />} />
                 <Route
                   path="/build-lists/:buildListId"
                   element={<ViewBuildList />}
