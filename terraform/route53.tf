@@ -37,13 +37,17 @@ resource "aws_route53_record" "api" {
   records = [aws_apprunner_service.backend.service_url]
 }
 
-# SPF record for SES sending from @carmodpicker.com
+# Apex TXT records. Route53 stores all TXT records at the same name in a
+# single RRSet, so SPF and domain-verification strings share one resource.
 resource "aws_route53_record" "spf" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
   name    = "carmodpicker.com"
   type    = "TXT"
   ttl     = 300
-  records = ["v=spf1 include:amazonses.com ~all"]
+  records = [
+    "v=spf1 include:amazonses.com ~all",
+    "google-site-verification=kJMc_JNCEf4utqVGE2_00H14I1TUKJKUakLPbvq13_8",
+  ]
 }
 
 # Google Search Console domain ownership verification for www.carmodpicker.com
