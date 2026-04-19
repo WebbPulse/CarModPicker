@@ -46,6 +46,15 @@ resource "aws_route53_record" "spf" {
   records = ["v=spf1 include:amazonses.com ~all"]
 }
 
+# Google Search Console domain ownership verification for www.carmodpicker.com
+resource "aws_route53_record" "www_google_site_verification" {
+  zone_id = aws_route53_zone.carmodpicker.zone_id
+  name    = "www.carmodpicker.com"
+  type    = "TXT"
+  ttl     = 300
+  records = ["google-site-verification=kJMc_JNCEf4utqVGE2_00H14I1TUKJKUakLPbvq13_8"]
+}
+
 # SES DKIM verification records
 resource "aws_route53_record" "ses_dkim_1" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
