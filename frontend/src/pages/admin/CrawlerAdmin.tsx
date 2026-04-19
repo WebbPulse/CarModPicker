@@ -923,7 +923,7 @@ function CrawlerAdmin() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  <div className="space-y-1.5">
                     {crawlerAdapters.map((adapter) => (
                       <div
                         key={adapter}
