@@ -363,6 +363,15 @@ def test_reset_password_confirm_invalid_token(client: TestClient, db_session: Se
     assert "invalid" in response.json()["message"].lower()
 
 
+def test_reset_password_confirm_rejects_short_password(client: TestClient) -> None:
+    """Schema validation runs before token decoding, so a short password 422s even with a junk token."""
+    response = client.post(
+        f"{settings.API_STR}/auth/reset-password/confirm",
+        json={"token": "anything", "new_password": {"password": "short"}},
+    )
+    assert response.status_code == 422, response.text
+
+
 def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
     """Test password reset confirmation with token that has wrong purpose."""
     from datetime import timedelta

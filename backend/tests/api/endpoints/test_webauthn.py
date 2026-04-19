@@ -390,3 +390,60 @@ def test_register_rejects_empty_nickname(client: TestClient, db_session: Session
         json={"nickname": "   "},
     )
     assert resp.status_code == 400
+
+
+def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Session) -> None:
+    """An unverified user can't acquire a session via a passkey, even if signature verification
+    would succeed. Matches the email_verified gate in get_current_user."""
+    username = _unique("passkey_unverified")
+    user = _create_user(db_session, username)
+    user.email_verified = False
+    db_session.commit()
+
+    fake_cred_id = b"unverified-cred-id-123456789012"
+    cred = WebAuthnCredential(
+        user_id=user.id,
+        credential_id=fake_cred_id,
+        public_key=b"pub",
+        sign_count=0,
+        transports=None,
+        aaguid=None,
+        nickname="Key",
+    )
+    db_session.add(cred)
+    db_session.commit()
+
+    opts_resp = client.post(
+        f"{settings.API_STR}/auth/webauthn/login/options",
+        json={"username": username},
+    )
+    challenge_token = opts_resp.json()["challenge_token"]
+
+    verified = SimpleNamespace(
+        new_sign_count=1,
+        credential_id=fake_cred_id,
+        credential_backed_up=False,
+        credential_device_type="single_device",
+        user_verified=True,
+    )
+    with patch(
+        "app.api.endpoints.auth.verify_authentication_response",
+        return_value=verified,
+    ):
+        resp = client.post(
+            f"{settings.API_STR}/auth/webauthn/login/verify",
+            json={
+                "challenge_token": challenge_token,
+                "credential": {
+                    "id": _b64url(fake_cred_id),
+                    "type": "public-key",
+                    "response": {"clientDataJSON": "x", "authenticatorData": "y", "signature": "z"},
+                },
+            },
+        )
+    assert resp.status_code == 401, resp.text
+    assert "email not verified" in resp.json()["message"].lower()
+
+    db_session.refresh(cred)
+    # sign_count must not advance when the login is rejected.
+    assert cred.sign_count == 0

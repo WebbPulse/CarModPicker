@@ -118,6 +118,23 @@ def test_create_user_duplicate_email(client: TestClient, db_session: Session) ->
     assert "email already registered" in response.json()["message"].lower()
 
 
+def test_create_user_rejects_short_password(client: TestClient) -> None:
+    response = client.post(
+        f"{settings.API_STR}/users/",
+        json={"username": "short_pw_user", "email": "short_pw@example.com", "password": "short"},
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_create_user_rejects_overlong_password(client: TestClient) -> None:
+    # bcrypt silently truncates past 72 bytes; the schema must reject before we hash.
+    response = client.post(
+        f"{settings.API_STR}/users/",
+        json={"username": "long_pw_user", "email": "long_pw@example.com", "password": "a" * 73},
+    )
+    assert response.status_code == 422, response.text
+
+
 # --- Read User (/me) Tests ---
 def test_read_users_me_success(client: TestClient, db_session: Session) -> None:
     user_info, token = create_and_login_user(client, "me_test")  # Logs in, returns token
