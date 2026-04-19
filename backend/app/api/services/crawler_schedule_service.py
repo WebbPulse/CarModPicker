@@ -220,9 +220,9 @@ def sweep_orphan_schedules(db: Session) -> list[str]:
     group = settings.SCHEDULER_GROUP_NAME
     live_names = {schedule_name_for(r.name) for r in db.query(CrawlerSchedule.name).all()}
 
-    client = _get_scheduler_client()
     deleted: list[str] = []
     try:
+        client = _get_scheduler_client()
         next_token: Optional[str] = None
         while True:
             kwargs: Dict[str, Any] = {
