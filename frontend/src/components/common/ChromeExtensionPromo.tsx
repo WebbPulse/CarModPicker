@@ -88,7 +88,7 @@ function ChromeExtensionPromo() {
     <div
       role="dialog"
       aria-label="Install CarModPicker Chrome extension"
-      className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100%-2rem)] sm:w-96 glass-card rounded-2xl border border-white/10 shadow-2xl animate-slideInUp"
+      className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100%-2rem)] sm:w-96 bg-neutral-950 rounded-2xl border border-white/10 shadow-2xl animate-slideInUp"
     >
       <button
         type="button"
