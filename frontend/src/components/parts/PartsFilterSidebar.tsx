@@ -92,7 +92,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
   return (
     <aside className="lg:w-64 flex-shrink-0">
       <Card className="sticky top-4 overflow-hidden">
-        <div className="p-4 space-y-6">
+        <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-5rem)]">
           <div className="flex items-center justify-between pb-2 border-b border-gray-700/60">
             <h2 className="text-base font-semibold text-gray-100">Filters</h2>
             {hasActiveFilters && (
