@@ -56,7 +56,7 @@ class CarModel(Base):
 
 
 @event.listens_for(CarModel, "before_insert")
-def _autofill_car_model_slug(_mapper, _conn, target: CarModel) -> None:
+def _autofill_car_model_slug(_mapper, _conn, target: CarModel) -> None:  # pyright: ignore[reportUnusedFunction]
     """Fill `slug` from `name` if the caller didn't pin one. Matches the field's docstring
     promise ("defaults to slugify(name) on first insert"). init_cars passes `slug` explicitly
     so this only kicks in for ad-hoc inserts (tests, admin flows)."""
