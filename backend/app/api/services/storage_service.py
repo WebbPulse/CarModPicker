@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
@@ -86,6 +87,13 @@ class StorageService:
                 "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY or None,
                 "region_name": settings.AWS_REGION or None,
                 "endpoint_url": settings.S3_ENDPOINT_URL or None,
+                # Default urllib3 pool is 10 per-host; the crawler runs up to
+                # ``DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE``
+                # (80) adapter threads in parallel, each ingesting parts that
+                # hit S3 for image uploads and presign lookups. Without this
+                # bump urllib3 logs "Connection pool is full, discarding
+                # connection" and churns sockets.
+                "config": BotoConfig(max_pool_connections=100),
             }
 
             self.s3_client = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]

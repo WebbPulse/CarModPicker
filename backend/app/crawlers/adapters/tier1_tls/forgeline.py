@@ -73,6 +73,14 @@ SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 # the parse pipeline. Trailing slash is optional; the sitemap emits both.
 _PRODUCT_PATH_RE = re.compile(r"^/[a-z0-9][a-z0-9\-]*/p\d+/?$", re.IGNORECASE)
 
+# Configurator finish-variant URLs (``/<slug>-finish-option-<...>/p<id>``)
+# leak into the sitemap but are gated by Cloudflare on direct access — every
+# hit returns a 781-byte "Attention Required!" 403. They aren't standalone
+# products either; the parent product page already lists every finish option.
+# Filter at discovery so the runner doesn't waste a request and log a
+# spurious error per variant.
+_FINISH_VARIANT_RE = re.compile(r"-finish-option-", re.IGNORECASE)
+
 # ``Part # CAP3EAR-POL-ENG-OPTION`` style; match runs of uppercase, digits,
 # and dash/underscore/slash so kebab-style SKUs survive intact.
 _PART_NUMBER_INLINE_RE = re.compile(
@@ -128,7 +136,12 @@ def _is_product_url(url: str) -> bool:
     host = (parsed.hostname or "").lower()
     if host and host != "forgeline.com" and not host.endswith(".forgeline.com"):
         return False
-    return bool(_PRODUCT_PATH_RE.match(parsed.path or ""))
+    path = parsed.path or ""
+    if not _PRODUCT_PATH_RE.match(path):
+        return False
+    if _FINISH_VARIANT_RE.search(path):
+        return False
+    return True
 
 
 def _resolve_start_urls_env() -> Optional[List[str]]:

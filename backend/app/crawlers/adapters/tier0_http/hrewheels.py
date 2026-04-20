@@ -406,11 +406,14 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
     FETCHER_TIER = "http"
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
-        # When the runner (or tests) hand us a pre-built fetcher we honor it
-        # as-is — callers that know better can opt out of the bundle logic.
-        # Otherwise build an HttpFetcher whose underlying requests.Session
-        # trusts the Starfield G2 intermediate so the handshake completes.
-        if fetcher is None:
+        # HRE's origin omits the Starfield G2 intermediate from its TLS
+        # handshake, so plain requests fails with CERTIFICATE_VERIFY_FAILED.
+        # The runner hands every Tier-0 adapter a vanilla HttpFetcher that
+        # knows nothing about the bundle — so whenever we got either no
+        # fetcher or the stock HttpFetcher, replace it with one backed by
+        # an augmented requests.Session. Callers that pass a non-HttpFetcher
+        # (tests / mocks) are trusted to manage their own transport.
+        if fetcher is None or isinstance(fetcher, HttpFetcher):
             self._trust_session: Optional[requests.Session] = _build_trust_session()
             fetcher = HttpFetcher(session=self._trust_session)
         else:

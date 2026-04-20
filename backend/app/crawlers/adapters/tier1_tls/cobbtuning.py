@@ -1,46 +1,49 @@
 """
 Cobb Tuning (cobbtuning.com) crawler adapter — Tier 1 (TLS-impersonating fetcher).
 
-Product URLs: ``https://www.cobbtuning.com/<slug>.html`` (Magento 2 url_key with
-``.html`` suffix). Cobb is a Magento 2 storefront behind Cloudflare-style bot
-protection: plain ``requests.get`` and ``curl`` with a full current-Chrome header
-set both return 403 against every path except ``/robots.txt``, while real-browser
-access from the same network loads fine. That profile matches Vivid Racing's
-TLS/JA3 fingerprint block (see ``site_problem_notes/vividracing.md`` and
-``cobbtuning.md``), so this adapter sets ``FETCHER_TIER = "tls"`` to route
-discovery *and* product fetches through curl_cffi's Chrome impersonation.
+Product URLs: ``https://www.cobbtuning.com/products/<category>/<slug>`` (most
+products live under a category), with a smaller set of "featured" SKUs at
+``/products/<slug>`` directly. Cobb rebuilt the storefront on top of a Magento 2
+frontend themed as a SPA-ish catalog: category pages render a server-side grid
+of product anchors, but price / SKU / inventory are hydrated client-side and
+do NOT appear in the initial HTML. JSON-LD Product is no longer emitted.
+
+Cobb is behind Cloudflare-style bot protection: plain ``requests.get`` and
+``curl`` with a full current-Chrome header set both return 403 against every
+path except ``/robots.txt``, while real-browser access from the same network
+loads fine. That profile matches Vivid Racing's TLS/JA3 fingerprint block (see
+``site_problem_notes/vividracing.md`` and ``cobbtuning.md``), so this adapter
+sets ``FETCHER_TIER = "tls"`` to route discovery *and* product fetches through
+curl_cffi's Chrome impersonation.
 
 Notes:
 
-- Product URL pattern is just ``/<slug>.html`` — there is no product-id suffix
-  that structurally distinguishes products from CMS / category pages. The
-  sitemap is the source of truth for discovery; ``_is_product_url`` is a shape
-  guard (reject query strings, reject CMS / account / checkout paths) rather
-  than a positive product identifier. ``parse_product_page`` is the final
-  filter: a page without JSON-LD Product *and* without a recoverable ``<h1>``
-  title returns None.
+- ``/sitemap.xml`` is a Yoast-style index of page/post/brand/category/landing
+  sitemaps — none of which list actual products. Discovery walks category pages
+  instead: fetch ``/``, collect ``/products/<slug>`` anchors (candidate
+  categories + featured products), fetch each, and collect every
+  ``/products/*/*`` URL the category grid advertises.
 - ``robots.txt`` bans ``/*?`` — any URL with a query string is off limits.
   ``canonicalize_url()`` strips known tracking params; ``_is_product_url``
   drops anything with a remaining query string on top of that.
-- Magento 2's default sitemap lives at ``/sitemap.xml`` and is normally a
-  sitemap index pointing at ``/sitemap-N-M.xml`` child urlsets. We walk the
-  index via ``self.fetcher`` (not the plain-HTTP ``fetch_page``, which 403s
-  on this origin same as product pages).
+- The post-migration product pages emit no JSON-LD. ``parse_product_page``
+  uses og:title / og:description / og:image / ``<h1>`` to recover the name,
+  description, and primary image; price and part number are normally absent
+  from the initial HTML (hydrated client-side) and come back as ``None``.
 - Cobb's catalog is overwhelmingly their own hardware — AccessPort, SF
-  intakes, Stage packages, NexGen exhausts. When JSON-LD brand is missing and
+  intakes, Stage packages, NexGen exhausts. When no brand is surfaceable and
   no title heuristic fires, the adapter defaults ``part_manufacturer`` to
   ``"COBB Tuning"``; the title-first-word heuristic would otherwise pick up
   product words like "Accessport" or "Stage" and write garbage.
 """
 
+import logging
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Set
 from urllib.parse import urlparse
-from xml.etree.ElementTree import Element
 
-import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
@@ -52,7 +55,6 @@ from app.crawlers.base import (
 from app.crawlers.parsing import (
     extract_dom_price,
     extract_json_ld_product,
-    extract_part_number_candidate_from_title,
     extract_sku_from_text,
     meta_content,
     normalize_description_text,
@@ -61,25 +63,26 @@ from app.crawlers.parsing import (
 )
 
 COBBTUNING_BASE = "https://www.cobbtuning.com"
-SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
-# Default manufacturer when JSON-LD does not carry a brand. Cobb's catalog is
+logger = logging.getLogger(__name__)
+
+# Default manufacturer when nothing else surfaces a brand. Cobb's catalog is
 # overwhelmingly their own hardware (AccessPort, SF intakes, Stage packages,
-# NexGen exhausts), so assigning "COBB Tuning" unconditionally on the
-# fallback path is strictly better than the shared title-first-word heuristic,
-# which would pick up product words like "Accessport" or "Stage" as a
-# "manufacturer". Co-branded SKUs that *do* carry a JSON-LD brand (Mishimoto,
-# IAG, etc.) go through the JSON-LD path and keep their own manufacturer.
+# NexGen exhausts), so assigning "COBB Tuning" unconditionally on the fallback
+# path is strictly better than the shared title-first-word heuristic, which
+# would pick up product words like "Accessport" or "Stage" as a "manufacturer".
 _DEFAULT_MANUFACTURER = "COBB Tuning"
 
-# Magento 2 product URLs end in ``.html`` and are at the site root. This is a
-# shape guard only (category / CMS pages also end in .html); the sitemap
-# urlset and JSON-LD presence are the real filter.
-_PRODUCT_PATH_RE = re.compile(r"^/[a-z0-9][a-z0-9\-/]*\.html$", re.IGNORECASE)
+# Post-migration product URLs live at ``/products/<category>/<slug>`` (two-level)
+# or ``/products/<slug>`` (one-level for featured SKUs). Paths are lowercase
+# with hyphens; no trailing ``.html``. This shape guard accepts both depths;
+# discovery decides which 1-level URLs are category indexes (fetched and
+# expanded) vs direct products.
+_PRODUCT_PATH_RE = re.compile(r"^/products/[a-zA-Z0-9][a-zA-Z0-9\-]*(?:/[a-zA-Z0-9][a-zA-Z0-9\-]*)?/?$")
 
-# CMS / account / checkout / informational paths that sometimes show up in
-# Magento 2 sitemaps. We drop them up-front so the runner never spends a fetch
-# on /about-us.html or /shipping-returns.html.
+# CMS / account / checkout / informational paths. The ``/products/`` guard
+# above already filters most of these out, but we also reject a few legacy
+# Magento 2 ``.html`` paths so archive-rescrape doesn't replay them.
 _NON_PRODUCT_PATH_RE = re.compile(
     r"^/("
     r"customer|checkout|cart|wishlist|onestepcheckout|catalogsearch|review|"
@@ -91,13 +94,52 @@ _NON_PRODUCT_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Pages under /products/ that are NOT products themselves (category or listing
+# pages only). ``/products`` (no sub-slug) is the catalog root; these named
+# slugs are always categories regardless of whether the URL is 1-level or
+# 2-level. We do NOT treat these as products even when discovery surfaces them.
+_CATEGORY_ONLY_1LEVEL_SLUGS: frozenset[str] = frozenset()
+
+# Per category page, cap how many product anchors we accept. Cobb's largest
+# category (accessport) surfaces ~120 products in one page; 300 gives headroom
+# without letting a runaway page list blow up discovery.
+_MAX_PRODUCTS_PER_CATEGORY = 300
+
+# Per-discovery cap so a misconfigured / hijacked homepage can't cause unbounded
+# crawling. ~1500 is well above the actual catalog size.
+_MAX_DISCOVERY_URLS = 1500
+
+# Default candidate categories used when the homepage doesn't surface any.
+# Matches the top-level nav on cobbtuning.com as of the WordPress/Magento
+# migration. Override via ``CRAWLER_COBBTUNING_START_URLS`` when testing.
+_SEED_CATEGORIES: tuple[str, ...] = (
+    "/products/accessport",
+    "/products/accessport-accessories",
+    "/products/air-induction",
+    "/products/apparel",
+    "/products/brakes",
+    "/products/cooling",
+    "/products/drivetrain",
+    "/products/engine-dress-up",
+    "/products/exhaust",
+    "/products/exterior",
+    "/products/fuel-system",
+    "/products/interior",
+    "/products/maintenance-items",
+    "/products/short-ram-intakes",
+    "/products/software",
+    "/products/stage-package",
+    "/products/suspension",
+    "/products/turbo",
+    "/products/wheels",
+)
 
 # Safe default so a fresh run exercises parsing against a known URL even when
-# sitemap discovery comes back empty (e.g. if Cloudflare starts blocking the
-# TLS fetcher too). Override via CRAWLER_COBBTUNING_START_URLS. The
-# AccessPort V3 page is the flagship SKU and a natural smoke test.
+# category discovery comes back empty (e.g. if the homepage layout is changed
+# in a way that breaks anchor extraction). Override via
+# CRAWLER_COBBTUNING_START_URLS. This flagship SKU is a natural smoke test.
 DEFAULT_START_URLS = [
-    "https://www.cobbtuning.com/accessport-v3.html",
+    "https://www.cobbtuning.com/products/accessport/accessport-for-subaru-wrx-sti-2008-2014",
 ]
 
 
@@ -113,17 +155,22 @@ def _is_product_url(url: str) -> bool:
     host = (parsed.hostname or "").lower()
     if host and not (host == "cobbtuning.com" or host.endswith(".cobbtuning.com")):
         return False
-    path = parsed.path or ""
-    if not _PRODUCT_PATH_RE.match(path):
-        return False
+    path = (parsed.path or "").rstrip("/")
+    if not _PRODUCT_PATH_RE.match(path + "/"):
+        # _PRODUCT_PATH_RE accepts an optional trailing slash; normalise here
+        # so both ``/products/exhaust`` and ``/products/exhaust/`` match.
+        if not _PRODUCT_PATH_RE.match(path):
+            return False
     if _NON_PRODUCT_PATH_RE.match(path):
         return False
+    # Bare catalog root and known category-only 1-level slugs are filtered
+    # regardless of shape match above.
+    if path in ("/products", ""):
+        return False
+    segments = [s for s in path.split("/") if s]
+    if len(segments) == 2 and segments[0] == "products" and segments[1].lower() in _CATEGORY_ONLY_1LEVEL_SLUGS:
+        return False
     return True
-
-
-def _loc_elements(root: Element) -> List[Element]:
-    """Find all <loc> elements in a sitemap (urlset or sitemap index)."""
-    return root.findall(f".//{{{SITEMAP_NS}}}loc")
 
 
 def _resolve_start_urls_env() -> Optional[List[str]]:
@@ -134,10 +181,65 @@ def _resolve_start_urls_env() -> Optional[List[str]]:
     return [u.strip() for u in raw.split(",") if u.strip()]
 
 
+def _extract_products_href(html: str) -> List[str]:
+    """Extract every ``/products/...`` anchor href from an HTML blob, preserving order."""
+    hrefs: List[str] = []
+    seen: Set[str] = set()
+    for m in re.finditer(r'href="([^"#?]+)"', html):
+        h = m.group(1)
+        # Normalise to an absolute URL on the cobbtuning.com origin.
+        if h.startswith("/products/"):
+            full = COBBTUNING_BASE + h
+        elif h.startswith(COBBTUNING_BASE + "/products/"):
+            full = h
+        else:
+            continue
+        # Strip trailing slash for dedupe.
+        canon = full.rstrip("/")
+        if canon in seen:
+            continue
+        seen.add(canon)
+        hrefs.append(canon)
+    return hrefs
+
+
+# Hostnames used by analytics/tracking pixels that show up in <img src>
+# tags — must be excluded from the product image list.
+_IMAGE_TRACKER_HOSTS: frozenset[str] = frozenset(
+    {
+        "facebook.com",
+        "www.facebook.com",
+        "connect.facebook.net",
+        "google-analytics.com",
+        "www.google-analytics.com",
+        "googletagmanager.com",
+        "www.googletagmanager.com",
+        "googleadservices.com",
+        "doubleclick.net",
+        "bat.bing.com",
+        "t.co",
+        "ct.pinterest.com",
+        "analytics.tiktok.com",
+    }
+)
+
+# Matches the Cobb media filename convention ``<SKU>_main.jpg`` /
+# ``<SKU>_main.png`` inside the ``/media/catalog/products/`` path. SKUs are
+# 4–16 uppercase alphanumerics; this is specific enough to skip the tracking
+# pixels and branding images that also live under /media/.
+_IMAGE_SKU_RE = re.compile(
+    r"/media/catalog/products/(?:[^/]+/)*([A-Z0-9][A-Z0-9\-_]{2,15})_main\.(?:jpg|jpeg|png|webp)",
+    re.IGNORECASE,
+)
+
+
 def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
     """
     Collect product image URLs: og:image first, then <img> tags. Normalizes
-    protocol-relative and site-root paths to absolute https URLs. Capped at 12.
+    protocol-relative and site-root paths to absolute https URLs. Drops
+    analytics/tracking-pixel hosts, plus any cobbtuning.com image that isn't
+    under ``/media/catalog/products/`` (site logos, theme icons, etc.).
+    Capped at 12.
     """
     urls: List[str] = []
     seen: set[str] = set()
@@ -154,6 +256,19 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
             return
         if u in seen:
             return
+        try:
+            parsed = urlparse(u)
+            host = (parsed.hostname or "").lower()
+        except ValueError:
+            return
+        if host in _IMAGE_TRACKER_HOSTS:
+            return
+        # On cobbtuning.com, product images live under /media/catalog/products/;
+        # anything else (logos, theme SVGs, favicons) is site chrome and would
+        # pollute the ScrapedPayload.image_urls list.
+        if host == "cobbtuning.com" or host.endswith(".cobbtuning.com"):
+            if "/media/catalog/products/" not in (parsed.path or ""):
+                return
         seen.add(u)
         urls.append(u)
 
@@ -170,6 +285,32 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
         if isinstance(src, str) and src.strip():
             add(src.strip())
     return urls[:12]
+
+
+def _extract_sku_from_image_urls(image_urls: List[str]) -> Optional[str]:
+    """
+    Cobb's catalog images follow ``/media/catalog/products/.../<SKU>_main.ext``
+    — a reliable way to recover the SKU when the product page's HTML no longer
+    emits JSON-LD (post-migration the price/SKU are hydrated client-side).
+    """
+    for url in image_urls:
+        m = _IMAGE_SKU_RE.search(url)
+        if m:
+            return m.group(1).upper()
+    return None
+
+
+def _strip_site_prefix(title: str) -> str:
+    """
+    Strip the ``"COBB Tuning - "`` / ``"COBB Tuning | "`` boilerplate prefix
+    from an og:title so the product name isn't dominated by the site name.
+    """
+    stripped = title.strip()
+    for sep in (" - ", " – ", " | ", " : "):
+        prefix = "COBB Tuning" + sep
+        if stripped.lower().startswith(prefix.lower()):
+            return stripped[len(prefix) :].strip()
+    return stripped
 
 
 class CobbTuningAdapter(RetailerCrawlerAdapter):
@@ -200,8 +341,8 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Env override (``CRAWLER_COBBTUNING_START_URLS``)
-        wins; otherwise walks ``/sitemap.xml`` via the TLS fetcher. Falls back
-        to ``DEFAULT_START_URLS`` when discovery fails or returns nothing.
+        wins; otherwise walks the catalog via category pages. Falls back to
+        ``DEFAULT_START_URLS`` when discovery fails or returns nothing.
         """
         env_urls = _resolve_start_urls_env()
         if env_urls is not None:
@@ -210,62 +351,83 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                     yield url
             return
 
-        for url in self._discover_via_sitemap() or list(DEFAULT_START_URLS):
+        for url in self._discover_via_categories() or list(DEFAULT_START_URLS):
             if _is_product_url(url):
                 yield url
 
-    def _discover_via_sitemap(self) -> List[str]:
+    def _discover_via_categories(self) -> List[str]:
         """
-        Fetch ``/sitemap.xml`` via the adapter's TLS fetcher and collect every
-        product-shaped URL it points at. Walks sitemap indexes one level deep.
-        Returns [] on any failure; the caller decides the fallback.
+        Walk ``/`` then each ``/products/<category>`` page to collect every
+        product-shaped URL the server-rendered catalog grid advertises.
 
-        Gzipped child sitemaps are skipped — the fetcher contract returns
-        decoded text, and Magento 2 normally serves plain ``.xml`` urlsets.
+        Returns [] on any failure; the caller decides the fallback. Output is
+        deduped and capped at ``_MAX_DISCOVERY_URLS``.
         """
-        seen: set[str] = set()
-        product_urls: List[str] = []
+        seen: Set[str] = set()
+        products: List[str] = []
 
-        def parse_urlset_locs(xml_text: str) -> None:
-            try:
-                root = ET.fromstring(xml_text)
-            except ET.ParseError:
-                return
-            for loc in _loc_elements(root):
-                if not loc.text:
-                    continue
-                u = loc.text.strip()
-                if not _is_product_url(u):
-                    continue
-                base = u.split("?", 1)[0]
-                if base in seen:
-                    continue
-                seen.add(base)
-                product_urls.append(base)
-
+        # 1. Pull candidate categories from the homepage. Falls back to the
+        #    seed list when the homepage anchor extraction yields nothing —
+        #    a homepage layout change shouldn't flatline discovery entirely.
+        category_urls: List[str] = []
         try:
-            index_url = COBBTUNING_BASE + "/sitemap.xml"
-            index_text = self.fetcher.fetch(index_url, timeout=15)
-            root = ET.fromstring(index_text)
-            tag = root.tag
-            if tag == f"{{{SITEMAP_NS}}}sitemapindex" or "sitemapindex" in tag:
-                child_sitemap_urls = [loc.text.strip() for loc in _loc_elements(root) if loc.text and loc.text.strip()]
-                for i, child_url in enumerate(child_sitemap_urls):
-                    if i > 0:
-                        time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
-                    if child_url.endswith(".gz"):
-                        continue
-                    try:
-                        child_text = self.fetcher.fetch(child_url, timeout=15)
-                        parse_urlset_locs(child_text)
-                    except Exception:
-                        continue
-            else:
-                parse_urlset_locs(index_text)
-        except Exception:
-            return []
+            home_html = self.fetcher.fetch(COBBTUNING_BASE + "/", timeout=15)
+            for url in _extract_products_href(home_html):
+                path = urlparse(url).path.rstrip("/")
+                segments = [s for s in path.split("/") if s]
+                # 1-level /products/<slug> candidates are treated as categories
+                # and expanded. Direct-product 1-level slugs that happen to sit
+                # in the homepage get captured in step 3 below.
+                if len(segments) == 2 and segments[0] == "products":
+                    if url not in seen:
+                        seen.add(url)
+                        category_urls.append(url)
+        except Exception as e:
+            logger.warning("cobbtuning: homepage fetch failed: %s", e)
 
-        return product_urls
+        if not category_urls:
+            category_urls = [COBBTUNING_BASE + p for p in _SEED_CATEGORIES]
+
+        # 2. For each category, fetch and collect every 2-level product URL.
+        for i, cat_url in enumerate(category_urls):
+            if len(products) >= _MAX_DISCOVERY_URLS:
+                break
+            if i > 0:
+                time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
+            try:
+                cat_html = self.fetcher.fetch(cat_url, timeout=20)
+            except Exception as e:
+                logger.warning("cobbtuning: category fetch failed (%s): %s", cat_url, e)
+                continue
+            added_from_cat = 0
+            for href in _extract_products_href(cat_html):
+                path = urlparse(href).path.rstrip("/")
+                segments = [s for s in path.split("/") if s]
+                if len(segments) != 3 or segments[0] != "products":
+                    # Skip sub-category links and the "back to /products" root;
+                    # only 2-level product URLs are yielded here.
+                    continue
+                if href in seen:
+                    continue
+                if not _is_product_url(href):
+                    continue
+                seen.add(href)
+                products.append(href)
+                added_from_cat += 1
+                if added_from_cat >= _MAX_PRODUCTS_PER_CATEGORY:
+                    break
+                if len(products) >= _MAX_DISCOVERY_URLS:
+                    break
+
+            # 3. If a 1-level URL's page surfaced no 2-level children, it's
+            #    almost certainly a direct product page (a featured SKU the
+            #    homepage linked to), not a category. Yield the URL itself.
+            #    cat_url is already in ``seen`` from step 1 but not in
+            #    ``products`` until we add it here.
+            if added_from_cat == 0 and _is_product_url(cat_url) and cat_url not in products:
+                products.append(cat_url)
+
+        return products
 
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
@@ -302,18 +464,36 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                     gtin=payload.gtin,
                 )
 
-        # 2. DOM / og fallback.
+        # 2. DOM / og fallback. Prefer the product-heading <h1> (clean name)
+        #    over og:title on the new layout, since og:title is uniformly
+        #    prefixed with "COBB Tuning - " and the page template also emits
+        #    a generic ``<h1 class="page-title">COBB Tuning - Products</h1>``
+        #    site header. The product-specific h1 carries
+        #    ``class="product--heading"`` — check that first, then fall back
+        #    to any h1 whose text isn't obviously the site header.
         name: Optional[str] = None
-        og_title = soup.find("meta", property="og:title")
-        content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
-        if content_title and content_title.strip():
-            name = content_title.strip()
+        product_h1 = soup.find("h1", class_=re.compile(r"product", re.I))
+        if isinstance(product_h1, Tag):
+            h1_text = product_h1.get_text(strip=True)
+            if h1_text and len(h1_text) >= 3:
+                name = h1_text
         if not name:
-            h1 = soup.find("h1")
-            if isinstance(h1, Tag):
+            for h1 in soup.find_all("h1"):
+                if not isinstance(h1, Tag):
+                    continue
                 h1_text = h1.get_text(strip=True)
-                if h1_text:
-                    name = h1_text
+                if not h1_text or len(h1_text) < 3:
+                    continue
+                # Skip the generic site-header h1 ("COBB Tuning - Products").
+                if h1_text.lower().startswith("cobb tuning"):
+                    continue
+                name = h1_text
+                break
+        if not name:
+            og_title = soup.find("meta", property="og:title")
+            content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
+            if content_title and content_title.strip():
+                name = _strip_site_prefix(content_title)
         if not name or len(name) < 3:
             return None
 
@@ -330,13 +510,22 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                 if d and d.strip():
                     description = normalize_description_text(d, max_len=2000)
 
+        # SKU recovery. Order: explicit SKU text on the page → SKU-classed
+        # element → Cobb's ``<SKU>_main.jpg`` image filename convention
+        # (reliable post-migration since price/SKU are hydrated client-side
+        # and the image URL is the only server-rendered carrier). We skip the
+        # title-first-word heuristic entirely — the new h1 tends to start
+        # with model-year tokens ("Redline", "Gen2", "Subaru") that produce
+        # garbage part numbers.
         part_number = extract_sku_from_text(soup.get_text())
         if not part_number:
             sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
             if isinstance(sku_elem, Tag):
                 part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
-            part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
+            image_sku = _extract_sku_from_image_urls(dom_images)
+            if image_sku:
+                part_number = normalize_part_number(image_sku)
 
         # No JSON-LD brand available. Skip the title-first-word heuristic
         # (which picks "Accessport" / "Stage" / "SF" as manufacturers on this

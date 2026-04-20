@@ -120,6 +120,26 @@ class TestTlsFetcher:
             sys.modules.pop("curl_cffi", None)
             sys.modules.pop("curl_cffi.requests", None)
 
+    @pytest.mark.parametrize("transient_status", [502, 504])
+    def test_retries_on_transient_gateway_errors(self, monkeypatch: pytest.MonkeyPatch, transient_status: int) -> None:
+        """
+        502 (Bad Gateway) and 504 (Gateway Timeout) are transient edge/CDN
+        failures — retry them with backoff alongside 429/503 instead of
+        bubbling them up as hard errors after a single shot.
+        """
+        transient = MagicMock(status_code=transient_status, headers={}, text="", content=b"")
+        ok = MagicMock(status_code=200, headers={}, text="<html>ok</html>", content=b"<html>ok</html>")
+        sess = self._install_fake_curl_cffi(ok)
+        sess.get.side_effect = [transient, ok]
+        monkeypatch.setattr("app.crawlers.base.time.sleep", lambda _s: None)
+        try:
+            html = TlsFetcher().fetch("https://www.vividracing.com/x")
+            assert html == "<html>ok</html>"
+            assert sess.get.call_count == 2
+        finally:
+            sys.modules.pop("curl_cffi", None)
+            sys.modules.pop("curl_cffi.requests", None)
+
     def test_retries_on_timeout_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """
         Timeout-type exceptions from the underlying session should be retried
