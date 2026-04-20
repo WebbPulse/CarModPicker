@@ -440,6 +440,11 @@ function CrawlerAdmin() {
         ]
       );
       setCrawlerAdapters(adaptersRes.data.adapters);
+      // Default to all selected on first load so the common workflow is
+      // "set a global limit, uncheck anything to skip, Run selected."
+      setSelectedCrawlers((prev) =>
+        prev.size === 0 ? new Set(adaptersRes.data.adapters) : prev
+      );
       const tiers: Record<string, FetcherTier> = {};
       for (const info of adaptersRes.data.adapter_info ?? []) {
         tiers[info.name] = info.tier;
@@ -1663,11 +1668,15 @@ function CrawlerAdmin() {
               </div>
 
               <div className="p-2 bg-emerald-900/10 border border-emerald-700/60 rounded-lg mb-2">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
                     Live crawlers
                   </h3>
-                  <div className="flex gap-2 text-[10px]">
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className="text-neutral-500">
+                      {selectedCrawlers.size}/{crawlerAdapters.length} selected
+                    </span>
+                    <span className="text-neutral-600">·</span>
                     <button
                       type="button"
                       onClick={selectAllCrawlers}
@@ -1685,6 +1694,12 @@ function CrawlerAdmin() {
                     </button>
                   </div>
                 </div>
+                <p className="text-[10px] text-neutral-500 mb-2">
+                  Tip: <span className="text-neutral-300">global limit</span>{' '}
+                  applies per adapter (e.g. 50 = up to 50 pages each, not
+                  shared). Uncheck any to skip, then click{' '}
+                  <span className="text-neutral-300">Run selected</span>.
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                   <div>
                     <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
@@ -1708,14 +1723,36 @@ function CrawlerAdmin() {
                     <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
                       Global limit
                     </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="—"
-                      value={globalCrawlerLimit}
-                      onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
-                      className="w-full min-h-0 py-1 text-xs"
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="—"
+                        value={globalCrawlerLimit}
+                        onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
+                        className="w-full min-h-0 py-1 text-xs"
+                      />
+                      {[25, 50, 100, 250].map((n) => {
+                        const active = globalCrawlerLimit === String(n);
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() =>
+                              setGlobalCrawlerLimit(active ? '' : String(n))
+                            }
+                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none ${
+                              active
+                                ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
+                                : 'border-gray-600 text-neutral-400 hover:border-emerald-500 hover:text-emerald-300'
+                            }`}
+                            title={`Set global limit to ${n}`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
@@ -1803,7 +1840,7 @@ function CrawlerAdmin() {
                 <div className="flex flex-wrap gap-2">
                   <ActionButton
                     onClick={() => void handleRunSelectedCrawlers()}
-                    disabled={isRunningCrawlers}
+                    disabled={isRunningCrawlers || selectedCrawlers.size === 0}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
                   >
                     {isRunningCrawlers ? (
@@ -1812,7 +1849,7 @@ function CrawlerAdmin() {
                         <span className="ml-1">Running...</span>
                       </span>
                     ) : (
-                      'Run selected'
+                      `Run selected (${selectedCrawlers.size})`
                     )}
                   </ActionButton>
                   <ActionButton

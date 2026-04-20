@@ -20,7 +20,6 @@ from app.crawlers.adapters.generic import GenericHtmlParser
 from app.crawlers.adapters.tier0_http.a90shop import A90ShopAdapter
 from app.crawlers.adapters.tier0_http.adro import AdroAdapter
 from app.crawlers.adapters.tier0_http.amsperformance import AMSPerformanceAdapter
-from app.crawlers.adapters.tier0_http.apexraceparts import ApexRacePartsAdapter
 from app.crawlers.adapters.tier0_http.atpturbo import ATPTurboAdapter
 from app.crawlers.adapters.tier0_http.awetuning import AWETuningAdapter
 from app.crawlers.adapters.tier0_http.bcracing import BCRacingAdapter
@@ -80,6 +79,7 @@ from app.crawlers.adapters.tier1_tls.z1motorsports import Z1MotorsportsAdapter
 
 # Tier 2 — FlareSolverr browser (`FlareSolverrFetcher`)
 from app.crawlers.adapters.tier2_browser.americanmuscle import AmericanMuscleAdapter
+from app.crawlers.adapters.tier2_browser.apexwheels import ApexWheelsAdapter
 from app.crawlers.adapters.tier2_browser.ecstuning import ECSTuningAdapter
 from app.crawlers.adapters.tier2_browser.fcpeuro import FCPEuroAdapter
 from app.crawlers.adapters.tier2_browser.jegs import JegsAdapter
@@ -94,7 +94,6 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "a90shop": A90ShopAdapter,
     "adro": AdroAdapter,
     "amsperformance": AMSPerformanceAdapter,
-    "apexraceparts": ApexRacePartsAdapter,
     "atpturbo": ATPTurboAdapter,
     "awetuning": AWETuningAdapter,
     "bcracing": BCRacingAdapter,
@@ -150,6 +149,7 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "z1motorsports": Z1MotorsportsAdapter,
     # Tier 2 — FlareSolverr browser
     "americanmuscle": AmericanMuscleAdapter,
+    "apexwheels": ApexWheelsAdapter,
     "ecstuning": ECSTuningAdapter,
     "fcpeuro": FCPEuroAdapter,
     "jegs": JegsAdapter,
@@ -188,8 +188,17 @@ def adapter_name_for_product_url(url: str) -> str:
         return "adro"
     if host == "amsperformance.com" or host.endswith(".amsperformance.com"):
         return "amsperformance"
+    # Apex rebranded from Apex Race Parts → Apex Wheels and migrated off
+    # Shopify onto Nuxt + Sanity + Vercel. Route both the new host and the
+    # legacy one to the same adapter so archive-replay and any still-cached
+    # Chrome-extension submissions on the old URLs still get a site-specific
+    # parser. The old Shopify ``/products/<handle>`` URLs no longer resolve
+    # (301 → apexwheels.com root), but ``_is_product_url`` accepts them for
+    # archive routing.
+    if host == "apexwheels.com" or host.endswith(".apexwheels.com"):
+        return "apexwheels"
     if host == "apexraceparts.com" or host.endswith(".apexraceparts.com"):
-        return "apexraceparts"
+        return "apexwheels"
     if host == "atpturbo.com" or host.endswith(".atpturbo.com"):
         return "atpturbo"
     if host == "awe-tuning.com" or host.endswith(".awe-tuning.com"):

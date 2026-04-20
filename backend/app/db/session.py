@@ -22,6 +22,11 @@ engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Enable connection health checks
     pool_recycle=3600,  # Recycle connections after 1 hour
+    # Defaults (5 / 10) get exhausted when many parallel crawler threads each
+    # hold a session during ingest — API endpoints (and the cancel endpoint)
+    # then block waiting for a connection and the whole backend appears hung.
+    pool_size=20,
+    max_overflow=30,
 )
 
 
