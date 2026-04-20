@@ -2,25 +2,22 @@
 
 Banner ads render in the left and right margins on every page. They are global (defined in `App.tsx`) and **refresh on every route change** so each page view can count as a new ad impression.
 
-## Development (no AdSense)
+## Development (no slot IDs)
 
-Without any env vars, placeholder boxes are shown so layout is correct. No script or account needed.
+Without slot env vars set, placeholder boxes are shown so layout is correct. The AdSense loader script still loads after cookie consent (needed for site verification), but no ads render.
 
-## Enabling Google AdSense
+## Configuring Google AdSense
 
-1. **Sign up**: [Google AdSense](https://www.google.com/adsense/) and get your **publisher ID** (e.g. `ca-pub-1234567890123456`).
+1. **Publisher ID** is hardcoded in `adsenseConfig.ts` as `ADSENSE_CLIENT_ID`. Update that constant if the publisher changes.
 
-2. **Create ad units** in the AdSense UI (e.g. “Display” → “Responsive” or “Fixed”). Note the **slot IDs** for left and right (e.g. `1234567890`).
+2. **Create ad units** in the AdSense UI (e.g. "Display" → "Responsive" or "Fixed"). Note the **slot IDs** for left and right (e.g. `1234567890`).
 
-3. **Load the script** in `frontend/index.html`: uncomment the AdSense script and replace `ca-pub-XXXXXXXXXXXXXXXX` with your publisher ID.
+3. **Env vars** (in `frontend/.env` or your deploy env):
 
-4. **Env vars** (in `frontend/.env` or your deploy env):
-
-   - `VITE_ADSENSE_CLIENT_ID` = your publisher ID (e.g. `ca-pub-1234567890123456`)
    - `VITE_ADSENSE_SLOT_LEFT` = slot ID for the left sidebar
    - `VITE_ADSENSE_SLOT_RIGHT` = slot ID for the right sidebar
 
-5. Rebuild/restart the frontend. Real ads will load in the sidebars; remounting on route change requests new ads as intended for SPAs.
+4. Rebuild/restart the frontend. Real ads will load in the sidebars; remounting on route change requests new ads as intended for SPAs.
 
 ## Policy note
 

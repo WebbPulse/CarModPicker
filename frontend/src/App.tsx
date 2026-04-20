@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
+import { ADSENSE_CLIENT_ID } from './components/ads/adsenseConfig';
 import BetaBanner from './components/common/BetaBanner';
 import ChromeExtensionPromo from './components/common/ChromeExtensionPromo';
 import CookieConsentBanner from './components/common/CookieConsentBanner';
@@ -116,15 +117,11 @@ function App() {
     showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremium(user);
   const isLandingPage = location.pathname === '/';
 
-  const adsenseClientId = import.meta.env['VITE_ADSENSE_CLIENT_ID'] as
-    | string
-    | undefined;
-
   useEffect(() => {
-    if (consent === 'accepted' && adsenseClientId) {
-      loadAdSenseScript(adsenseClientId);
+    if (consent === 'accepted') {
+      loadAdSenseScript(ADSENSE_CLIENT_ID);
     }
-  }, [consent, adsenseClientId]);
+  }, [consent]);
 
   return (
     <ErrorBoundary>
