@@ -22,24 +22,34 @@ from app.crawlers.adapters.tier0_http.adro import AdroAdapter
 from app.crawlers.adapters.tier0_http.amsperformance import AMSPerformanceAdapter
 from app.crawlers.adapters.tier0_http.awetuning import AWETuningAdapter
 from app.crawlers.adapters.tier0_http.bimmerworld import BimmerworldAdapter
+from app.crawlers.adapters.tier0_http.driveshaftshop import DriveshaftShopAdapter
 from app.crawlers.adapters.tier0_http.evasivemotorsports import EvasiveMotorsportsAdapter
 from app.crawlers.adapters.tier0_http.functionwerk import FunctionwerkAdapter
+from app.crawlers.adapters.tier0_http.gmgracing import GMGRacingAdapter
+from app.crawlers.adapters.tier0_http.greddy import GReddyAdapter
+from app.crawlers.adapters.tier0_http.hksusa import HKSUSAAdapter
 from app.crawlers.adapters.tier0_http.hondata import HondataAdapter
 from app.crawlers.adapters.tier0_http.ie import IEAdapter
 from app.crawlers.adapters.tier0_http.ind import INDAdapter
 from app.crawlers.adapters.tier0_http.ktuner import KTunerAdapter
 from app.crawlers.adapters.tier0_http.maperformance import MAPerformanceAdapter
 from app.crawlers.adapters.tier0_http.motorsport034 import Motorsport034Adapter
+from app.crawlers.adapters.tier0_http.roadsportsupply import RoadSportSupplyAdapter
+from app.crawlers.adapters.tier0_http.sheepeybuilt import SheepeyBuiltAdapter
 from app.crawlers.adapters.tier0_http.studiorsr import StudioRSRAdapter
 from app.crawlers.adapters.tier0_http.summitracing import SummitRacingAdapter
 from app.crawlers.adapters.tier0_http.tickperformance import TickPerformanceAdapter
+from app.crawlers.adapters.tier0_http.wheelsboutique import WheelsBoutiqueAdapter
 from app.crawlers.adapters.tier0_http.xph import XPHAdapter
 
 # Tier 1 — TLS impersonation (`TlsFetcher`, `curl_cffi`)
+from app.crawlers.adapters.tier1_tls.apr import APRAdapter
 from app.crawlers.adapters.tier1_tls.cobbtuning import CobbTuningAdapter
 from app.crawlers.adapters.tier1_tls.enjukuracing import EnjukuRacingAdapter
 from app.crawlers.adapters.tier1_tls.mackinindustries import MackinIndustriesAdapter
+from app.crawlers.adapters.tier1_tls.suncoastparts import SuncoastPartsAdapter
 from app.crawlers.adapters.tier1_tls.texasspeed import TexasSpeedAdapter
+from app.crawlers.adapters.tier1_tls.tomeiusa import TomeiUsaAdapter
 from app.crawlers.adapters.tier1_tls.turnermotorsport import TurnerMotorsportAdapter
 from app.crawlers.adapters.tier1_tls.vividracing import VividRacingAdapter
 from app.crawlers.adapters.tier1_tls.z1motorsports import Z1MotorsportsAdapter
@@ -60,22 +70,32 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "amsperformance": AMSPerformanceAdapter,
     "awetuning": AWETuningAdapter,
     "bimmerworld": BimmerworldAdapter,
+    "driveshaftshop": DriveshaftShopAdapter,
     "evasivemotorsports": EvasiveMotorsportsAdapter,
     "functionwerk": FunctionwerkAdapter,
+    "gmgracing": GMGRacingAdapter,
+    "greddy": GReddyAdapter,
+    "hksusa": HKSUSAAdapter,
     "hondata": HondataAdapter,
     "ie": IEAdapter,
     "ind": INDAdapter,
     "ktuner": KTunerAdapter,
     "maperformance": MAPerformanceAdapter,
+    "roadsportsupply": RoadSportSupplyAdapter,
+    "sheepeybuilt": SheepeyBuiltAdapter,
     "studiorsr": StudioRSRAdapter,
     "summitracing": SummitRacingAdapter,
     "tickperformance": TickPerformanceAdapter,
+    "wheelsboutique": WheelsBoutiqueAdapter,
     "xph": XPHAdapter,
     # Tier 1 — TLS impersonation
+    "apr": APRAdapter,
     "cobbtuning": CobbTuningAdapter,
     "enjukuracing": EnjukuRacingAdapter,
     "mackinindustries": MackinIndustriesAdapter,
+    "suncoastparts": SuncoastPartsAdapter,
     "texasspeed": TexasSpeedAdapter,
+    "tomeiusa": TomeiUsaAdapter,
     "turnermotorsport": TurnerMotorsportAdapter,
     "vividracing": VividRacingAdapter,
     "z1motorsports": Z1MotorsportsAdapter,
@@ -120,10 +140,18 @@ def adapter_name_for_product_url(url: str) -> str:
         return "awetuning"
     if host == "bimmerworld.com" or host.endswith(".bimmerworld.com"):
         return "bimmerworld"
+    if host == "driveshaftshop.com" or host.endswith(".driveshaftshop.com"):
+        return "driveshaftshop"
     if host == "evasivemotorsports.com" or host.endswith(".evasivemotorsports.com"):
         return "evasivemotorsports"
     if host == "functionwerk.com" or host.endswith(".functionwerk.com"):
         return "functionwerk"
+    if host == "gmgracing.com" or host.endswith(".gmgracing.com") or host == "gmgracing.myshopify.com":
+        return "gmgracing"
+    if host == "greddy.com" or host.endswith(".greddy.com"):
+        return "greddy"
+    if host == "hksusa.com" or host.endswith(".hksusa.com"):
+        return "hksusa"
     if host == "hondata.com" or host.endswith(".hondata.com"):
         return "hondata"
     if host == "performancebyie.com" or host.endswith(".performancebyie.com"):
@@ -134,15 +162,27 @@ def adapter_name_for_product_url(url: str) -> str:
         return "ktuner"
     if host == "maperformance.com" or host.endswith(".maperformance.com"):
         return "maperformance"
+    if host == "roadsportsupply.com" or host.endswith(".roadsportsupply.com"):
+        return "roadsportsupply"
+    if host == "sheepeyrace.com" or host.endswith(".sheepeyrace.com"):
+        return "sheepeybuilt"
+    if host == "sheepeybuilt.com" or host.endswith(".sheepeybuilt.com"):
+        return "sheepeybuilt"
     if host == "studiorsr.com" or host.endswith(".studiorsr.com"):
         return "studiorsr"
     if host == "summitracing.com" or host.endswith(".summitracing.com"):
         return "summitracing"
     if host == "tickperformance.com" or host.endswith(".tickperformance.com"):
         return "tickperformance"
+    if host == "tomeiusa.com" or host.endswith(".tomeiusa.com"):
+        return "tomeiusa"
+    if host == "wheelsboutique.com" or host.endswith(".wheelsboutique.com"):
+        return "wheelsboutique"
     if host == "x-ph.com" or host.endswith(".x-ph.com"):
         return "xph"
     # Tier 1 — TLS impersonation
+    if host == "goapr.com" or host.endswith(".goapr.com"):
+        return "apr"
     if host == "cobbtuning.com" or host.endswith(".cobbtuning.com"):
         return "cobbtuning"
     if host == "enjukuracing.com" or host.endswith(".enjukuracing.com"):
@@ -151,6 +191,8 @@ def adapter_name_for_product_url(url: str) -> str:
         return "mackinindustries"
     if host == "mackinindustries.com" or host.endswith(".mackinindustries.com"):
         return "mackinindustries"
+    if host == "suncoastparts.com" or host.endswith(".suncoastparts.com"):
+        return "suncoastparts"
     if host == "texas-speed.com" or host.endswith(".texas-speed.com"):
         return "texasspeed"
     if host == "turnermotorsport.com" or host.endswith(".turnermotorsport.com"):
