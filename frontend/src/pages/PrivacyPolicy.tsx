@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom';
 
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+
 const LAST_UPDATED = 'April 18, 2026';
 const CONTACT_EMAIL = 'tyler@webbpulse.com';
 
 function PrivacyPolicy() {
+  useDocumentMeta({
+    title: 'Privacy Policy',
+    description:
+      "Read CarModPicker's privacy policy: what data we collect, how we use it, and your rights regarding your personal information.",
+    canonicalPath: '/privacy-policy',
+  });
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="glass-card rounded-2xl p-8 md:p-12">

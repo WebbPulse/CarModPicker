@@ -13,6 +13,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   partManufacturersApi,
   buildListsApi,
@@ -22,6 +23,12 @@ import {
 import type { BuildListReadWithVotes, PartReadWithVotes } from '../types/Api';
 
 export default function HomePage() {
+  useDocumentMeta({
+    title: 'CarModPicker — Plan, track, and share your car build',
+    description:
+      'Discover parts, plan modifications, track build progress, and share your build with the CarModPicker community.',
+    canonicalPath: '/',
+  });
   const { user, isAuthenticated } = useAuth();
   const [featuredBuildLists, setFeaturedBuildLists] = useState<
     BuildListReadWithVotes[]

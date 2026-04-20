@@ -9,6 +9,7 @@ import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import SocialLinks from '../components/profile/SocialLinks';
 import useApiRequest from '../hooks/UseApiRequest';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import apiClient, { buildListsApi } from '../services/Api';
 import type { BuildListRead, UserRead } from '../types/Api';
 
@@ -48,6 +49,14 @@ function ViewUser() {
   }, [user?.id, fetchBuildListsByUser]);
 
   const buildLists: BuildListRead[] = buildListsResponse ?? [];
+
+  useDocumentMeta({
+    title: user?.username ? `${user.username}'s Profile` : 'User Profile',
+    description: user?.username
+      ? `View ${user.username}'s car builds, parts, and activity on CarModPicker.`
+      : 'View a member profile on CarModPicker.',
+    canonicalPath: userIdParam ? `/user/${userIdParam}` : undefined,
+  });
 
   if (isLoadingUser) {
     return (

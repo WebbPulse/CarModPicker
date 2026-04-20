@@ -24,6 +24,7 @@ import {
   LARGE_FETCH_LIMIT,
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { buildListsApi, carGenerationsApi } from '../../services/Api';
 import type {
   BuildListReadWithVotes,
@@ -37,6 +38,12 @@ import {
 } from '../../utils/carUtils';
 
 const BuildListsCatalog: React.FC = () => {
+  useDocumentMeta({
+    title: 'Build Lists',
+    description:
+      'Explore car builds from the CarModPicker community. See how enthusiasts modify their cars — parts used, build logs, photos, and costs.',
+    canonicalPath: '/build-lists',
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');

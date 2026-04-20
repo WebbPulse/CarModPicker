@@ -10,8 +10,15 @@ import {
 import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 function About() {
+  useDocumentMeta({
+    title: 'About',
+    description:
+      'Learn about CarModPicker — a platform where car enthusiasts plan modifications, track build progress, and share their work with the community.',
+    canonicalPath: '/about',
+  });
   const features = [
     {
       id: 'build-lists',

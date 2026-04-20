@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { carGenerationsApi, categoriesApi } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
 
@@ -45,6 +46,15 @@ function ViewCar(): React.JSX.Element {
     error: carApiError,
     executeRequest: fetchCar,
   } = useApiRequest(fetchCarRequestFn);
+
+  const carTitle = car ? carFullDisplayName(car) : null;
+  useDocumentMeta({
+    title: carTitle ?? 'Car Generation',
+    description: carTitle
+      ? `Builds, parts, and modification ideas for the ${carTitle} on CarModPicker.`
+      : 'Explore builds and parts for a car generation on CarModPicker.',
+    canonicalPath: carId ? `/car-generations/${carId}` : undefined,
+  });
 
   const loadCategories = useCallback(async () => {
     try {

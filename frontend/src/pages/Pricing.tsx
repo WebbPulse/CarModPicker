@@ -7,6 +7,7 @@ import {
   PREMIUM_MONTHLY_PRICE_USD,
 } from '../constants';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { isPremium } from '../utils/subscription';
 
 type TierFeature = {
@@ -28,6 +29,12 @@ type Tier = {
 };
 
 function Pricing() {
+  useDocumentMeta({
+    title: 'Pricing',
+    description:
+      'Compare CarModPicker plans. Free forever, or upgrade to Premium to go ad-free and unlock unlimited build lists.',
+    canonicalPath: '/pricing',
+  });
   const { user, isAuthenticated } = useAuth();
   const userIsPremium = isPremium(user);
 

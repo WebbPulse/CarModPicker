@@ -1,10 +1,18 @@
 import { Link } from 'react-router-dom';
 
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+
 const LAST_UPDATED = 'April 15, 2026';
 const CONTACT_EMAIL = 'tyler@webbpulse.com';
 const GOVERNING_STATE = 'California';
 
 function TermsOfService() {
+  useDocumentMeta({
+    title: 'Terms of Service',
+    description:
+      'Read the CarModPicker Terms of Service — the rules for using the platform, user responsibilities, and content policies.',
+    canonicalPath: '/terms-of-service',
+  });
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="glass-card rounded-2xl p-8 md:p-12">

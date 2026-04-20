@@ -3,6 +3,7 @@ import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
 import ActionButton from '../components/buttons/ActionButton';
 import Card from '../components/common/Card';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 type SupportOption = {
   id: string;
@@ -16,6 +17,12 @@ type SupportOption = {
 };
 
 function Support() {
+  useDocumentMeta({
+    title: 'Support CarModPicker',
+    description:
+      'Ways to support CarModPicker: subscribe to Premium, send feedback, or help grow the community.',
+    canonicalPath: '/support',
+  });
   const supportOptions: SupportOption[] = [
     {
       id: 'premium',

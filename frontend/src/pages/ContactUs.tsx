@@ -1,6 +1,13 @@
 import Card from '../components/common/Card';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 function ContactUs() {
+  useDocumentMeta({
+    title: 'Contact Us',
+    description:
+      'Get in touch with the CarModPicker team. Send feedback, questions, or business inquiries — we read every message.',
+    canonicalPath: '/contact-us',
+  });
   return (
     <div className="min-h-screen">
       {/* Hero Section */}

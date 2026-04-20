@@ -16,7 +16,6 @@ import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
-import { useCookieConsent } from './hooks/useCookieConsent';
 import { isPremium } from './utils/subscription';
 
 const ADSENSE_SCRIPT_ATTR = 'data-adsense-loader';
@@ -108,7 +107,6 @@ const NO_ADS_PATHS = new Set([
 function App() {
   const location = useLocation();
   const { user } = useAuth();
-  const { consent } = useCookieConsent();
   // showAdSpace: render the side columns (ad or spacer) for layout consistency.
   // showAds: only show actual ads on content pages for free users.
   // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
@@ -117,11 +115,12 @@ function App() {
     showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremium(user);
   const isLandingPage = location.pathname === '/';
 
+  // Load the AdSense loader unconditionally so Google's review crawler detects
+  // the snippet. The script alone sets no ad cookies — cookies are only set
+  // once an ad unit actually renders, which is gated on consent in AdBanner.
   useEffect(() => {
-    if (consent === 'accepted') {
-      loadAdSenseScript(ADSENSE_CLIENT_ID);
-    }
-  }, [consent]);
+    loadAdSenseScript(ADSENSE_CLIENT_ID);
+  }, []);
 
   return (
     <ErrorBoundary>
