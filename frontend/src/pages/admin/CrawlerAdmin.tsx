@@ -25,6 +25,69 @@ import type {
 import { adminApi, categoriesApi } from '../../services/Api';
 import type { CategoryResponse } from '../../types/Api';
 
+// ── Fetcher-tier visual system ───────────────────────────────────────────
+// Adapters declare a FETCHER_TIER on the backend; the UI groups them by
+// blocking difficulty: T0 = plain HTTP, T1 = TLS impersonation, T2 = headless
+// browser via FlareSolverr.
+
+type FetcherTier = 'http' | 'tls' | 'browser';
+
+const TIER_META: Record<
+  FetcherTier,
+  {
+    label: string;
+    full: string;
+    badge: string;
+    row: string;
+    chipSelected: string;
+    chipUnselected: string;
+    dot: string;
+  }
+> = {
+  http: {
+    label: 'T0',
+    full: 'Tier 0 — plain HTTP',
+    badge: 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300',
+    row: 'border-l-2 border-l-emerald-600/70',
+    chipSelected: 'border-emerald-500 bg-emerald-900/40 text-emerald-300',
+    chipUnselected:
+      'border-emerald-700/40 text-emerald-400/70 hover:border-emerald-500',
+    dot: 'bg-emerald-500',
+  },
+  tls: {
+    label: 'T1',
+    full: 'Tier 1 — TLS impersonation (curl_cffi)',
+    badge: 'bg-amber-900/40 border-amber-700/60 text-amber-300',
+    row: 'border-l-2 border-l-amber-500/70',
+    chipSelected: 'border-amber-500 bg-amber-900/40 text-amber-300',
+    chipUnselected:
+      'border-amber-700/40 text-amber-400/70 hover:border-amber-500',
+    dot: 'bg-amber-500',
+  },
+  browser: {
+    label: 'T2',
+    full: 'Tier 2 — headless browser (FlareSolverr)',
+    badge: 'bg-rose-900/40 border-rose-700/60 text-rose-300',
+    row: 'border-l-2 border-l-rose-500/70',
+    chipSelected: 'border-rose-500 bg-rose-900/40 text-rose-300',
+    chipUnselected: 'border-rose-700/40 text-rose-400/70 hover:border-rose-500',
+    dot: 'bg-rose-500',
+  },
+};
+
+function TierBadge({ tier }: { tier: FetcherTier | undefined }) {
+  if (!tier) return null;
+  const m = TIER_META[tier];
+  return (
+    <span
+      title={m.full}
+      className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-semibold font-mono border ${m.badge}`}
+    >
+      {m.label}
+    </span>
+  );
+}
+
 // ── Job display helpers ──────────────────────────────────────────────────
 
 /** Parse a server datetime string as UTC. Pydantic serialises naive datetimes
@@ -283,6 +346,9 @@ function CrawlerAdmin() {
 
   // Crawler tools
   const [crawlerAdapters, setCrawlerAdapters] = useState<string[]>([]);
+  const [adapterTiers, setAdapterTiers] = useState<Record<string, FetcherTier>>(
+    {}
+  );
   const [selectedCrawlers, setSelectedCrawlers] = useState<Set<string>>(
     () => new Set()
   );
@@ -374,6 +440,11 @@ function CrawlerAdmin() {
         ]
       );
       setCrawlerAdapters(adaptersRes.data.adapters);
+      const tiers: Record<string, FetcherTier> = {};
+      for (const info of adaptersRes.data.adapter_info ?? []) {
+        tiers[info.name] = info.tier;
+      }
+      setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
       setCrawlerServiceAccount(serviceAccountRes.data);
       const otherCategory = categoriesRes.data.find(
@@ -561,7 +632,7 @@ function CrawlerAdmin() {
       await fetchSchedules();
     } catch (e) {
       setScheduleSaveError(
-        e instanceof Error ? e.message : 'Failed to reconcile schedules.'
+        e instanceof Error ? e.message : 'Failed to sync schedules with AWS.'
       );
     } finally {
       setIsReconcilingAll(false);
@@ -756,61 +827,822 @@ function CrawlerAdmin() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 py-4">
       <PageHeader
         title="Crawler & Jobs"
         subtitle="Run crawlers, manage archives, configure schedule, and monitor background jobs"
       />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <ActionButton onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
         </ActionButton>
+        <div className="flex items-center gap-2 text-[10px] text-neutral-400">
+          <span className="text-neutral-500">Fetcher tiers:</span>
+          {(['http', 'tls', 'browser'] as const).map((t) => (
+            <span
+              key={t}
+              title={TIER_META[t].full}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${TIER_META[t].badge}`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${TIER_META[t].dot}`}
+              />
+              {TIER_META[t].label}{' '}
+              <span className="text-neutral-400/80">
+                {t === 'http' ? 'plain' : t === 'tls' ? 'TLS' : 'browser'}
+              </span>
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div className="xl:grid xl:grid-cols-[3fr_2fr] xl:items-start gap-4">
-        {/* Crawler & archives */}
+      <div className="columns-1 xl:columns-2 [column-gap:0.75rem] [&>*]:break-inside-avoid [&>*]:mb-3">
+        {/* Crawler Schedules */}
         <Card padding="sm">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Crawler &amp; archives
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-white leading-tight">
+                Crawler Schedules
+              </h2>
+              <p className="text-[11px] text-gray-400">
+                Each schedule fires one EventBridge trigger and runs its members
+                in parallel.
+              </p>
+            </div>
+            <ActionButton
+              onClick={() => void handleReconcileAll()}
+              disabled={
+                isReconcilingAll || isLoadingSchedules || isSchedulesUnavailable
+              }
+              className="bg-gray-700 hover:bg-gray-600 text-white text-[11px] py-0.5 px-2 shrink-0"
+            >
+              {isReconcilingAll ? 'Syncing…' : 'Force sync with AWS'}
+            </ActionButton>
+          </div>
+
+          {isSchedulesUnavailable && (
+            <div className="flex items-start gap-2 p-2 mb-2 rounded border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-xs">
+              <span className="mt-0.5 shrink-0">⚠</span>
+              <span>
+                Schedules unavailable — backend did not respond. Requires AWS
+                EventBridge plumbing.
+              </span>
+            </div>
+          )}
+
+          {scheduleSaveError && (
+            <div className="mb-2">
+              <ErrorAlert message={scheduleSaveError} />
+            </div>
+          )}
+
+          {/* Create new schedule */}
+          <div className="mb-2 p-2 rounded border border-dashed border-gray-700 bg-gray-900/30">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1.5">
+              New schedule
+            </p>
+            <div className="space-y-1.5">
+              <Input
+                id="new-schedule-name"
+                placeholder="e.g. retailers-daily"
+                value={newScheduleName}
+                onChange={(e) =>
+                  setNewScheduleName(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]+/g, '-')
+                      .replace(/^-+/, '')
+                      .slice(0, 26)
+                  )
+                }
+              />
+              <div className="flex flex-wrap gap-1">
+                {(['monthly', 'weekly', 'daily', 'custom'] as const).map(
+                  (p) => (
+                    <button
+                      key={p}
+                      onClick={() => setNewSchedulePreset(p)}
+                      className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                        newSchedulePreset === p
+                          ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  )
+                )}
+              </div>
+              {newSchedulePreset === 'custom' && (
+                <input
+                  type="text"
+                  value={newScheduleCustomExpression}
+                  onChange={(e) =>
+                    setNewScheduleCustomExpression(e.target.value)
+                  }
+                  placeholder="cron(0 2 1 * ? *)"
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                />
+              )}
+              <div className="flex flex-wrap gap-1">
+                {crawlerAdapters.map((name) => {
+                  const checked = newScheduleAdapters.includes(name);
+                  const tier = adapterTiers[name];
+                  const cls = tier
+                    ? checked
+                      ? TIER_META[tier].chipSelected
+                      : TIER_META[tier].chipUnselected
+                    : checked
+                      ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
+                      : 'border-gray-600 text-gray-400 hover:border-gray-400';
+                  return (
+                    <button
+                      key={name}
+                      onClick={() =>
+                        setNewScheduleAdapters((prev) =>
+                          checked
+                            ? prev.filter((n) => n !== name)
+                            : [...prev, name]
+                        )
+                      }
+                      className={`px-2 py-0.5 text-[11px] rounded-full border font-mono transition-colors ${cls}`}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+              <ActionButton
+                onClick={() => void handleCreateSchedule()}
+                disabled={
+                  isCreatingSchedule ||
+                  !newScheduleName.trim() ||
+                  newScheduleAdapters.length === 0 ||
+                  (newSchedulePreset === 'custom' &&
+                    !newScheduleCustomExpression.trim())
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
+              >
+                {isCreatingSchedule ? 'Creating…' : 'Create schedule'}
+              </ActionButton>
+            </div>
+          </div>
+
+          {isLoadingSchedules && schedules.length === 0 ? (
+            <div className="flex justify-center py-4">
+              <LoadingSpinner size="sm" />
+            </div>
+          ) : schedules.length === 0 ? (
+            <p className="text-xs text-gray-500 py-2">
+              No schedules yet — create one above.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {schedules.map((row) => {
+                const draft = scheduleDrafts[row.id] ?? {
+                  preset: presetForExpression(
+                    row.schedule_expression,
+                    schedulePresets
+                  ),
+                  customExpression: '',
+                };
+                const isSaving = savingScheduleId === row.id;
+                const reconcileFailed = !!row.last_reconcile_error;
+                const memberNames = new Set(
+                  row.adapters.map((a) => a.adapter_name)
+                );
+                return (
+                  <div
+                    key={row.id}
+                    className="p-2 rounded border border-gray-700 bg-gray-900/40"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-100 font-mono truncate">
+                          {row.name}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {row.enabled ? (
+                            <span className="text-emerald-400">Enabled</span>
+                          ) : (
+                            <span>Disabled</span>
+                          )}
+                          {' · '}
+                          <span className="font-mono">
+                            {row.schedule_expression}
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          void handleSaveSchedule(row.id, {
+                            enabled: !row.enabled,
+                          })
+                        }
+                        disabled={isSaving}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                          row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                            row.enabled ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Adapter membership chips */}
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
+                          Adapters ({row.adapters.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {crawlerAdapters.map((name) => {
+                            const selected = memberNames.has(name);
+                            const tier = adapterTiers[name];
+                            const cls = tier
+                              ? selected
+                                ? TIER_META[tier].chipSelected
+                                : TIER_META[tier].chipUnselected
+                              : selected
+                                ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
+                                : 'border-gray-600 text-gray-500 hover:border-gray-400';
+                            return (
+                              <button
+                                key={name}
+                                onClick={() =>
+                                  void handleToggleAdapterInSchedule(row, name)
+                                }
+                                disabled={isSaving}
+                                className={`px-2 py-0.5 text-[11px] rounded-full border font-mono transition-colors disabled:opacity-50 ${cls}`}
+                              >
+                                {name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Interval pills */}
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
+                          Interval
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(['monthly', 'weekly', 'daily'] as const).map(
+                            (p) => (
+                              <button
+                                key={p}
+                                onClick={() =>
+                                  setScheduleDrafts((prev) => ({
+                                    ...prev,
+                                    [row.id]: {
+                                      preset: p,
+                                      customExpression: '',
+                                    },
+                                  }))
+                                }
+                                className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                                  draft.preset === p
+                                    ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                                    : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                                }`}
+                              >
+                                {p.charAt(0).toUpperCase() + p.slice(1)}
+                              </button>
+                            )
+                          )}
+                          <button
+                            onClick={() =>
+                              setScheduleDrafts((prev) => ({
+                                ...prev,
+                                [row.id]: {
+                                  preset: 'custom',
+                                  customExpression:
+                                    draft.customExpression ||
+                                    row.schedule_expression,
+                                },
+                              }))
+                            }
+                            className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                              draft.preset === 'custom'
+                                ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                                : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                            }`}
+                          >
+                            Custom
+                          </button>
+                        </div>
+                        {draft.preset === 'custom' && (
+                          <input
+                            type="text"
+                            value={draft.customExpression}
+                            onChange={(e) =>
+                              setScheduleDrafts((prev) => ({
+                                ...prev,
+                                [row.id]: {
+                                  ...draft,
+                                  customExpression: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="cron(0 2 1 * ? *)"
+                            className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                          />
+                        )}
+                        {draft.preset !== 'custom' &&
+                          schedulePresets[draft.preset] && (
+                            <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                              {schedulePresets[draft.preset]}
+                            </p>
+                          )}
+                      </div>
+
+                      {/* Save interval / delete row */}
+                      <div className="flex items-center gap-2">
+                        {draft.preset === 'custom' ||
+                        presetForExpression(
+                          row.schedule_expression,
+                          schedulePresets
+                        ) !== draft.preset ? (
+                          <ActionButton
+                            onClick={() =>
+                              void handleSaveSchedule(
+                                row.id,
+                                draft.preset === 'custom'
+                                  ? {
+                                      schedule_expression:
+                                        draft.customExpression,
+                                    }
+                                  : {
+                                      preset: draft.preset as
+                                        | 'monthly'
+                                        | 'weekly'
+                                        | 'daily',
+                                    }
+                              )
+                            }
+                            disabled={
+                              isSaving ||
+                              (draft.preset === 'custom' &&
+                                !draft.customExpression.trim())
+                            }
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
+                          >
+                            {isSaving ? 'Saving…' : 'Save interval'}
+                          </ActionButton>
+                        ) : null}
+                        <button
+                          onClick={() => void handleDeleteSchedule(row)}
+                          disabled={isSaving}
+                          className="ml-auto text-[11px] text-red-400 hover:text-red-300 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      {/* AWS sync status */}
+                      <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-700/50">
+                        {reconcileFailed ? (
+                          <span className="text-red-400">
+                            Last AWS sync failed: {row.last_reconcile_error}
+                          </span>
+                        ) : row.last_reconciled_at ? (
+                          <span>
+                            Last synced with AWS{' '}
+                            {parseServerDate(
+                              row.last_reconciled_at
+                            ).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span>Not yet synced to AWS.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Adapter Tuning */}
+        <Card padding="sm">
+          <h2 className="text-base font-semibold text-white leading-tight">
+            Adapter Tuning
           </h2>
-          <p className="text-sm text-neutral-400 mb-3">
-            Run live retailer crawls or re-process stored HTML archives. Crawler
-            user and default category apply to both.
+          <p className="text-xs text-neutral-400 mb-2">
+            Per-retailer delay, run limit, and default category. Applies on the
+            next scheduled run — no AWS sync needed.
+          </p>
+
+          {configSaveError && (
+            <div className="mb-2">
+              <ErrorAlert message={configSaveError} />
+            </div>
+          )}
+
+          {isLoadingConfigs && adapterConfigs.length === 0 ? (
+            <div className="flex justify-center py-4">
+              <LoadingSpinner size="sm" />
+            </div>
+          ) : adapterConfigs.length === 0 ? (
+            <p className="text-xs text-gray-500 py-2">
+              No adapters registered yet.
+            </p>
+          ) : (
+            <div className="p-2 bg-blue-900/10 border border-blue-700/60 rounded-lg">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-200 mb-2">
+                Per-retailer settings
+              </h3>
+              <div className="grid grid-cols-1 gap-1">
+                {[...adapterConfigs]
+                  .sort((a, b) => {
+                    const order: Record<FetcherTier, number> = {
+                      http: 0,
+                      tls: 1,
+                      browser: 2,
+                    };
+                    const ta = adapterTiers[a.adapter_name];
+                    const tb = adapterTiers[b.adapter_name];
+                    const da = ta ? order[ta] : 3;
+                    const db = tb ? order[tb] : 3;
+                    if (da !== db) return da - db;
+                    return a.adapter_name.localeCompare(b.adapter_name);
+                  })
+                  .map((row) => {
+                    const isSaving = savingConfigName === row.adapter_name;
+                    const tier = adapterTiers[row.adapter_name];
+                    const tierRow = tier ? TIER_META[tier].row : '';
+                    return (
+                      <div
+                        key={row.id}
+                        className={`flex flex-wrap items-center gap-1.5 py-1 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
+                      >
+                        <TierBadge tier={tier} />
+                        <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
+                          {row.adapter_name}
+                        </span>
+                        <select
+                          id={`tune-delay-${row.adapter_name}`}
+                          title="Delay"
+                          value={String(row.delay_sec)}
+                          onChange={(e) =>
+                            void handleSaveAdapterConfig(row.adapter_name, {
+                              delay_sec: Number(e.target.value),
+                            })
+                          }
+                          disabled={isSaving}
+                          className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                        >
+                          {[2.5, 5, 10, 15, 30].map((v) => (
+                            <option key={v} value={String(v)}>
+                              {v}s
+                            </option>
+                          ))}
+                        </select>
+                        <Input
+                          id={`tune-limit-${row.adapter_name}`}
+                          type="number"
+                          min="1"
+                          title="Per-run limit"
+                          value={
+                            row.per_run_limit == null
+                              ? ''
+                              : String(row.per_run_limit)
+                          }
+                          placeholder="∞"
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim();
+                            if (raw === '') {
+                              if (row.per_run_limit != null) {
+                                void handleSaveAdapterConfig(row.adapter_name, {
+                                  clear_per_run_limit: true,
+                                });
+                              }
+                            } else {
+                              const n = Number(raw);
+                              if (
+                                Number.isFinite(n) &&
+                                n >= 1 &&
+                                n !== row.per_run_limit
+                              ) {
+                                void handleSaveAdapterConfig(row.adapter_name, {
+                                  per_run_limit: n,
+                                });
+                              }
+                            }
+                          }}
+                          disabled={isSaving}
+                          className="w-14 min-h-0 py-0.5 text-xs"
+                        />
+                        <label
+                          title="Skip URLs already archived as parsed"
+                          className="inline-flex items-center gap-1 text-[11px] text-gray-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={row.skip_known_urls}
+                            onChange={(e) =>
+                              void handleSaveAdapterConfig(row.adapter_name, {
+                                skip_known_urls: e.target.checked,
+                              })
+                            }
+                            disabled={isSaving}
+                            className="h-3 w-3 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                          />
+                          skip
+                        </label>
+                        <select
+                          id={`tune-cat-${row.adapter_name}`}
+                          title="Default category for new parts"
+                          value={row.default_category_id}
+                          onChange={(e) =>
+                            void handleSaveAdapterConfig(row.adapter_name, {
+                              default_category_id: e.target.value,
+                            })
+                          }
+                          disabled={isSaving || crawlerCategories.length === 0}
+                          className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 max-w-[8rem]"
+                        >
+                          {crawlerCategories.map((c) => (
+                            <option key={c.id} value={String(c.id)}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Background Jobs */}
+        <Card padding="sm">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div>
+              <h2 className="text-base font-semibold text-white leading-tight">
+                Background Jobs
+              </h2>
+              <p className="text-[11px] text-gray-400">
+                Polls every 5 s while a job is running.
+                {jobsList ? ` · ${jobsList.total} total` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => void fetchJobs()}
+              disabled={isLoadingJobs}
+              className="text-[11px] text-blue-400 hover:text-blue-300 disabled:opacity-50 shrink-0"
+            >
+              {isLoadingJobs ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+
+          {!jobsList && isLoadingJobs && (
+            <div className="flex justify-center py-4">
+              <LoadingSpinner size="sm" />
+            </div>
+          )}
+
+          {jobsList && jobsList.items.length === 0 && (
+            <p className="text-xs text-gray-500 text-center py-4">
+              No jobs yet.
+            </p>
+          )}
+
+          {jobsList && jobsList.items.length > 0 && (
+            <div className="space-y-1.5">
+              {jobsList.items.map((job: BackgroundJob) => {
+                const isExpanded = expandedJobId === job.id;
+                const isRunning = job.status === 'running';
+                const statusColor =
+                  job.status === 'completed'
+                    ? 'text-emerald-400'
+                    : job.status === 'failed'
+                      ? 'text-red-400'
+                      : isRunning
+                        ? 'text-yellow-400'
+                        : 'text-gray-400';
+                const statusBg =
+                  job.status === 'completed'
+                    ? 'border-emerald-800/60 bg-emerald-950/30'
+                    : job.status === 'failed'
+                      ? 'border-red-800/60 bg-red-950/30'
+                      : isRunning
+                        ? 'border-yellow-800/60 bg-yellow-950/30'
+                        : 'border-gray-700 bg-gray-900/30';
+
+                const typeLabel =
+                  job.job_type === 'crawler_run'
+                    ? 'Crawler Run'
+                    : job.job_type === 'archive_rescrape'
+                      ? 'Archive Rescrape'
+                      : job.job_type;
+
+                const startedAt = parseServerDate(job.started_at);
+                const completedAt = job.completed_at
+                  ? parseServerDate(job.completed_at)
+                  : null;
+                const elapsed = fmtElapsed(startedAt, completedAt);
+                const inlineSummary = jobInlineSummary(job);
+
+                return (
+                  <div
+                    key={job.id}
+                    className={`rounded-lg border text-sm ${statusBg}`}
+                  >
+                    {/* Indeterminate progress bar for running jobs */}
+                    {isRunning && (
+                      <div className="h-0.5 w-full rounded-t-lg overflow-hidden bg-yellow-950/50">
+                        <div className="h-full bg-yellow-400/70 animate-[progress-indeterminate_1.8s_ease-in-out_infinite] w-1/3" />
+                      </div>
+                    )}
+                    <div className="px-2 py-1">
+                      <button
+                        className="w-full flex items-center justify-between gap-2 text-left"
+                        onClick={() =>
+                          setExpandedJobId(isExpanded ? null : job.id)
+                        }
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {/* Status indicator */}
+                          {isRunning ? (
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+                            </span>
+                          ) : null}
+                          <span
+                            className={`font-semibold text-[10px] uppercase tracking-wide shrink-0 ${statusColor}`}
+                          >
+                            {job.status}
+                          </span>
+                          <span className="text-xs text-gray-300 font-medium truncate">
+                            #{job.id} — {typeLabel}
+                          </span>
+                          <span className="text-gray-500 text-[10px] shrink-0">
+                            {job.triggered_by}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 text-[11px] text-gray-400">
+                          {inlineSummary && (
+                            <span
+                              className={`tabular-nums ${job.status === 'failed' ? 'text-red-400/70' : 'text-gray-400'}`}
+                            >
+                              {inlineSummary}
+                            </span>
+                          )}
+                          <span className="tabular-nums">
+                            {isRunning ? (
+                              <span className="text-yellow-400/80">
+                                {elapsed}
+                              </span>
+                            ) : (
+                              elapsed
+                            )}
+                          </span>
+                          <span className="text-gray-600">
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-3">
+                          {/* Started at */}
+                          <p className="text-xs text-gray-500">
+                            Started {startedAt.toLocaleString()}
+                            {completedAt && (
+                              <> · Finished {completedAt.toLocaleString()}</>
+                            )}
+                          </p>
+
+                          {/* Params */}
+                          {job.params && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                                Parameters
+                              </p>
+                              <JobParams job={job} />
+                            </div>
+                          )}
+
+                          {/* Running: no result yet */}
+                          {isRunning && (
+                            <div className="flex items-center gap-2 text-xs text-yellow-400/80">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+                              </span>
+                              Running for {elapsed} — results will appear when
+                              the job completes
+                            </div>
+                          )}
+
+                          {/* Result summary */}
+                          {job.result_summary && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                                Result
+                              </p>
+                              {job.job_type === 'crawler_run' ? (
+                                <CrawlerRunResult
+                                  summary={job.result_summary}
+                                />
+                              ) : job.job_type === 'archive_rescrape' ? (
+                                <ArchiveRescrapeResult
+                                  summary={job.result_summary}
+                                />
+                              ) : (
+                                <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                                  {JSON.stringify(job.result_summary, null, 2)}
+                                </pre>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Error */}
+                          {job.error_message && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1">
+                                Error
+                              </p>
+                              <pre className="text-xs text-red-300 bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                                {job.error_message}
+                              </pre>
+                            </div>
+                          )}
+
+                          {/* Cancel */}
+                          {isRunning && (
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => {
+                                  void adminApi
+                                    .cancelJob(job.id)
+                                    .then(() => fetchJobs())
+                                    .catch(() => undefined);
+                                }}
+                                className="text-xs text-red-400 hover:text-red-300 underline"
+                              >
+                                Cancel job
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Manual Run — one-off live crawl or archive rescrape */}
+        <Card padding="sm">
+          <h2 className="text-base font-semibold text-white leading-tight">
+            Manual Run
+          </h2>
+          <p className="text-xs text-neutral-400 mb-2">
+            Trigger a one-off live crawl or archive rescrape now, outside the
+            scheduled cadence.
           </p>
 
           {isLoadingCrawlers ? (
-            <div className="flex justify-center items-center py-10">
+            <div className="flex justify-center items-center py-6">
               <LoadingSpinner />
             </div>
           ) : (
             <>
-              <div className="mb-4 p-3 rounded-lg border border-white/15 bg-gray-900/40">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-2">
-                  Shared defaults
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mb-2 p-2 rounded-lg border border-white/15 bg-gray-900/40">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase tracking-wide">
                       Crawler service account
                     </label>
                     {crawlerServiceAccount ? (
-                      <div className="flex items-center gap-2 px-3 py-1.5 min-h-[36px] rounded-lg border border-white/10 bg-gray-800/60 text-sm">
+                      <div className="flex items-center gap-2 px-2 py-1 rounded border border-white/10 bg-gray-800/60 text-xs">
                         <span className="font-mono text-neutral-200">
                           {crawlerServiceAccount.username}
                         </span>
-                        <span className="text-xs text-neutral-500">
+                        <span className="text-[10px] text-neutral-500">
                           #{crawlerServiceAccount.id}
                         </span>
                       </div>
                     ) : (
-                      <div className="flex items-center px-3 py-1.5 min-h-[36px] rounded-lg border border-yellow-600/40 bg-yellow-900/20 text-xs text-yellow-400">
+                      <div className="flex items-center px-2 py-1 rounded border border-yellow-600/40 bg-yellow-900/20 text-[10px] text-yellow-400">
                         Not found — restart app
                       </div>
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase tracking-wide">
                       Default category
                     </label>
                     <select
@@ -818,7 +1650,7 @@ function CrawlerAdmin() {
                       onChange={(e) =>
                         setCrawlerDefaultCategoryId(e.target.value)
                       }
-                      className="w-full max-w-xs min-h-[36px] px-3 py-1.5 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="w-full px-2 py-1 text-xs rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
                     >
                       <option value="">Select category...</option>
                       {crawlerCategories.map((c) => (
@@ -831,17 +1663,32 @@ function CrawlerAdmin() {
                 </div>
               </div>
 
-              <div className="p-3 bg-emerald-900/20 border border-emerald-700 rounded-lg mb-4">
-                <h3 className="text-sm font-semibold text-emerald-200 mb-2">
-                  Live crawlers
-                </h3>
-                <p className="text-xs text-neutral-400 mb-3">
-                  Fetch fresh pages from retailers. Configure delay, limits, and
-                  optional HTML export below.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+              <div className="p-2 bg-emerald-900/10 border border-emerald-700/60 rounded-lg mb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                    Live crawlers
+                  </h3>
+                  <div className="flex gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={selectAllCrawlers}
+                      className="text-emerald-400 hover:text-emerald-300"
+                    >
+                      All
+                    </button>
+                    <span className="text-neutral-600">|</span>
+                    <button
+                      type="button"
+                      onClick={deselectAllCrawlers}
+                      className="text-emerald-400 hover:text-emerald-300"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
                       Delay
                     </label>
                     <select
@@ -849,7 +1696,7 @@ function CrawlerAdmin() {
                       onChange={(e) =>
                         setCrawlerDelaySec(Number(e.target.value))
                       }
-                      className="max-w-[120px] min-h-[36px] px-2 py-1 text-sm rounded-lg border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="w-full px-1.5 py-1 text-xs rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none"
                     >
                       <option value={2.5}>2.5 s</option>
                       <option value={5}>5 s</option>
@@ -859,7 +1706,7 @@ function CrawlerAdmin() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-0.5">
+                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
                       Global limit
                     </label>
                     <Input
@@ -868,82 +1715,74 @@ function CrawlerAdmin() {
                       placeholder="—"
                       value={globalCrawlerLimit}
                       onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
-                      className="max-w-[80px] min-h-[36px] text-sm"
+                      className="w-full min-h-0 py-1 text-xs"
                     />
                   </div>
-                  <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-end gap-2">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
+                      HTML save dir
+                    </label>
                     <Input
                       type="text"
-                      placeholder="HTML save dir (optional)"
+                      placeholder="Optional"
                       value={crawlerHtmlSaveDir}
                       onChange={(e) => setCrawlerHtmlSaveDir(e.target.value)}
-                      className="min-h-[36px] text-sm flex-1 min-w-0"
+                      className="w-full min-h-0 py-1 text-xs"
                     />
-                  </div>
-                  <div className="md:col-span-2 flex items-center gap-2">
-                    <input
-                      id="skip-known-urls"
-                      type="checkbox"
-                      checked={skipKnownUrls}
-                      onChange={(e) => setSkipKnownUrls(e.target.checked)}
-                      className="h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-emerald-500"
-                    />
-                    <label
-                      htmlFor="skip-known-urls"
-                      className="text-sm text-neutral-300 select-none cursor-pointer"
-                    >
-                      Skip already-archived URLs
-                    </label>
-                    <span className="text-xs text-neutral-500">
-                      (omit URLs with parse_status=parsed from this run)
-                    </span>
                   </div>
                 </div>
+                <label
+                  htmlFor="skip-known-urls"
+                  className="flex items-center gap-2 mb-2 text-xs text-neutral-300 select-none cursor-pointer"
+                >
+                  <input
+                    id="skip-known-urls"
+                    type="checkbox"
+                    checked={skipKnownUrls}
+                    onChange={(e) => setSkipKnownUrls(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  Skip already-archived URLs
+                  <span className="text-[10px] text-neutral-500">
+                    (omit parse_status=parsed)
+                  </span>
+                </label>
 
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-neutral-400">
-                      Crawlers
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={selectAllCrawlers}
-                        className="text-xs text-emerald-400 hover:text-emerald-300"
-                      >
-                        All
-                      </button>
-                      <span className="text-neutral-500">|</span>
-                      <button
-                        type="button"
-                        onClick={deselectAllCrawlers}
-                        className="text-xs text-emerald-400 hover:text-emerald-300"
-                      >
-                        None
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {crawlerAdapters.map((adapter) => (
-                      <div
-                        key={adapter}
-                        className="flex items-center gap-2 py-1.5 px-2 bg-gray-800/50 rounded border border-gray-700"
-                      >
-                        <label className="flex items-center gap-2 cursor-pointer flex-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedCrawlers.has(adapter)}
-                            onChange={() => toggleCrawlerSelection(adapter)}
-                            className="rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
-                          />
-                          <span className="font-mono text-neutral-200">
-                            {adapter}
-                          </span>
-                        </label>
-                        <div className="flex items-center gap-1 w-24">
-                          <span className="text-xs text-neutral-500">
-                            Limit
-                          </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mb-2">
+                  {[...crawlerAdapters]
+                    .sort((a, b) => {
+                      const order: Record<FetcherTier, number> = {
+                        http: 0,
+                        tls: 1,
+                        browser: 2,
+                      };
+                      const ta = adapterTiers[a];
+                      const tb = adapterTiers[b];
+                      const da = ta ? order[ta] : 3;
+                      const db = tb ? order[tb] : 3;
+                      if (da !== db) return da - db;
+                      return a.localeCompare(b);
+                    })
+                    .map((adapter) => {
+                      const tier = adapterTiers[adapter];
+                      const tierRow = tier ? TIER_META[tier].row : '';
+                      return (
+                        <div
+                          key={adapter}
+                          className={`flex items-center gap-1.5 py-0.5 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
+                        >
+                          <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedCrawlers.has(adapter)}
+                              onChange={() => toggleCrawlerSelection(adapter)}
+                              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                            />
+                            <TierBadge tier={tier} />
+                            <span className="font-mono text-xs text-neutral-200 truncate">
+                              {adapter}
+                            </span>
+                          </label>
                           <Input
                             type="number"
                             min="1"
@@ -955,19 +1794,18 @@ function CrawlerAdmin() {
                                 [adapter]: e.target.value,
                               }))
                             }
-                            className="w-16 min-h-[28px] text-sm"
+                            className="w-14 min-h-0 py-0.5 text-xs"
                           />
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      );
+                    })}
                 </div>
 
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="flex flex-wrap gap-2">
                   <ActionButton
                     onClick={() => void handleRunSelectedCrawlers()}
                     disabled={isRunningCrawlers}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 px-3"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
                   >
                     {isRunningCrawlers ? (
                       <span className="flex items-center">
@@ -981,20 +1819,20 @@ function CrawlerAdmin() {
                   <ActionButton
                     onClick={() => void handleRunAllCrawlers()}
                     disabled={isRunningCrawlers}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1.5 px-3"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
                   >
                     Run all
                   </ActionButton>
                 </div>
 
                 {crawlerError && (
-                  <div className="mb-2">
+                  <div className="mt-2">
                     <ErrorAlert message={crawlerError} />
                   </div>
                 )}
 
                 {crawlerResult && (
-                  <div className="p-2 rounded border border-emerald-700 bg-gray-900/50 text-sm">
+                  <div className="mt-2 p-1.5 rounded border border-emerald-700 bg-gray-900/50 text-xs">
                     <div className="font-semibold text-emerald-400">
                       {crawlerResult.status === 'started'
                         ? 'Crawler job started'
@@ -1002,7 +1840,7 @@ function CrawlerAdmin() {
                     </div>
                     <p className="text-neutral-300">{crawlerResult.message}</p>
                     {crawlerResult.adapters.length > 0 && (
-                      <p className="text-xs text-neutral-400 font-mono mt-0.5">
+                      <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
                         {crawlerResult.adapters.join(', ')}
                       </p>
                     )}
@@ -1010,50 +1848,44 @@ function CrawlerAdmin() {
                 )}
               </div>
 
-              <div className="p-3 bg-violet-900/20 border border-violet-700 rounded-lg">
-                <h3 className="text-sm font-semibold text-violet-200 mb-2">
+              <div className="p-2 bg-violet-900/10 border border-violet-700/60 rounded-lg">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-200 mb-1">
                   Archive rescrape
                 </h3>
-                <p className="text-xs text-neutral-400 mb-2">
-                  Re-run parse → ingest on every URL that has archived HTML
-                  (same pipeline as a live crawl: parts, category and car
-                  inference, listings, and price history when a price is found).
-                  Stale snapshots still record a price observation.
+                <p className="text-[11px] text-neutral-400 mb-2">
+                  Re-run parse → ingest on every URL with archived HTML (same
+                  pipeline as a live crawl). Background job — watch server logs
+                  for per-outcome counts.
                 </p>
-                <p className="text-xs text-neutral-500 mb-3">
-                  Background job — watch server logs for per-outcome counts.
-                </p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <ActionButton
-                    onClick={() => void handleRescrapeArchives()}
-                    disabled={isRescrapingArchives}
-                    className="bg-violet-600 hover:bg-violet-700 text-white text-sm py-1.5 px-3"
-                  >
-                    {isRescrapingArchives ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Starting…
+                <ActionButton
+                  onClick={() => void handleRescrapeArchives()}
+                  disabled={isRescrapingArchives}
+                  className="bg-violet-600 hover:bg-violet-700 text-white text-xs py-1 px-2.5"
+                >
+                  {isRescrapingArchives ? (
+                    <span className="flex items-center">
+                      <span className="mr-2">
+                        <LoadingSpinner size="sm" inline />
                       </span>
-                    ) : (
-                      'Rescrape latest archives'
-                    )}
-                  </ActionButton>
-                </div>
+                      Starting…
+                    </span>
+                  ) : (
+                    'Rescrape latest archives'
+                  )}
+                </ActionButton>
                 {rescrapeArchivesError && (
                   <div className="mt-2">
                     <ErrorAlert message={rescrapeArchivesError} />
                   </div>
                 )}
                 {rescrapeArchivesResult && (
-                  <div className="p-2 rounded border text-sm mt-2 bg-green-900/20 border-green-700">
+                  <div className="mt-2 p-1.5 rounded border border-green-700 bg-green-900/20 text-xs">
                     <p className="font-semibold text-green-400">
                       {rescrapeArchivesResult.status === 'started'
                         ? 'Job queued.'
                         : rescrapeArchivesResult.status}
                     </p>
-                    <p className="text-neutral-300 text-xs mt-1">
+                    <p className="text-neutral-300 text-[11px] mt-0.5">
                       {rescrapeArchivesResult.message}
                     </p>
                   </div>
@@ -1062,770 +1894,7 @@ function CrawlerAdmin() {
             </>
           )}
         </Card>
-
-        {/* Right column: Schedule + Jobs */}
-        <div className="flex flex-col gap-4 mt-4 xl:mt-0">
-          {/* Crawler Schedules */}
-          <Card>
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  Crawler Schedules
-                </h2>
-                <p className="text-sm text-gray-400 mt-0.5">
-                  Each schedule fires one EventBridge trigger and runs all its
-                  member adapters in parallel. Mix adapters freely —
-                  per-retailer tuning below travels with the adapter.
-                </p>
-              </div>
-              <ActionButton
-                onClick={() => void handleReconcileAll()}
-                disabled={
-                  isReconcilingAll ||
-                  isLoadingSchedules ||
-                  isSchedulesUnavailable
-                }
-                className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 px-3 shrink-0"
-              >
-                {isReconcilingAll ? 'Reconciling…' : 'Reconcile all'}
-              </ActionButton>
-            </div>
-
-            {isSchedulesUnavailable && (
-              <div className="flex items-start gap-2 p-3 mb-4 rounded-lg border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-sm">
-                <span className="mt-0.5 shrink-0">⚠</span>
-                <span>
-                  Schedules unavailable — could not load from the backend. This
-                  feature requires AWS EventBridge plumbing that may not be
-                  configured in this environment.
-                </span>
-              </div>
-            )}
-
-            {scheduleSaveError && (
-              <div className="mb-4">
-                <ErrorAlert message={scheduleSaveError} />
-              </div>
-            )}
-
-            {/* Create new schedule */}
-            <div className="mb-4 p-3 rounded-lg border border-dashed border-gray-700 bg-gray-900/30">
-              <p className="text-xs font-medium text-gray-400 mb-2">
-                New schedule
-              </p>
-              <div className="space-y-2">
-                <Input
-                  id="new-schedule-name"
-                  placeholder="e.g. retailers-daily (letters, digits, hyphens)"
-                  value={newScheduleName}
-                  onChange={(e) =>
-                    setNewScheduleName(
-                      e.target.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9-]+/g, '-')
-                        .replace(/^-+/, '')
-                        .slice(0, 26)
-                    )
-                  }
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {(['monthly', 'weekly', 'daily', 'custom'] as const).map(
-                    (p) => (
-                      <button
-                        key={p}
-                        onClick={() => setNewSchedulePreset(p)}
-                        className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
-                          newSchedulePreset === p
-                            ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                        }`}
-                      >
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    )
-                  )}
-                </div>
-                {newSchedulePreset === 'custom' && (
-                  <input
-                    type="text"
-                    value={newScheduleCustomExpression}
-                    onChange={(e) =>
-                      setNewScheduleCustomExpression(e.target.value)
-                    }
-                    placeholder="cron(0 2 1 * ? *)"
-                    className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                  />
-                )}
-                <div className="flex flex-wrap gap-1.5">
-                  {crawlerAdapters.map((name) => {
-                    const checked = newScheduleAdapters.includes(name);
-                    return (
-                      <button
-                        key={name}
-                        onClick={() =>
-                          setNewScheduleAdapters((prev) =>
-                            checked
-                              ? prev.filter((n) => n !== name)
-                              : [...prev, name]
-                          )
-                        }
-                        className={`px-2.5 py-0.5 text-xs rounded-full border font-mono transition-colors ${
-                          checked
-                            ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                        }`}
-                      >
-                        {name}
-                      </button>
-                    );
-                  })}
-                </div>
-                <ActionButton
-                  onClick={() => void handleCreateSchedule()}
-                  disabled={
-                    isCreatingSchedule ||
-                    !newScheduleName.trim() ||
-                    newScheduleAdapters.length === 0 ||
-                    (newSchedulePreset === 'custom' &&
-                      !newScheduleCustomExpression.trim())
-                  }
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
-                >
-                  {isCreatingSchedule ? 'Creating…' : 'Create schedule'}
-                </ActionButton>
-              </div>
-            </div>
-
-            {isLoadingSchedules && schedules.length === 0 ? (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner size="sm" />
-              </div>
-            ) : schedules.length === 0 ? (
-              <p className="text-sm text-gray-500 py-3">
-                No schedules yet — create one above.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {schedules.map((row) => {
-                  const draft = scheduleDrafts[row.id] ?? {
-                    preset: presetForExpression(
-                      row.schedule_expression,
-                      schedulePresets
-                    ),
-                    customExpression: '',
-                  };
-                  const isSaving = savingScheduleId === row.id;
-                  const reconcileFailed = !!row.last_reconcile_error;
-                  const memberNames = new Set(
-                    row.adapters.map((a) => a.adapter_name)
-                  );
-                  return (
-                    <div
-                      key={row.id}
-                      className="p-3 rounded-lg border border-gray-700 bg-gray-900/40"
-                    >
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-100 font-mono truncate">
-                            {row.name}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {row.enabled ? (
-                              <span className="text-emerald-400">Enabled</span>
-                            ) : (
-                              <span>Disabled</span>
-                            )}
-                            {' · '}
-                            <span className="font-mono">
-                              {row.schedule_expression}
-                            </span>
-                          </p>
-                        </div>
-                        <button
-                          onClick={() =>
-                            void handleSaveSchedule(row.id, {
-                              enabled: !row.enabled,
-                            })
-                          }
-                          disabled={isSaving}
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                            row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
-                              row.enabled ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {/* Adapter membership chips */}
-                        <div>
-                          <p className="text-xs font-medium text-gray-400 mb-1.5">
-                            Adapters ({row.adapters.length})
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {crawlerAdapters.map((name) => {
-                              const selected = memberNames.has(name);
-                              return (
-                                <button
-                                  key={name}
-                                  onClick={() =>
-                                    void handleToggleAdapterInSchedule(
-                                      row,
-                                      name
-                                    )
-                                  }
-                                  disabled={isSaving}
-                                  className={`px-2.5 py-0.5 text-xs rounded-full border font-mono transition-colors disabled:opacity-50 ${
-                                    selected
-                                      ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
-                                      : 'border-gray-600 text-gray-500 hover:border-gray-400'
-                                  }`}
-                                >
-                                  {name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Interval pills */}
-                        <div>
-                          <p className="text-xs font-medium text-gray-400 mb-1.5">
-                            Interval
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {(['monthly', 'weekly', 'daily'] as const).map(
-                              (p) => (
-                                <button
-                                  key={p}
-                                  onClick={() =>
-                                    setScheduleDrafts((prev) => ({
-                                      ...prev,
-                                      [row.id]: {
-                                        preset: p,
-                                        customExpression: '',
-                                      },
-                                    }))
-                                  }
-                                  className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
-                                    draft.preset === p
-                                      ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                                      : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                                  }`}
-                                >
-                                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                                </button>
-                              )
-                            )}
-                            <button
-                              onClick={() =>
-                                setScheduleDrafts((prev) => ({
-                                  ...prev,
-                                  [row.id]: {
-                                    preset: 'custom',
-                                    customExpression:
-                                      draft.customExpression ||
-                                      row.schedule_expression,
-                                  },
-                                }))
-                              }
-                              className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
-                                draft.preset === 'custom'
-                                  ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                                  : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                              }`}
-                            >
-                              Custom
-                            </button>
-                          </div>
-                          {draft.preset === 'custom' && (
-                            <input
-                              type="text"
-                              value={draft.customExpression}
-                              onChange={(e) =>
-                                setScheduleDrafts((prev) => ({
-                                  ...prev,
-                                  [row.id]: {
-                                    ...draft,
-                                    customExpression: e.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="cron(0 2 1 * ? *)"
-                              className="mt-1.5 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                            />
-                          )}
-                          {draft.preset !== 'custom' &&
-                            schedulePresets[draft.preset] && (
-                              <p className="text-xs text-gray-500 font-mono mt-1">
-                                {schedulePresets[draft.preset]}
-                              </p>
-                            )}
-                        </div>
-
-                        {/* Save interval / delete row */}
-                        <div className="flex items-center gap-2 pt-1">
-                          {draft.preset === 'custom' ||
-                          presetForExpression(
-                            row.schedule_expression,
-                            schedulePresets
-                          ) !== draft.preset ? (
-                            <ActionButton
-                              onClick={() =>
-                                void handleSaveSchedule(
-                                  row.id,
-                                  draft.preset === 'custom'
-                                    ? {
-                                        schedule_expression:
-                                          draft.customExpression,
-                                      }
-                                    : {
-                                        preset: draft.preset as
-                                          | 'monthly'
-                                          | 'weekly'
-                                          | 'daily',
-                                      }
-                                )
-                              }
-                              disabled={
-                                isSaving ||
-                                (draft.preset === 'custom' &&
-                                  !draft.customExpression.trim())
-                              }
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3"
-                            >
-                              {isSaving ? 'Saving…' : 'Save interval'}
-                            </ActionButton>
-                          ) : null}
-                          <button
-                            onClick={() => void handleDeleteSchedule(row)}
-                            disabled={isSaving}
-                            className="ml-auto text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-
-                        {/* Reconcile status */}
-                        <div className="text-xs text-gray-500 pt-1 border-t border-gray-700/50">
-                          {reconcileFailed ? (
-                            <span className="text-red-400">
-                              Last reconcile failed: {row.last_reconcile_error}
-                            </span>
-                          ) : row.last_reconciled_at ? (
-                            <span>
-                              Last reconciled{' '}
-                              {parseServerDate(
-                                row.last_reconciled_at
-                              ).toLocaleString()}
-                            </span>
-                          ) : (
-                            <span>Not yet reconciled to AWS.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Adapter Tuning */}
-          <Card>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-white">
-                Adapter Tuning
-              </h2>
-              <p className="text-sm text-gray-400 mt-0.5">
-                Per-retailer request delay, run limit, and default category.
-                Edits take effect on the next run of any schedule this adapter
-                is a member of — no AWS reconcile needed.
-              </p>
-            </div>
-
-            {configSaveError && (
-              <div className="mb-4">
-                <ErrorAlert message={configSaveError} />
-              </div>
-            )}
-
-            {isLoadingConfigs && adapterConfigs.length === 0 ? (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner size="sm" />
-              </div>
-            ) : adapterConfigs.length === 0 ? (
-              <p className="text-sm text-gray-500 py-3">
-                No adapters registered yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {adapterConfigs.map((row) => {
-                  const isSaving = savingConfigName === row.adapter_name;
-                  return (
-                    <div
-                      key={row.id}
-                      className="p-3 rounded-lg border border-gray-700 bg-gray-900/40"
-                    >
-                      <p className="text-sm font-medium text-gray-100 font-mono mb-3">
-                        {row.adapter_name}
-                      </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label
-                            htmlFor={`tune-delay-${row.adapter_name}`}
-                            className="block text-xs font-medium text-gray-400 mb-1"
-                          >
-                            Delay (s)
-                          </label>
-                          <select
-                            id={`tune-delay-${row.adapter_name}`}
-                            value={String(row.delay_sec)}
-                            onChange={(e) =>
-                              void handleSaveAdapterConfig(row.adapter_name, {
-                                delay_sec: Number(e.target.value),
-                              })
-                            }
-                            disabled={isSaving}
-                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                          >
-                            {[2.5, 5, 10, 15, 30].map((v) => (
-                              <option key={v} value={String(v)}>
-                                {v}s
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label
-                            htmlFor={`tune-limit-${row.adapter_name}`}
-                            className="block text-xs font-medium text-gray-400 mb-1"
-                          >
-                            Per-run limit
-                          </label>
-                          <Input
-                            id={`tune-limit-${row.adapter_name}`}
-                            type="number"
-                            min="1"
-                            value={
-                              row.per_run_limit == null
-                                ? ''
-                                : String(row.per_run_limit)
-                            }
-                            placeholder="Unlimited"
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              if (raw === '') {
-                                if (row.per_run_limit != null) {
-                                  void handleSaveAdapterConfig(
-                                    row.adapter_name,
-                                    { clear_per_run_limit: true }
-                                  );
-                                }
-                              } else {
-                                const n = Number(raw);
-                                if (
-                                  Number.isFinite(n) &&
-                                  n >= 1 &&
-                                  n !== row.per_run_limit
-                                ) {
-                                  void handleSaveAdapterConfig(
-                                    row.adapter_name,
-                                    { per_run_limit: n }
-                                  );
-                                }
-                              }
-                            }}
-                            disabled={isSaving}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 mt-3">
-                        <label className="inline-flex items-center gap-2 text-xs text-gray-300">
-                          <input
-                            type="checkbox"
-                            checked={row.skip_known_urls}
-                            onChange={(e) =>
-                              void handleSaveAdapterConfig(row.adapter_name, {
-                                skip_known_urls: e.target.checked,
-                              })
-                            }
-                            disabled={isSaving}
-                            className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                          />
-                          Skip URLs already archived as parsed
-                        </label>
-                        <div>
-                          <label
-                            htmlFor={`tune-cat-${row.adapter_name}`}
-                            className="block text-xs font-medium text-gray-400 mb-1"
-                          >
-                            Default category (new parts)
-                          </label>
-                          <select
-                            id={`tune-cat-${row.adapter_name}`}
-                            value={row.default_category_id}
-                            onChange={(e) =>
-                              void handleSaveAdapterConfig(row.adapter_name, {
-                                default_category_id: e.target.value,
-                              })
-                            }
-                            disabled={
-                              isSaving || crawlerCategories.length === 0
-                            }
-                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                          >
-                            {crawlerCategories.map((c) => (
-                              <option key={c.id} value={String(c.id)}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Background Jobs */}
-          <Card>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-white">
-                Background Jobs
-              </h2>
-              <p className="text-sm text-gray-400 mt-0.5">
-                Live status of crawler and rescrape jobs. Polls every 5 s while
-                a job is running.
-              </p>
-            </div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-gray-500">
-                {jobsList ? `${jobsList.total} total` : ''}
-              </span>
-              <button
-                onClick={() => void fetchJobs()}
-                disabled={isLoadingJobs}
-                className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
-              >
-                {isLoadingJobs ? 'Refreshing…' : 'Refresh'}
-              </button>
-            </div>
-
-            {!jobsList && isLoadingJobs && (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner size="sm" />
-              </div>
-            )}
-
-            {jobsList && jobsList.items.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">
-                No jobs yet.
-              </p>
-            )}
-
-            {jobsList && jobsList.items.length > 0 && (
-              <div className="space-y-2">
-                {jobsList.items.map((job: BackgroundJob) => {
-                  const isExpanded = expandedJobId === job.id;
-                  const isRunning = job.status === 'running';
-                  const statusColor =
-                    job.status === 'completed'
-                      ? 'text-emerald-400'
-                      : job.status === 'failed'
-                        ? 'text-red-400'
-                        : isRunning
-                          ? 'text-yellow-400'
-                          : 'text-gray-400';
-                  const statusBg =
-                    job.status === 'completed'
-                      ? 'border-emerald-800/60 bg-emerald-950/30'
-                      : job.status === 'failed'
-                        ? 'border-red-800/60 bg-red-950/30'
-                        : isRunning
-                          ? 'border-yellow-800/60 bg-yellow-950/30'
-                          : 'border-gray-700 bg-gray-900/30';
-
-                  const typeLabel =
-                    job.job_type === 'crawler_run'
-                      ? 'Crawler Run'
-                      : job.job_type === 'archive_rescrape'
-                        ? 'Archive Rescrape'
-                        : job.job_type;
-
-                  const startedAt = parseServerDate(job.started_at);
-                  const completedAt = job.completed_at
-                    ? parseServerDate(job.completed_at)
-                    : null;
-                  const elapsed = fmtElapsed(startedAt, completedAt);
-                  const inlineSummary = jobInlineSummary(job);
-
-                  return (
-                    <div
-                      key={job.id}
-                      className={`rounded-lg border text-sm ${statusBg}`}
-                    >
-                      {/* Indeterminate progress bar for running jobs */}
-                      {isRunning && (
-                        <div className="h-0.5 w-full rounded-t-lg overflow-hidden bg-yellow-950/50">
-                          <div className="h-full bg-yellow-400/70 animate-[progress-indeterminate_1.8s_ease-in-out_infinite] w-1/3" />
-                        </div>
-                      )}
-                      <div className="px-3 py-2">
-                        <button
-                          className="w-full flex items-center justify-between gap-2 text-left"
-                          onClick={() =>
-                            setExpandedJobId(isExpanded ? null : job.id)
-                          }
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {/* Status indicator */}
-                            {isRunning ? (
-                              <span className="relative flex h-2 w-2 shrink-0">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
-                              </span>
-                            ) : null}
-                            <span
-                              className={`font-semibold text-xs uppercase tracking-wide shrink-0 ${statusColor}`}
-                            >
-                              {job.status}
-                            </span>
-                            <span className="text-gray-300 font-medium truncate">
-                              #{job.id} — {typeLabel}
-                            </span>
-                            <span className="text-gray-500 text-xs shrink-0">
-                              {job.triggered_by}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0 text-xs text-gray-400">
-                            {inlineSummary && (
-                              <span
-                                className={`tabular-nums ${job.status === 'failed' ? 'text-red-400/70' : 'text-gray-400'}`}
-                              >
-                                {inlineSummary}
-                              </span>
-                            )}
-                            <span className="tabular-nums">
-                              {isRunning ? (
-                                <span className="text-yellow-400/80">
-                                  {elapsed}
-                                </span>
-                              ) : (
-                                elapsed
-                              )}
-                            </span>
-                            <span className="text-gray-600">
-                              {isExpanded ? '▲' : '▼'}
-                            </span>
-                          </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-3">
-                            {/* Started at */}
-                            <p className="text-xs text-gray-500">
-                              Started {startedAt.toLocaleString()}
-                              {completedAt && (
-                                <> · Finished {completedAt.toLocaleString()}</>
-                              )}
-                            </p>
-
-                            {/* Params */}
-                            {job.params && (
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                  Parameters
-                                </p>
-                                <JobParams job={job} />
-                              </div>
-                            )}
-
-                            {/* Running: no result yet */}
-                            {isRunning && (
-                              <div className="flex items-center gap-2 text-xs text-yellow-400/80">
-                                <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
-                                </span>
-                                Running for {elapsed} — results will appear when
-                                the job completes
-                              </div>
-                            )}
-
-                            {/* Result summary */}
-                            {job.result_summary && (
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                  Result
-                                </p>
-                                {job.job_type === 'crawler_run' ? (
-                                  <CrawlerRunResult
-                                    summary={job.result_summary}
-                                  />
-                                ) : job.job_type === 'archive_rescrape' ? (
-                                  <ArchiveRescrapeResult
-                                    summary={job.result_summary}
-                                  />
-                                ) : (
-                                  <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                                    {JSON.stringify(
-                                      job.result_summary,
-                                      null,
-                                      2
-                                    )}
-                                  </pre>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Error */}
-                            {job.error_message && (
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1">
-                                  Error
-                                </p>
-                                <pre className="text-xs text-red-300 bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                                  {job.error_message}
-                                </pre>
-                              </div>
-                            )}
-
-                            {/* Cancel */}
-                            {isRunning && (
-                              <div className="flex gap-2 pt-1">
-                                <button
-                                  onClick={() => {
-                                    void adminApi
-                                      .cancelJob(job.id)
-                                      .then(() => fetchJobs())
-                                      .catch(() => undefined);
-                                  }}
-                                  className="text-xs text-red-400 hover:text-red-300 underline"
-                                >
-                                  Cancel job
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </div>
-        {/* end right column */}
       </div>
-      {/* end grid */}
     </div>
   );
 }
