@@ -1819,7 +1819,7 @@ function CrawlerAdmin() {
                               {adapter}
                             </span>
                           </label>
-                          <Input
+                          <input
                             type="number"
                             min="1"
                             placeholder="—"
@@ -1830,7 +1830,7 @@ function CrawlerAdmin() {
                                 [adapter]: e.target.value,
                               }))
                             }
-                            className="w-14 min-h-0 py-0.5 text-xs"
+                            className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       );

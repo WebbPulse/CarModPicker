@@ -45,7 +45,7 @@ from app.crawlers.base import (
     save_crawl_page_html,
 )
 from app.crawlers.fetchers import get_fetcher
-from app.db.session import SessionLocal
+from app.db.session import API_CONNECTION_RESERVE, DB_MAX_OVERFLOW, DB_POOL_SIZE, SessionLocal
 
 logging.basicConfig(
     level=logging.INFO,
@@ -397,6 +397,36 @@ def run_crawler(
         db.close()
 
 
+def _compute_adapter_workers(num_adapters: int) -> int:
+    """
+    Decide how many adapter threads may run in parallel.
+
+    Scales up to ``num_adapters`` by default but never beyond what the DB pool
+    can sustain while still reserving ``API_CONNECTION_RESERVE`` connections
+    for live API traffic. Each running adapter holds exactly one SessionLocal
+    for its full run, so the ceiling is
+    ``DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE``.
+
+    ``CRAWLER_MAX_ADAPTER_WORKERS`` (int env var) is an operator override that
+    caps worker count regardless of pool size — useful for throttling against
+    external constraints (RDS max_connections, FlareSolverr pool, upstream
+    retailer rate limits) without bouncing the process.
+    """
+    worker_budget = max(1, DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE)
+    max_workers = min(num_adapters, worker_budget)
+
+    override_raw = os.environ.get("CRAWLER_MAX_ADAPTER_WORKERS")
+    if override_raw:
+        try:
+            override = int(override_raw)
+            if override > 0:
+                max_workers = min(max_workers, override)
+        except ValueError:
+            logger.warning("Ignoring non-integer CRAWLER_MAX_ADAPTER_WORKERS=%r", override_raw)
+
+    return max(1, max_workers)
+
+
 def run_crawlers(
     adapter_names: list[str],
     *,
@@ -478,18 +508,10 @@ def run_crawlers(
             return {"_error": str(e), "_adapter": name}
 
     if len(adapter_names) > 1 and parallel:
-        # Cap parallel adapter workers. Unbounded parallelism (one thread per
-        # adapter) exhausts the DB pool once the selection grows past ~15, at
-        # which point every other thread — and every API request — blocks on
-        # engine.connect(). Override via CRAWLER_MAX_ADAPTER_WORKERS.
-        try:
-            worker_cap = int(os.environ.get("CRAWLER_MAX_ADAPTER_WORKERS", "10"))
-        except ValueError:
-            worker_cap = 10
-        max_workers = max(1, min(len(adapter_names), worker_cap))
+        max_workers = _compute_adapter_workers(len(adapter_names))
         if max_workers < len(adapter_names):
             logger.info(
-                "Capping adapter parallelism at %s (requested %s). " "Set CRAWLER_MAX_ADAPTER_WORKERS to change.",
+                "Capping adapter parallelism at %s (requested %s). Set CRAWLER_MAX_ADAPTER_WORKERS to override.",
                 max_workers,
                 len(adapter_names),
             )
