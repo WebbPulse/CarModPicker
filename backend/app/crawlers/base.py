@@ -374,19 +374,56 @@ def _get_robots_parser(origin: str, user_agent: str = DEFAULT_USER_AGENT) -> Opt
     """
     Fetch and parse robots.txt for the given origin; cache and return the parser.
     Returns None on failure (caller should treat as allow to avoid blocking on broken robots.txt).
+
+    We fetch via ``requests`` with our crawler's UA rather than calling
+    ``RobotFileParser.read()`` (which uses stdlib's default ``Python-urllib``
+    UA internally). Several CDNs (Cloudflare, Sucuri) serve HTTP 403 to that
+    default UA, and the stdlib parser interprets a 403 on ``/robots.txt`` as
+    "disallow everything" — making every subsequent ``can_fetch()`` return
+    False. That shows up in the logs as "Skipped (robots.txt disallows)" on
+    sites whose robots.txt actually allows catalog crawling (bimmerworld,
+    amsperformance both observed 2026-04-19). Feeding the body into
+    ``parser.parse()`` sidesteps the 403-means-deny-all behavior and uses
+    the real rules instead.
     """
     if origin in _robots_cache:
         return _robots_cache[origin]
     robots_url = origin.rstrip("/") + "/robots.txt"
-    parser = RobotFileParser()
-    parser.set_url(robots_url)
     try:
-        parser.read()
-        _robots_cache[origin] = parser
-        return parser
+        resp = requests.get(
+            robots_url,
+            headers={"User-Agent": user_agent, "Accept": "text/plain, */*"},
+            timeout=10,
+        )
     except Exception as e:
         logger.debug("Could not fetch robots.txt for %s: %s; allowing crawl.", origin, e)
         return None
+
+    # For "no restrictions" outcomes (missing robots.txt, WAF-blocked fetch,
+    # server error), return None — the caller treats that as "allow all" and
+    # skips calling can_fetch() entirely. This sidesteps stdlib's
+    # ``disallow_all = True`` behavior on 403, which would otherwise cause
+    # every URL to report "Skipped (robots.txt disallows)" when a CDN blocks
+    # our client on /robots.txt but serves product pages normally
+    # (bimmerworld + amsperformance both observed this 2026-04-19).
+    if resp.status_code == 404:
+        return None
+    if resp.status_code in (401, 403):
+        logger.debug(
+            "robots.txt for %s returned %s; treating as unrestricted (likely WAF-blocked fetch).",
+            origin,
+            resp.status_code,
+        )
+        return None
+    if resp.status_code >= 400:
+        return None
+
+    parser = RobotFileParser()
+    parser.set_url(robots_url)
+    resp.encoding = resp.encoding or "utf-8"
+    parser.parse(resp.text.splitlines())
+    _robots_cache[origin] = parser
+    return parser
 
 
 def can_fetch_url(url: str, user_agent: str = DEFAULT_USER_AGENT) -> bool:

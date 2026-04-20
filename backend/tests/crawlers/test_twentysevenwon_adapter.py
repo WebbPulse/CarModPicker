@@ -1,10 +1,12 @@
 """
-Tests for 27won.com adapter: host routing, URL shape guard, manufacturer
-collapse, JSON-LD parsing, and DOM/og fallback.
+Tests for store.27won.com adapter: host routing, URL shape guard,
+manufacturer collapse, JSON-LD parsing with CS-Cart gallery extraction, and
+DOM/og fallback.
 
-27WON is a modern Shopify storefront (see RETAILER_BACKLOG.md: "Shopify.
-Tier-0."). Tests run against synthetic HTML modeled on the schema.org
-``Product`` block Shopify emits by default.
+27WON's storefront is CS-Cart at ``store.27won.com`` (``www.27won.com`` is a
+separate Squarespace marketing site with no products). Tests run against
+synthetic HTML modeled on the schema.org ``Product`` block CS-Cart emits by
+default, plus the ``/images/detailed/<product_id>/…`` gallery convention.
 """
 
 from app.crawlers.adapters import adapter_name_for_product_url
@@ -14,20 +16,32 @@ from app.crawlers.adapters.tier0_http.twentysevenwon import (
     _normalize_part_manufacturer,
 )
 
-SAMPLE_URL = "https://www.27won.com/products/fk8-civic-type-r-intake-manifold"
+SAMPLE_URL = "https://store.27won.com/10th-gen-civic-performance-downpipe.html"
 
 
 def _product_html(
     *,
-    name: str = "27WON FK8 Civic Type R Intake Manifold",
+    name: str = "2016-2021 Civic Turbo Performance Downpipe",
     brand: str = "27WON Performance",
-    sku: str = "27W-IM-FK8-001",
-    price: str = "899.00",
-    description: str = "Cast-aluminum intake manifold for the FK8 Civic Type R, developed with 27WON's FL5 program.",
-    image: str = "https://cdn.shopify.com/s/files/1/0001/27won-fk8-manifold.jpg",
+    sku: str = "L15-6-209-11",
+    price: str = "749.99",
+    description: str = "Performance turbocharged engines love a free flowing exhaust and intake system.",
+    image: str = "https://store.27won.com/images/detailed/17/3_inch_downpipe_for_1.5l_honda_Civic.jpg",
+    extra_gallery_imgs: tuple[str, ...] = (
+        "/images/detailed/17/Civic-Downpipe-CAD-1.PNG",
+        "/images/detailed/17/27WON-Product-080917-FrontpipeADD-web_vef2-cr.jpg",
+    ),
+    related_thumb: str = "/images/thumbnails/345/467/detailed/19/Untitled-2.png",
 ) -> str:
-    """Minimal page mirroring Shopify's default schema.org Product JSON-LD block."""
+    """
+    Minimal page mirroring CS-Cart's default schema.org Product JSON-LD plus
+    ``/images/detailed/<id>/…`` DOM gallery. The ``related_thumb`` points at a
+    *different* product id — the gallery extractor must ignore it.
+    """
     brand_field = f'"brand":{{"@type":"Brand","name":"{brand}"}},' if brand else ""
+    store_base = "https://store.27won.com"
+    extras_markup = "".join(f'<img src="{store_base}{p}">' for p in extra_gallery_imgs)
+    related_markup = f'<img src="{store_base}{related_thumb}">'
     return f"""
     <html><head>
       <meta property="og:title" content="{name}">
@@ -37,15 +51,15 @@ def _product_html(
       <meta property="og:price:currency" content="USD">
       <script type="application/ld+json">
       {{
-        "@context": "https://schema.org",
+        "@context": "https://schema.org/",
         "@type": "Product",
         "name": "{name}",
         "description": "{description}",
         {brand_field}
         "sku": "{sku}",
-        "image": ["{image}"],
+        "image": "{image}",
         "offers": {{
-          "@type": "Offer",
+          "@type": "AggregateOffer",
           "price": "{price}",
           "priceCurrency": "USD",
           "availability": "https://schema.org/InStock"
@@ -54,9 +68,11 @@ def _product_html(
       </script>
     </head><body>
       <h1>{name}</h1>
-      <media-gallery>
+      <div class="product-details">
         <img src="{image}">
-      </media-gallery>
+        {extras_markup}
+      </div>
+      <aside class="related-products">{related_markup}</aside>
     </body></html>
     """
 
@@ -64,10 +80,13 @@ def _product_html(
 class TestAdapterRegistration:
     """The host-to-adapter map routes every 27won.com page through this adapter."""
 
-    def test_www_host_routes_to_27won(self) -> None:
+    def test_store_host_routes_to_27won(self) -> None:
         assert adapter_name_for_product_url(SAMPLE_URL) == "27won"
 
     def test_bare_host_routes_to_27won(self) -> None:
+        # The host-routing map is intentionally broad (every 27won.com
+        # subdomain maps here) so extension-submitted URLs from either the
+        # marketing site or the store land on the same adapter.
         assert adapter_name_for_product_url("https://27won.com/products/foo") == "27won"
 
     def test_unrelated_host_falls_back_to_generic(self) -> None:
@@ -77,27 +96,36 @@ class TestAdapterRegistration:
 
 
 class TestProductUrlGuard:
-    """Shape guard: any 27won.com URL with ``/products/`` in the path is a product page."""
+    """Shape guard: root-slug ``.html`` on ``store.27won.com`` is a product page."""
 
     def test_valid_product_url(self) -> None:
         assert _is_product_url(SAMPLE_URL)
 
-    def test_bare_host_is_product_shape(self) -> None:
-        assert _is_product_url("https://27won.com/products/some-handle")
+    def test_root_slug_html_is_product_shape(self) -> None:
+        assert _is_product_url("https://store.27won.com/some-handle.html")
 
-    def test_non_product_path_rejected(self) -> None:
-        # Collections / CMS / cart pages do not have /products/ in the path.
-        assert not _is_product_url("https://www.27won.com/collections/civic-type-r")
-        assert not _is_product_url("https://www.27won.com/pages/about")
-        assert not _is_product_url("https://www.27won.com/cart")
+    def test_nested_path_rejected(self) -> None:
+        # Category listings expose nested paths — those are category pages,
+        # not products.
+        assert not _is_product_url("https://store.27won.com/civic-si-10th-gen/")
+        assert not _is_product_url("https://store.27won.com/civic-si-10th-gen/foo.html")
+
+    def test_store_closed_rejected(self) -> None:
+        # robots.txt disallows this system page and so do we.
+        assert not _is_product_url("https://store.27won.com/store_closed.html")
+
+    def test_marketing_host_rejected(self) -> None:
+        # The Squarespace marketing site has no products — rejecting this
+        # host is the whole reason the adapter was rewritten.
+        assert not _is_product_url("https://www.27won.com/products/fk8-civic-type-r-intake-manifold")
 
     def test_other_host_rejected(self) -> None:
-        assert not _is_product_url("https://www.example.com/products/foo")
+        assert not _is_product_url("https://www.example.com/foo.html")
 
 
 class TestNormalizePartManufacturer:
     """
-    27WON's Shopify vendor field is inconsistent (``27WON``, ``27WON Performance``,
+    27WON's vendor field is inconsistent (``27WON``, ``27WON Performance``,
     ``27 WON``, empty). ``_normalize_part_manufacturer`` collapses all self-
     spellings to a single canonical brand without losing rare co-branded SKUs.
     """
@@ -133,17 +161,22 @@ class TestNormalizePartManufacturer:
 
 
 class TestParseProductPage:
-    """End-to-end adapter parsing: real-shape Shopify HTML → ScrapedPayload."""
+    """End-to-end adapter parsing: real-shape CS-Cart HTML → ScrapedPayload."""
 
     def test_full_page_parses_from_json_ld(self) -> None:
         result = TwentySevenWonAdapter().parse_product_page(_product_html(), SAMPLE_URL)
         assert result is not None
-        assert result.name.startswith("27WON FK8")
+        assert result.name.startswith("2016-2021 Civic")
         assert result.part_manufacturer == "27WON Performance"
-        assert result.part_number == "27W-IM-FK8-001"
-        assert result.price_cents == 89900
+        assert result.part_number == "L15-6-209-11"
+        assert result.price_cents == 74999
         assert result.product_url == SAMPLE_URL
-        assert result.image_urls and result.image_urls[0].startswith("https://cdn.shopify.com/")
+        assert result.image_urls
+        # The gallery extractor picked up every /images/detailed/17/… reference
+        # on the page and excluded the /images/thumbnails/…/detailed/19/…
+        # related-product leak.
+        assert all("/images/detailed/17/" in u for u in result.image_urls)
+        assert not any("/detailed/19/" in u for u in result.image_urls)
 
     def test_brand_variant_collapsed_to_canonical(self) -> None:
         # Vendor field spelled "27WON" on this product — still maps to the
@@ -155,9 +188,9 @@ class TestParseProductPage:
 
     def test_missing_brand_defaults_to_27won_performance(self) -> None:
         # JSON-LD brand absent — the default kicks in rather than running the
-        # title-first-word heuristic (which would pick "27WON" from the title,
-        # still correct here, but defensive for product lines that lead with a
-        # product word like "Billet" or "Short").
+        # title-first-word heuristic (which would pick "2016-2021" from the
+        # title and fail the manufacturer rules, or land on a product word
+        # like "Civic").
         html = _product_html(brand="")
         result = TwentySevenWonAdapter().parse_product_page(html, SAMPLE_URL)
         assert result is not None
@@ -173,10 +206,20 @@ class TestParseProductPage:
         assert result.part_manufacturer == "Hondata"
 
     def test_non_product_url_returns_none(self) -> None:
-        # Archive rescrape pipeline must not feed CMS/collection URLs here.
+        # Archive rescrape pipeline must not feed category / nested-path URLs
+        # here.
         result = TwentySevenWonAdapter().parse_product_page(
             _product_html(),
-            "https://www.27won.com/collections/civic-type-r",
+            "https://store.27won.com/civic-si-10th-gen/",
+        )
+        assert result is None
+
+    def test_marketing_host_returns_none(self) -> None:
+        # The marketing host has no products at all — guard against a
+        # Chrome-extension submission accidentally routing there.
+        result = TwentySevenWonAdapter().parse_product_page(
+            _product_html(),
+            "https://www.27won.com/products/fk8-civic-type-r-intake-manifold",
         )
         assert result is None
 
@@ -187,7 +230,7 @@ class TestParseProductPage:
         <html><head>
           <meta property="og:title" content="27WON FL5 Civic Type R Short Shifter">
           <meta property="og:description" content="CNC-machined short shifter for the 2023+ FL5 Civic Type R 6-speed.">
-          <meta property="og:image" content="https://cdn.shopify.com/s/files/1/0001/27won-fl5-shifter.jpg">
+          <meta property="og:image" content="https://store.27won.com/images/detailed/42/fl5-shifter.jpg">
           <meta property="product:price:amount" content="329.00">
         </head><body>
           <h1>27WON FL5 Civic Type R Short Shifter</h1>
@@ -207,10 +250,10 @@ class TestParseProductPage:
 
 
 class TestAdapterFetcherTier:
-    """27WON starts on plain HTTP (tier0); promote to ``tls`` if Cloudflare fires."""
+    """27WON stays on plain HTTP (tier0); promote to ``tls`` if CS-Cart fires."""
 
     def test_declares_http_tier(self) -> None:
-        # Default tier — 27WON's Shopify storefront is not TLS-fingerprint-
-        # blocked today. If that changes, flip FETCHER_TIER to "tls" and
-        # switch the adapter's discover_product_urls to use self.fetcher.
+        # Default tier — store.27won.com answers plain requests fetches for
+        # the sitemap, robots.txt, and product pages today. If that changes,
+        # flip FETCHER_TIER to "tls".
         assert TwentySevenWonAdapter.FETCHER_TIER == "http"

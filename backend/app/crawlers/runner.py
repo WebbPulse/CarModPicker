@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+import requests
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -240,6 +241,11 @@ def run_crawler(
     # even when we fail before construction.
     fetcher = None
     try:
+        # Bail before we spend time on discovery (which itself does network
+        # I/O for sitemaps and can sit in retry-backoff loops).
+        if stop_event is not None and stop_event.is_set():
+            logger.info("Adapter %s: cancelled before discovery.", adapter_name)
+            return {"adapter": adapter_name, "ingested": 0, "skipped": 0, "errors": 0, "total": 0, "cancelled": True}
         user = resolve_crawler_user(db, user_id)
         cat_id = resolve_default_category_id(db, default_category_id)
         # Construct the fetcher matching this adapter's declared tier before the
@@ -347,6 +353,20 @@ def run_crawler(
                 )
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
+            except requests.exceptions.HTTPError as e:
+                # 404 / 410 are routine on retailer sitemaps — the product has
+                # been removed but the sitemap still lists the URL. Count as a
+                # skip so one stale entry doesn't show up as a scary traceback
+                # alongside 49 healthy pages.
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                if status in (404, 410):
+                    skipped += 1
+                    logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
+                    db.rollback()
+                else:
+                    errors += 1
+                    logger.exception("Error processing %s: %s", url, e)
+                    db.rollback()
             except Exception as e:
                 errors += 1
                 logger.exception("Error processing %s: %s", url, e)
@@ -426,6 +446,14 @@ def run_crawlers(
     failed: list[dict] = []
 
     def run_one(name: str) -> dict | None:
+        # Skip work entirely if cancellation was requested before this future
+        # was pulled off the queue. Otherwise queued adapters still spin up a
+        # DB session, build a fetcher, and run sitemap discovery (with its own
+        # retries) before they get to the per-URL stop-event check — which is
+        # exactly what makes a 50-adapter cancel feel like it "isn't working."
+        if stop_event is not None and stop_event.is_set():
+            logger.info("Adapter %s: cancelled before start.", name)
+            return {"adapter": name, "ingested": 0, "skipped": 0, "errors": 0, "total": 0, "cancelled": True}
         limit = limits.get(name)
         if limit is None and global_limit is not None:
             limit = global_limit
@@ -450,7 +478,22 @@ def run_crawlers(
             return {"_error": str(e), "_adapter": name}
 
     if len(adapter_names) > 1 and parallel:
-        with ThreadPoolExecutor(max_workers=len(adapter_names)) as executor:
+        # Cap parallel adapter workers. Unbounded parallelism (one thread per
+        # adapter) exhausts the DB pool once the selection grows past ~15, at
+        # which point every other thread — and every API request — blocks on
+        # engine.connect(). Override via CRAWLER_MAX_ADAPTER_WORKERS.
+        try:
+            worker_cap = int(os.environ.get("CRAWLER_MAX_ADAPTER_WORKERS", "10"))
+        except ValueError:
+            worker_cap = 10
+        max_workers = max(1, min(len(adapter_names), worker_cap))
+        if max_workers < len(adapter_names):
+            logger.info(
+                "Capping adapter parallelism at %s (requested %s). " "Set CRAWLER_MAX_ADAPTER_WORKERS to change.",
+                max_workers,
+                len(adapter_names),
+            )
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(run_one, name): name for name in adapter_names}
             for future in as_completed(futures):
                 r = future.result()

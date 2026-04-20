@@ -1,36 +1,53 @@
 """
-27WON Performance (27won.com) crawler adapter.
+27WON Performance (store.27won.com) crawler adapter.
 
-Product URLs: ``https://www.27won.com/products/<handle>``
-Shopify storefront, modern theme — JSON-LD ``Product`` is emitted by default
-with name, description, brand, sku (parent variant SKU), offers, and image.
-Parsing reuses the shared ``extract_json_ld_product`` /
-``scraped_payload_from_json_ld`` helpers and applies one 27WON-specific rule:
+The main ``27won.com`` domain is a Squarespace marketing/blog site and does
+not expose product pages. The actual storefront lives on the
+``store.27won.com`` subdomain, which runs CS-Cart (the ``ty-*`` class
+convention plus ``/images/detailed/<id>/<file>`` gallery paths). Plain
+``requests`` fetches the sitemap, robots.txt, and product pages without any
+challenge.
 
-- **Manufacturer collapse:** the catalog is entirely first-party — engine bay
-  dress-up, intake manifolds, short shifters, chassis bracing for Honda Civic
-  Si / Type R (FK7/FK8/FL5) and Accord 2.0T. Shopify vendor / JSON-LD brand
-  appears as any of ``"27WON"``, ``"27WON Performance"``, ``"27 WON"``, or
-  empty. All of those collapse to a single canonical ``"27WON Performance"``
-  so the global part-manufacturer table stays clean. Co-branded SKUs that
-  carry a distinct third-party brand pass through unchanged.
-
-Discovery: ``/sitemap.xml`` (sitemap index) → ``sitemap_products_*.xml`` child
-urlsets only. Pages / collections / blog children are skipped. Override with
+Discovery: ``/sitemap.xml`` is a sitemap index pointing at
+``products_<n>.xml``, ``categories_<n>.xml``, and ``pages_<n>.xml`` child
+urlsets. Only the ``products_*.xml`` children matter for catalog ingest;
+category and CMS children are filtered out the same way the old Shopify
+adapter did. Product URLs are root-slug ``.html`` (e.g.
+``/10th-gen-civic-performance-downpipe.html``), sometimes with a
+``?variation_id=...`` query string (a different variant SKU of the same
+base page). We strip the query string so we ingest one canonical page per
+product — the ingest layer dedupes by ``product_url``. Override via
 ``CRAWLER_27WON_START_URLS`` (comma-separated).
 
+Parsing: JSON-LD ``Product`` is authoritative on CS-Cart and carries
+``name``, ``description``, ``sku``, ``image`` (single URL), and
+``offers.price`` (an ``AggregateOffer``). There is no ``brand`` field on
+the JSON-LD — the catalog is entirely first-party (intakes, intercoolers,
+downpipes, exhaust, dress-up for Honda Civic Si / Type R / Integra), so we
+default the manufacturer to the canonical ``"27WON Performance"`` rather
+than guessing at the first word of the title.
+
+Image gallery: JSON-LD only emits a single ``image``, but the full gallery
+lives in the DOM under ``/images/detailed/<product_id>/<file>.<ext>``
+(CS-Cart's full-resolution path). The ``<product_id>`` is a per-product
+integer that appears in every full-res image on the page. We read the id
+out of the JSON-LD image URL and then collect every
+``/images/detailed/<same_id>/`` reference — that excludes ``/images/
+thumbnails/…`` entries that point at *related* products, which otherwise
+leak into the gallery.
+
 Brand (the ``Why`` this retailer matters): 27WON is the second-vendor
-comparison against PRL on FK8/FL5 (same pattern as Hondata vs. KTuner). The
-SKU mix overlaps but isn't identical — PRL leads on intakes / intercoolers /
-charge pipes, 27WON leads on dress-up, intake manifolds, and short shifters —
-so both need to be in the index for a complete FK8/FL5 build price.
+comparison against PRL on FK8/FL5 (same pattern as Hondata vs. KTuner).
+SKU mix overlaps but isn't identical — PRL leads on intakes / intercoolers
+/ charge pipes, 27WON leads on dress-up, intake manifolds, and short
+shifters — so both need to be in the index for a complete FK8/FL5 build.
 """
 
 import os
 import re
 import time
 from typing import Iterator, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -54,23 +71,32 @@ from app.crawlers.parsing import (
     scraped_payload_from_json_ld,
 )
 
-TWENTYSEVENWON_BASE = "https://www.27won.com"
-PRODUCT_PAGE_PATH = "/products/"
+STORE_BASE = "https://store.27won.com"
+STORE_HOST = "store.27won.com"
+SITEMAP_URL = f"{STORE_BASE}/sitemap.xml"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
-# Only the products urlset matters for catalog discovery. Pages / collections /
-# blogs children are skipped — those are CMS surfaces (about, dealer locator,
-# tech blog posts), not product pages.
-_PRODUCTS_SITEMAP_RE = re.compile(r"/sitemap_products_\d+\.xml(\?|$)", re.IGNORECASE)
+# Only products_*.xml children matter for catalog discovery. categories_*.xml
+# and pages_*.xml are category landing / CMS surfaces, not product pages.
+_PRODUCTS_SITEMAP_RE = re.compile(r"/products_\d+\.xml(\?|$)", re.IGNORECASE)
+
+# CS-Cart gallery full-res path: ``/images/detailed/<product_id>/<file>.<ext>``
+# The ``<product_id>`` is a stable per-product integer. We use it to filter
+# *this* product's gallery out of cross-product thumbnail references that also
+# appear on the page (``/images/thumbnails/…/detailed/<other_id>/…``).
+_DETAILED_IMAGE_RE = re.compile(
+    r"/images/detailed/(\d+)/[^\s\"'<>?#]+?\.(?:jpg|jpeg|png|webp|gif)",
+    re.IGNORECASE,
+)
 
 DEFAULT_START_URLS = [
-    "https://www.27won.com/products/fk8-civic-type-r-intake-manifold",
+    "https://store.27won.com/10th-gen-civic-performance-downpipe.html",
 ]
 
-# Canonical manufacturer name. The Shopify vendor / JSON-LD brand field appears
-# as any of ``"27WON"``, ``"27WON Performance"``, ``"27 WON"``, or is empty
-# depending on when the product was set up — collapse to one row so the global
-# part-manufacturer table doesn't split one brand across multiple entries.
+# Canonical manufacturer name. The catalog is entirely first-party, but the
+# vendor spelling may appear as any of ``"27WON"``, ``"27WON Performance"``,
+# ``"27 WON"``, or be absent — collapse to one row so the global part-
+# manufacturer table doesn't split one brand across multiple entries.
 _TWENTYSEVENWON_CANONICAL_BRAND = "27WON Performance"
 _TWENTYSEVENWON_BRAND_VARIANTS = frozenset(
     {
@@ -85,18 +111,6 @@ _TWENTYSEVENWON_BRAND_VARIANTS = frozenset(
     }
 )
 
-# Shopify CDN thumbnail / picker size suffix (file_300x300.jpg, file_64x64.webp)
-# — rejected so we keep full-resolution gallery media rather than the picker
-# thumbnails the theme renders in the sidebar.
-_SHOPIFY_THUMBNAIL_RE = re.compile(r"_\d{2,4}x\d{2,4}\.\w{2,5}(?:$|\?)", re.IGNORECASE)
-
-# Image URL patterns that are site chrome (nav / footer / logos / banners)
-# rather than product media. Same shape as the AWE / GReddy filters.
-_IMAGE_NOISE_RE = re.compile(
-    r"mega_?menu|/banner_|_banner|/logo|logo_|27won\.svg|header_|footer_|megamenu|placeholder|favicon",
-    re.IGNORECASE,
-)
-
 
 def _is_twentysevenwon_brand_variant(value: Optional[str]) -> bool:
     """True if ``value`` is one of 27WON's own vendor-field spellings."""
@@ -109,8 +123,7 @@ def _normalize_part_manufacturer(part_manufacturer: Optional[str]) -> str:
     """
     Return the canonical manufacturer for a 27WON product.
 
-    - Empty / any 27WON self-spelling (``"27WON"``, ``"27WON Performance"``,
-      ``"27 WON"``) collapses to the single canonical ``"27WON Performance"``.
+    - Empty / any 27WON self-spelling collapses to ``"27WON Performance"``.
     - Anything else (rare co-branded SKU) is passed through unchanged — the
       global part-manufacturer table is authoritative and an unfamiliar brand
       will get its own row via ``get_or_create_part_manufacturer_by_name``.
@@ -119,6 +132,41 @@ def _normalize_part_manufacturer(part_manufacturer: Optional[str]) -> str:
     if not brand or _is_twentysevenwon_brand_variant(brand):
         return _TWENTYSEVENWON_CANONICAL_BRAND
     return brand
+
+
+def _strip_query(url: str) -> str:
+    """Drop query/fragment so ``?variation_id=33425`` variants collapse to the parent page."""
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return url
+    return urlunparse(parsed._replace(query="", fragment=""))
+
+
+def _is_product_url(url: str) -> bool:
+    """
+    True if ``url`` is a root-slug ``.html`` page on ``store.27won.com``.
+
+    Rejects nested paths (``/civic-si-10th-gen/foo.html`` — those are category
+    pages' child listings, not products) and the system ``store_closed.html``
+    page disallowed by robots.txt.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if host != STORE_HOST:
+        return False
+    path = parsed.path or ""
+    if not path.lower().endswith(".html"):
+        return False
+    trimmed = path.strip("/")
+    if "/" in trimmed:
+        return False
+    if trimmed.lower() == "store_closed.html":
+        return False
+    return True
 
 
 def _resolve_start_urls() -> List[str]:
@@ -138,12 +186,9 @@ def _loc_elements(root: Element) -> List[Element]:
 def _discover_product_urls_via_sitemap() -> List[str]:
     """
     Fetch ``/sitemap.xml`` (sitemap index), then walk only the
-    ``sitemap_products_*.xml`` children. Each child urlset's ``<loc>`` entries
-    that contain ``/products/`` are collected (deduplicated by path). Returns
-    an empty list on any failure so the caller can fall back to defaults.
-
-    Pages / collections / blogs children are filtered out because they're CMS
-    surfaces (about, dealer locator, tech blog) rather than product pages.
+    ``products_*.xml`` children. Each child urlset's ``<loc>`` entries that
+    pass ``_is_product_url`` are collected, deduped by the query-stripped URL.
+    Returns an empty list on any failure so the caller falls back to defaults.
     """
     seen: set[str] = set()
     product_urls: List[str] = []
@@ -156,18 +201,17 @@ def _discover_product_urls_via_sitemap() -> List[str]:
         for loc in _loc_elements(root):
             if not loc.text:
                 continue
-            u = loc.text.strip()
-            if PRODUCT_PAGE_PATH not in u:
+            raw = loc.text.strip()
+            canonical = _strip_query(raw)
+            if not _is_product_url(canonical):
                 continue
-            base = u.split("?")[0]
-            if base in seen:
+            if canonical in seen:
                 continue
-            seen.add(base)
-            product_urls.append(base)
+            seen.add(canonical)
+            product_urls.append(canonical)
 
     try:
-        index_url = TWENTYSEVENWON_BASE + "/sitemap.xml"
-        index_text = fetch_page(index_url, timeout=15)
+        index_text = fetch_page(SITEMAP_URL, timeout=15)
         root = ET.fromstring(index_text)
         tag = root.tag
         if tag == f"{{{SITEMAP_NS}}}sitemapindex" or "sitemapindex" in tag:
@@ -185,6 +229,7 @@ def _discover_product_urls_via_sitemap() -> List[str]:
                 except Exception:
                     continue
         else:
+            # Flat urlset — older store sitemaps sometimes dropped the index.
             parse_urlset_locs(index_text)
     except Exception:
         return []
@@ -192,120 +237,75 @@ def _discover_product_urls_via_sitemap() -> List[str]:
     return product_urls
 
 
-def _canonical_image_key(url: str) -> str:
-    """Dedupe key: drop Shopify ``v``/``width``/``height``/``crop`` params so width variants collapse."""
-    stripped = re.sub(r"[?&](v|width|height|crop)=\w+", "", url)
-    stripped = stripped.replace("?&", "?").rstrip("?&")
-    return stripped
+def _extract_product_image_id(json_ld_image: Optional[str]) -> Optional[str]:
+    """Pull the CS-Cart product id out of a ``/images/detailed/<id>/…`` URL."""
+    if not json_ld_image:
+        return None
+    match = _DETAILED_IMAGE_RE.search(json_ld_image)
+    if not match:
+        return None
+    return match.group(1)
 
 
-def _is_valid_shopify_product_image(url: str) -> bool:
-    """Only Shopify CDN product media; reject site chrome and picker thumbnails."""
-    if not url or len(url) < 20:
-        return False
-    low = url.lower()
-    if low.startswith("data:"):
-        return False
-    if "/cdn/shop/" not in low and "cdn.shopify.com" not in low:
-        return False
-    if _IMAGE_NOISE_RE.search(low):
-        return False
-    if _SHOPIFY_THUMBNAIL_RE.search(low):
-        return False
-    return True
-
-
-def _normalize_image_url(url: str) -> str:
-    """Upgrade ``//`` or ``http://`` to ``https://``; resolve absolute paths against 27won.com."""
-    u = url.strip()
-    if u.startswith("//"):
-        return "https:" + u
-    if u.startswith("http://"):
-        return "https://" + u[len("http://") :]
-    if u.startswith("/"):
-        return TWENTYSEVENWON_BASE + u
-    return u
-
-
-def _extract_twentysevenwon_images(soup: BeautifulSoup) -> List[str]:
+def _extract_gallery_images(html: str, product_image_id: Optional[str]) -> List[str]:
     """
-    Product gallery images only.
+    Collect every ``/images/detailed/<product_image_id>/…`` URL in the page
+    and return them as absolute ``https://store.27won.com/...`` URLs, deduped
+    and capped at 12.
 
-    Sources (in order): ``og:image``, ``<media-gallery>``, ``.product__media-wrapper``.
-    Candidates pass through the Shopify-CDN allowlist + noise/thumbnail filter,
-    are upgraded to https, and deduped by canonical URL (ignoring ``v``/``width``
-    query params). Capped at 12 so we don't inflate DB rows with picker
-    thumbnails or related-product images.
+    When ``product_image_id`` is ``None`` (JSON-LD image was missing or not a
+    ``/images/detailed/...`` URL), use the most common id in the page as a
+    best-effort inference.
     """
-    seen_keys: set[str] = set()
+    ids_seen: dict[str, list[str]] = {}
+    for m in _DETAILED_IMAGE_RE.finditer(html):
+        pid = m.group(1)
+        path = m.group(0)
+        ids_seen.setdefault(pid, []).append(path)
+
+    if not ids_seen:
+        return []
+
+    target_id = product_image_id
+    if target_id is None or target_id not in ids_seen:
+        # Fall back to the id with the most references (usually the current
+        # product; related-product thumbnails appear once each).
+        target_id = max(ids_seen, key=lambda k: len(ids_seen[k]))
+
+    seen: set[str] = set()
     ordered: List[str] = []
-
-    def add(raw: str) -> None:
-        if not raw or len(ordered) >= 12:
-            return
-        u = _normalize_image_url(raw)
-        if not u.startswith("http") or not _is_valid_shopify_product_image(u):
-            return
-        key = _canonical_image_key(u)
-        if key in seen_keys:
-            return
-        seen_keys.add(key)
-        ordered.append(u)
-
-    og_img = soup.find("meta", property="og:image")
-    if isinstance(og_img, Tag):
-        content = meta_content(og_img)
-        if content and content.strip():
-            add(content.strip())
-
-    scope: Optional[Tag] = None
-    gallery = soup.find("media-gallery")
-    if isinstance(gallery, Tag):
-        scope = gallery
-    else:
-        wrapper = soup.select_one(".product__media-wrapper")
-        if isinstance(wrapper, Tag):
-            scope = wrapper
-
-    if scope is not None:
-        for img in scope.find_all("img", src=True):
-            if not isinstance(img, Tag):
-                continue
-            src = img.get("src")
-            if isinstance(src, str) and src.strip():
-                add(src.strip())
-
-    return ordered[:12]
-
-
-def _is_product_url(url: str) -> bool:
-    """True if ``url`` is a 27won.com ``/products/<handle>`` page."""
-    try:
-        parsed = urlparse(url)
-    except ValueError:
-        return False
-    host = (parsed.hostname or "").lower()
-    if host and host != "27won.com" and not host.endswith(".27won.com"):
-        return False
-    return PRODUCT_PAGE_PATH in (parsed.path or "")
+    for path in ids_seen[target_id]:
+        absolute = STORE_BASE + path if path.startswith("/") else path
+        if absolute in seen:
+            continue
+        seen.add(absolute)
+        ordered.append(absolute)
+        if len(ordered) >= 12:
+            break
+    return ordered
 
 
 class TwentySevenWonAdapter(RetailerCrawlerAdapter):
     """
-    27WON Performance adapter. Shopify storefront, plain HTTP is sufficient.
+    27WON Performance adapter. Storefront is CS-Cart on
+    ``store.27won.com``; plain HTTP fetches work for robots.txt, the sitemap
+    index, and product pages.
 
     Discovery: ``CRAWLER_27WON_START_URLS`` env var wins. Otherwise walks
-    ``/sitemap.xml`` (sitemap index) and pulls every ``/products/...`` URL out
-    of the ``sitemap_products_*.xml`` child urlsets only. Falls back to
-    ``DEFAULT_START_URLS`` if discovery comes back empty.
+    ``/sitemap.xml`` (sitemap index) and pulls every root-slug ``.html``
+    entry out of the ``products_*.xml`` child urlsets. ``?variation_id=...``
+    query strings are stripped so variants collapse to one ingest per base
+    product. Falls back to ``DEFAULT_START_URLS`` if discovery comes back
+    empty.
 
-    Parsing: JSON-LD Product first (Shopify default — name / brand / sku /
-    offers / image), then a DOM / og fallback for the rare page without
-    JSON-LD. Manufacturer is collapsed to the single canonical
-    ``"27WON Performance"`` when the vendor field is empty or any
-    self-spelling variant, so the global part-manufacturer list doesn't split
-    one brand across multiple rows.
+    Parsing: JSON-LD Product for name / description / sku / image / price;
+    the product image id from the JSON-LD URL drives a DOM sweep for the
+    full gallery (``/images/detailed/<id>/…``). Manufacturer is collapsed
+    to the single canonical ``"27WON Performance"`` when the JSON-LD brand
+    is empty or any self-spelling variant.
     """
+
+    FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
@@ -315,7 +315,7 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse a 27WON product page. JSON-LD Product is the authoritative
-        source on Shopify; the DOM / og fallback covers the rare page without
+        source on CS-Cart; the DOM / og fallback covers the rare page without
         JSON-LD. Returns ``None`` when the URL is not product-shaped or when
         neither path yields a usable name.
         """
@@ -323,10 +323,9 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
             return None
 
         soup = BeautifulSoup(html, "html.parser")
-        dom_images = _extract_twentysevenwon_images(soup)
         dom_price = extract_dom_price(soup)
 
-        # 1. JSON-LD Product (Shopify default).
+        # 1. JSON-LD Product (CS-Cart emits this on every product page).
         item = extract_json_ld_product(html)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
@@ -334,7 +333,10 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer)
-                image_urls = dom_images[:12] if dom_images else payload.image_urls
+                json_ld_image = payload.image_urls[0] if payload.image_urls else None
+                product_id = _extract_product_image_id(json_ld_image)
+                gallery = _extract_gallery_images(html, product_id)
+                image_urls = gallery if gallery else payload.image_urls
                 return ScrapedPayload(
                     name=payload.name,
                     product_url=payload.product_url,
@@ -346,7 +348,7 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
                     gtin=payload.gtin,
                 )
 
-        # 2. DOM / og fallback — no JSON-LD on the page (rare on Shopify).
+        # 2. DOM / og fallback — no JSON-LD on the page (rare on CS-Cart).
         name: Optional[str] = None
         og_title = soup.find("meta", property="og:title")
         content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
@@ -389,6 +391,8 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
         # anyway, and product words (e.g. "Billet", "Short") are not brands.
         part_manufacturer = _TWENTYSEVENWON_CANONICAL_BRAND
 
+        gallery = _extract_gallery_images(html, None)
+
         return ScrapedPayload(
             name=str(name),
             product_url=url,
@@ -396,5 +400,5 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
             price_cents=dom_price,
             part_manufacturer=part_manufacturer,
             part_number=part_number,
-            image_urls=dom_images[:12] if dom_images else None,
+            image_urls=gallery if gallery else None,
         )
