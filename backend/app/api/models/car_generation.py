@@ -77,7 +77,9 @@ class CarGeneration(Base):
 
 
 @event.listens_for(CarGeneration, "before_insert")
-def _autofill_car_generation_slug(_mapper, _conn, target: CarGeneration) -> None:
+def _autofill_car_generation_slug(
+    _mapper, _conn, target: CarGeneration
+) -> None:  # pyright: ignore[reportUnusedFunction]
     """Default `slug` from `generation_name` when not pinned. Matches the field's docstring."""
     if not getattr(target, "slug", None) and getattr(target, "generation_name", None):
         target.slug = slugify(target.generation_name)
