@@ -125,21 +125,3 @@ variable "flaresolverr_session_name" {
   type        = string
   default     = "carmodpicker-crawler"
 }
-
-# ---------------------------------------------------------------------------
-# Prerender.io — Lambda@Edge integration for bot traffic
-#
-# When set, a Lambda@Edge function is attached to the frontend CloudFront
-# distribution that detects bot User-Agents and proxies them to
-# service.prerender.io, which returns a fully-rendered HTML snapshot of the
-# SPA. Real users still go straight to S3.
-#
-# Leave empty to disable the entire integration — the Lambda, IAM role, and
-# cache policy are all gated on this variable being non-empty.
-# ---------------------------------------------------------------------------
-variable "prerender_token" {
-  description = "prerender.io API token (empty disables the prerender Lambda@Edge integration)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
