@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useCookieConsent } from '../../hooks/useCookieConsent';
+import { ADSENSE_CLIENT_ID } from './adsenseConfig';
 
 const AD_WIDTH = 160;
 const AD_HEIGHT = 600;
@@ -85,12 +86,9 @@ export default function AdBanner({ side, slotId }: AdBannerProps) {
   const asideRef = useRef<HTMLElement>(null);
   const [adCount, setAdCount] = useState(1);
 
-  const clientId = import.meta.env['VITE_ADSENSE_CLIENT_ID'] as
-    | string
-    | undefined;
-  const hasAdConfig = Boolean(clientId);
+  const clientId = ADSENSE_CLIENT_ID;
   const { consent } = useCookieConsent();
-  const canServeAds = hasAdConfig && consent === 'accepted';
+  const canServeAds = consent === 'accepted';
 
   useEffect(() => {
     const el = asideRef.current;
