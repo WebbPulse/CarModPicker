@@ -1,191 +1,189 @@
 """
-Tests for fortuneauto-na.com adapter: Shopify JSON-LD Product parsing with
-the first-party brand normalized to "Fortune Auto", plus OG/ShopifyAnalytics
-fallbacks for pages that ship without JSON-LD.
+Tests for the rewritten fortune-auto.com adapter. Fortune Auto retired the
+``fortuneauto-na.com`` Shopify storefront and replaced it with a WordPress
+marketing catalog at ``fortune-auto.com``. The current adapter walks
+``/coilovers/<series>/`` pages and reads name/description/image from
+OpenGraph/Yoast meta rather than Shopify JSON-LD.
 """
 
 from app.crawlers.adapters import adapter_name_for_product_url
-from app.crawlers.adapters.tier0_http.fortuneauto import (
+from app.crawlers.adapters.tier1_tls.fortuneauto import (
     FORTUNEAUTO_BRAND,
     FortuneAutoAdapter,
     _is_product_url,
-    _normalize_fortuneauto_brand,
-    _part_number_from_shopify_meta,
+    _strip_brand_suffix,
 )
 
-SAMPLE_URL = "https://fortuneauto-na.com/products/500-series-coilovers-bmw-e46-m3"
+SAMPLE_URL = "https://fortune-auto.com/coilovers/500series/"
 
 
 def _product_page_html(
     *,
-    name: str = "500 Series Coilovers - BMW E46 M3",
-    sku: str = "FA-500-BMW-E46M3",
-    brand: str = "Fortune Auto",
-    description: str = (
-        "The 500 Series coilover is a monotube shock with external height "
-        "adjustment and 24-click rebound damping for your BMW E46 M3."
+    og_title: str = "500 Series Generation 8 - Fortune Auto",
+    og_description: str = (
+        "Performance Coilovers ideal for the track and occasional street use. "
+        "Higher Performance by design. Fortune Auto Coilovers"
     ),
-    price: str = "1395.00",
-    image_url: str = "https://fortuneauto-na.com/cdn/shop/files/500-series.jpg?v=1700000000",
-    include_product: bool = True,
+    og_image: str = "https://fortune-auto.com/wp-content/uploads/2023/01/500-Mobile-copy.jpg",
+    meta_description: str = "",
+    title: str = "Fortune Auto 500 Series Coilovers – Fortune Auto",
+    include_og_title: bool = True,
+    include_og_image: bool = True,
 ) -> str:
-    """Minimal Shopify-shape page with a single JSON-LD Product block."""
-    product_block = (
-        f"""<script type="application/ld+json">
-        {{
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          "name": "{name}",
-          "sku": "{sku}",
-          "description": "{description}",
-          "image": "{image_url}",
-          "brand": {{"@type": "Brand", "name": "{brand}"}},
-          "offers": {{
-            "@type": "Offer",
-            "price": "{price}",
-            "priceCurrency": "USD",
-            "availability": "https://schema.org/InStock"
-          }}
-        }}
-        </script>"""
-        if include_product
-        else ""
-    )
+    """Minimal Yoast/WordPress-shape page (no JSON-LD Product block)."""
+    og_title_tag = f'<meta property="og:title" content="{og_title}"/>' if include_og_title else ""
+    og_image_tag = f'<meta property="og:image" content="{og_image}"/>' if include_og_image else ""
+    meta_desc_tag = f'<meta name="description" content="{meta_description}"/>' if meta_description else ""
     return f"""
     <html><head>
-      <title>{name}</title>
-      <meta property="og:title" content="{name}">
-      <meta property="og:description" content="{description}">
-      <meta property="og:image" content="{image_url}">
-      <meta property="og:price:amount" content="{price}">
-      <meta property="product:price:amount" content="{price}">
-      {product_block}
-      <script>
-        var meta = {{"product":{{"id":1,"vendor":"{brand}","variants":[{{"id":2,"price":139500,"sku":"{sku}"}}]}}}};
-      </script>
+      <title>{title}</title>
+      {og_title_tag}
+      <meta property="og:description" content="{og_description}"/>
+      {og_image_tag}
+      {meta_desc_tag}
     </head><body>
-      <h1>{name}</h1>
+      <h1>Fortune Auto 500 Series</h1>
     </body></html>
     """
 
 
 class TestAdapterRegistration:
-    """Host-based routing so the extension scrape endpoint lands on this adapter."""
+    """Host-based routing so both the current and legacy domain reach this adapter."""
 
-    def test_bare_host_routes_to_fortuneauto(self) -> None:
+    def test_current_domain_routes_to_fortuneauto(self) -> None:
         assert adapter_name_for_product_url(SAMPLE_URL) == "fortuneauto"
 
-    def test_www_host_routes_to_fortuneauto(self) -> None:
-        assert adapter_name_for_product_url("https://www.fortuneauto-na.com/products/510-coilovers") == "fortuneauto"
+    def test_legacy_shopify_domain_still_routes(self) -> None:
+        # Archive replay: old ``fortuneauto-na.com`` URLs captured before the
+        # migration must still find the Fortune Auto parser so historical HTML
+        # in storage keeps parsing.
+        legacy = "https://fortuneauto-na.com/products/500-series-coilovers-bmw-e46-m3"
+        assert adapter_name_for_product_url(legacy) == "fortuneauto"
+
+    def test_www_subdomain_routes(self) -> None:
+        assert adapter_name_for_product_url("https://www.fortune-auto.com/coilovers/510series/") == "fortuneauto"
 
     def test_unrelated_host_falls_back_to_generic(self) -> None:
-        assert adapter_name_for_product_url("https://example.com/fortuneauto") == "generic"
-
-    def test_other_fortune_auto_host_not_matched(self) -> None:
-        # The adapter is keyed to the -na.com storefront only. A hypothetical
-        # fortuneauto.com (parent global site, different storefront) would not
-        # share this parser's assumptions, so it must NOT route here.
-        assert adapter_name_for_product_url("https://fortuneauto.com/products/thing") == "generic"
+        assert adapter_name_for_product_url("https://example.com/coilovers/500series") == "generic"
 
 
 class TestIsProductUrl:
-    """``/products/<handle>`` on the Fortune Auto host is the only valid shape."""
+    """Product URL shape is ``/coilovers/<series>/`` on fortune-auto.com only."""
 
-    def test_bare_product_path_accepted(self) -> None:
-        assert _is_product_url("https://fortuneauto-na.com/products/500-series-coilovers")
+    def test_series_path_accepted(self) -> None:
+        assert _is_product_url("https://fortune-auto.com/coilovers/500series/")
+
+    def test_series_path_without_trailing_slash_accepted(self) -> None:
+        assert _is_product_url("https://fortune-auto.com/coilovers/520series")
 
     def test_www_host_accepted(self) -> None:
-        assert _is_product_url("https://www.fortuneauto-na.com/products/510-series-coilovers")
+        assert _is_product_url("https://www.fortune-auto.com/coilovers/dreadnoughtpro2way/")
 
-    def test_collection_path_rejected(self) -> None:
-        assert not _is_product_url("https://fortuneauto-na.com/collections/bmw")
+    def test_bare_coilovers_root_rejected(self) -> None:
+        # The ``/coilovers/`` landing page is the collection root, not a series.
+        assert not _is_product_url("https://fortune-auto.com/coilovers/")
+        assert not _is_product_url("https://fortune-auto.com/coilovers")
 
-    def test_pages_path_rejected(self) -> None:
-        assert not _is_product_url("https://fortuneauto-na.com/pages/about")
+    def test_deeper_path_rejected(self) -> None:
+        # Only single-segment sub-paths are product pages; Yoast shouldn't
+        # surface deeper ones but we guard against drift.
+        assert not _is_product_url("https://fortune-auto.com/coilovers/500series/tech")
+
+    def test_other_path_rejected(self) -> None:
+        assert not _is_product_url("https://fortune-auto.com/about/")
+        assert not _is_product_url("https://fortune-auto.com/events/")
 
     def test_unrelated_host_rejected(self) -> None:
-        assert not _is_product_url("https://example.com/products/something")
+        # Legacy Shopify URLs route correctly for replay, but the URL guard
+        # itself keeps the adapter from parsing them as new-site products.
+        assert not _is_product_url("https://fortuneauto-na.com/products/500-series-coilovers")
+        assert not _is_product_url("https://example.com/coilovers/500series/")
 
 
-class TestNormalizeBrand:
-    """First-party storefront: every ``fortune auto …`` variant collapses to the canonical form."""
+class TestStripBrandSuffix:
+    """Yoast appends a site-name suffix to ``<title>``; strip it before catalog entry."""
 
-    def test_canonical_name_passes_through(self) -> None:
-        assert _normalize_fortuneauto_brand("Fortune Auto") == FORTUNEAUTO_BRAND
+    def test_dash_suffix_stripped(self) -> None:
+        assert _strip_brand_suffix("500 Series Generation 8 - Fortune Auto") == "500 Series Generation 8"
 
-    def test_usa_suffix_normalized(self) -> None:
-        assert _normalize_fortuneauto_brand("Fortune Auto USA") == FORTUNEAUTO_BRAND
+    def test_en_dash_suffix_stripped(self) -> None:
+        # Yoast uses an en-dash (U+2013) by default.
+        assert _strip_brand_suffix("Fortune Auto 500 Series Coilovers – Fortune Auto") == (
+            "Fortune Auto 500 Series Coilovers"
+        )
 
-    def test_performance_suffix_normalized(self) -> None:
-        assert _normalize_fortuneauto_brand("Fortune Auto Performance") == FORTUNEAUTO_BRAND
+    def test_trailing_dash_without_suffix_cleaned(self) -> None:
+        # og:title sometimes ships with a dangling " -" when the Yoast
+        # suffix template resolves empty.
+        assert _strip_brand_suffix("510 Series Generation 8 -") == "510 Series Generation 8"
 
-    def test_case_insensitive(self) -> None:
-        assert _normalize_fortuneauto_brand("fortune auto") == FORTUNEAUTO_BRAND
-        assert _normalize_fortuneauto_brand("FORTUNE AUTO USA") == FORTUNEAUTO_BRAND
-
-    def test_empty_defaults_to_canonical(self) -> None:
-        # Storefront is first-party so a missing vendor still maps to Fortune Auto.
-        assert _normalize_fortuneauto_brand("") == FORTUNEAUTO_BRAND
-        assert _normalize_fortuneauto_brand(None) == FORTUNEAUTO_BRAND
-
-    def test_unrelated_brand_preserved(self) -> None:
-        # If a co-branded SKU ever ships, keep its real vendor string.
-        assert _normalize_fortuneauto_brand("SwiftSprings") == "SwiftSprings"
-
-
-class TestPartNumberFromShopifyMeta:
-    """SKU fallback pulls the first ``sku`` key out of the ShopifyAnalytics meta blob."""
-
-    def test_extracts_sku(self) -> None:
-        html = 'var meta = {"product":{"variants":[{"sku":"FA-500-BMW-E46M3"}]}};'
-        assert _part_number_from_shopify_meta(html) == "FA-500-BMW-E46M3"
-
-    def test_first_sku_wins(self) -> None:
-        # Multi-variant product — we key price/SKU off the first variant.
-        html = 'var meta = {"variants":[{"sku":"FA-500-A"},{"sku":"FA-500-B"}]};'
-        assert _part_number_from_shopify_meta(html) == "FA-500-A"
-
-    def test_returns_none_when_missing(self) -> None:
-        assert _part_number_from_shopify_meta("<html>no meta blob here</html>") is None
+    def test_no_suffix_preserved(self) -> None:
+        assert _strip_brand_suffix("Muller MSC 1-Way") == "Muller MSC 1-Way"
 
 
 class TestParseProductPage:
-    """End-to-end parsing against a real-shape Fortune Auto Shopify page."""
+    """End-to-end parsing against a WordPress/Yoast-shape coilover series page."""
 
     def test_full_page_parses(self) -> None:
         result = FortuneAutoAdapter().parse_product_page(_product_page_html(), SAMPLE_URL)
         assert result is not None
-        assert result.name == "500 Series Coilovers - BMW E46 M3"
+        # og:title ("500 Series Generation 8 - Fortune Auto") beats <title>
+        # and the Yoast brand suffix is trimmed.
+        assert result.name == "500 Series Generation 8"
+        # Brand is the constant first-party vendor, never guessed.
         assert result.part_manufacturer == FORTUNEAUTO_BRAND
-        assert result.part_number == "FA-500-BMW-E46M3"
-        assert result.price_cents == 139500
-        assert result.image_urls == ["https://fortuneauto-na.com/cdn/shop/files/500-series.jpg?v=1700000000"]
+        # Per-fitment: a single series page covers thousands of SKUs.
+        assert result.part_number is None
+        # Catalog-only: Fortune Auto is quote-driven.
+        assert result.price_cents is None
+        assert result.product_url == SAMPLE_URL
+        # og:image → single-hero gallery
+        assert result.image_urls == ["https://fortune-auto.com/wp-content/uploads/2023/01/500-Mobile-copy.jpg"]
 
-    def test_brand_suffix_normalized_to_canonical(self) -> None:
-        html = _product_page_html(brand="Fortune Auto USA")
+    def test_description_from_og(self) -> None:
+        result = FortuneAutoAdapter().parse_product_page(_product_page_html(), SAMPLE_URL)
+        assert result is not None
+        assert result.description is not None
+        assert "Performance Coilovers" in result.description
+
+    def test_description_falls_back_to_meta_description(self) -> None:
+        # When og:description is empty but <meta name="description"> has copy,
+        # the adapter should still surface a description.
+        html = _product_page_html(og_description="", meta_description="Meta description fallback")
         result = FortuneAutoAdapter().parse_product_page(html, SAMPLE_URL)
         assert result is not None
-        assert result.part_manufacturer == FORTUNEAUTO_BRAND
+        assert result.description == "Meta description fallback"
+
+    def test_title_fallback_when_og_title_missing(self) -> None:
+        # Not all pages emit og:title; <title> + suffix-strip keeps them parseable.
+        html = _product_page_html(include_og_title=False, title="Muller MSC 1-Way - Fortune Auto")
+        result = FortuneAutoAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.name == "Muller MSC 1-Way"
+
+    def test_no_images_returns_none_for_image_field(self) -> None:
+        # og:image is optional on the WordPress catalog; some pages ship
+        # without one. Missing → ``image_urls=None`` rather than an empty list.
+        html = _product_page_html(include_og_image=False)
+        result = FortuneAutoAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.image_urls is None
 
     def test_non_product_url_returns_none(self) -> None:
-        # A collection page captured by mistake — URL filter rejects before parsing.
-        bad_url = "https://fortuneauto-na.com/collections/bmw"
+        # Archive rescrape guard: URL filter rejects before parsing so a
+        # captured /events/ page can't be parsed as a coilover series.
+        bad_url = "https://fortune-auto.com/events/"
         assert FortuneAutoAdapter().parse_product_page(_product_page_html(), bad_url) is None
 
-    def test_missing_json_ld_falls_back_to_og(self) -> None:
-        # Rare Shopify theme variant ships without JSON-LD Product — the adapter
-        # should still recover name/price/image from OG meta and the Shopify
-        # analytics blob so archive rescrapes don't drop the page entirely.
-        html = _product_page_html(include_product=False)
-        result = FortuneAutoAdapter().parse_product_page(html, SAMPLE_URL)
-        assert result is not None
-        assert result.name == "500 Series Coilovers - BMW E46 M3"
-        assert result.part_manufacturer == FORTUNEAUTO_BRAND
-        assert result.part_number == "FA-500-BMW-E46M3"
-        assert result.price_cents == 139500
-
     def test_page_without_name_returns_none(self) -> None:
-        # Soft-404 / shell page with no h1, no og:title, no JSON-LD — nothing
-        # to build a payload from.
-        html = "<html><head><title>Not found</title></head><body></body></html>"
+        # Soft-404 / shell page with no og:title and no <title> — nothing to
+        # build a payload from.
+        html = "<html><head></head><body><h1>Fortune Auto</h1></body></html>"
         assert FortuneAutoAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+
+class TestAdapterFetcherTier:
+    """Fortune Auto sits behind Cloudflare; plain requests gets a 403 challenge."""
+
+    def test_declares_tls_tier(self) -> None:
+        assert FortuneAutoAdapter.FETCHER_TIER == "tls"

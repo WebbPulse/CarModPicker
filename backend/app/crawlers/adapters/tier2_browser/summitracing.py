@@ -1,9 +1,16 @@
 """
-Summit Racing (summitracing.com) crawler adapter.
+Summit Racing (summitracing.com) crawler adapter — Tier 2 (FlareSolverr browser).
 
 Product URLs: https://www.summitracing.com/parts/<slug> (e.g. /parts/bdd-2001102).
 Discovery: starts from one or more /search/... category URLs and walks pagination
 (?page=N) collecting all linked /parts/<slug> product URLs.
+
+**Fetch blocker:** Summit fronts everything (including search) with Imperva /
+Incapsula. Plain ``requests`` and ``curl_cffi`` both get back a 200 with a
+~212-byte challenge stub instead of HTML — the page JSON-LD never ships without
+JS execution. TLS impersonation isn't enough because the challenge requires the
+browser to run a tiny JS snippet and round-trip a cookie; hence
+``FETCHER_TIER = "browser"`` and this module lives in ``tier2_browser/``.
 
 Parsing is straightforward because product pages expose a complete JSON-LD Product
 block with name, brand, mpn, sku, offers.price, description, and image. We prefer
@@ -17,6 +24,7 @@ against a small, bounded set of pages.
 """
 
 import json
+import logging
 import os
 import re
 import time
@@ -31,13 +39,15 @@ from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
     ScrapedPayload,
     apply_delay_jitter,
-    fetch_page,
 )
+from app.crawlers.fetchers import Fetcher
 from app.crawlers.parsing import (
     extract_json_ld_product,
     normalize_part_number,
     scraped_payload_from_json_ld,
 )
+
+logger = logging.getLogger(__name__)
 
 SUMMITRACING_BASE = "https://www.summitracing.com"
 PRODUCT_PATH_PREFIX = "/parts/"
@@ -109,8 +119,13 @@ def _parse_total_pages(html: str) -> Optional[int]:
         return None
 
 
-def _discover_from_search_urls(start_urls: List[str]) -> List[str]:
-    """Walk each start URL's pagination and collect unique product URLs."""
+def _discover_from_search_urls(start_urls: List[str], fetcher: Fetcher) -> List[str]:
+    """
+    Walk each start URL's pagination and collect unique product URLs.
+
+    ``fetcher`` is the adapter's Tier 2 FlareSolverr fetcher — Imperva blocks
+    the plain-HTTP path, so the old ``fetch_page`` call no longer works.
+    """
     seen: set[str] = set()
     results: List[str] = []
     for start in start_urls:
@@ -121,8 +136,9 @@ def _discover_from_search_urls(start_urls: List[str]) -> List[str]:
             if page > 1:
                 time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
             try:
-                html = fetch_page(page_url, timeout=30)
-            except Exception:
+                html = fetcher.fetch(page_url, timeout=30)
+            except Exception as e:
+                logger.warning("summitracing: search fetch failed for %s: %s", page_url, e)
                 break
             if total_pages is None:
                 total_pages = _parse_total_pages(html)
@@ -205,7 +221,14 @@ class SummitRacingAdapter(RetailerCrawlerAdapter):
     Summit Racing adapter. Discovery walks search/category pages by ?page=N and
     collects /parts/<slug> URLs; parsing reads the page's JSON-LD Product block
     and enriches images from the part-media-files JSON.
+
+    Live crawling is gated on FlareSolverr (``FETCHER_TIER = "browser"``).
+    Until it's configured, ``get_fetcher("browser")`` raises and the runner
+    skips the adapter — captured / archived HTML still parses normally via
+    ``parse_product_page``.
     """
+
+    FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:
         """
@@ -213,7 +236,7 @@ class SummitRacingAdapter(RetailerCrawlerAdapter):
         search results. Set CRAWLER_SUMMITRACING_START_URLS (comma-separated)
         to crawl different categories; runner applies --limit.
         """
-        for url in _discover_from_search_urls(_resolve_start_urls()):
+        for url in _discover_from_search_urls(_resolve_start_urls(), self.fetcher):
             yield url
 
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:

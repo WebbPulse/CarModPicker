@@ -30,7 +30,6 @@ from app.crawlers.adapters.tier0_http.essexparts import EssexPartsAdapter
 from app.crawlers.adapters.tier0_http.evasivemotorsports import EvasiveMotorsportsAdapter
 from app.crawlers.adapters.tier0_http.fifteen52 import Fifteen52Adapter
 from app.crawlers.adapters.tier0_http.flyinmiata import FlyinMiataAdapter
-from app.crawlers.adapters.tier0_http.fortuneauto import FortuneAutoAdapter
 from app.crawlers.adapters.tier0_http.fullrace import FullRaceAdapter
 from app.crawlers.adapters.tier0_http.functionwerk import FunctionwerkAdapter
 from app.crawlers.adapters.tier0_http.girodisc import GirodiscAdapter
@@ -55,7 +54,6 @@ from app.crawlers.adapters.tier0_http.sheepeybuilt import SheepeyBuiltAdapter
 from app.crawlers.adapters.tier0_http.steeda import SteedaAdapter
 from app.crawlers.adapters.tier0_http.studiorsr import StudioRSRAdapter
 from app.crawlers.adapters.tier0_http.subispeed import SubispeedAdapter
-from app.crawlers.adapters.tier0_http.summitracing import SummitRacingAdapter
 from app.crawlers.adapters.tier0_http.tickperformance import TickPerformanceAdapter
 from app.crawlers.adapters.tier0_http.titan7 import Titan7Adapter
 from app.crawlers.adapters.tier0_http.twentysevenwon import TwentySevenWonAdapter
@@ -67,6 +65,7 @@ from app.crawlers.adapters.tier1_tls.apr import APRAdapter
 from app.crawlers.adapters.tier1_tls.cobbtuning import CobbTuningAdapter
 from app.crawlers.adapters.tier1_tls.enjukuracing import EnjukuRacingAdapter
 from app.crawlers.adapters.tier1_tls.forgeline import ForgelineAdapter
+from app.crawlers.adapters.tier1_tls.fortuneauto import FortuneAutoAdapter
 from app.crawlers.adapters.tier1_tls.goodwinracing import GoodWinRacingAdapter
 from app.crawlers.adapters.tier1_tls.kwsuspensions import KWSuspensionsAdapter
 from app.crawlers.adapters.tier1_tls.mackinindustries import MackinIndustriesAdapter
@@ -84,6 +83,7 @@ from app.crawlers.adapters.tier2_browser.ecstuning import ECSTuningAdapter
 from app.crawlers.adapters.tier2_browser.fcpeuro import FCPEuroAdapter
 from app.crawlers.adapters.tier2_browser.jegs import JegsAdapter
 from app.crawlers.adapters.tier2_browser.speedindustry import SpeedIndustryAdapter
+from app.crawlers.adapters.tier2_browser.summitracing import SummitRacingAdapter
 from app.crawlers.adapters.tier2_browser.tirerack import TireRackAdapter
 from app.crawlers.fetchers import Fetcher
 
@@ -104,7 +104,6 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "evasivemotorsports": EvasiveMotorsportsAdapter,
     "fifteen52": Fifteen52Adapter,
     "flyinmiata": FlyinMiataAdapter,
-    "fortuneauto": FortuneAutoAdapter,
     "fullrace": FullRaceAdapter,
     "functionwerk": FunctionwerkAdapter,
     "girodisc": GirodiscAdapter,
@@ -128,7 +127,6 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "steeda": SteedaAdapter,
     "studiorsr": StudioRSRAdapter,
     "subispeed": SubispeedAdapter,
-    "summitracing": SummitRacingAdapter,
     "tickperformance": TickPerformanceAdapter,
     "titan7": Titan7Adapter,
     "wheelsboutique": WheelsBoutiqueAdapter,
@@ -138,6 +136,7 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "cobbtuning": CobbTuningAdapter,
     "enjukuracing": EnjukuRacingAdapter,
     "forgeline": ForgelineAdapter,
+    "fortuneauto": FortuneAutoAdapter,
     "goodwinracing": GoodWinRacingAdapter,
     "kwsuspensions": KWSuspensionsAdapter,
     "mackinindustries": MackinIndustriesAdapter,
@@ -154,6 +153,7 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "fcpeuro": FCPEuroAdapter,
     "jegs": JegsAdapter,
     "speedindustry": SpeedIndustryAdapter,
+    "summitracing": SummitRacingAdapter,
     "tirerack": TireRackAdapter,
     # Fallback
     "generic": GenericHtmlParser,
@@ -219,6 +219,11 @@ def adapter_name_for_product_url(url: str) -> str:
         return "fifteen52"
     if host == "flyinmiata.com" or host.endswith(".flyinmiata.com"):
         return "flyinmiata"
+    # ``fortuneauto-na.com`` was the old Shopify NA storefront (now NXDOMAIN);
+    # the current marketing catalog is ``fortune-auto.com``. Route both so
+    # archive replay of the old URLs still lands on the Fortune Auto parser.
+    if host == "fortune-auto.com" or host.endswith(".fortune-auto.com"):
+        return "fortuneauto"
     if host == "fortuneauto-na.com" or host.endswith(".fortuneauto-na.com"):
         return "fortuneauto"
     if host == "full-race.com" or host.endswith(".full-race.com"):
