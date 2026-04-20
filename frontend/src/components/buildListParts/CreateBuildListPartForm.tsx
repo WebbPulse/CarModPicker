@@ -175,20 +175,22 @@ function CreateBuildListPartForm({
     setDuplicatePartId(null);
 
     // Debounce the check - wait 500ms after user stops typing
-    urlCheckTimeoutRef.current = window.setTimeout(async () => {
-      try {
-        const response = await partsApi.checkProductUrl(url);
-        if (response.data.existing_part_id) {
-          setDuplicatePartId(response.data.existing_part_id);
-        } else {
+    urlCheckTimeoutRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await partsApi.checkProductUrl(url);
+          if (response.data.existing_part_id) {
+            setDuplicatePartId(response.data.existing_part_id);
+          } else {
+            setDuplicatePartId(null);
+          }
+        } catch {
+          // Silently fail - don't show error for URL checks
           setDuplicatePartId(null);
+        } finally {
+          setIsCheckingUrl(false);
         }
-      } catch {
-        // Silently fail - don't show error for URL checks
-        setDuplicatePartId(null);
-      } finally {
-        setIsCheckingUrl(false);
-      }
+      })();
     }, 500);
 
     // Cleanup function
