@@ -97,6 +97,64 @@ class TestTlsFetcher:
     def test_tier_is_tls(self) -> None:
         assert TlsFetcher().tier == "tls"
 
+    def test_retries_on_rate_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        A 429 response should trigger the shared retry loop, exactly like
+        ``fetch_page`` does for the http tier. Proves that TlsFetcher now
+        benefits from the same backoff behavior after the refactor — it's
+        no longer a bare ``sess.get()``.
+        """
+        # First two replies are 429 with Retry-After=0, third is 200. The
+        # fetcher should keep calling the session until it gets the 200.
+        rate_limited = MagicMock(status_code=429, headers={"Retry-After": "0"}, text="", content=b"")
+        ok = MagicMock(status_code=200, headers={}, text="<html>ok</html>", content=b"<html>ok</html>")
+        sess = self._install_fake_curl_cffi(ok)
+        sess.get.side_effect = [rate_limited, rate_limited, ok]
+        # Keep the test fast — skip the actual sleep calls.
+        monkeypatch.setattr("app.crawlers.base.time.sleep", lambda _s: None)
+        try:
+            html = TlsFetcher().fetch("https://www.vividracing.com/x")
+            assert html == "<html>ok</html>"
+            assert sess.get.call_count == 3
+        finally:
+            sys.modules.pop("curl_cffi", None)
+            sys.modules.pop("curl_cffi.requests", None)
+
+    def test_retries_on_timeout_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Timeout-type exceptions from the underlying session should be retried
+        up to MAX_TIMEOUT_RETRIES. Without the refactor, TlsFetcher raised
+        immediately on the first timeout.
+        """
+        ok = MagicMock(status_code=200, headers={}, text="<html>ok</html>", content=b"<html>ok</html>")
+        sess = self._install_fake_curl_cffi(ok)
+        # First call times out, second succeeds. TimeoutError is always in
+        # _curl_cffi_timeout_exceptions() (it's the always-included safety net).
+        sess.get.side_effect = [TimeoutError("read timeout"), ok]
+        monkeypatch.setattr("app.crawlers.base.time.sleep", lambda _s: None)
+        try:
+            html = TlsFetcher().fetch("https://www.vividracing.com/x")
+            assert html == "<html>ok</html>"
+            assert sess.get.call_count == 2
+        finally:
+            sys.modules.pop("curl_cffi", None)
+            sys.modules.pop("curl_cffi.requests", None)
+
+    def test_gives_up_after_max_rate_limit_retries(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A persistent 429 eventually bubbles out as FetcherError (we only
+        retry MAX_RATE_LIMIT_RETRIES times, then the terminal 429 surfaces
+        as an HTTP-error FetcherError)."""
+        rate_limited = MagicMock(status_code=429, headers={"Retry-After": "0"}, text="", content=b"")
+        sess = self._install_fake_curl_cffi(rate_limited)
+        sess.get.return_value = rate_limited
+        monkeypatch.setattr("app.crawlers.base.time.sleep", lambda _s: None)
+        try:
+            with pytest.raises(FetcherError, match="429"):
+                TlsFetcher().fetch("https://www.vividracing.com/x")
+        finally:
+            sys.modules.pop("curl_cffi", None)
+            sys.modules.pop("curl_cffi.requests", None)
+
 
 class TestFlareSolverrFetcher:
     """Tier 2 — a POST client to a FlareSolverr service. We mock the HTTP session."""

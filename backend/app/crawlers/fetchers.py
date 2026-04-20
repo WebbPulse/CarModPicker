@@ -44,6 +44,7 @@ from app.crawlers.base import (
     DEFAULT_TIMEOUT_SEC,
     DEFAULT_USER_AGENT,
     fetch_page,
+    fetch_with_retries,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,32 @@ class HttpFetcher:
 DEFAULT_TLS_IMPERSONATE = "chrome124"
 
 
+def _curl_cffi_timeout_exceptions() -> tuple[type[BaseException], ...]:
+    """
+    Return the exception types ``fetch_with_retries`` should treat as
+    retryable timeout/connection errors for the curl_cffi transport.
+
+    curl_cffi's exception hierarchy has shifted across versions; we probe
+    ``curl_cffi.requests`` for the best-available class (``RequestsError``
+    in 0.7.x+ covers timeout + connection errors). Falls back to ``OSError``
+    plus ``TimeoutError`` so the helper still retries on network hiccups
+    even if the expected attribute isn't exposed.
+    """
+    try:
+        from curl_cffi import requests as cc_requests  # type: ignore[import-not-found]
+    except ImportError:
+        return (OSError, TimeoutError)
+    excs: list[type[BaseException]] = []
+    for name in ("RequestsError", "ConnectionError", "Timeout"):
+        cls = getattr(cc_requests, name, None)
+        if isinstance(cls, type) and issubclass(cls, BaseException):
+            excs.append(cls)
+    # Always include OSError/TimeoutError as a safety net — real network
+    # errors sometimes bubble up as raw OS-level exceptions from libcurl.
+    excs.extend([OSError, TimeoutError])
+    return tuple(excs)
+
+
 class TlsFetcher:
     """
     TLS-impersonating fetcher backed by ``curl_cffi``. Mimics a real Chrome
@@ -173,15 +200,26 @@ class TlsFetcher:
 
     def fetch(self, url: str, *, timeout: Optional[int] = None) -> str:
         sess = self._ensure_session()
-        kwargs: dict[str, Any] = {
-            "timeout": timeout if timeout is not None else DEFAULT_TIMEOUT_SEC,
-        }
-        if self._user_agent:
-            kwargs["headers"] = {"User-Agent": self._user_agent}
+        effective_timeout = timeout if timeout is not None else DEFAULT_TIMEOUT_SEC
+        headers: Optional[dict[str, str]] = {"User-Agent": self._user_agent} if self._user_agent else None
+
+        def _get(u: str, t: int) -> Any:
+            kwargs: dict[str, Any] = {"timeout": t}
+            if headers:
+                kwargs["headers"] = headers
+            return sess.get(u, **kwargs)
+
         try:
-            resp = sess.get(url, **kwargs)
+            resp = fetch_with_retries(
+                url,
+                getter=_get,
+                timeout=effective_timeout,
+                timeout_exceptions=_curl_cffi_timeout_exceptions(),
+                log_label="TlsFetcher",
+            )
         except Exception as e:
             raise FetcherError(f"TlsFetcher request failed for {url}: {e}") from e
+
         if resp.status_code >= 400:
             raise FetcherError(
                 f"TlsFetcher got HTTP {resp.status_code} for {url} "
