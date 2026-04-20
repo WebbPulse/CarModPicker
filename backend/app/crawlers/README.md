@@ -77,6 +77,42 @@ python -m app.crawlers --adapter maperformance --limit 5
 
 Optional: `CRAWLER_MAPERFORMANCE_START_URLS` (comma-separated) overrides product URLs. By default, product URLs are discovered via sitemap.xml (a Shopify sitemap index pointing at `sitemap_products_N.xml` children). MAP emits JSON-LD as `ProductGroup` with a `hasVariant` array (not the plain `Product` schema the shared extractor handles), so the adapter has its own ProductGroup-aware extractor that reads the first variant for sku/price/image. Brands are passed through unchanged (Perrin Performance, COBB Tuning, Cusco, Mishimoto, …) since MAP carries many third-party manufacturers.
 
+**Example (IND Distribution):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=interior
+python -m app.crawlers --adapter ind --limit 5
+```
+
+Optional: `CRAWLER_IND_START_URLS` (comma-separated) overrides product URLs for the ind adapter. Discovery: Shopify sitemap index → `sitemap_products_N.xml` children. IND is a multi-brand retailer (LCK, Dinan, Akrapovic, KW, Eventuri, …) and the Booster Apps SEO Product JSON-LD carries the real part manufacturer, so brand is passed through unchanged — do not coerce to "IND Distribution". Car-make values picked by the title-heuristic fallback (e.g. "BMW") are dropped rather than kept.
+
+**Example (034Motorsport):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=engine
+python -m app.crawlers --adapter 034motorsport --limit 5
+```
+
+Optional: `CRAWLER_MOTORSPORT034_START_URLS` (comma-separated) overrides product URLs. Discovery pulls `/media/sitemaps/sitemap.xml` — a flat urlset where every `<loc>` is a product page (no `/products/` prefix on this Magento storefront; slugs live at the site root, so the adapter filters by `.html` suffix and a short deny-list of CMS slugs). Parsing prefers the page's JSON-LD `Product` block (name / sku / brand / description / offers.price). The JSON-LD `gtin8` field is misused to hold the SKU, so the adapter explicitly discards it — only `sku`/`mpn` reach `part_number`. Brand is normalized to `034Motorsport` when missing or when the title heuristic trips on a car make (Audi/VW/Porsche/BMW — the entire platform catalog).
+
+**Example (Extreme Power House — x-ph.com):**
+
+```bash
+export CRAWLER_USER_ID=1
+export CRAWLER_DEFAULT_CATEGORY_NAME=wheels
+python -m app.crawlers --adapter xph --limit 5
+```
+
+Optional: `CRAWLER_XPH_START_URLS` (comma-separated) overrides product URLs. Discovery walks `/xmlsitemap.php` (a BigCommerce sitemap index) and fetches each `xmlsitemap.php?type=products&page=N` child urlset. BigCommerce product URLs live at the site root (no `/products/` prefix), so the discovery filter is on the child sitemap `type=` query rather than the product URL path. Parsing has no JSON-LD to lean on — x-ph is a Stencil theme — so the adapter pulls SKU / price / GTIN out of the inline `var BCData = {...}` JSON blob, price from `itemprop="price"` / `product:price:amount` as fallbacks, name from the `productView-title` h1, description from the `productView-description` article, and images from the `productView-images` gallery (deduping the same photo at different stencil sizes). Product titles on this site usually end with the SKU (`"... PFS/Clip Req. bbsCH106NE"`) — the adapter strips the SKU suffix so the stored `name` reads cleanly.
+
+**Speed Industry (speedindustry.com):** parse-only adapter (for now). Every endpoint — product pages, `/robots.txt`, `/sitemap.xml`, `/wp-json/` — is behind a Cloudflare managed JS challenge, so plain `requests` cannot fetch HTML. The adapter declares `FETCHER_TIER = "browser"` so the runner will use FlareSolverr once `FLARESOLVERR_URL` is configured; `discover_product_urls()` is a stub until then. In the meantime, pages captured through the Chrome extension (`POST /crawled-pages/scrape`) and the archive rescrape pipeline route through `adapter_name_for_product_url()` and get parsed here instead of by the generic fallback. See `site_problem_notes/speedindustry.md` for the probe log and next steps.
+
+**FCP Euro (fcpeuro.com):** parse-only adapter (for now). Product pages and the `sitemap.xml.gz` feed are behind a Cloudflare managed JS challenge; only `/robots.txt` returns 200. The adapter declares `FETCHER_TIER = "browser"` so the runner will use FlareSolverr once `FLARESOLVERR_URL` is configured; `discover_product_urls()` is a stub until then. Parsing is Shopify-style (JSON-LD `Product` → OG meta → DOM). Once Tier 2 is wired in, the sitemap walker will need gzip handling that our other adapters don't do — FCP advertises `sitemap.xml.gz` specifically. See `site_problem_notes/fcpeuro.md`.
+
+**JEGS (jegs.com):** parse-only adapter (for now). Product pages are behind a Cloudflare managed JS challenge; `/robots.txt` and `/sitemap_index.xml` return 200 but the child sitemaps are gzipped and use the older `schemas/sitemap/0.84` namespace. The adapter declares `FETCHER_TIER = "browser"` and stubs `discover_product_urls()`. Parsing is JSON-LD → OG meta → DOM, with a URL-derived fallback: the product URL shape `/i/<brand>/<mfr-prefix>/<mfr-sku>/<internal>/-1` encodes both the manufacturer brand and the manufacturer SKU, so even without usable HTML we can produce `part_manufacturer` and `part_number` from the URL alone. See `site_problem_notes/jegs.md`.
+
 **Full-page archive (optional):** To keep a copy of each product page for post-processing or re-parsing:
 
 - **CRAWL_HTML_SAVE_DIR** – Directory to save HTML (e.g. `./crawl_cache`). When set, we save a full page copy for **new URLs only** (first time we see that product URL). Recrawls (known URLs) still fetch and update price but do not write HTML by default.
@@ -106,6 +142,8 @@ Retailers vary wildly in how aggressively they block automated clients. Rather t
 | 2 | `"browser"` | `FlareSolverrFetcher` (HTTP client to a FlareSolverr service) | Cloudflare *managed JS challenges* — the `Just a moment…` interstitial that requires JS + cookie round-trips (e.g. JEGS, FCP Euro). |
 
 Within `run_crawler()`, the fetcher is constructed from `adapter.FETCHER_TIER` before the adapter itself, injected into the adapter's constructor, and closed in a `finally` block. The adapter's `discover_product_urls()` should call `self.fetcher.fetch(...)` rather than the module-level `fetch_page()` when the sitemap or discovery endpoints are themselves behind the block.
+
+**Shared retry machinery.** Tiers 0 and 1 both route through `fetch_with_retries()` in `base.py` — the same exponential-backoff / Retry-After / timeout-retry loop, with a transport-specific getter callable. That means `TlsFetcher` gets the same "stay unbanned over speed" behavior as `HttpFetcher`: 429/503 triggers backoff (up to 5 retries, honoring Retry-After), timeout/connection errors retry up to `MAX_TIMEOUT_RETRIES` times, and any other non-2xx surfaces as a `FetcherError` immediately. Tier 2 (FlareSolverr) does not share this loop — it has its own per-request timeout contract with the upstream service.
 
 Declaration on an adapter:
 

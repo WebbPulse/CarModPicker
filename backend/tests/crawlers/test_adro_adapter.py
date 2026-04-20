@@ -1,6 +1,6 @@
 """Tests for adro.com adapter: manufacturer normalization + bundle/zero-price rejection."""
 
-from app.crawlers.adapters.adro import AdroAdapter, _normalize_part_manufacturer
+from app.crawlers.adapters.tier0_http.adro import AdroAdapter, _normalize_part_manufacturer
 
 
 class TestNormalizePartManufacturer:
