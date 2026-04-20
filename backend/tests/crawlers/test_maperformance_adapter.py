@@ -1,6 +1,6 @@
 """Tests for maperformance.com adapter: ProductGroup JSON-LD parsing + DOM fallback."""
 
-from app.crawlers.adapters.maperformance import (
+from app.crawlers.adapters.tier0_http.maperformance import (
     MAPerformanceAdapter,
     _extract_product_group_from_json_ld,
     _payload_from_product_group,

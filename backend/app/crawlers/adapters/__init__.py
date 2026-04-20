@@ -11,21 +11,51 @@ crawler runner CLI (it has no discover_product_urls implementation).
 from typing import Optional
 from urllib.parse import urlparse
 
-from app.crawlers.adapters.a90shop import A90ShopAdapter
-from app.crawlers.adapters.adro import AdroAdapter
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
+
+# Last-resort fallback — no discovery; used by URL-host mapping below.
 from app.crawlers.adapters.generic import GenericHtmlParser
-from app.crawlers.adapters.maperformance import MAPerformanceAdapter
-from app.crawlers.adapters.studiorsr import StudioRSRAdapter
-from app.crawlers.adapters.summitracing import SummitRacingAdapter
+
+# Tier 0 — plain HTTP (`HttpFetcher`)
+from app.crawlers.adapters.tier0_http.a90shop import A90ShopAdapter
+from app.crawlers.adapters.tier0_http.adro import AdroAdapter
+from app.crawlers.adapters.tier0_http.evasivemotorsports import EvasiveMotorsportsAdapter
+from app.crawlers.adapters.tier0_http.functionwerk import FunctionwerkAdapter
+from app.crawlers.adapters.tier0_http.ind import INDAdapter
+from app.crawlers.adapters.tier0_http.maperformance import MAPerformanceAdapter
+from app.crawlers.adapters.tier0_http.motorsport034 import Motorsport034Adapter
+from app.crawlers.adapters.tier0_http.studiorsr import StudioRSRAdapter
+from app.crawlers.adapters.tier0_http.summitracing import SummitRacingAdapter
+from app.crawlers.adapters.tier0_http.xph import XPHAdapter
+
+# Tier 1 — TLS impersonation (`TlsFetcher`, `curl_cffi`)
+from app.crawlers.adapters.tier1_tls.vividracing import VividRacingAdapter
+
+# Tier 2 — FlareSolverr browser (`FlareSolverrFetcher`)
+from app.crawlers.adapters.tier2_browser.fcpeuro import FCPEuroAdapter
+from app.crawlers.adapters.tier2_browser.jegs import JegsAdapter
+from app.crawlers.adapters.tier2_browser.speedindustry import SpeedIndustryAdapter
 from app.crawlers.fetchers import Fetcher
 
 ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
+    # Tier 0 — plain HTTP
+    "034motorsport": Motorsport034Adapter,
     "a90shop": A90ShopAdapter,
     "adro": AdroAdapter,
+    "evasivemotorsports": EvasiveMotorsportsAdapter,
+    "functionwerk": FunctionwerkAdapter,
+    "ind": INDAdapter,
     "maperformance": MAPerformanceAdapter,
     "studiorsr": StudioRSRAdapter,
     "summitracing": SummitRacingAdapter,
+    "xph": XPHAdapter,
+    # Tier 1 — TLS impersonation
+    "vividracing": VividRacingAdapter,
+    # Tier 2 — FlareSolverr browser
+    "fcpeuro": FCPEuroAdapter,
+    "jegs": JegsAdapter,
+    "speedindustry": SpeedIndustryAdapter,
+    # Fallback
     "generic": GenericHtmlParser,
 }
 
@@ -47,16 +77,37 @@ def adapter_name_for_product_url(url: str) -> str:
         return "generic"
     if not host:
         return "generic"
-    if host == "studiorsr.com" or host.endswith(".studiorsr.com"):
-        return "studiorsr"
+    # Tier 0 — plain HTTP
+    if host == "034motorsport.com" or host.endswith(".034motorsport.com"):
+        return "034motorsport"
     if host.endswith("a90shop.com"):
         return "a90shop"
     if host == "adro.com" or host.endswith(".adro.com"):
         return "adro"
-    if host == "summitracing.com" or host.endswith(".summitracing.com"):
-        return "summitracing"
+    if host == "evasivemotorsports.com" or host.endswith(".evasivemotorsports.com"):
+        return "evasivemotorsports"
+    if host == "functionwerk.com" or host.endswith(".functionwerk.com"):
+        return "functionwerk"
+    if host == "ind-distribution.com" or host.endswith(".ind-distribution.com"):
+        return "ind"
     if host == "maperformance.com" or host.endswith(".maperformance.com"):
         return "maperformance"
+    if host == "studiorsr.com" or host.endswith(".studiorsr.com"):
+        return "studiorsr"
+    if host == "summitracing.com" or host.endswith(".summitracing.com"):
+        return "summitracing"
+    if host == "x-ph.com" or host.endswith(".x-ph.com"):
+        return "xph"
+    # Tier 1 — TLS impersonation
+    if host == "vividracing.com" or host.endswith(".vividracing.com"):
+        return "vividracing"
+    # Tier 2 — FlareSolverr browser
+    if host == "fcpeuro.com" or host.endswith(".fcpeuro.com"):
+        return "fcpeuro"
+    if host == "jegs.com" or host.endswith(".jegs.com"):
+        return "jegs"
+    if host == "speedindustry.com" or host.endswith(".speedindustry.com"):
+        return "speedindustry"
     return "generic"
 
 
