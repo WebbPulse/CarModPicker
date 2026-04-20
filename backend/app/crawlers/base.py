@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, cast
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, cast
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 from uuid import UUID
@@ -482,6 +482,80 @@ def _timeout_backoff_sec(attempt: int) -> float:
     return max(1.0, backoff + jitter)
 
 
+def fetch_with_retries(
+    url: str,
+    *,
+    getter: Callable[[str, int], Any],
+    timeout: int,
+    timeout_exceptions: Tuple[type[BaseException], ...],
+    log_label: str = "fetch",
+) -> Any:
+    """
+    Transport-agnostic retry/backoff wrapper around a getter callable.
+
+    The ``getter`` takes ``(url, timeout)`` and returns a response-like object
+    exposing ``status_code`` (int) and ``headers`` (mapping). Both
+    ``requests.Session.get`` and ``curl_cffi.requests.Session.get`` match.
+
+    Retry behavior (same for every transport that uses this):
+      - ``status_code`` in ``RATE_LIMIT_STATUS_CODES`` (429/503): exponential
+        backoff, Retry-After honored. After ``MAX_RATE_LIMIT_RETRIES``, returns
+        the final rate-limited response (caller decides how to raise).
+      - Exceptions in ``timeout_exceptions``: retry up to
+        ``MAX_TIMEOUT_RETRIES`` times with backoff, then re-raise.
+      - Any other return / exception: pass through immediately.
+
+    Returns the response object. The caller is responsible for non-2xx
+    handling (``raise_for_status()`` for the ``requests`` flavor,
+    ``FetcherError`` for the ``TlsFetcher`` flavor) — different transports
+    surface HTTP errors as different exception types, and keeping the check
+    in the caller avoids forcing a common error type on them.
+    """
+    last_resp: Any = None
+    for timeout_attempt in range(MAX_TIMEOUT_RETRIES + 1):
+        try:
+            for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+                resp = getter(url, timeout)
+                last_resp = resp
+                if resp.status_code in RATE_LIMIT_STATUS_CODES:
+                    if attempt >= MAX_RATE_LIMIT_RETRIES:
+                        return resp
+                    retry_after_raw = resp.headers.get("Retry-After") if hasattr(resp, "headers") else None
+                    backoff = _parse_retry_after(retry_after_raw, attempt)
+                    backoff = _rate_limit_backoff_sec(backoff, attempt)
+                    logger.warning(
+                        "%s: rate limited (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
+                        log_label,
+                        resp.status_code,
+                        url,
+                        retry_after_raw,
+                        backoff,
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES + 1,
+                    )
+                    time.sleep(backoff)
+                    continue
+                return resp
+            # Shouldn't reach here — the loop either returns or sleeps + continues.
+            return last_resp
+        except timeout_exceptions as e:
+            if timeout_attempt >= MAX_TIMEOUT_RETRIES:
+                raise
+            backoff = _timeout_backoff_sec(timeout_attempt)
+            logger.warning(
+                "%s: timeout/connection error for %s (attempt %s/%s), retrying in %.1fs: %s",
+                log_label,
+                url,
+                timeout_attempt + 1,
+                MAX_TIMEOUT_RETRIES + 1,
+                backoff,
+                e,
+            )
+            time.sleep(backoff)
+
+    raise RuntimeError(f"{log_label}: unexpected exit from timeout retry loop")
+
+
 def fetch_page(
     url: str,
     *,
@@ -492,64 +566,26 @@ def fetch_page(
     """
     Fetch a page as HTML. Uses requests (no JS).
 
-    On 429 (Too Many Requests) or 503 (Service Unavailable): retries with exponential
-    backoff, honors Retry-After when present, and adds jitter. After MAX_RATE_LIMIT_RETRIES
-    retries, re-raises the last response. Other non-2xx responses raise immediately.
-
-    On ReadTimeout, ConnectTimeout, or ConnectionError: retries up to MAX_TIMEOUT_RETRIES
-    times with backoff, then re-raises.
+    Retry/backoff semantics live in ``fetch_with_retries``; this is the
+    requests-specific wrapper that preserves the historical ``raise_for_status``
+    behavior (non-2xx → ``requests.HTTPError``).
     """
     req_session = session or requests.Session()
     headers = {"User-Agent": user_agent, "Accept": "text/html,application/xhtml+xml"}
-    timeout_errors = (requests.ReadTimeout, requests.ConnectTimeout, requests.ConnectionError)
 
-    for timeout_attempt in range(MAX_TIMEOUT_RETRIES + 1):
-        try:
-            for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
-                try:
-                    resp = req_session.get(url, headers=headers, timeout=timeout)
-                except timeout_errors as e:
-                    # Let outer loop handle timeout/connection retries
-                    raise
-                if resp.status_code in RATE_LIMIT_STATUS_CODES:
-                    if attempt >= MAX_RATE_LIMIT_RETRIES:
-                        resp.raise_for_status()
-                    retry_after_raw = resp.headers.get("Retry-After")
-                    backoff = _parse_retry_after(retry_after_raw, attempt)
-                    backoff = _rate_limit_backoff_sec(backoff, attempt)
-                    logger.warning(
-                        "Rate limited (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
-                        resp.status_code,
-                        url,
-                        retry_after_raw,
-                        backoff,
-                        attempt + 1,
-                        MAX_RATE_LIMIT_RETRIES + 1,
-                    )
-                    time.sleep(backoff)
-                    continue
-                resp.raise_for_status()
-                resp.encoding = resp.encoding or "utf-8"
-                return resp.text
-            raise RuntimeError("fetch_page: unexpected exit from rate-limit retry loop")
-        except requests.HTTPError:
-            # Non–rate-limit 4xx/5xx: raise immediately (no retry)
-            raise
-        except timeout_errors as e:
-            if timeout_attempt >= MAX_TIMEOUT_RETRIES:
-                raise
-            backoff = _timeout_backoff_sec(timeout_attempt)
-            logger.warning(
-                "Timeout/connection error for %s (attempt %s/%s), retrying in %.1fs: %s",
-                url,
-                timeout_attempt + 1,
-                MAX_TIMEOUT_RETRIES + 1,
-                backoff,
-                e,
-            )
-            time.sleep(backoff)
+    def _get(u: str, t: int) -> requests.Response:
+        return req_session.get(u, headers=headers, timeout=t)
 
-    raise RuntimeError("fetch_page: unexpected exit from timeout retry loop")
+    resp = fetch_with_retries(
+        url,
+        getter=_get,
+        timeout=timeout,
+        timeout_exceptions=(requests.ReadTimeout, requests.ConnectTimeout, requests.ConnectionError),
+        log_label="fetch_page",
+    )
+    resp.raise_for_status()
+    resp.encoding = resp.encoding or "utf-8"
+    return resp.text
 
 
 def ingest_payload(
