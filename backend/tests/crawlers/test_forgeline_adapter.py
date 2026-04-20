@@ -132,6 +132,12 @@ class TestProductUrlShape:
     def test_other_host_rejected(self) -> None:
         assert not _is_product_url("https://example.com/al304/p108")
 
+    def test_finish_option_variant_rejected(self) -> None:
+        # Configurator finish-variant URLs (``-finish-option-`` infix) leak
+        # into the sitemap but Cloudflare 403s direct access. Filter them
+        # out at discovery so the runner doesn't log spurious errors.
+        assert not _is_product_url("https://www.forgeline.com/beadlock-ring-finish-option-no-engraving/p359")
+
 
 class TestHostRouting:
     """``adapter_name_for_product_url`` must route both forgeline hosts to ``forgeline``."""

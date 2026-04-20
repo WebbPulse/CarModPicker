@@ -51,7 +51,18 @@ logger = logging.getLogger(__name__)
 
 
 class FetcherError(RuntimeError):
-    """Base class for fetcher failures. Caught by the runner as a per-URL error."""
+    """Base class for fetcher failures. Caught by the runner as a per-URL error.
+
+    ``status_code`` is set when the failure is driven by a 4xx/5xx HTTP response
+    from the upstream, so the runner can treat 404/410 as 'gone' uniformly
+    across fetcher tiers (HttpFetcher raises requests.HTTPError which already
+    carries status_code via .response; TlsFetcher / FlareSolverrFetcher need
+    to report it explicitly).
+    """
+
+    def __init__(self, message: str, *, status_code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class FlareSolverrError(FetcherError):
@@ -230,7 +241,8 @@ class TlsFetcher:
         if resp.status_code >= 400:
             raise FetcherError(
                 f"TlsFetcher got HTTP {resp.status_code} for {url} "
-                f"(body bytes={len(resp.content) if resp.content else 0})"
+                f"(body bytes={len(resp.content) if resp.content else 0})",
+                status_code=resp.status_code,
             )
         # curl_cffi decodes similarly to requests; .text is str
         text = getattr(resp, "text", None)
@@ -365,7 +377,8 @@ class FlareSolverrFetcher:
         solution_status = solution.get("status")
         if solution_status is not None and int(solution_status) >= 400:
             raise FlareSolverrError(
-                f"FlareSolverr: upstream returned HTTP {solution_status} for {url} " f"(challenge may have failed)"
+                f"FlareSolverr: upstream returned HTTP {solution_status} for {url} " f"(challenge may have failed)",
+                status_code=int(solution_status),
             )
         if not isinstance(html, str):
             raise FlareSolverrError(f"FlareSolverr returned no response body for {url}")

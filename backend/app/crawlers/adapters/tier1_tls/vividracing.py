@@ -19,12 +19,18 @@ Notes:
 - ``Disallow: /*?*`` in robots.txt means any URL with a query string is off
   limits. ``canonicalize_url()`` already strips known tracking params, and
   ``discover_product_urls()`` drops anything that still has a query string.
-- Vivid advertises ``sitemap_index.xml.gz`` in robots.txt. We skip the gzipped
-  index (our fetcher returns ``str``, not bytes) and just try ``/sitemap.xml``;
-  if that is not served or yields nothing useful we fall back to
-  ``DEFAULT_START_URLS`` (or ``CRAWLER_VIVIDRACING_START_URLS``).
+- Vivid serves only gzipped sitemaps (``/sitemap_index.xml.gz`` and the
+  per-section ``/sitemaps/sitemapNNN.xml.gz`` children it indexes); the
+  bare ``/sitemap.xml`` and ``/sitemap_index.xml`` return a 404 HTML page.
+  The ``Fetcher`` protocol returns decoded ``str``, so discovery bypasses
+  it for the sitemap path and calls ``curl_cffi`` directly to pull raw
+  bytes and ``gzip.decompress`` them. Falls back to ``DEFAULT_START_URLS``
+  (or ``CRAWLER_VIVIDRACING_START_URLS``) when even the gzipped walk
+  fails or yields nothing.
 """
 
+import gzip
+import logging
 import os
 import re
 import time
@@ -41,6 +47,7 @@ from app.crawlers.base import (
     ScrapedPayload,
     apply_delay_jitter,
 )
+from app.crawlers.fetchers import DEFAULT_TLS_IMPERSONATE
 from app.crawlers.parsing import (
     extract_dom_price,
     extract_json_ld_product,
@@ -57,6 +64,10 @@ from app.crawlers.parsing import (
 
 VIVIDRACING_BASE = "https://www.vividracing.com"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+GZIPPED_INDEX_URL = VIVIDRACING_BASE + "/sitemap_index.xml.gz"
+_GZIP_MAGIC = b"\x1f\x8b"
+
+logger = logging.getLogger(__name__)
 
 # Canonical product URL: /<slug>-p-<digits>.html. The slug is kebab-case ASCII;
 # the numeric id after "-p-" is Vivid's internal product id (not an MPN).
@@ -239,13 +250,15 @@ class VividRacingAdapter(RetailerCrawlerAdapter):
 
     def _discover_via_sitemap(self) -> List[str]:
         """
-        Fetch ``/sitemap.xml`` (plain) via the adapter's fetcher and collect
-        every ``/<slug>-p-<digits>.html`` URL it points at. Returns [] on any
-        failure; the caller decides the fallback.
+        Walk ``/sitemap_index.xml.gz`` → each ``/sitemaps/sitemapNNN.xml.gz``
+        child urlset and collect every ``/<slug>-p-<digits>.html`` URL.
 
-        We intentionally skip ``sitemap_index.xml.gz``: the fetcher contract
-        returns decoded text, gzip-bytes would need a separate binary path,
-        and Vivid generally serves the plain ``sitemap.xml`` alongside it.
+        Vivid only serves gzipped sitemaps; the bare ``/sitemap.xml`` returns
+        a 404 HTML page and the plain ``/sitemap_index.xml`` does the same.
+        The ``Fetcher`` protocol returns decoded text, so this helper bypasses
+        ``self.fetcher`` and uses ``curl_cffi`` directly to pull raw bytes,
+        then ``gzip.decompress`` the payload. Returns [] on any failure and
+        lets the caller fall back to ``DEFAULT_START_URLS``.
         """
         seen: set[str] = set()
         product_urls: List[str] = []
@@ -268,27 +281,68 @@ class VividRacingAdapter(RetailerCrawlerAdapter):
                 product_urls.append(base)
 
         try:
-            index_url = VIVIDRACING_BASE + "/sitemap.xml"
-            index_text = self.fetcher.fetch(index_url, timeout=15)
-            root = ET.fromstring(index_text)
+            from curl_cffi import requests as cc_requests  # type: ignore[import-not-found]
+        except ImportError:
+            return []
+
+        try:
+            session = cc_requests.Session(impersonate=DEFAULT_TLS_IMPERSONATE)
+        except Exception:
+            return []
+
+        def fetch_gz_xml(url: str) -> Optional[str]:
+            try:
+                resp = session.get(url, timeout=20, allow_redirects="safe")
+            except Exception:
+                return None
+            if getattr(resp, "status_code", 0) != 200:
+                return None
+            content = getattr(resp, "content", None)
+            if not isinstance(content, (bytes, bytearray)) or len(content) < 2:
+                return None
+            # Servers sometimes serve .gz files with Content-Encoding: gzip
+            # (double-encoded) and sometimes as raw gzip bytes with no encoding
+            # header — and curl_cffi transparently decompresses only the former.
+            # Treat the leading magic bytes as authoritative.
+            payload = bytes(content)
+            if payload[:2] == _GZIP_MAGIC:
+                try:
+                    payload = gzip.decompress(payload)
+                except OSError:
+                    return None
+            try:
+                return payload.decode("utf-8", errors="replace")
+            except Exception:
+                return None
+
+        try:
+            index_text = fetch_gz_xml(GZIPPED_INDEX_URL)
+            if not index_text:
+                return []
+            try:
+                root = ET.fromstring(index_text)
+            except ET.ParseError:
+                return []
+
             tag = root.tag
             if tag == f"{{{SITEMAP_NS}}}sitemapindex" or "sitemapindex" in tag:
                 child_sitemap_urls = [loc.text.strip() for loc in _loc_elements(root) if loc.text and loc.text.strip()]
                 for i, child_url in enumerate(child_sitemap_urls):
                     if i > 0:
                         time.sleep(apply_delay_jitter(DEFAULT_REQUEST_DELAY_SEC))
-                    # Skip gzipped child sitemaps — fetcher returns str, not bytes.
-                    if child_url.endswith(".gz"):
-                        continue
-                    try:
-                        child_text = self.fetcher.fetch(child_url, timeout=15)
+                    child_text = fetch_gz_xml(child_url)
+                    if child_text:
                         parse_urlset_locs(child_text)
-                    except Exception:
-                        continue
             else:
                 parse_urlset_locs(index_text)
-        except Exception:
+        except Exception as e:
+            logger.warning("Vividracing sitemap discovery failed: %s", e)
             return []
+        finally:
+            try:
+                session.close()
+            except Exception:
+                pass
 
         return product_urls
 

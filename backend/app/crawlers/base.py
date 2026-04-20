@@ -6,8 +6,9 @@ No page parsing lives here; that is entirely in per-retailer adapters.
 Respects robots.txt: we check can_fetch_url() before each request and honor
 Crawl-delay when present (use the larger of --delay and the directive).
 
-Rate limiting: on 429/503 we retry with exponential backoff, honor Retry-After,
-and add jitter. Staying unbanned is prioritized over speed.
+Retryable upstream errors: on 429/502/503/504 we retry with exponential
+backoff, honor Retry-After, and add jitter. Staying unbanned is prioritized
+over speed.
 """
 
 import hashlib
@@ -107,12 +108,17 @@ def get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]
                 logger.info("Crawl HTML bucket not configured (CRAWL_BUCKET missing); will use local path as fallback")
             return None, None
         import boto3
+        from botocore.config import Config as BotoConfig
 
         # Pass explicit credentials only when provided; otherwise boto3 uses its default
         # credential chain (IAM role, env vars, ~/.aws/credentials, etc.)
         client_kwargs: dict = {
             "region_name": settings.AWS_REGION or None,
             "endpoint_url": settings.S3_ENDPOINT_URL or None,
+            # Up to 80 adapter threads archive HTML to this bucket in parallel;
+            # the default urllib3 pool of 10 per-host saturates almost
+            # immediately and logs "Connection pool is full" on every overflow.
+            "config": BotoConfig(max_pool_connections=100),
         }
         if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
             client_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
@@ -334,8 +340,13 @@ DEFAULT_USER_AGENT = "CarModPicker-Crawler/1.0 (+https://carmodpicker.com)"
 # Jitter on normal request delay (±20%) so traffic doesn't look robotic; best practice for polite crawlers.
 REQUEST_DELAY_JITTER_FRACTION = 0.2
 
-# Rate-limit backoff: we retry on these status codes (staying unbanned over speed)
-RATE_LIMIT_STATUS_CODES = (429, 503)
+# Status codes we retry with backoff. 429 is the canonical rate-limit signal;
+# 503 is "service unavailable" (often a polite throttle); 502 (Bad Gateway)
+# and 504 (Gateway Timeout) are transient edge/CDN failures (Wix, Cloudflare,
+# Fastly all emit them on upstream blips). All four respond well to a short
+# wait + retry — bubbling them up as hard errors loses healthy URLs to one-
+# off infrastructure noise. Retry-After is honored when present.
+RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
 MAX_RATE_LIMIT_RETRIES = 5
 BACKOFF_BASE_SEC = 2.0
 BACKOFF_MAX_SEC = 300.0
@@ -538,8 +549,8 @@ def fetch_with_retries(
     ``requests.Session.get`` and ``curl_cffi.requests.Session.get`` match.
 
     Retry behavior (same for every transport that uses this):
-      - ``status_code`` in ``RATE_LIMIT_STATUS_CODES`` (429/503): exponential
-        backoff, Retry-After honored. After ``MAX_RATE_LIMIT_RETRIES``, returns
+      - ``status_code`` in ``RETRYABLE_STATUS_CODES`` (429/502/503/504):
+        exponential backoff, Retry-After honored. After ``MAX_RATE_LIMIT_RETRIES``, returns
         the final rate-limited response (caller decides how to raise).
       - Exceptions in ``timeout_exceptions``: retry up to
         ``MAX_TIMEOUT_RETRIES`` times with backoff, then re-raise.
@@ -557,14 +568,14 @@ def fetch_with_retries(
             for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
                 resp = getter(url, timeout)
                 last_resp = resp
-                if resp.status_code in RATE_LIMIT_STATUS_CODES:
+                if resp.status_code in RETRYABLE_STATUS_CODES:
                     if attempt >= MAX_RATE_LIMIT_RETRIES:
                         return resp
                     retry_after_raw = resp.headers.get("Retry-After") if hasattr(resp, "headers") else None
                     backoff = _parse_retry_after(retry_after_raw, attempt)
                     backoff = _rate_limit_backoff_sec(backoff, attempt)
                     logger.warning(
-                        "%s: rate limited (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
+                        "%s: retryable upstream (HTTP %s) for %s; Retry-After=%s, backing off %.1fs (attempt %s/%s)",
                         log_label,
                         resp.status_code,
                         url,

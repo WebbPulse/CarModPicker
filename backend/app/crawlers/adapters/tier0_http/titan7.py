@@ -1,7 +1,15 @@
 """
-Titan7 (titan7.com) crawler adapter — Tier 0 (plain HTTP).
+Titan7 (titan-7.com) crawler adapter — Tier 0 (plain HTTP).
 
-Product URLs: ``https://titan7.com/products/<handle>``
+Product URLs: ``https://titan-7.com/products/<handle>``
+
+Titan7 migrated from the un-hyphenated ``titan7.com`` to ``titan-7.com`` in
+2026. The legacy host still renders a static landing page (the storefront
+Shopify theme is still live at ``/``), but every product URL on that host
+now returns 404 — the Shopify sitemap and every ``/products/...`` URL live
+on the hyphenated host. ``_is_product_url`` keeps the legacy host allow-
+listed so archived CrawledPage rows that reference ``titan7.com`` still
+parse during rescrape, but discovery / ingest both target ``titan-7.com``.
 
 Titan7 is a direct-to-consumer forged / flow-formed wheel manufacturer. Tire
 Rack does not list Titan7 and Mackin Industries only carries Volks, so this
@@ -61,12 +69,18 @@ from app.crawlers.parsing import (
     scraped_payload_from_json_ld,
 )
 
-TITAN7_BASE = "https://titan7.com"
+# Titan7 migrated its canonical domain to the hyphenated ``titan-7.com`` —
+# the bare ``titan7.com`` still serves a legacy landing page but every
+# ``/products/...`` URL 404s there now. Discovery and new ingests must use
+# the hyphenated host; historical CrawledPage rows that still reference
+# ``titan7.com`` are accepted as product-shaped by ``_is_product_url`` so
+# the archive-rescrape path remains idempotent.
+TITAN7_BASE = "https://titan-7.com"
 PRODUCT_PAGE_PATH = "/products/"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 DEFAULT_START_URLS = [
-    "https://titan7.com/products/t-s5",
+    "https://titan-7.com/products/titan-7-valve-stems",
 ]
 
 # Canonical manufacturer name. Titan7's Shopify vendor field appears as
@@ -265,14 +279,22 @@ def _extract_titan7_images(soup: BeautifulSoup) -> List[str]:
 
 
 def _is_product_url(url: str) -> bool:
-    """True if ``url`` is a titan7.com ``/products/<handle>`` page."""
+    """True if ``url`` is a Titan7 ``/products/<handle>`` page.
+
+    Accepts both the current canonical host (``titan-7.com``) and the
+    legacy ``titan7.com`` so archived CrawledPage rows keyed off the old
+    host still round-trip through this adapter during rescrapes.
+    """
     try:
         parsed = urlparse(url)
     except ValueError:
         return False
     host = (parsed.hostname or "").lower()
-    if host and host != "titan7.com" and not host.endswith(".titan7.com"):
-        return False
+    if host:
+        is_new = host == "titan-7.com" or host.endswith(".titan-7.com")
+        is_legacy = host == "titan7.com" or host.endswith(".titan7.com")
+        if not (is_new or is_legacy):
+            return False
     return PRODUCT_PAGE_PATH in (parsed.path or "")
 
 

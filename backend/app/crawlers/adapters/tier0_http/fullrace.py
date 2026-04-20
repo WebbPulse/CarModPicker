@@ -143,6 +143,15 @@ _NON_PRODUCT_EXACT_SLUGS = frozenset(
         "terms",
         "terms-of-service",
         "sitemap",
+        # BigCommerce / Magento storefront demo-template slugs that leak into
+        # the sitemap. They render as `catalog-category-view` pages (or bare
+        # 404/empty pages) and every parse returns None — keep them out of
+        # the fetch queue entirely instead of burning HTTP round-trips.
+        "new-products",
+        "no-route-2",
+        "product-carousels",
+        "product-grid-columns",
+        "products-grid",
     }
 )
 

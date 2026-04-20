@@ -285,6 +285,8 @@ def adapter_name_for_product_url(url: str) -> str:
         return "tickperformance"
     if host == "titan7.com" or host.endswith(".titan7.com"):
         return "titan7"
+    if host == "titan-7.com" or host.endswith(".titan-7.com"):
+        return "titan7"
     if host == "tomeiusa.com" or host.endswith(".tomeiusa.com"):
         return "tomeiusa"
     if host == "wheelsboutique.com" or host.endswith(".wheelsboutique.com"):

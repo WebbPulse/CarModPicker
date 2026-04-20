@@ -44,7 +44,7 @@ from app.crawlers.base import (
     ingest_payload,
     save_crawl_page_html,
 )
-from app.crawlers.fetchers import get_fetcher
+from app.crawlers.fetchers import FetcherError, get_fetcher
 from app.db.session import API_CONNECTION_RESERVE, DB_MAX_OVERFLOW, DB_POOL_SIZE, SessionLocal
 
 logging.basicConfig(
@@ -214,6 +214,43 @@ def _upsert_crawled_page(
     db.flush()
 
 
+def _http_status_from_exception(e: BaseException) -> Optional[int]:
+    """
+    Extract an HTTP status code from any exception the fetcher tiers can raise.
+
+    - ``requests.HTTPError`` carries the status on ``.response.status_code``.
+    - ``FetcherError`` (TlsFetcher / FlareSolverrFetcher) carries it on
+      ``.status_code`` when the failure was driven by a 4xx/5xx upstream.
+
+    Returns ``None`` for timeouts, DNS failures, and other non-HTTP errors.
+    """
+    if isinstance(e, requests.exceptions.HTTPError):
+        resp = getattr(e, "response", None)
+        return getattr(resp, "status_code", None)
+    if isinstance(e, FetcherError):
+        return e.status_code
+    return None
+
+
+def _mark_url_gone(db: Session, *, url: str, source: str) -> None:
+    """
+    Upsert a CrawledPage row with parse_status='gone' so later runs skip the dead URL.
+    Retailers advertise removed products in sitemaps indefinitely; without this marker
+    we re-fetch and 404 on the same URLs every run.
+    """
+    now = datetime.now(timezone.utc)
+    stmt = (
+        pg_insert(DBCrawledPage)
+        .values(url=url, source=source, crawled_at=now, parse_status="gone")
+        .on_conflict_do_update(
+            index_elements=["url"],
+            set_={"crawled_at": now, "parse_status": "gone"},
+        )
+    )
+    db.execute(stmt)
+    db.flush()
+
+
 def run_crawler(
     adapter_name: str,
     *,
@@ -261,25 +298,30 @@ def run_crawler(
         adapter = get_adapter(adapter_name, fetcher=fetcher)
 
         urls = list(adapter.discover_product_urls())
-        if skip_known_urls and urls:
+        if urls:
             canonical_urls = [canonicalize_url(u) for u in urls]
-            already_parsed = {
+            statuses_to_skip = ["gone"]
+            if skip_known_urls:
+                statuses_to_skip.append("parsed")
+            skip_set = {
                 row.url
                 for row in db.query(DBCrawledPage.url)
                 .filter(
                     DBCrawledPage.url.in_(canonical_urls),
-                    DBCrawledPage.parse_status == "parsed",
+                    DBCrawledPage.parse_status.in_(statuses_to_skip),
                 )
                 .all()
             }
-            before = len(urls)
-            urls = [u for u in urls if canonicalize_url(u) not in already_parsed]
-            logger.info(
-                "Adapter %s: skipped %s already-parsed URL(s), %s remaining.",
-                adapter_name,
-                before - len(urls),
-                len(urls),
-            )
+            if skip_set:
+                before = len(urls)
+                urls = [u for u in urls if canonicalize_url(u) not in skip_set]
+                logger.info(
+                    "Adapter %s: skipped %s known-%s URL(s), %s remaining.",
+                    adapter_name,
+                    before - len(urls),
+                    "/".join(statuses_to_skip),
+                    len(urls),
+                )
         if limit is not None:
             urls = urls[:limit]
         total = len(urls)
@@ -367,24 +409,28 @@ def run_crawler(
                 )
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
-            except requests.exceptions.HTTPError as e:
+            except Exception as e:
                 # 404 / 410 are routine on retailer sitemaps — the product has
                 # been removed but the sitemap still lists the URL. Count as a
                 # skip so one stale entry doesn't show up as a scary traceback
-                # alongside 49 healthy pages.
-                status = getattr(getattr(e, "response", None), "status_code", None)
+                # alongside 49 healthy pages. HttpFetcher raises
+                # requests.HTTPError (status on .response); TlsFetcher and
+                # FlareSolverrFetcher raise FetcherError with .status_code.
+                status = _http_status_from_exception(e)
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
                     db.rollback()
+                    try:
+                        _mark_url_gone(db, url=canonicalize_url(url), source=adapter_name)
+                        db.commit()
+                    except Exception as mark_err:
+                        db.rollback()
+                        logger.warning("Failed to mark %s as gone: %s", url, mark_err)
                 else:
                     errors += 1
                     logger.exception("Error processing %s: %s", url, e)
                     db.rollback()
-            except Exception as e:
-                errors += 1
-                logger.exception("Error processing %s: %s", url, e)
-                db.rollback()
 
         skipped = skipped_robots + skipped_not_product + skipped_gone
         # Pick the summary log level based on how healthy the run looks. A
