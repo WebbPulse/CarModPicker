@@ -1308,7 +1308,6 @@ function CrawlerAdmin() {
                           id={`tune-limit-${row.adapter_name}`}
                           type="number"
                           min="1"
-                          title="Per-run limit"
                           value={
                             row.per_run_limit == null
                               ? ''
