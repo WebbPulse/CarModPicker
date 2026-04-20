@@ -18,15 +18,22 @@ _DB_RETRY_DELAY_SEC = 0.3
 # Get settings using the function (which could be overridden in tests)
 settings = get_settings()
 
+# Sized so admin crawler runs can scale to the full adapter catalog (~64
+# parallel workers) while keeping ``API_CONNECTION_RESERVE`` connections
+# free for live traffic. Each parallel adapter holds one ``SessionLocal``
+# for its entire run (see ``crawlers/runner.py``), so total capacity must
+# fit ``crawler_workers + API_CONNECTION_RESERVE``. The crawler runner
+# reads these constants to auto-size its ThreadPoolExecutor.
+DB_POOL_SIZE = 25
+DB_MAX_OVERFLOW = 75
+API_CONNECTION_RESERVE = 20
+
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Enable connection health checks
     pool_recycle=3600,  # Recycle connections after 1 hour
-    # Defaults (5 / 10) get exhausted when many parallel crawler threads each
-    # hold a session during ingest — API endpoints (and the cancel endpoint)
-    # then block waiting for a connection and the whole backend appears hung.
-    pool_size=20,
-    max_overflow=30,
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_MAX_OVERFLOW,
 )
 
 
