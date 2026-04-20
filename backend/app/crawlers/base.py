@@ -185,7 +185,10 @@ def count_crawl_bucket_object_summary() -> dict[str, Any]:
             "crawl_bucket_by_prefix": dict(by_prefix),
         }
     except Exception as e:
-        logger.warning("Failed to list crawl bucket %r: %s", bucket_name, e)
+        # Bucket listing is infrastructure-level: a failure here usually means
+        # credentials / IAM / networking are broken, not a minor hiccup. Use
+        # logger.exception so the traceback lands in CloudWatch for triage.
+        logger.exception("Failed to list crawl bucket %r", bucket_name)
         return {
             "crawl_bucket_configured": True,
             "crawl_bucket_total": 0,

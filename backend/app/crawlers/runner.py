@@ -283,10 +283,21 @@ def run_crawler(
         if limit is not None:
             urls = urls[:limit]
         total = len(urls)
-        logger.info("Adapter %s: %s URL(s) to process.", adapter_name, total)
+        if total == 0:
+            # Discovery returning zero is almost always a broken sitemap or a
+            # silently-swallowed exception inside the adapter's discover path,
+            # not a genuinely empty catalog. WARNING so it stands out in logs.
+            logger.warning(
+                "Adapter %s: discovered 0 URLs — likely broken sitemap or discovery path.",
+                adapter_name,
+            )
+        else:
+            logger.info("Adapter %s: %s URL(s) to process.", adapter_name, total)
 
         ingested = 0
-        skipped = 0
+        skipped_robots = 0
+        skipped_not_product = 0
+        skipped_gone = 0
         errors = 0
 
         for i, url in enumerate(urls, 1):
@@ -301,7 +312,7 @@ def run_crawler(
                     actual_delay = apply_delay_jitter(base_delay)
                     time.sleep(actual_delay)
                 if not can_fetch_url(url, DEFAULT_USER_AGENT):
-                    skipped += 1
+                    skipped_robots += 1
                     logger.info(
                         "[%s/%s] Skipped (robots.txt disallows): %s",
                         i,
@@ -312,7 +323,10 @@ def run_crawler(
                 html = adapter.fetcher.fetch(url)
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
-                    skipped += 1
+                    skipped_not_product += 1
+                    # Per-URL log stays at INFO: a single miss is usually a
+                    # non-product URL in the sitemap (category/blog/etc).
+                    # The end-of-run summary escalates if the rate is high.
                     logger.info(
                         "[%s/%s] Skipped (not a product page or parse failed): %s",
                         i,
@@ -360,7 +374,7 @@ def run_crawler(
                 # alongside 49 healthy pages.
                 status = getattr(getattr(e, "response", None), "status_code", None)
                 if status in (404, 410):
-                    skipped += 1
+                    skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
                     db.rollback()
                 else:
@@ -372,16 +386,44 @@ def run_crawler(
                 logger.exception("Error processing %s: %s", url, e)
                 db.rollback()
 
-        logger.info(
-            "Done. Ingested=%s skipped=%s errors=%s",
+        skipped = skipped_robots + skipped_not_product + skipped_gone
+        # Pick the summary log level based on how healthy the run looks. A
+        # retailer that discovered pages but ingested zero is almost always a
+        # broken parser (or sitewide 4xx) — surface it at ERROR so it isn't
+        # buried in the INFO stream alongside healthy adapters. High but
+        # non-total miss rates (>50% parse-None on at least 10 URLs) are a
+        # softer signal of drift and go to WARNING.
+        summary_level = logging.INFO
+        summary_reason = ""
+        if total > 0 and ingested == 0:
+            summary_level = logging.ERROR
+            summary_reason = " — 0 ingested from %s URLs, adapter likely broken" % total
+        elif total >= 10 and skipped_not_product > total * 0.5:
+            summary_level = logging.WARNING
+            summary_reason = " — >50%% of pages failed to parse as products, adapter may be drifting"
+        elif errors > 0 and errors >= max(1, total // 4):
+            summary_level = logging.WARNING
+            summary_reason = " — %s error(s) on %s URLs" % (errors, total)
+        logger.log(
+            summary_level,
+            "Adapter %s done. Ingested=%s skipped=%s (robots=%s not_product=%s gone=%s) errors=%s total=%s%s",
+            adapter_name,
             ingested,
             skipped,
+            skipped_robots,
+            skipped_not_product,
+            skipped_gone,
             errors,
+            total,
+            summary_reason,
         )
         return {
             "adapter": adapter_name,
             "ingested": ingested,
             "skipped": skipped,
+            "skipped_robots": skipped_robots,
+            "skipped_not_product": skipped_not_product,
+            "skipped_gone": skipped_gone,
             "errors": errors,
             "total": total,
         }
