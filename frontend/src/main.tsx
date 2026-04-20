@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.tsx';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { GOOGLE_CLIENT_ID } from './config/google';
 import './index.css';
@@ -19,7 +20,9 @@ createRoot(rootElement).render(
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <AppSettingsProvider>
+              <App />
+            </AppSettingsProvider>
           </AuthProvider>
         </BrowserRouter>
       </GoogleOAuthProvider>

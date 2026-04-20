@@ -1,3 +1,4 @@
+from .app_settings import AppSettings
 from .associations.crawler_schedule_adapter import CrawlerScheduleAdapter
 from .associations.part_car import part_cars
 from .background_job import BackgroundJob
@@ -25,6 +26,7 @@ from .vote import Vote
 from .webauthn_credential import WebAuthnCredential
 
 __all__ = [
+    "AppSettings",
     "BackgroundJob",
     "User",
     "CarGeneration",

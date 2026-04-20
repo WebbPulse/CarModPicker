@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
     admin,
+    app_settings,
     auth,
     bug_reports,
     build_list_parts,
@@ -258,6 +259,14 @@ endpoint_registry.register_endpoint(
     prefix="/admin",
     tags=["admin"],
     description="Admin-only system management operations",
+)
+
+# Global app settings (public read, admin write)
+endpoint_registry.register_endpoint(
+    app_settings.router,
+    prefix="/app-settings",
+    tags=["app-settings"],
+    description="Runtime-mutable global app settings (e.g. global ads toggle)",
 )
 
 # User-defined crawler schedules (many-to-many with adapters)

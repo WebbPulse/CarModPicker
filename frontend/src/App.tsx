@@ -15,6 +15,7 @@ import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { useAppSettings } from './hooks/useAppSettings';
 import { useAuth } from './hooks/useAuth';
 import { isPremium } from './utils/subscription';
 
@@ -107,12 +108,17 @@ const NO_ADS_PATHS = new Set([
 function App() {
   const location = useLocation();
   const { user } = useAuth();
+  const { settings: appSettings } = useAppSettings();
   // showAdSpace: render the side columns (ad or spacer) for layout consistency.
   // showAds: only show actual ads on content pages for free users.
   // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
+  // ads_disabled_global is an admin kill-switch that suppresses ads for everyone.
   const showAdSpace = !NO_AD_SPACE_PATHS.has(location.pathname);
   const showAds =
-    showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremium(user);
+    showAdSpace &&
+    !NO_ADS_PATHS.has(location.pathname) &&
+    !isPremium(user) &&
+    !appSettings?.ads_disabled_global;
   const isLandingPage = location.pathname === '/';
 
   // Load the AdSense loader unconditionally so Google's review crawler detects
