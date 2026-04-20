@@ -581,9 +581,15 @@ async def list_crawlers(
 ) -> Dict[str, Any]:
     """
     List available crawler adapters (admin only).
+
+    Returns both a flat ``adapters`` list (for back-compat) and a richer
+    ``adapter_info`` list that carries each adapter's declared fetcher tier
+    (``http``, ``tls``, or ``browser``) so the admin UI can visually group
+    them by blocking difficulty.
     """
     adapters = list(ADAPTER_REGISTRY.keys())
-    return {"adapters": adapters}
+    adapter_info = [{"name": name, "tier": cls.FETCHER_TIER} for name, cls in ADAPTER_REGISTRY.items()]
+    return {"adapters": adapters, "adapter_info": adapter_info}
 
 
 def _launch_ecs_crawler_task(

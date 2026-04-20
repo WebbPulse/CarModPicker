@@ -1287,7 +1287,11 @@ export const adminApi = {
     apiClient.post<InitDataResult>('/admin/init/part-categories'),
 
   // Crawlers
-  getCrawlers: () => apiClient.get<{ adapters: string[] }>('/admin/crawlers'),
+  getCrawlers: () =>
+    apiClient.get<{
+      adapters: string[];
+      adapter_info: { name: string; tier: 'http' | 'tls' | 'browser' }[];
+    }>('/admin/crawlers'),
   getCrawlerServiceAccount: () =>
     apiClient.get<CrawlerServiceAccount>('/admin/service-accounts/crawler'),
   runCrawlers: (body: CrawlerRunRequest) =>
