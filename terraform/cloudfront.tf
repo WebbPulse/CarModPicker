@@ -22,9 +22,24 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
 
-    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized (AWS managed)
+    # Swap to the bot-aware cache policy when prerender is enabled so bot and
+    # real-user responses land in separate cache entries.
+    cache_policy_id = local.prerender_enabled ? (
+      aws_cloudfront_cache_policy.frontend_bot_aware[0].id
+    ) : "658327ea-f89d-4fab-a63d-7e88639e58f6"                          # CachingOptimized (AWS managed)
     origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin (AWS managed)
     response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeadersPolicy (AWS managed)
+
+    # Same Lambda attached to both events: viewer-request stamps the bot
+    # header (for cache key), origin-request swaps the origin when flagged.
+    dynamic "lambda_function_association" {
+      for_each = local.prerender_enabled ? toset(["viewer-request", "origin-request"]) : toset([])
+      content {
+        event_type   = lambda_function_association.value
+        lambda_arn   = aws_lambda_function.prerender[0].qualified_arn
+        include_body = false
+      }
+    }
   }
 
   # React Router uses client-side routing — return index.html for all 403/404
