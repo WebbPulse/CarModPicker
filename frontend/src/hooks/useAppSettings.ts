@@ -1,7 +1,10 @@
 import { useContext } from 'react';
-import { AppSettingsContext } from '../contexts/AppSettingsContextDefinition';
+import {
+  AppSettingsContext,
+  type AppSettingsContextType,
+} from '../contexts/AppSettingsContextDefinition';
 
-export const useAppSettings = () => {
+export const useAppSettings = (): AppSettingsContextType => {
   const context = useContext(AppSettingsContext);
   if (context === undefined) {
     throw new Error(
