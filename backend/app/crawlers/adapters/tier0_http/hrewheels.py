@@ -33,6 +33,15 @@ egress probe showed the origin returns 200 to a plain Chrome UA with no
 Cloudflare fronting (``server: nginx`` + ``x-powered-by: PHP/7.4`` + no
 ``cf-ray``). If that changes, promote to ``tier1_tls/``.
 
+TLS chain quirk: the origin serves its leaf cert but omits the Starfield
+G2 intermediate. A modern browser fetches the intermediate itself via AIA
+but Python's ``ssl`` module doesn't, so plain ``requests`` / ``curl_cffi``
+both fail with ``CERTIFICATE_VERIFY_FAILED: unable to get local issuer
+certificate``. Rather than disabling verification (which opens the
+crawler up to MITM), this adapter builds a session with a combined CA
+bundle (certifi + the embedded Starfield G2 intermediate PEM) and hands
+it to the ``HttpFetcher``. See ``_build_trust_session`` below.
+
 Discovery: ``/sitemap.xml`` is a single flat ``<urlset>`` (not a
 sitemap-index) that mixes product URLs with CMS pages (``/gallery``,
 ``/news``, ``/corporate/*``, ``/dealers``, etc.), so the filter is the
@@ -55,14 +64,19 @@ collapsing real fitments into a single catalog row downstream.
 
 import os
 import re
+import tempfile
+import threading
 from typing import Iterator, List, Optional
 from urllib.parse import urlparse
 
+import certifi
 import defusedxml.ElementTree as ET
+import requests
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload, fetch_page
+from app.crawlers.fetchers import Fetcher, HttpFetcher
 from app.crawlers.parsing import meta_content, normalize_description_text
 
 HREWHEELS_BASE = "https://www.hrewheels.com"
@@ -86,6 +100,85 @@ HRE_BRAND = "HRE"
 # now" — strip these before joining description paragraphs so the catalog
 # row isn't polluted with financing text.
 _AFFIRM_PROMO_RE = re.compile(r"\bas low as\b.*\b(apply now|/mo)\b", re.IGNORECASE)
+
+
+# Starfield Secure Certificate Authority - G2. The origin omits this from
+# its handshake, so we embed the PEM (fetched from
+# https://certs.starfieldtech.com/repository/sfig2.crt.pem) and append it
+# to the certifi bundle at session-build time. Valid until 2031-05-03; the
+# successor bundle would need to be re-embedded if the origin's issuer ever
+# changes.
+_STARFIELD_G2_INTERMEDIATE_PEM = """\
+-----BEGIN CERTIFICATE-----
+MIIFADCCA+igAwIBAgIBBzANBgkqhkiG9w0BAQsFADCBjzELMAkGA1UEBhMCVVMx
+EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT
+HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xMjAwBgNVBAMTKVN0YXJmaWVs
+ZCBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTExMDUwMzA3MDAw
+MFoXDTMxMDUwMzA3MDAwMFowgcYxCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6
+b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFyZmllbGQgVGVj
+aG5vbG9naWVzLCBJbmMuMTMwMQYDVQQLEypodHRwOi8vY2VydHMuc3RhcmZpZWxk
+dGVjaC5jb20vcmVwb3NpdG9yeS8xNDAyBgNVBAMTK1N0YXJmaWVsZCBTZWN1cmUg
+Q2VydGlmaWNhdGUgQXV0aG9yaXR5IC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQDlkGZL7PlGcakgg77pbL9KyUhpgXVObST2yxcT+LBxWYR6ayuF
+pDS1FuXLzOlBcCykLtb6Mn3hqN6UEKwxwcDYav9ZJ6t21vwLdGu4p64/xFT0tDFE
+3ZNWjKRMXpuJyySDm+JXfbfYEh/JhW300YDxUJuHrtQLEAX7J7oobRfpDtZNuTlV
+Bv8KJAV+L8YdcmzUiymMV33a2etmGtNPp99/UsQwxaXJDgLFU793OGgGJMNmyDd+
+MB5FcSM1/5DYKp2N57CSTTx/KgqT3M0WRmX3YISLdkuRJ3MUkuDq7o8W6o0OPnYX
+v32JgIBEQ+ct4EMJddo26K3biTr1XRKOIwSDAgMBAAGjggEsMIIBKDAPBgNVHRMB
+Af8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUJUWBaFAmOD07LSy+
+zWrZtj2zZmMwHwYDVR0jBBgwFoAUfAwyH6fZMH/EfWijYqihzqsHWycwOgYIKwYB
+BQUHAQEELjAsMCoGCCsGAQUFBzABhh5odHRwOi8vb2NzcC5zdGFyZmllbGR0ZWNo
+LmNvbS8wOwYDVR0fBDQwMjAwoC6gLIYqaHR0cDovL2NybC5zdGFyZmllbGR0ZWNo
+LmNvbS9zZnJvb3QtZzIuY3JsMEwGA1UdIARFMEMwQQYEVR0gADA5MDcGCCsGAQUF
+BwIBFitodHRwczovL2NlcnRzLnN0YXJmaWVsZHRlY2guY29tL3JlcG9zaXRvcnkv
+MA0GCSqGSIb3DQEBCwUAA4IBAQBWZcr+8z8KqJOLGMfeQ2kTNCC+Tl94qGuc22pN
+QdvBE+zcMQAiXvcAngzgNGU0+bE6TkjIEoGIXFs+CFN69xpk37hQYcxTUUApS8L0
+rjpf5MqtJsxOYUPl/VemN3DOQyuwlMOS6eFfqhBJt2nk4NAfZKQrzR9voPiEJBjO
+eT2pkb9UGBOJmVQRDVXFJgt5T1ocbvlj2xSApAer+rKluYjdkf5lO6Sjeb6JTeHQ
+sPTIFwwKlhR8Cbds4cLYVdQYoKpBaXAko7nv6VrcPuuUSvC33l8Odvr7+2kDRUBQ
+7nIMpBKGgc0T0U7EPMpODdIm8QC3tKai4W56gf0wrHofx1l7
+-----END CERTIFICATE-----
+"""
+
+
+_BUNDLE_PATH_LOCK = threading.Lock()
+_BUNDLE_PATH: Optional[str] = None
+
+
+def _build_trust_bundle_path() -> str:
+    """
+    Return a filesystem path to a CA bundle that includes certifi's roots
+    plus the Starfield G2 intermediate. Cached per-process; generated into
+    a temp file on first call. Safe to call from multiple threads — the
+    lock guards the first-write race.
+    """
+    global _BUNDLE_PATH
+    if _BUNDLE_PATH is not None and os.path.exists(_BUNDLE_PATH):
+        return _BUNDLE_PATH
+    with _BUNDLE_PATH_LOCK:
+        if _BUNDLE_PATH is not None and os.path.exists(_BUNDLE_PATH):
+            return _BUNDLE_PATH
+        fd, path = tempfile.mkstemp(prefix="hrewheels-ca-bundle-", suffix=".pem")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                out.write(_STARFIELD_G2_INTERMEDIATE_PEM)
+                with open(certifi.where(), "r", encoding="utf-8") as src:
+                    out.write(src.read())
+        except Exception:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            raise
+        _BUNDLE_PATH = path
+        return _BUNDLE_PATH
+
+
+def _build_trust_session() -> requests.Session:
+    """Build a requests session that verifies against the augmented CA bundle."""
+    session = requests.Session()
+    session.verify = _build_trust_bundle_path()
+    return session
 
 
 def _is_product_url(url: str) -> bool:
@@ -123,7 +216,7 @@ def _resolve_start_urls_env() -> Optional[List[str]]:
     return [u.strip() for u in raw.split(",") if u.strip()]
 
 
-def _discover_via_sitemap() -> List[str]:
+def _discover_via_sitemap(session: Optional[requests.Session] = None) -> List[str]:
     """
     Fetch ``/sitemap.xml`` and filter its flat urlset down to product paths.
 
@@ -131,9 +224,12 @@ def _discover_via_sitemap() -> List[str]:
     child-sitemap step — just one fetch, one XML parse, one regex filter.
     Returns an empty list on fetch/parse failure so the caller can fall
     through to ``DEFAULT_START_URLS``.
+
+    ``session`` should be the adapter's trust-bundle session; without it,
+    the origin's broken TLS chain causes verification to fail.
     """
     try:
-        xml_text = fetch_page(SITEMAP_URL, timeout=30)
+        xml_text = fetch_page(SITEMAP_URL, timeout=30, session=session)
     except Exception:
         return []
 
@@ -309,6 +405,18 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
 
     FETCHER_TIER = "http"
 
+    def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
+        # When the runner (or tests) hand us a pre-built fetcher we honor it
+        # as-is — callers that know better can opt out of the bundle logic.
+        # Otherwise build an HttpFetcher whose underlying requests.Session
+        # trusts the Starfield G2 intermediate so the handshake completes.
+        if fetcher is None:
+            self._trust_session: Optional[requests.Session] = _build_trust_session()
+            fetcher = HttpFetcher(session=self._trust_session)
+        else:
+            self._trust_session = None
+        super().__init__(fetcher=fetcher)
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs; env override wins, then sitemap, then ``DEFAULT_START_URLS``."""
         env_urls = _resolve_start_urls_env()
@@ -318,7 +426,7 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
                     yield url
             return
 
-        for url in _discover_via_sitemap() or list(DEFAULT_START_URLS):
+        for url in _discover_via_sitemap(session=self._trust_session) or list(DEFAULT_START_URLS):
             if _is_product_url(url):
                 yield url
 
