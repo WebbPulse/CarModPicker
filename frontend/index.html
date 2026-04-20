@@ -2,13 +2,66 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/car.png" />
+    <link rel="icon" type="image/png" href="/car.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
     <meta name="google-adsense-account" content="ca-pub-3741785148829651" />
-    <title>CarModPicker</title>
+
+    <!--
+      Google Consent Mode v2 default. Must run BEFORE any Google tag (AdSense,
+      GA) loads. Everything starts denied; CookieConsentBanner flips the
+      relevant signals to 'granted' once the user accepts. wait_for_update
+      tells Google tags to wait up to 500ms for a real consent decision.
+    -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+      window.gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
+      window.gtag('set', 'ads_data_redaction', true);
+      window.gtag('set', 'url_passthrough', true);
+    </script>
+
+    <title>CarModPicker — Plan, track, and share your car build</title>
+    <meta
+      name="description"
+      content="CarModPicker helps car enthusiasts discover parts, plan modifications, track build progress, and share their builds with a community of builders."
+    />
+    <link rel="canonical" href="https://www.carmodpicker.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CarModPicker" />
+    <meta property="og:title" content="CarModPicker — Plan, track, and share your car build" />
+    <meta
+      property="og:description"
+      content="Discover parts, plan modifications, track build progress, and share your build with the CarModPicker community."
+    />
+    <meta property="og:url" content="https://www.carmodpicker.com/" />
+    <meta property="og:image" content="https://www.carmodpicker.com/car.png" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="CarModPicker — Plan, track, and share your car build" />
+    <meta
+      name="twitter:description"
+      content="Discover parts, plan modifications, track build progress, and share your build with the CarModPicker community."
+    />
+    <meta name="twitter:image" content="https://www.carmodpicker.com/car.png" />
   </head>
   <body class="bg-slate-800 text-white flex flex-col items-center min-h-screen">
     <div id="root" class="w-full"></div>
+    <noscript>
+      <p style="padding: 2rem; text-align: center;">
+        CarModPicker requires JavaScript. Please enable JavaScript in your
+        browser to view car builds, parts, and build lists.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -15,6 +15,7 @@ import {
   SEARCH_RESULTS_LIMIT,
 } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { searchApi } from '../services/Api';
 import type {
   BuildListRead,
@@ -34,6 +35,15 @@ function Search() {
   const [searchTerm, setSearchTerm] = useState(
     () => searchParams.get('q') || ''
   );
+
+  const queryFromUrl = searchParams.get('q') || '';
+  useDocumentMeta({
+    title: queryFromUrl ? `Search: ${queryFromUrl}` : 'Search',
+    description: queryFromUrl
+      ? `Search results on CarModPicker for "${queryFromUrl}" — builds, parts, and users matching your query.`
+      : 'Search CarModPicker for builds, parts, and users across the community.',
+    canonicalPath: '/search',
+  });
 
   // Track accumulated results and pagination state for each category
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);

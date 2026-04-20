@@ -34,9 +34,10 @@ function CookieConsentBanner() {
               Advertising (optional):
             </span>{' '}
             for free users, we may serve ads through Google AdSense, which sets
-            cookies to personalize and measure ads. Your choice below applies
-            only to these advertising cookies. We will not load anything from
-            Google unless you accept. See our{' '}
+            cookies to personalize and measure ads. Your choice below controls
+            those advertising cookies via Google Consent Mode — we will not
+            store ad cookies or serve personalized ads unless you accept. See
+            our{' '}
             <Link
               to="/privacy-policy"
               className="text-[var(--primary-300)] underline hover:text-[var(--primary-200)]"

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import apiClient, { buildListVotesApi } from '../../services/Api';
 import type {
   BuildListRead,
@@ -65,6 +66,16 @@ function ViewBuildList() {
     error: buildListApiError,
     executeRequest: fetchBuildList,
   } = useApiRequest(fetchBuildListRequestFn);
+
+  useDocumentMeta({
+    title: buildList?.name ?? 'Build List',
+    description: buildList?.description
+      ? buildList.description.slice(0, 160)
+      : buildList?.name
+        ? `Parts, photos, and build log for ${buildList.name} on CarModPicker.`
+        : 'View a community build — parts list, photos, build log, and costs on CarModPicker.',
+    canonicalPath: buildListId ? `/build-lists/${buildListId}` : undefined,
+  });
 
   const {
     data: carData,

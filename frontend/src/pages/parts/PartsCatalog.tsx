@@ -8,10 +8,17 @@ import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
 import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
 import { useAuth } from '../../hooks/useAuth';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { usePartsFilters } from '../../hooks/usePartsFilters';
 import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
 
 const PartsCatalog: React.FC = () => {
+  useDocumentMeta({
+    title: 'Parts Catalog',
+    description:
+      'Browse car modification parts shared by the CarModPicker community. Filter by make, model, and generation to find parts that fit your build.',
+    canonicalPath: '/parts',
+  });
   const { isAuthenticated } = useAuth();
   const [selectedPart, setSelectedPart] = useState<PartReadWithVotes | null>(
     null

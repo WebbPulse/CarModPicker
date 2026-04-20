@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import {
   partManufacturersApi,
   buildListPartsApi,
@@ -86,6 +87,16 @@ function ViewPart() {
     error: partApiError,
     executeRequest: fetchPart,
   } = useApiRequest(fetchPartRequestFn);
+
+  useDocumentMeta({
+    title: part?.name ?? 'Part',
+    description: part?.description
+      ? part.description.slice(0, 160)
+      : part?.name
+        ? `Specs, pricing, and compatibility for ${part.name} on CarModPicker.`
+        : 'View part details, specs, pricing, and build list usage on CarModPicker.',
+    canonicalPath: partId ? `/parts/${partId}` : undefined,
+  });
 
   const {
     data: voteSummary,
