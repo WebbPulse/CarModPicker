@@ -1,6 +1,7 @@
 # Registers all ORM models for Alembic; Base is defined in base_class.
 # Import all models here so they are attached to Base before Alembic loads env.
 # pyright: reportUnusedImport=false
+from app.api.models.app_settings import AppSettings  # noqa: F401
 from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter  # noqa: F401
 from app.api.models.associations.part_car import part_cars  # noqa: F401
 from app.api.models.build_list import BuildList  # noqa: F401

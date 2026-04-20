@@ -1277,6 +1277,23 @@ export interface CrawlerReconcileAllResponse {
   results: CrawlerReconcileResult[];
 }
 
+export interface AppSettings {
+  ads_disabled_global: boolean;
+  updated_at: string;
+}
+
+export interface AppSettingsUpdate {
+  ads_disabled_global?: boolean;
+}
+
+export const appSettingsApi = {
+  /** Public: fetch global app settings (e.g. global ads toggle). */
+  get: () => apiClient.get<AppSettings>('/app-settings/'),
+  /** Admin-only: update global app settings. */
+  update: (body: AppSettingsUpdate) =>
+    apiClient.put<AppSettings>('/app-settings/', body),
+};
+
 export const adminApi = {
   runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
   getCurrentRevision: () =>

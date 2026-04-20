@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppSettings } from '../../hooks/useAppSettings';
 import { useAuth } from '../../hooks/useAuth';
 
 import ActionButton from '../../components/buttons/ActionButton';
@@ -8,11 +9,17 @@ import Card from '../../components/common/Card';
 import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
-import { adminApi, imageApi } from '../../services/Api';
+import { adminApi, appSettingsApi, imageApi } from '../../services/Api';
 
 function SystemAdmin() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { settings: appSettings, setSettings: setAppSettings } =
+    useAppSettings();
+
+  // Global app settings (e.g. ads kill-switch)
+  const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
+  const [appSettingsError, setAppSettingsError] = useState<string | null>(null);
 
   // Migrations
   const [isRunningMigrations, setIsRunningMigrations] = useState(false);
@@ -98,6 +105,25 @@ function SystemAdmin() {
   useEffect(() => {
     void fetchCurrentRevision();
   }, []);
+
+  const handleToggleAdsDisabled = async (nextValue: boolean) => {
+    setIsSavingAppSettings(true);
+    setAppSettingsError(null);
+    try {
+      const response = await appSettingsApi.update({
+        ads_disabled_global: nextValue,
+      });
+      setAppSettings(response.data);
+    } catch (error) {
+      setAppSettingsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to update global ads setting.'
+      );
+    } finally {
+      setIsSavingAppSettings(false);
+    }
+  };
 
   const fetchCurrentRevision = async () => {
     setIsLoadingRevision(true);
@@ -285,6 +311,48 @@ function SystemAdmin() {
         <ActionButton onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
         </ActionButton>
+      </div>
+
+      {/* Global app settings */}
+      <div className="mb-4">
+        <Card padding="sm">
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Global App Settings
+          </h2>
+          <p className="text-sm text-neutral-400 mb-3">
+            Site-wide toggles that apply to every user regardless of
+            subscription tier.
+          </p>
+          <div className="p-3 bg-neutral-900/40 border border-neutral-700 rounded-lg">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                checked={appSettings?.ads_disabled_global ?? false}
+                disabled={isSavingAppSettings || appSettings == null}
+                onChange={(e) => void handleToggleAdsDisabled(e.target.checked)}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-white">
+                    Disable ads globally
+                  </span>
+                  {isSavingAppSettings && <LoadingSpinner size="sm" inline />}
+                </div>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  When on, ads are suppressed for every visitor — free users,
+                  anonymous visitors, and everyone else. Premium users already
+                  never see ads. The ad columns remain as layout spacers.
+                </p>
+              </div>
+            </label>
+            {appSettingsError && (
+              <div className="mt-2">
+                <ErrorAlert message={appSettingsError} />
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
