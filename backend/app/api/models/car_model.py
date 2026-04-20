@@ -3,6 +3,8 @@ CarModel entity - e.g. Civic, Camry, F-150.
 Dedicated entity for model line; belongs to a CarMake. CarGeneration links to CarModel.
 """
 
+# pyright: reportUnusedFunction=false
+# (SQLAlchemy event listeners are registered via @event.listens_for, not called directly.)
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
@@ -56,7 +58,7 @@ class CarModel(Base):
 
 
 @event.listens_for(CarModel, "before_insert")
-def _autofill_car_model_slug(_mapper, _conn, target: CarModel) -> None:  # pyright: ignore[reportUnusedFunction]
+def _autofill_car_model_slug(_mapper, _conn, target: CarModel) -> None:
     """Fill `slug` from `name` if the caller didn't pin one. Matches the field's docstring
     promise ("defaults to slugify(name) on first insert"). init_cars passes `slug` explicitly
     so this only kicks in for ad-hoc inserts (tests, admin flows)."""

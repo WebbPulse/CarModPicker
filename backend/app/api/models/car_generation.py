@@ -1,3 +1,5 @@
+# pyright: reportUnusedFunction=false
+# (SQLAlchemy event listeners are registered via @event.listens_for, not called directly.)
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
@@ -77,9 +79,7 @@ class CarGeneration(Base):
 
 
 @event.listens_for(CarGeneration, "before_insert")
-def _autofill_car_generation_slug(
-    _mapper, _conn, target: CarGeneration
-) -> None:  # pyright: ignore[reportUnusedFunction]
+def _autofill_car_generation_slug(_mapper, _conn, target: CarGeneration) -> None:
     """Default `slug` from `generation_name` when not pinned. Matches the field's docstring."""
     if not getattr(target, "slug", None) and getattr(target, "generation_name", None):
         target.slug = slugify(target.generation_name)
