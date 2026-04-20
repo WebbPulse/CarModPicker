@@ -54,10 +54,10 @@ resource "aws_cloudwatch_log_group" "rds_upgrade" {
 # App Runner: more than 10 HTTP 5xx responses in a 5-minute window.
 # 5xxStatusResponses is the correct App Runner metric name (Http5xxCount does not exist).
 resource "aws_cloudwatch_metric_alarm" "apprunner_5xx" {
-  alarm_name          = "${local.prefix}-apprunner-5xx"
-  alarm_description   = "Elevated App Runner 5xx error rate"
-  namespace           = "AWS/AppRunner"
-  metric_name         = "5xxStatusResponses"
+  alarm_name        = "${local.prefix}-apprunner-5xx"
+  alarm_description = "Elevated App Runner 5xx error rate"
+  namespace         = "AWS/AppRunner"
+  metric_name       = "5xxStatusResponses"
   dimensions = {
     ServiceName = "${local.prefix}-backend"
     ServiceID   = aws_apprunner_service.backend.service_id
