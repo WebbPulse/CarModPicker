@@ -204,7 +204,10 @@ class TlsFetcher:
         headers: Optional[dict[str, str]] = {"User-Agent": self._user_agent} if self._user_agent else None
 
         def _get(u: str, t: int) -> Any:
-            kwargs: dict[str, Any] = {"timeout": t}
+            # allow_redirects="safe" (added in curl_cffi 0.15.0) blocks
+            # redirects to RFC1918 / link-local / loopback hosts, which closes
+            # CVE-2026-33752 (redirect-based SSRF to cloud metadata).
+            kwargs: dict[str, Any] = {"timeout": t, "allow_redirects": "safe"}
             if headers:
                 kwargs["headers"] = headers
             return sess.get(u, **kwargs)
