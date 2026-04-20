@@ -195,7 +195,11 @@ class TlsFetcher:
             raise FetcherError(
                 "TlsFetcher requires the 'curl_cffi' package. Add it to " "backend/requirements.txt and reinstall."
             ) from e
-        self._session = cc_requests.Session(impersonate=self._impersonate)
+        # impersonate is typed as a Literal[...] of known profile names in
+        # curl_cffi's stubs; we keep it as a plain str so operators can bump
+        # DEFAULT_TLS_IMPERSONATE to newer profiles (e.g. "chrome131") without
+        # waiting for a type-stub update.
+        self._session = cc_requests.Session(impersonate=self._impersonate)  # type: ignore[arg-type]
         return self._session
 
     def fetch(self, url: str, *, timeout: Optional[int] = None) -> str:
