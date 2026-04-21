@@ -104,10 +104,10 @@ jobs:
       - name: Check Chrome Web Store credentials
         id: cws_check
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_ID: ${{ env.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_EXTENSION_ID: ${{ env.CWS_EXTENSION_ID }}
         run: |
           if [[ -n "$CWS_CLIENT_ID" && -n "$CWS_CLIENT_SECRET" && -n "$CWS_REFRESH_TOKEN" && -n "$CWS_EXTENSION_ID" ]]; then
             echo "configured=true" >> $GITHUB_OUTPUT
@@ -119,10 +119,10 @@ jobs:
       - name: Publish to Chrome Web Store
         if: steps.cws_check.outputs.configured == 'true'
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_ID: ${{ env.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_EXTENSION_ID: ${{ env.CWS_EXTENSION_ID }}
           ZIP_PATH: ${{ steps.zip.outputs.zip_path }}
         run: |
           set -euo pipefail
