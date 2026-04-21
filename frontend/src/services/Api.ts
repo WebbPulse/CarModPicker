@@ -1132,6 +1132,19 @@ export interface BackgroundJobList {
   offset: number;
 }
 
+export interface CrawlerAdapterProgress {
+  parsed_this_run: number;
+  last_parsed_at: string | null;
+}
+
+export interface CrawlerJobProgress {
+  job_id: string;
+  status: string;
+  started_at: string | null;
+  now: string;
+  adapters: Record<string, CrawlerAdapterProgress>;
+}
+
 /** Response when starting a crawler job (returns immediately; job runs in background). */
 export interface CrawlerRunResponse {
   status: 'started';
@@ -1325,6 +1338,12 @@ export const adminApi = {
   getCrawledPageCountsBySource: () =>
     apiClient.get<Record<string, number>>('/crawled-pages/counts-by-source'),
 
+  /** Admin: per-source, per-parse_status counts — drives the parsed/total progress pill. */
+  getCrawledPageCountsBySourceAndStatus: () =>
+    apiClient.get<Record<string, Record<string, number>>>(
+      '/crawled-pages/counts-by-source-and-status'
+    ),
+
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllParts: () =>
     apiClient.post<{ deleted_count: number }>('/admin/parts/delete-all'),
@@ -1356,6 +1375,8 @@ export const adminApi = {
   }) => apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
   getJob: (jobId: string) =>
     apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
+  getCrawlerJobProgress: (jobId: string) =>
+    apiClient.get<CrawlerJobProgress>(`/admin/jobs/${jobId}/crawler-progress`),
   cancelJob: (jobId: string) =>
     apiClient.post<BackgroundJob>(`/admin/jobs/${jobId}/cancel`),
 

@@ -232,6 +232,28 @@ def _http_status_from_exception(e: BaseException) -> Optional[int]:
     return None
 
 
+def _classify_fetch_error(e: BaseException, status: Optional[int]) -> str:
+    """
+    Bucket a fetch/parse failure into a short label for the per-adapter
+    http_errors breakdown. HTTP statuses are stringified ("404", "503"); other
+    failure modes get a descriptive key so the report separates timeouts,
+    connection issues, and unexpected exceptions.
+    """
+    if status is not None:
+        return str(status)
+    if isinstance(e, requests.exceptions.Timeout):
+        return "timeout"
+    if isinstance(e, requests.exceptions.ConnectionError):
+        return "connection"
+    if isinstance(e, requests.exceptions.TooManyRedirects):
+        return "redirects"
+    if isinstance(e, requests.exceptions.SSLError):
+        return "ssl"
+    if isinstance(e, FetcherError):
+        return "fetcher"
+    return "other"
+
+
 def _mark_url_gone(db: Session, *, url: str, source: str) -> None:
     """
     Upsert a CrawledPage row with parse_status='gone' so later runs skip the dead URL.
@@ -249,6 +271,41 @@ def _mark_url_gone(db: Session, *, url: str, source: str) -> None:
     )
     db.execute(stmt)
     db.flush()
+
+
+def _bulk_insert_pending_urls(
+    db: Session,
+    *,
+    canonical_urls: list[str],
+    source: str,
+    chunk_size: int = 1000,
+) -> int:
+    """
+    Insert rows for discovered URLs with parse_status='pending'.
+    ON CONFLICT (url) DO NOTHING preserves any existing row — we never downgrade
+    a parsed/gone/failed URL or reassign its source. Caller commits.
+
+    Returns the count of rows actually inserted (i.e. URLs new to crawled_pages).
+    """
+    if not canonical_urls:
+        return 0
+    now = datetime.now(timezone.utc)
+    # Dedupe: sitemaps sometimes list variants that canonicalize to the same URL.
+    unique_urls = list({u for u in canonical_urls if u})
+    inserted_total = 0
+    for start in range(0, len(unique_urls), chunk_size):
+        chunk = unique_urls[start : start + chunk_size]
+        values = [{"url": u, "source": source, "crawled_at": now, "parse_status": "pending"} for u in chunk]
+        stmt = (
+            pg_insert(DBCrawledPage)
+            .values(values)
+            .on_conflict_do_nothing(index_elements=["url"])
+            .returning(DBCrawledPage.id)
+        )
+        result = db.execute(stmt)
+        inserted_total += len(result.all())
+    db.flush()
+    return inserted_total
 
 
 def run_crawler(
@@ -300,6 +357,26 @@ def run_crawler(
         urls = list(adapter.discover_product_urls())
         if urls:
             canonical_urls = [canonicalize_url(u) for u in urls]
+            # Persist every discovered URL as pending before any filter/limit,
+            # so catalog size stays visible across interrupted runs. A pending
+            # row is an IOU, not a signal the URL is done — the skip filter
+            # below never skips pending, so scraping behavior is unchanged.
+            try:
+                inserted = _bulk_insert_pending_urls(db, canonical_urls=canonical_urls, source=adapter_name)
+                db.commit()
+                logger.info(
+                    "Adapter %s: discovered %s URL(s); %s newly persisted as pending.",
+                    adapter_name,
+                    len(canonical_urls),
+                    inserted,
+                )
+            except Exception as e:
+                db.rollback()
+                logger.warning(
+                    "Adapter %s: failed to bulk-persist discovered URLs (%s); continuing.",
+                    adapter_name,
+                    e,
+                )
             statuses_to_skip = ["gone"]
             if skip_known_urls:
                 statuses_to_skip.append("parsed")
@@ -341,6 +418,12 @@ def run_crawler(
         skipped_not_product = 0
         skipped_gone = 0
         errors = 0
+        # Per-adapter breakdown of non-2xx fetch outcomes. Keys are stringified
+        # HTTP statuses ("404", "503") plus named buckets ("timeout",
+        # "connection", etc.) — surfaced in the end-of-job report email so
+        # operators can see *which* upstream failures dominated a run rather
+        # than just a single aggregate error count.
+        http_errors: dict[str, int] = {}
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -417,6 +500,8 @@ def run_crawler(
                 # requests.HTTPError (status on .response); TlsFetcher and
                 # FlareSolverrFetcher raise FetcherError with .status_code.
                 status = _http_status_from_exception(e)
+                bucket = _classify_fetch_error(e, status)
+                http_errors[bucket] = http_errors.get(bucket, 0) + 1
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
@@ -472,6 +557,7 @@ def run_crawler(
             "skipped_gone": skipped_gone,
             "errors": errors,
             "total": total,
+            "http_errors": http_errors,
         }
     finally:
         # Close the fetcher if we got far enough to create one. FlareSolverr
@@ -626,6 +712,10 @@ def run_crawlers(
     total_ingested = sum(r.get("ingested", 0) for r in results)
     total_skipped = sum(r.get("skipped", 0) for r in results)
     total_errors = sum(r.get("errors", 0) for r in results)
+    total_http_errors: dict[str, int] = {}
+    for r in results:
+        for bucket, count in (r.get("http_errors") or {}).items():
+            total_http_errors[bucket] = total_http_errors.get(bucket, 0) + count
 
     return {
         "results": results,
@@ -633,6 +723,7 @@ def run_crawlers(
             "total_ingested": total_ingested,
             "total_skipped": total_skipped,
             "total_errors": total_errors,
+            "total_http_errors": total_http_errors,
         },
         "failed": failed,
     }
