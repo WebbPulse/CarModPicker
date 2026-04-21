@@ -40,6 +40,14 @@ class Part(Base):
     gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
     specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
+    canonical_part_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("parts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    """When set, this part is a duplicate whose surface representation is the referenced canonical part."""
+
     is_verified: Mapped[bool] = mapped_column(default=False)
     source: Mapped[str] = mapped_column(default="user_created")
     edit_count: Mapped[int] = mapped_column(default=0)

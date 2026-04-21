@@ -374,6 +374,8 @@ export const partsApi = {
     min_price_cents?: number;
     max_price_cents?: number;
     universal?: boolean;
+    // Set false to hide community-contributed (user_created) parts.
+    include_ugc?: boolean;
   }) =>
     apiClient.get<PaginatedResponse<PartReadWithVotes>>('/parts/with-votes', {
       params,
@@ -388,6 +390,7 @@ export const partsApi = {
     search?: string;
     user_id?: string;
     universal?: boolean;
+    include_ugc?: boolean;
   }) =>
     apiClient.get<{
       category_ids: string[];
@@ -1221,6 +1224,46 @@ export interface AdminTableCountsResponse {
   crawl_bucket_error?: string;
 }
 
+/** One member of a canonical-part link group. */
+export interface CanonicalLinkGroupMember {
+  id: string;
+  name: string;
+  source: string;
+  is_canonical: boolean;
+  /** Linker election score; higher wins when picking a canonical. */
+  richness_score: number;
+  /** First image file key / URL for thumbnailing, if any. */
+  image_url: string | null;
+  /** Product URL at the member's retailer (from the first PartListing). */
+  product_url: string | null;
+  /** Retailer of the member's first PartListing. */
+  retailer_id: string | null;
+  created_at: string;
+}
+
+export interface CanonicalLinkGroupResponse {
+  canonical_id: string;
+  members: CanonicalLinkGroupMember[];
+}
+
+/** One entry in the rescan diff: before/after canonical and the action that would be taken. */
+export interface RescanDiffEntry {
+  part_id: string;
+  before_canonical_id: string | null;
+  after_canonical_id: string | null;
+  /** "link" | "reelect" | "unchanged". Only non-unchanged entries appear in the sample. */
+  action: string;
+}
+
+/** Full-catalog rescan summary. */
+export interface RescanResponse {
+  dry_run: boolean;
+  scanned: number;
+  changes: number;
+  diff_sample: RescanDiffEntry[];
+  diff_truncated: boolean;
+}
+
 /** Per-adapter retailer tuning (delay, limit, skip flag, default category). */
 export interface CrawlerAdapterConfig {
   id: string;
@@ -1410,6 +1453,27 @@ export const adminApi = {
       `/admin/crawler-adapter-configs/${adapterName}`,
       body
     ),
+
+  // Canonical-part curation (admin-only)
+  getPartLinkGroup: (partId: string) =>
+    apiClient.get<CanonicalLinkGroupResponse>(
+      `/admin/parts/${partId}/link-group`
+    ),
+  promotePartToCanonical: (partId: string) =>
+    apiClient.post<CanonicalLinkGroupResponse>(
+      '/admin/parts/promote-canonical',
+      { part_id: partId }
+    ),
+  unlinkPartFromCanonical: (partId: string) =>
+    apiClient.post<CanonicalLinkGroupResponse>('/admin/parts/unlink', {
+      part_id: partId,
+    }),
+  manuallyLinkParts: (body: { duplicate_id: string; canonical_id: string }) =>
+    apiClient.post<CanonicalLinkGroupResponse>('/admin/parts/link', body),
+  rescanPartsForCanonicalLinking: (body: {
+    dry_run: boolean;
+    batch_size?: number;
+  }) => apiClient.post<RescanResponse>('/admin/parts/rescan', body),
 };
 
 export default apiClient;

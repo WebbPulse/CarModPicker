@@ -273,6 +273,7 @@ export interface PartRead {
   part_manufacturer?: string | null;
   part_number?: string | null;
   specifications?: Record<string, string | number | boolean> | null;
+  canonical_part_id?: string | null; // Set when this part is a duplicate; clients redirect to the canonical
   is_verified: boolean;
   source: string;
   edit_count: number;
