@@ -42,6 +42,10 @@ def _product_page_html(
     include_json_ld: bool = True,
     include_brand: bool = True,
     include_gtin: bool = True,
+    # Mirror the page URL into JSON-LD so the URL-matching extractor keeps
+    # the block. Without this, tests that pick a custom page URL exercise the
+    # mismatch-reject path unintentionally.
+    url: str = SAMPLE_URL,
 ) -> str:
     """Minimal page mirroring RSD's Shopify Dawn-lineage theme."""
     brand_field = f'"brand": {{"@type": "Brand", "name": "{brand}"}},' if include_brand else ""
@@ -64,9 +68,9 @@ def _product_page_html(
             "price": "{price}",
             "priceCurrency": "USD",
             "availability": "http://schema.org/InStock",
-            "url": "{SAMPLE_URL}"
+            "url": "{url}"
           }},
-          "url": "{SAMPLE_URL}"
+          "url": "{url}"
         }}
         </script>
         """
@@ -189,13 +193,15 @@ class TestParseProductPage:
         # RSD resells every Subaru-compatible line (Cobb, Perrin, GrimmSpeed,
         # Whiteline, Cusco, ...). JSON-LD ``brand.name`` must pass through —
         # no retailer house brand override.
+        page_url = "https://www.rallysportdirect.com/products/cobb-tuning-accessport-v3-subaru-wrx-sti"
         result = RallysportDirectAdapter().parse_product_page(
             _product_page_html(
                 name="COBB Tuning AccessPORT V3 - Subaru WRX / STI",
                 brand="COBB Tuning",
                 sku="AP3-SUB-004",
+                url=page_url,
             ),
-            "https://www.rallysportdirect.com/products/cobb-tuning-accessport-v3-subaru-wrx-sti",
+            page_url,
         )
         assert result is not None
         assert result.part_manufacturer == "COBB Tuning"

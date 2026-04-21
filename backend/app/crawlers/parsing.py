@@ -10,6 +10,7 @@ import html
 import json
 import re
 from typing import Any, Dict, List, Optional, cast
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
 
@@ -239,12 +240,83 @@ def part_manufacturer_fallback_from_title(title: str) -> Optional[str]:
     return None
 
 
-def extract_json_ld_product(html: str) -> Optional[Dict[str, Any]]:
+def _canonical_url_key(url: Optional[str]) -> Optional[str]:
     """
-    Extract the first Product from JSON-LD script(s). Returns a dict with
-    name, description, part_manufacturer, sku, price (from offers), image(s).
+    Normalize a URL for equality comparison: lowercase scheme+host, strip a
+    trailing slash from the path, drop query/fragment. Used to decide whether
+    a JSON-LD Product's declared URL refers to the page we're actually parsing.
+    Returns None when the input isn't a parseable absolute URL.
     """
+    if not url or not isinstance(url, str):
+        return None
+    s = url.strip()
+    if not s:
+        return None
+    try:
+        parsed = urlparse(s)
+    except ValueError:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    path = parsed.path or "/"
+    if len(path) > 1 and path.endswith("/"):
+        path = path[:-1]
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}"
+
+
+def _json_ld_product_urls(item: Dict[str, Any]) -> List[str]:
+    """Collect the URL-like fields declared on a Product JSON-LD block."""
+    urls: List[str] = []
+
+    def _append(val: Any) -> None:
+        if isinstance(val, str) and val.strip():
+            urls.append(val.strip())
+        elif isinstance(val, list):
+            for v in val:
+                _append(v)
+        elif isinstance(val, dict):
+            nested = val.get("url") or val.get("@id")
+            _append(nested)
+
+    _append(item.get("url"))
+    _append(item.get("@id"))
+    _append(item.get("sameAs"))
+    offers = item.get("offers") or item.get("Offers")
+    if isinstance(offers, dict):
+        _append(offers.get("url"))
+    elif isinstance(offers, list):
+        for off in offers:
+            if isinstance(off, dict):
+                _append(off.get("url"))
+    return urls
+
+
+def extract_json_ld_product(
+    html: str,
+    *,
+    product_url: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Extract a Product from JSON-LD script(s). Returns a dict with name,
+    description, part_manufacturer, sku, price (from offers), image(s).
+
+    When ``product_url`` is provided, the selector is URL-aware:
+      * A Product whose declared ``url`` / ``@id`` / ``sameAs`` / ``offers[].url``
+        canonically matches ``product_url`` is preferred — returned immediately.
+      * A Product with declared URLs that *all disagree* with ``product_url``
+        is rejected (not returned). Some Wix/CMS pages ship JSON-LD for a
+        different product than the page URL resolves to; trusting the first
+        Product would overwrite the user's scrape with the wrong part.
+      * A Product with no declared URL is treated as a candidate and returned
+        when no URL-matching block was found — covers sites whose JSON-LD
+        omits the URL entirely.
+
+    When ``product_url`` is omitted (or unparseable as an absolute URL), the
+    historical behaviour is preserved: first Product wins.
+    """
+    want_key = _canonical_url_key(product_url)
     soup = BeautifulSoup(html, "html.parser")
+    fallback_no_url: Optional[Dict[str, Any]] = None
     for script in soup.find_all("script", type="application/ld+json"):
         raw = script.string
         if not raw or not raw.strip():
@@ -267,8 +339,16 @@ def extract_json_ld_product(html: str) -> Optional[Dict[str, Any]]:
             t = item.get("@type")
             if t != "Product" and (not isinstance(t, list) or "Product" not in t):
                 continue
-            return item
-    return None
+            if want_key is None:
+                return item
+            declared_urls = _json_ld_product_urls(item)
+            declared_keys = [k for k in (_canonical_url_key(u) for u in declared_urls) if k]
+            if any(k == want_key for k in declared_keys):
+                return item
+            if not declared_keys and fallback_no_url is None:
+                fallback_no_url = item
+            # else: Product declares URLs, none match → skip it entirely
+    return fallback_no_url
 
 
 def _part_manufacturer_from_json_ld(item: Dict[str, Any]) -> Optional[str]:

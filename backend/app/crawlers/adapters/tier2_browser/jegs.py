@@ -153,7 +153,7 @@ class JegsAdapter(RetailerCrawlerAdapter):
         url_brand, url_part_number = _brand_and_sku_from_url(url)
 
         # 1. JSON-LD Product.
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:
