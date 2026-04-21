@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
@@ -17,6 +17,7 @@ import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useAuth } from './hooks/useAuth';
+import { lazyWithReload as lazy } from './utils/lazyWithReload';
 import { isPremium } from './utils/subscription';
 
 const ADSENSE_SCRIPT_ATTR = 'data-adsense-loader';
