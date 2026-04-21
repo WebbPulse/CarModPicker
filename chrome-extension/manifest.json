@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "CarModPicker Part Scraper",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Quickly scrape part information from web pages and add them to CarModPicker",
   "homepage_url": "https://carmodpicker.com",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -23,7 +27,9 @@
         "*://carmodpicker.com/*",
         "*://*.carmodpicker.com/*"
       ],
-      "js": ["dist/content.js"],
+      "js": [
+        "dist/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
