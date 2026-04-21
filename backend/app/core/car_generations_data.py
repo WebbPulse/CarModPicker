@@ -417,6 +417,121 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "CR-V",
+            "generations": [
+                {
+                    "generation_name": "RD",
+                    "start_year": 1997,
+                    "end_year": 2001,
+                    "description": "First-generation CR-V compact crossover with 2.0L B20B engine. 4WD available with real-time all-wheel drive. Popular for suspension upgrades and off-road enhancements.",
+                },
+                {
+                    "generation_name": "RD4/RD5/RD6/RD7",
+                    "start_year": 2002,
+                    "end_year": 2006,
+                    "description": "Second-generation CR-V with 2.4L K24A1 engine producing 160 hp. Improved styling and interior space. Rear-mounted spare tire. Popular for suspension, intake, exhaust, and performance modifications.",
+                },
+                {
+                    "generation_name": "RE",
+                    "start_year": 2007,
+                    "end_year": 2011,
+                    "description": "Third-generation CR-V with improved styling and 2.4L K24Z1 engine. Real Time AWD standard on upper trims. Popular for intake upgrades, exhaust modifications, and suspension work.",
+                },
+                {
+                    "generation_name": "RM",
+                    "start_year": 2012,
+                    "end_year": 2016,
+                    "description": "Fourth-generation CR-V with Earth Dreams 2.4L engine. Improved technology and fuel economy. Available with FWD and AWD. Popular for exhaust and suspension modifications.",
+                },
+                {
+                    "generation_name": "RW",
+                    "start_year": 2017,
+                    "end_year": 2022,
+                    "description": "Fifth-generation CR-V with turbocharged 1.5L L15B7 engine producing 190 hp. First CR-V with turbocharged engine in US market. Popular for intake upgrades, ECU tuning, and suspension modifications.",
+                },
+            ],
+        },
+        {
+            "model": "HR-V",
+            "generations": [
+                {
+                    "generation_name": "RU",
+                    "start_year": 2016,
+                    "end_year": 2022,
+                    "description": "First-generation US-market HR-V subcompact crossover. Features 1.8L naturally aspirated engine producing 141 hp. Available in FWD and AWD. Popular for suspension lowering, intake upgrades, and cosmetic modifications.",
+                },
+                {
+                    "generation_name": "RS",
+                    "start_year": 2023,
+                    "end_year": 2024,
+                    "description": "Second-generation HR-V with turbocharged 1.5L engine producing 158 hp. New platform with significantly improved dynamics. Available in FWD only. Growing aftermarket community.",
+                },
+            ],
+        },
+        {
+            "model": "Element",
+            "generations": [
+                {
+                    "generation_name": "YH",
+                    "start_year": 2003,
+                    "end_year": 2011,
+                    "description": "Honda Element crossover with unique boxy design and rear clamshell doors. Featured 2.4L K24A4 engine. Available in FWD and AWD. Popular for overlanding and off-road builds, camping conversions, and suspension lifts.",
+                },
+            ],
+        },
+        {
+            "model": "Insight",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2000,
+                    "end_year": 2006,
+                    "description": "Honda's original two-door hybrid with aerodynamic body. IMA hybrid system with 1.0L engine. Very fuel efficient. Niche enthusiast community for performance modifications.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2010,
+                    "end_year": 2014,
+                    "description": "Second-generation Insight five-door hybrid hatchback. IMA hybrid system with 1.3L engine. Popular for hybrid modifications and fuel economy optimization.",
+                },
+                {
+                    "generation_name": "3rd Gen",
+                    "start_year": 2019,
+                    "end_year": 2022,
+                    "description": "Third-generation Insight sedan with Two-Motor hybrid system. 1.5L Atkinson cycle engine with 151 system hp. More mainstream styling and improved technology.",
+                },
+            ],
+        },
+        {
+            "model": "Odyssey",
+            "generations": [
+                {
+                    "generation_name": "RL",
+                    "start_year": 1999,
+                    "end_year": 2004,
+                    "description": "Second-generation Odyssey minivan with 3.5L J35A1 V6 engine producing 210 hp. Popular for suspension, exhaust, and intake modifications. Enthusiast community for performance builds.",
+                },
+                {
+                    "generation_name": "RL3",
+                    "start_year": 2005,
+                    "end_year": 2010,
+                    "description": "Third-generation Odyssey with updated 3.5L V6 producing 244 hp. Improved technology and safety features. Popular for suspension, exhaust, and intake modifications.",
+                },
+                {
+                    "generation_name": "RL4",
+                    "start_year": 2011,
+                    "end_year": 2017,
+                    "description": "Fourth-generation Odyssey with 3.5L V6 producing 248 hp. Available with 6-speed automatic. Improved fuel economy and technology. Popular for exhaust and suspension modifications.",
+                },
+                {
+                    "generation_name": "RL5",
+                    "start_year": 2018,
+                    "end_year": 2024,
+                    "description": "Fifth-generation Odyssey with 3.5L V6 producing 280 hp. Available with 9-speed automatic and 10-speed automatic. Improved performance and technology. Growing aftermarket community.",
+                },
+            ],
+        },
     ],
     "Toyota": [
         {
@@ -941,6 +1056,114 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Prius",
+            "generations": [
+                {
+                    "generation_name": "NHW11",
+                    "start_year": 2001,
+                    "end_year": 2003,
+                    "description": "Second-generation Prius (first sold in North America). Featured 1.5L Atkinson-cycle engine with nickel-metal hydride hybrid battery. EPA-rated 48 city/45 highway mpg. Paved the way for hybrid vehicle adoption. Popular for battery upgrades and efficiency modifications.",
+                },
+                {
+                    "generation_name": "XW20",
+                    "start_year": 2004,
+                    "end_year": 2009,
+                    "description": "Third-generation Prius with iconic hatchback design. 1.5L Atkinson-cycle engine with updated hybrid system producing 110 hp combined. EPA-rated 51 city/48 highway mpg. Very popular for fuel economy, hypermiling community, and hybrid drivetrain modifications.",
+                },
+                {
+                    "generation_name": "ZVW30",
+                    "start_year": 2010,
+                    "end_year": 2015,
+                    "description": "Fourth-generation Prius with improved aerodynamics and 1.8L engine producing 134 hp combined. Solar-powered ventilation available. Multiple sub-models: Prius v (wagon), Prius c (subcompact), Prius plug-in hybrid. Popular for suspension lowering, wheel upgrades, and hybrid modifications.",
+                },
+                {
+                    "generation_name": "ZVW50",
+                    "start_year": 2016,
+                    "end_year": 2022,
+                    "description": "Fifth-generation Prius with TNGA platform and more dynamic styling. 1.8L engine producing 121 hp combined. Available as Prime plug-in hybrid. Improved driving dynamics compared to predecessors. Growing aftermarket community.",
+                },
+                {
+                    "generation_name": "ZVW60",
+                    "start_year": 2023,
+                    "end_year": 2024,
+                    "description": "Sixth-generation Prius with bold new styling. Available as hybrid and Prime plug-in. 2.0L engine producing 194 hp combined. Most powerful and stylish Prius to date. Growing aftermarket interest.",
+                },
+            ],
+        },
+        {
+            "model": "Yaris",
+            "generations": [
+                {
+                    "generation_name": "XP90",
+                    "start_year": 2007,
+                    "end_year": 2011,
+                    "description": "First US-market Yaris subcompact. Available as 3-door, 5-door hatchback, and sedan. Featured 1.5L 1NZ-FE engine producing 106 hp. Popular for autocross, track events, suspension lowering, and performance modifications.",
+                },
+                {
+                    "generation_name": "XP130",
+                    "start_year": 2012,
+                    "end_year": 2020,
+                    "description": "Second-generation US-market Yaris with updated styling. Available as 3-door, 5-door hatchback, and sedan. Featured 1.5L engine. Popular for suspension modifications and fuel economy optimization.",
+                },
+            ],
+        },
+        {
+            "model": "Echo",
+            "generations": [
+                {
+                    "generation_name": "P10",
+                    "start_year": 2000,
+                    "end_year": 2005,
+                    "description": "Toyota Echo subcompact sedan and hatchback. Featured 1.5L 1NZ-FE engine producing 108 hp. Known for exceptional fuel economy. Sold as Yaris in other markets. Popular for fuel economy optimization.",
+                },
+            ],
+        },
+        {
+            "model": "Venza",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2009,
+                    "end_year": 2017,
+                    "description": "Toyota's car-based crossover with Camry-derived platform. Available with 2.7L I4 and 3.5L V6 engines. FWD and AWD available. Popular for suspension upgrades and styling modifications.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "Second-generation Venza with hybrid-only powertrain. Features 2.5L 4-cylinder hybrid producing 219 combined hp. Standard AWD. Modern styling with available XSE Sport package. Growing aftermarket community.",
+                },
+            ],
+        },
+        {
+            "model": "C-HR",
+            "generations": [
+                {
+                    "generation_name": "AX10",
+                    "start_year": 2018,
+                    "end_year": 2022,
+                    "description": "Toyota's compact crossover with angular design. Features 2.0L naturally aspirated engine producing 144 hp. FWD only in US market. Available with CVT. Popular for lowering springs, wheels, and cosmetic modifications.",
+                },
+            ],
+        },
+        {
+            "model": "Matrix",
+            "generations": [
+                {
+                    "generation_name": "E130",
+                    "start_year": 2003,
+                    "end_year": 2008,
+                    "description": "Toyota Matrix compact hatchback based on Corolla E130 platform. Featured 1.8L 1ZZ-FE or 2ZZ-GE (XRS) engines. AWD available. Badge-engineered as Pontiac Vibe. Popular for engine swaps, suspension modifications, and performance builds. Strong enthusiast community.",
+                },
+                {
+                    "generation_name": "E150",
+                    "start_year": 2009,
+                    "end_year": 2013,
+                    "description": "Second-generation Matrix on Corolla E150 platform. Featured 1.8L 2ZR-FE engine producing 132 hp. AWD with manual only. Badge-engineered as Pontiac Vibe 2009-2010. Popular for suspension and intake modifications.",
+                },
+            ],
+        },
     ],
     "Scion": [
         {
@@ -1350,6 +1573,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "end_year": 1998,
                     "description": "Refined 240SX with improved styling. Featured updated KA24DE engine. Continued popularity in drifting and tuning scenes. Highly sought after for modification projects.",
                 },
+                {
+                    "generation_name": "S15",
+                    "start_year": 1999,
+                    "end_year": 2002,
+                    "description": "Final S-chassis Silvia. Sold in Japan and select markets as the Silvia S15; not officially marketed in the US as 240SX. Featured SR20DET engine, sharp styling, and advanced suspension. Highly sought after in US import scene and drift culture.",
+                },
             ],
         },
         {
@@ -1407,6 +1636,52 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2020,
                     "end_year": 2024,
                     "description": "Latest generation with improved technology and safety features. Featured updated engines and continued Sentra's focus on value and efficiency.",
+                },
+            ],
+        },
+        {
+            "model": "Juke",
+            "generations": [
+                {
+                    "generation_name": "F15",
+                    "start_year": 2011,
+                    "end_year": 2019,
+                    "description": "Nissan's compact crossover with turbocharged 1.6L engine producing 188 hp. Unique styling with round headlights on the hood. AWD available. Popular for intake upgrades, exhaust modifications, ECU tuning, and suspension work.",
+                },
+                {
+                    "generation_name": "F16",
+                    "start_year": 2020,
+                    "end_year": 2024,
+                    "description": "Second-generation Juke with updated styling and turbocharged 1.0L three-cylinder engine. Improved interior quality and technology. European market focus.",
+                },
+            ],
+        },
+        {
+            "model": "Maxima",
+            "generations": [
+                {
+                    "generation_name": "A33",
+                    "start_year": 2000,
+                    "end_year": 2003,
+                    "description": "Nissan Maxima full-size front-wheel-drive sedan with 3.0L VQ30DE V6 producing 222 hp. Popular for exhaust upgrades and performance modifications.",
+                },
+                {
+                    "generation_name": "A34",
+                    "start_year": 2004,
+                    "end_year": 2008,
+                    "description": "Sixth-generation Maxima with 3.5L VQ35DE V6 producing 265 hp. Sporty sedan with sport-tuned suspension option. Popular for exhaust, intake, and suspension modifications.",
+                },
+                {
+                    "generation_name": "A35",
+                    "start_year": 2009,
+                    "end_year": 2014,
+                    "description": "Seventh-generation Maxima with 3.5L VQ35DE V6 producing 290 hp. CVT standard. Upscale full-size sedan with sport package available.",
+                },
+                {
+                    "generation_name": "A36",
+                    "start_year": 2016,
+                    "end_year": 2023,
+                    "description": "Eighth-generation Maxima '4-Door Sports Car' with bold styling and 3.5L VQ35DE V6 producing 300 hp. Popular for exhaust upgrades, wheels, and cosmetic modifications.",
                 },
             ],
         },
@@ -1773,6 +2048,47 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2021,
                     "end_year": 2024,
                     "description": "Bronco revival with modern off-road technology. Featured 2.3L EcoBoost and 2.7L twin-turbo V6 engines. Removable doors and top, advanced 4x4 systems. Raptor variant with 418 horsepower. Highly anticipated return of iconic off-roader.",
+                },
+            ],
+        },
+        {
+            "model": "F-150",
+            "generations": [
+                {
+                    "generation_name": "9th Gen",
+                    "start_year": 1992,
+                    "end_year": 1996,
+                    "description": "Ford's best-selling truck. Featured inline-6 and V8 engine options with OHV pushrod design. Last generation before the introduction of the triton modular V8. Popular for towing, hauling, and mild performance modifications.",
+                },
+                {
+                    "generation_name": "10th Gen",
+                    "start_year": 1997,
+                    "end_year": 2003,
+                    "description": "Redesigned F-150 introducing the Triton modular V8 (4.6L and 5.4L). New body-on-frame platform. Lightning and Harley-Davidson editions available. America's best-selling truck. Strong aftermarket for exhaust, intakes, superchargers, and suspension.",
+                },
+                {
+                    "generation_name": "11th Gen",
+                    "start_year": 2004,
+                    "end_year": 2008,
+                    "description": "New 'Super Duty-inspired' styling with improved interior. 5.4L Triton V8 as top engine. FX4 off-road package. SVT Lightning discontinued. Popular platform for performance upgrades including supercharger kits, exhaust, and suspension.",
+                },
+                {
+                    "generation_name": "12th Gen",
+                    "start_year": 2009,
+                    "end_year": 2014,
+                    "description": "Refined design with better fuel economy. Introduced the 3.5L twin-turbo EcoBoost V6 (2011+) as a high-output option. 5.0L Coyote V8 introduced in 2011. Growing aftermarket for EcoBoost performance, intercoolers, tunes, and downpipes.",
+                },
+                {
+                    "generation_name": "13th Gen",
+                    "start_year": 2015,
+                    "end_year": 2020,
+                    "description": "Landmark aluminum-body redesign reducing weight by up to 700 lbs. Gen 2 3.5L EcoBoost (2017+) and 5.0L Coyote V8. 10-speed automatic transmission. Raptor revival. Massive aftermarket: EcoBoost tunes, downpipes, intercoolers, intakes, lift kits, off-road accessories.",
+                },
+                {
+                    "generation_name": "14th Gen",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "Complete redesign with onboard generator (Pro Power Onboard), available hybrid powertrain (PowerBoost), and updated 3.5L Gen 3 EcoBoost. Lightning EV variant. Growing aftermarket for performance tunes, suspension upgrades, and accessories.",
                 },
             ],
         },
@@ -2216,40 +2532,30 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "330i",
             "generations": [
                 {
-                    "generation_name": "E30",
-                    "start_year": 1975,
-                    "end_year": 1990,
-                    "description": "BMW's compact executive sedan with inline-6 engines. Featured excellent handling and build quality. Established 3 Series reputation for sporty luxury.",
-                },
-                {
-                    "generation_name": "E36",
-                    "start_year": 1991,
-                    "end_year": 1998,
-                    "description": "More refined 3 Series with improved technology. Featured updated inline-6 engines and better handling. Popular among enthusiasts for modification potential.",
-                },
-                {
+                    # The 330i nameplate did not exist in the E30 or E36 eras; it first appeared in the E46 (2000).
+                    # E30 models were 316i/318i/320i/323i/325i/328i; E36 added 323i/328i but no 330i.
                     "generation_name": "E46",
-                    "start_year": 1999,
+                    "start_year": 2000,
                     "end_year": 2005,
-                    "description": "Widely considered one of the best 3 Series generations. Featured updated inline-6 engines and excellent handling. Balance of performance and daily usability.",
+                    "description": "First use of the 330i nameplate. The E46 330i introduced the M54B30 2.5L (later 3.0L) inline-6 engine producing 225-231 hp. Widely praised for balance of performance and usability. Popular for exhaust, intakes, suspension, and engine modifications.",
                 },
                 {
                     "generation_name": "E90/E91/E92/E93",
                     "start_year": 2006,
                     "end_year": 2011,
-                    "description": "First 3 Series with turbocharged engines (335i). Featured updated inline-6 engines and improved technology. E92 coupe and E93 convertible variants.",
+                    "description": "330i with N52B30 inline-6 engine producing 255 hp. Available in sedan (E90), touring (E91), coupe (E92), convertible (E93). Popular platform for performance upgrades.",
                 },
                 {
                     "generation_name": "F30/F31/F34",
                     "start_year": 2012,
                     "end_year": 2018,
-                    "description": "Complete redesign with turbocharged engines standard. Featured improved fuel economy and technology. More refined while maintaining sporty character.",
+                    "description": "330i with turbocharged N20/N52 inline-4 or inline-6 engines. Complete redesign with improved fuel economy and technology. More refined while maintaining sporty character.",
                 },
                 {
                     "generation_name": "G20/G21",
                     "start_year": 2019,
                     "end_year": 2024,
-                    "description": "Latest 3 Series with improved technology and handling. Featured updated turbocharged engines and advanced safety features. More premium positioning.",
+                    "description": "Latest 330i with turbocharged B46/B48 2.0L inline-4 engine producing 255 hp. CLAR platform with improved handling and technology. Available with mild-hybrid (eDrive).",
                 },
             ],
         },
@@ -3277,6 +3583,84 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "UrQuattro",
+            "model_display_name": "Ur-Quattro",
+            "generations": [
+                {
+                    "generation_name": "Typ 85",
+                    "start_year": 1980,
+                    "end_year": 1991,
+                    "description": "The original turbocharged quattro coupe that gave Audi's AWD system its name. Based on the Typ 85 platform sharing architecture with the B2 Audi 80. 2.1L and later 2.2L five-cylinder turbo (WR/KV/MB/RR engines) producing up to 220 PS; 20-valve RR engine in 1989-91 made 220 PS. Homologated for Group B and Group A rally. The iconic rallye Quattro. Popular for restoration and 034Motorsport-catalog vintage builds.",
+                },
+            ],
+        },
+        {
+            "model": "80/90",
+            "model_display_name": "80 / 90 / Coupe Quattro",
+            "generations": [
+                {
+                    "generation_name": "B2",
+                    "start_year": 1978,
+                    "end_year": 1987,
+                    "description": "Second-generation Audi 80 on the B2 platform, sold in US as the Audi 4000. Quattro AWD variants introduced. Inline-4 and inline-5 engines. Coupe GT/Coupe Quattro used the UrQuattro's turbocharged inline-5. Popular with vintage quattro enthusiasts.",
+                },
+                {
+                    "generation_name": "B3",
+                    "start_year": 1987,
+                    "end_year": 1992,
+                    "description": "Third-generation 80/90 on the B3 platform with flush modern styling. 90 quattro 20v featured 2.3L 20v naturally aspirated inline-5 (164 hp). Coupe Quattro B3 sold alongside. Very popular for turbo conversions and 034Motorsport small-chassis builds.",
+                },
+                {
+                    "generation_name": "B4",
+                    "start_year": 1992,
+                    "end_year": 1996,
+                    "description": "Final generation of the classic 80/90 on the B4 platform, shared with the S2 and RS2 Avant. Cabriolet continued to 2000. Last of the 'small chassis' Audis before the B5 revolution.",
+                },
+            ],
+        },
+        {
+            "model": "100/200",
+            "model_display_name": "100 / 200 / 5000",
+            "generations": [
+                {
+                    "generation_name": "C3",
+                    "start_year": 1982,
+                    "end_year": 1990,
+                    "description": "Third-generation Audi 100 (sold in US as the Audi 5000). 200 Turbo Quattro used the MC engine (162-182 hp); 200 20v Quattro (1989-91) used the 3B engine (20v turbo, 217 hp). Popular in 034Motorsport's catalog for intake, intercooler, and drivetrain upgrades on the C3 platform.",
+                },
+                {
+                    "generation_name": "C4",
+                    "start_year": 1991,
+                    "end_year": 1994,
+                    "description": "Final Audi 100 generation on the C4 platform. Sold in US as the 100 and 100 quattro. This platform underpins the UrS4 and UrS6 with the AAN turbocharged 2.2L 20v inline-5 (227 hp). Popular for AAN engine builds and forced induction tuning.",
+                },
+            ],
+        },
+        {
+            "model": "S4 (UrS4)",
+            "slug": "s4-urs4",
+            "model_display_name": "S4 (UrS4)",
+            "generations": [
+                {
+                    "generation_name": "C4",
+                    "start_year": 1991,
+                    "end_year": 1994,
+                    "description": "The original UrS4 on the C4 platform (shared with the Audi 100). 2.2L five-cylinder 20v turbo (AAN engine, 227 hp US spec). All-wheel drive. Predecessor to the B5 S4. One of the most beloved Audi tuner platforms for AAN engine builds, turbo upgrades, intercooler kits, and exhaust systems. Closely related to the UrS6.",
+                },
+            ],
+        },
+        {
+            "model": "S2",
+            "generations": [
+                {
+                    "generation_name": "B4",
+                    "start_year": 1990,
+                    "end_year": 1995,
+                    "description": "High-performance coupe and avant on the B4 platform with the 2.2L 20v turbo inline-5 (ABY engine, 220 PS). Developed alongside the RS2 Avant. Europe only. Popular for turbo, intercooler, and drivetrain upgrades. Often grouped with the RS2 in 034Motorsport B4 platform parts.",
+                },
+            ],
+        },
     ],
     "Mercedes": [
         {
@@ -4140,6 +4524,136 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Touareg",
+            "generations": [
+                {
+                    "generation_name": "7L",
+                    "start_year": 2004,
+                    "end_year": 2010,
+                    "description": "First Volkswagen SUV sharing platform with Porsche Cayenne. Featured V6, V8, V10 TDI diesel, and V10 petrol engines. Air suspension available. Popular for lift kits, ECU tuning, exhaust upgrades, and off-road modifications.",
+                },
+                {
+                    "generation_name": "7P",
+                    "start_year": 2011,
+                    "end_year": 2018,
+                    "description": "Second-generation Touareg with refined styling and improved technology. Featured V6 and V8 engines plus hybrid option. Air suspension standard on most trims. Popular for exhaust, intake, and ECU modifications.",
+                },
+                {
+                    "generation_name": "CR",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Third-generation Touareg with modern design and digital cockpit. Featured 3.0L V6 turbocharged engines. Standard air suspension. Advanced driver assistance systems.",
+                },
+            ],
+        },
+    ],
+    "Mini": [
+        {
+            "model": "Cooper",
+            "generations": [
+                {
+                    "generation_name": "R50/R52/R53",
+                    "start_year": 2002,
+                    "end_year": 2006,
+                    "description": "First modern MINI Cooper. R50 (hatch), R52 (convertible), R53 (Cooper S with supercharger). Featured supercharged 1.6L engine in S trim producing 163-210 hp. Very popular for supercharger upgrades, suspension lowering, exhaust modifications, and cosmetic mods. Strong tuning culture.",
+                },
+                {
+                    "generation_name": "R55/R56/R57/R58/R59",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "Second generation MINI with turbocharged engines replacing the supercharger. R56 (hatch), R55 (Clubman), R57 (convertible), R58 (Coupe), R59 (Roadster). Cooper S features 1.6L turbocharged engine producing 181-208 hp. JCW version produces 208 hp. Popular for turbo upgrades, intercooler upgrades, suspension, and exhaust modifications.",
+                },
+                {
+                    "generation_name": "F55/F56/F57",
+                    "start_year": 2014,
+                    "end_year": 2023,
+                    "description": "Third generation MINI on BMW UKL platform. F56 (3-door hatch), F55 (5-door hatch), F57 (convertible). Cooper S features 2.0L turbocharged engine producing 189-228 hp. JCW produces 228 hp. Popular for intake upgrades, ECU tuning, exhaust modifications, and suspension work.",
+                },
+            ],
+        },
+        {
+            "model": "Countryman",
+            "generations": [
+                {
+                    "generation_name": "R60",
+                    "start_year": 2011,
+                    "end_year": 2016,
+                    "description": "First MINI Countryman compact crossover. Available with ALL4 all-wheel drive. Cooper S features 1.6L turbocharged engine. John Cooper Works version produces 218 hp. Popular for suspension, exhaust, and cosmetic modifications.",
+                },
+                {
+                    "generation_name": "F60",
+                    "start_year": 2017,
+                    "end_year": 2023,
+                    "description": "Second-generation Countryman on BMW UKL platform. Larger and more premium than predecessor. Cooper S features 2.0L turbocharged engine. JCW produces 228 hp. Popular for ECU tuning and exhaust upgrades.",
+                },
+            ],
+        },
+    ],
+    "Pontiac": [
+        {
+            "model": "G8",
+            "generations": [
+                {
+                    "generation_name": "VE",
+                    "start_year": 2008,
+                    "end_year": 2009,
+                    "description": "Pontiac's rear-wheel-drive sport sedan based on the Holden Commodore VE platform. GT trim featured 3.6L V6 (256 hp); GXP trim had the 6.0L LS2 V8 (361 hp) and available 6.2L LS3 V8 (402 hp). Only sold for two model years before Pontiac brand discontinuation. Beloved by enthusiasts for its LS engine tuning potential, rear-wheel drive, and performance value. Strong aftermarket for exhaust, suspension, superchargers, and engine upgrades.",
+                },
+            ],
+        },
+        {
+            "model": "GTO",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 1964,
+                    "end_year": 1967,
+                    "description": "The original muscle car, often credited with creating the muscle car segment. Featured 389 and 400 cubic inch V8 engines. Tripower carburetion, Ram Air options. Simple, lightweight platform popular for performance builds and restorations.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 1968,
+                    "end_year": 1972,
+                    "description": "Redesigned with more flowing Endura bumper styling. 400 and 455 cubic inch V8 engines. The Judge performance package (1969-71) with Ram Air IV engine. Peak of the classic GTO era.",
+                },
+                {
+                    "generation_name": "Holden",
+                    "start_year": 2004,
+                    "end_year": 2006,
+                    "description": "Revived GTO based on Holden Monaro. Featured 5.7L LS1 V8 (2004, 350 hp) and 6.0L LS2 V8 (2005-2006, 400 hp). Rear-wheel drive with 6-speed manual or 4-speed automatic. Popular for LS engine swaps and performance modifications.",
+                },
+            ],
+        },
+        {
+            "model": "Firebird",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 1967,
+                    "end_year": 1969,
+                    "description": "Original Firebird sharing body with Camaro but with Pontiac-specific styling and powertrain options. Available with six-cylinder and V8 engines including the 400 cubic inch option. Sprint (OHC six), 326, 400, and 400 H.O. variants. Established Firebird as a performance brand.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 1970,
+                    "end_year": 1981,
+                    "description": "Iconic long-hood styling on the F-body platform. Trans Am became the performance flagship with 400/455 V8 engines in the early years. Screaming Chicken hood decal era. SD-455 produced 310 hp in 1973-74. Production survived the emissions era with T/A 6.6L engines. Smokey and the Bandit Trans Am defined the era.",
+                },
+                {
+                    "generation_name": "3rd Gen",
+                    "start_year": 1982,
+                    "end_year": 1992,
+                    "description": "F-body Firebird with aerodynamic styling. Trans Am with TPI 5.0L V8 and optional 5.7L. IROC-Z equivalent in Formula trim. Popular platform for performance upgrades.",
+                },
+                {
+                    "generation_name": "4th Gen",
+                    "start_year": 1993,
+                    "end_year": 2002,
+                    "description": "Final Firebird generation with LS1 V8 in Formula and Trans Am trims producing 305-325 hp. Firehawk special edition with 327 hp. Shared F-body platform with Camaro. Excellent value high-performance cars with strong tuning community.",
+                },
+            ],
+        },
     ],
     "Dodge": [
         {
@@ -4521,6 +5035,97 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "RDX",
+            "generations": [
+                {
+                    "generation_name": "TB1/TB2",
+                    "start_year": 2007,
+                    "end_year": 2012,
+                    "description": "First-generation Acura RDX compact luxury crossover. Featured 2.3L turbocharged K23A1 engine producing 240 hp — first Acura to use a turbocharged engine in the US. SH-AWD standard. Popular for ECU tuning, exhaust upgrades, intercooler upgrades, and suspension modifications.",
+                },
+                {
+                    "generation_name": "TB3/TB4",
+                    "start_year": 2013,
+                    "end_year": 2018,
+                    "description": "Second-generation RDX switched to naturally aspirated 3.5L V6 producing 273 hp. AWD with torque vectoring available. Improved interior quality. Popular for exhaust upgrades and suspension modifications.",
+                },
+                {
+                    "generation_name": "TC1",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Third-generation RDX on all-new platform. Featured 2.0L turbocharged K20C4 engine producing 272 hp. A-Spec and PMC editions for performance enthusiasts. Popular for intake, exhaust, and suspension modifications.",
+                },
+            ],
+        },
+        {
+            "model": "ILX",
+            "generations": [
+                {
+                    "generation_name": "DE3",
+                    "start_year": 2013,
+                    "end_year": 2022,
+                    "description": "Acura's entry-level luxury sedan based on the 9th generation Civic platform. Featured 2.4L K24Z7 engine producing 201 hp with 8-speed dual-clutch transmission. A-Spec package available for sportier appearance. Popular for suspension upgrades, exhaust modifications, and cosmetic enhancements.",
+                },
+            ],
+        },
+        {
+            "model": "RL",
+            "generations": [
+                {
+                    "generation_name": "KA9",
+                    "start_year": 1996,
+                    "end_year": 2004,
+                    "description": "First-generation Acura RL flagship sedan. Featured 3.5L C35A1 V6 producing 210 hp. FWD only. Popular for exhaust upgrades and suspension modifications.",
+                },
+                {
+                    "generation_name": "KB1",
+                    "start_year": 2005,
+                    "end_year": 2012,
+                    "description": "Second-generation Acura RL with 3.5L J35A8 V6 producing 300 hp. Standard SH-AWD torque-vectoring all-wheel drive. Popular for exhaust, suspension, and intake modifications.",
+                },
+            ],
+        },
+        {
+            "model": "RLX",
+            "generations": [
+                {
+                    "generation_name": "KC2",
+                    "start_year": 2014,
+                    "end_year": 2020,
+                    "description": "Acura's full-size luxury sedan. Featured 3.5L V6 with available P-AWS (Precision All-Wheel Steer). Sport Hybrid SH-AWD model offered 377 combined hp. Flagship sedan with advanced technology.",
+                },
+            ],
+        },
+        {
+            "model": "MDX",
+            "generations": [
+                {
+                    "generation_name": "YD1",
+                    "start_year": 2001,
+                    "end_year": 2006,
+                    "description": "First-generation Acura MDX mid-size luxury SUV. Featured 3.5L V6 with VTM-4 all-wheel drive. Popular for suspension upgrades and exhaust modifications.",
+                },
+                {
+                    "generation_name": "YD2",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "Second-generation MDX with 3.7L V6 producing 300 hp. SH-AWD torque-vectoring all-wheel drive. Improved technology and safety features. Popular for exhaust and suspension modifications.",
+                },
+                {
+                    "generation_name": "YD3",
+                    "start_year": 2014,
+                    "end_year": 2020,
+                    "description": "Third-generation MDX with 3.5L V6 producing 290 hp. Sport Hybrid SH-AWD model available. Improved fuel economy and technology. Popular for exhaust upgrades and suspension modifications.",
+                },
+                {
+                    "generation_name": "YD4",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Fourth-generation MDX on all-new platform. Featured 3.5L V6 producing 290 hp or Sport Hybrid system with 325 hp. Type S featured 3.0L turbocharged V6 producing 355 hp. Popular for suspension and exhaust modifications.",
+                },
+            ],
+        },
     ],
     "Lexus": [
         {
@@ -4821,56 +5426,62 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 {
                     "generation_name": "I",
                     "start_year": 1992,
-                    "end_year": 1995,
-                    "description": "The original Lancer Evolution, built for rally homologation. Featured turbocharged engine and all-wheel drive. Established Evo as a rally legend.",
+                    "end_year": 1993,
+                    "description": "The original Lancer Evolution (CD9A), built for WRC Group A homologation. Japan-domestic only. Featured 2.0L 4G63T turbo producing 244 PS with full-time AWD. The foundation of the Evo legend.",
                 },
                 {
                     "generation_name": "II",
-                    "start_year": 1996,
-                    "end_year": 1998,
-                    "description": "Refined Evolution with improved engine and handling. Featured updated turbocharged engine and better all-wheel drive system.",
+                    "start_year": 1994,
+                    "end_year": 1995,
+                    "description": "Second generation Evo (CE9A) with larger intercooler and revised suspension. 260 PS. Continued Japan-domestic sales. Rally success further cemented Evo reputation.",
                 },
                 {
                     "generation_name": "III",
-                    "start_year": 1999,
-                    "end_year": 2000,
-                    "description": "Evolution with updated styling and improved performance. Featured updated turbocharged engine and better handling.",
+                    "start_year": 1995,
+                    "end_year": 1996,
+                    "description": "Third generation Evo (CE9A) with revised aerodynamics including larger rear spoiler and front lip. 270 PS. Japan-domestic. Last of the CD/CE9A-based Evos.",
                 },
                 {
                     "generation_name": "IV",
-                    "start_year": 2001,
-                    "end_year": 2002,
-                    "description": "Evolution with significant updates. Featured improved turbocharged engine and all-wheel drive. Popular among enthusiasts.",
+                    "start_year": 1996,
+                    "end_year": 1998,
+                    "description": "Fourth generation Evo (CN9A) — major platform update. Introduced active yaw control (AYC) on the GSR trim and new Super Active Yaw Control. 280 PS. First Evo available with automatic gearbox option. Significant rally and tuning popularity.",
                 },
                 {
                     "generation_name": "V",
-                    "start_year": 2003,
-                    "end_year": 2005,
-                    "description": "Evolution with updated styling and improved performance. Featured updated turbocharged engine and better handling. Popular in tuning scene.",
+                    "start_year": 1998,
+                    "end_year": 1999,
+                    "description": "Fifth generation Evo (CP9A) with wider body for wider track and larger Brembo brakes. 280 PS. Revised Super AYC and improved chassis dynamics. Extremely popular platform for tuning and motorsport.",
                 },
                 {
                     "generation_name": "VI",
-                    "start_year": 2006,
-                    "end_year": 2007,
-                    "description": "Evolution with refined styling and improved technology. Featured updated turbocharged engine and better all-wheel drive system.",
+                    "start_year": 1999,
+                    "end_year": 2001,
+                    "description": "Sixth generation Evo (CP9A) with titanium turbo impeller and water-spray intercooler. Tommi Mäkinen Edition (TME) celebrated Mitsubishi's four consecutive WRC titles. 280 PS. Final Evo VI (6.5) produced through 2001.",
                 },
                 {
                     "generation_name": "VII",
-                    "start_year": 2008,
-                    "end_year": 2010,
-                    "description": "Evolution with updated styling and improved performance. Featured updated turbocharged engine and better handling. Popular among enthusiasts.",
+                    "start_year": 2001,
+                    "end_year": 2003,
+                    "description": "Seventh generation Evo (CT9A) — new platform based on Lancer Cedia. First Evo sold in North America. 280 PS with revised 4G63T and new ACD/AYC system. Introduced automatic gearbox (TC-SST predecessor). Foundation of the CT9A Evo VII/VIII/IX family.",
                 },
                 {
                     "generation_name": "VIII",
-                    "start_year": 2011,
-                    "end_year": 2015,
-                    "description": "Final Evolution generation sold in US. Featured turbocharged engine producing 291 horsepower. All-wheel drive standard. Highly sought after.",
+                    "start_year": 2003,
+                    "end_year": 2005,
+                    "description": "Eighth generation Evo (CT9A) with updated exterior, 6-speed manual option, and MR (Mitsubishi Racing) variant with Bilstein suspension. 265 hp (US spec). First Evo with aluminum roof. Hugely popular in US tuning scene with extensive aftermarket support.",
                 },
                 {
                     "generation_name": "IX",
-                    "start_year": 2016,
+                    "start_year": 2005,
+                    "end_year": 2007,
+                    "description": "Ninth generation Evo (CT9A) with MIVEC variable valve timing on intake cam — first Evo with VVT. 291 hp (US spec). MR trim with Bilstein/Eibach. Last of the 4G63-powered Evos. Highly sought after by enthusiasts for 4G63 tuning potential.",
+                },
+                {
+                    "generation_name": "X",
+                    "start_year": 2008,
                     "end_year": 2016,
-                    "description": "Final Evolution, limited production. Featured turbocharged engine and all-wheel drive. Marked the end of the Evolution line.",
+                    "description": "Tenth and final generation Evo (CZ4A) — all-new platform with 4B11T 2.0L DOHC MIVEC turbo producing 291 hp. Introduced twin-clutch SST (Sport Shift Transmission) alongside 5-speed manual. Final Special Edition (Final Edition) released in 2015 marked end of production. The most powerful stock Evo and the most refined for daily driving. Strong aftermarket community.",
                 },
             ],
         },
@@ -4962,6 +5573,52 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2009,
                     "end_year": 2015,
                     "description": "Performance variant of the Lancer positioned between GTS and Evolution. Featured turbocharged 2.0L MIVEC engine producing 237 hp and 253 lb-ft torque. Twin-clutch SST transmission with full-time all-wheel drive and Active Center Differential. Sport-tuned suspension and aggressive styling. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, suspension work, and performance enhancements. Excellent value for turbo AWD performance sedan.",
+                },
+            ],
+        },
+        {
+            "model": "Lancer",
+            "generations": [
+                {
+                    "generation_name": "CS/CT",
+                    "start_year": 2002,
+                    "end_year": 2007,
+                    "description": "Ninth-generation Mitsubishi Lancer compact sedan sold in North America. Featured 2.0L naturally aspirated engine producing 120-140 hp. Sportback hatchback variant available. Base platform for Lancer Evolution IX and Ralliart. Popular for suspension upgrades, exhaust modifications, and cosmetic enhancements.",
+                },
+                {
+                    "generation_name": "CJ",
+                    "start_year": 2008,
+                    "end_year": 2017,
+                    "description": "Tenth-generation Lancer — the final generation. Featured refreshed styling with 2.0L and 2.4L naturally aspirated engines. Sportback hatchback available. Shares platform with Evolution X and Ralliart. Popular for suspension, exhaust, intake, and cosmetic modifications. Discontinued in 2017.",
+                },
+            ],
+        },
+        {
+            "model": "Outlander",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2003,
+                    "end_year": 2006,
+                    "description": "First Mitsubishi Outlander compact crossover. Featured 2.4L naturally aspirated engine. Available in FWD and AWD. Popular for suspension, exhaust, and cosmetic modifications.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "Second-generation Outlander with Peugeot/Mitsubishi shared platform. Available with 2.4L and 3.0L V6 engines plus AWD. Outlander Sport (RVR) variant introduced. Popular for suspension and exhaust upgrades.",
+                },
+                {
+                    "generation_name": "3rd Gen",
+                    "start_year": 2014,
+                    "end_year": 2021,
+                    "description": "Third-generation Outlander with improved technology and styling. Featured 2.4L and 3.0L V6 engines plus PHEV hybrid variant. S-AWC all-wheel control available. Popular for suspension, exhaust, and cosmetic modifications.",
+                },
+                {
+                    "generation_name": "4th Gen",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Fourth-generation Outlander on Renault-Nissan-Mitsubishi Alliance CMF platform. Featured bold new styling and 2.5L engine. PHEV version features 302 hp system output. Improved interior quality and technology.",
                 },
             ],
         },

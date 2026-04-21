@@ -1321,6 +1321,10 @@ export const adminApi = {
       body
     ),
 
+  /** Admin: archived page count per source (adapter name or chrome_extension). */
+  getCrawledPageCountsBySource: () =>
+    apiClient.get<Record<string, number>>('/crawled-pages/counts-by-source'),
+
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllParts: () =>
     apiClient.post<{ deleted_count: number }>('/admin/parts/delete-all'),

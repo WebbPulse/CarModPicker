@@ -421,6 +421,11 @@ function CrawlerAdmin() {
   const [savingConfigName, setSavingConfigName] = useState<string | null>(null);
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
 
+  // Archived page counts per adapter
+  const [archivedCounts, setArchivedCounts] = useState<Record<string, number>>(
+    {}
+  );
+
   // Redirect non-admin users
   useEffect(() => {
     if (user && !user.is_admin) {
@@ -432,13 +437,13 @@ function CrawlerAdmin() {
     if (!user?.is_admin) return;
     setIsLoadingCrawlers(true);
     try {
-      const [adaptersRes, categoriesRes, serviceAccountRes] = await Promise.all(
-        [
+      const [adaptersRes, categoriesRes, serviceAccountRes, countsRes] =
+        await Promise.all([
           adminApi.getCrawlers(),
           categoriesApi.getCategories(),
           adminApi.getCrawlerServiceAccount(),
-        ]
-      );
+          adminApi.getCrawledPageCountsBySource().catch(() => ({ data: {} })),
+        ]);
       setCrawlerAdapters(adaptersRes.data.adapters);
       // Default to all selected on first load so the common workflow is
       // "set a global limit, uncheck anything to skip, Run selected."
@@ -452,6 +457,7 @@ function CrawlerAdmin() {
       setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
       setCrawlerServiceAccount(serviceAccountRes.data);
+      setArchivedCounts(countsRes.data);
       const otherCategory = categoriesRes.data.find(
         (c: CategoryResponse) => c.name.toLowerCase() === 'other'
       );
@@ -1291,6 +1297,13 @@ function CrawlerAdmin() {
                         <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
                           {row.adapter_name}
                         </span>
+                        {archivedCounts[row.adapter_name] != null && (
+                          <span className="shrink-0 tabular-nums text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono">
+                            {(
+                              archivedCounts[row.adapter_name] ?? 0
+                            ).toLocaleString()}
+                          </span>
+                        )}
                         <select
                           id={`tune-delay-${row.adapter_name}`}
                           title="Delay"
@@ -1819,6 +1832,11 @@ function CrawlerAdmin() {
                               {adapter}
                             </span>
                           </label>
+                          {archivedCounts[adapter] !== undefined && (
+                            <span className="shrink-0 tabular-nums text-[10px] px-1 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono">
+                              {archivedCounts[adapter].toLocaleString()}
+                            </span>
+                          )}
                           <input
                             type="number"
                             min="1"
