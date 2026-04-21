@@ -97,6 +97,75 @@ AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
         "RL",  # Honda Odyssey 2nd-gen internal code — conflicts with "Acura RL" luxury sedan
         "RS",  # Audi RS model prefix / "RS coilovers" / "KW RS" — require "hr-v rs" or "honda rs" for HR-V RS gen
         "RU",  # Honda HR-V RU gen code — too short; require "hr-v ru" context
+        # Dodge Charger "2024+" LB gen collides with BMW G-chassis "(2024+)" year suffixes.
+        "2024+",
+        # Ferrari/Porsche numeric model names that collide with BMW part numbers, bore-size text,
+        # and dash-list chassis fragments. Require make/model context.
+        "308",  # Ferrari 308 ↔ E24 635CSi, bore fragments
+        "328",  # Ferrari 328 ↔ BMW 328i trim, E46 325/328/330i list context
+        "348",  # Ferrari 348 ↔ dash-list like "F32 F33 F34 F36"
+        "356",  # Porsche 356 ↔ BMW part-number digits "… 356"
+        "928",  # Porsche 928 ↔ BMW E46 Parking Brake Boot digits
+        "930",  # Porsche 911 930 ↔ "4.930\"" LS valve length, 930 CV joint name
+        "944",  # Porsche 944 ↔ BMW E34 Door Handle part numbers
+        "992",  # Porsche 911 992 ↔ "3.992\"" bore text
+        "997",  # Porsche 911 997 ↔ "3.997\"" LS head-gasket bore text
+        # Displacement / forced-induction codes that collide with Audi/VW chassis letters.
+        "7L",  # VW Touareg 7L ↔ "2.7L"/"6.7L"/"7.0L" displacement
+        "8L",  # Audi A3/S3 8L ↔ "1.8L"/"3.8L"/"4.8L" displacement
+        "8T",  # Audi A5/S5/RS5 8T ↔ "1.8T"/"2.0T"/"2.7T" forced induction
+        # Two-letter/short chassis codes with known mass false positives.
+        "A5",  # VW Beetle A5 ↔ Audi A5 model name in "A4/A5" product titles
+        "A35",  # Nissan Maxima A35 ↔ Mercedes-AMG A35 hatchback
+        "AD",  # Hyundai Elantra AD ↔ "LHD"/"RHD"/"ADaptive" fragments
+        "AE86",  # Seeded AE86 gen ↔ other Corolla-era products; require "corolla ae86" / "toyota ae86"
+        "B2",  # Audi 80/90 B2 ↔ ECU connector labels ("B2" pin)
+        "B6",  # Audi A4/S4 B6 ↔ Bilstein B6 Performance, Miata B6 engine code
+        "B8",  # Audi A4/S4 B8 ↔ Bilstein B8 5100/5160/6112 shock product line
+        "B16",  # Nissan Sentra B16 ↔ Bilstein B16 PSS9 + Honda B16 engine code
+        "B18",  # Nissan Sentra B18 ↔ Honda B18 engine code
+        "BC",  # Subaru Legacy BC ↔ product SKUs / BC Racing brand
+        "BD",  # Subaru Legacy BD ↔ Kia Forte GT BD
+        "BF",  # Subaru Legacy BF ↔ Mazda 323 GTX BF
+        "BG",  # Subaru Legacy BG ↔ BC Racing fitment text
+        "BJ",  # Subaru Legacy BJ ↔ Mazdaspeed Protegé BJ
+        "BL",  # Subaru Legacy/Outback BL ↔ Mazda3 BL
+        "BM",  # Subaru Legacy BM ↔ "BMW" substring, Mazda3 BM
+        "BN",  # Subaru Legacy BN short-year forms
+        "BR",  # Subaru Legacy BR / Outback BR
+        "BS",  # Subaru Legacy BS short-year forms
+        "BT",  # Subaru Baja BT gen
+        "CE",  # Mitsubishi Lancer CE gen
+        "CT",  # Mitsubishi Lancer CT / CT9A Evo
+        "DA",  # Acura DA Integra (2nd Gen)
+        "E30",  # BMW 3 Series / M3 E30 ↔ Ford Bronco Raptor part codes
+        "E60",  # BMW M5 E60 ↔ "E60-E85" ethanol fuel labels in RS3 Stage tunes
+        "EG",  # Honda Civic EG chassis — generic English letter pair
+        "EK",  # Honda Civic EK chassis — same
+        "F15",  # BMW X5 F15 ↔ Nissan Juke F15
+        "F16",  # BMW X6 F16 ↔ Nissan Juke F16
+        "GD",  # Mazda MX-6 GD ↔ Subaru WRX GD
+        "GE",  # Mazda MX-6 GE ↔ "4A-GE", "2JZ-GE", "1ZZ-GE", "4U-GSE" engine codes
+        "J1",  # Porsche Taycan J1 ↔ SKUs like "HP-EGJ1AX"
+        "LD",  # Dodge Charger LD ↔ CORSA Silverado/Sierra exhaust copy
+        "L30",  # Nissan Altima L30 ↔ bolt-length labels ("M8 P1.25 L30")
+        "Mk1",  # Multi-make (Focus / R8 / Golf / Rabbit / Scirocco Mk1)
+        "Mk2",  # Multi-make (Focus / R8 / Scirocco Mk2)
+        "Mk3",  # Multi-make (Focus / Golf / Scirocco Mk3) ↔ "Toyota Supra (MK3)"
+        "P10",  # Infiniti G20 P10 ↔ URL slugs "/p10" and "P1.0" bolt-pitch labels
+        "P11",  # Infiniti G20 P11 ↔ forgeline URL trailing IDs ("/p11")
+        "R32",  # Nissan GT-R R32 / Nissan Skyline R32 ↔ VW Golf R32 / VR6 3.2L
+        "RA",  # Honda Odyssey RA — preemptive; require "odyssey ra"
+        "RD",  # Honda CR-V RD ↔ "RD" in part SKUs / "Ford" substring contexts
+        "RE",  # Honda CR-V RE ↔ "re-torque", "re-install", "you're", contraction word-boundaries (largest FP cluster)
+        "RM",  # Honda CR-V RM ↔ BC Racing "RM Series" coilovers
+        "S14",  # BMW M3 E30 S14 engine code ↔ Nissan 240SX S14
+        "S50",  # BMW S50 engine code ↔ Infiniti FX35/FX45 S50 gen
+        "M30",  # BMW M30 engine code ↔ Infiniti M30 model
+        "VE",  # Pontiac G8 VE / Holden VE ↔ "we've", "automotive", "Verus"
+        "VF",  # Holden VF / Chevy SS VF ↔ "automotiVE" fragments
+        "VR6",  # VW Corrado VR6 ↔ VR6 engine family on Golf/Jetta/Passat/R32
+        "T6",  # Ford Ranger T6 ↔ "6061-T6" aircraft aluminum tempering spec
     }
 )
 
@@ -119,9 +188,15 @@ def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
                 # Model + generation: "Supra A90", "M4 G82/G83"
                 model_gen = f"{model} {gen_name}".lower()
                 triples.append((model_gen, make, model, gen_name))
-                # Generation only for short codes - skip ambiguous ones to avoid false positives
-                if len(gen_name) <= 6 and "/" not in gen_name and gen_name not in AMBIGUOUS_STANDALONE_CODES:
-                    triples.append((gen_name.lower(), make, model, gen_name))
+                # Generation only for short codes - skip ambiguous ones to avoid false positives.
+                # Slash-gen names (e.g. "F30/F31/F34", "E36/7", "BL/BP") are split into each
+                # individual chassis code so they can match as standalone phrases too.
+                if gen_name in AMBIGUOUS_STANDALONE_CODES:
+                    continue
+                components = [c.strip() for c in gen_name.split("/") if c.strip()]
+                for component in components:
+                    if len(component) <= 6 and component not in AMBIGUOUS_STANDALONE_CODES:
+                        triples.append((component.lower(), make, model, gen_name))
     return triples
 
 
@@ -223,9 +298,12 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("gr 86", "Toyota", "GR86", "ZN8"),
     ("gr86", "Toyota", "GR86", "ZN8"),
     ("toyota gr86", "Toyota", "GR86", "ZN8"),
-    # Toyota GR86 / Subaru BRZ (product text: "Toyota GR86 - BRZ/GR86", "BRZ/GR86")
-    ("brz/gr86", "Toyota", "GR86", "ZN8"),
+    # Toyota GR86 / Subaru BRZ (product text: "Toyota GR86 - BRZ/GR86", "BRZ/GR86").
+    # "brz/gr86" fires both gen pairs: 1st gen ZC6+ZN6 (2013-2020) AND 2nd gen ZD8+ZN8 (2022+).
+    ("brz/gr86", "Subaru", "BRZ", "ZC6"),
+    ("brz/gr86", "Toyota", "86", "ZN6"),
     ("brz/gr86", "Subaru", "BRZ", "ZD8"),
+    ("brz/gr86", "Toyota", "GR86", "ZN8"),
     ("gr86 - brz", "Toyota", "GR86", "ZN8"),
     ("gr86 - brz", "Subaru", "BRZ", "ZD8"),
     # BMW i4 M50 G26
@@ -367,9 +445,13 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("m440i", "BMW", "M440i", "G22/G23/G26"),
     ("m440 i", "BMW", "M440i", "G22/G23/G26"),
     ("m440i b58", "BMW", "M440i", "G22/G23/G26"),
-    # BMW M240i G42 (B58; product text: "M340i, M440i, and 2022+ M240i")
+    # BMW M240i F22/F23 (2016-2021) + G42 (2022+) — "m240i" alone covers both gens so
+    # every F22 M240i product doesn't get mis-tagged as G42-only (fixes ~7 parts in c2).
+    ("bmw m240i", "BMW", "M240i", "F22/F23"),
     ("bmw m240i", "BMW", "M240i", "G42"),
+    ("m240i", "BMW", "M240i", "F22/F23"),
     ("m240i", "BMW", "M240i", "G42"),
+    ("m240 i", "BMW", "M240i", "F22/F23"),
     ("m240 i", "BMW", "M240i", "G42"),
     # BMW 3/4 Series chassis codes (product text: "BMW (G20 G21 G22 G23 G26 G42)")
     ("bmw (g20", "BMW", "3 Series", "G20/G21"),
@@ -504,6 +586,247 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("f1x m5", "BMW", "M5", "F10"),
     ("f1x m5/m6", "BMW", "M5", "F10"),
     ("f1x m5/m6", "BMW", "M6", "F12/F13/F06"),
+    # BMW 3 Series F30/F31/F34 slash-gen phrase fills (A1 split now covers the base,
+    # but retailer text uses "BMW F30", "F30/F31", "F34 GT" etc. explicitly).
+    ("f30 3 series", "BMW", "3 Series", "F30/F31/F34"),
+    ("f30 3-series", "BMW", "3 Series", "F30/F31/F34"),
+    ("f31 3 series", "BMW", "3 Series", "F30/F31/F34"),
+    ("f30/f31", "BMW", "3 Series", "F30/F31/F34"),
+    ("f30 / f31", "BMW", "3 Series", "F30/F31/F34"),
+    ("bmw f30", "BMW", "3 Series", "F30/F31/F34"),
+    ("f34 3 series gt", "BMW", "3 Series", "F30/F31/F34"),
+    ("f34 gt", "BMW", "3 Series", "F30/F31/F34"),
+    # BMW 4 Series F32/F33/F36
+    ("f32 4 series", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32 4-series", "BMW", "4 Series", "F32/F33/F36"),
+    ("f33 4 series", "BMW", "4 Series", "F32/F33/F36"),
+    ("f36 4 series", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32/f33", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32 / f33", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32 / f36", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32/f36", "BMW", "4 Series", "F32/F33/F36"),
+    ("f32 f33 f36", "BMW", "4 Series", "F32/F33/F36"),
+    # BMW 2 Series F22/F23
+    ("f22 2 series", "BMW", "2 Series", "F22/F23"),
+    ("f22 2-series", "BMW", "2 Series", "F22/F23"),
+    ("f23 2 series", "BMW", "2 Series", "F22/F23"),
+    ("f22/f23", "BMW", "2 Series", "F22/F23"),
+    ("f22 / f23", "BMW", "2 Series", "F22/F23"),
+    ("f22 228i", "BMW", "2 Series", "F22/F23"),
+    ("f22 m235i", "BMW", "M240i", "F22/F23"),
+    ("f22 m240i", "BMW", "M240i", "F22/F23"),
+    # BMW 1 Series F20/F21
+    ("f20 1 series", "BMW", "1 Series", "F20/F21"),
+    ("f20 1-series", "BMW", "1 Series", "F20/F21"),
+    ("f20/f21", "BMW", "1 Series", "F20/F21"),
+    ("f20 / f21", "BMW", "1 Series", "F20/F21"),
+    ("bmw f20", "BMW", "1 Series", "F20/F21"),
+    # BMW M6 F12/F13/F06 (extra slash-gen forms beyond the existing "m6 f12" aliases)
+    ("f06 6 series", "BMW", "M6", "F12/F13/F06"),
+    ("f06 m6", "BMW", "M6", "F12/F13/F06"),
+    ("m6 f06", "BMW", "M6", "F12/F13/F06"),
+    ("f06/f12/f13", "BMW", "M6", "F12/F13/F06"),
+    ("f06 / f12 / f13", "BMW", "M6", "F12/F13/F06"),
+    ("f06 / f12", "BMW", "M6", "F12/F13/F06"),
+    ("f06 / f13", "BMW", "M6", "F12/F13/F06"),
+    # BMW 6 Series F12/F13 (non-M) — seed gen added in C3
+    ("f12 6 series", "BMW", "6 Series", "F12/F13/F06"),
+    ("f13 6 series", "BMW", "6 Series", "F12/F13/F06"),
+    ("f12 / f13", "BMW", "6 Series", "F12/F13/F06"),
+    ("f12 640i", "BMW", "6 Series", "F12/F13/F06"),
+    # BMW Z4 E85/E86 base (non-M) — "e85 z4" existing entry is for "z4 m"; this is base.
+    ("e85 / e86", "BMW", "Z4", "E85/E86"),
+    ("e85/e86", "BMW", "Z4", "E85/E86"),
+    ("e85 z4", "BMW", "Z4", "E85/E86"),
+    ("e86 z4", "BMW", "Z4", "E85/E86"),
+    ("bmw z4 e85", "BMW", "Z4", "E85/E86"),
+    ("z4 (n52)", "BMW", "Z4", "E85/E86"),
+    # BMW 1 Series E81/E82/E87/E88 — E82/E88 are the coupe/convertible (non-1M); common fitment text.
+    ("e87 1 series", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e87 1-series", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("bmw e87", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e88 128i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e88 135i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82 128i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82 135i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82 e88 128i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82 e88 135i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82/e88 135i", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82/e88 1 series", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("e82/e88", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("bmw 1 series e82", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("1 series (e82)", "BMW", "1 Series", "E81/E82/E87/E88"),
+    ("1 series (e88)", "BMW", "1 Series", "E81/E82/E87/E88"),
+    # BMW 3 Series E90/E91/E92/E93 slash-gen fills + trim variants
+    ("e90/e91", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e90 / e91", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e91 3 series touring", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e93 328i", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e93 335i", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e93 cabrio", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e90/e92/e93 335i", "BMW", "335i", "E90/E91/E92/E93"),
+    ("e92 facelift", "BMW", "3 Series", "E90/E91/E92/E93"),
+    ("e93 facelift", "BMW", "3 Series", "E90/E91/E92/E93"),
+    # BMW 3 Series E36 / E46 trim variants (bare i-less forms, body styles, tool-kit span)
+    ("e36 325", "BMW", "3 Series", "E36"),
+    ("e36 325i", "BMW", "3 Series", "E36"),
+    ("e36 328", "BMW", "3 Series", "E36"),
+    ("e36 328i", "BMW", "3 Series", "E36"),
+    ("e36 318", "BMW", "3 Series", "E36"),
+    ("e36 318i", "BMW", "3 Series", "E36"),
+    ("e36 323", "BMW", "3 Series", "E36"),
+    ("e36 323i", "BMW", "3 Series", "E36"),
+    ("e36 4 door", "BMW", "3 Series", "E36"),
+    ("e36 cabrio", "BMW", "3 Series", "E36"),
+    ("e46 323", "BMW", "3 Series", "E46"),
+    ("e46 323i", "BMW", "3 Series", "E46"),
+    ("e46 325i", "BMW", "3 Series", "E46"),
+    ("e46 325xi", "BMW", "3 Series", "E46"),
+    ("e46 328", "BMW", "3 Series", "E46"),
+    ("e46 328i", "BMW", "3 Series", "E46"),
+    ("e46 330ci", "BMW", "330i", "E46"),
+    ("e46 330xi", "BMW", "330i", "E46"),
+    ("e46 cabrio", "BMW", "3 Series", "E46"),
+    ("e46 convertible", "BMW", "3 Series", "E46"),
+    ("e46 ci", "BMW", "3 Series", "E46"),
+    ("e46 3-series", "BMW", "3 Series", "E46"),
+    ("e46 coupe", "BMW", "3 Series", "E46"),
+    ("e46 touring", "BMW", "3 Series", "E46"),
+    ("e46 (not m3)", "BMW", "3 Series", "E46"),
+    ("e36/e46", "BMW", "3 Series", "E36"),
+    ("e36/e46", "BMW", "3 Series", "E46"),
+    # BMW X5 E53/E70/F15/G05 — X-series non-M seeds added in C3
+    ("e70 x5", "BMW", "X5", "E70"),
+    ("e70 x5 35d", "BMW", "X5", "E70"),
+    ("e70 35d", "BMW", "X5", "E70"),
+    ("bmw e70 x5", "BMW", "X5", "E70"),
+    ("e53 x5", "BMW", "X5", "E53"),
+    ("bmw e53", "BMW", "X5", "E53"),
+    ("f15 x5", "BMW", "X5", "F15"),  # blocks Juke F15
+    ("bmw f15", "BMW", "X5", "F15"),
+    ("g05 x5", "BMW", "X5", "G05"),
+    ("bmw g05", "BMW", "X5", "G05"),
+    # BMW X3 E83/F25/G01
+    ("e83 x3", "BMW", "X3", "E83"),
+    ("bmw e83", "BMW", "X3", "E83"),
+    ("f25 x3", "BMW", "X3", "F25"),
+    ("bmw f25", "BMW", "X3", "F25"),
+    ("g01 x3", "BMW", "X3", "G01"),
+    ("bmw g01", "BMW", "X3", "G01"),
+    # BMW X4 F26/G02
+    ("f26 x4", "BMW", "X4", "F26"),
+    ("bmw f26", "BMW", "X4", "F26"),
+    ("g02 x4", "BMW", "X4", "G02"),
+    ("bmw g02", "BMW", "X4", "G02"),
+    # BMW X6 F16/G06 — F16 blocks Juke F16
+    ("f16 x6", "BMW", "X6", "F16"),
+    ("bmw f16", "BMW", "X6", "F16"),
+    ("g06 x6", "BMW", "X6", "G06"),
+    ("f15 x5 / f16 x6", "BMW", "X5", "F15"),
+    ("f15 x5 / f16 x6", "BMW", "X6", "F16"),
+    # BMW X7 G07
+    ("g07 x7", "BMW", "X7", "G07"),
+    ("bmw g07", "BMW", "X7", "G07"),
+    # BMW X1 E84/F48/U11
+    ("e84 x1", "BMW", "X1", "E84"),
+    ("bmw e84", "BMW", "X1", "E84"),
+    ("f48 x1", "BMW", "X1", "F48"),
+    ("bmw f48", "BMW", "X1", "F48"),
+    ("u11 x1", "BMW", "X1", "U11"),
+    # BMW X2 F39
+    ("f39 x2", "BMW", "X2", "F39"),
+    ("bmw f39", "BMW", "X2", "F39"),
+    # BMW 2 Series Gran Coupe F44
+    ("f44 2 series gran coupe", "BMW", "2 Series Gran Coupe", "F44"),
+    ("f44 gran coupe", "BMW", "2 Series Gran Coupe", "F44"),
+    ("f44 m235i", "BMW", "2 Series Gran Coupe", "F44"),
+    # BMW 7 Series — full gen lineup
+    ("g11 7 series", "BMW", "7 Series", "G11/G12"),
+    ("g12 7 series", "BMW", "7 Series", "G11/G12"),
+    ("g11/g12", "BMW", "7 Series", "G11/G12"),
+    ("g11 / g12", "BMW", "7 Series", "G11/G12"),
+    ("bmw g11", "BMW", "7 Series", "G11/G12"),
+    ("bmw g12", "BMW", "7 Series", "G11/G12"),
+    ("e38 7 series", "BMW", "7 Series", "E38"),
+    ("e38 740i", "BMW", "7 Series", "E38"),
+    ("e38 740il", "BMW", "7 Series", "E38"),
+    ("e38 750il", "BMW", "7 Series", "E38"),
+    ("bmw e38", "BMW", "7 Series", "E38"),
+    ("e32 7 series", "BMW", "7 Series", "E32"),
+    ("e32 750il", "BMW", "7 Series", "E32"),
+    ("e32 735i", "BMW", "7 Series", "E32"),
+    ("bmw e32", "BMW", "7 Series", "E32"),
+    ("e23 7 series", "BMW", "7 Series", "E23"),
+    ("e23 733i", "BMW", "7 Series", "E23"),
+    ("e23 735i", "BMW", "7 Series", "E23"),
+    ("bmw e23", "BMW", "7 Series", "E23"),
+    ("e65/e66", "BMW", "7 Series", "E65/E66"),
+    ("e65 / e66", "BMW", "7 Series", "E65/E66"),
+    ("e65 745i", "BMW", "7 Series", "E65/E66"),
+    ("e65 745li", "BMW", "7 Series", "E65/E66"),
+    ("bmw e65", "BMW", "7 Series", "E65/E66"),
+    # BMW 8 Series E31 / G14/G15/G16
+    ("e31 8 series", "BMW", "8 Series", "E31"),
+    ("e31 840", "BMW", "8 Series", "E31"),
+    ("e31 840ci", "BMW", "8 Series", "E31"),
+    ("e31 850", "BMW", "8 Series", "E31"),
+    ("e31 850i", "BMW", "8 Series", "E31"),
+    ("e31 850ci", "BMW", "8 Series", "E31"),
+    ("bmw e31", "BMW", "8 Series", "E31"),
+    ("g15 8 series", "BMW", "8 Series", "G14/G15/G16"),
+    ("g15 840i", "BMW", "8 Series", "G14/G15/G16"),
+    ("bmw g15", "BMW", "8 Series", "G14/G15/G16"),
+    ("g14 8 series", "BMW", "8 Series", "G14/G15/G16"),
+    ("g16 8 series", "BMW", "8 Series", "G14/G15/G16"),
+    # BMW 5 Series G30/G31 + E28/E34 (new seed) + E39 trim variants
+    ("g30 5 series", "BMW", "5 Series", "G30/G31"),
+    ("g30 530i", "BMW", "5 Series", "G30/G31"),
+    ("g30 540i", "BMW", "5 Series", "G30/G31"),
+    ("e28 528e", "BMW", "5 Series", "E28"),
+    ("e28 533i", "BMW", "5 Series", "E28"),
+    ("e28 535i", "BMW", "5 Series", "E28"),
+    ("bmw e28", "BMW", "5 Series", "E28"),
+    ("e34 525i", "BMW", "5 Series", "E34"),
+    ("e34 530i", "BMW", "5 Series", "E34"),
+    ("e34 535i", "BMW", "5 Series", "E34"),
+    ("e34 540i", "BMW", "5 Series", "E34"),
+    ("e34 touring", "BMW", "5 Series", "E34"),
+    ("bmw e34", "BMW", "5 Series", "E34"),
+    ("e39 525i", "BMW", "5 Series", "E39"),
+    ("e39 528i", "BMW", "5 Series", "E39"),
+    ("e39 530i", "BMW", "5 Series", "E39"),
+    ("e39 535i", "BMW", "5 Series", "E39"),
+    ("e39 540i", "BMW", "5 Series", "E39"),
+    ("e39 545i", "BMW", "5 Series", "E39"),
+    ("e39 touring", "BMW", "5 Series", "E39"),
+    # BMW 6 Series GT G32 (new seed) + E24/E63/E64/F12 (non-M gens)
+    ("g32 6 series gt", "BMW", "6 Series GT", "G32"),
+    ("g32 640i", "BMW", "6 Series GT", "G32"),
+    ("e24 635csi", "BMW", "6 Series", "E24"),
+    ("e63 6 series", "BMW", "6 Series", "E63/E64"),
+    ("e63 6-series", "BMW", "6 Series", "E63/E64"),
+    ("e63 645i", "BMW", "6 Series", "E63/E64"),
+    ("e63 650i", "BMW", "6 Series", "E63/E64"),
+    ("e64 645ci", "BMW", "6 Series", "E63/E64"),
+    ("bmw e63", "BMW", "6 Series", "E63/E64"),
+    ("bmw e64", "BMW", "6 Series", "E63/E64"),
+    # BMW i3 I01 (electric)
+    ("i01 i3", "BMW", "i3", "I01"),
+    ("bmw i3", "BMW", "i3", "I01"),
+    # BMW M340i / M440i short forms + xDrive variants
+    ("m340", "BMW", "M340i", "G20/G21"),
+    ("m440", "BMW", "M440i", "G22/G23/G26"),
+    ("m240ix", "BMW", "M240i", "G42"),
+    ("m340ix", "BMW", "M340i", "G20/G21"),
+    # BMW generic chassis shorthand ("f-chassis", "g chassis") — high-risk but common in adapter copy
+    ("f-chassis", "BMW", "3 Series", "F30/F31/F34"),
+    ("f chassis", "BMW", "3 Series", "F30/F31/F34"),
+    ("g chassis", "BMW", "3 Series", "G20/G21"),
+    ("g-chassis", "BMW", "3 Series", "G20/G21"),
+    # BMW Z3 E36/7 E36/8 (new seed)
+    ("bmw z3 e36/7", "BMW", "Z3", "E36/7 E36/8"),
+    ("bmw z3 (e36/7)", "BMW", "Z3", "E36/7 E36/8"),
+    ("bmw z3", "BMW", "Z3", "E36/7 E36/8"),
     # Corvette C8 — disambiguate from Audi C8 platform
     ("corvette c8", "Chevrolet", "Corvette", "C8"),
     ("c8 corvette", "Chevrolet", "Corvette", "C8"),
@@ -615,6 +938,36 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("718 cayman", "Porsche", "718", "982"),
     ("718 gt4", "Porsche", "718", "982"),
     ("718 spyder", "Porsche", "718", "982"),
+    # Porsche 918 Spyder + Carrera GT — bare/common forms (gen names same as model)
+    ("porsche 918", "Porsche", "918 Spyder", "918 Spyder"),
+    ("918 spyder", "Porsche", "918 Spyder", "918 Spyder"),
+    ("porsche 918 spyder", "Porsche", "918 Spyder", "918 Spyder"),
+    ("carrera gt", "Porsche", "Carrera GT", "Carrera GT"),
+    ("porsche carrera gt", "Porsche", "Carrera GT", "Carrera GT"),
+    ("cgt", "Porsche", "Carrera GT", "Carrera GT"),
+    # Porsche Cayenne sub-chassis codes (955/957 = 9PA 1st gen; 958 = 92A 2nd gen; 9Y0 = PO536 3rd)
+    ("cayenne 955", "Porsche", "Cayenne", "9PA"),
+    ("cayenne 957", "Porsche", "Cayenne", "9PA"),
+    ("955 cayenne", "Porsche", "Cayenne", "9PA"),
+    ("957 cayenne", "Porsche", "Cayenne", "9PA"),
+    ("cayenne 958", "Porsche", "Cayenne", "92A"),
+    ("958 cayenne", "Porsche", "Cayenne", "92A"),
+    ("cayenne 9pa", "Porsche", "Cayenne", "9PA"),
+    ("porsche 9pa", "Porsche", "Cayenne", "9PA"),
+    ("porsche 92a", "Porsche", "Cayenne", "92A"),
+    ("cayenne 9y0", "Porsche", "Cayenne", "PO536"),
+    ("9y0 cayenne", "Porsche", "Cayenne", "PO536"),
+    ("cayenne 2019+", "Porsche", "Cayenne", "PO536"),
+    ("porsche cayenne", "Porsche", "Cayenne", "9PA"),
+    ("porsche cayenne", "Porsche", "Cayenne", "92A"),
+    ("2003-2008 cayenne", "Porsche", "Cayenne", "9PA"),
+    # Porsche 911 Turbo glued / 987S short forms
+    ("996tt", "Porsche", "911", "996"),
+    ("997tt", "Porsche", "911", "997"),
+    ("996 turbo", "Porsche", "911", "996"),
+    ("997 turbo", "Porsche", "911", "997"),
+    ("987s", "Porsche", "Cayman", "987"),
+    ("987s", "Porsche", "Boxster", "987"),
     # Tesla Model 3 (Highland = 2024+ facelift)
     ("tesla model 3", "Tesla", "Model 3", "Pre-Highland"),
     ("model 3 highland", "Tesla", "Model 3", "Highland"),
@@ -653,7 +1006,9 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("gr yaris gen 1 & 2", "Toyota", "GR Yaris", "2nd Gen"),
     ("gr yaris (gen 1 and 2)", "Toyota", "GR Yaris", "2nd Gen"),
     ("gr yaris gen 1 and 2", "Toyota", "GR Yaris", "2nd Gen"),
-    # Subaru BRZ (ZD8 gen 2 common in ADRO text as "22+ GR86/BRZ")
+    # Subaru BRZ — plain "subaru brz" fires BOTH gens (ZC6 2013-2020 + ZD8 2022+).
+    # Otherwise every pre-2022 BRZ product gets mis-tagged as ZD8-only (~70 parts fixed).
+    ("subaru brz", "Subaru", "BRZ", "ZC6"),
     ("subaru brz", "Subaru", "BRZ", "ZD8"),
     ("brz zd8", "Subaru", "BRZ", "ZD8"),
     ("zd8 brz", "Subaru", "BRZ", "ZD8"),
@@ -694,6 +1049,89 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("5.0 mustang", "Ford", "Mustang", "6th Gen"),  # Coyote 5.0L era; older 5.0 is "fox body"
     ("gt500", "Ford", "Mustang", "6th Gen"),  # 2007-2014 GT500 = 5th Gen; 2020+ = 6th Gen — default to 6th
     ("shelby gt500", "Ford", "Mustang", "6th Gen"),
+    # Ford Mustang trim names — "dark horse" (S650), GT350 (S550 only), Boss 302 (5th Gen), Bullitt, Mach 1
+    ("dark horse", "Ford", "Mustang", "7th Gen"),
+    ("boss 302 mustang", "Ford", "Mustang", "5th Gen"),
+    ("mustang boss 302", "Ford", "Mustang", "5th Gen"),
+    ("bullitt mustang", "Ford", "Mustang", "5th Gen"),
+    ("mustang bullitt", "Ford", "Mustang", "5th Gen"),
+    ("mach 1 mustang", "Ford", "Mustang", "5th Gen"),
+    ("mustang mach 1", "Ford", "Mustang", "5th Gen"),
+    ("svt cobra", "Ford", "Mustang", "4th Gen"),
+    ("mustang cobra", "Ford", "Mustang", "4th Gen"),
+    ("terminator cobra", "Ford", "Mustang", "4th Gen"),
+    ("gt350 mustang", "Ford", "Mustang", "6th Gen"),
+    ("shelby gt350", "Ford", "Mustang", "6th Gen"),
+    ("mustang gt350", "Ford", "Mustang", "6th Gen"),
+    ("shelby gt350r", "Ford", "Mustang", "6th Gen"),
+    ("gt350r", "Ford", "Mustang", "6th Gen"),
+    # Ford Focus SVT (2002-2004, Mk1 only)
+    ("focus svt", "Ford", "Focus", "Mk1"),
+    ("svt focus", "Ford", "Focus", "Mk1"),
+    # Ford Mustang decade-spanning year-range fitment patterns
+    ("1979-2004 mustang", "Ford", "Mustang", "3rd Gen"),
+    ("1979-2004 mustang", "Ford", "Mustang", "4th Gen"),
+    ("1979-1993 mustang", "Ford", "Mustang", "3rd Gen"),
+    ("1994-2004 mustang", "Ford", "Mustang", "4th Gen"),
+    ("1996-2004 mustang", "Ford", "Mustang", "4th Gen"),
+    ("1996-2004 ford mustang", "Ford", "Mustang", "4th Gen"),
+    ("1999-2004 mustang", "Ford", "Mustang", "4th Gen"),
+    ("1999-2004 ford mustang", "Ford", "Mustang", "4th Gen"),
+    ("2001 ford mustang cobra", "Ford", "Mustang", "4th Gen"),
+    ("2003-2004 ford mustang cobra", "Ford", "Mustang", "4th Gen"),
+    ("2003-2004 mustang cobra", "Ford", "Mustang", "4th Gen"),
+    ("2001-2004 ford cobra", "Ford", "Mustang", "4th Gen"),
+    ("2002-2004 ford mustang gt", "Ford", "Mustang", "4th Gen"),
+    ("2005-2010 mustang", "Ford", "Mustang", "5th Gen"),
+    ("2005-2010 ford mustang", "Ford", "Mustang", "5th Gen"),
+    ("2005-2014 mustang", "Ford", "Mustang", "5th Gen"),
+    ("2010-2014 mustang", "Ford", "Mustang", "5th Gen"),
+    ("2011-2014 mustang", "Ford", "Mustang", "5th Gen"),
+    ("2011-2014 ford mustang", "Ford", "Mustang", "5th Gen"),
+    ("2011-14 mustang", "Ford", "Mustang", "5th Gen"),
+    ("2015-2017 mustang", "Ford", "Mustang", "6th Gen"),
+    ("2015-2017 ford mustang", "Ford", "Mustang", "6th Gen"),
+    ("2015-17 mustang", "Ford", "Mustang", "6th Gen"),
+    ("2016+ ford mustang", "Ford", "Mustang", "6th Gen"),
+    ("2018-2023 mustang", "Ford", "Mustang", "6th Gen"),
+    ("2018+ ford mustang", "Ford", "Mustang", "6th Gen"),
+    ("2018 ford mustang gt", "Ford", "Mustang", "6th Gen"),
+    ("2015-2017 mustang gt", "Ford", "Mustang", "6th Gen"),
+    ("2015-2017 mustang ecoboost", "Ford", "Mustang", "6th Gen"),
+    ("2015+ mustang ecoboost", "Ford", "Mustang", "6th Gen"),
+    ("2015+ ford mustang shelby gt350", "Ford", "Mustang", "6th Gen"),
+    ("2016+ ford mustang shelby gt350", "Ford", "Mustang", "6th Gen"),
+    ("mustang shelby gt350", "Ford", "Mustang", "6th Gen"),
+    ("new edge mustang", "Ford", "Mustang", "4th Gen"),
+    ("new edge", "Ford", "Mustang", "4th Gen"),
+    ("s197.1 mustang", "Ford", "Mustang", "5th Gen"),
+    ("s197.2 mustang", "Ford", "Mustang", "5th Gen"),
+    ("s550.1 mustang", "Ford", "Mustang", "6th Gen"),
+    ("s550.2 mustang", "Ford", "Mustang", "6th Gen"),
+    # Ford SVT Lightning (F-150 10th Gen)
+    ("1999-2004 ford svt lightning", "Ford", "F-150", "10th Gen"),
+    ("ford svt lightning", "Ford", "F-150", "10th Gen"),
+    # Ford Bronco / Ranger / Maverick / F-150 Raptor / Fiesta ST (needs seed additions in C8)
+    ("ford bronco", "Ford", "Bronco", "6th Gen"),
+    ("2021+ ford bronco", "Ford", "Bronco", "6th Gen"),
+    ("2021-2025 ford bronco", "Ford", "Bronco", "6th Gen"),
+    ("bronco raptor", "Ford", "Bronco", "6th Gen"),
+    ("ford maverick", "Ford", "Maverick", "1st Gen"),
+    ("bronco sport", "Ford", "Bronco Sport", "1st Gen"),
+    ("ranger raptor", "Ford", "Ranger Raptor", "1st Gen"),
+    ("ford ranger raptor", "Ford", "Ranger Raptor", "1st Gen"),
+    ("2024 ford ranger raptor", "Ford", "Ranger Raptor", "1st Gen"),
+    # Ford Ranger T6 (2019-2023) — "T6" now in AMBIGUOUS_STANDALONE_CODES due to "6061-T6" aluminum
+    # spec collision; require explicit "ranger t6" / "ford ranger t6" context.
+    ("ranger t6", "Ford", "Ranger", "T6"),
+    ("ford ranger t6", "Ford", "Ranger", "T6"),
+    ("ford ranger", "Ford", "Ranger", "T6"),
+    ("ford f-150", "Ford", "F-150", "13th Gen"),
+    ("ford f-150", "Ford", "F-150", "14th Gen"),
+    ("f-150 ecoboost raptor", "Ford", "F-150 Raptor", "3rd Gen"),
+    ("f-150 raptor", "Ford", "F-150 Raptor", "3rd Gen"),
+    ("fiesta st", "Ford", "Fiesta ST", "Mk7"),
+    ("ford fiesta st", "Ford", "Fiesta ST", "Mk7"),
     # Ford F-150 year-range patterns (regular truck, not Raptor)
     ("2015-2020 f-150", "Ford", "F-150", "13th Gen"),
     ("2015-2020 ford f-150", "Ford", "F-150", "13th Gen"),
@@ -752,6 +1190,99 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("evo 7-9", "Mitsubishi", "Lancer Evolution", "VII"),
     ("evo 7-9", "Mitsubishi", "Lancer Evolution", "VIII"),
     ("evo 7-9", "Mitsubishi", "Lancer Evolution", "IX"),
+    # Evo year-range multi-gen fitments + JDM CDxA/CExA/CNxA/CPxA/CTxA/CZxA chassis codes
+    ("2008-2015 mitsubishi evo x", "Mitsubishi", "Lancer Evolution", "X"),
+    ("2003-2006 mitsubishi evo 8/9", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("2003-2006 mitsubishi evo 8/9", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("2003-2015 mitsubishi evo 8/9/x", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("2003-2015 mitsubishi evo 8/9/x", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("2003-2015 mitsubishi evo 8/9/x", "Mitsubishi", "Lancer Evolution", "X"),
+    ("evo 8 9 x", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("evo 8 9 x", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("evo 8 9 x", "Mitsubishi", "Lancer Evolution", "X"),
+    ("lancer evolution vii", "Mitsubishi", "Lancer Evolution", "VII"),
+    ("lancer evolution viii", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("lancer evolution ix", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("lancer evolution x", "Mitsubishi", "Lancer Evolution", "X"),
+    ("evo viii/ix", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("evo viii/ix", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("evo ix/x", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("evo ix/x", "Mitsubishi", "Lancer Evolution", "X"),
+    ("evo 8/9", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("evo 8/9", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("evo 9/10", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("evo 9/10", "Mitsubishi", "Lancer Evolution", "X"),
+    ("cd9a", "Mitsubishi", "Lancer Evolution", "I"),
+    ("ce9a", "Mitsubishi", "Lancer Evolution", "II"),
+    ("ce9a", "Mitsubishi", "Lancer Evolution", "III"),
+    ("cn9a", "Mitsubishi", "Lancer Evolution", "IV"),
+    ("cp9a", "Mitsubishi", "Lancer Evolution", "IV"),
+    ("cp9a", "Mitsubishi", "Lancer Evolution", "V"),
+    ("cp9a", "Mitsubishi", "Lancer Evolution", "VI"),
+    ("cp9a/cn9a", "Mitsubishi", "Lancer Evolution", "IV"),
+    ("cp9a/cn9a", "Mitsubishi", "Lancer Evolution", "V"),
+    ("cp9a/cn9a", "Mitsubishi", "Lancer Evolution", "VI"),
+    ("ct9a", "Mitsubishi", "Lancer Evolution", "VII"),
+    ("ct9a", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("ct9a", "Mitsubishi", "Lancer Evolution", "IX"),
+    ("cz4a", "Mitsubishi", "Lancer Evolution", "X"),
+    ("4b11t", "Mitsubishi", "Lancer Evolution", "X"),
+    ("4b11 evo", "Mitsubishi", "Lancer Evolution", "X"),
+    ("cz4a 4b11", "Mitsubishi", "Lancer Evolution", "X"),
+    ("4g63 evo", "Mitsubishi", "Lancer Evolution", "VII"),
+    ("4g63 evo", "Mitsubishi", "Lancer Evolution", "VIII"),
+    ("4g63 evo", "Mitsubishi", "Lancer Evolution", "IX"),
+    # Mitsubishi 3000GT + Dodge Stealth platform twin
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "First Generation"),
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    ("3000gt", "Mitsubishi", "3000GT", "First Generation"),
+    ("3000gt", "Mitsubishi", "3000GT", "Second Generation"),
+    ("3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "First Generation"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "Second Generation"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "Third Generation"),
+    ("3000gt vr4", "Mitsubishi", "3000GT", "First Generation"),
+    ("z16a", "Mitsubishi", "3000GT", "First Generation"),
+    ("dodge stealth", "Mitsubishi", "3000GT", "First Generation"),
+    ("91-93 3000gt", "Mitsubishi", "3000GT", "First Generation"),
+    ("1991-1993 3000gt", "Mitsubishi", "3000GT", "First Generation"),
+    ("94-99 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
+    ("94-99 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
+    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "First Generation"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    # Mitsubishi Eclipse DSM / Eagle Talon + year-range multi-gen fitments
+    ("2g dsm", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("dsm eclipse", "Mitsubishi", "Eclipse", "First Generation"),
+    ("dsm eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("dsm gsx", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("1g dsm", "Mitsubishi", "Eclipse", "First Generation"),
+    ("eclipse gsx", "Mitsubishi", "Eclipse", "First Generation"),
+    ("eclipse gsx", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("eclipse gs-t", "Mitsubishi", "Eclipse", "First Generation"),
+    ("eclipse gs-t", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("eagle talon", "Mitsubishi", "Eclipse", "First Generation"),
+    ("eagle talon", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("1996-2000 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("1990-1994 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
+    ("1990-1994 eclipse", "Mitsubishi", "Eclipse", "First Generation"),
+    ("1990-1994 eclipse / talon", "Mitsubishi", "Eclipse", "First Generation"),
+    ("1990-1994 eclipse/talon", "Mitsubishi", "Eclipse", "First Generation"),
+    ("1995-1999 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("1995-1999 eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("1995-1999 eclipse / talon", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("90-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
+    ("89-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
+    ("95-99 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    # Mitsubishi Eclipse Cross / Lancer CE (new seeds) + Galant VR-4 + Ralliart
+    ("18-24 mitsubishi eclipse cross", "Mitsubishi", "Eclipse Cross", "1st Gen"),
+    ("mitsubishi eclipse cross", "Mitsubishi", "Eclipse Cross", "1st Gen"),
+    ("96-00 mitsubishi lancer", "Mitsubishi", "Lancer", "CE"),
+    ("91-99 mitsubishi galant vr4", "Mitsubishi", "Galant VR-4", "6th Generation"),
+    ("galant vr-4", "Mitsubishi", "Galant VR-4", "6th Generation"),
     # Infiniti G35 / G37 — already in DB (V35/V36) but "g35" bare name has no alias
     ("g35", "Infiniti", "G35", "V35"),
     ("infiniti g35", "Infiniti", "G35", "V35"),
@@ -782,6 +1313,52 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("2023 nissan z", "Nissan", "Z", "RZ34"),
     ("2024 nissan z", "Nissan", "Z", "RZ34"),
     ("rz34", "Nissan", "Z", "RZ34"),
+    # Nissan GT-R R35 + Skyline R32/R33/R34 (new seed) + JDM chassis codes + engine codes
+    ("2009-2018 nissan gt-r", "Nissan", "GT-R", "R35"),
+    ("2017-2019 nissan gt-r", "Nissan", "GT-R", "R35"),
+    ("nissan gt-r", "Nissan", "GT-R", "R35"),
+    ("gt-r r35", "Nissan", "GT-R", "R35"),
+    ("r35 gt-r", "Nissan", "GT-R", "R35"),
+    ("r35 gtr", "Nissan", "GT-R", "R35"),
+    ("nissan gtr", "Nissan", "GT-R", "R35"),
+    ("skyline r32", "Nissan", "Skyline", "R32"),
+    ("skyline r33", "Nissan", "Skyline", "R33"),
+    ("skyline r34", "Nissan", "Skyline", "R34"),
+    ("nissan r32", "Nissan", "Skyline", "R32"),
+    ("nissan r33", "Nissan", "Skyline", "R33"),
+    ("nissan r34", "Nissan", "Skyline", "R34"),
+    ("gt-r r32", "Nissan", "GT-R", "R32"),
+    ("gt-r r33", "Nissan", "GT-R", "R33"),
+    ("gt-r r34", "Nissan", "GT-R", "R34"),
+    ("bnr32", "Nissan", "GT-R", "R32"),
+    ("hcr32", "Nissan", "GT-R", "R32"),
+    ("bcnr33", "Nissan", "GT-R", "R33"),
+    ("ecr33", "Nissan", "GT-R", "R33"),
+    ("bnr34", "Nissan", "GT-R", "R34"),
+    ("er34", "Nissan", "GT-R", "R34"),
+    ("bnr32/bcnr33/bnr34", "Nissan", "GT-R", "R32"),
+    ("bnr32/bcnr33/bnr34", "Nissan", "GT-R", "R33"),
+    ("bnr32/bcnr33/bnr34", "Nissan", "GT-R", "R34"),
+    ("bcnr33/bnr34", "Nissan", "GT-R", "R33"),
+    ("bcnr33/bnr34", "Nissan", "GT-R", "R34"),
+    ("rb26", "Nissan", "GT-R", "R32"),
+    ("rb26", "Nissan", "GT-R", "R33"),
+    ("rb26", "Nissan", "GT-R", "R34"),
+    ("rb26dett", "Nissan", "GT-R", "R32"),
+    ("rb26dett", "Nissan", "GT-R", "R33"),
+    ("rb26dett", "Nissan", "GT-R", "R34"),
+    ("rb26/rb25/rb20", "Nissan", "GT-R", "R32"),
+    ("rb26/rb25/rb20", "Nissan", "GT-R", "R33"),
+    ("rb26/rb25/rb20", "Nissan", "GT-R", "R34"),
+    ("vr38", "Nissan", "GT-R", "R35"),
+    ("vr38dett", "Nissan", "GT-R", "R35"),
+    # Nissan Altima U13 / Sentra B13/B14 seed + Datsun Z-cars
+    ("93-97 nissan altima", "Nissan", "Altima", "U13"),
+    ("91-94 nissan sentra", "Nissan", "Sentra", "B13"),
+    ("95-99 nissan sentra", "Nissan", "Sentra", "B14"),
+    ("69-74 datsun 240z", "Datsun", "240Z", "S30"),
+    ("74-78 datsun 260z", "Datsun", "260Z", "S30"),
+    ("75-78 datsun 280z", "Datsun", "280Z", "S30"),
     # Chevrolet Camaro year-range patterns
     ("2010-2015 camaro", "Chevrolet", "Camaro", "5th Gen"),
     ("2010-2015 chevrolet camaro", "Chevrolet", "Camaro", "5th Gen"),
@@ -791,12 +1368,75 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("2016+ camaro", "Chevrolet", "Camaro", "6th Gen"),
     ("2016-2024 camaro", "Chevrolet", "Camaro", "6th Gen"),
     ("2016-2022 camaro", "Chevrolet", "Camaro", "6th Gen"),
+    # Chevrolet Camaro G5/G6 Katech shorthand + ZL1/Z28/1LE trim patterns
+    ("g5 camaro", "Chevrolet", "Camaro", "5th Gen"),
+    ("g6 camaro", "Chevrolet", "Camaro", "6th Gen"),
+    ("camaro g5", "Chevrolet", "Camaro", "5th Gen"),
+    ("camaro g6", "Chevrolet", "Camaro", "6th Gen"),
+    ("g5 camaro zl1", "Chevrolet", "Camaro", "5th Gen"),
+    ("g6 camaro zl1", "Chevrolet", "Camaro", "6th Gen"),
+    ("g5 camaro z28", "Chevrolet", "Camaro", "5th Gen"),
+    ("camaro zl1", "Chevrolet", "Camaro", "6th Gen"),
+    ("camaro 1le", "Chevrolet", "Camaro", "6th Gen"),
+    ("camaro z/28", "Chevrolet", "Camaro", "5th Gen"),
+    ("z/28 camaro", "Chevrolet", "Camaro", "5th Gen"),
+    ("10-15 camaro", "Chevrolet", "Camaro", "5th Gen"),
+    ("10-15 camaro ss", "Chevrolet", "Camaro", "5th Gen"),
+    ("16-24 camaro", "Chevrolet", "Camaro", "6th Gen"),
+    ("82-02 camaro", "Chevrolet", "Camaro", "3rd Gen"),
+    ("82-02 camaro", "Chevrolet", "Camaro", "4th Gen"),
+    ("82-92 fbody", "Chevrolet", "Camaro", "3rd Gen"),
+    ("2012-2015 camaro", "Chevrolet", "Camaro", "5th Gen"),
+    ("2012-2015 camaro zl1", "Chevrolet", "Camaro", "5th Gen"),
+    ("2017+ camaro zl1", "Chevrolet", "Camaro", "6th Gen"),
+    ("camaro zl1 1le", "Chevrolet", "Camaro", "6th Gen"),
+    ("1993-2001 camaro", "Chevrolet", "Camaro", "4th Gen"),
+    ("1993-2001 chevrolet camaro", "Chevrolet", "Camaro", "4th Gen"),
+    ("chevrolet camaro 1993-2001", "Chevrolet", "Camaro", "4th Gen"),
+    # Chevrolet Corvette C5/C6/C7/C8 variants + year-ranges
+    ("c8 z06", "Chevrolet", "Corvette", "C8"),
+    ("c8 corvette z06", "Chevrolet", "Corvette", "C8"),
+    ("c8 e-ray", "Chevrolet", "Corvette", "C8"),
+    ("c8 zr1", "Chevrolet", "Corvette", "C8"),
+    ("97-04 corvette", "Chevrolet", "Corvette", "C5"),
+    ("chevrolet corvette 2001-2004", "Chevrolet", "Corvette", "C5"),
+    ("chevrolet corvette 2005-2008", "Chevrolet", "Corvette", "C6"),
+    ("chevrolet corvette 2014+", "Chevrolet", "Corvette", "C7"),
+    ("2001-2004 corvette c5", "Chevrolet", "Corvette", "C5"),
+    ("2005-2008 corvette c6", "Chevrolet", "Corvette", "C6"),
+    ("2014+ corvette c7", "Chevrolet", "Corvette", "C7"),
+    ("2014+ chevrolet corvette", "Chevrolet", "Corvette", "C7"),
+    # Chevrolet SS (VF Commodore-based)
+    ("chevy ss", "Chevrolet", "SS", "VF Series"),
+    ("chevrolet ss sedan", "Chevrolet", "SS", "VF Series"),
+    # Chevrolet/GMC full-size pickups + SUVs — need seed (C5/C6)
+    ("silverado 1500", "Chevrolet", "Silverado", "K2"),
+    ("silverado ss", "Chevrolet", "Silverado", "GMT800"),
+    ("tahoe", "Chevrolet", "Tahoe", "GMT900"),
+    ("suburban", "Chevrolet", "Suburban", "GMT800"),
+    ("sierra 1500", "GMC", "Sierra", "K2"),
+    ("yukon denali", "GMC", "Yukon", "K2"),
+    # Cadillac CTS-V, CT5-V Blackwing, CT4-V Blackwing, Escalade — needs seed (C4)
+    ("escalade", "Cadillac", "Escalade", "K2"),
+    ("cadillac cts-v", "Cadillac", "CTS-V", "2nd Gen"),
+    ("cts-v gen 2", "Cadillac", "CTS-V", "2nd Gen"),
+    ("cts-v gen 3", "Cadillac", "CTS-V", "3rd Gen"),
+    ("09-15 cts-v", "Cadillac", "CTS-V", "2nd Gen"),
+    ("09-14 cts-v", "Cadillac", "CTS-V", "2nd Gen"),
+    ("2009-14 cts-v", "Cadillac", "CTS-V", "2nd Gen"),
+    ("2009-2015 cts-v", "Cadillac", "CTS-V", "2nd Gen"),
+    ("2016-2019 cadillac cts-v", "Cadillac", "CTS-V", "3rd Gen"),
+    ("ct5-v blackwing", "Cadillac", "CT5-V Blackwing", "1st Gen"),
+    ("ct4-v blackwing", "Cadillac", "CT4-V Blackwing", "1st Gen"),
+    # Holden Commodore VE
+    ("holden commodore ve", "Holden", "Commodore", "VE"),
     # Pontiac G8 (VE Commodore-based, 2008-2009; Pontiac brand discontinued 2010)
     ("pontiac g8", "Pontiac", "G8", "VE"),
     ("g8 gt", "Pontiac", "G8", "VE"),
     ("g8 gxp", "Pontiac", "G8", "VE"),
     # Pontiac GTO (Holden Monaro generation)
     ("pontiac gto", "Pontiac", "GTO", "Holden"),
+    ("04-06 gto", "Pontiac", "GTO", "Holden"),
     ("2004-2006 gto", "Pontiac", "GTO", "Holden"),
     ("2004 gto", "Pontiac", "GTO", "Holden"),
     ("2005 gto", "Pontiac", "GTO", "Holden"),
@@ -931,8 +1571,10 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("acura tlx", "Acura", "TLX", "1st Gen"),
     ("acura tlx", "Acura", "TLX", "2nd Gen"),
     ("tlx type-s", "Acura", "TLX", "2nd Gen"),
+    ("tlx type s", "Acura", "TLX", "2nd Gen"),  # no-hyphen variant
     ("acura tlx type-s", "Acura", "TLX", "2nd Gen"),
     ("2021+ acura tlx", "Acura", "TLX", "2nd Gen"),
+    ("2021-25 acura tlx type s", "Acura", "TLX", "2nd Gen"),
     ("2015-2020 acura tlx", "Acura", "TLX", "1st Gen"),
     # Acura NSX — NA1/NA2 and NC1; "acura nsx" spans both gens without year context
     ("acura nsx", "Acura", "NSX", "NA1/NA2"),
@@ -987,6 +1629,23 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("b5 audi s4/rs4", "Audi", "RS4", "B5"),
     ("b5 s4/rs4", "Audi", "S4", "B5"),
     ("b5 s4/rs4", "Audi", "RS4", "B5"),
+    # Audi combined A4/S4/RS4 B5 fitments (034 common product-title format)
+    ("b5 audi a4/s4/rs4", "Audi", "A4", "B5"),
+    ("b5 audi a4/s4/rs4", "Audi", "S4", "B5"),
+    ("b5 audi a4/s4/rs4", "Audi", "RS4", "B5"),
+    ("b5 a4/s4/rs4", "Audi", "A4", "B5"),
+    ("b5 a4/s4/rs4", "Audi", "S4", "B5"),
+    ("b5 a4/s4/rs4", "Audi", "RS4", "B5"),
+    ("b4/b5 audi a4/s4/rs4", "Audi", "A4", "B5"),
+    ("b4/b5 audi a4/s4/rs4", "Audi", "S4", "B5"),
+    ("b4/b5 audi a4/s4/rs4", "Audi", "RS4", "B5"),
+    # Audi C5 A6/S6/allroad bridging fitments ("B5 S4 & C5 A6" is a 034 pattern)
+    ("c5 a6/allroad", "Audi", "S6", "C5"),
+    ("b5 s4 & c5 a6", "Audi", "S4", "B5"),
+    ("b5 s4 & c5 a6", "Audi", "S6", "C5"),
+    # Audi RS3 8V explicit (blocks 8L Audi A3 displacement misfires)
+    ("2015-2021 audi rs3", "Audi", "RS3", "8V"),
+    ("audi rs3 8v", "Audi", "RS3", "8V"),
     # Audi UrS4 (C4 platform, 1991-1994) — "UrS4" is a community nickname, not an official model name.
     # The DB model is "S4 (UrS4)" generation "C4". "urs4/urs6" product titles pair with UrS6 = S6 C4.
     ("urs4", "Audi", "S4 (UrS4)", "C4"),
@@ -1059,6 +1718,55 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("mazdaspeed miata", "Mazda", "Miata", "NB"),
     ("mazdaspeed mx-5", "Mazda", "Miata", "NB"),
     ("mazdaspeed 6 turbo", "Mazda", "Mazda6", "GG/GY"),
+    # Mazda Miata engine-displacement aliases (BP/B6 engine codes now in AMBIGUOUS, so require miata context)
+    ("1.8 miata", "Mazda", "Miata", "NA"),
+    ("1.8 miata", "Mazda", "Miata", "NB"),
+    ("1.6 miata", "Mazda", "Miata", "NA"),
+    ("miata 1.8", "Mazda", "Miata", "NA"),
+    ("miata 1.8", "Mazda", "Miata", "NB"),
+    ("miata 1.6", "Mazda", "Miata", "NA"),
+    ("1.8 bp engine", "Mazda", "Miata", "NB"),
+    ("bp engine miata", "Mazda", "Miata", "NB"),
+    ("b6 miata engine", "Mazda", "Miata", "NA"),
+    ("1.6 b6 engine", "Mazda", "Miata", "NA"),
+    ("mazda bp engine", "Mazda", "Miata", "NB"),
+    ("1990-97 miata", "Mazda", "Miata", "NA"),
+    ("1994-00 miata", "Mazda", "Miata", "NA"),
+    ("1994-00 miata", "Mazda", "Miata", "NB"),
+    ("2001-05 miata", "Mazda", "Miata", "NB"),
+    ("nb2 miata", "Mazda", "Miata", "NB"),
+    ("miata nb2", "Mazda", "Miata", "NB"),
+    ("nb1 miata", "Mazda", "Miata", "NB"),
+    ("miata nb1", "Mazda", "Miata", "NB"),
+    ("1989-2005 mazda miata", "Mazda", "Miata", "NA"),
+    ("1989-2005 mazda miata", "Mazda", "Miata", "NB"),
+    ("1989-2005 miata", "Mazda", "Miata", "NA"),
+    ("1989-2005 miata", "Mazda", "Miata", "NB"),
+    ("1994-2005 1.8 mx-5 miata", "Mazda", "Miata", "NA"),
+    ("1994-2005 1.8 mx-5 miata", "Mazda", "Miata", "NB"),
+    # Mazda RX-7 JDM chassis codes + bare model forms
+    ("fd3s", "Mazda", "RX-7", "FD"),
+    ("rx-7 fd3s", "Mazda", "RX-7", "FD"),
+    ("rx7 fd3s", "Mazda", "RX-7", "FD"),
+    ("mazda rx-7 fd3s", "Mazda", "RX-7", "FD"),
+    ("fd3c", "Mazda", "RX-7", "FD"),
+    ("fc3s", "Mazda", "RX-7", "FC"),
+    ("rx-7 fc3s", "Mazda", "RX-7", "FC"),
+    ("mazda rx-7", "Mazda", "RX-7", "FC"),
+    ("mazda rx-7", "Mazda", "RX-7", "FD"),
+    ("mazda rx7", "Mazda", "RX-7", "FC"),
+    ("mazda rx7", "Mazda", "RX-7", "FD"),
+    ("93+ mazda rx-7", "Mazda", "RX-7", "FD"),
+    # Mazda RX-8 bare forms
+    ("mazda rx-8", "Mazda", "RX-8", "SE3P"),
+    ("rx-8", "Mazda", "RX-8", "SE3P"),
+    ("rx8", "Mazda", "RX-8", "SE3P"),
+    # Mazdaspeed 3 / Mazdaspeed Protegé / Mazdaspeed 6 year variants
+    ("mazdaspeed 3", "Mazda", "Mazda3", "BK"),
+    ("mazdaspeed3", "Mazda", "Mazda3", "BK"),
+    ("mazdaspeed 2.0 fs turbo", "Mazda", "Mazdaspeed Protegé", "BJ"),
+    ("mazda b2600", "Mazda", "B-Series Truck", "5th Gen"),
+    ("2005-2007 mazdaspeed 6", "Mazda", "Mazda6", "1st Gen"),
     # Audi S2 B4 — often grouped with RS2 in product titles ("S2/RS2", "B4 S2/RS2")
     ("audi s2", "Audi", "S2", "B4"),
     ("s2 coupe audi", "Audi", "S2", "B4"),
@@ -1125,6 +1833,158 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("wrx vab", "Subaru", "WRX", "VA"),
     ("wrx vaf", "Subaru", "WRX", "VA"),
     ("sti vab", "Subaru", "WRX", "VA"),
+    # Subaru WRX parens-chassis + multi-gen year-range fitments + BRZ/FRS/86 pairings
+    ("sti (gde)", "Subaru", "WRX", "GD"),
+    ("sti (gdf)", "Subaru", "WRX", "GD"),
+    ("sti (grb)", "Subaru", "WRX", "GR"),
+    ("sti (gvb)", "Subaru", "WRX", "GR"),
+    ("sti (gvf)", "Subaru", "WRX", "GR"),
+    ("sti (vab)", "Subaru", "WRX", "VA"),
+    ("sti (vaf)", "Subaru", "WRX", "VA"),
+    ("sti (vag)", "Subaru", "WRX", "VA"),
+    ("gde/gdf", "Subaru", "WRX", "GD"),
+    ("gvb/gvf", "Subaru", "WRX", "GR"),
+    ("vab/vaf/vag", "Subaru", "WRX", "VA"),
+    ("gc6", "Subaru", "WRX", "GC"),
+    ("gc6/gc8", "Subaru", "WRX", "GC"),
+    # Scion FR-S / Subaru BRZ / Toyota 86 (ZC6 / ZN6 1st-gen pair — seeded existing)
+    ("scion fr-s", "Subaru", "BRZ", "ZC6"),
+    ("scion fr-s", "Toyota", "86", "ZN6"),
+    ("frs/brz", "Subaru", "BRZ", "ZC6"),
+    ("frs/brz", "Toyota", "86", "ZN6"),
+    ("fr-s/brz", "Subaru", "BRZ", "ZC6"),
+    ("fr-s/brz", "Toyota", "86", "ZN6"),
+    ("2013-2016 scion fr-s", "Subaru", "BRZ", "ZC6"),
+    ("2013-2016 scion fr-s", "Toyota", "86", "ZN6"),
+    ("2013-2020 subaru brz", "Subaru", "BRZ", "ZC6"),
+    ("2013-2024 subaru brz", "Subaru", "BRZ", "ZC6"),
+    ("2013-2024 subaru brz", "Subaru", "BRZ", "ZD8"),
+    ("2017-2020 toyota 86", "Toyota", "86", "ZN6"),
+    ("2017-2019 toyota 86", "Toyota", "86", "ZN6"),
+    ("17-20 toyota 86", "Toyota", "86", "ZN6"),
+    ("2022-2024 subaru brz", "Subaru", "BRZ", "ZD8"),
+    # Subaru WRX/STI decade-spanning year-range patterns
+    ("2002-2014 subaru wrx", "Subaru", "WRX", "GD"),
+    ("2002-2014 subaru wrx", "Subaru", "WRX", "GR"),
+    ("02-14 wrx", "Subaru", "WRX", "GD"),
+    ("02-14 wrx", "Subaru", "WRX", "GR"),
+    ("02-14 subaru wrx", "Subaru", "WRX", "GD"),
+    ("02-14 subaru wrx", "Subaru", "WRX", "GR"),
+    ("2015-2021 subaru wrx", "Subaru", "WRX", "VA"),
+    ("2015-2021 subaru wrx / sti", "Subaru", "WRX", "VA"),
+    ("2015-2021 subaru wrx/sti", "Subaru", "WRX", "VA"),
+    ("2015-2021 wrx/sti", "Subaru", "WRX", "VA"),
+    ("2015-2021 wrx", "Subaru", "WRX", "VA"),
+    ("2008-2014 subaru wrx/sti", "Subaru", "WRX", "GR"),
+    ("2008-2014 subaru wrx / sti", "Subaru", "WRX", "GR"),
+    ("2008-2014 wrx/sti", "Subaru", "WRX", "GR"),
+    ("2008-2014 subaru wrx", "Subaru", "WRX", "GR"),
+    ("2006-2017 subaru wrx", "Subaru", "WRX", "GD"),
+    ("2006-2017 subaru wrx", "Subaru", "WRX", "GR"),
+    ("2006-2017 subaru wrx", "Subaru", "WRX", "VA"),
+    ("04-21 sti", "Subaru", "WRX", "GR"),
+    ("04-21 sti", "Subaru", "WRX", "VA"),
+    ("02-07 subaru wrx / sti", "Subaru", "WRX", "GD"),
+    ("2002-2007 subaru wrx / sti", "Subaru", "WRX", "GD"),
+    ("2002-2007 wrx/sti", "Subaru", "WRX", "GD"),
+    ("2002-2007 subaru wrx", "Subaru", "WRX", "GD"),
+    ("2007-2021 sti", "Subaru", "WRX", "GR"),
+    ("2007-2021 sti", "Subaru", "WRX", "VA"),
+    ("2002-2014 wrx", "Subaru", "WRX", "GD"),
+    ("2002-2014 wrx", "Subaru", "WRX", "GR"),
+    ("92-01 subaru impreza wrx", "Subaru", "WRX", "GC"),
+    ("92-01 impreza wrx", "Subaru", "WRX", "GC"),
+    ("11-14 subaru impreza sti", "Subaru", "WRX", "GR"),
+    ("08-14 impreza wrx hatchback", "Subaru", "WRX", "GR"),
+    ("06-21 sti", "Subaru", "WRX", "GR"),
+    ("06-21 sti", "Subaru", "WRX", "VA"),
+    ("06-14 wrx", "Subaru", "WRX", "GD"),
+    ("06-14 wrx", "Subaru", "WRX", "GR"),
+    # Subaru Forester XT year-range + bare forms
+    ("03-08 subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("04-07 subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("2004-2007 subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("2004-2008 subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("2004-07 subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("2014-2018 subaru forester", "Subaru", "Forester XT", "SJ"),
+    ("2009-2013 subaru forester xt", "Subaru", "Forester XT", "SH"),
+    ("04-13 fxt", "Subaru", "Forester XT", "SG"),
+    ("04-13 fxt", "Subaru", "Forester XT", "SH"),
+    ("04-08 fxt", "Subaru", "Forester XT", "SG"),
+    ("09-13 fxt", "Subaru", "Forester XT", "SH"),
+    ("subaru forester xt", "Subaru", "Forester XT", "SG"),
+    ("subaru forester xt", "Subaru", "Forester XT", "SH"),
+    ("forester xt", "Subaru", "Forester XT", "SG"),
+    ("forester xt", "Subaru", "Forester XT", "SH"),
+    # Subaru Ascent (new seed)
+    ("subaru ascent", "Subaru", "Ascent", "1st Gen"),
+    # Subaru Legacy parens+slash chassis forms + new BC/BJ/BF seed + BM/BR BN/BS year ranges
+    ("05-09 subaru legacy (bl9 / bp)", "Subaru", "Legacy", "BL/BP"),
+    ("subaru legacy bl9", "Subaru", "Legacy", "BL/BP"),
+    ("subaru legacy bp5", "Subaru", "Legacy", "BL/BP"),
+    ("95-99 subaru legacy", "Subaru", "Legacy", "BD/BG"),
+    ("subaru legacy bd", "Subaru", "Legacy", "BD/BG"),
+    ("subaru legacy bg", "Subaru", "Legacy", "BD/BG"),
+    ("90-94 subaru legacy", "Subaru", "Legacy", "BC/BJ/BF"),
+    ("10-14 subaru legacy", "Subaru", "Legacy", "BM/BR"),
+    ("15-19 subaru legacy", "Subaru", "Legacy", "BN/BS"),
+    # Subaru Baja (new seed)
+    ("03-06 subaru baja", "Subaru", "Baja", "BT"),
+    # Subaru Impreza base year-range fitments (pre-existing WRX distinctions)
+    ("16-21 subaru impreza", "Subaru", "Impreza", "GP/GJ"),
+    ("17-23 subaru impreza sport", "Subaru", "Impreza", "GP/GJ"),
+    # Mercedes G63 AMG (W463) + SL-Class R230 SL55 AMG
+    ("mercedes g63", "Mercedes", "G63 AMG", "W463"),
+    ("mercedes g63 amg", "Mercedes", "G63 AMG", "W463"),
+    ("g63 amg", "Mercedes", "G63 AMG", "W463"),
+    ("sl55 amg", "Mercedes", "SL-Class", "R230"),
+    ("mercedes benz sl55 amg", "Mercedes", "SL-Class", "R230"),
+    # Dodge Viper / Charger / Challenger year-range fitments
+    ("1996-2000 dodge viper", "Dodge", "Viper", "SR II"),
+    ("1996-2000 viper", "Dodge", "Viper", "SR II"),
+    ("2003-2006 dodge viper", "Dodge", "Viper", "ZB I"),
+    ("2006-2008 charger", "Dodge", "Charger", "LX"),
+    ("2006-2008 dodge charger", "Dodge", "Charger", "LX"),
+    ("2006-2008 charger/300c/magnum", "Dodge", "Charger", "LX"),
+    ("2006-2008 charger/300c", "Dodge", "Charger", "LX"),
+    ("2006-2014 charger", "Dodge", "Charger", "LX"),
+    ("2006-2014 charger", "Dodge", "Charger", "LD"),
+    ("2009-2014 charger", "Dodge", "Charger", "LD"),
+    ("2015+ charger", "Dodge", "Charger", "LD"),
+    ("2015+ dodge charger", "Dodge", "Charger", "LD"),
+    ("2015+ dodge charger hellcat", "Dodge", "Charger", "LD"),
+    ("dodge charger hellcat", "Dodge", "Charger", "LD"),
+    ("2008 challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2008 dodge challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2008-2014 challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2008-2014 dodge challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2009-2014 challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2015+ challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2015+ dodge challenger", "Dodge", "Challenger", "3rd Gen"),
+    ("2015+ challenger hellcat", "Dodge", "Challenger", "3rd Gen"),
+    ("challenger hellcat", "Dodge", "Challenger", "3rd Gen"),
+    ("challenger demon", "Dodge", "Challenger", "3rd Gen"),
+    ("2009-2014 challenger r/t", "Dodge", "Challenger", "3rd Gen"),
+    ("2009-2014 challenger srt8", "Dodge", "Challenger", "3rd Gen"),
+    # New-make aliases: Alfa Romeo / Land Rover / Jaguar / Saab / Volvo / Smart / Fiat / Pontiac GP / Mini Coupé+Roadster
+    ("alfa romeo 4c", "Alfa Romeo", "4C", "960"),
+    ("alfa romeo giulia", "Alfa Romeo", "Giulia", "Type 952"),
+    ("alfa romeo giulia quadrifoglio", "Alfa Romeo", "Giulia", "Type 952"),
+    ("alfa romeo stelvio", "Alfa Romeo", "Stelvio", "Type 949"),
+    ("stelvio quadrifoglio", "Alfa Romeo", "Stelvio", "Type 949"),
+    ("12-16 range rover evoque", "Land Rover", "Range Rover Evoque", "L538"),
+    ("12-19 range rover evoque", "Land Rover", "Range Rover Evoque", "L538"),
+    ("13-15 jaguar xf", "Jaguar", "XF", "X250"),
+    ("02-04 jaguar x-type", "Jaguar", "X-Type", "CF1"),
+    ("saab 9-3", "Saab", "9-3", "YS3F"),
+    ("volvo v40", "Volvo", "V40", "V1"),
+    ("volvo s40", "Volvo", "S40", "V1"),
+    ("2008-2014 smart fortwo", "Smart", "ForTwo", "W451"),
+    ("12-19 fiat 500", "Fiat", "500", "312"),
+    ("fiat 500 abarth", "Fiat", "500", "312"),
+    ("04-08 pontiac grand prix", "Pontiac", "Grand Prix", "8th Gen"),
+    ("12-15 mini coupé", "Mini", "Coupé", "R58"),
+    ("mini coupé r59", "Mini", "Roadster", "R59"),
     # Aston Martin Vantage — product titles use "V8 Vantage"/"V12 Vantage" without the make name
     ("v8 vantage", "Aston Martin", "Vantage", "V8 Vantage"),
     ("aston martin v8 vantage", "Aston Martin", "Vantage", "V8 Vantage"),
@@ -1137,13 +1997,84 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("00-06 toyota celica", "Toyota", "Celica", "7th Gen"),
     ("1999-2005 toyota celica", "Toyota", "Celica", "7th Gen"),
     ("2000-2005 toyota celica", "Toyota", "Celica", "7th Gen"),
+    ("90-93 toyota celica", "Toyota", "Celica", "5th Gen"),
     ("toyota celica", "Toyota", "Celica", "6th Gen"),  # broad: most parts target 6th/7th gen
     ("toyota celica", "Toyota", "Celica", "7th Gen"),
+    # Toyota Supra A90 B48 variant + 2.0/3.0 trim aliases
+    ("b48 supra", "Toyota", "Supra", "A90"),
+    ("supra 2.0", "Toyota", "Supra", "A90"),
+    ("supra 3.0", "Toyota", "Supra", "A90"),
+    # Toyota AE86 (Zenki/Kouki) — AE86 is in AMBIGUOUS_STANDALONE_CODES; require context
+    ("ae86", "Toyota", "AE86", "Zenki"),
+    ("ae86", "Toyota", "AE86", "Kouki"),
+    ("corolla ae86", "Toyota", "AE86", "Zenki"),
+    ("corolla ae86", "Toyota", "AE86", "Kouki"),
+    ("toyota corolla ae86", "Toyota", "AE86", "Zenki"),
+    ("toyota corolla ae86", "Toyota", "AE86", "Kouki"),
+    ("toyota ae86", "Toyota", "AE86", "Zenki"),
+    ("toyota ae86", "Toyota", "AE86", "Kouki"),
+    ("ae86 corolla", "Toyota", "AE86", "Zenki"),
+    ("ae86 corolla", "Toyota", "AE86", "Kouki"),
+    ("corolla gt-s (ae86)", "Toyota", "AE86", "Zenki"),
+    ("4a-ge ae86", "Toyota", "AE86", "Zenki"),
+    ("84-87 toyota corolla ae86", "Toyota", "AE86", "Zenki"),
+    ("84-87 toyota corolla ae86", "Toyota", "AE86", "Kouki"),
+    # Toyota Supra A80 JDM / A70 Mk3 chassis codes
+    ("jza80", "Toyota", "Supra", "A80"),
+    ("jza80 supra", "Toyota", "Supra", "A80"),
+    ("supra jza80", "Toyota", "Supra", "A80"),
+    ("toyota supra jza80", "Toyota", "Supra", "A80"),
+    ("ma70", "Toyota", "Supra", "A70"),
+    ("ma70 supra", "Toyota", "Supra", "A70"),
+    ("7mgt supra", "Toyota", "Supra", "A70"),
+    ("7m-gte", "Toyota", "Supra", "A70"),
+    ("86-92 toyota supra", "Toyota", "Supra", "A70"),
+    ("mk3 supra", "Toyota", "Supra", "A70"),
+    ("supra mk3", "Toyota", "Supra", "A70"),
+    ("mkiii supra", "Toyota", "Supra", "A70"),
+    ("mk3 toyota supra", "Toyota", "Supra", "A70"),
+    ("86-92 supra", "Toyota", "Supra", "A70"),
+    ("1986-1992 toyota supra", "Toyota", "Supra", "A70"),
+    ("1986-1992 supra", "Toyota", "Supra", "A70"),
+    ("1993-1998 toyota supra", "Toyota", "Supra", "A80"),
+    ("1993-1998 supra", "Toyota", "Supra", "A80"),
     # Toyota MR2 Spyder (W30) year-range aliases
     ("mr2 spyder", "Toyota", "MR2", "W30"),
     ("toyota mr2 spyder", "Toyota", "MR2", "W30"),
     ("00-05 toyota mr2", "Toyota", "MR2", "W30"),
     ("00-07 toyota mr2", "Toyota", "MR2", "W30"),
+    # Toyota MR2 JDM chassis codes (W10 = AW11, W20 = SW20, W30 = ZZW30)
+    ("sw20", "Toyota", "MR2", "W20"),
+    ("mr2 sw20", "Toyota", "MR2", "W20"),
+    ("toyota mr2 sw20", "Toyota", "MR2", "W20"),
+    ("sw20 mr2", "Toyota", "MR2", "W20"),
+    ("aw11", "Toyota", "MR2", "W10"),
+    ("mr2 aw11", "Toyota", "MR2", "W10"),
+    ("toyota mr2 aw11", "Toyota", "MR2", "W10"),
+    ("aw11 mr2", "Toyota", "MR2", "W10"),
+    ("toyota mrs zzw30", "Toyota", "MR2", "W30"),
+    ("mrs zzw30", "Toyota", "MR2", "W30"),
+    # Toyota Corolla E100 (AE100/AE101/AE111)
+    ("93-97 toyota corolla", "Toyota", "Corolla", "E100"),
+    ("93-02 toyota corolla", "Toyota", "Corolla", "E100"),
+    ("corolla ae101", "Toyota", "Corolla", "E100"),
+    ("corolla ae111", "Toyota", "Corolla", "E100"),
+    # Toyota Chaser (JZX100) / Cressida (MX83/MX73) engine-code aliases
+    ("toyota chaser", "Toyota", "Chaser", "JZX100"),
+    ("toyota cressida", "Toyota", "Cressida", "MX83"),
+    ("toyota cressida", "Toyota", "Cressida", "MX73"),
+    ("cressida 89-92", "Toyota", "Cressida", "MX83"),
+    ("cressida mx83", "Toyota", "Cressida", "MX83"),
+    ("mx83 cressida", "Toyota", "Cressida", "MX83"),
+    ("2jz-gte", "Toyota", "Supra", "A80"),
+    ("2jzgte", "Toyota", "Supra", "A80"),
+    ("1jz-gte", "Toyota", "Chaser", "JZX100"),
+    ("1jzgte", "Toyota", "Chaser", "JZX100"),
+    ("1jzgte vvti", "Toyota", "Chaser", "JZX100"),
+    ("3s-gte", "Toyota", "MR2", "W20"),
+    # 4U-GSE engine on Toyobaru (86/BRZ)
+    ("4u-gse", "Subaru", "BRZ", "ZC6"),
+    ("4u-gse", "Toyota", "86", "ZN6"),
     # Nissan Altima year-range aliases (generation codes L30/L31/L32/L34 rarely appear in product text)
     ("02-06 nissan altima", "Nissan", "Altima", "L30"),
     ("07-12 nissan altima", "Nissan", "Altima", "L31"),
@@ -1192,6 +2123,13 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("hyundai genesis coupe", "Hyundai", "Genesis Coupe", "BK2"),
     ("genesis coupe", "Hyundai", "Genesis Coupe", "BK"),
     ("genesis coupe", "Hyundai", "Genesis Coupe", "BK2"),
+    # Hyundai Genesis Coupe engine-trim aliases (2.0T / 3.8)
+    ("genesis 2.0t", "Hyundai", "Genesis Coupe", "BK"),
+    ("genesis 2.0t", "Hyundai", "Genesis Coupe", "BK2"),
+    ("hyundai genesis coupe 2.0t", "Hyundai", "Genesis Coupe", "BK"),
+    ("hyundai genesis coupe 2.0t", "Hyundai", "Genesis Coupe", "BK2"),
+    ("hyundai genesis coupe 3.8", "Hyundai", "Genesis Coupe", "BK"),
+    ("hyundai genesis coupe 3.8", "Hyundai", "Genesis Coupe", "BK2"),
     # Hyundai Veloster year-range aliases (FS/JS in AMBIGUOUS_STANDALONE_CODES)
     ("12-18 hyundai veloster", "Hyundai", "Veloster", "FS"),
     ("11-17 hyundai veloster", "Hyundai", "Veloster", "FS"),
@@ -1201,6 +2139,8 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("veloster turbo", "Hyundai", "Veloster", "FS"),
     ("veloster n", "Hyundai", "Veloster", "JS"),
     # Acura TL year-range aliases
+    ("96-98 acura tl", "Acura", "TL", "1st Gen"),
+    ("98-01 acura tl", "Acura", "TL", "2nd Gen"),
     ("99-03 acura tl", "Acura", "TL", "2nd Gen"),
     ("04-08 acura tl", "Acura", "TL", "3rd Gen"),
     ("09-14 acura tl", "Acura", "TL", "4th Gen"),
@@ -1209,11 +2149,15 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     # Acura RDX year-range aliases
     ("07-12 acura rdx", "Acura", "RDX", "TB1/TB2"),
     ("13-18 acura rdx", "Acura", "RDX", "TB3/TB4"),
+    ("2019-2021 acura rdx", "Acura", "RDX", "TC1"),
+    ("2019+ acura rdx", "Acura", "RDX", "TC1"),
+    ("2019 acura rdx", "Acura", "RDX", "TC1"),
     ("acura rdx", "Acura", "RDX", "TB1/TB2"),  # broad: TB1/TB2 turbo most tuning-popular
     ("acura rdx", "Acura", "RDX", "TB3/TB4"),
     # Acura ILX year-range aliases
     ("13-15 acura ilx", "Acura", "ILX", "DE3"),
     ("16-22 acura ilx", "Acura", "ILX", "DE3"),
+    ("16-23 acura ilx", "Acura", "ILX", "DE3"),
     ("acura ilx", "Acura", "ILX", "DE3"),
     # Acura Integra/RSX combined product name alias (often listed together in fitment guides)
     ("acura integra / rsx", "Acura", "RSX", "DC5"),
@@ -1228,6 +2172,19 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("acura integra", "Acura", "Integra", "4th Gen"),
     ("acura integra type-r", "Acura", "Integra Type R", "DC2"),
     ("integra type-r", "Acura", "Integra Type R", "DC2"),
+    # Acura Integra 5th Gen (2023+) — 5th Gen exists in seed but "acura integra" alias
+    # above broad-fires 3rd+4th; explicit 5th-Gen aliases needed for modern Integra.
+    ("2022 acura integra", "Acura", "Integra", "5th Gen"),
+    ("2023 acura integra", "Acura", "Integra", "5th Gen"),
+    ("2024 acura integra", "Acura", "Integra", "5th Gen"),
+    ("2023+ acura integra", "Acura", "Integra", "5th Gen"),
+    ("2023+ acura integra type-s", "Acura", "Integra", "5th Gen"),
+    ("2024 integra type s", "Acura", "Integra", "5th Gen"),
+    ("integra type s", "Acura", "Integra", "5th Gen"),
+    # Acura DA Integra 2nd Gen — "DA" is now in AMBIGUOUS_STANDALONE_CODES; require context.
+    ("90-93 acura da integra", "Acura", "Integra", "2nd Gen"),
+    ("da integra", "Acura", "Integra", "2nd Gen"),
+    ("acura da integra", "Acura", "Integra", "2nd Gen"),
     # Honda CR-V year-range aliases
     ("02-06 honda cr-v", "Honda", "CR-V", "RD4/RD5/RD6/RD7"),
     ("07-11 honda cr-v", "Honda", "CR-V", "RE"),
@@ -1293,11 +2250,66 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("honda civic si", "Honda", "Civic", "8th Gen"),  # Si trims across 8th/9th/10th
     ("honda civic si", "Honda", "Civic", "9th Gen"),
     ("honda civic si", "Honda", "Civic", "10th Gen"),
+    # Honda Civic FE1/FL1/FL2 (11th Gen), FC/FK7 (10th Gen), EM/EJ/EK/EP3/EK9/D16 codes,
+    # plus 3rd-7th Gen year-range fitments.
+    ("2017-2019 honda civic si", "Honda", "Civic", "10th Gen"),
+    ("2017-2020 honda civic type r", "Honda", "Civic Type R", "FK8"),
+    ("2017-2020 civic type r", "Honda", "Civic Type R", "FK8"),
+    ("2017-2021 honda civic type r", "Honda", "Civic Type R", "FK8"),
+    ("2017-2022 honda cr-v", "Honda", "CR-V", "RW"),
+    ("2023+ honda cr-v", "Honda", "CR-V", "RW"),
+    ("2018-2022 honda accord", "Honda", "Accord", "10th Gen"),
+    ("2012-2015 honda civic si", "Honda", "Civic", "9th Gen"),
+    ("2017-2021 honda civic si", "Honda", "Civic", "10th Gen"),
+    ("civic fe1", "Honda", "Civic", "11th Gen"),
+    ("fe1 civic", "Honda", "Civic", "11th Gen"),
+    ("honda civic fe1", "Honda", "Civic", "11th Gen"),
+    ("civic si fe1", "Honda", "Civic", "11th Gen"),
+    ("civic (fe1)", "Honda", "Civic", "11th Gen"),
+    ("fl1", "Honda", "Civic", "11th Gen"),
+    ("fl2", "Honda", "Civic", "11th Gen"),
+    ("civic fc", "Honda", "Civic", "10th Gen"),
+    ("civic (fc)", "Honda", "Civic", "10th Gen"),
+    ("fc civic", "Honda", "Civic", "10th Gen"),
+    ("fk7", "Honda", "Civic", "10th Gen"),
+    ("civic fk7", "Honda", "Civic", "10th Gen"),
+    ("civic em", "Honda", "Civic", "7th Gen"),
+    ("civic (em)", "Honda", "Civic", "7th Gen"),
+    ("em1", "Honda", "Civic", "7th Gen"),
+    ("em2", "Honda", "Civic", "7th Gen"),
+    ("civic ep3", "Honda", "Civic Type R", "EP3"),
+    ("ep3 civic", "Honda", "Civic Type R", "EP3"),
+    ("ek9", "Honda", "Civic Type R", "EK9"),
+    ("ek9 civic", "Honda", "Civic Type R", "EK9"),
+    ("d16", "Honda", "Civic", "6th Gen"),
+    ("honda civic d16", "Honda", "Civic", "6th Gen"),
+    ("ej civic", "Honda", "Civic", "6th Gen"),
+    ("ek civic", "Honda", "Civic", "6th Gen"),
+    ("civic (ej / ek)", "Honda", "Civic", "6th Gen"),
+    ("civic (ej/ek)", "Honda", "Civic", "6th Gen"),
+    ("84-87 honda civic", "Honda", "Civic", "3rd Gen"),
+    ("88-91 honda civic", "Honda", "Civic", "4th Gen"),
+    ("92-95 honda civic", "Honda", "Civic", "5th Gen"),
+    ("96-00 honda civic", "Honda", "Civic", "6th Gen"),
+    ("eg civic", "Honda", "Civic", "5th Gen"),
+    ("honda eg civic", "Honda", "Civic", "5th Gen"),
+    ("honda ek civic", "Honda", "Civic", "6th Gen"),
+    ("78-79 honda civic", "Honda", "Civic", "1st Gen"),
+    ("honda civic cvcc", "Honda", "Civic", "1st Gen"),
+    # Honda Prelude / Odyssey RA
+    ("92-01 honda prelude", "Honda", "Prelude", "4th Gen"),
+    ("92-01 honda prelude", "Honda", "Prelude", "5th Gen"),
+    ("94-98 honda odyssey", "Honda", "Odyssey", "RA"),
+    ("94-98 honda odyssey (ra1-5)", "Honda", "Odyssey", "RA"),
+    ("honda odyssey ra", "Honda", "Odyssey", "RA"),
     # Honda Accord year-range aliases (same issue — trim names interrupt make/model/gen)
     ("03-07 honda accord", "Honda", "Accord", "7th Gen"),
     ("08-12 honda accord", "Honda", "Accord", "8th Gen"),
     ("13-17 honda accord", "Honda", "Accord", "9th Gen"),
     ("18-22 honda accord", "Honda", "Accord", "10th Gen"),
+    ("90-97 honda accord", "Honda", "Accord", "4th Gen"),
+    ("90-97 honda accord", "Honda", "Accord", "5th Gen"),
+    ("98-02 honda accord", "Honda", "Accord", "6th Gen"),
     # Toyota Camry year-range aliases (gen codes XV10/XV20/etc. rarely appear in product titles)
     ("97-01 toyota camry", "Toyota", "Camry", "XV20"),
     ("02-06 toyota camry", "Toyota", "Camry", "XV30"),
@@ -1375,6 +2387,24 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("06-11 lexus gs", "Lexus", "GS", "GRS190"),
     ("12-20 lexus gs", "Lexus", "GS", "GRL10"),
     ("98-05 lexus gs", "Lexus", "GS", "JZS160"),
+    ("97-05 lexus gs400", "Lexus", "GS", "JZS160"),
+    ("lexus gs400 jzs161", "Lexus", "GS", "JZS160"),
+    ("jzs161", "Lexus", "GS", "JZS160"),
+    # Lexus IS JDM chassis codes + is300c + extended year ranges
+    ("lexus is300 sxe10", "Lexus", "IS", "XE10"),
+    ("is300 sxe10", "Lexus", "IS", "XE10"),
+    ("sxe10", "Lexus", "IS", "XE10"),
+    ("18-23 lexus is", "Lexus", "IS", "XE30"),
+    ("10-15 lexus is250c", "Lexus", "IS", "XE20"),
+    ("toyota is300", "Lexus", "IS", "XE10"),
+    ("is300 2000-2005", "Lexus", "IS", "XE10"),
+    ("2000-2005 is300", "Lexus", "IS", "XE10"),
+    ("is300 1998-2005", "Lexus", "IS", "XE10"),
+    # Lexus LS UCF10 + LS400 + RX (new seed) + year ranges
+    ("95-00 lexus ls400", "Lexus", "LS", "UCF10"),
+    ("lexus ls400", "Lexus", "LS", "UCF10"),
+    ("04-09 lexus rx330", "Lexus", "RX", "XU30"),
+    ("04-09 lexus rx350", "Lexus", "RX", "XU30"),
     # Mitsubishi Eclipse year-range aliases (gen names "Third Generation" etc. don't appear in product text)
     ("00-05 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Third Generation"),
     ("06-12 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Fourth Generation"),
@@ -1428,6 +2458,47 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("vw touareg", "Volkswagen", "Touareg", "7P"),
     ("touareg", "Volkswagen", "Touareg", "7L"),
     ("touareg", "Volkswagen", "Touareg", "7P"),
+    # VW R32 Mk4/Mk5 explicit forms (VR6 / Golf IV/V R32)
+    ("mk5 volkswagen r32", "Volkswagen", "R32", "Mk5"),
+    ("mkv volkswagen r32", "Volkswagen", "R32", "Mk5"),
+    ("mk4 volkswagen r32", "Volkswagen", "R32", "Mk4"),
+    ("mkiv volkswagen r32", "Volkswagen", "R32", "Mk4"),
+    ("2004 volkswagen golf iv r32", "Volkswagen", "R32", "Mk4"),
+    ("volkswagen golf iv r32", "Volkswagen", "R32", "Mk4"),
+    ("golf iv r32 4motion", "Volkswagen", "R32", "Mk4"),
+    ("volkswagen golf v r32", "Volkswagen", "R32", "Mk5"),
+    ("golf v r32", "Volkswagen", "R32", "Mk5"),
+    # VW Passat B5/B6/B7 (new seed) + Passat CC + W8 + Jetta / Golf / GTI multi-gen fitments
+    ("06-11 volkswagen passat (b6)", "Volkswagen", "Passat", "B6"),
+    ("volkswagen passat b6", "Volkswagen", "Passat", "B6"),
+    ("volkswagen passat b7", "Volkswagen", "Passat", "B7"),
+    ("09-17 volkswagen passat cc", "Volkswagen", "Passat CC", "B6/B7"),
+    ("volkswagen passat cc", "Volkswagen", "Passat CC", "B6/B7"),
+    ("02-04 volkswagen passat w8", "Volkswagen", "Passat", "B5/B5.5"),
+    ("passat w8", "Volkswagen", "Passat", "B5/B5.5"),
+    ("passat 3bs", "Volkswagen", "Passat", "B5/B5.5"),
+    ("85-99 volkswagen jetta", "Volkswagen", "Jetta", "Mk2"),
+    ("85-99 volkswagen jetta", "Volkswagen", "Jetta", "Mk3"),
+    ("vw jetta mk2 / mk3", "Volkswagen", "Jetta", "Mk2"),
+    ("vw jetta mk2 / mk3", "Volkswagen", "Jetta", "Mk3"),
+    ("84-97 volkswagen golf", "Volkswagen", "Golf", "Mk2"),
+    ("84-97 volkswagen golf", "Volkswagen", "Golf", "Mk3"),
+    ("1987-1992 vw golf", "Volkswagen", "Golf", "Mk2"),
+    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk2"),
+    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk2"),
+    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk2"),
+    ("1987-1992 vw jetta", "Volkswagen", "Jetta", "Mk2"),
+    ("1993-1998 vw golf", "Volkswagen", "Golf", "Mk3"),
+    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk3"),
+    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk3"),
+    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk3"),
+    ("1999-2005 volkswagen golf", "Volkswagen", "Golf", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "Golf", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "GTI", "Mk4"),
+    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "Jetta", "Mk4"),
     # Subaru Legacy year-range aliases — generation codes use "/" ("BE/BH") which fails substring
     # matching when product titles space-pad the slash ("Legacy (BE / BH)").
     ("00-04 subaru legacy", "Subaru", "Legacy", "BE/BH"),
@@ -1472,6 +2543,8 @@ _CHARGER_LB_PHRASES = ("charger lb", "dodge charger lb")
 
 # Units / suffixes that turn a bare numeric phrase into a measurement rather than a chassis code.
 # "970% downforce", "992 kph", "718 nm", "911 hp" are not car-generation references.
+# Also includes displacement ("2.7L"), forced-induction ("1.8T"), bore/length ('3.997"'),
+# and imperial linear ("4.930in", "383ci") forms that collide with Porsche/VAG chassis codes.
 _NUMERIC_UNIT_SUFFIXES = (
     "%",
     "mm",
@@ -1488,6 +2561,17 @@ _NUMERIC_UNIT_SUFFIXES = (
     "lb-ft",
     "ft-lb",
     "ft/lb",
+    # Displacement / forced-induction suffix forms
+    "l",  # "2.7L", "3.8L" displacement
+    "t",  # "1.8T", "2.0T", "2.7T" forced induction
+    "tfsi",
+    "tsi",
+    # Imperial linear
+    "in",  # 4.930in
+    "ci",  # cubic inches
+    "cid",
+    "cu",
+    "cubic",
 )
 
 
@@ -1496,14 +2580,25 @@ def _is_numeric_measurement_context(text_lower: str, phrase_lower: str) -> bool:
     True if a bare-numeric phrase (e.g. "970", "992") appears only as "<number><unit>"
     or "<number> <unit>" in the text — i.e. it's describing a measurement, not a chassis.
     Checks every occurrence; if any is not a measurement, inference can still fire.
+
+    Also rejects when the phrase appears as the fractional portion of a decimal value
+    (`3.997"`, `4.930in`, `3,8L` Euro-comma) — in every observed case that is a
+    bore/displacement figure, never a chassis code.
     """
     if not phrase_lower.isdigit():
         return False
-    pattern = re.compile(r"\b" + re.escape(phrase_lower) + r"\b\s*([A-Za-z%\-/]+)?")
+    # Reject decimal-fractional occurrences outright (e.g. "3.997\"", "4.930in", "3,8L").
+    if re.search(rf"[0-9][.,]{re.escape(phrase_lower)}\b", text_lower):
+        return True
+    # Capture a trailing measurement suffix. Allow `"` (inch glyph) in addition to the
+    # alphabetic/%/-// characters, since it is not alphabetic but is a valid unit.
+    pattern = re.compile(r"\b" + re.escape(phrase_lower) + r'\b\s*(["A-Za-z%\-/]+)?')
     any_match = False
     for m in pattern.finditer(text_lower):
         any_match = True
         suffix = (m.group(1) or "").lower()
+        if suffix.startswith('"'):
+            continue
         if not suffix.startswith(_NUMERIC_UNIT_SUFFIXES):
             return False
     return any_match
