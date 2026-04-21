@@ -68,6 +68,9 @@ const ReportReview = lazy(() => import('./pages/admin/ReportReview.tsx'));
 const BugReportReview = lazy(() => import('./pages/admin/BugReportReview.tsx'));
 const CrawlerAdmin = lazy(() => import('./pages/admin/CrawlerAdmin.tsx'));
 const SystemAdmin = lazy(() => import('./pages/admin/SystemAdmin.tsx'));
+const SystemStatistics = lazy(
+  () => import('./pages/admin/SystemStatistics.tsx')
+);
 const BugReport = lazy(() => import('./pages/BugReport.tsx'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'));
 const PartsCuration = lazy(() => import('./pages/admin/PartsCuration.tsx'));
@@ -256,6 +259,10 @@ function App() {
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/crawler" element={<CrawlerAdmin />} />
                 <Route path="/admin/system" element={<SystemAdmin />} />
+                <Route
+                  path="/admin/statistics"
+                  element={<SystemStatistics />}
+                />
                 <Route
                   path="/admin/parts-curation"
                   element={<PartsCuration />}

@@ -69,6 +69,24 @@ def main() -> None:
 
     logger.info("ECS archive rescrape task starting: job_id=%s", job_id)
 
+    def _progress(processed: int, total: int, counts_snapshot: dict[str, int]) -> None:
+        # ECS-backed jobs still have a BackgroundJob row; pushing partial
+        # progress there lets the admin UI draw a live bar just like the
+        # in-process dev fallback.
+        if job_id is None:
+            return
+        pdb = SessionLocal()
+        try:
+            job_service.update_job_progress(
+                pdb,
+                job_id,
+                {**counts_snapshot, "processed": processed, "total": total},
+            )
+        except Exception:
+            logger.exception("Failed to write progress for ECS rescrape job #%s", job_id)
+        finally:
+            pdb.close()
+
     db = SessionLocal()
     try:
         crawler_user = resolve_crawler_user(db, user_id)
@@ -79,6 +97,7 @@ def main() -> None:
             crawler_user=crawler_user,
             default_category_id=cat_id,
             log=logger,
+            progress_callback=_progress,
         )
         logger.info("ECS archive rescrape task completed: %s", counts)
 

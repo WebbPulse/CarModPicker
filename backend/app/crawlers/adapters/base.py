@@ -35,10 +35,17 @@ class RetailerCrawlerAdapter(ABC):
     FETCHER_TIER: ClassVar[FetcherTier] = "http"
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
-        # The runner passes in a fetcher matched to FETCHER_TIER so adapters
-        # don't have to know which concrete class they got. Constructed lazily
-        # here for direct instantiation (tests, REPL, one-off scripts).
-        self.fetcher: Fetcher = fetcher if fetcher is not None else get_fetcher(self.FETCHER_TIER)
+        # Defer default-fetcher construction until first access. Archive rescrape
+        # instantiates adapters only to call parse_product_page() — it never
+        # touches self.fetcher — so it shouldn't have to satisfy discovery-time
+        # config (e.g. FLARESOLVERR_URL) for browser-tier adapters.
+        self._fetcher: Optional[Fetcher] = fetcher
+
+    @property
+    def fetcher(self) -> Fetcher:
+        if self._fetcher is None:
+            self._fetcher = get_fetcher(self.FETCHER_TIER)
+        return self._fetcher
 
     @abstractmethod
     def discover_product_urls(self) -> Iterator[str]:

@@ -106,10 +106,9 @@ export const BUILDER_SUBSEQUENT_PAGE_BUILD_LISTS = 8;
 
 /**
  * Chrome Web Store listing for the CarModPicker Part Scraper extension.
- * Update this once the extension is published.
  */
 export const CHROME_EXTENSION_STORE_URL =
-  'https://chromewebstore.google.com/category/extensions';
+  'https://chromewebstore.google.com/detail/dbglgmnnfandmnacdpibkfggkadjikkg?utm_source=item-share-cb';
 
 /**
  * `dataset` key the extension's content script sets on <html> when running on

@@ -384,6 +384,67 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
   );
 }
 
+function ArchiveRescrapeProgress({
+  summary,
+  elapsed,
+}: {
+  summary: Record<string, unknown> | null | undefined;
+  elapsed: string;
+}) {
+  const processed = Number(summary?.['processed'] ?? 0);
+  const total = Number(summary?.['total'] ?? 0);
+  const hasTotal = total > 0;
+  const pct = hasTotal
+    ? Math.min(100, Math.max(0, Math.round((processed / total) * 100)))
+    : 0;
+  const ok = Number(summary?.['parsed_ok'] ?? 0);
+  const failed =
+    Number(summary?.['parse_failed'] ?? 0) +
+    Number(summary?.['ingest_failed'] ?? 0);
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <div className="flex items-center gap-2 text-yellow-400/80">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+          </span>
+          {hasTotal ? (
+            <span>
+              <span className="font-mono">
+                {processed.toLocaleString()} / {total.toLocaleString()}
+              </span>{' '}
+              pages <span className="text-gray-500">· {pct}%</span>
+            </span>
+          ) : (
+            <span>Queuing pages…</span>
+          )}
+        </div>
+        <span className="text-gray-500">{elapsed}</span>
+      </div>
+      <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">
+        <div
+          className="h-full bg-emerald-500/80 transition-[width] duration-500 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {hasTotal && (ok > 0 || failed > 0) && (
+        <div className="flex gap-3 mt-1.5 text-[10px] text-gray-400">
+          <span>
+            <span className="text-emerald-400">{ok.toLocaleString()}</span> ok
+          </span>
+          {failed > 0 && (
+            <span>
+              <span className="text-red-400">{failed.toLocaleString()}</span>{' '}
+              failed
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ArchiveRescrapeResult({
   summary,
 }: {
@@ -2098,38 +2159,55 @@ function CrawlerAdmin() {
                               />
                             </div>
                           )}
-                          {isRunning && job.job_type !== 'crawler_run' && (
-                            <div className="flex items-center gap-2 text-xs text-yellow-400/80">
-                              <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
-                              </span>
-                              Running for {elapsed} — results will appear when
-                              the job completes
-                            </div>
+                          {isRunning && job.job_type === 'archive_rescrape' && (
+                            <ArchiveRescrapeProgress
+                              summary={job.result_summary}
+                              elapsed={elapsed}
+                            />
                           )}
+                          {isRunning &&
+                            job.job_type !== 'crawler_run' &&
+                            job.job_type !== 'archive_rescrape' && (
+                              <div className="flex items-center gap-2 text-xs text-yellow-400/80">
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+                                </span>
+                                Running for {elapsed} — results will appear when
+                                the job completes
+                              </div>
+                            )}
 
-                          {/* Result summary */}
-                          {job.result_summary && (
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                Result
-                              </p>
-                              {job.job_type === 'crawler_run' ? (
-                                <CrawlerRunResult
-                                  summary={job.result_summary}
-                                />
-                              ) : job.job_type === 'archive_rescrape' ? (
-                                <ArchiveRescrapeResult
-                                  summary={job.result_summary}
-                                />
-                              ) : (
-                                <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                                  {JSON.stringify(job.result_summary, null, 2)}
-                                </pre>
-                              )}
-                            </div>
-                          )}
+                          {/* Result summary — hidden while an archive rescrape
+                              is running because ArchiveRescrapeProgress above
+                              already visualises the live snapshot. */}
+                          {job.result_summary &&
+                            !(
+                              isRunning && job.job_type === 'archive_rescrape'
+                            ) && (
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                                  Result
+                                </p>
+                                {job.job_type === 'crawler_run' ? (
+                                  <CrawlerRunResult
+                                    summary={job.result_summary}
+                                  />
+                                ) : job.job_type === 'archive_rescrape' ? (
+                                  <ArchiveRescrapeResult
+                                    summary={job.result_summary}
+                                  />
+                                ) : (
+                                  <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                                    {JSON.stringify(
+                                      job.result_summary,
+                                      null,
+                                      2
+                                    )}
+                                  </pre>
+                                )}
+                              </div>
+                            )}
 
                           {/* Error */}
                           {job.error_message && (

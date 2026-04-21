@@ -1113,6 +1113,21 @@ async def _run_rescrape_in_process(
     Only used when ECS is not configured (i.e. local development).
     """
 
+    def _progress(processed: int, total: int, counts_snapshot: dict[str, int]) -> None:
+        # Dedicated short-lived session — the driver thread's ``db`` is the
+        # main rescrape session and we don't want to share its transaction.
+        pdb = SessionLocal()
+        try:
+            job_service.update_job_progress(
+                pdb,
+                job_id,
+                {**counts_snapshot, "processed": processed, "total": total},
+            )
+        except Exception:
+            logger.exception("Failed to write progress for rescrape job #%s", job_id)
+        finally:
+            pdb.close()
+
     def _blocking() -> None:
         db = SessionLocal()
         try:
@@ -1124,6 +1139,7 @@ async def _run_rescrape_in_process(
                 default_category_id=cat_id,
                 log=logger,
                 stop_event=stop_event,
+                progress_callback=_progress,
             )
             job_service.complete_job(db, job_id, result_summary=counts)
             _notify_job_completion(job_id)

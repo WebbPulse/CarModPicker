@@ -155,6 +155,27 @@ def heartbeat_job(
     return job
 
 
+def update_job_progress(
+    db: Session,
+    job_id: UUID,
+    result_summary: dict[str, Any],
+) -> Optional[BackgroundJob]:
+    """
+    Write a partial ``result_summary`` to a running job so the admin UI can
+    render a live progress bar without a bespoke progress table.
+
+    No-op once the job is terminal — the final ``complete_job`` / ``fail_job``
+    write is authoritative and we must not stomp it.
+    """
+    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    if job is None or job.status != "running":
+        return job
+    job.result_summary = result_summary
+    db.commit()
+    db.refresh(job)
+    return job
+
+
 def _is_ecs_backed(job: BackgroundJob) -> bool:
     """True when this job's execution is owned by an ECS Fargate task."""
     params = job.params or {}
