@@ -415,6 +415,37 @@ async def count_crawled_pages_by_source(
 
 
 # ---------------------------------------------------------------------------
+# GET /counts-by-source-and-status — Admin: catalog completeness breakdown
+# ---------------------------------------------------------------------------
+
+
+@router.get("/counts-by-source-and-status", response_model=dict[str, dict[str, int]])
+async def count_crawled_pages_by_source_and_status(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, dict[str, int]]:
+    """Admin only: crawled_pages row count per (source, parse_status). Drives the
+    parsed/total progress indicator in CrawlerAdmin — lets us see how close each
+    adapter is to a full catalog even across interrupted runs."""
+    from sqlalchemy import func
+
+    rows = (
+        db.query(DBCrawledPage.source, DBCrawledPage.parse_status, func.count(DBCrawledPage.id))
+        .group_by(DBCrawledPage.source, DBCrawledPage.parse_status)
+        .all()
+    )
+    result: dict[str, dict[str, int]] = {}
+    for source, status, count in rows:
+        result.setdefault(source, {})[status] = count
+    logger.info(
+        "Admin %s retrieved crawled_pages counts-by-source-and-status: %s sources",
+        current_user.id,
+        len(result),
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
 # GET /  — Admin: list archived pages
 # ---------------------------------------------------------------------------
 

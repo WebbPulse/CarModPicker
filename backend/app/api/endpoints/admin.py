@@ -14,6 +14,7 @@ import secrets
 import subprocess  # nosec B404 - Used safely for running database migrations
 import threading
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -1325,6 +1326,88 @@ async def get_background_job(
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
     return BackgroundJobRead.model_validate(job)
+
+
+class CrawlerAdapterProgress(BaseModel):
+    parsed_this_run: int
+    last_parsed_at: Optional[datetime] = None
+
+
+class CrawlerJobProgress(BaseModel):
+    job_id: UUID
+    status: str
+    started_at: Optional[datetime] = None
+    now: datetime
+    adapters: dict[str, CrawlerAdapterProgress]
+
+
+@router.get(
+    "/jobs/{job_id}/crawler-progress",
+    response_model=CrawlerJobProgress,
+    responses=standard_responses(
+        success_description="Per-adapter live progress for a crawler_run job",
+        forbidden=True,
+    ),
+)
+async def get_crawler_job_progress(
+    job_id: UUID,
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> CrawlerJobProgress:
+    """
+    Per-adapter live progress for a crawler_run job.
+
+    Counts crawled_pages rows whose last_parsed_at falls inside the job's
+    lifetime (>= started_at). Because pending rows have no last_parsed_at,
+    only successful parses since job start are counted here — which is exactly
+    what an operator wants to see as a live "this run has ingested X URLs
+    from adapter Y" signal. last_parsed_at for each adapter doubles as a
+    liveness indicator (stalled adapters have stale timestamps).
+    """
+    job = job_service.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+    if job.job_type != "crawler_run":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Job {job_id} is not a crawler_run job (type={job.job_type}).",
+        )
+
+    params = job.params or {}
+    selected: list[str] = list(params.get("adapters") or [])
+
+    adapters: dict[str, CrawlerAdapterProgress] = {
+        name: CrawlerAdapterProgress(parsed_this_run=0, last_parsed_at=None) for name in selected
+    }
+
+    if selected and job.started_at is not None:
+        rows = (
+            db.query(
+                DBCrawledPage.source,
+                func.count(DBCrawledPage.id),
+                func.max(DBCrawledPage.last_parsed_at),
+            )
+            .filter(
+                DBCrawledPage.source.in_(selected),
+                DBCrawledPage.last_parsed_at.isnot(None),
+                DBCrawledPage.last_parsed_at >= job.started_at,
+            )
+            .group_by(DBCrawledPage.source)
+            .all()
+        )
+        for source, count, last_at in rows:
+            adapters[source] = CrawlerAdapterProgress(
+                parsed_this_run=count,
+                last_parsed_at=last_at,
+            )
+
+    return CrawlerJobProgress(
+        job_id=job.id,
+        status=job.status,
+        started_at=job.started_at,
+        now=datetime.now(timezone.utc),
+        adapters=adapters,
+    )
 
 
 @router.post(

@@ -13,6 +13,7 @@ import type {
   BackgroundJobList,
   CrawlerAdapterConfig,
   CrawlerAdapterConfigUpdate,
+  CrawlerJobProgress,
   CrawlerRunRequest,
   CrawlerRunResponse,
   CrawlerSchedule,
@@ -340,6 +341,265 @@ function jobInlineSummary(job: BackgroundJob): string | null {
   return null;
 }
 
+function adapterProgressLabel(
+  counts: Record<string, number> | undefined
+): { parsed: number; total: number; tooltip: string } | null {
+  if (!counts) return null;
+  const parsed = counts['parsed'] ?? 0;
+  const pending = counts['pending'] ?? 0;
+  const gone = counts['gone'] ?? 0;
+  const failed = counts['failed'] ?? 0;
+  const total = parsed + pending + gone + failed;
+  if (total === 0) return null;
+  const tooltip = `parsed: ${parsed.toLocaleString()} · pending: ${pending.toLocaleString()} · gone: ${gone.toLocaleString()} · failed: ${failed.toLocaleString()}`;
+  return { parsed, total, tooltip };
+}
+
+// Determine an adapter's target URL count for this run so we can draw a
+// proportional progress bar. Falls back through per-adapter limit → global
+// limit → the adapter's known catalog size (parsed + pending + gone).
+function effectiveRunTarget(
+  adapter: string,
+  params: Record<string, unknown> | null,
+  statusCounts: Record<string, number> | undefined
+): number | null {
+  const limits = (params?.['limits'] ?? {}) as Record<string, number | null>;
+  const perAdapter = limits?.[adapter];
+  if (typeof perAdapter === 'number' && perAdapter > 0) return perAdapter;
+  const globalLimit = params?.['global_limit'];
+  if (typeof globalLimit === 'number' && globalLimit > 0) return globalLimit;
+  if (statusCounts) {
+    const parsed = statusCounts['parsed'] ?? 0;
+    const pending = statusCounts['pending'] ?? 0;
+    const gone = statusCounts['gone'] ?? 0;
+    const total = parsed + pending + gone;
+    if (total > 0) return total;
+  }
+  return null;
+}
+
+// Classify per-adapter activity based on how recently last_parsed_at was
+// updated vs the server-side `now` timestamp. Used to color-code rows and
+// differentiate "actively working" from "probably done or queued".
+type ActivityLevel = 'active' | 'idle' | 'stalled' | 'queued' | 'done';
+
+function classifyActivity(
+  lastParsedAt: string | null,
+  serverNowIso: string,
+  parsedThisRun: number,
+  target: number | null
+): ActivityLevel {
+  if (target != null && parsedThisRun >= target && target > 0) return 'done';
+  if (!lastParsedAt) return 'queued';
+  const last = new Date(lastParsedAt).getTime();
+  const now = new Date(serverNowIso).getTime();
+  const ageSec = Math.max(0, (now - last) / 1000);
+  if (ageSec < 15) return 'active';
+  if (ageSec < 90) return 'idle';
+  return 'stalled';
+}
+
+function formatAge(lastParsedAt: string | null, serverNowIso: string): string {
+  if (!lastParsedAt) return '—';
+  const last = new Date(lastParsedAt).getTime();
+  const now = new Date(serverNowIso).getTime();
+  const s = Math.max(0, Math.floor((now - last) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return rs > 0 ? `${m}m ${rs}s ago` : `${m}m ago`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm > 0 ? `${h}h ${rm}m ago` : `${h}h ago`;
+}
+
+const ACTIVITY_STYLES: Record<
+  ActivityLevel,
+  { dot: string; label: string; text: string }
+> = {
+  active: {
+    dot: 'bg-emerald-400 animate-pulse',
+    label: 'active',
+    text: 'text-emerald-400',
+  },
+  idle: { dot: 'bg-yellow-400', label: 'idle', text: 'text-yellow-400' },
+  stalled: { dot: 'bg-orange-400', label: 'stalled', text: 'text-orange-400' },
+  queued: { dot: 'bg-gray-500', label: 'queued', text: 'text-gray-400' },
+  done: { dot: 'bg-emerald-500', label: 'done', text: 'text-emerald-400' },
+};
+
+function RunningCrawlerProgress({
+  job,
+  progress,
+  statusCounts,
+  elapsedSec,
+}: {
+  job: BackgroundJob;
+  progress: CrawlerJobProgress | undefined;
+  statusCounts: Record<string, Record<string, number>>;
+  elapsedSec: number;
+}) {
+  const selected = ((job.params?.['adapters'] ?? []) as string[]) ?? [];
+  const adaptersData = progress?.adapters ?? {};
+  const serverNow = progress?.now ?? new Date().toISOString();
+
+  // Totals across adapters.
+  let parsedTotal = 0;
+  let activeCount = 0;
+  let doneCount = 0;
+  const rows = selected.map((adapter) => {
+    const d = adaptersData[adapter];
+    const parsed = d?.parsed_this_run ?? 0;
+    const target = effectiveRunTarget(
+      adapter,
+      job.params,
+      statusCounts[adapter]
+    );
+    const last = d?.last_parsed_at ?? null;
+    const activity = classifyActivity(last, serverNow, parsed, target);
+    parsedTotal += parsed;
+    if (activity === 'active') activeCount += 1;
+    if (activity === 'done') doneCount += 1;
+    return { adapter, parsed, target, last, activity };
+  });
+
+  const rateMinute =
+    elapsedSec > 0 ? Math.round((parsedTotal / elapsedSec) * 60) : 0;
+
+  // Sort: active first, then idle/stalled (things needing attention), then
+  // queued, then done — operators want to see live action at the top.
+  const order: Record<ActivityLevel, number> = {
+    active: 0,
+    idle: 1,
+    stalled: 2,
+    queued: 3,
+    done: 4,
+  };
+  rows.sort(
+    (a, b) =>
+      order[a.activity] - order[b.activity] ||
+      a.adapter.localeCompare(b.adapter)
+  );
+
+  return (
+    <div className="space-y-2">
+      {/* Summary strip */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-300">
+        <span className="flex items-center gap-1.5">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+          </span>
+          <span className="text-yellow-400/80">Running</span>
+        </span>
+        <span>
+          <span className="text-gray-500">active</span>{' '}
+          <span className="tabular-nums text-emerald-400 font-semibold">
+            {activeCount}
+          </span>
+          <span className="text-gray-500"> / done </span>
+          <span className="tabular-nums text-emerald-400 font-semibold">
+            {doneCount}
+          </span>
+          <span className="text-gray-500"> / total </span>
+          <span className="tabular-nums text-gray-200 font-semibold">
+            {selected.length}
+          </span>
+        </span>
+        <span>
+          <span className="text-gray-500">parsed</span>{' '}
+          <span className="tabular-nums text-gray-100 font-semibold">
+            {parsedTotal.toLocaleString()}
+          </span>
+        </span>
+        <span>
+          <span className="text-gray-500">rate</span>{' '}
+          <span className="tabular-nums text-gray-100 font-semibold">
+            {rateMinute.toLocaleString()}
+          </span>
+          <span className="text-gray-500">/min</span>
+        </span>
+      </div>
+
+      {/* Per-adapter table */}
+      {rows.length > 0 ? (
+        <div className="border border-gray-700/60 rounded overflow-hidden">
+          {rows.map(({ adapter, parsed, target, last, activity }) => {
+            const pct =
+              target && target > 0
+                ? Math.min(100, (parsed / target) * 100)
+                : parsed > 0
+                  ? 100
+                  : 0;
+            const style = ACTIVITY_STYLES[activity];
+            // Bar color shades with activity: green for healthy (active/done),
+            // yellow/orange when falling behind, flat gray for queued.
+            const barColor =
+              activity === 'active' || activity === 'done'
+                ? 'bg-emerald-500/70'
+                : activity === 'idle'
+                  ? 'bg-yellow-500/70'
+                  : activity === 'stalled'
+                    ? 'bg-orange-500/70'
+                    : 'bg-gray-600/60';
+            return (
+              <div
+                key={adapter}
+                className="grid grid-cols-[9rem_1fr_8rem_5rem] items-center gap-2 px-2 py-1.5 border-b border-gray-700/40 last:border-b-0 odd:bg-gray-900/30"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
+                  <span className="font-mono text-xs text-neutral-200 truncate">
+                    {adapter}
+                  </span>
+                </div>
+                <div
+                  className="relative h-2 rounded-sm bg-gray-800/80 overflow-hidden"
+                  title={
+                    target
+                      ? `${parsed.toLocaleString()} / ${target.toLocaleString()} (${pct.toFixed(0)}%)`
+                      : `${parsed.toLocaleString()} parsed (target unknown)`
+                  }
+                >
+                  <div
+                    className={`absolute inset-y-0 left-0 ${barColor}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="text-[11px] tabular-nums text-gray-300 text-right">
+                  <span className="text-gray-100 font-semibold">
+                    {parsed.toLocaleString()}
+                  </span>
+                  <span className="text-gray-500">
+                    {' '}
+                    / {target != null ? target.toLocaleString() : '?'}
+                  </span>
+                </div>
+                <div
+                  className={`text-[10px] tabular-nums ${style.text} text-right`}
+                  title={
+                    last
+                      ? `last parsed ${new Date(last).toLocaleString()}`
+                      : undefined
+                  }
+                >
+                  {activity === 'queued'
+                    ? 'queued'
+                    : activity === 'done'
+                      ? 'done'
+                      : formatAge(last, serverNow)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">No adapters selected.</p>
+      )}
+    </div>
+  );
+}
+
 function CrawlerAdmin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -421,10 +681,12 @@ function CrawlerAdmin() {
   const [savingConfigName, setSavingConfigName] = useState<string | null>(null);
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
 
-  // Archived page counts per adapter
-  const [archivedCounts, setArchivedCounts] = useState<Record<string, number>>(
-    {}
-  );
+  // Per-adapter crawled_pages breakdown by parse_status (pending/parsed/gone/failed).
+  // Drives the parsed/total progress pill so catalog size stays visible across
+  // interrupted runs.
+  const [adapterStatusCounts, setAdapterStatusCounts] = useState<
+    Record<string, Record<string, number>>
+  >({});
 
   // Redirect non-admin users
   useEffect(() => {
@@ -442,7 +704,9 @@ function CrawlerAdmin() {
           adminApi.getCrawlers(),
           categoriesApi.getCategories(),
           adminApi.getCrawlerServiceAccount(),
-          adminApi.getCrawledPageCountsBySource().catch(() => ({ data: {} })),
+          adminApi
+            .getCrawledPageCountsBySourceAndStatus()
+            .catch(() => ({ data: {} })),
         ]);
       setCrawlerAdapters(adaptersRes.data.adapters);
       // Default to all selected on first load so the common workflow is
@@ -457,7 +721,7 @@ function CrawlerAdmin() {
       setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
       setCrawlerServiceAccount(serviceAccountRes.data);
-      setArchivedCounts(countsRes.data);
+      setAdapterStatusCounts(countsRes.data);
       const otherCategory = categoriesRes.data.find(
         (c: CategoryResponse) => c.name.toLowerCase() === 'other'
       );
@@ -679,15 +943,64 @@ function CrawlerAdmin() {
     void fetchAdapterConfigs();
   }, [fetchCrawlers, fetchJobs, fetchSchedules, fetchAdapterConfigs]);
 
+  // Per-running-crawler-job live progress keyed by job id. Populated by the
+  // 5 s poll below and consumed by the in-progress card.
+  const [jobProgress, setJobProgress] = useState<
+    Record<string, CrawlerJobProgress>
+  >({});
+
+  const fetchProgressForRunning = useCallback(async () => {
+    const running = (jobsList?.items ?? []).filter(
+      (j) => j.status === 'running' && j.job_type === 'crawler_run'
+    );
+    if (running.length === 0) {
+      setJobProgress((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      return;
+    }
+    const results = await Promise.all(
+      running.map((j) =>
+        adminApi
+          .getCrawlerJobProgress(j.id)
+          .then((r) => [j.id, r.data] as const)
+          .catch(() => null)
+      )
+    );
+    setJobProgress((prev) => {
+      const next: Record<string, CrawlerJobProgress> = {};
+      for (const entry of results) {
+        if (entry) next[entry[0]] = entry[1];
+      }
+      // Bail on setState if nothing changed — keeps referential equality for
+      // consumers memoized on jobProgress.
+      const prevKeys = Object.keys(prev).sort();
+      const nextKeys = Object.keys(next).sort();
+      if (
+        prevKeys.length === nextKeys.length &&
+        prevKeys.every((k, i) => k === nextKeys[i]) &&
+        prevKeys.every((k) => prev[k] === next[k])
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [jobsList]);
+
   // Poll jobs every 5 s while any job is running
   useEffect(() => {
     const hasRunning = jobsList?.items.some((j) => j.status === 'running');
     if (!hasRunning) return;
     const id = setInterval(() => {
       void fetchJobs();
+      void fetchProgressForRunning();
     }, 5000);
     return () => clearInterval(id);
-  }, [jobsList, fetchJobs]);
+  }, [jobsList, fetchJobs, fetchProgressForRunning]);
+
+  // Fetch progress immediately when a job transitions into running (so the
+  // panel doesn't look empty for up to 5 s).
+  useEffect(() => {
+    void fetchProgressForRunning();
+  }, [jobsList, fetchProgressForRunning]);
 
   // Tick every second to keep elapsed-time display fresh for running jobs
   const [, setElapsedTick] = useState(0);
@@ -1297,13 +1610,21 @@ function CrawlerAdmin() {
                         <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
                           {row.adapter_name}
                         </span>
-                        {archivedCounts[row.adapter_name] != null && (
-                          <span className="shrink-0 tabular-nums text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono">
-                            {(
-                              archivedCounts[row.adapter_name] ?? 0
-                            ).toLocaleString()}
-                          </span>
-                        )}
+                        {(() => {
+                          const progress = adapterProgressLabel(
+                            adapterStatusCounts[row.adapter_name]
+                          );
+                          return progress ? (
+                            <span
+                              title={progress.tooltip}
+                              className="shrink-0 tabular-nums text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
+                            >
+                              {progress.parsed.toLocaleString()}
+                              <span className="text-gray-500">{' / '}</span>
+                              {progress.total.toLocaleString()}
+                            </span>
+                          ) : null;
+                        })()}
                         <select
                           id={`tune-delay-${row.adapter_name}`}
                           title="Delay"
@@ -1401,23 +1722,14 @@ function CrawlerAdmin() {
 
         {/* Background Jobs */}
         <Card padding="sm">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div>
-              <h2 className="text-base font-semibold text-white leading-tight">
-                Background Jobs
-              </h2>
-              <p className="text-[11px] text-gray-400">
-                Polls every 5 s while a job is running.
-                {jobsList ? ` · ${jobsList.total} total` : ''}
-              </p>
-            </div>
-            <button
-              onClick={() => void fetchJobs()}
-              disabled={isLoadingJobs}
-              className="text-[11px] text-blue-400 hover:text-blue-300 disabled:opacity-50 shrink-0"
-            >
-              {isLoadingJobs ? 'Refreshing…' : 'Refresh'}
-            </button>
+          <div className="mb-2">
+            <h2 className="text-base font-semibold text-white leading-tight">
+              Background Jobs
+            </h2>
+            <p className="text-[11px] text-gray-400">
+              Polls every 5 s while a job is running.
+              {jobsList ? ` · ${jobsList.total} total` : ''}
+            </p>
           </div>
 
           {!jobsList && isLoadingJobs && (
@@ -1549,8 +1861,26 @@ function CrawlerAdmin() {
                             </div>
                           )}
 
-                          {/* Running: no result yet */}
-                          {isRunning && (
+                          {/* Running: live per-adapter progress */}
+                          {isRunning && job.job_type === 'crawler_run' && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                                Live progress
+                              </p>
+                              <RunningCrawlerProgress
+                                job={job}
+                                progress={jobProgress[job.id]}
+                                statusCounts={adapterStatusCounts}
+                                elapsedSec={Math.max(
+                                  0,
+                                  Math.floor(
+                                    (Date.now() - startedAt.getTime()) / 1000
+                                  )
+                                )}
+                              />
+                            </div>
+                          )}
+                          {isRunning && job.job_type !== 'crawler_run' && (
                             <div className="flex items-center gap-2 text-xs text-yellow-400/80">
                               <span className="relative flex h-1.5 w-1.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
@@ -1832,11 +2162,21 @@ function CrawlerAdmin() {
                               {adapter}
                             </span>
                           </label>
-                          {archivedCounts[adapter] !== undefined && (
-                            <span className="shrink-0 tabular-nums text-[10px] px-1 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono">
-                              {archivedCounts[adapter].toLocaleString()}
-                            </span>
-                          )}
+                          {(() => {
+                            const progress = adapterProgressLabel(
+                              adapterStatusCounts[adapter]
+                            );
+                            return progress ? (
+                              <span
+                                title={progress.tooltip}
+                                className="shrink-0 tabular-nums text-[10px] px-1 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
+                              >
+                                {progress.parsed.toLocaleString()}
+                                <span className="text-gray-500">{' / '}</span>
+                                {progress.total.toLocaleString()}
+                              </span>
+                            ) : null;
+                          })()}
                           <input
                             type="number"
                             min="1"
