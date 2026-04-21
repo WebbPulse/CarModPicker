@@ -52,6 +52,7 @@ from app.core.config import settings
 from app.core.email import send_job_report_email
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
+from app.core.worker_identity import WORKER_INSTANCE_ID
 from app.crawlers.adapters import ADAPTER_REGISTRY
 from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
 from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC, count_crawl_bucket_object_summary
@@ -71,6 +72,36 @@ _background_tasks: set[asyncio.Task[None]] = set()
 # Entries are cleaned up when the job task finishes.
 _job_tasks: dict[UUID, asyncio.Task[None]] = {}
 _job_stop_events: dict[UUID, threading.Event] = {}
+
+# How often an in-process job stamps its heartbeat. Short enough that the
+# runtime stale-heartbeat sweep (default 180s) has plenty of signal, long
+# enough to keep DB write volume negligible.
+_HEARTBEAT_INTERVAL_SEC = 15
+
+
+def _stamp_heartbeat(job_id: UUID) -> None:
+    """Write a single heartbeat row. Runs in a thread to keep the event loop free."""
+    db = SessionLocal()
+    try:
+        job_service.heartbeat_job(db, job_id, WORKER_INSTANCE_ID)
+    finally:
+        db.close()
+
+
+async def _heartbeat_loop(job_id: UUID, interval: float = _HEARTBEAT_INTERVAL_SEC) -> None:
+    """
+    Periodically refresh a job's last_heartbeat_at so the runtime sweep can tell
+    the worker is still alive. Cancelled by the caller when the real job task
+    finishes; individual heartbeat failures are logged but don't abort the loop.
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            await asyncio.to_thread(_stamp_heartbeat, job_id)
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.exception("Heartbeat loop for job #%s hit an error; continuing", job_id)
 
 
 def _get_superadmin_emails(db: Session) -> List[str]:
@@ -706,6 +737,10 @@ async def _run_crawlers_in_process(
     Only used when ECS is not configured (i.e. local development).
     In production, _launch_ecs_crawler_task is always used instead.
     """
+    # Stamp ownership immediately so a crash before the first heartbeat interval
+    # still leaves the row correctly tagged with this process's worker ID.
+    await asyncio.to_thread(_stamp_heartbeat, job_id)
+    heartbeat_task = asyncio.create_task(_heartbeat_loop(job_id))
     try:
         result = await asyncio.to_thread(
             run_crawlers,
@@ -738,6 +773,11 @@ async def _run_crawlers_in_process(
         finally:
             db.close()
     finally:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except (asyncio.CancelledError, Exception):
+            pass
         _job_tasks.pop(job_id, None)
         _job_stop_events.pop(job_id, None)
 
@@ -1092,10 +1132,19 @@ async def _run_rescrape_in_process(
             _notify_job_completion(job_id)
         finally:
             db.close()
-            _job_tasks.pop(job_id, None)
-            _job_stop_events.pop(job_id, None)
 
-    await asyncio.to_thread(_blocking)
+    await asyncio.to_thread(_stamp_heartbeat, job_id)
+    heartbeat_task = asyncio.create_task(_heartbeat_loop(job_id))
+    try:
+        await asyncio.to_thread(_blocking)
+    finally:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        _job_tasks.pop(job_id, None)
+        _job_stop_events.pop(job_id, None)
 
 
 @router.post(
@@ -1292,7 +1341,23 @@ async def list_background_jobs(
 
     Filter by ``status`` (running / completed / failed / cancelled) or
     ``job_type`` (crawler_run / archive_rescrape).
+
+    Before returning, reconciles the running-jobs state against this process:
+    any "running" row owned by a prior worker instance, or owned by us but
+    with a stale heartbeat and no live asyncio task, is marked failed. Covers
+    the window between "prior process died" and "admin hits refresh" even if
+    the startup sweep was skipped, and catches the asyncio-task-died-without-
+    cleanup edge case.
     """
+    try:
+        job_service.sweep_orphan_jobs(
+            db,
+            current_worker_instance_id=WORKER_INSTANCE_ID,
+            live_job_ids=list(_job_tasks.keys()),
+        )
+    except Exception:
+        logger.exception("Runtime orphan-job sweep on list_background_jobs failed")
+
     items, total = job_service.list_jobs(
         db,
         limit=limit,

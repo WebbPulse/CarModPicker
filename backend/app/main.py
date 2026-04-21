@@ -39,7 +39,9 @@ from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
+from .core.worker_identity import WORKER_INSTANCE_ID
 from .db.session import SessionLocal, check_db_ready
+from .services import job_service
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -88,6 +90,21 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
             logger.info("Swept %d orphan EventBridge schedule(s) on startup", len(swept))
     except Exception:
         logger.exception("Orphan EventBridge schedule sweep failed on startup")
+    try:
+        # Any background_jobs row still in "running" but owned by a previous
+        # worker_instance_id (or lacking one) can only exist because the prior
+        # process was killed mid-job — uvicorn --reload, SIGKILL, crash,
+        # redeploy. Mark those failed so the admin UI doesn't show phantom
+        # running jobs forever. ECS-backed jobs are skipped.
+        orphans = job_service.sweep_orphan_jobs(db, current_worker_instance_id=WORKER_INSTANCE_ID)
+        if orphans:
+            logger.warning(
+                "Marked %d stale background job(s) as failed on startup (ids=%s)",
+                len(orphans),
+                [str(o.id) for o in orphans],
+            )
+    except Exception:
+        logger.exception("Orphan background-job sweep failed on startup")
     finally:
         db.close()
     yield

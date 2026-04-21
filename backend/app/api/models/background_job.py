@@ -20,6 +20,14 @@ class BackgroundJob(Base):
     result_summary: JSON aggregate counters returned by the job on completion.
     error_message: set on failure; null otherwise.
     created_by_user_id: null when triggered_by="scheduled".
+    worker_instance_id: identifier of the Python process owning an in-process job.
+        Regenerated on every app boot so stale "running" rows from a killed
+        process (uvicorn hot reload, SIGKILL, crash) can be detected on the next
+        startup. Null for ECS-backed jobs, whose liveness is tracked via
+        ``params.ecs_task_arn``.
+    last_heartbeat_at: in-process jobs refresh this every few seconds while
+        running; the sweep treats a stale heartbeat + missing asyncio task as a
+        dead worker.
     """
 
     __tablename__ = "background_jobs"
@@ -35,6 +43,8 @@ class BackgroundJob(Base):
 
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    last_heartbeat_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    worker_instance_id: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
 
     created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True),
