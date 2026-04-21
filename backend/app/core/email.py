@@ -90,6 +90,8 @@ def send_job_report_email(job: "BackgroundJob", recipients: list[str]) -> int:
     if job.result_summary:
         if job.job_type == "crawler_run":
             result_html = _render_crawler_result_html(job.result_summary)
+        elif job.job_type == "archive_rescrape":
+            result_html = _render_archive_rescrape_result_html(job.result_summary)
         else:
             result_html = _render_json_result_html(job.result_summary)
     else:
@@ -205,6 +207,8 @@ def _adapter_row_accent(r: dict) -> str:
     total = r.get("total", 0)
     ingested = r.get("ingested", 0)
     errors = r.get("errors", 0)
+    if r.get("rate_limit_bailout"):
+        return "#d97706"  # amber: circuit-breaker trip (upstream shed load)
     if total > 0 and ingested == 0:
         return "#dc2626"  # red: parser broken / sitewide failure
     if errors > 0 and errors >= max(1, total // 4):
@@ -292,12 +296,22 @@ def _render_crawler_result_html(summary: dict) -> str:
                 if r.get("cancelled")
                 else ""
             )
+            rate_limit_badge = ""
+            if r.get("rate_limit_bailout"):
+                after = r.get("rate_limit_bailout_after") or 0
+                total_urls = r.get("total", 0)
+                rate_limit_badge = (
+                    ' <span title="Rate-limit circuit breaker tripped"'
+                    ' style="display:inline-block;background:#fef3c7;color:#92400e;'
+                    "font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;"
+                    f'margin-left:4px">RATE-LIMITED @ {after}/{total_urls}</span>'
+                )
             error_color = "#dc2626" if errors > 0 else "#9ca3af"
             rows_html.append(
                 "<tr>"
                 f'<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;'
                 f'border-left:3px solid {accent};font-family:monospace;font-weight:600;color:#18181b">'
-                f"{name}{cancelled_badge}</td>"
+                f"{name}{cancelled_badge}{rate_limit_badge}</td>"
                 f'<td align="right" style="padding:8px 10px;border-bottom:1px solid #f3f4f6;'
                 f'font-variant-numeric:tabular-nums;color:#18181b">'
                 f'<span style="color:#16a34a;font-weight:600">{ingested:,}</span>'
@@ -321,6 +335,11 @@ def _render_crawler_result_html(summary: dict) -> str:
         )
     else:
         table_html = '<p style="font-size:13px;color:#6b7280;margin:0">No adapters completed.</p>'
+
+    # Per-adapter failure samples. One collapsed <details> block per adapter
+    # so healthy adapters stay invisible but the operator can expand any that
+    # had errors or parse misses to see the actual URLs.
+    samples_html = _render_crawler_failure_samples(results)
 
     # Adapters that raised before returning a result dict.
     failed_html = ""
@@ -346,4 +365,146 @@ def _render_crawler_result_html(summary: dict) -> str:
             "<tbody>" + "".join(rows) + "</tbody></table></div>"
         )
 
-    return header + table_html + failed_html
+    return header + table_html + samples_html + failed_html
+
+
+def _render_url_sample_list(items: list[dict], max_display: int = 25) -> str:
+    """Render up to ``max_display`` URL entries as a compact monospace list.
+    Each item may have ``url``, ``status``, ``bucket``, ``error`` or ``outcome``/``source`` keys.
+    """
+    if not items:
+        return ""
+    rows: list[str] = []
+    for entry in items[:max_display]:
+        url = _escape_html(str(entry.get("url", "?")))
+        tags: list[str] = []
+        for key in ("source", "outcome", "status", "bucket"):
+            v = entry.get(key)
+            if v is None:
+                continue
+            tags.append(
+                f'<span style="display:inline-block;background:#e5e7eb;color:#374151;'
+                f"font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;"
+                f'margin-right:4px">{_escape_html(str(v))}</span>'
+            )
+        err = entry.get("error")
+        err_html = (
+            f'<div style="font-size:11px;color:#7f1d1d;margin-top:2px;'
+            f'white-space:pre-wrap;word-break:break-word">{_escape_html(str(err))}</div>'
+            if err
+            else ""
+        )
+        rows.append(
+            '<div style="padding:6px 0;border-bottom:1px solid #f3f4f6">'
+            f'<div style="font-family:monospace;font-size:12px;color:#374151;'
+            f'word-break:break-all">{url}</div>'
+            f'<div style="margin-top:2px">{"".join(tags)}</div>'
+            f"{err_html}</div>"
+        )
+    remainder = len(items) - max_display
+    if remainder > 0:
+        rows.append(
+            '<div style="padding:6px 0;font-size:11px;color:#9ca3af;font-style:italic">'
+            f"…and {remainder} more (sample capped).</div>"
+        )
+    return "".join(rows)
+
+
+def _render_crawler_failure_samples(results: list[dict]) -> str:
+    """Per-adapter <details> blocks listing sampled error URLs and parse-miss URLs.
+    Silent for adapters that had no errors or parse misses."""
+    blocks: list[str] = []
+    for r in results:
+        adapter = _escape_html(str(r.get("adapter", "?")))
+        error_urls = r.get("error_urls") or []
+        parse_miss_urls = r.get("parse_miss_urls") or []
+        errors_total = int(r.get("errors") or 0)
+        misses_total = int(r.get("skipped_not_product") or 0)
+        if not error_urls and not parse_miss_urls:
+            continue
+        pieces: list[str] = []
+        if error_urls:
+            trunc = bool(r.get("error_urls_truncated"))
+            pieces.append(
+                '<div style="margin-top:8px">'
+                '<div style="font-size:11px;color:#991b1b;text-transform:uppercase;'
+                'letter-spacing:0.05em;font-weight:600;margin-bottom:4px">'
+                f"Errors ({errors_total}{'+' if trunc else ''})</div>"
+                f"{_render_url_sample_list(error_urls)}</div>"
+            )
+        if parse_miss_urls:
+            trunc = bool(r.get("parse_miss_urls_truncated"))
+            pieces.append(
+                '<div style="margin-top:8px">'
+                '<div style="font-size:11px;color:#92400e;text-transform:uppercase;'
+                'letter-spacing:0.05em;font-weight:600;margin-bottom:4px">'
+                f"Parse misses ({misses_total}{'+' if trunc else ''})</div>"
+                f"{_render_url_sample_list(parse_miss_urls)}</div>"
+            )
+        blocks.append(
+            '<details style="background:#ffffff;border:1px solid #e4e4e7;'
+            'border-radius:8px;padding:10px 12px;margin-top:8px">'
+            f'<summary style="cursor:pointer;font-family:monospace;font-weight:600;'
+            f'color:#18181b;font-size:13px">{adapter} '
+            f'<span style="font-weight:400;color:#6b7280">— '
+            f"{errors_total} error(s), {misses_total} parse miss(es)</span></summary>" + "".join(pieces) + "</details>"
+        )
+    if not blocks:
+        return ""
+    return (
+        '<div style="margin-top:12px">'
+        '<div style="font-size:11px;color:#6b7280;text-transform:uppercase;'
+        'letter-spacing:0.05em;margin-bottom:4px">Failure samples</div>' + "".join(blocks) + "</div>"
+    )
+
+
+def _render_archive_rescrape_result_html(summary: dict) -> str:
+    """
+    Rich report for archive_rescrape jobs: outcome-count strip plus a list of
+    per-URL failures (bounded by the worker).
+    """
+    parsed_ok = int(summary.get("parsed_ok") or 0)
+    parse_failed = int(summary.get("parse_failed") or 0)
+    ingest_failed = int(summary.get("ingest_failed") or 0)
+    skipped_no_adapter = int(summary.get("skipped_no_adapter") or 0)
+    skipped_no_html = int(summary.get("skipped_no_html") or 0)
+    failures = summary.get("failures") or []
+    failures_total = int(summary.get("failures_total") or len(failures))
+    truncated = bool(summary.get("failures_truncated"))
+
+    def _stat(label: str, value: int, fg: str) -> str:
+        return (
+            f'<td style="font-size:12px;color:#6b7280;padding-right:16px">{label}<br/>'
+            f'<span style="font-size:18px;color:{fg};font-weight:700">{value:,}</span></td>'
+        )
+
+    header = (
+        '<div style="background-color:#f8f8f8;border:1px solid #e4e4e7;'
+        'border-radius:8px;padding:16px;margin-bottom:12px">'
+        '<table width="100%" cellpadding="0" cellspacing="0" role="presentation">'
+        "<tbody><tr>"
+        + _stat("Parsed OK", parsed_ok, "#16a34a")
+        + _stat("Parse failed", parse_failed, "#dc2626" if parse_failed else "#9ca3af")
+        + _stat("Ingest failed", ingest_failed, "#dc2626" if ingest_failed else "#9ca3af")
+        + _stat("No adapter", skipped_no_adapter, "#6b7280")
+        + _stat("No HTML", skipped_no_html, "#6b7280")
+        + "</tr></tbody></table></div>"
+    )
+
+    if not failures:
+        return header
+
+    failures_html = _render_url_sample_list(failures, max_display=100)
+    trunc_note = (
+        f'<p style="font-size:11px;color:#9ca3af;margin:6px 0 0 0">'
+        f"Showing {len(failures)} of {failures_total} failure(s); worker capped the sample."
+        "</p>"
+        if truncated
+        else ""
+    )
+    return (
+        header + '<div style="background-color:#ffffff;border:1px solid #fecaca;'
+        'border-radius:8px;padding:12px;margin-top:8px">'
+        '<p style="font-size:13px;font-weight:700;color:#991b1b;margin:0 0 6px 0">'
+        f"Failures ({failures_total})</p>" + failures_html + trunc_note + "</div>"
+    )

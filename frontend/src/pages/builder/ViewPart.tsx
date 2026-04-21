@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
@@ -66,6 +71,13 @@ function ViewPart() {
   const { partId } = useParams<{ partId: string }>();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Admins opening a part from the Parts Curation page can pass
+  // ?admin_curation=1 to inspect the raw (non-canonical) record instead of
+  // being silently redirected to the canonical. Gated on is_admin so
+  // end users can't manufacture the param to see hidden duplicates.
+  const adminCurationView =
+    searchParams.get('admin_curation') === '1' && !!currentUser?.is_admin;
 
   const [isEditPartFormOpen, setIsEditPartFormOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -163,6 +175,17 @@ function ViewPart() {
     fetchListings,
     fetchPriceHistory,
   ]);
+
+  // If the loaded part is a duplicate (canonical_part_id is set), redirect to
+  // the canonical so the user lands on the surface record for this product.
+  // Admins inspecting from /admin/parts-curation opt out via ?admin_curation=1
+  // so they can validate the dedup by seeing the raw duplicate record.
+  useEffect(() => {
+    if (adminCurationView) return;
+    if (part?.canonical_part_id && part.canonical_part_id !== partId) {
+      void navigate(`/parts/${part.canonical_part_id}`, { replace: true });
+    }
+  }, [part?.canonical_part_id, partId, navigate, adminCurationView]);
 
   // Fetch dependent data when part loads
   useEffect(() => {
@@ -349,9 +372,44 @@ function ViewPart() {
       currentUser.is_superuser);
   const category = categories.find((c) => c.id === part.category_id);
 
+  const isDuplicateAdminView =
+    adminCurationView &&
+    !!part.canonical_part_id &&
+    part.canonical_part_id !== part.id;
+
+  const isUserContributed = part.source === 'user_created';
+
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title={part.name} />
+      {isUserContributed && (
+        <div className="mb-4 rounded-lg border border-sky-600/60 bg-sky-900/20 px-4 py-3 text-sm text-sky-100">
+          <div className="font-semibold">Community-contributed part</div>
+          <div className="mt-1 text-xs text-sky-200/90">
+            This part was submitted by a user, not scraped from a retailer.
+            Details (name, specs, fitment, pricing) may be incomplete or
+            inaccurate. Verify with the manufacturer or retailer before
+            purchasing.
+          </div>
+        </div>
+      )}
+      {isDuplicateAdminView && (
+        <div className="mb-4 rounded-lg border border-amber-600/60 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+          <div className="font-semibold">
+            Viewing non-canonical duplicate (admin curation)
+          </div>
+          <div className="mt-1 text-xs text-amber-300/90">
+            This record is hidden from public browsing — the canonical drives
+            the surface page. Canonical:{' '}
+            <Link
+              to={`/admin/parts-curation?part=${part.canonical_part_id}`}
+              className="underline hover:text-white font-mono"
+            >
+              {part.canonical_part_id}
+            </Link>
+          </div>
+        </div>
+      )}
       <Card>
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Part Information" />

@@ -361,7 +361,7 @@ class VividRacingAdapter(RetailerCrawlerAdapter):
 
         # 1. JSON-LD (when Vivid emits a Product block, it carries name / brand
         #    / mpn / offers, which is everything we need.)
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:

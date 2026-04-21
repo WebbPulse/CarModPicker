@@ -239,7 +239,7 @@ class IEAdapter(RetailerCrawlerAdapter):
         when no JSON-LD Product is present — IE emits it on every real product
         page, so a missing block means the URL is a soft-404 or non-product.
         """
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if not item:
             return None
 

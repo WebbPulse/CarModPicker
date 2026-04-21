@@ -117,6 +117,13 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  // HTTP status code for failed requests (populated on !success). Useful for
+  // branching on 409 "already exists" vs. generic errors.
+  status?: number;
+  // Structured error body from the backend when the server returned JSON with
+  // a non-string `detail` field (e.g. PART_ALREADY_EXISTS). Preserved raw so
+  // the UI can read reason/existing_part_id without reparsing strings.
+  errorData?: Record<string, unknown>;
   requires2FA?: boolean;
 }
 

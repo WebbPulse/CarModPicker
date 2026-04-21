@@ -1,0 +1,161 @@
+# Builds the Chrome extension and publishes it as a GitHub Release asset.
+#
+# Triggers:
+#   - git tag matching `chrome-extension-v*` pushed to the repo
+#     (e.g. `chrome-extension-v1.1.0` — the leading segment is stripped for the
+#      release title and zip name)
+#   - manual workflow_dispatch (useful for rebuilding a release without a new tag)
+#
+# Optional: auto-publish to the Chrome Web Store.
+# Set all four secrets in the `production` environment to enable the final step:
+#   CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN, CWS_EXTENSION_ID
+# When any are missing, the step is skipped and the release still succeeds.
+# See https://developer.chrome.com/docs/webstore/using-api for setting up the
+# OAuth client and refresh token.
+name: Chrome Extension Release
+
+on:
+  push:
+    tags:
+      - "chrome-extension-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (e.g. chrome-extension-v1.1.0). Leave blank to build HEAD."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: chrome-extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: chrome-extension
+        run: npm ci
+
+      - name: Build extension
+        working-directory: chrome-extension
+        run: npm run build
+
+      - name: Verify manifest version matches tag
+        id: version
+        working-directory: chrome-extension
+        run: |
+          MANIFEST_VERSION=$(node -p "require('./dist/manifest.json').version")
+          echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
+
+          REF="${{ inputs.tag || github.ref_name }}"
+          if [[ "$REF" == chrome-extension-v* ]]; then
+            TAG_VERSION="${REF#chrome-extension-v}"
+            if [[ "$TAG_VERSION" != "$MANIFEST_VERSION" ]]; then
+              echo "::error::Tag version ($TAG_VERSION) does not match manifest.json version ($MANIFEST_VERSION)"
+              exit 1
+            fi
+            echo "tag=$REF" >> $GITHUB_OUTPUT
+          else
+            echo "tag=chrome-extension-v$MANIFEST_VERSION-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Zip extension
+        id: zip
+        working-directory: chrome-extension
+        run: |
+          ZIP_NAME="carmodpicker-extension-${{ steps.version.outputs.manifest_version }}.zip"
+          cd dist
+          zip -r "../$ZIP_NAME" .
+          cd ..
+          echo "zip_path=chrome-extension/$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/chrome-extension-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.zip.outputs.zip_path }}
+          name: Chrome Extension v${{ steps.version.outputs.manifest_version }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Upload zip as workflow artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.zip_name }}
+          path: ${{ steps.zip.outputs.zip_path }}
+          retention-days: 30
+
+      - name: Check Chrome Web Store credentials
+        id: cws_check
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+        run: |
+          if [[ -n "$CWS_CLIENT_ID" && -n "$CWS_CLIENT_SECRET" && -n "$CWS_REFRESH_TOKEN" && -n "$CWS_EXTENSION_ID" ]]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "Chrome Web Store secrets not set — skipping auto-publish."
+          fi
+
+      - name: Publish to Chrome Web Store
+        if: steps.cws_check.outputs.configured == 'true'
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          ZIP_PATH: ${{ steps.zip.outputs.zip_path }}
+        run: |
+          set -euo pipefail
+
+          echo "Exchanging refresh token for access token..."
+          ACCESS_TOKEN=$(curl -sfg -X POST \
+            -d "client_id=$CWS_CLIENT_ID" \
+            -d "client_secret=$CWS_CLIENT_SECRET" \
+            -d "refresh_token=$CWS_REFRESH_TOKEN" \
+            -d "grant_type=refresh_token" \
+            "https://oauth2.googleapis.com/token" | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+          echo "Uploading new package to Chrome Web Store..."
+          UPLOAD_RESPONSE=$(curl -sfg \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -X PUT \
+            -T "$ZIP_PATH" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CWS_EXTENSION_ID")
+          echo "$UPLOAD_RESPONSE"
+
+          UPLOAD_STATE=$(echo "$UPLOAD_RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('uploadState',''))")
+          if [[ "$UPLOAD_STATE" != "SUCCESS" ]]; then
+            echo "::error::Upload failed with state: $UPLOAD_STATE"
+            exit 1
+          fi
+
+          echo "Publishing to public channel..."
+          curl -sfg \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Length: 0" \
+            -X POST \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CWS_EXTENSION_ID/publish"
+
+          echo "Published v${{ steps.version.outputs.manifest_version }} to Chrome Web Store."

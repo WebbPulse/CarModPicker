@@ -29,9 +29,29 @@ import type { CategoryResponse } from '../../types/Api';
 // ── Fetcher-tier visual system ───────────────────────────────────────────
 // Adapters declare a FETCHER_TIER on the backend; the UI groups them by
 // blocking difficulty: T0 = plain HTTP, T1 = TLS impersonation, T2 = headless
-// browser via FlareSolverr.
+// browser via FlareSolverr. T4 is a frontend-only override for newly-written
+// adapters that haven't been smoke-tested yet — remove entries from
+// UNVERIFIED_ADAPTERS as each one is validated.
 
-type FetcherTier = 'http' | 'tls' | 'browser';
+type FetcherTier = 'http' | 'tls' | 'browser' | 'unverified';
+
+// Phase 1 adapters (landed 2026-04-20) flagged as T4 = unverified until they
+// pass a live smoke test. The backend still reports their real FETCHER_TIER
+// (currently all "http"); this set only affects the UI grouping + chip. When
+// an adapter has been confirmed to produce correct ScrapedPayload end-to-end
+// on a real crawl, delete it from this set.
+const UNVERIFIED_ADAPTERS: ReadonlySet<string> = new Set([
+  'burgermotorsports',
+  'corksport',
+  'ets',
+  'grimmspeed',
+  'mishimoto',
+  'modernmusclextreme',
+  'radium',
+  'seiboncarbon',
+  'skunk2',
+  'verusengineering',
+]);
 
 const TIER_META: Record<
   FetcherTier,
@@ -74,6 +94,16 @@ const TIER_META: Record<
     chipUnselected: 'border-rose-700/40 text-rose-400/70 hover:border-rose-500',
     dot: 'bg-rose-500',
   },
+  unverified: {
+    label: 'T4',
+    full: 'T4 — unverified: new adapter awaiting smoke test',
+    badge: 'bg-indigo-900/40 border-indigo-700/60 text-indigo-300',
+    row: 'border-l-2 border-l-indigo-500/70',
+    chipSelected: 'border-indigo-500 bg-indigo-900/40 text-indigo-300',
+    chipUnselected:
+      'border-indigo-700/40 text-indigo-400/70 hover:border-indigo-500',
+    dot: 'bg-indigo-500',
+  },
 };
 
 function TierBadge({ tier }: { tier: FetcherTier | undefined }) {
@@ -110,13 +140,89 @@ function fmtElapsed(startedAt: Date, endedAt?: Date | null): string {
   return `${m}m ${s}s`;
 }
 
+type UrlSample = {
+  url: string;
+  status?: number | string | null;
+  bucket?: string | null;
+  error?: string | null;
+  source?: string | null;
+  outcome?: string | null;
+};
+
+function UrlSampleList({
+  items,
+  max = 25,
+}: {
+  items: UrlSample[];
+  max?: number;
+}) {
+  if (items.length === 0) return null;
+  const shown = items.slice(0, max);
+  const remainder = items.length - shown.length;
+  return (
+    <div className="divide-y divide-gray-800/60">
+      {shown.map((entry, idx) => (
+        <div
+          // URLs can repeat across outcomes; composite with index keeps keys stable within one render.
+          // eslint-disable-next-line react-x/no-array-index-key
+          key={`${entry.url}-${entry.outcome ?? entry.bucket ?? ''}-${idx}`}
+          className="py-1.5"
+        >
+          <div className="font-mono text-[11px] text-gray-300 break-all">
+            {entry.url}
+          </div>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {entry.source && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.source}
+              </span>
+            )}
+            {entry.outcome && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.outcome}
+              </span>
+            )}
+            {entry.status && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.status}
+              </span>
+            )}
+            {entry.bucket && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.bucket}
+              </span>
+            )}
+          </div>
+          {entry.error && (
+            <div className="mt-0.5 text-[10px] text-red-300 whitespace-pre-wrap break-all">
+              {entry.error}
+            </div>
+          )}
+        </div>
+      ))}
+      {remainder > 0 && (
+        <div className="py-1 text-[10px] italic text-gray-500">
+          …and {remainder} more.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
   type AdapterResult = {
     adapter: string;
     ingested: number;
     skipped: number;
+    skipped_not_product?: number;
     errors: number;
     total: number;
+    error_urls?: UrlSample[];
+    error_urls_truncated?: boolean;
+    parse_miss_urls?: UrlSample[];
+    parse_miss_urls_truncated?: boolean;
+    rate_limit_bailout?: boolean;
+    rate_limit_bailout_after?: number;
   };
   type FailedAdapter = { adapter: string; error: string };
   const totals = summary['summary'] as
@@ -128,6 +234,10 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
     | undefined;
   const results = (summary['results'] ?? []) as AdapterResult[];
   const failed = (summary['failed'] ?? []) as FailedAdapter[];
+  const resultsWithFailures = results.filter(
+    (r) =>
+      (r.error_urls?.length ?? 0) > 0 || (r.parse_miss_urls?.length ?? 0) > 0
+  );
   return (
     <div className="space-y-2">
       {totals && (
@@ -178,6 +288,15 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                 >
                   <td className="px-2 py-1 font-mono text-gray-300">
                     {r.adapter}
+                    {r.rate_limit_bailout && (
+                      <span
+                        title="Rate-limit circuit breaker tripped"
+                        className="ml-2 inline-block rounded bg-amber-900/60 border border-amber-700/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                      >
+                        Rate-limited @ {r.rate_limit_bailout_after ?? 0}/
+                        {r.total}
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-1 text-right text-gray-400 tabular-nums">
                     {r.total}
@@ -197,6 +316,52 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {resultsWithFailures.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+            Failure samples
+          </p>
+          {resultsWithFailures.map((r) => {
+            const errTotal = r.errors;
+            const missTotal = r.skipped_not_product ?? 0;
+            const errSamples = r.error_urls ?? [];
+            const missSamples = r.parse_miss_urls ?? [];
+            return (
+              <details
+                key={r.adapter}
+                className="rounded border border-gray-700/60 bg-gray-900/40 px-2 py-1 text-xs"
+              >
+                <summary className="cursor-pointer font-mono text-gray-200">
+                  {r.adapter}{' '}
+                  <span className="text-gray-500 font-sans">
+                    — {errTotal} error(s), {missTotal} parse miss(es)
+                  </span>
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {errSamples.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-red-400 mb-1">
+                        Errors ({errTotal}
+                        {r.error_urls_truncated ? '+' : ''})
+                      </p>
+                      <UrlSampleList items={errSamples} />
+                    </div>
+                  )}
+                  {missSamples.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-amber-400 mb-1">
+                        Parse misses ({missTotal}
+                        {r.parse_miss_urls_truncated ? '+' : ''})
+                      </p>
+                      <UrlSampleList items={missSamples} />
+                    </div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
         </div>
       )}
       {failed.length > 0 && (
@@ -251,22 +416,49 @@ function ArchiveRescrapeResult({
       variant: 'muted',
     },
   ];
+  const failures = (summary['failures'] ?? []) as UrlSample[];
+  const failuresTotal = Number(
+    summary['failures_total'] ?? failures.length ?? 0
+  );
+  const truncated = Boolean(summary['failures_truncated']);
   return (
-    <div className="flex flex-wrap gap-2">
-      {rows.map((r) => (
-        <span
-          key={r.label}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${
-            r.value > 0 && r.variant === 'ok'
-              ? 'bg-emerald-900/50 border-emerald-700/60 text-emerald-300'
-              : r.value > 0 && r.variant === 'err'
-                ? 'bg-red-900/50 border-red-700/60 text-red-300'
-                : 'bg-gray-800/60 border-gray-600/60 text-gray-500'
-          }`}
-        >
-          <span className="font-semibold">{r.value}</span> {r.label}
-        </span>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {rows.map((r) => (
+          <span
+            key={r.label}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${
+              r.value > 0 && r.variant === 'ok'
+                ? 'bg-emerald-900/50 border-emerald-700/60 text-emerald-300'
+                : r.value > 0 && r.variant === 'err'
+                  ? 'bg-red-900/50 border-red-700/60 text-red-300'
+                  : 'bg-gray-800/60 border-gray-600/60 text-gray-500'
+            }`}
+          >
+            <span className="font-semibold">{r.value}</span> {r.label}
+          </span>
+        ))}
+      </div>
+      {failures.length > 0 && (
+        <details className="rounded border border-red-800/40 bg-red-950/20 px-2 py-1 text-xs">
+          <summary className="cursor-pointer text-red-300">
+            Failure samples{' '}
+            <span className="text-red-400/70">
+              ({failures.length}
+              {truncated ? ` of ${failuresTotal}` : ''})
+            </span>
+          </summary>
+          <div className="mt-2">
+            <UrlSampleList items={failures} max={100} />
+            {truncated && (
+              <p className="text-[10px] text-gray-500 italic mt-1">
+                Sample capped by worker; {failuresTotal - failures.length} more
+                not shown.
+              </p>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -716,7 +908,9 @@ function CrawlerAdmin() {
       );
       const tiers: Record<string, FetcherTier> = {};
       for (const info of adaptersRes.data.adapter_info ?? []) {
-        tiers[info.name] = info.tier;
+        tiers[info.name] = UNVERIFIED_ADAPTERS.has(info.name)
+          ? 'unverified'
+          : info.tier;
       }
       setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
@@ -1612,6 +1806,7 @@ function CrawlerAdmin() {
                       http: 0,
                       tls: 1,
                       browser: 2,
+                      unverified: 4,
                     };
                     const ta = adapterTiers[a.adapter_name];
                     const tb = adapterTiers[b.adapter_name];
@@ -2059,37 +2254,39 @@ function CrawlerAdmin() {
                       None
                     </button>
                     <span className="text-neutral-600">·</span>
-                    {(['http', 'tls', 'browser'] as const).map((tier) => {
-                      const members = crawlerAdapters.filter(
-                        (name) => adapterTiers[name] === tier
-                      );
-                      if (members.length === 0) return null;
-                      const selectedCount = members.filter((name) =>
-                        selectedCrawlers.has(name)
-                      ).length;
-                      const allSelected = selectedCount === members.length;
-                      const someSelected = selectedCount > 0 && !allSelected;
-                      const meta = TIER_META[tier];
-                      const cls = allSelected
-                        ? meta.chipSelected
-                        : someSelected
-                          ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
-                          : meta.chipUnselected;
-                      return (
-                        <button
-                          key={tier}
-                          type="button"
-                          onClick={() => toggleTierSelection(tier)}
-                          title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
-                          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
-                        >
-                          {meta.label}
-                          <span className="ml-1 opacity-70">
-                            {selectedCount}/{members.length}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {(['http', 'tls', 'browser', 'unverified'] as const).map(
+                      (tier) => {
+                        const members = crawlerAdapters.filter(
+                          (name) => adapterTiers[name] === tier
+                        );
+                        if (members.length === 0) return null;
+                        const selectedCount = members.filter((name) =>
+                          selectedCrawlers.has(name)
+                        ).length;
+                        const allSelected = selectedCount === members.length;
+                        const someSelected = selectedCount > 0 && !allSelected;
+                        const meta = TIER_META[tier];
+                        const cls = allSelected
+                          ? meta.chipSelected
+                          : someSelected
+                            ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
+                            : meta.chipUnselected;
+                        return (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => toggleTierSelection(tier)}
+                            title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
+                          >
+                            {meta.label}
+                            <span className="ml-1 opacity-70">
+                              {selectedCount}/{members.length}
+                            </span>
+                          </button>
+                        );
+                      }
+                    )}
                   </div>
                 </div>
                 <p className="text-[10px] text-neutral-500 mb-2">
@@ -2189,6 +2386,7 @@ function CrawlerAdmin() {
                         http: 0,
                         tls: 1,
                         browser: 2,
+                        unverified: 4,
                       };
                       const ta = adapterTiers[a];
                       const tb = adapterTiers[b];

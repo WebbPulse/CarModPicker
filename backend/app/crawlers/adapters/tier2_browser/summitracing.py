@@ -241,7 +241,7 @@ class SummitRacingAdapter(RetailerCrawlerAdapter):
 
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """Parse a Summit Racing product page. JSON-LD covers everything we need."""
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if not item:
             return None
         payload = scraped_payload_from_json_ld(item, url)

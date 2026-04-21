@@ -41,6 +41,10 @@ class TestParseProductPage:
         brand: str = "LCK",
         sku: str = "LCK-G8X-BP-BLK",
         price: str = "295.00",
+        # JSON-LD offer URL — defaults to the real product URL so the extractor
+        # keeps the block. Tests that intentionally want a mismatched URL can
+        # override this.
+        offer_url: str = "https://ind-distribution.com/products/lck-bmw-m-carbon-bucket-seat-bolster-protector-set",
     ) -> str:
         # Mirrors IND's Booster Apps SEO JSON-LD block: a Product with brand,
         # sku, mpn, description, and an offers array.
@@ -54,7 +58,7 @@ class TestParseProductPage:
             "sku":"{sku}","mpn":"{sku}",
             "description":"Extend the life of your premium interior with the LCK BMW M Carbon Bucket Seat Bolster Protector Set designed for BMW M carbon bucket seats.",
             "offers":[{{"@type":"Offer","price":"{price}","priceCurrency":"USD",
-              "sku":"{sku}","url":"https://ind-distribution.com/products/x?variant=1"}}],
+              "sku":"{sku}","url":"{offer_url}"}}],
             "image":"https://ind-distribution.com/cdn/shop/files/sample_1024x.jpg?v=1"}}
           </script>
         </head><body><media-gallery></media-gallery></body></html>
@@ -73,9 +77,15 @@ class TestParseProductPage:
 
     def test_brand_passthrough_preserves_third_party_manufacturer(self) -> None:
         # Regression: we must not rewrite brand to "IND" or "IND Distribution".
+        page_url = "https://ind-distribution.com/products/akrapovic-evolution-exhaust-bmw-m3"
         result = INDAdapter().parse_product_page(
-            self._ind_html(name="Akrapovic Evolution Exhaust BMW M3", brand="Akrapovic", sku="S-BM/T/1H"),
-            "https://ind-distribution.com/products/akrapovic-evolution-exhaust-bmw-m3",
+            self._ind_html(
+                name="Akrapovic Evolution Exhaust BMW M3",
+                brand="Akrapovic",
+                sku="S-BM/T/1H",
+                offer_url=page_url,
+            ),
+            page_url,
         )
         assert result is not None
         assert result.part_manufacturer == "Akrapovic"

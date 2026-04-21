@@ -436,7 +436,7 @@ class AdroAdapter(RetailerCrawlerAdapter):
         dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD (authoritative on Shopify): name, description, brand, sku, price, image.
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             # Shopify emits price=0.00 for picker/bundle landing pages that have no
             # SKU of their own (sub-products are priced). Real ADRO products are all

@@ -431,6 +431,13 @@ function AdminDashboard() {
       path: '/admin/crawler',
     },
     {
+      title: 'Parts Curation',
+      description:
+        'Inspect canonical link groups, promote/unlink duplicates, and rescan the catalog',
+      icon: '🔗',
+      path: '/admin/parts-curation',
+    },
+    {
       title: 'System & Database',
       description:
         'Migrations, data initialization, and destructive operations',

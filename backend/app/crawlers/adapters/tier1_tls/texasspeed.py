@@ -297,7 +297,7 @@ class TexasSpeedAdapter(RetailerCrawlerAdapter):
         if not _is_product_url(url):
             return None
 
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if not item:
             return None
 

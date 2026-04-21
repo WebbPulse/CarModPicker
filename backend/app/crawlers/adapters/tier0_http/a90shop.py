@@ -290,7 +290,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD (same strategy as chrome-extension)
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:

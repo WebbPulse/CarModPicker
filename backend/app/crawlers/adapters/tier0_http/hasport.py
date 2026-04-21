@@ -295,7 +295,7 @@ class HasportAdapter(RetailerCrawlerAdapter):
         if not _is_product_url(canonical_url):
             return None
 
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if not item:
             return None
 
