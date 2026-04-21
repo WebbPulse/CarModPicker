@@ -29,9 +29,29 @@ import type { CategoryResponse } from '../../types/Api';
 // ── Fetcher-tier visual system ───────────────────────────────────────────
 // Adapters declare a FETCHER_TIER on the backend; the UI groups them by
 // blocking difficulty: T0 = plain HTTP, T1 = TLS impersonation, T2 = headless
-// browser via FlareSolverr.
+// browser via FlareSolverr. T4 is a frontend-only override for newly-written
+// adapters that haven't been smoke-tested yet — remove entries from
+// UNVERIFIED_ADAPTERS as each one is validated.
 
-type FetcherTier = 'http' | 'tls' | 'browser';
+type FetcherTier = 'http' | 'tls' | 'browser' | 'unverified';
+
+// Phase 1 adapters (landed 2026-04-20) flagged as T4 = unverified until they
+// pass a live smoke test. The backend still reports their real FETCHER_TIER
+// (currently all "http"); this set only affects the UI grouping + chip. When
+// an adapter has been confirmed to produce correct ScrapedPayload end-to-end
+// on a real crawl, delete it from this set.
+const UNVERIFIED_ADAPTERS: ReadonlySet<string> = new Set([
+  'burgermotorsports',
+  'corksport',
+  'ets',
+  'grimmspeed',
+  'mishimoto',
+  'modernmusclextreme',
+  'radium',
+  'seiboncarbon',
+  'skunk2',
+  'verusengineering',
+]);
 
 const TIER_META: Record<
   FetcherTier,
@@ -73,6 +93,16 @@ const TIER_META: Record<
     chipSelected: 'border-rose-500 bg-rose-900/40 text-rose-300',
     chipUnselected: 'border-rose-700/40 text-rose-400/70 hover:border-rose-500',
     dot: 'bg-rose-500',
+  },
+  unverified: {
+    label: 'T4',
+    full: 'T4 — unverified: new adapter awaiting smoke test',
+    badge: 'bg-indigo-900/40 border-indigo-700/60 text-indigo-300',
+    row: 'border-l-2 border-l-indigo-500/70',
+    chipSelected: 'border-indigo-500 bg-indigo-900/40 text-indigo-300',
+    chipUnselected:
+      'border-indigo-700/40 text-indigo-400/70 hover:border-indigo-500',
+    dot: 'bg-indigo-500',
   },
 };
 
@@ -878,7 +908,9 @@ function CrawlerAdmin() {
       );
       const tiers: Record<string, FetcherTier> = {};
       for (const info of adaptersRes.data.adapter_info ?? []) {
-        tiers[info.name] = info.tier;
+        tiers[info.name] = UNVERIFIED_ADAPTERS.has(info.name)
+          ? 'unverified'
+          : info.tier;
       }
       setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
@@ -1774,6 +1806,7 @@ function CrawlerAdmin() {
                       http: 0,
                       tls: 1,
                       browser: 2,
+                      unverified: 4,
                     };
                     const ta = adapterTiers[a.adapter_name];
                     const tb = adapterTiers[b.adapter_name];
@@ -2221,37 +2254,39 @@ function CrawlerAdmin() {
                       None
                     </button>
                     <span className="text-neutral-600">·</span>
-                    {(['http', 'tls', 'browser'] as const).map((tier) => {
-                      const members = crawlerAdapters.filter(
-                        (name) => adapterTiers[name] === tier
-                      );
-                      if (members.length === 0) return null;
-                      const selectedCount = members.filter((name) =>
-                        selectedCrawlers.has(name)
-                      ).length;
-                      const allSelected = selectedCount === members.length;
-                      const someSelected = selectedCount > 0 && !allSelected;
-                      const meta = TIER_META[tier];
-                      const cls = allSelected
-                        ? meta.chipSelected
-                        : someSelected
-                          ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
-                          : meta.chipUnselected;
-                      return (
-                        <button
-                          key={tier}
-                          type="button"
-                          onClick={() => toggleTierSelection(tier)}
-                          title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
-                          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
-                        >
-                          {meta.label}
-                          <span className="ml-1 opacity-70">
-                            {selectedCount}/{members.length}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {(['http', 'tls', 'browser', 'unverified'] as const).map(
+                      (tier) => {
+                        const members = crawlerAdapters.filter(
+                          (name) => adapterTiers[name] === tier
+                        );
+                        if (members.length === 0) return null;
+                        const selectedCount = members.filter((name) =>
+                          selectedCrawlers.has(name)
+                        ).length;
+                        const allSelected = selectedCount === members.length;
+                        const someSelected = selectedCount > 0 && !allSelected;
+                        const meta = TIER_META[tier];
+                        const cls = allSelected
+                          ? meta.chipSelected
+                          : someSelected
+                            ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
+                            : meta.chipUnselected;
+                        return (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => toggleTierSelection(tier)}
+                            title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
+                          >
+                            {meta.label}
+                            <span className="ml-1 opacity-70">
+                              {selectedCount}/{members.length}
+                            </span>
+                          </button>
+                        );
+                      }
+                    )}
                   </div>
                 </div>
                 <p className="text-[10px] text-neutral-500 mb-2">
@@ -2351,6 +2386,7 @@ function CrawlerAdmin() {
                         http: 0,
                         tls: 1,
                         browser: 2,
+                        unverified: 4,
                       };
                       const ta = adapterTiers[a];
                       const tb = adapterTiers[b];

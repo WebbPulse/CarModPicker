@@ -25,8 +25,11 @@ from app.crawlers.adapters.tier0_http.awetuning import AWETuningAdapter
 from app.crawlers.adapters.tier0_http.bcracing import BCRacingAdapter
 from app.crawlers.adapters.tier0_http.bimmerworld import BimmerworldAdapter
 from app.crawlers.adapters.tier0_http.briantooleyracing import BrianTooleyRacingAdapter
+from app.crawlers.adapters.tier0_http.burgermotorsports import BurgerMotorsportsAdapter
+from app.crawlers.adapters.tier0_http.corksport import CorkSportAdapter
 from app.crawlers.adapters.tier0_http.driveshaftshop import DriveshaftShopAdapter
 from app.crawlers.adapters.tier0_http.essexparts import EssexPartsAdapter
+from app.crawlers.adapters.tier0_http.ets import ETSAdapter
 from app.crawlers.adapters.tier0_http.evasivemotorsports import EvasiveMotorsportsAdapter
 from app.crawlers.adapters.tier0_http.fifteen52 import Fifteen52Adapter
 from app.crawlers.adapters.tier0_http.flyinmiata import FlyinMiataAdapter
@@ -35,6 +38,7 @@ from app.crawlers.adapters.tier0_http.functionwerk import FunctionwerkAdapter
 from app.crawlers.adapters.tier0_http.girodisc import GirodiscAdapter
 from app.crawlers.adapters.tier0_http.gmgracing import GMGRacingAdapter
 from app.crawlers.adapters.tier0_http.greddy import GReddyAdapter
+from app.crawlers.adapters.tier0_http.grimmspeed import GrimmSpeedAdapter
 from app.crawlers.adapters.tier0_http.hasport import HasportAdapter
 from app.crawlers.adapters.tier0_http.hksusa import HKSUSAAdapter
 from app.crawlers.adapters.tier0_http.hondata import HondataAdapter
@@ -46,17 +50,23 @@ from app.crawlers.adapters.tier0_http.katech import KatechAdapter
 from app.crawlers.adapters.tier0_http.ktuner import KTunerAdapter
 from app.crawlers.adapters.tier0_http.lingenfelter import LingenfelterAdapter
 from app.crawlers.adapters.tier0_http.maperformance import MAPerformanceAdapter
+from app.crawlers.adapters.tier0_http.mishimoto import MishimotoAdapter
+from app.crawlers.adapters.tier0_http.modernmusclextreme import ModernMuscleXtremeAdapter
 from app.crawlers.adapters.tier0_http.motorsport034 import Motorsport034Adapter
 from app.crawlers.adapters.tier0_http.prlmotorsports import PRLMotorsportsAdapter
+from app.crawlers.adapters.tier0_http.radium import RadiumAdapter
 from app.crawlers.adapters.tier0_http.rallysportdirect import RallysportDirectAdapter
 from app.crawlers.adapters.tier0_http.roadsportsupply import RoadSportSupplyAdapter
+from app.crawlers.adapters.tier0_http.seiboncarbon import SeibonCarbonAdapter
 from app.crawlers.adapters.tier0_http.sheepeybuilt import SheepeyBuiltAdapter
+from app.crawlers.adapters.tier0_http.skunk2 import Skunk2Adapter
 from app.crawlers.adapters.tier0_http.steeda import SteedaAdapter
 from app.crawlers.adapters.tier0_http.studiorsr import StudioRSRAdapter
 from app.crawlers.adapters.tier0_http.subispeed import SubispeedAdapter
 from app.crawlers.adapters.tier0_http.tickperformance import TickPerformanceAdapter
 from app.crawlers.adapters.tier0_http.titan7 import Titan7Adapter
 from app.crawlers.adapters.tier0_http.twentysevenwon import TwentySevenWonAdapter
+from app.crawlers.adapters.tier0_http.verusengineering import VerusEngineeringAdapter
 from app.crawlers.adapters.tier0_http.wheelsboutique import WheelsBoutiqueAdapter
 from app.crawlers.adapters.tier0_http.xph import XPHAdapter
 
@@ -99,8 +109,11 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "bcracing": BCRacingAdapter,
     "bimmerworld": BimmerworldAdapter,
     "briantooleyracing": BrianTooleyRacingAdapter,
+    "burgermotorsports": BurgerMotorsportsAdapter,
+    "corksport": CorkSportAdapter,
     "driveshaftshop": DriveshaftShopAdapter,
     "essexparts": EssexPartsAdapter,
+    "ets": ETSAdapter,
     "evasivemotorsports": EvasiveMotorsportsAdapter,
     "fifteen52": Fifteen52Adapter,
     "flyinmiata": FlyinMiataAdapter,
@@ -109,6 +122,7 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "girodisc": GirodiscAdapter,
     "gmgracing": GMGRacingAdapter,
     "greddy": GReddyAdapter,
+    "grimmspeed": GrimmSpeedAdapter,
     "hasport": HasportAdapter,
     "hksusa": HKSUSAAdapter,
     "hondata": HondataAdapter,
@@ -120,15 +134,21 @@ ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
     "ktuner": KTunerAdapter,
     "lingenfelter": LingenfelterAdapter,
     "maperformance": MAPerformanceAdapter,
+    "mishimoto": MishimotoAdapter,
+    "modernmusclextreme": ModernMuscleXtremeAdapter,
     "prlmotorsports": PRLMotorsportsAdapter,
+    "radium": RadiumAdapter,
     "rallysportdirect": RallysportDirectAdapter,
     "roadsportsupply": RoadSportSupplyAdapter,
+    "seiboncarbon": SeibonCarbonAdapter,
     "sheepeybuilt": SheepeyBuiltAdapter,
+    "skunk2": Skunk2Adapter,
     "steeda": SteedaAdapter,
     "studiorsr": StudioRSRAdapter,
     "subispeed": SubispeedAdapter,
     "tickperformance": TickPerformanceAdapter,
     "titan7": Titan7Adapter,
+    "verusengineering": VerusEngineeringAdapter,
     "wheelsboutique": WheelsBoutiqueAdapter,
     "xph": XPHAdapter,
     # Tier 1 — TLS impersonation
@@ -209,10 +229,24 @@ def adapter_name_for_product_url(url: str) -> str:
         return "bimmerworld"
     if host == "briantooleyracing.com" or host.endswith(".briantooleyracing.com"):
         return "briantooleyracing"
+    # BMS's live storefront is burgertuning.com; burger-motorsports.com is
+    # defunct (NXDOMAIN / ECONNREFUSED) but keep the mapping so any
+    # chrome-extension submissions or archived URLs on the legacy host still
+    # route to the site-specific parser instead of the generic fallback.
+    if host == "burgertuning.com" or host.endswith(".burgertuning.com"):
+        return "burgermotorsports"
+    if host == "burger-motorsports.com" or host.endswith(".burger-motorsports.com"):
+        return "burgermotorsports"
+    if host == "corksport.com" or host.endswith(".corksport.com"):
+        return "corksport"
     if host == "driveshaftshop.com" or host.endswith(".driveshaftshop.com"):
         return "driveshaftshop"
     if host == "essexparts.com" or host.endswith(".essexparts.com"):
         return "essexparts"
+    # ETS's live storefront is extremeturbosystems.com; ets-racing.com serves
+    # an expired cert and is an unrelated business. Map only the live host.
+    if host == "extremeturbosystems.com" or host.endswith(".extremeturbosystems.com"):
+        return "ets"
     if host == "evasivemotorsports.com" or host.endswith(".evasivemotorsports.com"):
         return "evasivemotorsports"
     if host == "fifteen52.com" or host.endswith(".fifteen52.com"):
@@ -236,6 +270,8 @@ def adapter_name_for_product_url(url: str) -> str:
         return "gmgracing"
     if host == "greddy.com" or host.endswith(".greddy.com"):
         return "greddy"
+    if host == "grimmspeed.com" or host.endswith(".grimmspeed.com"):
+        return "grimmspeed"
     if host == "hasportperformance.com" or host.endswith(".hasportperformance.com"):
         return "hasport"
     if host == "hasport.com" or host.endswith(".hasport.com"):
@@ -263,16 +299,29 @@ def adapter_name_for_product_url(url: str) -> str:
         return "lingenfelter"
     if host == "maperformance.com" or host.endswith(".maperformance.com"):
         return "maperformance"
+    if host == "mishimoto.com" or host.endswith(".mishimoto.com"):
+        return "mishimoto"
+    # Modern Muscle Xtreme lives at modernmusclextreme.com; the modernmusclepa.com
+    # alias doesn't resolve at recon time but keep no mapping for it — add one if
+    # it comes back online.
+    if host == "modernmusclextreme.com" or host.endswith(".modernmusclextreme.com"):
+        return "modernmusclextreme"
     if host == "prlmotorsports.com" or host.endswith(".prlmotorsports.com"):
         return "prlmotorsports"
+    if host == "radiumauto.com" or host.endswith(".radiumauto.com"):
+        return "radium"
     if host == "rallysportdirect.com" or host.endswith(".rallysportdirect.com"):
         return "rallysportdirect"
     if host == "roadsportsupply.com" or host.endswith(".roadsportsupply.com"):
         return "roadsportsupply"
+    if host == "seiboncarbon.com" or host.endswith(".seiboncarbon.com"):
+        return "seiboncarbon"
     if host == "sheepeyrace.com" or host.endswith(".sheepeyrace.com"):
         return "sheepeybuilt"
     if host == "sheepeybuilt.com" or host.endswith(".sheepeybuilt.com"):
         return "sheepeybuilt"
+    if host == "skunk2.com" or host.endswith(".skunk2.com"):
+        return "skunk2"
     if host == "steeda.com" or host.endswith(".steeda.com"):
         return "steeda"
     if host == "studiorsr.com" or host.endswith(".studiorsr.com"):
@@ -289,6 +338,8 @@ def adapter_name_for_product_url(url: str) -> str:
         return "titan7"
     if host == "tomeiusa.com" or host.endswith(".tomeiusa.com"):
         return "tomeiusa"
+    if host == "verus-engineering.com" or host.endswith(".verus-engineering.com"):
+        return "verusengineering"
     if host == "wheelsboutique.com" or host.endswith(".wheelsboutique.com"):
         return "wheelsboutique"
     if host == "x-ph.com" or host.endswith(".x-ph.com"):
