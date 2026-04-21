@@ -507,6 +507,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "Odyssey",
             "generations": [
                 {
+                    "generation_name": "RA",
+                    "start_year": 1994,
+                    "end_year": 1998,
+                    "description": "1st-gen Odyssey (RA1-RA5).",
+                },
+                {
                     "generation_name": "RL",
                     "start_year": 1999,
                     "end_year": 2004,
@@ -1342,6 +1348,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "Legacy",
             "generations": [
                 {
+                    "generation_name": "BC/BJ/BF",
+                    "start_year": 1990,
+                    "end_year": 1994,
+                    "description": "1st-gen Legacy sedan/wagon. Turbo EJ20T.",
+                },
+                {
                     "generation_name": "BD/BG",
                     "start_year": 1995,
                     "end_year": 1999,
@@ -1482,6 +1494,28 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Ascent",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Subaru's three-row SUV on Global Platform. Turbocharged 2.4L FA24F. COBB Accessport support.",
+                },
+            ],
+        },
+        {
+            "model": "Baja",
+            "generations": [
+                {
+                    "generation_name": "BT",
+                    "start_year": 2003,
+                    "end_year": 2006,
+                    "description": "Outback-derived pickup. 2.5L NA / turbo.",
+                },
+            ],
+        },
     ],
     "Nissan": [
         {
@@ -1585,6 +1619,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "Altima",
             "generations": [
                 {
+                    "generation_name": "U13",
+                    "start_year": 1993,
+                    "end_year": 1997,
+                    "description": "1st US Altima. KA24DE.",
+                },
+                {
                     "generation_name": "L30",
                     "start_year": 2002,
                     "end_year": 2006,
@@ -1613,6 +1653,18 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
         {
             "model": "Sentra",
             "generations": [
+                {
+                    "generation_name": "B13",
+                    "start_year": 1991,
+                    "end_year": 1994,
+                    "description": "B13 Sentra. SE-R (SR20DE).",
+                },
+                {
+                    "generation_name": "B14",
+                    "start_year": 1995,
+                    "end_year": 1999,
+                    "description": "B14 Sentra. SE-R + 200SX twin.",
+                },
                 {
                     "generation_name": "B15",
                     "start_year": 2000,
@@ -1682,6 +1734,46 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2016,
                     "end_year": 2023,
                     "description": "Eighth-generation Maxima '4-Door Sports Car' with bold styling and 3.5L VQ35DE V6 producing 300 hp. Popular for exhaust upgrades, wheels, and cosmetic modifications.",
+                },
+            ],
+        },
+        {
+            "model": "300ZX",
+            "generations": [
+                {
+                    "generation_name": "Z31",
+                    "start_year": 1984,
+                    "end_year": 1989,
+                    "description": "Third-gen Fairlady Z; VG30E/VG30ET engines. Popular for engine swaps and turbo rebuilds.",
+                },
+                {
+                    "generation_name": "Z32",
+                    "start_year": 1990,
+                    "end_year": 2000,
+                    "description": "Twin-turbo VG30DETT 300 hp flagship. Strong aftermarket for exhaust, intake, suspension.",
+                },
+            ],
+        },
+        {
+            "model": "Skyline",
+            "generations": [
+                {
+                    "generation_name": "R32",
+                    "start_year": 1989,
+                    "end_year": 1994,
+                    "description": "Skyline R32 GTS/GTS-T (HCR32/HR32). RB20DET turbo. Shares platform with GT-R BNR32.",
+                },
+                {
+                    "generation_name": "R33",
+                    "start_year": 1993,
+                    "end_year": 1998,
+                    "description": "Skyline R33 GTS/GTS-T (ECR33). RB25DET turbo JDM sedan/coupe.",
+                },
+                {
+                    "generation_name": "R34",
+                    "start_year": 1998,
+                    "end_year": 2002,
+                    "description": "Skyline R34 25GT-T (ER34). RB25DET NEO-6 turbo.",
                 },
             ],
         },
@@ -1873,6 +1965,17 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2003,
                     "end_year": 2012,
                     "description": "Mazda's rotary-powered sports car with unique 4-door design. Featured naturally aspirated 13B-MSP Renesis engine producing 232-238 horsepower. High-revving character and excellent handling.",
+                },
+            ],
+        },
+        {
+            "model": "B-Series Truck",
+            "generations": [
+                {
+                    "generation_name": "5th Gen",
+                    "start_year": 1986,
+                    "end_year": 1993,
+                    "description": "Mazda B1600/B2000/B2200/B2600 pickup; rebadged as Ford Courier/Ranger. B2600i with G6 2.6L.",
                 },
             ],
         },
@@ -2206,6 +2309,91 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Ranger",
+            "generations": [
+                {
+                    "generation_name": "T6",
+                    "start_year": 2019,
+                    "end_year": 2023,
+                    "description": "Mid-size pickup reintroduced to NA. 2.3L EcoBoost I4 270 hp. Raptor: 2.3L or 3.0L V6.",
+                },
+                {
+                    "generation_name": "Next Gen",
+                    "start_year": 2024,
+                    "end_year": 2024,
+                    "description": "Global Ranger. 2.3L / 2.7L V6 / 3.0L V6 Raptor 405 hp.",
+                },
+            ],
+        },
+        {
+            "model": "Ranger Raptor",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2024,
+                    "end_year": 2024,
+                    "description": "US-market Ranger Raptor with 3.0L EcoBoost V6. First Ranger Raptor sold in North America.",
+                },
+            ],
+        },
+        {
+            "model": "Maverick",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Compact unibody pickup. 2.5L hybrid or 2.0L EcoBoost 250 hp. Tremor/Lobo.",
+                },
+            ],
+        },
+        {
+            "model": "Bronco Sport",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "Compact crossover on Escape platform. 2.0L EcoBoost Badlands is COBB target.",
+                },
+            ],
+        },
+        {
+            "model": "F-Series Super Duty",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 1999,
+                    "end_year": 2007,
+                    "description": "F-250/F-350/F-450. 5.4L Triton, 6.8L V10, 7.3L then 6.0L Power Stroke diesel.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2008,
+                    "end_year": 2010,
+                    "description": "5.4L Triton, 6.8L V10, 6.4L Power Stroke diesel.",
+                },
+                {
+                    "generation_name": "3rd Gen",
+                    "start_year": 2011,
+                    "end_year": 2016,
+                    "description": "6.2L Boss gas V8, 6.7L Power Stroke 390-440 hp.",
+                },
+                {
+                    "generation_name": "4th Gen",
+                    "start_year": 2017,
+                    "end_year": 2022,
+                    "description": "Aluminum body. 6.2L / 7.3L Godzilla, 6.7L Power Stroke 450 hp.",
+                },
+                {
+                    "generation_name": "5th Gen",
+                    "start_year": 2023,
+                    "end_year": 2024,
+                    "description": "6.8L gas V8, 7.3L Godzilla, 6.7L Power Stroke 500 hp / 1200 lb-ft HO.",
+                },
+            ],
+        },
     ],
     "Chevrolet": [
         {
@@ -2444,6 +2632,259 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Silverado",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 1999,
+                    "end_year": 2007,
+                    "description": "4.8/5.3/6.0L LS-based V8s. Silverado SS 2003-2006, 6.0L 345 hp.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "4.8/5.3/6.0/6.2L LS-based V8s.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2014,
+                    "end_year": 2018,
+                    "description": "K2XX platform. 4.3L V6, 5.3L L83, 6.2L L86 EcoTec3 V8s.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "T1 platform. 2.7L I4T, 5.3L L84, 6.2L L87, 3.0L Duramax. ZR2.",
+                },
+            ],
+        },
+        {
+            "model": "Tahoe",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 2000,
+                    "end_year": 2006,
+                    "description": "4.8/5.3L V8 full-size SUV.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2014,
+                    "description": "5.3/6.0/6.2L L92 V8s.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2015,
+                    "end_year": 2020,
+                    "description": "K2XX. 5.3L L83 / 6.2L L86 V8s. RST variant.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "T1 with IRS. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
+                },
+            ],
+        },
+        {
+            "model": "Suburban",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 2000,
+                    "end_year": 2006,
+                    "description": "Long-WB GMT800. 5.3/6.0/8.1L V8s.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2014,
+                    "description": "Long-WB GMT900. 5.3/6.0L L92 V8s.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2015,
+                    "end_year": 2020,
+                    "description": "Long-WB K2XX. 5.3/6.2L V8s.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "T1 long-WB. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
+                },
+            ],
+        },
+    ],
+    "Cadillac": [
+        {
+            "model": "CTS-V",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2004,
+                    "end_year": 2007,
+                    "description": "First CTS-V: 5.7L LS6 (2004) then 6.0L LS2 V8 (2005-2007), 400 hp. RWD Sigma platform.",
+                },
+                {
+                    "generation_name": "2nd Gen",
+                    "start_year": 2009,
+                    "end_year": 2015,
+                    "description": "Supercharged 6.2L LSA V8, 556 hp. Sedan/coupe/wagon. Massive LSA aftermarket.",
+                },
+                {
+                    "generation_name": "3rd Gen",
+                    "start_year": 2016,
+                    "end_year": 2019,
+                    "description": "Supercharged 6.2L LT4 V8, 640 hp. Alpha platform shared with Camaro. Sedan only.",
+                },
+            ],
+        },
+        {
+            "model": "CT5-V Blackwing",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Supercharged 6.2L LT4 V8, 668 hp. 6MT or 10AT. Alpha platform successor to CTS-V.",
+                },
+            ],
+        },
+        {
+            "model": "CT4-V Blackwing",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Twin-turbo 3.6L V6, 472 hp. 6MT or 10AT. Alpha platform successor to ATS-V.",
+                },
+            ],
+        },
+        {
+            "model": "ATS-V",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2016,
+                    "end_year": 2019,
+                    "description": "Twin-turbo 3.6L V6, 464 hp. Alpha platform. Predecessor to CT4-V Blackwing.",
+                },
+            ],
+        },
+        {
+            "model": "Escalade",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 2002,
+                    "end_year": 2006,
+                    "description": "GMT800 luxury SUV. 6.0L LQ9 V8 in ESV/EXT.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2014,
+                    "description": "GMT900 with 6.2L L92/L9H V8, 403 hp.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2015,
+                    "end_year": 2020,
+                    "description": "K2XL platform, 6.2L L86 V8 420 hp.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "T1 platform. Escalade-V supercharged LT4 682 hp.",
+                },
+            ],
+        },
+    ],
+    "GMC": [
+        {
+            "model": "Sierra",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 1999,
+                    "end_year": 2007,
+                    "description": "Sierra sibling of Silverado. LS-family V8s. Denali + C3.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "GMT900 Sierra with LS V8s.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2014,
+                    "end_year": 2018,
+                    "description": "K2XX. L83 5.3L / L86 6.2L V8s.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "T1. L84 5.3L / L87 6.2L / Duramax 3.0L. AT4X.",
+                },
+            ],
+        },
+        {
+            "model": "Yukon",
+            "generations": [
+                {
+                    "generation_name": "GMT800",
+                    "start_year": 2000,
+                    "end_year": 2006,
+                    "description": "GMT800 sibling to Tahoe.",
+                },
+                {
+                    "generation_name": "GMT900",
+                    "start_year": 2007,
+                    "end_year": 2014,
+                    "description": "GMT900. L92 6.2L in Denali. XL long-WB.",
+                },
+                {
+                    "generation_name": "K2",
+                    "start_year": 2015,
+                    "end_year": 2020,
+                    "description": "K2XX. L83/L86 V8s. Denali 10AT.",
+                },
+                {
+                    "generation_name": "T1",
+                    "start_year": 2021,
+                    "end_year": 2024,
+                    "description": "T1 platform. L84/L87 V8s / Duramax. AT4.",
+                },
+            ],
+        },
+    ],
+    "Holden": [
+        {
+            "model": "Commodore",
+            "generations": [
+                {
+                    "generation_name": "VE",
+                    "start_year": 2006,
+                    "end_year": 2013,
+                    "description": "Zeta. SS: LS2/LS3 V8. Basis for Pontiac G8 (2008-2009).",
+                },
+                {
+                    "generation_name": "VF",
+                    "start_year": 2013,
+                    "end_year": 2017,
+                    "description": "Zeta refined. SS: LS3 V8 415 hp. Basis for Chevy SS 2014-17. HSV GTS: LSA 577 hp.",
+                },
+            ],
+        },
     ],
     "BMW": [
         {
@@ -2619,6 +3060,18 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
         {
             "model": "5 Series",
             "generations": [
+                {
+                    "generation_name": "E28",
+                    "start_year": 1981,
+                    "end_year": 1987,
+                    "description": "E28 5 Series (non-M); 528e, 533i, 535i.",
+                },
+                {
+                    "generation_name": "E34",
+                    "start_year": 1988,
+                    "end_year": 1996,
+                    "description": "E34 5 Series (non-M); 525i, 530i, 535i, 540i. Touring wagon available.",
+                },
                 {
                     "generation_name": "E39",
                     "start_year": 1995,
@@ -3067,6 +3520,307 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2022,
                     "end_year": 2024,
                     "description": "Electric M Performance variant of iX SUV. Dual-motor all-wheel drive producing 610 horsepower and 749 lb-ft torque. 0-60 mph in 3.6 seconds. EPA range ~285 miles. 109.5 kWh battery with fast DC charging.",
+                },
+            ],
+        },
+        {
+            "model": "X1",
+            "generations": [
+                {
+                    "generation_name": "E84",
+                    "start_year": 2009,
+                    "end_year": 2015,
+                    "description": "First-gen X1, rear-wheel-drive compact SUV on E9x platform.",
+                },
+                {
+                    "generation_name": "F48",
+                    "start_year": 2016,
+                    "end_year": 2022,
+                    "description": "Second-gen X1 on UKL FWD-based platform; M35i variant with B48 engine.",
+                },
+                {
+                    "generation_name": "U11",
+                    "start_year": 2023,
+                    "end_year": None,
+                    "description": "Third-gen X1 on FAAR platform; iX1 EV variant.",
+                },
+            ],
+        },
+        {
+            "model": "X2",
+            "generations": [
+                {
+                    "generation_name": "F39",
+                    "start_year": 2018,
+                    "end_year": 2023,
+                    "description": "First-gen X2 on UKL platform; M35i high-performance variant.",
+                },
+            ],
+        },
+        {
+            "model": "X3",
+            "generations": [
+                {
+                    "generation_name": "E83",
+                    "start_year": 2003,
+                    "end_year": 2010,
+                    "description": "First-gen X3 on E46 3-Series platform.",
+                },
+                {
+                    "generation_name": "F25",
+                    "start_year": 2011,
+                    "end_year": 2017,
+                    "description": "Second-gen X3; N20/N52/N55 engines.",
+                },
+                {
+                    "generation_name": "G01",
+                    "start_year": 2018,
+                    "end_year": 2024,
+                    "description": "Third-gen X3 on CLAR platform; M40i variant with B58 engine.",
+                },
+            ],
+        },
+        {
+            "model": "X4",
+            "generations": [
+                {
+                    "generation_name": "F26",
+                    "start_year": 2015,
+                    "end_year": 2018,
+                    "description": "First-gen X4 on X3 F25 platform.",
+                },
+                {
+                    "generation_name": "G02",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Second-gen X4 on CLAR; M40i variant with B58 engine.",
+                },
+            ],
+        },
+        {
+            "model": "X5",
+            "generations": [
+                {
+                    "generation_name": "E53",
+                    "start_year": 2000,
+                    "end_year": 2006,
+                    "description": "First-gen X5; V8 and inline-6 engines.",
+                },
+                {
+                    "generation_name": "E70",
+                    "start_year": 2007,
+                    "end_year": 2013,
+                    "description": "Second-gen X5 (non-M); includes 35d diesel and 50i V8 variants.",
+                },
+                {
+                    "generation_name": "F15",
+                    "start_year": 2014,
+                    "end_year": 2018,
+                    "description": "Third-gen X5; xDrive35i/35d/50i and M50d.",
+                },
+                {
+                    "generation_name": "G05",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Fourth-gen X5 on CLAR; M60i with S68 V8.",
+                },
+            ],
+        },
+        {
+            "model": "X6",
+            "generations": [
+                {
+                    "generation_name": "E71",
+                    "start_year": 2008,
+                    "end_year": 2014,
+                    "description": "First-gen X6 (non-M); shared E70 platform.",
+                },
+                {
+                    "generation_name": "F16",
+                    "start_year": 2015,
+                    "end_year": 2019,
+                    "description": "Second-gen X6 on F15 platform.",
+                },
+                {
+                    "generation_name": "G06",
+                    "start_year": 2020,
+                    "end_year": 2024,
+                    "description": "Third-gen X6 on CLAR; M60i variant.",
+                },
+            ],
+        },
+        {
+            "model": "X7",
+            "generations": [
+                {
+                    "generation_name": "G07",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "First-gen X7; three-row SUV flagship. M60i and Alpina XB7 variants.",
+                },
+            ],
+        },
+        {
+            "model": "2 Series Gran Coupe",
+            "generations": [
+                {
+                    "generation_name": "F44",
+                    "start_year": 2020,
+                    "end_year": 2024,
+                    "description": "Four-door coupe on UKL FWD-based platform; M235i xDrive variant.",
+                },
+            ],
+        },
+        {
+            "model": "6 Series",
+            "generations": [
+                {
+                    "generation_name": "E24",
+                    "start_year": 1976,
+                    "end_year": 1989,
+                    "description": "First-gen 6-Series grand tourer; 630CSi, 633CSi, 635CSi, L6 (non-M).",
+                },
+                {
+                    "generation_name": "E63/E64",
+                    "start_year": 2004,
+                    "end_year": 2010,
+                    "description": "Second-gen 6-Series coupe (E63) / convertible (E64); 645Ci, 650i.",
+                },
+                {
+                    "generation_name": "F12/F13/F06",
+                    "start_year": 2011,
+                    "end_year": 2019,
+                    "description": "Third-gen 6-Series convertible (F12), coupe (F13), Gran Coupe (F06); 640i, 650i.",
+                },
+            ],
+        },
+        {
+            "model": "6 Series GT",
+            "generations": [
+                {
+                    "generation_name": "G32",
+                    "start_year": 2018,
+                    "end_year": 2024,
+                    "description": "6-Series Gran Turismo five-door fastback; replaced 5-Series GT.",
+                },
+            ],
+        },
+        {
+            "model": "7 Series",
+            "generations": [
+                {
+                    "generation_name": "E23",
+                    "start_year": 1977,
+                    "end_year": 1987,
+                    "description": "First-gen 7 Series; 733i, 735i, 745i Euro turbocharged.",
+                },
+                {
+                    "generation_name": "E32",
+                    "start_year": 1988,
+                    "end_year": 1994,
+                    "description": "Second-gen 7 Series; M30 straight-6 and M70 V12 (750iL).",
+                },
+                {
+                    "generation_name": "E38",
+                    "start_year": 1995,
+                    "end_year": 2001,
+                    "description": "Third-gen 7 Series; 740i, 740iL, 750iL V12.",
+                },
+                {
+                    "generation_name": "E65/E66",
+                    "start_year": 2002,
+                    "end_year": 2008,
+                    "description": "Fourth-gen 7 Series; 745i/745Li, 750i/750Li, 760Li V12. First iDrive.",
+                },
+                {
+                    "generation_name": "F01/F02",
+                    "start_year": 2009,
+                    "end_year": 2015,
+                    "description": "Fifth-gen 7 Series; twin-turbo N54/N55/N63 engines.",
+                },
+                {
+                    "generation_name": "G11/G12",
+                    "start_year": 2016,
+                    "end_year": 2022,
+                    "description": "Sixth-gen 7 Series on CLAR; M760i V12 available.",
+                },
+                {
+                    "generation_name": "G70",
+                    "start_year": 2023,
+                    "end_year": 2024,
+                    "description": "Seventh-gen 7 Series (non-M70; non-i7 variants).",
+                },
+            ],
+        },
+        {
+            "model": "8 Series",
+            "generations": [
+                {
+                    "generation_name": "E31",
+                    "start_year": 1990,
+                    "end_year": 1999,
+                    "description": "First-gen 8 Series grand tourer; 840Ci, 850i, 850Ci, 850CSi V12.",
+                },
+                {
+                    "generation_name": "G14/G15/G16",
+                    "start_year": 2019,
+                    "end_year": 2024,
+                    "description": "Second-gen 8 Series; convertible (G14), coupe (G15), Gran Coupe (G16). 840i, M850i.",
+                },
+            ],
+        },
+        {
+            "model": "i3",
+            "generations": [
+                {
+                    "generation_name": "I01",
+                    "start_year": 2013,
+                    "end_year": 2022,
+                    "description": "First-gen i3 electric compact on LifeDrive CFRP chassis; range-extender variant available.",
+                },
+            ],
+        },
+        {
+            "model": "i4",
+            "generations": [
+                {
+                    "generation_name": "G26",
+                    "start_year": 2022,
+                    "end_year": 2024,
+                    "description": "Electric Gran Coupe; eDrive35, eDrive40, xDrive40 variants (M50 is separate model).",
+                },
+            ],
+        },
+        {
+            "model": "i5",
+            "generations": [
+                {
+                    "generation_name": "G60",
+                    "start_year": 2024,
+                    "end_year": None,
+                    "description": "Electric 5-Series; eDrive40 and xDrive40 (M60 is separate model).",
+                },
+            ],
+        },
+        {
+            "model": "i7",
+            "generations": [
+                {
+                    "generation_name": "G70",
+                    "start_year": 2023,
+                    "end_year": 2024,
+                    "description": "Electric 7-Series; xDrive60 (M70 is separate model).",
+                },
+            ],
+        },
+        {
+            "model": "Z3",
+            "generations": [
+                {
+                    "generation_name": "E36/7 E36/8",
+                    "start_year": 1996,
+                    "end_year": 2002,
+                    "description": "Z3 roadster (E36/7) / coupe (E36/8). 1.9L-3.0L I6. Base Z3 (Z3 M seeded separately).",
                 },
             ],
         },
@@ -4457,6 +5211,29 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             ],
         },
         {
+            "model": "Passat",
+            "generations": [
+                {
+                    "generation_name": "B5/B5.5",
+                    "start_year": 1998,
+                    "end_year": 2005,
+                    "description": "1.8T / 2.8L V6 / 4.0L W8 (3BS). Audi A4 B5 platform.",
+                },
+                {
+                    "generation_name": "B6",
+                    "start_year": 2006,
+                    "end_year": 2010,
+                    "description": "3C. 2.0T TSI / 3.6L VR6.",
+                },
+                {
+                    "generation_name": "B7",
+                    "start_year": 2011,
+                    "end_year": 2019,
+                    "description": "NMS; NA-market.",
+                },
+            ],
+        },
+        {
             "model": "Passat CC",
             "generations": [
                 {
@@ -4589,6 +5366,28 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "Coupé",
+            "generations": [
+                {
+                    "generation_name": "R58",
+                    "start_year": 2012,
+                    "end_year": 2015,
+                    "description": "Cooper / Cooper S / JCW.",
+                },
+            ],
+        },
+        {
+            "model": "Roadster",
+            "generations": [
+                {
+                    "generation_name": "R59",
+                    "start_year": 2012,
+                    "end_year": 2015,
+                    "description": "Convertible.",
+                },
+            ],
+        },
     ],
     "Pontiac": [
         {
@@ -4651,6 +5450,23 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 1993,
                     "end_year": 2002,
                     "description": "Final Firebird generation with LS1 V8 in Formula and Trans Am trims producing 305-325 hp. Firehawk special edition with 327 hp. Shared F-body platform with Camaro. Excellent value high-performance cars with strong tuning community.",
+                },
+            ],
+        },
+        {
+            "model": "Grand Prix",
+            "generations": [
+                {
+                    "generation_name": "7th Gen",
+                    "start_year": 1997,
+                    "end_year": 2003,
+                    "description": "GTP supercharged 3.8L L67.",
+                },
+                {
+                    "generation_name": "8th Gen",
+                    "start_year": 2004,
+                    "end_year": 2008,
+                    "description": "GXP 5.3L LS4 V8 FWD.",
                 },
             ],
         },
@@ -4964,6 +5780,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
         {
             "model": "TL",
             "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 1996,
+                    "end_year": 1998,
+                    "description": "UA1/UA2 TL. 2.5L I5 / 3.2L V6.",
+                },
                 {
                     "generation_name": "2nd Gen",
                     "start_year": 1999,
@@ -5418,6 +6240,23 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                 },
             ],
         },
+        {
+            "model": "RX",
+            "generations": [
+                {
+                    "generation_name": "XU30",
+                    "start_year": 2004,
+                    "end_year": 2009,
+                    "description": "RX330/RX350/RX400h.",
+                },
+                {
+                    "generation_name": "AL10",
+                    "start_year": 2010,
+                    "end_year": 2015,
+                    "description": "RX350/RX450h.",
+                },
+            ],
+        },
     ],
     "Mitsubishi": [
         {
@@ -5580,6 +6419,12 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
             "model": "Lancer",
             "generations": [
                 {
+                    "generation_name": "CE",
+                    "start_year": 1996,
+                    "end_year": 2000,
+                    "description": "7th-gen Lancer. Pre-CJ.",
+                },
+                {
                     "generation_name": "CS/CT",
                     "start_year": 2002,
                     "end_year": 2007,
@@ -5619,6 +6464,17 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2022,
                     "end_year": 2024,
                     "description": "Fourth-generation Outlander on Renault-Nissan-Mitsubishi Alliance CMF platform. Featured bold new styling and 2.5L engine. PHEV version features 302 hp system output. Improved interior quality and technology.",
+                },
+            ],
+        },
+        {
+            "model": "Eclipse Cross",
+            "generations": [
+                {
+                    "generation_name": "1st Gen",
+                    "start_year": 2018,
+                    "end_year": 2024,
+                    "description": "Crossover; unrelated to Eclipse coupe.",
                 },
             ],
         },
@@ -7242,6 +8098,194 @@ CAR_GENERATIONS: dict[str, list[CarModelData]] = {
                     "start_year": 2024,
                     "end_year": 2024,
                     "description": "Hybrid supercar with 4.0L twin-turbo V8 hybrid powertrain producing 998 horsepower. Mid-engine layout. Limited production. Popular for exhaust upgrades and performance modifications. Growing aftermarket support.",
+                },
+            ],
+        },
+    ],
+    "Datsun": [
+        {
+            "model": "240Z",
+            "generations": [
+                {
+                    "generation_name": "S30",
+                    "start_year": 1969,
+                    "end_year": 1973,
+                    "description": "L24 I6.",
+                },
+            ],
+        },
+        {
+            "model": "260Z",
+            "generations": [
+                {
+                    "generation_name": "S30",
+                    "start_year": 1974,
+                    "end_year": 1978,
+                    "description": "L26/L28.",
+                },
+            ],
+        },
+        {
+            "model": "280Z",
+            "generations": [
+                {
+                    "generation_name": "S30",
+                    "start_year": 1975,
+                    "end_year": 1978,
+                    "description": "L28E fuel-injected.",
+                },
+            ],
+        },
+    ],
+    "Alfa Romeo": [
+        {
+            "model": "4C",
+            "generations": [
+                {
+                    "generation_name": "960",
+                    "start_year": 2013,
+                    "end_year": 2020,
+                    "description": "Carbon-tub mid-engine. 1.75T (237 hp).",
+                },
+            ],
+        },
+        {
+            "model": "Giulia",
+            "generations": [
+                {
+                    "generation_name": "Type 952",
+                    "start_year": 2015,
+                    "end_year": 2024,
+                    "description": "2.0T / 2.9L BiTurbo V6 QV (505 hp).",
+                },
+            ],
+        },
+        {
+            "model": "Stelvio",
+            "generations": [
+                {
+                    "generation_name": "Type 949",
+                    "start_year": 2016,
+                    "end_year": 2024,
+                    "description": "SUV on Giulia platform.",
+                },
+            ],
+        },
+    ],
+    "Jaguar": [
+        {
+            "model": "X-Type",
+            "generations": [
+                {
+                    "generation_name": "CF1",
+                    "start_year": 2001,
+                    "end_year": 2009,
+                    "description": "Mondeo-based 2.5/3.0 V6 AWD.",
+                },
+            ],
+        },
+        {
+            "model": "XF",
+            "generations": [
+                {
+                    "generation_name": "X250",
+                    "start_year": 2008,
+                    "end_year": 2015,
+                    "description": "XFR / XFR-S V8.",
+                },
+                {
+                    "generation_name": "X260",
+                    "start_year": 2016,
+                    "end_year": 2024,
+                    "description": "2nd-gen XF.",
+                },
+            ],
+        },
+    ],
+    "Land Rover": [
+        {
+            "model": "Range Rover Evoque",
+            "generations": [
+                {
+                    "generation_name": "L538",
+                    "start_year": 2011,
+                    "end_year": 2019,
+                    "description": "1st Evoque.",
+                },
+                {
+                    "generation_name": "L551",
+                    "start_year": 2020,
+                    "end_year": 2024,
+                    "description": "2nd Evoque.",
+                },
+            ],
+        },
+    ],
+    "Volvo": [
+        {
+            "model": "V40",
+            "generations": [
+                {
+                    "generation_name": "V1",
+                    "start_year": 1995,
+                    "end_year": 2004,
+                    "description": "V40 wagon.",
+                },
+            ],
+        },
+        {
+            "model": "S40",
+            "generations": [
+                {
+                    "generation_name": "V1",
+                    "start_year": 1995,
+                    "end_year": 2004,
+                    "description": "S40 sedan.",
+                },
+            ],
+        },
+    ],
+    "Saab": [
+        {
+            "model": "9-3",
+            "generations": [
+                {
+                    "generation_name": "YS3D",
+                    "start_year": 1998,
+                    "end_year": 2002,
+                    "description": "YS3D.",
+                },
+                {
+                    "generation_name": "YS3F",
+                    "start_year": 2003,
+                    "end_year": 2011,
+                    "description": "GM Epsilon. Aero V6.",
+                },
+            ],
+        },
+    ],
+    "Fiat": [
+        {
+            "model": "500",
+            "generations": [
+                {
+                    "generation_name": "312",
+                    "start_year": 2007,
+                    "end_year": 2024,
+                    "description": "Modern 500. Abarth 1.4T.",
+                },
+            ],
+        },
+    ],
+    "Smart": [
+        {
+            "model": "ForTwo",
+            "generations": [
+                {
+                    "generation_name": "W451",
+                    "start_year": 2008,
+                    "end_year": 2014,
+                    "description": "2nd-gen ForTwo.",
                 },
             ],
         },
