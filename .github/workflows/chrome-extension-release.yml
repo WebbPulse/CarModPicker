@@ -1,32 +1,38 @@
-# Builds the Chrome extension and publishes it as a GitHub Release asset.
+# Auto-release the Chrome extension whenever chrome-extension/** lands on main.
 #
-# Triggers:
-#   - git tag matching `chrome-extension-v*` pushed to the repo
-#     (e.g. `chrome-extension-v1.1.0` — the leading segment is stripped for the
-#      release title and zip name)
-#   - manual workflow_dispatch (useful for rebuilding a release without a new tag)
+# On each run the workflow:
+#   1. Bumps the patch version in chrome-extension/manifest.json
+#   2. Builds the extension
+#   3. Commits the version bump back to main and pushes a `chrome-extension-vX.Y.Z` tag
+#   4. Creates a GitHub Release with the built zip attached
+#   5. (Optional) Publishes the zip to the Chrome Web Store
 #
-# Optional: auto-publish to the Chrome Web Store.
-# Set all four secrets in the `production` environment to enable the final step:
-#   CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN, CWS_EXTENSION_ID
-# When any are missing, the step is skipped and the release still succeeds.
-# See https://developer.chrome.com/docs/webstore/using-api for setting up the
-# OAuth client and refresh token.
+# Auto-publish to the Chrome Web Store requires all four of these on the `production` environment:
+#   - vars: CWS_CLIENT_ID, CWS_EXTENSION_ID (not secret; public identifiers)
+#   - secrets: CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
+# If any are missing, the publish step is skipped and the GitHub Release still succeeds.
+# See https://developer.chrome.com/docs/webstore/using-api for setting up the OAuth client.
+#
+# Note: this workflow pushes directly to main. If branch protection on main requires PRs,
+# you must allow `github-actions[bot]` to bypass it (Settings → Branches → Rule → Bypass list),
+# otherwise the push step will fail.
 name: Chrome Extension Release
 
 on:
   push:
-    tags:
-      - "chrome-extension-v*"
+    branches: [main]
+    paths:
+      - "chrome-extension/**"
+      - ".github/workflows/chrome-extension-release.yml"
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing tag to build (e.g. chrome-extension-v1.1.0). Leave blank to build HEAD."
-        required: false
-        type: string
 
 permissions:
   contents: write
+
+# Serialize runs so back-to-back merges don't race on the version bump.
+concurrency:
+  group: chrome-extension-release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -35,7 +41,33 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version in manifest.json
+        id: version
+        working-directory: chrome-extension
+        run: |
+          NEW=$(node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            const parts = m.version.split('.').map(Number);
+            if (parts.length !== 3 || parts.some(Number.isNaN)) {
+              console.error('manifest.json version is not a valid semver: ' + m.version);
+              process.exit(1);
+            }
+            parts[2]++;
+            m.version = parts.join('.');
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+            console.log(m.version);
+          ")
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+          echo "Bumped manifest.json to $NEW"
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -52,78 +84,62 @@ jobs:
         working-directory: chrome-extension
         run: npm run build
 
-      - name: Verify manifest version matches tag
-        id: version
-        working-directory: chrome-extension
+      - name: Commit version bump and push tag
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
-          MANIFEST_VERSION=$(node -p "require('./dist/manifest.json').version")
-          echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
-
-          REF="${{ inputs.tag || github.ref_name }}"
-          if [[ "$REF" == chrome-extension-v* ]]; then
-            TAG_VERSION="${REF#chrome-extension-v}"
-            if [[ "$TAG_VERSION" != "$MANIFEST_VERSION" ]]; then
-              echo "::error::Tag version ($TAG_VERSION) does not match manifest.json version ($MANIFEST_VERSION)"
-              exit 1
-            fi
-            echo "tag=$REF" >> $GITHUB_OUTPUT
-          else
-            echo "tag=chrome-extension-v$MANIFEST_VERSION-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-          fi
+          TAG="chrome-extension-v$NEW_VERSION"
+          git add chrome-extension/manifest.json
+          git commit -m "chore(chrome-extension): bump to v$NEW_VERSION [skip ci]"
+          git tag "$TAG"
+          git push origin HEAD:main
+          git push origin "$TAG"
 
       - name: Zip extension
         id: zip
         working-directory: chrome-extension
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
-          ZIP_NAME="carmodpicker-extension-${{ steps.version.outputs.manifest_version }}.zip"
-          cd dist
-          zip -r "../$ZIP_NAME" .
-          cd ..
+          ZIP_NAME="carmodpicker-extension-$NEW_VERSION.zip"
+          (cd dist && zip -r "../$ZIP_NAME" .)
           echo "zip_path=chrome-extension/$ZIP_NAME" >> $GITHUB_OUTPUT
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/chrome-extension-v')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.zip.outputs.zip_path }}
-          name: Chrome Extension v${{ steps.version.outputs.manifest_version }}
-          tag_name: ${{ github.ref_name }}
+          name: Chrome Extension v${{ steps.version.outputs.new }}
+          tag_name: chrome-extension-v${{ steps.version.outputs.new }}
           draft: false
           prerelease: false
           generate_release_notes: true
 
-      - name: Upload zip as workflow artifact (manual runs)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.zip.outputs.zip_name }}
-          path: ${{ steps.zip.outputs.zip_path }}
-          retention-days: 30
-
       - name: Check Chrome Web Store credentials
         id: cws_check
         env:
-          CWS_CLIENT_ID: ${{ env.CWS_CLIENT_ID }}
+          CWS_CLIENT_ID: ${{ vars.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ env.CWS_EXTENSION_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
         run: |
           if [[ -n "$CWS_CLIENT_ID" && -n "$CWS_CLIENT_SECRET" && -n "$CWS_REFRESH_TOKEN" && -n "$CWS_EXTENSION_ID" ]]; then
             echo "configured=true" >> $GITHUB_OUTPUT
           else
             echo "configured=false" >> $GITHUB_OUTPUT
-            echo "Chrome Web Store secrets not set — skipping auto-publish."
+            echo "Chrome Web Store credentials not set — skipping auto-publish."
           fi
 
       - name: Publish to Chrome Web Store
         if: steps.cws_check.outputs.configured == 'true'
         env:
-          CWS_CLIENT_ID: ${{ env.CWS_CLIENT_ID }}
+          CWS_CLIENT_ID: ${{ vars.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ env.CWS_EXTENSION_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
           ZIP_PATH: ${{ steps.zip.outputs.zip_path }}
+          NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
           set -euo pipefail
 
@@ -158,4 +174,4 @@ jobs:
             -X POST \
             "https://www.googleapis.com/chromewebstore/v1.1/items/$CWS_EXTENSION_ID/publish"
 
-          echo "Published v${{ steps.version.outputs.manifest_version }} to Chrome Web Store."
+          echo "Published v$NEW_VERSION to Chrome Web Store."
