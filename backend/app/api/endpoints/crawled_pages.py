@@ -396,6 +396,25 @@ async def count_crawled_pages(
 
 
 # ---------------------------------------------------------------------------
+# GET /counts-by-source — Admin: row counts grouped by source
+# ---------------------------------------------------------------------------
+
+
+@router.get("/counts-by-source", response_model=dict[str, int])
+async def count_crawled_pages_by_source(
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Admin only: crawled_pages row count per source (adapter name or chrome_extension)."""
+    from sqlalchemy import func
+
+    rows = db.query(DBCrawledPage.source, func.count(DBCrawledPage.id)).group_by(DBCrawledPage.source).all()
+    result = {source: count for source, count in rows}
+    logger.info("Admin %s retrieved crawled_pages counts-by-source: %s sources", current_user.id, len(result))
+    return result
+
+
+# ---------------------------------------------------------------------------
 # GET /  — Admin: list archived pages
 # ---------------------------------------------------------------------------
 
