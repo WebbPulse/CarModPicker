@@ -238,7 +238,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
         dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD (Shopify typically exposes Product schema)
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:

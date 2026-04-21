@@ -295,7 +295,7 @@ class RoadSportSupplyAdapter(RetailerCrawlerAdapter):
 
         soup = BeautifulSoup(html, "html.parser")
 
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:

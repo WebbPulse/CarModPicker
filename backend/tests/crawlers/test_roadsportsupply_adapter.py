@@ -35,6 +35,10 @@ def _product_html(
     ),
     bcdata_price_value: str = "290",
     include_json_ld: bool = True,
+    # Mirror the page URL into the JSON-LD so the URL-matching extractor keeps
+    # the block. Tests that assert "brand preservation" are really about DOM
+    # fallback vs. JSON-LD, not about URL mismatch quirks.
+    url: str = SAMPLE_URL,
 ) -> str:
     """Minimal page mirroring Road Sport Supply's BigCommerce Stencil theme."""
     mpn_field = f'"mpn": "{mpn}",' if mpn else ""
@@ -48,7 +52,7 @@ def _product_html(
           "name": "{name}",
           "sku": "{sku}",
           {mpn_field}
-          "url": "{SAMPLE_URL}",
+          "url": "{url}",
           "brand": {{"@type": "Brand", "name": "{brand}"}},
           "description": "{description}",
           "image": "{image}",
@@ -58,7 +62,7 @@ def _product_html(
             "price": "{price}",
             "itemCondition": "https://schema.org/NewCondition",
             "availability": "https://schema.org/InStock",
-            "url": "{SAMPLE_URL}"
+            "url": "{url}"
           }}
         }}
         </script>
@@ -202,14 +206,16 @@ class TestParseProductPage:
         # RSS's storefront also resells third-party lines (Sharkwerks, Cargraphic,
         # Racetech, ...). JSON-LD ``brand.name`` is authoritative — we must not
         # overwrite it with the house brand.
+        page_url = "https://roadsportsupply.com/shark-werks-sport-2-5-exhaust-for-992-carrera-s-t-gts-turbo/"
         result = RoadSportSupplyAdapter().parse_product_page(
             _product_html(
                 name="Shark Werks Sport 2.5 Exhaust for 992 Carrera S",
                 brand="Sharkwerks",
                 sku="Shax000",
                 mpn="Shax000",
+                url=page_url,
             ),
-            "https://roadsportsupply.com/shark-werks-sport-2-5-exhaust-for-992-carrera-s-t-gts-turbo/",
+            page_url,
         )
         assert result is not None
         assert result.part_manufacturer == "Sharkwerks"

@@ -449,7 +449,7 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
         meta_product = _extract_meta_var_product(html)
 
         sanitized_html = _sanitize_json_ld(html)
-        item = extract_json_ld_product(sanitized_html)
+        item = extract_json_ld_product(sanitized_html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:

@@ -188,7 +188,7 @@ class AMSPerformanceAdapter(RetailerCrawlerAdapter):
         Returns ``None`` when no JSON-LD Product is present (the page isn't a
         product — typically a soft-404 landing page with the site chrome).
         """
-        item = extract_json_ld_product(html)
+        item = extract_json_ld_product(html, product_url=url)
         if not item:
             return None
 
