@@ -19,6 +19,8 @@ class BackgroundJobRead(BaseModel):
     error_message: Optional[str] = None
     started_at: datetime
     completed_at: Optional[datetime] = None
+    last_heartbeat_at: Optional[datetime] = None
+    worker_instance_id: Optional[str] = None
     created_by_user_id: Optional[UUID] = None
 
 

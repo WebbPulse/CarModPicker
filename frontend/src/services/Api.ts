@@ -1122,6 +1122,8 @@ export interface BackgroundJob {
   error_message: string | null;
   started_at: string;
   completed_at: string | null;
+  last_heartbeat_at: string | null;
+  worker_instance_id: string | null;
   created_by_user_id: string | null;
 }
 
