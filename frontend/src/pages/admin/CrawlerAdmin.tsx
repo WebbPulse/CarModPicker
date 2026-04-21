@@ -1031,6 +1031,29 @@ function CrawlerAdmin() {
     setSelectedCrawlers(new Set());
   };
 
+  /**
+   * Toggle every adapter of a given fetcher tier at once without disturbing
+   * adapters from other tiers. If the tier is already fully selected, deselect
+   * all of its members; otherwise select every member (covers the mixed/empty
+   * case with a single click).
+   */
+  const toggleTierSelection = (tier: FetcherTier) => {
+    const membersOfTier = crawlerAdapters.filter(
+      (name) => adapterTiers[name] === tier
+    );
+    if (membersOfTier.length === 0) return;
+    setSelectedCrawlers((prev) => {
+      const next = new Set(prev);
+      const allSelected = membersOfTier.every((name) => next.has(name));
+      if (allSelected) {
+        for (const name of membersOfTier) next.delete(name);
+      } else {
+        for (const name of membersOfTier) next.add(name);
+      }
+      return next;
+    });
+  };
+
   const handleRunSelectedCrawlers = async () => {
     const adapters = Array.from(selectedCrawlers);
     if (adapters.length === 0) {
@@ -2035,6 +2058,38 @@ function CrawlerAdmin() {
                     >
                       None
                     </button>
+                    <span className="text-neutral-600">·</span>
+                    {(['http', 'tls', 'browser'] as const).map((tier) => {
+                      const members = crawlerAdapters.filter(
+                        (name) => adapterTiers[name] === tier
+                      );
+                      if (members.length === 0) return null;
+                      const selectedCount = members.filter((name) =>
+                        selectedCrawlers.has(name)
+                      ).length;
+                      const allSelected = selectedCount === members.length;
+                      const someSelected = selectedCount > 0 && !allSelected;
+                      const meta = TIER_META[tier];
+                      const cls = allSelected
+                        ? meta.chipSelected
+                        : someSelected
+                          ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
+                          : meta.chipUnselected;
+                      return (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => toggleTierSelection(tier)}
+                          title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
+                        >
+                          {meta.label}
+                          <span className="ml-1 opacity-70">
+                            {selectedCount}/{members.length}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <p className="text-[10px] text-neutral-500 mb-2">

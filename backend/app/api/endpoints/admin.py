@@ -954,6 +954,7 @@ async def run_crawlers_endpoint(
             "schedule_id": str(body.schedule_id) if body.schedule_id else None,
         },
         created_by_user_id=acting_user_id,
+        worker_instance_id=WORKER_INSTANCE_ID,
     )
 
     if settings.crawler_ecs_configured:
@@ -1222,6 +1223,7 @@ async def rescrape_all_archived_crawled_pages(
             "default_category_id": str(body.default_category_id),
         },
         created_by_user_id=acting_user_id,
+        worker_instance_id=WORKER_INSTANCE_ID,
     )
 
     if settings.crawler_ecs_configured:

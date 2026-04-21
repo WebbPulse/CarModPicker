@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 # mismatch, which is unambiguous).
 DEFAULT_HEARTBEAT_TIMEOUT_SEC = 180
 
+# Grace period before an unowned running row (no worker_instance_id and no
+# ecs_task_arn) is considered a legacy orphan. Every new job stamps its owner
+# at create_job time, so unowned rows shouldn't appear at all under current
+# code — but if one does slip in (race on commit, old code, partial migration),
+# we only fail it once it's clearly not a live in-flight insert.
+UNOWNED_GRACE_SEC = 120
+
 
 def create_job(
     db: Session,
@@ -31,19 +38,28 @@ def create_job(
     triggered_by: str,
     params: Optional[dict[str, Any]] = None,
     created_by_user_id: Optional[UUID] = None,
+    worker_instance_id: Optional[str] = None,
 ) -> BackgroundJob:
     """
     Insert a new job record in 'running' status and return it.
 
     job_type: 'crawler_run' | 'archive_rescrape'
     triggered_by: 'manual' | 'scheduled'
+    worker_instance_id: stamp the creating process's worker ID at insert time
+        so the orphan sweep can't misclassify a freshly-created row as a
+        legacy unowned one in the window before the first heartbeat runs.
+        ECS-backed jobs set this too; the sweep excludes them by
+        ``params.ecs_task_arn`` regardless.
     """
+    now = datetime.now(UTC)
     job = BackgroundJob(
         job_type=job_type,
         status="running",
         triggered_by=triggered_by,
         params=params,
         created_by_user_id=created_by_user_id,
+        worker_instance_id=worker_instance_id,
+        last_heartbeat_at=now if worker_instance_id is not None else None,
     )
     db.add(job)
     db.commit()
@@ -191,6 +207,7 @@ def sweep_orphan_jobs(
     """
     now = datetime.now(UTC)
     stale_cutoff = now - timedelta(seconds=heartbeat_timeout_sec)
+    unowned_cutoff = now - timedelta(seconds=UNOWNED_GRACE_SEC)
     live_set = {str(jid) for jid in live_job_ids} if live_job_ids is not None else None
 
     running = db.query(BackgroundJob).filter(BackgroundJob.status == "running").all()
@@ -202,7 +219,11 @@ def sweep_orphan_jobs(
 
         owner = job.worker_instance_id
         is_other_process = owner is not None and owner != current_worker_instance_id
-        is_unowned_in_process = owner is None  # legacy rows or job row written before first heartbeat
+        # An unowned row (no worker_instance_id, no ecs_task_arn) is only
+        # treated as a legacy orphan after the grace period. This avoids
+        # falsely sweeping a row that was just inserted but hasn't yet had its
+        # owner stamped (e.g., cross-commit race from pre-fix code paths).
+        is_unowned_in_process = owner is None and _as_utc_naive(job.started_at) < _as_utc_naive(unowned_cutoff)
 
         if is_other_process or is_unowned_in_process:
             reason = (
