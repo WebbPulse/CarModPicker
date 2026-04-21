@@ -110,13 +110,89 @@ function fmtElapsed(startedAt: Date, endedAt?: Date | null): string {
   return `${m}m ${s}s`;
 }
 
+type UrlSample = {
+  url: string;
+  status?: number | string | null;
+  bucket?: string | null;
+  error?: string | null;
+  source?: string | null;
+  outcome?: string | null;
+};
+
+function UrlSampleList({
+  items,
+  max = 25,
+}: {
+  items: UrlSample[];
+  max?: number;
+}) {
+  if (items.length === 0) return null;
+  const shown = items.slice(0, max);
+  const remainder = items.length - shown.length;
+  return (
+    <div className="divide-y divide-gray-800/60">
+      {shown.map((entry, idx) => (
+        <div
+          // URLs can repeat across outcomes; composite with index keeps keys stable within one render.
+          // eslint-disable-next-line react-x/no-array-index-key
+          key={`${entry.url}-${entry.outcome ?? entry.bucket ?? ''}-${idx}`}
+          className="py-1.5"
+        >
+          <div className="font-mono text-[11px] text-gray-300 break-all">
+            {entry.url}
+          </div>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {entry.source && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.source}
+              </span>
+            )}
+            {entry.outcome && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.outcome}
+              </span>
+            )}
+            {entry.status && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.status}
+              </span>
+            )}
+            {entry.bucket && (
+              <span className="px-1 py-0 rounded text-[9px] font-mono bg-gray-800 text-gray-400 border border-gray-700">
+                {entry.bucket}
+              </span>
+            )}
+          </div>
+          {entry.error && (
+            <div className="mt-0.5 text-[10px] text-red-300 whitespace-pre-wrap break-all">
+              {entry.error}
+            </div>
+          )}
+        </div>
+      ))}
+      {remainder > 0 && (
+        <div className="py-1 text-[10px] italic text-gray-500">
+          …and {remainder} more.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
   type AdapterResult = {
     adapter: string;
     ingested: number;
     skipped: number;
+    skipped_not_product?: number;
     errors: number;
     total: number;
+    error_urls?: UrlSample[];
+    error_urls_truncated?: boolean;
+    parse_miss_urls?: UrlSample[];
+    parse_miss_urls_truncated?: boolean;
+    rate_limit_bailout?: boolean;
+    rate_limit_bailout_after?: number;
   };
   type FailedAdapter = { adapter: string; error: string };
   const totals = summary['summary'] as
@@ -128,6 +204,10 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
     | undefined;
   const results = (summary['results'] ?? []) as AdapterResult[];
   const failed = (summary['failed'] ?? []) as FailedAdapter[];
+  const resultsWithFailures = results.filter(
+    (r) =>
+      (r.error_urls?.length ?? 0) > 0 || (r.parse_miss_urls?.length ?? 0) > 0
+  );
   return (
     <div className="space-y-2">
       {totals && (
@@ -178,6 +258,15 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                 >
                   <td className="px-2 py-1 font-mono text-gray-300">
                     {r.adapter}
+                    {r.rate_limit_bailout && (
+                      <span
+                        title="Rate-limit circuit breaker tripped"
+                        className="ml-2 inline-block rounded bg-amber-900/60 border border-amber-700/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                      >
+                        Rate-limited @ {r.rate_limit_bailout_after ?? 0}/
+                        {r.total}
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-1 text-right text-gray-400 tabular-nums">
                     {r.total}
@@ -197,6 +286,52 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {resultsWithFailures.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+            Failure samples
+          </p>
+          {resultsWithFailures.map((r) => {
+            const errTotal = r.errors;
+            const missTotal = r.skipped_not_product ?? 0;
+            const errSamples = r.error_urls ?? [];
+            const missSamples = r.parse_miss_urls ?? [];
+            return (
+              <details
+                key={r.adapter}
+                className="rounded border border-gray-700/60 bg-gray-900/40 px-2 py-1 text-xs"
+              >
+                <summary className="cursor-pointer font-mono text-gray-200">
+                  {r.adapter}{' '}
+                  <span className="text-gray-500 font-sans">
+                    — {errTotal} error(s), {missTotal} parse miss(es)
+                  </span>
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {errSamples.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-red-400 mb-1">
+                        Errors ({errTotal}
+                        {r.error_urls_truncated ? '+' : ''})
+                      </p>
+                      <UrlSampleList items={errSamples} />
+                    </div>
+                  )}
+                  {missSamples.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-amber-400 mb-1">
+                        Parse misses ({missTotal}
+                        {r.parse_miss_urls_truncated ? '+' : ''})
+                      </p>
+                      <UrlSampleList items={missSamples} />
+                    </div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
         </div>
       )}
       {failed.length > 0 && (
@@ -251,22 +386,49 @@ function ArchiveRescrapeResult({
       variant: 'muted',
     },
   ];
+  const failures = (summary['failures'] ?? []) as UrlSample[];
+  const failuresTotal = Number(
+    summary['failures_total'] ?? failures.length ?? 0
+  );
+  const truncated = Boolean(summary['failures_truncated']);
   return (
-    <div className="flex flex-wrap gap-2">
-      {rows.map((r) => (
-        <span
-          key={r.label}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${
-            r.value > 0 && r.variant === 'ok'
-              ? 'bg-emerald-900/50 border-emerald-700/60 text-emerald-300'
-              : r.value > 0 && r.variant === 'err'
-                ? 'bg-red-900/50 border-red-700/60 text-red-300'
-                : 'bg-gray-800/60 border-gray-600/60 text-gray-500'
-          }`}
-        >
-          <span className="font-semibold">{r.value}</span> {r.label}
-        </span>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {rows.map((r) => (
+          <span
+            key={r.label}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${
+              r.value > 0 && r.variant === 'ok'
+                ? 'bg-emerald-900/50 border-emerald-700/60 text-emerald-300'
+                : r.value > 0 && r.variant === 'err'
+                  ? 'bg-red-900/50 border-red-700/60 text-red-300'
+                  : 'bg-gray-800/60 border-gray-600/60 text-gray-500'
+            }`}
+          >
+            <span className="font-semibold">{r.value}</span> {r.label}
+          </span>
+        ))}
+      </div>
+      {failures.length > 0 && (
+        <details className="rounded border border-red-800/40 bg-red-950/20 px-2 py-1 text-xs">
+          <summary className="cursor-pointer text-red-300">
+            Failure samples{' '}
+            <span className="text-red-400/70">
+              ({failures.length}
+              {truncated ? ` of ${failuresTotal}` : ''})
+            </span>
+          </summary>
+          <div className="mt-2">
+            <UrlSampleList items={failures} max={100} />
+            {truncated && (
+              <p className="text-[10px] text-gray-500 italic mt-1">
+                Sample capped by worker; {failuresTotal - failures.length} more
+                not shown.
+              </p>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

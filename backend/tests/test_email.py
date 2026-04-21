@@ -7,7 +7,13 @@ import pytest
 
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
-from app.core.email import send_reset_password_email, send_verify_email  # noqa: E402
+from app.core.email import (  # noqa: E402
+    _render_archive_rescrape_result_html,
+    _render_crawler_failure_samples,
+    _render_crawler_result_html,
+    send_reset_password_email,
+    send_verify_email,
+)
 
 
 class TestEmailService:
@@ -106,3 +112,126 @@ class TestEmailService:
 
         call_kwargs = mock_ses.send_email.call_args[1]
         assert call_kwargs["ConfigurationSetName"] == "carmodpicker-transactional"
+
+
+class TestJobReportRendering:
+    """Verify the job report renderers surface parse failures and skips."""
+
+    def test_archive_rescrape_report_shows_each_failure_with_reason(self) -> None:
+        summary = {
+            "parsed_ok": 5,
+            "parse_failed": 1,
+            "ingest_failed": 1,
+            "skipped_no_adapter": 0,
+            "skipped_no_html": 1,
+            "failures": [
+                {
+                    "url": "https://example.com/parse-fail",
+                    "source": "example",
+                    "outcome": "parse_failed",
+                    "error": "Parser 'example' returned no payload",
+                },
+                {
+                    "url": "https://example.com/ingest-fail",
+                    "source": "example",
+                    "outcome": "ingest_failed",
+                    "error": "DB constraint violation on parts.sku",
+                },
+                {
+                    "url": "https://example.com/missing-html",
+                    "source": "example",
+                    "outcome": "skipped_no_html",
+                    "error": "No archived HTML available (S3 key missing or unreadable)",
+                },
+            ],
+            "failures_total": 3,
+            "failures_truncated": False,
+        }
+
+        html = _render_archive_rescrape_result_html(summary)
+
+        for url in (
+            "https://example.com/parse-fail",
+            "https://example.com/ingest-fail",
+            "https://example.com/missing-html",
+        ):
+            assert url in html
+        assert "parse_failed" in html
+        assert "ingest_failed" in html
+        assert "skipped_no_html" in html
+        assert "DB constraint violation" in html
+
+    def test_archive_rescrape_report_honours_truncation_flag(self) -> None:
+        summary = {
+            "parsed_ok": 0,
+            "parse_failed": 0,
+            "ingest_failed": 0,
+            "skipped_no_adapter": 0,
+            "skipped_no_html": 500,
+            "failures": [{"url": f"https://example.com/p/{i}", "outcome": "skipped_no_html"} for i in range(200)],
+            "failures_total": 500,
+            "failures_truncated": True,
+        }
+
+        html = _render_archive_rescrape_result_html(summary)
+
+        assert "500" in html
+        assert "worker capped" in html
+
+    def test_crawler_report_surfaces_per_adapter_error_urls_and_parse_misses(self) -> None:
+        summary = {
+            "summary": {"total_ingested": 0, "total_skipped": 2, "total_errors": 1},
+            "results": [
+                {
+                    "adapter": "broken-store",
+                    "ingested": 0,
+                    "total": 3,
+                    "skipped": 2,
+                    "skipped_robots": 0,
+                    "skipped_not_product": 2,
+                    "skipped_gone": 0,
+                    "errors": 1,
+                    "http_errors": {"503": 1},
+                    "error_urls": [
+                        {
+                            "url": "https://broken-store.com/part/abc",
+                            "status": 503,
+                            "bucket": "503",
+                            "error": "upstream 503",
+                        },
+                    ],
+                    "error_urls_truncated": False,
+                    "parse_miss_urls": [
+                        {"url": "https://broken-store.com/category/alloy"},
+                        {"url": "https://broken-store.com/category/tires"},
+                    ],
+                    "parse_miss_urls_truncated": False,
+                }
+            ],
+            "failed": [],
+        }
+
+        html = _render_crawler_result_html(summary)
+
+        assert "broken-store" in html
+        assert "https://broken-store.com/part/abc" in html
+        assert "upstream 503" in html
+        assert "https://broken-store.com/category/alloy" in html
+        assert "Parse misses" in html
+        assert "Errors" in html
+
+    def test_crawler_failure_samples_silent_for_healthy_adapters(self) -> None:
+        """An adapter with zero errors/misses produces no details block."""
+        html = _render_crawler_failure_samples(
+            [
+                {
+                    "adapter": "healthy",
+                    "ingested": 100,
+                    "errors": 0,
+                    "skipped_not_product": 0,
+                    "error_urls": [],
+                    "parse_miss_urls": [],
+                }
+            ]
+        )
+        assert html == ""

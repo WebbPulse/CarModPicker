@@ -22,7 +22,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 import requests
@@ -59,6 +59,16 @@ class CrawlerConfigError(ValueError):
     """Raised when crawler env/config is invalid (CRAWLER_USER_ID, category, etc)."""
 
     pass
+
+
+# Adapter-level circuit breaker: after this many consecutive URL fetches
+# exit the per-URL retry loop with a rate-limit / upstream-distress status
+# (429/502/503/504), bail on the whole adapter rather than grinding through
+# the rest of the URL list. Each exhausted retry chain can burn ~60s of
+# backoff (2+4+8+16+32s), so without this we could spend hours hammering a
+# struggling origin for zero ingested pages.
+RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD = 5
+RATE_LIMIT_CIRCUIT_BREAKER_STATUSES = frozenset({429, 502, 503, 504})
 
 
 def _get_crawler_user(db: Session) -> DBUser:
@@ -424,6 +434,21 @@ def run_crawler(
         # operators can see *which* upstream failures dominated a run rather
         # than just a single aggregate error count.
         http_errors: dict[str, int] = {}
+        # Bounded per-URL failure samples for the job report. Errors carry
+        # the exception and HTTP status; parse-miss samples help an operator
+        # spot adapter drift (e.g., the HTML layout changed). Capped so a
+        # broken sitewide scrape can't balloon the job row's JSON blob.
+        error_urls: list[dict[str, Any]] = []
+        parse_miss_urls: list[dict[str, Any]] = []
+        _MAX_SAMPLES = 50
+        # Circuit-breaker state. `consecutive_rate_limited` counts URLs whose
+        # retry chain exhausted against 429/502/503/504; reset whenever a fetch
+        # returns (any HTTP response, including 4xx that prove the origin is
+        # alive). `rate_limit_bailout` flips to True when the threshold trips
+        # and is surfaced in the returned result.
+        consecutive_rate_limited = 0
+        rate_limit_bailout = False
+        rate_limit_bailout_after = 0
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -446,6 +471,10 @@ def run_crawler(
                     )
                     continue
                 html = adapter.fetcher.fetch(url)
+                # Fetch returned without raising — origin is responsive. Reset
+                # the circuit-breaker counter regardless of whether parsing
+                # succeeds downstream; we only care about upstream health here.
+                consecutive_rate_limited = 0
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
                     skipped_not_product += 1
@@ -458,6 +487,8 @@ def run_crawler(
                         total,
                         url,
                     )
+                    if len(parse_miss_urls) < _MAX_SAMPLES:
+                        parse_miss_urls.append({"url": url})
                     continue
                 arch_url = canonicalize_url(url)
                 html_utf8, _, html_sha = crawl_html_fingerprint(html)
@@ -502,6 +533,16 @@ def run_crawler(
                 status = _http_status_from_exception(e)
                 bucket = _classify_fetch_error(e, status)
                 http_errors[bucket] = http_errors.get(bucket, 0) + 1
+                # Circuit-breaker accounting: a status in the rate-limit set
+                # means the per-URL retry chain fully exhausted against the
+                # upstream. Any other HTTP status (e.g. 404/410) resets the
+                # counter because it proves the origin served our request.
+                # Non-HTTP failures (timeouts/connection errors, status=None)
+                # are ambiguous and left untouched.
+                if status in RATE_LIMIT_CIRCUIT_BREAKER_STATUSES:
+                    consecutive_rate_limited += 1
+                elif status is not None:
+                    consecutive_rate_limited = 0
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
@@ -515,7 +556,30 @@ def run_crawler(
                 else:
                     errors += 1
                     logger.exception("Error processing %s: %s", url, e)
+                    if len(error_urls) < _MAX_SAMPLES:
+                        error_urls.append(
+                            {
+                                "url": url,
+                                "status": status,
+                                "bucket": bucket,
+                                "error": str(e),
+                            }
+                        )
                     db.rollback()
+                if consecutive_rate_limited >= RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD:
+                    logger.error(
+                        "Adapter %s: circuit breaker tripped after %s consecutive rate-limited "
+                        "fetches (last status %s). Bailing at %s/%s URLs to avoid hammering a "
+                        "struggling origin.",
+                        adapter_name,
+                        consecutive_rate_limited,
+                        status,
+                        i,
+                        total,
+                    )
+                    rate_limit_bailout = True
+                    rate_limit_bailout_after = i
+                    break
 
         skipped = skipped_robots + skipped_not_product + skipped_gone
         # Pick the summary log level based on how healthy the run looks. A
@@ -526,7 +590,13 @@ def run_crawler(
         # softer signal of drift and go to WARNING.
         summary_level = logging.INFO
         summary_reason = ""
-        if total > 0 and ingested == 0:
+        if rate_limit_bailout:
+            summary_level = logging.ERROR
+            summary_reason = (
+                " — rate-limit circuit breaker tripped after %s/%s URLs; upstream appears to be shedding load"
+                % (rate_limit_bailout_after, total)
+            )
+        elif total > 0 and ingested == 0:
             summary_level = logging.ERROR
             summary_reason = " — 0 ingested from %s URLs, adapter likely broken" % total
         elif total >= 10 and skipped_not_product > total * 0.5:
@@ -558,6 +628,19 @@ def run_crawler(
             "errors": errors,
             "total": total,
             "http_errors": http_errors,
+            # Bounded samples for the job report. Consumers show these in
+            # the email + admin UI so an operator can jump straight to a
+            # problem URL instead of inferring it from counts.
+            "error_urls": error_urls,
+            "error_urls_truncated": errors > len(error_urls),
+            "parse_miss_urls": parse_miss_urls,
+            "parse_miss_urls_truncated": skipped_not_product > len(parse_miss_urls),
+            # Circuit-breaker trip. Present on every result (False when the
+            # adapter ran to completion) so report renderers can key off it
+            # without worrying about missing fields. `_after` is 0 unless
+            # tripped; it records the URL index at which we bailed.
+            "rate_limit_bailout": rate_limit_bailout,
+            "rate_limit_bailout_after": rate_limit_bailout_after,
         }
     finally:
         # Close the fetcher if we got far enough to create one. FlareSolverr
