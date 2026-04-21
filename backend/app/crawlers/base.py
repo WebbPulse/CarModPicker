@@ -33,14 +33,10 @@ from app.api.models.part import Part as DBPart
 from app.api.models.user import User as DBUser
 from app.api.schemas.part import PartCreate
 from app.api.services.part_listing_service import (
-    create_or_update_listing_and_price,
     domain_from_url,
-    find_part_by_gtin,
-    find_part_by_part_manufacturer_and_part_number,
     find_part_by_product_url,
     get_or_create_part_manufacturer_by_name,
     get_or_create_retailer,
-    normalize_gtin,
 )
 from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
@@ -733,62 +729,19 @@ def ingest_payload(
         price_cents=payload.price_cents,
     )
 
-    # Same resolution order as PartService.create (GTIN, product URL, part_manufacturer+part_number).
-    part_by_url: Optional[DBPart] = None
-    part_by_part_manufacturer: Optional[DBPart] = None
-    part_by_gtin: Optional[DBPart] = None
-    if payload.product_url and payload.product_url.strip():
-        part_by_url = find_part_by_product_url(db, payload.product_url)
-    if part_manufacturer.id and part_number_effective and str(part_number_effective).strip():
-        part_by_part_manufacturer = find_part_by_part_manufacturer_and_part_number(
-            db, part_manufacturer.id, str(part_number_effective)
-        )
-    if payload.gtin and normalize_gtin(payload.gtin):
-        part_by_gtin = find_part_by_gtin(db, payload.gtin)
-
-    dedupe_ids = {p.id for p in (part_by_gtin, part_by_url, part_by_part_manufacturer) if p is not None}
-    if len(dedupe_ids) > 1:
-        logger.warning(
-            "Ingest: dedupe keys point to different parts %s; service.create will reject with conflict.",
-            dedupe_ids,
-        )
-
-    existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
-    if existing_part is not None:
-        dedupe_how = (
-            "gtin"
-            if part_by_gtin is not None
-            else ("product_url" if part_by_url is not None else "part_manufacturer_part_number")
-        )
-        logger.debug(
-            "Existing part %s matched (%s); part_number=%r part_manufacturer_id=%s",
-            existing_part.id,
-            dedupe_how,
-            part_number_effective,
-            part_manufacturer.id,
-        )
-
+    # Every ingest produces its own Part row. PartService.create runs the canonical
+    # linker synchronously: if this payload matches an existing canonical (GTIN /
+    # product URL / manufacturer+part_number), the new row is linked via
+    # canonical_part_id; otherwise it stays canonical itself. PartListing +
+    # PartPriceHistory are attached to the new row inside service.create, so no
+    # follow-up listing write is needed here.
     service = PartService()
     part = service.create(
         db,
         create_data,
         current_user,
         logger,
-        additional_data={
-            "source": source,
-            # Re-parse archived HTML: same dedupe key, but refresh catalog fields (inference, copy, cars).
-            "refresh_metadata_on_dedupe": source == "archive_rescrape",
-        },
-    )
-
-    # Always create/update PartListing and PartPriceHistory (new or re-scrape):
-    # set product_url, append PartPriceHistory when price_cents provided, update last_known_price_cents
-    create_or_update_listing_and_price(
-        db,
-        part.id,
-        retailer.id,
-        product_url=payload.product_url,
-        price_cents=payload.price_cents,
+        additional_data={"source": source},
     )
     db.commit()
     return part

@@ -90,6 +90,13 @@ class PartRead(BaseModel):
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
     specifications: Optional[Dict[str, Any]] = None
+    canonical_part_id: Optional[UUID] = Field(
+        None,
+        description=(
+            "When set, this part is a duplicate. Clients should redirect or "
+            "resolve to the referenced canonical part for display."
+        ),
+    )
     is_verified: bool
     source: str
     edit_count: int

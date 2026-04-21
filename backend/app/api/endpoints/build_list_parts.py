@@ -438,19 +438,36 @@ async def get_parts_in_build_list(
         .all()
     )
 
-    part_ids = [p.part_id for p in db_build_list_parts]
+    # Resolve each BuildListPart.part to its canonical for display. BuildListPart.part_id
+    # stays as stored (no FK repoint) so we preserve the exact part the user added, but
+    # the rendered Part data is always the canonical so users see the surface record.
+    canonical_ids_to_load = {
+        p.part.canonical_part_id for p in db_build_list_parts if p.part and p.part.canonical_part_id
+    }
+    canonicals: Dict[UUID, DBPart] = {}
+    if canonical_ids_to_load:
+        canonicals = {cp.id: cp for cp in db.query(DBPart).filter(DBPart.id.in_(canonical_ids_to_load)).all()}
+
+    def effective_part(stored: DBPart) -> DBPart:
+        if stored.canonical_part_id and stored.canonical_part_id in canonicals:
+            return canonicals[stored.canonical_part_id]
+        return stored
+
+    effective_ids = {effective_part(p.part).id for p in db_build_list_parts if p.part}
     best_price_cents_dict: Dict[UUID, int] = {}
-    if part_ids:
+    if effective_ids:
+        canonical_id_expr = func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id")
         min_prices = (
             db.query(
-                DBPartListing.part_id,
+                canonical_id_expr,
                 func.min(DBPartListing.last_known_price_cents).label("min_price"),
             )
+            .join(DBPart, DBPart.id == DBPartListing.part_id)
             .filter(
-                DBPartListing.part_id.in_(part_ids),
+                canonical_id_expr.in_(list(effective_ids)),
                 DBPartListing.last_known_price_cents.isnot(None),
             )
-            .group_by(DBPartListing.part_id)
+            .group_by(canonical_id_expr)
             .all()
         )
         best_price_cents_dict = {p_id: int(mp) for p_id, mp in min_prices}
@@ -472,7 +489,7 @@ async def get_parts_in_build_list(
             added_at=part.added_at,
             build_list_phase_id=part.build_list_phase_id,
             phase_name=part.build_list_phase.name if part.build_list_phase else None,
-            part=part_read_with_best_price(part.part),
+            part=part_read_with_best_price(effective_part(part.part)),
         )
         for part in db_build_list_parts
     ]

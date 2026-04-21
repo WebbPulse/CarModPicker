@@ -44,6 +44,10 @@ async def search_all(
     q: str = Query(..., description="Search term to search across all entities"),
     skip: int = Query(0, ge=0, description="Number of results to skip per category"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of results to return per category"),
+    include_ugc: bool = Query(
+        True,
+        description="When false, exclude community-contributed parts (source='user_created') from part results.",
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
     """
@@ -121,21 +125,26 @@ async def search_all(
     user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
 
-    # Search parts (name, description, part_manufacturer name, part_number)
+    # Search parts (name, description, part_manufacturer name, part_number).
+    # Non-canonical duplicates are hidden so search returns only surface parts.
+    # When include_ugc=False, user-contributed parts are also filtered out.
     part_query = (
         db.query(DBPart)
         .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
         .filter(
+            DBPart.canonical_part_id.is_(None),
             or_(
                 DBPart.name.ilike(f"%{search_term}%"),
                 DBPart.description.ilike(f"%{search_term}%"),
                 DBPartManufacturer.name.ilike(f"%{search_term}%"),
                 DBPartManufacturer.description.ilike(f"%{search_term}%"),
                 DBPart.part_number.ilike(f"%{search_term}%"),
-            )
+            ),
         )
         .options(joinedload(DBPart.part_manufacturer))
     )
+    if not include_ugc:
+        part_query = part_query.filter(DBPart.source != "user_created")
     part_total = get_total_count(part_query)
     parts_list = part_query.offset(skip).limit(limit).all()
     part_results = [PartRead.model_validate(p) for p in parts_list]

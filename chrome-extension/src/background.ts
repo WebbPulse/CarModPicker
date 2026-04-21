@@ -104,10 +104,33 @@ async function apiRequest<T>(
     const data = (await response.json().catch(() => ({}))) as unknown;
 
     if (!response.ok) {
-      const errorData = data as { detail?: string };
-      const errorMessage =
-        errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-      throw new Error(errorMessage);
+      // FastAPI returns a `detail` field which may be a string (simple errors)
+      // or a dict (structured errors like PART_ALREADY_EXISTS). Preserve the
+      // dict shape on errorData so callers can branch on error_code, while
+      // still surfacing a human-readable message in error.
+      const errorBody = (data ?? {}) as { detail?: unknown };
+      const rawDetail = errorBody.detail;
+      let errorMessage: string;
+      let errorData: Record<string, unknown> | undefined;
+      if (typeof rawDetail === "string") {
+        errorMessage = rawDetail;
+      } else if (rawDetail && typeof rawDetail === "object") {
+        errorData = rawDetail as Record<string, unknown>;
+        errorMessage =
+          (typeof errorData["message"] === "string"
+            ? (errorData["message"] as string)
+            : undefined) ??
+          `HTTP ${response.status}: ${response.statusText}`;
+      } else {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      const failure: ApiResponse<T> = {
+        success: false,
+        error: errorMessage,
+        status: response.status,
+      };
+      if (errorData) failure.errorData = errorData;
+      return failure;
     }
 
     return { success: true, data: data as T };

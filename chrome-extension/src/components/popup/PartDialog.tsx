@@ -15,6 +15,82 @@ import RecordPriceDialog from "./RecordPriceDialog";
 
 type PartDialogView = "checking" | "record_price" | "create";
 
+interface BlockingPart {
+  id: string;
+  name: string;
+  source: string;
+  reason: "non_ugc_exists" | "own_ugc_exists";
+}
+
+/**
+ * Resolve the frontend URL for a given API URL, matching the env mapping used
+ * by PartDialog's post-create open-tab logic (localhost/staging/prod).
+ */
+async function getFrontendUrl(): Promise<string> {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(["apiUrl"], (settings) => {
+      const apiUrl =
+        (settings["apiUrl"] as string) || "https://api.carmodpicker.com/api";
+      if (apiUrl.includes("localhost") || apiUrl.includes("127.0.0.1")) {
+        resolve("http://localhost:4000");
+      } else if (apiUrl.includes("staging")) {
+        resolve("https://staging.carmodpicker.com");
+      } else {
+        resolve("https://www.carmodpicker.com");
+      }
+    });
+  });
+}
+
+const BlockingPartPanel: React.FC<{
+  blocking: BlockingPart;
+  onDismiss: () => void;
+}> = ({ blocking, onDismiss }) => {
+  const [isOpening, setIsOpening] = useState(false);
+  const headline =
+    blocking.reason === "non_ugc_exists"
+      ? "This part is already in our catalog"
+      : "You already created this part";
+  const subline =
+    blocking.reason === "non_ugc_exists"
+      ? "Community submissions can't duplicate scraped parts. Open the existing part to record a price or add missing data."
+      : "You've already submitted a community-contributed part for this product. Open yours instead of making another.";
+  return (
+    <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-sm text-neutral-100 space-y-2">
+      <div className="font-semibold text-amber-200">{headline}</div>
+      <div className="text-neutral-300">{subline}</div>
+      <div className="text-xs text-neutral-400">
+        <span className="font-medium">{blocking.name}</span>
+        <span className="ml-2 uppercase tracking-wide">
+          ({blocking.source})
+        </span>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={async () => {
+            setIsOpening(true);
+            const frontend = await getFrontendUrl();
+            chrome.tabs.create({ url: `${frontend}/parts/${blocking.id}` });
+            setIsOpening(false);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-amber-500/30 hover:bg-amber-500/50 border border-amber-500/60 text-amber-100 text-xs font-semibold transition-colors"
+          disabled={isOpening}
+        >
+          {isOpening ? "Opening…" : "Open existing part"}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-200 text-xs transition-colors"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+};
+
 interface PartDialogProps {
   scrapedData: ScrapedProductData;
   onClose: () => void;
@@ -81,10 +157,11 @@ const PartDialog: React.FC<PartDialogProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<PartDialogView>("checking");
   const [existingPart, setExistingPart] = useState<PartRead | null>(null);
-  const [
-    existingPartByPartManufacturerAndPartNumber,
-    setExistingPartByPartManufacturerAndPartNumber,
-  ] = useState<PartRead | null>(null);
+  // When set, the user's UGC create collides with an existing part (URL-only
+  // dedup). Populated from the backend 409 on POST /parts/. We render a notice
+  // screen (not the form) while this is set, so the user's only next actions
+  // are "open existing" or "dismiss".
+  const [blockingPart, setBlockingPart] = useState<BlockingPart | null>(null);
   const [recordPriceRetailer, setRecordPriceRetailer] =
     useState<Retailer | null>(null);
 
@@ -199,51 +276,12 @@ const PartDialog: React.FC<PartDialogProps> = ({
     loadRetailers();
   }, [viewMode]);
 
-  // When part_manufacturer + part number are set, check if this part already exists (update mode)
-  useEffect(() => {
-    if (viewMode !== "create") {
-      setExistingPartByPartManufacturerAndPartNumber(null);
-      return;
-    }
-    const part_manufacturerId = formData.part_manufacturerId;
-    const partNumber = formData.partNumber?.trim();
-    if (part_manufacturerId == null || part_manufacturerId === "" || !partNumber) {
-      setExistingPartByPartManufacturerAndPartNumber(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const response = (await sendMessage({
-        action: "findExistingPartByPartManufacturerAndPartNumber",
-        part_manufacturerId,
-        partNumber,
-      })) as ApiResponse<PartRead>;
-      if (cancelled) return;
-      if (response.success && response.data) {
-        setExistingPartByPartManufacturerAndPartNumber(response.data);
-      } else {
-        setExistingPartByPartManufacturerAndPartNumber(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewMode, formData.part_manufacturerId, formData.partNumber, sendMessage]);
-
-  const isUpdateMode = existingPartByPartManufacturerAndPartNumber != null;
-
-  // When entering update mode, prefill hidden fields from existing part so submit payload is valid
-  useEffect(() => {
-    if (!existingPartByPartManufacturerAndPartNumber) return;
-    setFormData((prev) => ({
-      ...prev,
-      name: existingPartByPartManufacturerAndPartNumber.name,
-      description: existingPartByPartManufacturerAndPartNumber.description ?? "",
-      categoryId:
-        existingPartByPartManufacturerAndPartNumber.category_id ?? prev.categoryId,
-      carId: existingPartByPartManufacturerAndPartNumber.car_ids?.[0] ?? prev.carId,
-    }));
-  }, [existingPartByPartManufacturerAndPartNumber?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only when we first get an existing part
+  // UGC dedup is URL-only:
+  //   - URL match against a scraped part → caught by the `checkProductUrl`
+  //     effect above, which routes to record_price mode (a non-blocking UX).
+  //   - URL match against the user's own prior UGC → caught server-side and
+  //     returned as a 409; we set blockingPart in handleSubmit's error branch.
+  // No pre-submit client check on manufacturer+part_number or GTIN.
 
   // Pre-select part_manufacturer from scraped data when part_manufacturers first load
   useEffect(() => {
@@ -484,6 +522,33 @@ const PartDialog: React.FC<PartDialogProps> = ({
         partData,
       })) as ApiResponse<{ id: string }>;
 
+      // Backend signals "already exists" with HTTP 409 + structured detail.
+      // Surface a block panel instead of a toast so the user can click through
+      // to the existing part rather than keep retrying.
+      if (!response.success && response.status === 409 && response.errorData) {
+        const detail = response.errorData;
+        const existingId = detail["existing_part_id"];
+        const existingName = detail["existing_part_name"];
+        const existingSource = detail["existing_part_source"];
+        const reason = detail["reason"];
+        if (
+          typeof existingId === "string" &&
+          typeof existingName === "string" &&
+          (reason === "non_ugc_exists" || reason === "own_ugc_exists")
+        ) {
+          setBlockingPart({
+            id: existingId,
+            name: existingName,
+            source:
+              typeof existingSource === "string" ? existingSource : "scraped",
+            reason,
+          });
+          setError("");
+          setIsLoading(false);
+          return;
+        }
+      }
+
       if (response.success && response.data?.id) {
         const partId = response.data.id;
 
@@ -617,14 +682,44 @@ const PartDialog: React.FC<PartDialogProps> = ({
     );
   }
 
+  // When the create is blocked (URL collides with an existing part), replace
+  // the whole form with a notice screen instead of leaving a disabled form
+  // behind the banner. The user's only next steps are "open existing" or
+  // "dismiss and edit details" — the form has nothing useful to offer.
+  if (blockingPart) {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-[540px]">
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
+            <h2 className="text-xl font-bold text-gradient">
+              Already in our catalog
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-neutral-400 hover:text-white text-2xl leading-none p-2 hover:bg-white/10 rounded-xl transition-all"
+              aria-label="Close dialog"
+            >
+              &times;
+            </button>
+          </div>
+          <div className="p-6">
+            <BlockingPartPanel
+              blocking={blockingPart}
+              onDismiss={() => setBlockingPart(null)}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-[800px] max-h-[600px] overflow-y-auto">
         <div className="shrink-0 p-6 border-b border-white/10">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gradient">
-              {isUpdateMode ? "Add listing to existing part" : "Create Part"}
-            </h2>
+            <h2 className="text-2xl font-bold text-gradient">Create Part</h2>
             <button
               type="button"
               onClick={onClose}
@@ -646,61 +741,57 @@ const PartDialog: React.FC<PartDialogProps> = ({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isUpdateMode && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Part Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                  className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading}
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Part Name *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                required
+                className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+              />
+            </div>
 
-            {!isUpdateMode && (
-              <div>
-                <SearchableSelect
-                  options={part_manufacturerOptions}
-                  value={formData.part_manufacturerId}
-                  onChange={(value) => {
-                    const id = value !== null && value !== "" ? value : null;
-                    setFormData((prev) => ({ ...prev, part_manufacturerId: id }));
-                    setPendingPartManufacturerName(null); // Clear pending when selecting or clearing
-                  }}
-                  placeholder="Search or create part_manufacturer..."
-                  label="PartManufacturer *"
-                  disabled={isLoading}
-                  emptyMessage="No part_manufacturers found"
-                  createNewLabel="Create part_manufacturer"
-                  displayValue={pendingPartManufacturerName}
-                  onCreateNew={(text) => {
-                    setPendingPartManufacturerName(text.trim());
-                    setFormData((prev) => ({ ...prev, part_manufacturerId: null }));
-                  }}
-                  filterOptions={async (opts, searchText) => {
-                    if (!searchText || searchText.length <= 1) return opts;
-                    const results = await searchPartManufacturers(searchText);
-                    return results.map((b) => ({
-                      id: b.id,
-                      label: b.name,
-                      value: b.id,
-                    }));
-                  }}
-                />
-                {pendingPartManufacturerName && (
-                  <p className="mt-1 text-xs text-neutral-400">
-                    New part_manufacturer &quot;{pendingPartManufacturerName}&quot; will be created
-                  </p>
-                )}
-              </div>
-            )}
+            <div>
+              <SearchableSelect
+                options={part_manufacturerOptions}
+                value={formData.part_manufacturerId}
+                onChange={(value) => {
+                  const id = value !== null && value !== "" ? value : null;
+                  setFormData((prev) => ({ ...prev, part_manufacturerId: id }));
+                  setPendingPartManufacturerName(null); // Clear pending when selecting or clearing
+                }}
+                placeholder="Search or create part_manufacturer..."
+                label="PartManufacturer *"
+                disabled={isLoading}
+                emptyMessage="No part_manufacturers found"
+                createNewLabel="Create part_manufacturer"
+                displayValue={pendingPartManufacturerName}
+                onCreateNew={(text) => {
+                  setPendingPartManufacturerName(text.trim());
+                  setFormData((prev) => ({ ...prev, part_manufacturerId: null }));
+                }}
+                filterOptions={async (opts, searchText) => {
+                  if (!searchText || searchText.length <= 1) return opts;
+                  const results = await searchPartManufacturers(searchText);
+                  return results.map((b) => ({
+                    id: b.id,
+                    label: b.name,
+                    value: b.id,
+                  }));
+                }}
+              />
+              {pendingPartManufacturerName && (
+                <p className="mt-1 text-xs text-neutral-400">
+                  New part_manufacturer &quot;{pendingPartManufacturerName}&quot; will be created
+                </p>
+              )}
+            </div>
 
             {matchedRetailer != null && (
               <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-300">
@@ -715,50 +806,35 @@ const PartDialog: React.FC<PartDialogProps> = ({
               </div>
             )}
 
-            {existingPartByPartManufacturerAndPartNumber != null && (
-              <div className="p-3 rounded-xl bg-primary-500/15 border border-primary-500/40 text-sm text-neutral-200">
-                <span className="font-medium text-primary-200">
-                  This part already exists
-                </span>{" "}
-                (same part_manufacturer + part number). Saving will add this retailer&apos;s
-                listing and price to the existing part instead of creating a
-                duplicate.
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Part Number
+              </label>
+              <input
+                type="text"
+                value={formData.partNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, partNumber: e.target.value })
+                }
+                className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+              />
+            </div>
 
-            {!isUpdateMode && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Part Number
-                </label>
-                <input
-                  type="text"
-                  value={formData.partNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, partNumber: e.target.value })
-                  }
-                  className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading}
-                />
-              </div>
-            )}
-
-            {!isUpdateMode && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                  disabled={isLoading}
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                rows={3}
+                className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                disabled={isLoading}
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
@@ -792,115 +868,111 @@ const PartDialog: React.FC<PartDialogProps> = ({
               />
             </div>
 
-            {!isUpdateMode && (
-              <>
-                <div>
-                  <SearchableSelect
-                    options={categoryOptions}
-                    value={formData.categoryId}
-                    onChange={(value) =>
-                      setFormData({ ...formData, categoryId: value })
-                    }
-                    placeholder="Select a category..."
-                    label="Category *"
-                    disabled={isLoading}
-                    emptyMessage="No categories found"
-                  />
-                </div>
+            <div>
+              <SearchableSelect
+                options={categoryOptions}
+                value={formData.categoryId}
+                onChange={(value) =>
+                  setFormData({ ...formData, categoryId: value })
+                }
+                placeholder="Select a category..."
+                label="Category *"
+                disabled={isLoading}
+                emptyMessage="No categories found"
+              />
+            </div>
 
-                <div>
-                  <SearchableSelect
-                    options={carOptions}
-                    value={formData.carId}
-                    onChange={(value) =>
-                      setFormData({ ...formData, carId: value })
-                    }
-                    placeholder="None"
-                    label="Car Model (Optional)"
-                    disabled={isLoading}
-                    emptyMessage="No cars found"
-                    filterOptions={async (options, searchText) => {
-                      if (!searchText || searchText.length <= 2) {
-                        return options;
-                      }
-                      const searchResults = await searchCars(searchText);
-                      return searchResults.map((car) => ({
-                        id: car.id,
-                        label: `${car.car_make_name} ${car.car_model_name} ${
-                          car.generation_name
-                        } (${car.start_year}${
-                          car.end_year ? `-${car.end_year}` : ""
-                        })`,
-                        value: car.id,
-                      }));
-                    }}
-                  />
-                </div>
+            <div>
+              <SearchableSelect
+                options={carOptions}
+                value={formData.carId}
+                onChange={(value) =>
+                  setFormData({ ...formData, carId: value })
+                }
+                placeholder="None"
+                label="Car Model (Optional)"
+                disabled={isLoading}
+                emptyMessage="No cars found"
+                filterOptions={async (options, searchText) => {
+                  if (!searchText || searchText.length <= 2) {
+                    return options;
+                  }
+                  const searchResults = await searchCars(searchText);
+                  return searchResults.map((car) => ({
+                    id: car.id,
+                    label: `${car.car_make_name} ${car.car_model_name} ${
+                      car.generation_name
+                    } (${car.start_year}${
+                      car.end_year ? `-${car.end_year}` : ""
+                    })`,
+                    value: car.id,
+                  }));
+                }}
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
-                    Image URL
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Image URL
+                {formData.imageUrls.length > 1
+                  ? ` (${formData.imageUrls.length} images from page)`
+                  : ""}
+              </label>
+              <input
+                type="url"
+                value={formData.imageUrl}
+                onChange={(e) =>
+                  setFormData({ ...formData, imageUrl: e.target.value })
+                }
+                placeholder={
+                  formData.imageUrls.length > 0
+                    ? "Or paste another image URL"
+                    : "Product image URL"
+                }
+                className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+              />
+              {(imagePreview || formData.imageUrls.length > 0) && (
+                <div className="mt-3">
+                  <p className="text-xs text-neutral-400 mb-2">
                     {formData.imageUrls.length > 1
-                      ? ` (${formData.imageUrls.length} images from page)`
-                      : ""}
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.imageUrl}
-                    onChange={(e) =>
-                      setFormData({ ...formData, imageUrl: e.target.value })
-                    }
-                    placeholder={
-                      formData.imageUrls.length > 0
-                        ? "Or paste another image URL"
-                        : "Product image URL"
-                    }
-                    className="w-full px-5 py-4 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white text-sm transition-all duration-300 backdrop-blur-[15px] focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:bg-linear-to-br focus:from-white/15 focus:to-white/8 focus:-translate-y-px placeholder:text-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isLoading}
+                      ? `${formData.imageUrls.length} images from page`
+                      : "Preview"}
+                  </p>
+                  <img
+                    src={imagePreview || formData.imageUrls[0]}
+                    alt="Preview"
+                    className="max-w-full max-h-48 rounded-lg border border-white/20 mx-auto"
+                    onError={() => setImagePreview("")}
                   />
-                  {(imagePreview || formData.imageUrls.length > 0) && (
-                    <div className="mt-3">
-                      <p className="text-xs text-neutral-400 mb-2">
-                        {formData.imageUrls.length > 1
-                          ? `${formData.imageUrls.length} images from page`
-                          : "Preview"}
-                      </p>
-                      <img
-                        src={imagePreview || formData.imageUrls[0]}
-                        alt="Preview"
-                        className="max-w-full max-h-48 rounded-lg border border-white/20 mx-auto"
-                        onError={() => setImagePreview("")}
-                      />
-                      {formData.imageUrls.length > 1 && (
-                        <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
-                          {formData.imageUrls.slice(0, 10).map((url, i) => (
-                            <button
-                              key={url}
-                              type="button"
-                              onClick={() => setImagePreview(url)}
-                              className={`shrink-0 w-12 h-12 rounded border overflow-hidden ${
-                                (imagePreview || formData.imageUrls[0]) === url
-                                  ? "border-primary-500 ring-1 ring-primary-500"
-                                  : "border-white/20 hover:border-white/40"
-                              }`}
-                            >
-                              <img
-                                src={url}
-                                alt={`Thumbnail ${i + 1}`}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
-                                }}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                  {formData.imageUrls.length > 1 && (
+                    <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+                      {formData.imageUrls.slice(0, 10).map((url, i) => (
+                        <button
+                          key={url}
+                          type="button"
+                          onClick={() => setImagePreview(url)}
+                          className={`shrink-0 w-12 h-12 rounded border overflow-hidden ${
+                            (imagePreview || formData.imageUrls[0]) === url
+                              ? "border-primary-500 ring-1 ring-primary-500"
+                              : "border-white/20 hover:border-white/40"
+                          }`}
+                        >
+                          <img
+                            src={url}
+                            alt={`Thumbnail ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              </>
-            )}
+              )}
+            </div>
 
             <div className="flex gap-3 pt-4">
               <button
@@ -916,13 +988,7 @@ const PartDialog: React.FC<PartDialogProps> = ({
                 className="flex-1 py-3 px-6 rounded-xl font-semibold bg-linear-to-r from-[#667eea] to-[#764ba2] bg-size-[200%_200%] text-white border-none transition-all duration-300 hover:translate-y-[-3px] hover:shadow-[0_15px_35px_rgba(102,126,234,0.4)] hover:animate-[gradientShift_3s_ease_infinite] relative overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 disabled={isLoading}
               >
-                {isLoading
-                  ? isUpdateMode
-                    ? "Adding listing..."
-                    : "Creating..."
-                  : isUpdateMode
-                    ? "Add listing"
-                    : "Create Part"}
+                {isLoading ? "Creating..." : "Create Part"}
               </button>
             </div>
           </form>

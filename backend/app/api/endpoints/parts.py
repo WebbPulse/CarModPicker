@@ -6,8 +6,6 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
-_module_log = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session, joinedload
@@ -38,12 +36,12 @@ from app.api.schemas.part import (
 from app.api.schemas.part_listing import PartListingCreate, PartListingReadWithRetailer
 from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.services.part_linker_service import link_group_part_ids, link_new_part
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
-    find_part_by_gtin,
+    find_existing_part_for_ugc_create,
     find_part_by_part_manufacturer_and_part_number,
     find_part_by_product_url,
-    get_best_listing_for_part,
     normalize_gtin,
     normalize_part_number,
 )
@@ -60,44 +58,6 @@ from app.api.utils.common_patterns import (
 from app.api.utils.endpoint_decorators import pagination_responses, standard_responses
 from app.api.utils.pagination_utils import create_paginated_response
 from app.api.utils.response_patterns import ResponsePatterns
-
-
-def _clip_log_text(val: Any, max_len: int = 56) -> str:
-    if val is None:
-        return "None"
-    text = str(val).replace("\n", " ")
-    if len(text) > max_len:
-        return text[: max_len - 1] + "…"
-    return text
-
-
-def _log_dedupe_metadata_refresh_apply(
-    existing_part: DBPart,
-    udict: dict[str, Any],
-    *,
-    before_car_ids: list[UUID],
-    after_car_ids: list[UUID],
-) -> None:
-    """Log only changed fields for archive rescrape dedupe path; INFO if any changed, DEBUG otherwise."""
-    checks: list[tuple[str, Any, Any]] = [
-        ("category_id", existing_part.category_id, udict.get("category_id")),
-        ("part_number", existing_part.part_number, udict.get("part_number")),
-        ("part_manufacturer_id", existing_part.part_manufacturer_id, udict.get("part_manufacturer_id")),
-        ("is_universal", existing_part.is_universal, udict.get("is_universal")),
-        ("gtin", existing_part.gtin, udict.get("gtin")),
-        ("name", existing_part.name, udict.get("name")),
-        ("car_ids", before_car_ids, after_car_ids),
-    ]
-    changed = [f"{label} {_clip_log_text(old)} → {_clip_log_text(new)}" for label, old, new in checks if old != new]
-    if changed:
-        _module_log.info(
-            "Rescrape part id=%s: %s",
-            existing_part.id,
-            " | ".join(changed),
-        )
-    else:
-        _module_log.debug("Rescrape part id=%s: no field changes", existing_part.id)
-
 
 # Create router
 router = APIRouter()
@@ -122,58 +82,58 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> DBPart:
         """
-        Create a new part with dedup by URL, part_manufacturer+part_number, and GTIN (UPC/EAN).
-        If an existing part is found, create/update PartListing and return that part.
+        Ingest a scraped or user-created part.
+
+        Two ingest paths diverge on ``source``:
+
+        **Scraped / archive_rescrape** (``source != "user_created"``):
+        - URL-level dedup: if this product URL already owns a PartListing on a
+          non-UGC Part, refresh that Part in place (scrape-wins) and append a
+          price history point. Do NOT create a new Part row.
+        - Otherwise create a new row and run the canonical linker, which
+          inspects GTIN / manufacturer+part_number and links duplicates under
+          a canonical.
+
+        **User-created** (``source == "user_created"``, the default for
+        extension/web submits):
+        - UGC is isolated from the scraped catalog. Before creating, refuse if
+          a non-UGC part already covers this product (return 409 pointing at
+          it) or if the same user already has a UGC row for it (return 409
+          pointing at their own prior row). Different-user UGC is allowed to
+          coexist — no URL uniqueness.
+        - On success, the row stays a standalone singleton: no URL-refresh,
+          no ``link_new_part``, no ``canonical_part_id``.
         """
-        part_by_url: Optional[DBPart] = None
-        part_by_part_manufacturer: Optional[DBPart] = None
-        part_by_gtin: Optional[DBPart] = None
+        source_val = (additional_data or {}).get("source") or "user_created"
+        is_ugc = source_val == "user_created"
 
-        if data.product_url and data.product_url.strip():
-            part_by_url = find_part_by_product_url(db, data.product_url)
-        if data.part_manufacturer_id and data.part_number and data.part_number.strip():
-            part_by_part_manufacturer = find_part_by_part_manufacturer_and_part_number(
-                db, data.part_manufacturer_id, data.part_number
+        if is_ugc:
+            blocker = find_existing_part_for_ugc_create(
+                db,
+                creator_id=current_user.id,
+                product_url=data.product_url,
             )
-        if data.gtin and normalize_gtin(data.gtin):
-            part_by_gtin = find_part_by_gtin(db, data.gtin)
-
-        parts = [p for p in (part_by_gtin, part_by_url, part_by_part_manufacturer) if p is not None]
-        ids = {p.id for p in parts}
-        if len(ids) > 1:
-            logger.info(f"User {current_user.id} part create conflict: dedup keys point to different parts {ids}")
-            ResponsePatterns.raise_conflict(
-                message="Product URL, part manufacturer + part number, or GTIN point to different existing parts.",
-                error_code="PART_DEDUP_CONFLICT",
-                details={
-                    "gtin_part_id": part_by_gtin.id if part_by_gtin else None,
-                    "url_part_id": part_by_url.id if part_by_url else None,
-                    "part_manufacturer_part_id": part_by_part_manufacturer.id if part_by_part_manufacturer else None,
-                },
-            )
-
-        existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
-        if existing_part:
-            if additional_data and additional_data.get("refresh_metadata_on_dedupe"):
-                self._refresh_deduped_part_from_scrape_create(
-                    db,
-                    existing_part,
-                    data,
-                    current_user,
-                    logger,
-                    additional_data,
+            if blocker is not None:
+                existing, reason = blocker
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "error_code": "PART_ALREADY_EXISTS",
+                        "reason": reason,
+                        "message": (
+                            "A scraped part already covers this product."
+                            if reason == "non_ugc_exists"
+                            else "You already have a community-contributed part for this product."
+                        ),
+                        "existing_part_id": str(existing.id),
+                        "existing_part_name": existing.name,
+                        "existing_part_source": existing.source,
+                    },
                 )
-            if data.retailer_id and (data.product_url or data.price_cents is not None):
-                _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
-                create_or_update_listing_and_price(
-                    db,
-                    existing_part.id,
-                    data.retailer_id,
-                    product_url=data.product_url,
-                    price_cents=data.price_cents,
-                )
-            logger.debug(f"User {current_user.id} part create: returning existing part {existing_part.id} (dedup)")
-            return existing_part
+        elif data.product_url and data.product_url.strip():
+            existing = find_part_by_product_url(db, data.product_url)
+            if existing is not None:
+                return self._refresh_part_from_reingest(db, existing, data, logger, additional_data)
 
         entity_data = data.model_dump()
         entity_data.pop("retailer_id", None)
@@ -183,8 +143,6 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         entity_data.pop("car_ids", None)
         if additional_data:
             for _k, _v in additional_data.items():
-                if _k == "refresh_metadata_on_dedupe":
-                    continue
                 entity_data[_k] = _v
         entity_data["user_id"] = current_user.id
         entity_data["part_number"] = (
@@ -203,6 +161,9 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             logger=logger,
             entity_name=self.entity_name,
         )
+
+        if not is_ugc:
+            link_new_part(db, part, product_url=data.product_url)
 
         if data.retailer_id and (data.product_url or data.price_cents is not None):
             _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
@@ -225,71 +186,103 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
 
         return part
 
-    def _refresh_deduped_part_from_scrape_create(
+    def _refresh_part_from_reingest(
         self,
         db: Session,
         existing_part: DBPart,
         data: PartCreate,
-        current_user: DBUser,
         logger: logging.Logger,
         additional_data: Optional[Dict[str, Any]],
     ) -> DBPart:
-        """Apply parsed create payload onto a deduped part (archive re-parse)."""
-        entity_data = data.model_dump()
-        entity_data.pop("retailer_id", None)
-        entity_data.pop("price_cents", None)
-        entity_data.pop("product_url", None)
-        entity_data.pop("price", None)
-        if additional_data:
-            for key, value in additional_data.items():
-                if key == "refresh_metadata_on_dedupe":
-                    continue
-                entity_data[key] = value
-        entity_data["part_number"] = (
-            normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
-        )
-        if data.gtin:
-            entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
-        if entity_data.get("image_urls") is not None:
-            entity_data["image_urls"] = entity_data["image_urls"][:MAX_IMAGES_PER_PART]
+        """
+        Apply a repeat ingest of an already-known product URL onto the existing Part.
 
-        update_data = {key: entity_data[key] for key in PartUpdate.model_fields if key in entity_data}
-        update_payload = PartUpdate.model_validate(update_data)
-        udict = update_payload.model_dump(exclude_unset=False)
-        car_ids = udict.pop("car_ids", None)
-        before_car_ids = sorted([c.id for c in (existing_part.car_generations or [])])
-        if udict.get("image_urls") is not None:
-            udict["image_urls"] = udict["image_urls"][:MAX_IMAGES_PER_PART]
-        if "gtin" in udict and udict["gtin"] is not None:
-            udict["gtin"] = normalize_gtin(udict["gtin"])
-        if car_ids is not None:
-            is_universal_after = udict.get("is_universal") if "is_universal" in udict else existing_part.is_universal
-            if not is_universal_after and car_ids:
-                for cid in car_ids:
+        Scrape-wins policy for parsed fields (name, description, images, category,
+        manufacturer, cars, GTIN, part_number, specifications). Only non-null
+        fields from the new payload are written, so a parser that loses a field
+        on one run doesn't erase it. PartListing + PartPriceHistory get an
+        upsert/append so price history stays continuous.
+        """
+        if data.name:
+            existing_part.name = data.name
+        if data.description is not None:
+            existing_part.description = data.description
+        if data.image_urls is not None:
+            existing_part.image_urls = data.image_urls[:MAX_IMAGES_PER_PART]
+        if data.category_id is not None:
+            existing_part.category_id = data.category_id
+        if data.part_manufacturer_id is not None:
+            existing_part.part_manufacturer_id = data.part_manufacturer_id
+        if data.part_number is not None:
+            normalized_pn = normalize_part_number(data.part_number)
+            if normalized_pn:
+                existing_part.part_number = normalized_pn
+        if data.gtin is not None:
+            normalized_gtin = normalize_gtin(data.gtin)
+            if normalized_gtin:
+                existing_part.gtin = normalized_gtin
+        if data.specifications is not None:
+            existing_part.specifications = data.specifications
+        if data.is_universal is not None:
+            existing_part.is_universal = data.is_universal
+        if additional_data and "source" in additional_data:
+            existing_part.source = additional_data["source"]
+
+        if existing_part.is_universal:
+            existing_part.car_generations = []
+        elif data.car_ids is not None:
+            if data.car_ids:
+                for cid in data.car_ids:
                     get_entity_or_404(db, DBCar, cid, "car")
-                existing_part.car_generations = [db.get(DBCar, cid) for cid in car_ids]
+                existing_part.car_generations = [db.get(DBCar, cid) for cid in data.car_ids]
             else:
                 existing_part.car_generations = []
-        if "source" in entity_data:
-            udict["source"] = entity_data["source"]
 
-        after_car_ids = sorted([c.id for c in (existing_part.car_generations or [])])
-        _log_dedupe_metadata_refresh_apply(
-            existing_part,
-            udict,
-            before_car_ids=before_car_ids,
-            after_car_ids=after_car_ids,
-        )
+        db.add(existing_part)
+        db.flush()
 
-        updated = update_entity(
-            db=db,
-            entity=existing_part,
-            update_data=udict,
-            user_id=current_user.id,
-            logger=logger,
-            entity_name=self.entity_name,
+        if data.retailer_id and (data.product_url or data.price_cents is not None):
+            _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
+            create_or_update_listing_and_price(
+                db,
+                existing_part.id,
+                data.retailer_id,
+                product_url=data.product_url,
+                price_cents=data.price_cents,
+            )
+
+        db.commit()
+        db.refresh(existing_part)
+        logger.debug(
+            "Re-ingest: refreshed part %s in place (URL already known)",
+            existing_part.id,
         )
-        return updated
+        return existing_part
+
+    def list_all(
+        self,
+        db: Session,
+        skip: int = 0,
+        limit: int = 100,
+        filters: Optional[Dict[str, Any]] = None,
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None,
+        order_by: str = "created_at",
+        order_direction: str = "desc",
+        logger: Optional[logging.Logger] = None,
+    ) -> List[DBPart]:
+        """List canonical parts only — duplicates are hidden from the public catalog."""
+        from app.api.utils.common_operations import build_filtered_query, build_search_query
+
+        validate_pagination_params(skip, limit)
+        query = db.query(DBPart).filter(DBPart.canonical_part_id.is_(None))
+        if filters:
+            query = build_filtered_query(query, filters)
+        if search and search_fields:
+            query = build_search_query(query, search, search_fields)
+        order_field = getattr(DBPart, order_by, DBPart.created_at)
+        query = query.order_by(order_field.desc() if order_direction == "desc" else order_field.asc())
+        return query.offset(skip).limit(limit).all()
 
     def update(
         self,
@@ -392,6 +385,13 @@ async def read_parts_with_votes(
     universal: Optional[bool] = Query(
         None, description="When true, return only parts that fit all cars (is_universal)"
     ),
+    include_ugc: bool = Query(
+        True,
+        description=(
+            "When false, hide community-contributed parts (source='user_created') "
+            "from the catalog. Scraped parts are unaffected."
+        ),
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
@@ -445,6 +445,7 @@ async def read_parts_with_votes(
         user_id,
         retailer_id,
         universal=universal,
+        include_ugc=include_ugc,
     )
 
     query = (
@@ -461,25 +462,30 @@ async def read_parts_with_votes(
         user_id,
         retailer_id,
         universal=universal,
+        include_ugc=include_ugc,
     )
 
+    # Aggregate listings to their canonical part: a duplicate's listings count
+    # toward the canonical's best price. For a canonical (no canonical_part_id)
+    # the grouping key is its own id, so this is a no-op there.
     min_price_subq = (
         db.query(
-            DBPartListing.part_id,
+            func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id"),
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
+        .join(DBPart, DBPart.id == DBPartListing.part_id)
         .filter(DBPartListing.last_known_price_cents.isnot(None))
-        .group_by(DBPartListing.part_id)
+        .group_by(func.coalesce(DBPart.canonical_part_id, DBPart.id))
         .subquery()
     )
 
     if has_price_filter:
-        base_query = base_query.join(min_price_subq, DBPart.id == min_price_subq.c.part_id)
+        base_query = base_query.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
         if min_price_cents is not None:
             base_query = base_query.filter(min_price_subq.c.min_price >= min_price_cents)
         if max_price_cents is not None:
             base_query = base_query.filter(min_price_subq.c.min_price <= max_price_cents)
-        query = query.join(min_price_subq, DBPart.id == min_price_subq.c.part_id)
+        query = query.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
         if min_price_cents is not None:
             query = query.filter(min_price_subq.c.min_price >= min_price_cents)
         if max_price_cents is not None:
@@ -583,16 +589,20 @@ async def read_parts_with_votes(
         elif vote_type == "downvote":
             downvotes_dict[entity_id] = count
 
+    # Best price per canonical: a duplicate's listings contribute to its canonical's
+    # best price, so rows returned (canonicals only) see prices from the whole link group.
+    canonical_id_expr = func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id")
     min_prices = (
         db.query(
-            DBPartListing.part_id,
+            canonical_id_expr,
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
+        .join(DBPart, DBPart.id == DBPartListing.part_id)
         .filter(
-            DBPartListing.part_id.in_(part_ids),
+            canonical_id_expr.in_(part_ids),
             DBPartListing.last_known_price_cents.isnot(None),
         )
-        .group_by(DBPartListing.part_id)
+        .group_by(canonical_id_expr)
         .all()
     )
     best_price_cents_dict: Dict[UUID, int] = {p_id: int(mp) for p_id, mp in min_prices}
@@ -636,8 +646,20 @@ def _apply_parts_list_filters(
     retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
+    include_ugc: bool = True,
 ):
-    """Apply list filters to a query that has DBPart as root."""
+    """Apply list filters to a query that has DBPart as root.
+
+    Non-canonical parts (``canonical_part_id IS NOT NULL``) are filtered out of
+    the public catalog by default so duplicates don't clutter results. The
+    "My Parts" view (``user_id`` set) keeps non-canonicals visible so a user
+    still sees every part they created, even those later linked as duplicates.
+
+    ``include_ugc=False`` drops community-contributed parts (``source =
+    "user_created"``) so users who want a cleaner, scraper-only catalog can
+    toggle UGC out of browse/search. The "My Parts" view ignores this flag so
+    a user always sees their own UGC.
+    """
     query = apply_standard_filters(
         query=query,
         search=search,
@@ -655,6 +677,10 @@ def _apply_parts_list_filters(
         query = query.filter(or_(DBPart.is_universal, part_fits_any_car))
     if user_id is not None:
         query = query.filter(DBPart.user_id == user_id)
+    else:
+        query = query.filter(DBPart.canonical_part_id.is_(None))
+        if not include_ugc:
+            query = query.filter(DBPart.source != "user_created")
     if retailer_id is not None:
         query = query.join(DBPartListing).filter(
             DBPartListing.part_id == DBPart.id,
@@ -673,11 +699,20 @@ def _parts_base_query(
     retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
+    include_ugc: bool = True,
 ):
     """Build base query for parts list with filters applied (no pagination/sort)."""
     q = db.query(DBPart)
     return _apply_parts_list_filters(
-        q, category_ids, part_manufacturer_ids, car_ids, search, user_id, retailer_id, universal=universal
+        q,
+        category_ids,
+        part_manufacturer_ids,
+        car_ids,
+        search,
+        user_id,
+        retailer_id,
+        universal=universal,
+        include_ugc=include_ugc,
     )
 
 
@@ -697,6 +732,10 @@ async def get_parts_filter_options(
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
     user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
     universal: Optional[bool] = Query(None, description="When true, scope to parts that fit all cars (is_universal)"),
+    include_ugc: bool = Query(
+        True,
+        description="When false, hide community-contributed parts from the filter option computation.",
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
     """
@@ -713,6 +752,7 @@ async def get_parts_filter_options(
         user_id=user_id,
         retailer_id=None,
         universal=universal,
+        include_ugc=include_ugc,
     )
     available_categories = [
         row[0] for row in q.with_entities(DBPart.category_id).distinct().filter(DBPart.category_id.isnot(None)).all()
@@ -740,6 +780,7 @@ async def get_parts_filter_options(
             user_id=user_id,
             retailer_id=None,
             universal=universal,
+            include_ugc=include_ugc,
         )
         available_car_ids = [
             row[0]
@@ -782,7 +823,16 @@ async def get_parts_by_category(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    parts = db.query(DBPart).filter(DBPart.category_id == category_id).offset(skip).limit(limit).all()
+    parts = (
+        db.query(DBPart)
+        .filter(
+            DBPart.category_id == category_id,
+            DBPart.canonical_part_id.is_(None),
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     logger.info(f"Retrieved {len(parts)} parts for category {category_id}")
     return [PartRead.model_validate(part) for part in parts]
 
@@ -849,9 +899,10 @@ async def get_part_listings(
     """List all retailer listings for a part (with current price)."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
+    group_ids = link_group_part_ids(db, part_id)
     listings = (
         db.query(DBPartListing)
-        .filter(DBPartListing.part_id == part_id)
+        .filter(DBPartListing.part_id.in_(group_ids))
         .options(joinedload(DBPartListing.retailer))
         .all()
     )
@@ -1021,20 +1072,28 @@ async def get_part_best_listing(
     part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> PartListingReadWithRetailer:
-    """Get the listing with the lowest current price for this part."""
+    """Get the listing with the lowest current price for this part (across its link group)."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
-    best = get_best_listing_for_part(db, part_id)
+    group_ids = link_group_part_ids(db, part_id)
+    best = (
+        db.query(DBPartListing)
+        .filter(
+            DBPartListing.part_id.in_(group_ids),
+            DBPartListing.last_known_price_cents.isnot(None),
+            DBPartListing.last_known_price_cents >= 0,
+        )
+        .order_by(DBPartListing.last_known_price_cents.asc())
+        .options(joinedload(DBPartListing.retailer))
+        .first()
+    )
     if not best:
         ResponsePatterns.raise_http_exception(
             status.HTTP_404_NOT_FOUND,
             "No listing with price for this part",
             error_code="NOT_FOUND",
         )
-    listing_with_retailer = (
-        db.query(DBPartListing).filter(DBPartListing.id == best.id).options(joinedload(DBPartListing.retailer)).first()
-    )
-    return PartListingReadWithRetailer.model_validate(listing_with_retailer)
+    return PartListingReadWithRetailer.model_validate(best)
 
 
 @router.get(
@@ -1046,28 +1105,21 @@ async def get_part_with_listings(
     part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> PartReadWithListings:
-    """Get a part with all retailer listings and the best (lowest price) listing."""
+    """Get a part with all retailer listings (aggregated across the link group) and best price."""
     db = deps["db"]
     part = get_entity_or_404(db, DBPart, part_id, "part")
+    group_ids = link_group_part_ids(db, part_id)
     listings = (
         db.query(DBPartListing)
-        .filter(DBPartListing.part_id == part_id)
+        .filter(DBPartListing.part_id.in_(group_ids))
         .options(joinedload(DBPartListing.retailer))
         .all()
     )
-    best = get_best_listing_for_part(db, part_id)
-    best_serialized = None
-    if best:
-        best_with_retailer = (
-            db.query(DBPartListing)
-            .filter(DBPartListing.id == best.id)
-            .options(joinedload(DBPartListing.retailer))
-            .first()
-        )
-        if best_with_retailer:
-            best_serialized = PartListingReadWithRetailer.model_validate(best_with_retailer)
+    priced = [l for l in listings if l.last_known_price_cents is not None and l.last_known_price_cents >= 0]
+    best_listing = min(priced, key=lambda l: l.last_known_price_cents or 0) if priced else None
+    best_serialized = PartListingReadWithRetailer.model_validate(best_listing) if best_listing else None
     part_dict = PartRead.model_validate(part).model_dump()
-    part_dict["best_price_cents"] = best.last_known_price_cents if best else None
+    part_dict["best_price_cents"] = best_listing.last_known_price_cents if best_listing else None
     return PartReadWithListings(
         **part_dict,
         listings=[PartListingReadWithRetailer.model_validate(l) for l in listings],
@@ -1085,14 +1137,15 @@ async def get_part_price_history(
     retailer_id: Optional[UUID] = Query(None, description="Filter by retailer ID"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[PartPriceHistoryReadWithRetailer]:
-    """Get price history for this part, optionally filtered by retailer."""
+    """Get price history for this part (aggregated across its link group)."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
+    group_ids = link_group_part_ids(db, part_id)
     query = (
         db.query(DBPartPriceHistory, DBPartListing, DBRetailer)
         .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
         .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
-        .filter(DBPartListing.part_id == part_id)
+        .filter(DBPartListing.part_id.in_(group_ids))
     )
     if retailer_id is not None:
         query = query.filter(DBPartListing.retailer_id == retailer_id)
