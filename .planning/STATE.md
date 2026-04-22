@@ -78,7 +78,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- **Backend coverage baseline not yet measured.** Phase 1 must run `pytest --cov=app` before setting `--cov-fail-under`. Set the floor at the measured baseline, not an assumed number.
+- **Backend coverage baseline measured and committed (plan 01-04).** `--cov-fail-under=51` landed in backend/pytest.ini (commit bbb5b22).
 - **Postgres Docker test environment** — Phase 4 migration testing needs a `docker-compose` step for Postgres-specific CI validation. Decide at Phase 4 planning time.
 - **`lazy="raise"` scope** — Full audit of all `relationship()` declarations across 22+ models needed at Phase 4 planning.
 
@@ -86,7 +86,7 @@ None yet.
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| Phase 01 | SAFE-03: frontend vitest threshold enforcement | Deferred (target: plan 01-09): frontend coverage threshold enforcement | 2026-04-22 |
 
 ## Session Continuity
 
