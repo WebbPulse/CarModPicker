@@ -223,4 +223,45 @@
 
 ---
 
+## Crawler Drift Runbook
+
+<a id="crawler-drift-runbook"></a>
+
+**Triggered by:** `${local.prefix}-crawler-parse-failure-composite` CloudWatch alarm (per D-22/D-27). SNS email arrives at `tyler@webbpulse.com` + `tylert2610@gmail.com`. Recovery email follows when aggregate parse-failure rate drops back below 50%.
+
+Alarm fires when, in the last hour, aggregate `ParseFailures / (Ingested + ParseFailures) > 0.5` across all adapters in `RunType=live`. Below 10 combined samples the rate is suppressed (returns 0) so idle / low-traffic periods don't trigger false positives (D-23).
+
+**Likely cause:** one or more retailer sites changed their HTML structure and the adapter's selectors no longer match product pages. `skipped_not_product` goes up; `ingested` goes down; ratio breaches threshold.
+
+**Response steps:**
+
+1. **Identify the drifting adapter(s).** In Phase 2 (aggregate alarm), inspect the CloudWatch namespace `CarModPicker/Crawlers` grouped by `AdapterName`:
+   ```
+   aws cloudwatch list-metrics --namespace "CarModPicker/Crawlers" \
+     --dimensions "Name=RunType,Value=live" "Name=Environment,Value=production"
+   ```
+   Pull each adapter's `ParseFailures` + `Ingested` sums over the last hour; adapters with ratio > 0.5 are the suspects. **After Phase 3** (per-adapter alarms land via CRAWL-01/02 auto-discovery per D-29), the alarm name itself names the adapter.
+
+2. **Pull the failing adapter's most recent archived HTML.** Archives live in the crawl-archive S3 bucket (local: `carmodpicker-local-crawl`; prod: `carmodpicker-production-crawl-data` per SAFE-07 D-21):
+   ```
+   aws s3 cp s3://carmodpicker-production-crawl-data/<adapter>/<date>/<sample>.html ./inspect.html
+   ```
+
+3. **Re-run the adapter characterization test** (SAFE-07 from Phase 1) against the archived fixture. If the test still passes, the drift is in pages not covered by the fixture — proceed to step 4 with a NEW sample. If the test fails, the adapter code needs patching:
+   ```
+   cd backend && pytest -n auto tests/crawlers/test_characterization_<adapter>.py -xvs
+   ```
+
+4. **Patch the adapter.** Adapter lives in `backend/app/crawlers/adapters/<name>.py`. Update selectors in `parse_product_page()` / `discover_product_urls()` to match the new HTML shape. Re-run the characterization test locally.
+
+5. **(Optional) Mute the alarm** during the fix window using the `var.disabled_parse_alarms` terraform list (D-31 — active only after Phase 3 per-adapter conversion; in Phase 2 the composite alarm cannot be muted per-adapter). For Phase 2 emergency mute, disable the alarm in the AWS console and open a follow-up PR to persist. Never comment out terraform.
+
+6. **Deploy the fix** via the normal PR → GHA → staging → bake 24h → prod flow (D-58). Alarm should auto-recover and send an `OK` SNS email (D-26) once the next hourly evaluation window sees healthy ratios.
+
+7. **Post-fix:** update the adapter's HTML fixture in `backend/tests/crawlers/fixtures/` so the characterization test would have caught this drift. This closes the loop that SAFE-07 established.
+
+**Phase 3 handoff note:** Phase 3 (CRAWL-01/02/03) ships adapter auto-discovery + `ADAPTER_NAME: ClassVar[str]` enforcement. After Phase 3, the TODO marker in `terraform/monitoring.tf` converts this composite alarm into 114 per-adapter alarms via `for_each = toset(file("${path.module}/adapter_names.txt"))`. Cost: ~$11.40/mo (user explicitly accepted this cost for per-adapter precision — D-29).
+
+---
+
 *Concerns audit: 2026-04-22*
