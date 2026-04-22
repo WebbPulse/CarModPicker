@@ -235,3 +235,124 @@ class TestJobReportRendering:
             ]
         )
         assert html == ""
+
+
+# ---------------------------------------------------------------------------
+# CRAWL-07 (Plan 03-03): ParseFailures block in the per-adapter email row.
+# ---------------------------------------------------------------------------
+
+
+def test_crawler_parse_failures_block_renders() -> None:
+    """When parse_failures > 0 and sample_failure_urls is non-empty, the renderer
+    emits a 'ParseFailures: N / total' line and includes every sample URL."""
+    summary = {
+        "summary": {"total_ingested": 7, "total_skipped": 3, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "test_adapter",
+                "ingested": 7,
+                "skipped": 3,
+                "skipped_robots": 0,
+                "skipped_not_product": 3,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 10,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 3,
+                "sample_failure_urls": [
+                    "https://ex.com/p1",
+                    "https://ex.com/p2",
+                    "https://ex.com/p3",
+                ],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 4.2,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "ParseFailures:" in html
+    assert "3 / 10" in html
+    for url in summary["results"][0]["sample_failure_urls"]:
+        assert url in html
+
+
+def test_crawler_parse_failures_block_omitted_when_empty() -> None:
+    """parse_failures == 0 → no ParseFailures block emitted (silent for healthy adapters)."""
+    summary = {
+        "summary": {"total_ingested": 5, "total_skipped": 0, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "a",
+                "ingested": 5,
+                "skipped": 0,
+                "skipped_robots": 0,
+                "skipped_not_product": 0,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 5,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 0,
+                "sample_failure_urls": [],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 1.0,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "ParseFailures:" not in html
+
+
+def test_crawler_parse_failures_url_truncation() -> None:
+    """URLs >160 chars are truncated (Pitfall PR-01): ellipsis appears, full URL does not."""
+    long_url = "https://ex.com/" + ("q" * 300)
+    summary = {
+        "summary": {"total_ingested": 0, "total_skipped": 1, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "a",
+                "ingested": 0,
+                "skipped": 1,
+                "skipped_robots": 0,
+                "skipped_not_product": 1,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 1,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 1,
+                "sample_failure_urls": [long_url],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 0.1,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "…" in html  # ellipsis marker from truncation
+    # Full 300-char URL NOT present verbatim.
+    assert long_url not in html
