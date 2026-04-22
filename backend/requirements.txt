@@ -38,6 +38,9 @@ google-auth==2.45.0
 requests==2.33.0
 beautifulsoup4==4.12.3
 defusedxml==0.7.1
+# Circuit breaker for crawler rate-limit protection (CRAWL-04). Pinned exact
+# version; see threat model T-03-02-02 for supply-chain posture.
+pybreaker==1.4.1
 
 # Crawler Tier 1 (TLS impersonation). Mimics real Chrome's TLS/JA3 handshake to
 # get past Cloudflare fingerprint checks where the IP is not banned but plain
