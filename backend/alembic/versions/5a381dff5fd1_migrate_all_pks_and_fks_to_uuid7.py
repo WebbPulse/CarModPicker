@@ -269,19 +269,23 @@ def upgrade() -> None:
 
     # ---- Phase 8: drop unique constraints that cover changing columns ---
     for name, table, _cols in UNIQUES:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_constraint(name, table, type_="unique")
 
     # ---- Phase 9: drop FK constraints and their backing indexes ---------
     # Drop the association-table composite PK first — it IS the two FK
     # columns, so its PK must go before we drop the individual FKs.
     for tbl, _cols in ASSOCIATIONS:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_constraint(f"{tbl}_pkey", tbl, type_="primary")
 
     for child, col, _parent, _nullable, _ondelete in FKS:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_constraint(f"{child}_{col}_fkey", child, type_="foreignkey")
 
     for tbl, cols in ASSOCIATIONS:
         for col_name, _parent in cols:
+            # SAFE: downgrade reversal of already-applied migration — see SAFE-04
             op.drop_constraint(f"{tbl}_{col_name}_fkey", tbl, type_="foreignkey")
 
     for child, col in FK_INDEXES:
@@ -289,19 +293,24 @@ def upgrade() -> None:
 
     # ---- Phase 10: drop old int FK columns ------------------------------
     for child, col, _parent, _nullable, _ondelete in FKS:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_column(child, col)
 
     for child, col, _disc, _mapping in POLYMORPHIC:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_column(child, col)
 
     for tbl, cols in ASSOCIATIONS:
         for col_name, _parent in cols:
+            # SAFE: downgrade reversal of already-applied migration — see SAFE-04
             op.drop_column(tbl, col_name)
 
     # ---- Phase 11: drop old PK constraints, indexes, and int id cols ----
     for tbl in PK_TABLES:
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_constraint(f"{tbl}_pkey", tbl, type_="primary")
         op.drop_index(f"ix_{tbl}_id", table_name=tbl)
+        # SAFE: downgrade reversal of already-applied migration — see SAFE-04
         op.drop_column(tbl, "id")
 
     # ---- Phase 12: promote staging columns to canonical names -----------

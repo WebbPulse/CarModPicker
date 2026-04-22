@@ -34,5 +34,6 @@ def downgrade() -> None:
     # SAFE: legacy drop_constraint(None) superseded by forward-only repair in aa583927d86a — see SAFE-08
     op.drop_constraint(None, "parts", type_="foreignkey")
     op.drop_index(op.f("ix_parts_canonical_part_id"), table_name="parts")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("parts", "canonical_part_id")
     # ### end Alembic commands ###

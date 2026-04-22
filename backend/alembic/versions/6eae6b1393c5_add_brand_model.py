@@ -37,6 +37,7 @@ def upgrade() -> None:
     op.add_column("global_parts", sa.Column("brand_id", sa.Integer(), nullable=True))
     op.create_index(op.f("ix_global_parts_brand_id"), "global_parts", ["brand_id"], unique=False)
     op.create_foreign_key(None, "global_parts", "brands", ["brand_id"], ["id"])
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "brand")
     # ### end Alembic commands ###
 
@@ -48,8 +49,10 @@ def downgrade() -> None:
     # SAFE: legacy drop_constraint(None) superseded by forward-only repair in aa583927d86a — see SAFE-08
     op.drop_constraint(None, "global_parts", type_="foreignkey")
     op.drop_index(op.f("ix_global_parts_brand_id"), table_name="global_parts")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "brand_id")
     op.drop_index(op.f("ix_brands_name"), table_name="brands")
     op.drop_index(op.f("ix_brands_id"), table_name="brands")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("brands")
     # ### end Alembic commands ###

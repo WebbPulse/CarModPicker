@@ -5,6 +5,7 @@ Revises: 42feddff6034
 Create Date: 2026-04-12 19:25:56.428801
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -27,4 +28,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index(op.f("ix_crawled_pages_html_sha256"), table_name="crawled_pages")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("crawled_pages", "html_sha256")

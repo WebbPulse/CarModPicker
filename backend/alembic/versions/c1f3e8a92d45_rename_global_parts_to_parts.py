@@ -45,12 +45,20 @@ def upgrade() -> None:
     op.execute("ALTER TABLE parts RENAME CONSTRAINT global_parts_brand_id_fkey TO parts_brand_id_fkey")
     op.execute("ALTER TABLE part_cars RENAME CONSTRAINT global_part_cars_global_part_id_fkey TO part_cars_part_id_fkey")
     op.execute("ALTER TABLE part_cars RENAME CONSTRAINT global_part_cars_car_id_fkey TO part_cars_car_id_fkey")
-    op.execute("ALTER TABLE build_list_parts RENAME CONSTRAINT build_list_parts_global_part_id_fkey TO build_list_parts_part_id_fkey")
-    op.execute("ALTER TABLE part_listings RENAME CONSTRAINT part_listings_global_part_id_fkey TO part_listings_part_id_fkey")
-    op.execute("ALTER TABLE crawled_pages RENAME CONSTRAINT crawled_pages_global_part_id_fkey TO crawled_pages_part_id_fkey")
+    op.execute(
+        "ALTER TABLE build_list_parts RENAME CONSTRAINT build_list_parts_global_part_id_fkey TO build_list_parts_part_id_fkey"
+    )
+    op.execute(
+        "ALTER TABLE part_listings RENAME CONSTRAINT part_listings_global_part_id_fkey TO part_listings_part_id_fkey"
+    )
+    op.execute(
+        "ALTER TABLE crawled_pages RENAME CONSTRAINT crawled_pages_global_part_id_fkey TO crawled_pages_part_id_fkey"
+    )
 
     # Rename unique constraint
-    op.execute("ALTER TABLE part_listings RENAME CONSTRAINT uq_part_listing_global_part_retailer TO uq_part_listing_part_retailer")
+    op.execute(
+        "ALTER TABLE part_listings RENAME CONSTRAINT uq_part_listing_global_part_retailer TO uq_part_listing_part_retailer"
+    )
 
     # Migrate polymorphic entity_type strings stored as data
     op.execute("UPDATE votes SET entity_type = 'part' WHERE entity_type = 'global_part'")
@@ -63,12 +71,20 @@ def downgrade() -> None:
     op.execute("UPDATE reports SET entity_type = 'global_part' WHERE entity_type = 'part'")
 
     # Reverse unique constraint rename
-    op.execute("ALTER TABLE part_listings RENAME CONSTRAINT uq_part_listing_part_retailer TO uq_part_listing_global_part_retailer")
+    op.execute(
+        "ALTER TABLE part_listings RENAME CONSTRAINT uq_part_listing_part_retailer TO uq_part_listing_global_part_retailer"
+    )
 
     # Reverse FK constraint renames
-    op.execute("ALTER TABLE crawled_pages RENAME CONSTRAINT crawled_pages_part_id_fkey TO crawled_pages_global_part_id_fkey")
-    op.execute("ALTER TABLE part_listings RENAME CONSTRAINT part_listings_part_id_fkey TO part_listings_global_part_id_fkey")
-    op.execute("ALTER TABLE build_list_parts RENAME CONSTRAINT build_list_parts_part_id_fkey TO build_list_parts_global_part_id_fkey")
+    op.execute(
+        "ALTER TABLE crawled_pages RENAME CONSTRAINT crawled_pages_part_id_fkey TO crawled_pages_global_part_id_fkey"
+    )
+    op.execute(
+        "ALTER TABLE part_listings RENAME CONSTRAINT part_listings_part_id_fkey TO part_listings_global_part_id_fkey"
+    )
+    op.execute(
+        "ALTER TABLE build_list_parts RENAME CONSTRAINT build_list_parts_part_id_fkey TO build_list_parts_global_part_id_fkey"
+    )
     op.execute("ALTER TABLE part_cars RENAME CONSTRAINT part_cars_car_id_fkey TO global_part_cars_car_id_fkey")
     op.execute("ALTER TABLE part_cars RENAME CONSTRAINT part_cars_part_id_fkey TO global_part_cars_global_part_id_fkey")
     op.execute("ALTER TABLE parts RENAME CONSTRAINT parts_brand_id_fkey TO global_parts_brand_id_fkey")

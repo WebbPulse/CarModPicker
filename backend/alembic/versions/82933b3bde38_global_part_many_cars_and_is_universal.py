@@ -35,7 +35,9 @@ def upgrade() -> None:
         sa.Column("is_universal", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
     op.drop_index(op.f("ix_global_parts_car_id"), table_name="global_parts")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_constraint(op.f("global_parts_car_id_fkey"), "global_parts", type_="foreignkey")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "car_id")
     # ### end Alembic commands ###
 
@@ -46,6 +48,8 @@ def downgrade() -> None:
     op.add_column("global_parts", sa.Column("car_id", sa.INTEGER(), autoincrement=False, nullable=True))
     op.create_foreign_key(op.f("global_parts_car_id_fkey"), "global_parts", "cars", ["car_id"], ["id"])
     op.create_index(op.f("ix_global_parts_car_id"), "global_parts", ["car_id"], unique=False)
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "is_universal")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("global_part_cars")
     # ### end Alembic commands ###

@@ -69,5 +69,6 @@ def downgrade() -> None:
     op.drop_index("ix_bug_reports_priority", table_name="bug_reports")
     op.drop_index(op.f("ix_bug_reports_id"), table_name="bug_reports")
     op.drop_index("ix_bug_reports_created_at", table_name="bug_reports")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("bug_reports")
     # ### end Alembic commands ###
