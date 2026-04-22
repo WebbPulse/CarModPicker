@@ -1,5 +1,5 @@
 import { Suspense, useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
@@ -15,10 +15,8 @@ import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
-import { useAppSettings } from './hooks/useAppSettings';
-import { useAuth } from './hooks/useAuth';
+import { useIsPremium, useIsPremiumSystemDisabled } from './hooks/useIsPremium';
 import { lazyWithReload as lazy } from './utils/lazyWithReload';
-import { isPremium } from './utils/subscription';
 
 const ADSENSE_SCRIPT_ATTR = 'data-adsense-loader';
 
@@ -112,18 +110,15 @@ const NO_ADS_PATHS = new Set([
 
 function App() {
   const location = useLocation();
-  const { user } = useAuth();
-  const { settings: appSettings } = useAppSettings();
+  const isPremiumNow = useIsPremium();
+  const premiumSystemDisabled = useIsPremiumSystemDisabled();
   // showAdSpace: render the side columns (ad or spacer) for layout consistency.
   // showAds: only show actual ads on content pages for free users.
-  // Only subscription tier is used (not is_admin/is_superuser), so superusers on free tier still see ads for testing.
-  // ads_disabled_global is an admin kill-switch that suppresses ads for everyone.
+  // useIsPremium() returns true for premium users AND when the admin kill switch
+  // has disabled the premium system, so this single check covers both gates.
   const showAdSpace = !NO_AD_SPACE_PATHS.has(location.pathname);
   const showAds =
-    showAdSpace &&
-    !NO_ADS_PATHS.has(location.pathname) &&
-    !isPremium(user) &&
-    !appSettings?.ads_disabled_global;
+    showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremiumNow;
   const isLandingPage = location.pathname === '/';
 
   // Load the AdSense loader unconditionally so Google's review crawler detects
@@ -211,7 +206,16 @@ function App() {
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/support" element={<Support />} />
-                <Route path="/pricing" element={<Pricing />} />
+                <Route
+                  path="/pricing"
+                  element={
+                    premiumSystemDisabled ? (
+                      <Navigate to="/" replace />
+                    ) : (
+                      <Pricing />
+                    )
+                  }
+                />
                 <Route path="/bug-report" element={<BugReport />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/user/:userId" element={<ViewUser />} />
@@ -245,7 +249,16 @@ function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/builder" element={<Builder />} />
                     <Route path="/my-parts" element={<UserParts />} />
-                    <Route path="/checkout" element={<Checkout />} />
+                    <Route
+                      path="/checkout"
+                      element={
+                        premiumSystemDisabled ? (
+                          <Navigate to="/" replace />
+                        ) : (
+                          <Checkout />
+                        )
+                      }
+                    />
                   </Route>
                 </Route>
 

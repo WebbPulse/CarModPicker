@@ -13,7 +13,7 @@ class AppSettings(Base):
     __table_args__ = (CheckConstraint("id = 1", name="app_settings_singleton"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
-    ads_disabled_global: Mapped[bool] = mapped_column(default=False, nullable=False)
+    premium_disabled: Mapped[bool] = mapped_column(default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),

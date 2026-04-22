@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import ActionButton from '../components/buttons/ActionButton';
 import Card from '../components/common/Card';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { useIsPremiumSystemDisabled } from '../hooks/useIsPremium';
 
 type SupportOption = {
   id: string;
@@ -17,24 +18,30 @@ type SupportOption = {
 };
 
 function Support() {
+  const premiumSystemDisabled = useIsPremiumSystemDisabled();
   useDocumentMeta({
     title: 'Support CarModPicker',
-    description:
-      'Ways to support CarModPicker: subscribe to Premium, send feedback, or help grow the community.',
+    description: premiumSystemDisabled
+      ? 'Ways to support CarModPicker: send feedback or help grow the community.'
+      : 'Ways to support CarModPicker: subscribe to Premium, send feedback, or help grow the community.',
     canonicalPath: '/support',
   });
   const supportOptions: SupportOption[] = [
-    {
-      id: 'premium',
-      title: 'Subscribe to Premium',
-      description:
-        'Go ad-free, unlock unlimited build lists, and support ongoing development with a monthly subscription.',
-      icon: <FaCrown className="text-3xl" />,
-      color: 'from-amber-400 to-orange-500',
-      link: '/pricing',
-      buttonText: 'See Pricing',
-      external: false,
-    },
+    ...(premiumSystemDisabled
+      ? []
+      : [
+          {
+            id: 'premium',
+            title: 'Subscribe to Premium',
+            description:
+              'Go ad-free, unlock unlimited build lists, and support ongoing development with a monthly subscription.',
+            icon: <FaCrown className="text-3xl" />,
+            color: 'from-amber-400 to-orange-500',
+            link: '/pricing',
+            buttonText: 'See Pricing',
+            external: false,
+          } satisfies SupportOption,
+        ]),
     {
       id: 'coffee',
       title: 'Buy Me a Coffee',

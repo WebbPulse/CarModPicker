@@ -1366,16 +1366,18 @@ export interface CrawlerReconcileAllResponse {
 }
 
 export interface AppSettings {
-  ads_disabled_global: boolean;
+  /** Admin kill switch: when true, the entire premium system is disconnected
+   *  (ads off, no feature gates, all premium UX/messaging hidden). */
+  premium_disabled: boolean;
   updated_at: string;
 }
 
 export interface AppSettingsUpdate {
-  ads_disabled_global?: boolean;
+  premium_disabled?: boolean;
 }
 
 export const appSettingsApi = {
-  /** Public: fetch global app settings (e.g. global ads toggle). */
+  /** Public: fetch global app settings (consumed by frontend to honor toggles). */
   get: () => apiClient.get<AppSettings>('/app-settings/'),
   /** Admin-only: update global app settings. */
   update: (body: AppSettingsUpdate) =>

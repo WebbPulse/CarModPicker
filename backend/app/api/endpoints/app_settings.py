@@ -2,8 +2,9 @@
 Global app settings endpoints.
 
 Stores a single row in ``app_settings`` with runtime-mutable toggles that
-apply to every user (e.g. the global ads kill-switch). Read is public so
-anonymous clients can honor the toggle; write is admin-only.
+apply to every user (e.g. the premium-system kill switch that disables
+ads, gates, pricing, and all subscription UX). Read is public so anonymous
+clients can honor the toggle; write is admin-only.
 """
 
 import logging

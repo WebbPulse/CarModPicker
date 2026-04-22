@@ -17,7 +17,7 @@ function SystemAdmin() {
   const { settings: appSettings, setSettings: setAppSettings } =
     useAppSettings();
 
-  // Global app settings (e.g. ads kill-switch)
+  // Global app settings (e.g. premium-system kill switch)
   const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
   const [appSettingsError, setAppSettingsError] = useState<string | null>(null);
 
@@ -106,19 +106,19 @@ function SystemAdmin() {
     void fetchCurrentRevision();
   }, []);
 
-  const handleToggleAdsDisabled = async (nextValue: boolean) => {
+  const handleTogglePremiumDisabled = async (nextValue: boolean) => {
     setIsSavingAppSettings(true);
     setAppSettingsError(null);
     try {
       const response = await appSettingsApi.update({
-        ads_disabled_global: nextValue,
+        premium_disabled: nextValue,
       });
       setAppSettings(response.data);
     } catch (error) {
       setAppSettingsError(
         error instanceof Error
           ? error.message
-          : 'Failed to update global ads setting.'
+          : 'Failed to update premium-system setting.'
       );
     } finally {
       setIsSavingAppSettings(false);
@@ -328,21 +328,26 @@ function SystemAdmin() {
               <input
                 type="checkbox"
                 className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
-                checked={appSettings?.ads_disabled_global ?? false}
+                checked={appSettings?.premium_disabled ?? false}
                 disabled={isSavingAppSettings || appSettings == null}
-                onChange={(e) => void handleToggleAdsDisabled(e.target.checked)}
+                onChange={(e) =>
+                  void handleTogglePremiumDisabled(e.target.checked)
+                }
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-white">
-                    Disable ads globally
+                    Disconnect premium system
                   </span>
                   {isSavingAppSettings && <LoadingSpinner size="sm" inline />}
                 </div>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  When on, ads are suppressed for every visitor — free users,
-                  anonymous visitors, and everyone else. Premium users already
-                  never see ads. The ad columns remain as layout spacers.
+                  Hard kill switch for everything paid. When on: ads are
+                  suppressed for every visitor, all subscription-tier gates are
+                  bypassed (everyone gets the premium experience), and all
+                  pricing, checkout, and upgrade prompts are hidden from the UI.
+                  Admin subscription editing still works so values persist for
+                  when you turn it back on. Ad columns remain as layout spacers.
                 </p>
               </div>
             </label>

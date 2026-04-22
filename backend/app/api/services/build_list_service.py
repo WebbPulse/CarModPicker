@@ -60,8 +60,9 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # Verify the car exists
         verify_entity_exists(db, DBCar, data.car_id, "car")
 
-        # Enforce build list cap for free users (premium = unlimited)
-        if not is_user_premium(current_user):
+        # Enforce build list cap for free users (premium = unlimited).
+        # When the admin kill switch is on, is_user_premium returns True for everyone.
+        if not is_user_premium(current_user, db):
             count = self.count_by_user(db, current_user.id, logger=logger)
             if count >= 1:
                 raise HTTPException(

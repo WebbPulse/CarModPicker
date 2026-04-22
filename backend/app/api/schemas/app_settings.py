@@ -8,11 +8,11 @@ class AppSettingsRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    ads_disabled_global: bool
+    premium_disabled: bool
     updated_at: datetime
 
 
 class AppSettingsUpdate(BaseModel):
     """Partial update for global app settings. All fields optional."""
 
-    ads_disabled_global: bool | None = None
+    premium_disabled: bool | None = None
