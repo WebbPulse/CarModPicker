@@ -47,7 +47,7 @@ sitemap exposes and accepts a ``CRAWLER_Z1MOTORSPORTS_START_URLS``
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -318,6 +318,7 @@ class Z1MotorsportsAdapter(RetailerCrawlerAdapter):
     candidate is tried as a fallback.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "z1motorsports"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

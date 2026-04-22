@@ -68,7 +68,7 @@ category URLs. No ``Crawl-delay`` directive.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -229,6 +229,7 @@ class GoodWinRacingAdapter(RetailerCrawlerAdapter):
     the JSON-LD brand reliably names the real manufacturer.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "goodwinracing"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

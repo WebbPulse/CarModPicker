@@ -11,7 +11,7 @@ Override with CRAWLER_A90SHOP_START_URLS (comma-separated) to use a fixed list.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -270,6 +270,7 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
     Parsing: JSON-LD first, then Wix-style DOM (h1, SKU:, From $..., og:meta).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "a90shop"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Uses sitemap.xml (and child sitemaps) to find all

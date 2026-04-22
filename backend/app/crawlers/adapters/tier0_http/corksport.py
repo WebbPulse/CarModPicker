@@ -72,7 +72,7 @@ WebP. We walk those first, then fall back to the JSON-LD hero.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -466,6 +466,7 @@ class CorkSportAdapter(RetailerCrawlerAdapter):
       ``a.cm-image-previewer`` gallery.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "corksport"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

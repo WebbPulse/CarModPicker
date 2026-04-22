@@ -146,7 +146,7 @@ Caveats:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
@@ -770,6 +770,7 @@ class IOPortRacingAdapter(RetailerCrawlerAdapter):
     """
 
     # Plain HTTP is enough; Apache / PHP 5.6 origin, no Cloudflare gate.
+    ADAPTER_NAME: ClassVar[str] = "ioportracing"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

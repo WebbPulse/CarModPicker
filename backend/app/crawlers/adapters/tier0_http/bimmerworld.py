@@ -42,7 +42,7 @@ adapter pulls product data from where the JS reads it from:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
@@ -376,6 +376,7 @@ class BimmerworldAdapter(RetailerCrawlerAdapter):
     ``brand`` / ``itemid`` directly from the inline-script source.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "bimmerworld"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -53,7 +53,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -262,6 +262,7 @@ class TexasSpeedAdapter(RetailerCrawlerAdapter):
     else JSON-LD ``image``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "texasspeed"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

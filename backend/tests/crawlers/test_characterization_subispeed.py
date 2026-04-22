@@ -5,8 +5,7 @@ product HTML fixture. If the parse output changes intentionally, regenerate
 ``expected.json`` using the one-liner at the bottom of this file.
 
 Per D-22 we test ONLY ``parse_product_page()``, NOT ``discover_product_urls()``.
-Per D-23 we key by class name (not ADAPTER_NAME, which doesn't land until
-Phase 3 CRAWL-02).
+Per D-23 we key via ``ADAPTER_REGISTRY`` (landed in Phase 3 CRAWL-02).
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from app.crawlers.adapters.tier0_http.subispeed import SubispeedAdapter
+from app.crawlers.adapters import ADAPTER_REGISTRY
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "subispeed"
 HTML_PATH = FIXTURE_DIR / "product.html"
@@ -31,7 +30,7 @@ def test_parse_product_page_matches_expected() -> None:
     html = HTML_PATH.read_text(encoding="utf-8")
     expected = json.loads(EXPECTED_PATH.read_text(encoding="utf-8"))
 
-    adapter = SubispeedAdapter()
+    adapter = ADAPTER_REGISTRY["subispeed"]()
     payload = adapter.parse_product_page(html, expected["product_url"])
 
     assert payload is not None, "parse_product_page returned None — fixture / adapter mismatch"

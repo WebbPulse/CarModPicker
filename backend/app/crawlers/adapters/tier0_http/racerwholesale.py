@@ -73,7 +73,7 @@ the way.
 """
 
 import os
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
@@ -185,6 +185,7 @@ class RacerWholesaleAdapter(RetailerCrawlerAdapter):
     the revival checklist.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "racerwholesale"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

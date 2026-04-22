@@ -29,7 +29,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
@@ -400,6 +400,7 @@ class XPHAdapter(RetailerCrawlerAdapter):
     and a DOM sweep of the ``productView-images`` gallery for images.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "xph"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

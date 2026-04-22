@@ -174,7 +174,7 @@ Caveats — critical for the next author to know:
 """
 
 import os
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload
@@ -214,6 +214,7 @@ class StoptechAdapter(RetailerCrawlerAdapter):
     # stoptech.com; that's not a bot-management artifact and won't be
     # solved by upgrading fetcher tier. Left explicit so the choice is
     # documented on the class as well as the module docstring.
+    ADAPTER_NAME: ClassVar[str] = "stoptech"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

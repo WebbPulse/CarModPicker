@@ -35,7 +35,7 @@ dealer listings has something to match on.
 """
 
 import re
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import ClassVar, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -240,6 +240,7 @@ class KTunerAdapter(RetailerCrawlerAdapter):
     by keyword.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "ktuner"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield one URL per product, distinguished by a ``?sku=<slug>``
         query param so canonicalized URLs stay unique and the runner

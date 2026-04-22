@@ -22,7 +22,7 @@ Discovery: ``/sitemap.xml`` → ``sitemap_products_N.xml`` children, filtered to
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlencode, urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -266,6 +266,7 @@ class PRLMotorsportsAdapter(RetailerCrawlerAdapter):
     gallery beyond the single hero JSON-LD ships.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "prlmotorsports"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

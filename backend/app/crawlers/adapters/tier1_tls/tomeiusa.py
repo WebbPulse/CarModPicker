@@ -34,7 +34,7 @@ emits for the same SKU.
 import os
 import re
 import time
-from typing import Callable, Dict, Iterator, List, Optional
+from typing import Callable, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup, Tag
@@ -313,6 +313,7 @@ class TomeiUsaAdapter(RetailerCrawlerAdapter):
     crawler UA; curl_cffi Chrome impersonation gets through.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "tomeiusa"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

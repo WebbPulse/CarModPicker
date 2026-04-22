@@ -109,7 +109,7 @@ Caveats:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -606,6 +606,7 @@ class DeliciousTuningAdapter(RetailerCrawlerAdapter):
 
     # Default Tier 0 — plain HTTP is enough (no Cloudflare, no JS challenge).
     # Left explicit so the choice is documented on the class itself.
+    ADAPTER_NAME: ClassVar[str] = "delicioustuning"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

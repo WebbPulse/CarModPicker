@@ -61,7 +61,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -478,6 +478,7 @@ class BurgerMotorsportsAdapter(RetailerCrawlerAdapter):
     JSON-LD / title-heuristic value is passed through unchanged.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "burgermotorsports"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered from ``/sitemap.xml``. Set

@@ -28,7 +28,7 @@ Parsing strategy mirrors ``studiorsr.py`` (same underlying platform):
 JSON-LD ``Product`` first, then OG / meta fallback, then DOM heuristics.
 """
 
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
@@ -101,6 +101,7 @@ class FCPEuroAdapter(RetailerCrawlerAdapter):
     our existing adapters don't do, so expect some plumbing work there).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "fcpeuro"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

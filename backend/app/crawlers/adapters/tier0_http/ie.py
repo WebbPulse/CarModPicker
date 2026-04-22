@@ -27,7 +27,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Iterator, List, Optional
+from typing import Any, ClassVar, Iterator, List, Optional
 from urllib.parse import urlencode, urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -315,6 +315,7 @@ class IEAdapter(RetailerCrawlerAdapter):
     images. Brand defaults to the IE house brand (``IE_BRAND``).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "ie"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

@@ -37,7 +37,7 @@ Promote to ``tls`` if ``cf-mitigated: challenge`` starts appearing in logs.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -299,6 +299,7 @@ class Fifteen52Adapter(RetailerCrawlerAdapter):
     third-party vendors (Project 6GR, OE hardware) pass through.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "fifteen52"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

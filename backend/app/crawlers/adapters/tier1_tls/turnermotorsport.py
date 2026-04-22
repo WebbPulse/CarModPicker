@@ -37,7 +37,7 @@ Notes:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import unquote, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -312,6 +312,7 @@ class TurnerMotorsportAdapter(RetailerCrawlerAdapter):
     ``part_number``; ``itemprop="sku"`` (Turner's T#) is ignored.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "turnermotorsport"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

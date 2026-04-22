@@ -39,7 +39,7 @@ Parsing strategy mirrors ``fcpeuro.py`` / ``jegs.py``: JSON-LD ``Product``
 first, then OG / meta fallback, then DOM heuristics.
 """
 
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
@@ -113,6 +113,7 @@ class TireRackAdapter(RetailerCrawlerAdapter):
     does not produce stable URLs to enumerate.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "tirerack"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

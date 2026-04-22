@@ -128,7 +128,7 @@ Caveats:
 """
 
 import os
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload
@@ -169,6 +169,7 @@ class JLTPerformanceAdapter(RetailerCrawlerAdapter):
     # Tier 0 — nothing observed on any candidate host needs TLS
     # impersonation or a headless browser. Left explicit so the choice
     # is documented on the class rather than only in the docstring.
+    ADAPTER_NAME: ClassVar[str] = "jltperformance"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

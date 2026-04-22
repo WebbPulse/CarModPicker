@@ -112,7 +112,7 @@ Caveats:
 import json
 import os
 import re
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -451,6 +451,7 @@ class RotiformAdapter(RetailerCrawlerAdapter):
     JA3-fingerprinting us off the CDN front.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "rotiform"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -80,7 +80,7 @@ for dedupe, and cap at 12.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -349,6 +349,7 @@ class DeatschwerksAdapter(RetailerCrawlerAdapter):
     is accepted; family aggregation is Option D/E future work.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "deatschwerks"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

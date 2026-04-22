@@ -139,7 +139,7 @@ Caveats:
 import html as html_mod
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -475,6 +475,7 @@ class InjectorDynamicsAdapter(RetailerCrawlerAdapter):
     VARIANTS.md §5). Brand is always forced to ``"Injector Dynamics"``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "injectordynamics"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

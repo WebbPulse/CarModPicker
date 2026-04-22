@@ -72,7 +72,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Iterator, List, Optional
+from typing import Any, ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -619,6 +619,7 @@ class SeibonCarbonAdapter(RetailerCrawlerAdapter):
     make (Honda / Toyota / BMW …) out of titles that lead with the vehicle.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "seiboncarbon"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

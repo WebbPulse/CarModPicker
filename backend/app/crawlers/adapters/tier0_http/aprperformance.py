@@ -102,7 +102,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -595,6 +595,7 @@ class APRPerformanceAdapter(RetailerCrawlerAdapter):
     unchanged.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "aprperformance"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
