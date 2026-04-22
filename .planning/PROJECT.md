@@ -46,7 +46,7 @@ The platform consists of a FastAPI/PostgreSQL backend, a React frontend, and a C
 
 - [ ] Auth / account-flow refactor — break up oversized `auth.py`, resolve debt from 2FA/WebAuthn/OAuth accretion
 - [ ] Crawler system hardening — adapter auto-discovery, parse-failure alerting, parallelization, retry/health-check, archive reuse patterns
-- [ ] Observability & logging audit — structured logs, crawler metrics, request tracing, production monitoring hooks
+- [x] Observability & logging audit — structured logs, crawler metrics, request tracing, production monitoring hooks (Phase 2: Sentry backend+frontend, CloudWatch EMF, parse-failure alarm, log-context regression guard)
 - [ ] DB / migrations / perf pass — fix N+1 in build logs, add missing indexes, audit migration hygiene, index join keys, tune connection pool
 - [ ] Parts & canonical dedup consolidation — transactional part linking, inference engine maintainability, finish what the canonical refactor started
 - [ ] Frontend structure cleanup — pages/components organization, API client consistency, context usage, type-safety gaps
@@ -118,4 +118,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after Phase 3 complete — crawler hardening (auto-discovery, pybreaker, health checks, parse-failure email reporting) + car_generations JSON extract + Pydantic v1 / on_event / Depends(get_logger) regression guards*
+*Last updated: 2026-04-22 after Phase 2 complete — observability (Sentry SDK 2.x backend + @sentry/react 10.x frontend with Session Replay on-error, CloudWatch EMF per-adapter crawler metrics, composite parse-failure alarm, request_id/user_id log propagation regression guard, 02-HUMAN-UAT pending staging validation)*
