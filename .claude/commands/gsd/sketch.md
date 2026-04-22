@@ -29,12 +29,12 @@ Does not require `/gsd-new-project` — auto-creates `.planning/sketches/` if ne
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/sketch.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ui-brand.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-theme-system.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-interactivity.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-tooling.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-variant-patterns.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/sketch.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ui-brand.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-theme-system.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-interactivity.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-tooling.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-variant-patterns.md
 </execution_context>
 
 <runtime_note>
@@ -49,6 +49,6 @@ Design idea: $ARGUMENTS
 </context>
 
 <process>
-Execute the sketch workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/sketch.md end-to-end.
+Execute the sketch workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/sketch.md end-to-end.
 Preserve all workflow gates (intake, decomposition, target stack research, variant evaluation, MANIFEST updates, commit patterns).
 </process>

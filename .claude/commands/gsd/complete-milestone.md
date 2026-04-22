@@ -19,8 +19,8 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 <execution_context>
 **Load these files NOW (before proceeding):**
 
-- @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/complete-milestone.md (main workflow)
-- @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/templates/milestone-archive.md (archive template)
+- @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/complete-milestone.md (main workflow)
+- @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/templates/milestone-archive.md (archive template)
   </execution_context>
 
 <context>

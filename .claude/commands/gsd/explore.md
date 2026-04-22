@@ -19,9 +19,9 @@ Accepts an optional topic argument: `/gsd-explore authentication strategy`
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/explore.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/explore.md
 </execution_context>
 
 <process>
-Execute the explore workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/explore.md end-to-end.
+Execute the explore workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/explore.md end-to-end.
 </process>

@@ -18,8 +18,8 @@ Produces EVAL-REVIEW.md with score, verdict, gaps, and remediation plan.
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/eval-review.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ai-evals.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/eval-review.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ai-evals.md
 </execution_context>
 
 <context>
@@ -27,6 +27,6 @@ Phase: $ARGUMENTS — optional, defaults to last completed phase.
 </context>
 
 <process>
-Execute @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/eval-review.md end-to-end.
+Execute @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/eval-review.md end-to-end.
 Preserve all workflow gates.
 </process>

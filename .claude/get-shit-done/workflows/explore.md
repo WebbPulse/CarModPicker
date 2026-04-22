@@ -6,8 +6,8 @@ offers mid-conversation research when useful, then routes crystallized outputs t
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
 
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/questioning.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/domain-probes.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/questioning.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/domain-probes.md
 </required_reading>
 
 <available_agent_types>

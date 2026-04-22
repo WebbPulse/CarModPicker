@@ -18,9 +18,9 @@ Lightweight alternative to `/gsd-map-codebase` — spawns one mapper agent inste
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/scan.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/scan.md
 </execution_context>
 
 <process>
-Execute the scan workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/scan.md end-to-end.
+Execute the scan workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/scan.md end-to-end.
 </process>

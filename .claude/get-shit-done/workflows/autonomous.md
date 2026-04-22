@@ -517,7 +517,7 @@ Smart discuss is an autonomous-optimized variant of `gsd-discuss-phase`. It prop
 
 **Inputs:** `PHASE_NUM` from execute_phase.
 
-Read and execute: `/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/autonomous-smart-discuss.md`
+Read and execute: `/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/autonomous-smart-discuss.md`
 
 </step>
 

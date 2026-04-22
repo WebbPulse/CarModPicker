@@ -16,7 +16,7 @@ Extract structured learnings from completed phase artifacts (PLAN.md, SUMMARY.md
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/extract_learnings.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/extract_learnings.md
 </execution_context>
 
-Execute the extract-learnings workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/extract_learnings.md end-to-end.
+Execute the extract-learnings workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/extract_learnings.md end-to-end.

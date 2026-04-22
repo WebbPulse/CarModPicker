@@ -20,9 +20,9 @@ Before routing to the next step, scans all prior phases for incomplete work: pla
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/next.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/next.md
 </execution_context>
 
 <process>
-Execute the next workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/next.md end-to-end.
+Execute the next workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/next.md end-to-end.
 </process>

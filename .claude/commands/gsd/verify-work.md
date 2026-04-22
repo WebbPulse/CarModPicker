@@ -20,8 +20,8 @@ Output: {phase_num}-UAT.md tracking all test results. If issues found: diagnosed
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/verify-work.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/templates/UAT.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/verify-work.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/templates/UAT.md
 </execution_context>
 
 <context>
@@ -33,6 +33,6 @@ Context files are resolved inside the workflow (`init verify-work`) and delegate
 </context>
 
 <process>
-Execute the verify-work workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/verify-work.md end-to-end.
+Execute the verify-work workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/verify-work.md end-to-end.
 Preserve all workflow gates (session management, test presentation, diagnosis, fix planning, routing).
 </process>

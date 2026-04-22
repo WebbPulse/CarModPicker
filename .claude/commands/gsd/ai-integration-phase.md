@@ -21,9 +21,9 @@ Flow: Select Framework → Research Docs → Research Domain → Design Eval Str
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/ai-integration-phase.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ai-frameworks.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ai-evals.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/ai-integration-phase.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ai-frameworks.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ai-evals.md
 </execution_context>
 
 <context>
@@ -31,6 +31,6 @@ Phase number: $ARGUMENTS — optional, auto-detects next unplanned phase if omit
 </context>
 
 <process>
-Execute @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/ai-integration-phase.md end-to-end.
+Execute @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/ai-integration-phase.md end-to-end.
 Preserve all workflow gates.
 </process>

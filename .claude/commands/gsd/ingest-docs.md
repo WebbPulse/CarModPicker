@@ -27,10 +27,10 @@ Auto-synthesizes most conflicts using the precedence rule `ADR > SPEC > PRD > DO
 </objective>
 
 <execution_context>
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/ingest-docs.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ui-brand.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/gate-prompts.md
-@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/doc-conflict-engine.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/ingest-docs.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ui-brand.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/gate-prompts.md
+@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/doc-conflict-engine.md
 </execution_context>
 
 <context>
