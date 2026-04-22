@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import React, { Component, type ReactNode } from 'react';
 
 interface Props {
@@ -22,6 +23,9 @@ class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    Sentry.captureException(error, {
+      extra: { componentStack: errorInfo.componentStack },
+    });
   }
 
   override render() {

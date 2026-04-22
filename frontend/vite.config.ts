@@ -1,10 +1,28 @@
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
 import { defineConfig } from 'vite';
 
+// D-34 + Landmine 13: CI-only sourcemap upload. Local builds (no CI env +
+// no auth token) silently skip the plugin — no upload, no noise.
+const isCIBuild = !!process.env.CI && !!process.env.SENTRY_AUTH_TOKEN;
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    ...(isCIBuild
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            release: { name: process.env.SENTRY_RELEASE },
+          }),
+        ]
+      : []),
+  ],
   server: {
     port: 4000,
     proxy: {
@@ -20,6 +38,10 @@ export default defineConfig({
     allowedHosts: ['www.carmodpicker.com', 'carmodpicker.com'],
   },
   build: {
+    // Landmine 12: 'hidden' emits .map files so the vite-plugin has maps to
+    // upload, BUT strips the `//# sourceMappingURL=...` comment from bundle
+    // files so end users can't fetch them from the CDN.
+    sourcemap: 'hidden',
     rollupOptions: {
       output: {
         manualChunks: (id) => {
