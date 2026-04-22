@@ -469,6 +469,38 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         }
 
 
+# -----------------------------------------------------------------------
+# SAFE-06: pytest-recording (vcrpy) configuration for auth characterization
+# tests. Scrubs headers, post-body, and query-params that might carry
+# production secrets. record_mode="none" means CI replays only — to record
+# a new cassette locally, run pytest with `--record-mode=once`.
+# -----------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def vcr_config() -> dict:
+    """VCR configuration consumed by pytest-recording's @pytest.mark.vcr."""
+    return {
+        "filter_headers": [
+            ("authorization", "REDACTED"),
+            ("cookie", "REDACTED"),
+            ("set-cookie", "REDACTED"),
+            ("x-goog-api-key", "REDACTED"),
+        ],
+        "filter_post_data_parameters": [
+            ("client_secret", "REDACTED"),
+            ("code", "REDACTED"),
+            ("refresh_token", "REDACTED"),
+        ],
+        "filter_query_parameters": [
+            ("api_key", "REDACTED"),
+            ("access_token", "REDACTED"),
+        ],
+        "record_mode": "none",
+        "match_on": ("method", "scheme", "host", "port", "path", "query"),
+    }
+
+
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""
     from app.core.config import settings
