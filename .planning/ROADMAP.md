@@ -31,7 +31,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Any migration containing `drop_column`, `drop_table`, or `drop_constraint` without a `# SAFE:` annotation fails the CI lint step
   4. Auth characterization tests cover all 7+ happy-path flows (signup, verify-email, login, 2FA-TOTP, WebAuthn, OAuth, password-reset) and are CI-green
   5. The three `op.drop_constraint(None, ...)` migrations are repaired and `MetaData` uses an explicit `naming_convention`
-**Plans**: TBD
+**Plans:** 8 plans
+- [ ] 01-01-PLAN.md — SAFE-09: apply `MetaData(naming_convention=...)` to declarative Base + unit test pinning the 5 convention keys
+- [ ] 01-02-PLAN.md — SAFE-08: repair three `op.drop_constraint(None, ...)` migrations (prod-state checkpoint + in-place or forward-only repair)
+- [ ] 01-03-PLAN.md — SAFE-04: migration DROP-guard script, unit tests, CI step in backend-ci.yml
+- [ ] 01-04-PLAN.md — SAFE-01/02/03: measure coverage baselines (checkpoint) + `--cov-fail-under` + vitest thresholds + frontend `Run tests` CI step
+- [ ] 01-05-PLAN.md — SAFE-05: OpenAPI schema snapshot test + committed fixture
+- [ ] 01-06-PLAN.md — SAFE-06: 7 auth characterization tests (VCR cassettes + WebAuthn mocks) + secret-audit guardrail
+- [ ] 01-07-PLAN.md — SAFE-07: 5 crawler adapter characterization tests against archived HTML fixtures (2× tier0_http + 2× tier2_browser + 1× tier1_tls)
+- [ ] 01-08-PLAN.md — SAFE-10: `.github/dependabot.yml` (weekly Monday, pip + npm multi-dir + github-actions, minor+patch grouping, no ignore block)
 
 ### Phase 2: Observability
 **Goal**: Production errors are visible in Sentry, per-adapter crawler metrics flow into CloudWatch, and a parse-failure alarm fires automatically — all without changing any URL, schema, or external contract
@@ -103,7 +111,7 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Nets & CI Hardening | 0/TBD | Not started | - |
+| 1. Safety Nets & CI Hardening | 0/8 | Not started | - |
 | 2. Observability | 0/TBD | Not started | - |
 | 3. Non-Breaking Internal Improvements | 0/TBD | Not started | - |
 | 4. DB & Parts Hardening | 0/TBD | Not started | - |
