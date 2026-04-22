@@ -144,14 +144,41 @@ def test_cassette_audit_passes_for_redacted_cassette(tmp_path: Path) -> None:
 
 
 def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
-    """Meta-guard: if any cassettes exist, at least one REDACTED must appear
-    across the committed cassette tree (proving filter_headers etc. are
-    actually running). Passes trivially when no cassettes are committed yet."""
+    """Meta-guard: if any cassettes exist AND contain scrub-eligible fields,
+    at least one REDACTED must appear across the committed cassette tree
+    (proving filter_headers / filter_post_data_parameters are actually running).
+
+    Passes trivially when:
+    - no cassettes are committed yet, OR
+    - committed cassettes contain no scrub-eligible fields (e.g. a JWKS-only
+      GET that returns only public keys — no auth headers, no cookies, no
+      client_secret, etc.) — such cassettes are safe without REDACTED markers.
+    """
     cassettes = _all_cassettes()
     if not cassettes:
         pytest.skip("No cassettes committed yet — audit-meta guard trivially OK")
 
     combined = "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in cassettes)
+
+    # Only require REDACTED markers when the cassettes actually contain fields
+    # that should have been scrubbed by vcr_config.  A cassette with no
+    # scrub-eligible content (e.g. a public JWKS GET) legitimately has zero
+    # REDACTED markers and must not trip this guard.
+    scrub_eligible_keys = (
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "client_secret",
+        "refresh_token",
+        "api_key",
+        "access_token",
+    )
+    if not any(key in combined.lower() for key in scrub_eligible_keys):
+        pytest.skip(
+            "No scrub-eligible fields present in any cassette — "
+            "REDACTED marker not required"
+        )
+
     assert "REDACTED" in combined, (
         "No `REDACTED` marker found across committed cassettes — vcr_config "
         "filter_headers / filter_post_data_parameters may not be wired up. "
