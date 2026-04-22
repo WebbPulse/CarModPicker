@@ -155,25 +155,84 @@ Explicitly excluded from this milestone. Documented here to prevent scope creep.
 
 ## Traceability
 
-Populated during roadmap creation.
+Populated during roadmap creation (2026-04-21).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SAFE-01…SAFE-10 | TBD | Pending |
-| OBS-01…OBS-05 | TBD | Pending |
-| CRAWL-01…CRAWL-07 | TBD | Pending |
-| DATA-01…DATA-10 | TBD | Pending |
-| PARTS-01…PARTS-03 | TBD | Pending |
-| AUTH-01…AUTH-06 | TBD | Pending |
-| ADMIN-01…ADMIN-04 | TBD | Pending |
-| FE-01…FE-07 | TBD | Pending |
-| QUAL-01…QUAL-08 | TBD | Pending |
+| SAFE-01 | Phase 1 | Pending |
+| SAFE-02 | Phase 1 | Pending |
+| SAFE-03 | Phase 1 | Pending |
+| SAFE-04 | Phase 1 | Pending |
+| SAFE-05 | Phase 1 | Pending |
+| SAFE-06 | Phase 1 | Pending |
+| SAFE-07 | Phase 1 | Pending |
+| SAFE-08 | Phase 1 | Pending |
+| SAFE-09 | Phase 1 | Pending |
+| SAFE-10 | Phase 1 | Pending |
+| OBS-01 | Phase 2 | Pending |
+| OBS-02 | Phase 2 | Pending |
+| OBS-03 | Phase 2 | Pending |
+| OBS-04 | Phase 2 | Pending |
+| OBS-05 | Phase 2 | Pending |
+| CRAWL-01 | Phase 3 | Pending |
+| CRAWL-02 | Phase 3 | Pending |
+| CRAWL-03 | Phase 3 | Pending |
+| CRAWL-04 | Phase 3 | Pending |
+| CRAWL-05 | Phase 3 | Pending |
+| CRAWL-06 | Phase 3 | Pending |
+| CRAWL-07 | Phase 3 | Pending |
+| QUAL-01 | Phase 3 | Pending |
+| QUAL-02 | Phase 3 | Pending |
+| QUAL-03 | Phase 3 | Pending |
+| QUAL-07 | Phase 3 | Pending |
+| DATA-01 | Phase 4 | Pending |
+| DATA-02 | Phase 4 | Pending |
+| DATA-03 | Phase 4 | Pending |
+| DATA-04 | Phase 4 | Pending |
+| DATA-05 | Phase 4 | Pending |
+| DATA-06 | Phase 4 | Pending |
+| DATA-07 | Phase 4 | Pending |
+| DATA-08 | Phase 4 | Pending |
+| DATA-09 | Phase 4 | Pending |
+| DATA-10 | Phase 4 | Pending |
+| PARTS-01 | Phase 4 | Pending |
+| PARTS-02 | Phase 4 | Pending |
+| PARTS-03 | Phase 4 | Pending |
+| ADMIN-01 | Phase 5 | Pending |
+| ADMIN-02 | Phase 5 | Pending |
+| ADMIN-03 | Phase 5 | Pending |
+| ADMIN-04 | Phase 5 | Pending |
+| AUTH-01 | Phase 5 | Pending |
+| AUTH-02 | Phase 5 | Pending |
+| AUTH-03 | Phase 5 | Pending |
+| AUTH-04 | Phase 5 | Pending |
+| AUTH-05 | Phase 5 | Pending |
+| AUTH-06 | Phase 5 | Pending |
+| FE-01 | Phase 6 | Pending |
+| FE-02 | Phase 6 | Pending |
+| FE-03 | Phase 6 | Pending |
+| FE-04 | Phase 6 | Pending |
+| FE-05 | Phase 6 | Pending |
+| FE-06 | Phase 6 | Pending |
+| FE-07 | Phase 6 | Pending |
+| QUAL-04 | Phase 6 | Pending |
+| QUAL-05 | Phase 6 | Pending |
+| QUAL-06 | Phase 6 | Pending |
+| QUAL-08 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 56 total
-- Mapped to phases: 0 (populated by roadmapper)
-- Unmapped: 56 ⚠️ (will drop to 0 after roadmap)
+- v1 requirements: 60 actual (REQUIREMENTS.md header stated 56 — count error in header; all requirements present are mapped)
+- Mapped to phases: 60/60
+- Unmapped: 0
+
+**Coverage map by phase:**
+- Phase 1 (Safety Nets): SAFE-01…SAFE-10 — 10 requirements
+- Phase 2 (Observability): OBS-01…OBS-05 — 5 requirements
+- Phase 3 (Non-Breaking Internal): CRAWL-01…CRAWL-07, QUAL-01, QUAL-02, QUAL-03, QUAL-07 — 11 requirements
+- Phase 4 (DB & Parts): DATA-01…DATA-10, PARTS-01…PARTS-03 — 13 requirements
+- Phase 5 (Router Splits): ADMIN-01…ADMIN-04, AUTH-01…AUTH-06 — 10 requirements
+- Phase 6 (Frontend + Final CI): FE-01…FE-07, QUAL-04, QUAL-05, QUAL-06, QUAL-08 — 11 requirements
 
 ---
 *Requirements defined: 2026-04-21*
-*Last updated: 2026-04-21 after initial definition*
+*Last updated: 2026-04-21 — traceability table populated by roadmapper*
