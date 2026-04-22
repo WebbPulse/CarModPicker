@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump
+from app.api.utils.approximate_count import approximate_count
 from app.api.utils.common_operations import (
     create_entity,
     delete_entity,
@@ -288,19 +289,17 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
 
     def count_all(self, db: Session, logger: Optional[logging.Logger] = None) -> int:
         """
-        Count all entities.
+        Approximate count of all entities.
 
-        Args:
-            db: Database session
-            logger: Logger instance (optional)
-
-        Returns:
-            Total count of entities
+        Uses ``pg_class.reltuples`` on PostgreSQL (O(1)) so dashboards / home-page
+        stats banners stay fast on large tables. Exact value on SQLite (tests) or
+        when reltuples is unavailable. Don't use for per-user quotas — use
+        ``count_by_user`` instead, which still runs an exact filtered query.
         """
-        count = db.query(self.model).count()
+        count = approximate_count(db, self.model)
 
         if logger:
-            logger.info(f"Total {self.entity_name} count: {count}")
+            logger.info(f"Total {self.entity_name} count (approximate): {count}")
 
         return count
 

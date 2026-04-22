@@ -69,7 +69,14 @@ export default function HomePage() {
     executeRequest: fetchPopularParts,
   } = useApiRequest(fetchPopularPartsFn);
 
-  // Stats bar: retailers and part_manufacturers count
+  // Stats bar: approximate totals for the four stat tiles. Using the /count
+  // endpoints (reltuples on Postgres) rather than pagination.total_items so the
+  // banner numbers don't force a real COUNT(*) on parts / build_lists.
+  const fetchBuildListsCountFn = useCallback(
+    () => buildListsApi.countBuildLists(),
+    []
+  );
+  const fetchPartsCountFn = useCallback(() => partsApi.countParts(), []);
   const fetchRetailersCountFn = useCallback(
     () => retailersApi.countRetailers(),
     []
@@ -78,6 +85,10 @@ export default function HomePage() {
     () => partManufacturersApi.countPartManufacturers(),
     []
   );
+  const { data: buildListsCountData, executeRequest: fetchBuildListsCount } =
+    useApiRequest(fetchBuildListsCountFn);
+  const { data: partsCountData, executeRequest: fetchPartsCount } =
+    useApiRequest(fetchPartsCountFn);
   const { data: retailersCountData, executeRequest: fetchRetailersCount } =
     useApiRequest(fetchRetailersCountFn);
   const {
@@ -88,11 +99,15 @@ export default function HomePage() {
   useEffect(() => {
     void fetchFeaturedBuildLists();
     void fetchPopularParts();
+    void fetchBuildListsCount();
+    void fetchPartsCount();
     void fetchRetailersCount();
     void fetchPartManufacturersCount();
   }, [
     fetchFeaturedBuildLists,
     fetchPopularParts,
+    fetchBuildListsCount,
+    fetchPartsCount,
     fetchRetailersCount,
     fetchPartManufacturersCount,
   ]);
@@ -357,7 +372,7 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center max-w-4xl mx-auto">
               <div className="animate-slideInUp">
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
-                  {featuredBuildListsData?.pagination?.total_items ?? '—'}
+                  {buildListsCountData?.count ?? '—'}
                 </div>
                 <div className="text-sm text-neutral-400">Build Lists</div>
               </div>
@@ -366,7 +381,7 @@ export default function HomePage() {
                 style={{ animationDelay: '0.1s' }}
               >
                 <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
-                  {popularPartsData?.pagination?.total_items ?? '—'}
+                  {partsCountData?.count ?? '—'}
                 </div>
                 <div className="text-sm text-neutral-400">Parts</div>
               </div>

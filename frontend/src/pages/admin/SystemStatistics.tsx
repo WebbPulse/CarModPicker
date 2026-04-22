@@ -12,6 +12,7 @@ import SectionHeader from '../../components/layout/SectionHeader';
 import type {
   AdminTableCountsResponse,
   BucketEntityTypeCountResponse,
+  CrawlBucketSummaryResponse,
 } from '../../services/Api';
 import {
   adminApi,
@@ -139,7 +140,6 @@ interface EntityCounts {
   categories: number | null;
   part_manufacturers: number | null;
   retailers: number | null;
-  bucketObjects: number | null;
   buildLogPosts: number | null;
   buildListParts: number | null;
   buildListPhases: number | null;
@@ -152,6 +152,12 @@ interface EntityCounts {
   votes: number | null;
   reports: number | null;
   bugReports: number | null;
+  oauthAccounts: number | null;
+  webauthnCredentials: number | null;
+  crawlerAdapterConfigs: number | null;
+  crawlerSchedules: number | null;
+  crawlerScheduleAdapters: number | null;
+  backgroundJobs: number | null;
 }
 
 function SystemStatistics() {
@@ -167,7 +173,6 @@ function SystemStatistics() {
     categories: null,
     part_manufacturers: null,
     retailers: null,
-    bucketObjects: null,
     buildLogPosts: null,
     buildListParts: null,
     buildListPhases: null,
@@ -180,13 +185,23 @@ function SystemStatistics() {
     votes: null,
     reports: null,
     bugReports: null,
+    oauthAccounts: null,
+    webauthnCredentials: null,
+    crawlerAdapterConfigs: null,
+    crawlerSchedules: null,
+    crawlerScheduleAdapters: null,
+    backgroundJobs: null,
   });
   const [bucketEntitySummary, setBucketEntitySummary] =
     useState<BucketEntityTypeCountResponse | null>(null);
+  const [crawlBucketSummary, setCrawlBucketSummary] =
+    useState<CrawlBucketSummaryResponse | null>(null);
   const [adminTableCounts, setAdminTableCounts] =
     useState<AdminTableCountsResponse | null>(null);
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
+  const [isLoadingBuckets, setIsLoadingBuckets] = useState(false);
+  const [bucketsError, setBucketsError] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -217,38 +232,6 @@ function SystemStatistics() {
       }
     };
 
-    const fetchBucketEntitySummary =
-      async (): Promise<BucketEntityTypeCountResponse | null> => {
-        try {
-          const response = await imageApi.getBucketCountByEntityType();
-          return response.data;
-        } catch (e) {
-          const status = getHttpStatus(e);
-          if (status === 404) {
-            try {
-              const legacy = await imageApi.countBucketObjects();
-              staleApiRoutesNotice = true;
-              return {
-                total: legacy.data.count,
-                by_entity_type: {},
-                other: 0,
-              };
-            } catch (e2) {
-              if (getHttpStatus(e2) === 503) {
-                return null;
-              }
-              failedEndpoints.push('bucket objects (S3)');
-              return null;
-            }
-          }
-          if (status === 503) {
-            return null;
-          }
-          failedEndpoints.push('bucket objects (S3)');
-          return null;
-        }
-      };
-
     const fetchAdminTableStats =
       async (): Promise<AdminTableCountsResponse | null> => {
         try {
@@ -276,7 +259,6 @@ function SystemStatistics() {
         categoriesCount,
         partManufacturersCount,
         retailersCount,
-        bucketSummary,
         adminTable,
         buildLogPostsCount,
         buildListPartsCount,
@@ -296,7 +278,6 @@ function SystemStatistics() {
           'part manufacturers'
         ),
         fetchCount(() => retailersApi.countRetailers(), 'retailers'),
-        fetchBucketEntitySummary(),
         fetchAdminTableStats(),
         fetchCount(() => buildLogsApi.countBuildLogPosts(), 'build log posts'),
         fetchCount(
@@ -308,7 +289,6 @@ function SystemStatistics() {
         fetchCount(() => bugReportsApi.countBugReports(), 'bug reports'),
       ]);
 
-      setBucketEntitySummary(bucketSummary);
       setAdminTableCounts(adminTable);
 
       setCounts({
@@ -321,7 +301,6 @@ function SystemStatistics() {
         categories: categoriesCount,
         part_manufacturers: partManufacturersCount,
         retailers: retailersCount,
-        bucketObjects: bucketSummary?.total ?? null,
         buildLogPosts: buildLogPostsCount,
         buildListParts: buildListPartsCount,
         buildListPhases: adminTable?.build_list_phases ?? null,
@@ -334,6 +313,12 @@ function SystemStatistics() {
         votes: votesCount,
         reports: reportsCount,
         bugReports: bugReportsCount,
+        oauthAccounts: adminTable?.oauth_accounts ?? null,
+        webauthnCredentials: adminTable?.webauthn_credentials ?? null,
+        crawlerAdapterConfigs: adminTable?.crawler_adapter_configs ?? null,
+        crawlerSchedules: adminTable?.crawler_schedules ?? null,
+        crawlerScheduleAdapters: adminTable?.crawler_schedule_adapters ?? null,
+        backgroundJobs: adminTable?.background_jobs ?? null,
       });
 
       const allFailed =
@@ -346,7 +331,6 @@ function SystemStatistics() {
         categoriesCount === null &&
         partManufacturersCount === null &&
         retailersCount === null &&
-        bucketSummary === null &&
         adminTable === null &&
         buildLogPostsCount === null &&
         buildListPartsCount === null &&
@@ -364,7 +348,7 @@ function SystemStatistics() {
         );
       } else if (staleApiRoutesNotice) {
         setCountsError(
-          'The API process looks out of date (new routes returned 404). Restart the backend so it loads the latest code—for example: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000. Until then, S3 totals may still appear from the legacy count endpoint, but bucket prefix breakdown and supplemental table counts stay empty.'
+          'The API process looks out of date (new routes returned 404). Restart the backend so it loads the latest code—for example: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000. Until then, supplemental table counts stay empty.'
         );
       } else {
         setCountsError(null);
@@ -376,6 +360,63 @@ function SystemStatistics() {
     } finally {
       setIsLoadingCounts(false);
     }
+  }, [user]);
+
+  const fetchBucketSummaries = useCallback(async () => {
+    if (!user?.is_admin) return;
+
+    setIsLoadingBuckets(true);
+    setBucketsError(null);
+
+    const failed: string[] = [];
+
+    const fetchUserImages =
+      async (): Promise<BucketEntityTypeCountResponse | null> => {
+        try {
+          const response = await imageApi.getBucketCountByEntityType();
+          return response.data;
+        } catch (e) {
+          const status = getHttpStatus(e);
+          if (status === 503) return null;
+          if (status === 404) {
+            try {
+              const legacy = await imageApi.countBucketObjects();
+              return { total: legacy.data.count, by_entity_type: {}, other: 0 };
+            } catch (e2) {
+              if (getHttpStatus(e2) === 503) return null;
+              failed.push('user images bucket (S3)');
+              return null;
+            }
+          }
+          failed.push('user images bucket (S3)');
+          return null;
+        }
+      };
+
+    const fetchCrawlBucket =
+      async (): Promise<CrawlBucketSummaryResponse | null> => {
+        try {
+          const response = await adminApi.getCrawlBucketSummary();
+          return response.data;
+        } catch {
+          failed.push('crawl HTML bucket (S3)');
+          return null;
+        }
+      };
+
+    const [userImages, crawl] = await Promise.all([
+      fetchUserImages(),
+      fetchCrawlBucket(),
+    ]);
+
+    setBucketEntitySummary(userImages);
+    setCrawlBucketSummary(crawl);
+
+    if (failed.length > 0) {
+      setBucketsError(`Failed to load: ${failed.join(', ')}.`);
+    }
+
+    setIsLoadingBuckets(false);
   }, [user]);
 
   useEffect(() => {
@@ -412,85 +453,140 @@ function SystemStatistics() {
       />
 
       <Card>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <SectionHeader title="System Statistics" />
-          {!isLoadingCounts && (
-            <ActionButton
-              onClick={() => void fetchCounts()}
-              className="text-sm"
-            >
-              Refresh
-            </ActionButton>
-          )}
+          <div className="flex items-center gap-2">
+            {isLoadingCounts && (
+              <div
+                className="flex items-center gap-2 text-xs text-gray-400"
+                aria-live="polite"
+              >
+                <LoadingSpinner />
+                <span>Loading…</span>
+              </div>
+            )}
+            {!isLoadingCounts && (
+              <>
+                <ActionButton
+                  onClick={() => void fetchBucketSummaries()}
+                  disabled={isLoadingBuckets}
+                  className="text-sm"
+                  title="Lists every object in the user-images + crawl HTML buckets. Slow on large archives."
+                >
+                  {isLoadingBuckets
+                    ? 'Loading S3…'
+                    : bucketEntitySummary || crawlBucketSummary
+                      ? 'Refresh S3 counts'
+                      : 'Load S3 counts'}
+                </ActionButton>
+                <ActionButton
+                  onClick={() => void fetchCounts()}
+                  className="text-sm"
+                >
+                  Refresh
+                </ActionButton>
+              </>
+            )}
+          </div>
         </div>
         {countsError && (
           <div className="mb-2">
             <ErrorAlert message={countsError} />
           </div>
         )}
-        {isLoadingCounts ? (
-          <div className="flex justify-center items-center py-6">
-            <LoadingSpinner />
+        {bucketsError && (
+          <div className="mb-2">
+            <ErrorAlert message={bucketsError} />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 [&>*]:min-w-0">
-            <StatPanel title="Users & vehicles">
-              <StatRow label="Users" value={counts.users} />
-              <StatRow label="Cars" value={counts.cars} />
-              <StatRow label="Makes" value={counts.makes} />
-              <StatRow label="Car models" value={counts.carModels} />
-            </StatPanel>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 [&>*]:min-w-0">
+          <StatPanel title="Users & vehicles">
+            <StatRow label="Users" value={counts.users} />
+            <StatRow label="OAuth accounts" value={counts.oauthAccounts} />
+            <StatRow label="Passkeys" value={counts.webauthnCredentials} />
+            <StatRow label="Cars" value={counts.cars} />
+            <StatRow label="Makes" value={counts.makes} />
+            <StatRow label="Car models" value={counts.carModels} />
+          </StatPanel>
 
-            <StatPanel title="Builds & logs">
-              <StatRow label="Build lists" value={counts.buildLists} />
-              <StatRow label="Build list parts" value={counts.buildListParts} />
-              <StatRow
-                label="Build list phases"
-                value={counts.buildListPhases}
-              />
-              <StatRow label="Build logs" value={counts.buildLogs} />
-              <StatRow label="Build log posts" value={counts.buildLogPosts} />
-            </StatPanel>
+          <StatPanel title="Builds & logs">
+            <StatRow label="Build lists" value={counts.buildLists} />
+            <StatRow label="Build list parts" value={counts.buildListParts} />
+            <StatRow label="Build list phases" value={counts.buildListPhases} />
+            <StatRow label="Build logs" value={counts.buildLogs} />
+            <StatRow label="Build log posts" value={counts.buildLogPosts} />
+          </StatPanel>
 
-            <StatPanel title="Parts & catalog">
-              <StatRow label="Global parts" value={counts.parts} />
-              <StatRow label="Categories" value={counts.categories} />
-              <StatRow
-                label="Part Manufacturers"
-                value={counts.part_manufacturers}
-              />
-              <StatRow label="Retailers" value={counts.retailers} />
-              <StatRow label="Part ↔ car links" value={counts.partCars} />
-            </StatPanel>
+          <StatPanel title="Parts & catalog">
+            <StatRow label="Global parts" value={counts.parts} />
+            <StatRow label="Categories" value={counts.categories} />
+            <StatRow
+              label="Part Manufacturers"
+              value={counts.part_manufacturers}
+            />
+            <StatRow label="Retailers" value={counts.retailers} />
+            <StatRow label="Part ↔ car links" value={counts.partCars} />
+          </StatPanel>
 
-            <StatPanel title="Crawling & listings">
-              <StatRow label="Crawled pages" value={counts.crawledPages} />
-              <StatRow label="Part listings" value={counts.partListings} />
-              <StatRow
-                label="Price history rows"
-                value={counts.partPriceHistories}
-              />
-            </StatPanel>
+          <StatPanel title="Crawling & listings">
+            <StatRow label="Crawled pages" value={counts.crawledPages} />
+            <StatRow label="Part listings" value={counts.partListings} />
+            <StatRow
+              label="Price history rows"
+              value={counts.partPriceHistories}
+            />
+            <StatRow
+              label="Adapter configs"
+              value={counts.crawlerAdapterConfigs}
+            />
+            <StatRow label="Schedules" value={counts.crawlerSchedules} />
+            <StatRow
+              label="Schedule ↔ adapter links"
+              value={counts.crawlerScheduleAdapters}
+            />
+          </StatPanel>
 
-            <StatPanel title="Media & storage">
-              <StatRowWithDetail
-                label="User images S3 (total)"
-                value={counts.bucketObjects}
-                subValue={
-                  bucketEntitySummary?.size_gb != null
-                    ? `${bucketEntitySummary.size_gb.toFixed(3)} GB`
-                    : undefined
-                }
-                detail={
-                  bucketEntitySummary ? (
-                    <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
-                      <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
-                        By key prefix
-                      </div>
-                      <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                        {BUCKET_ENTITY_TYPE_ORDER.map((prefix) => {
+          <StatPanel title="Media & storage">
+            <StatRowWithDetail
+              label="User images S3 (total)"
+              value={bucketEntitySummary?.total ?? null}
+              subValue={
+                bucketEntitySummary?.size_gb != null
+                  ? `${bucketEntitySummary.size_gb.toFixed(3)} GB`
+                  : undefined
+              }
+              detail={
+                bucketEntitySummary ? (
+                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
+                    <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                      By key prefix
+                    </div>
+                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                      {BUCKET_ENTITY_TYPE_ORDER.map((prefix) => {
+                        const n = bucketEntitySummary.by_entity_type[prefix];
+                        if (!n) return null;
+                        return (
+                          <div
+                            key={prefix}
+                            className="flex justify-between gap-1 min-w-0 leading-tight"
+                          >
+                            <span className="truncate">{prefix}</span>
+                            <span className="tabular-nums shrink-0 text-gray-400">
+                              {n.toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {Object.keys(bucketEntitySummary.by_entity_type)
+                        .filter(
+                          (k) =>
+                            !BUCKET_ENTITY_TYPE_ORDER.includes(
+                              k as (typeof BUCKET_ENTITY_TYPE_ORDER)[number]
+                            )
+                        )
+                        .sort()
+                        .map((prefix) => {
                           const n = bucketEntitySummary.by_entity_type[prefix];
-                          if (!n) return null;
                           return (
                             <div
                               key={prefix}
@@ -498,182 +594,159 @@ function SystemStatistics() {
                             >
                               <span className="truncate">{prefix}</span>
                               <span className="tabular-nums shrink-0 text-gray-400">
-                                {n.toLocaleString()}
+                                {(n ?? 0).toLocaleString()}
                               </span>
                             </div>
                           );
                         })}
-                        {Object.keys(bucketEntitySummary.by_entity_type)
-                          .filter(
-                            (k) =>
-                              !BUCKET_ENTITY_TYPE_ORDER.includes(
-                                k as (typeof BUCKET_ENTITY_TYPE_ORDER)[number]
-                              )
-                          )
-                          .sort()
-                          .map((prefix) => {
-                            const n =
-                              bucketEntitySummary.by_entity_type[prefix];
-                            return (
-                              <div
-                                key={prefix}
-                                className="flex justify-between gap-1 min-w-0 leading-tight"
-                              >
-                                <span className="truncate">{prefix}</span>
-                                <span className="tabular-nums shrink-0 text-gray-400">
-                                  {(n ?? 0).toLocaleString()}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        {bucketEntitySummary.other > 0 ? (
-                          <div className="col-span-2 min-[420px]:col-span-3 flex justify-between gap-2 text-amber-500/90 leading-tight pt-0.5 border-t border-gray-800/80 mt-0.5">
-                            <span>Non-standard keys</span>
-                            <span className="tabular-nums shrink-0">
-                              {bucketEntitySummary.other.toLocaleString()}
+                      {bucketEntitySummary.other > 0 ? (
+                        <div className="col-span-2 min-[420px]:col-span-3 flex justify-between gap-2 text-amber-500/90 leading-tight pt-0.5 border-t border-gray-800/80 mt-0.5">
+                          <span>Non-standard keys</span>
+                          <span className="tabular-nums shrink-0">
+                            {bucketEntitySummary.other.toLocaleString()}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-gray-600 leading-snug">
+                    Uploads from the app/extension (USER_IMAGES_BUCKET). Scraped
+                    part photos are usually remote URLs, not counted here. Use
+                    “Load S3 counts” above to fetch.
+                  </p>
+                )
+              }
+            />
+            <StatRowWithDetail
+              label="Crawl HTML S3 (CRAWL_BUCKET)"
+              value={
+                crawlBucketSummary == null
+                  ? null
+                  : crawlBucketSummary.crawl_bucket_configured
+                    ? crawlBucketSummary.crawl_bucket_total
+                    : null
+              }
+              subValue={
+                crawlBucketSummary?.crawl_bucket_configured &&
+                crawlBucketSummary.crawl_bucket_size_gb != null &&
+                !crawlBucketSummary.crawl_bucket_error
+                  ? `${crawlBucketSummary.crawl_bucket_size_gb.toFixed(3)} GB`
+                  : undefined
+              }
+              detail={
+                crawlBucketSummary &&
+                !crawlBucketSummary.crawl_bucket_configured ? (
+                  <p className="text-[10px] text-gray-600 leading-snug">
+                    Bucket not configured: scraped page HTML is saved under{' '}
+                    <span className="font-mono text-gray-500">crawl_html/</span>{' '}
+                    on disk instead. Set{' '}
+                    <span className="font-mono text-gray-500">
+                      CRAWL_BUCKET
+                    </span>{' '}
+                    (and AWS / LocalStack) to store archives in S3—then counts
+                    appear here (about two objects per archived page: .html +
+                    .url).
+                  </p>
+                ) : crawlBucketSummary?.crawl_bucket_error ? (
+                  <p className="text-[10px] text-red-400/90">
+                    {crawlBucketSummary.crawl_bucket_error}
+                  </p>
+                ) : crawlBucketSummary &&
+                  crawlBucketSummary.crawl_bucket_configured &&
+                  Object.keys(crawlBucketSummary.crawl_bucket_by_prefix)
+                    .length > 0 ? (
+                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
+                    <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                      By top-level prefix
+                    </div>
+                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                      {Object.entries(crawlBucketSummary.crawl_bucket_by_prefix)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([prefix, n]) => (
+                          <div
+                            key={prefix}
+                            className="flex justify-between gap-1 min-w-0 leading-tight"
+                          >
+                            <span className="truncate">{prefix}</span>
+                            <span className="tabular-nums shrink-0 text-gray-400">
+                              {n.toLocaleString()}
                             </span>
                           </div>
-                        ) : null}
-                      </div>
+                        ))}
                     </div>
-                  ) : (
-                    <p className="text-[10px] text-gray-600 leading-snug">
-                      Uploads from the app/extension (USER_IMAGES_BUCKET).
-                      Scraped part photos are usually remote URLs, not counted
-                      here.
-                    </p>
-                  )
-                }
-              />
-              <StatRowWithDetail
-                label="Crawl HTML S3 (CRAWL_BUCKET)"
-                value={
-                  adminTableCounts == null
-                    ? null
-                    : adminTableCounts.crawl_bucket_configured
-                      ? adminTableCounts.crawl_bucket_total
-                      : null
-                }
-                subValue={
-                  adminTableCounts?.crawl_bucket_configured &&
-                  adminTableCounts.crawl_bucket_size_gb != null &&
-                  !adminTableCounts.crawl_bucket_error
-                    ? `${adminTableCounts.crawl_bucket_size_gb.toFixed(3)} GB`
-                    : undefined
-                }
-                detail={
-                  adminTableCounts &&
-                  !adminTableCounts.crawl_bucket_configured ? (
-                    <p className="text-[10px] text-gray-600 leading-snug">
-                      Bucket not configured: scraped page HTML is saved under{' '}
-                      <span className="font-mono text-gray-500">
-                        crawl_html/
-                      </span>{' '}
-                      on disk instead. Set{' '}
-                      <span className="font-mono text-gray-500">
-                        CRAWL_BUCKET
-                      </span>{' '}
-                      (and AWS / LocalStack) to store archives in S3—then counts
-                      appear here (about two objects per archived page: .html +
-                      .url).
-                    </p>
-                  ) : adminTableCounts?.crawl_bucket_error ? (
-                    <p className="text-[10px] text-red-400/90">
-                      {adminTableCounts.crawl_bucket_error}
-                    </p>
-                  ) : adminTableCounts &&
-                    adminTableCounts.crawl_bucket_configured &&
-                    Object.keys(adminTableCounts.crawl_bucket_by_prefix)
-                      .length > 0 ? (
-                    <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
-                      <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
-                        By top-level prefix
-                      </div>
-                      <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                        {Object.entries(adminTableCounts.crawl_bucket_by_prefix)
-                          .sort(([a], [b]) => a.localeCompare(b))
-                          .map(([prefix, n]) => (
-                            <div
-                              key={prefix}
-                              className="flex justify-between gap-1 min-w-0 leading-tight"
-                            >
-                              <span className="truncate">{prefix}</span>
-                              <span className="tabular-nums shrink-0 text-gray-400">
-                                {n.toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  ) : adminTableCounts?.crawl_bucket_configured ? (
-                    <p className="text-[10px] text-gray-600 leading-snug">
-                      Bucket is configured but empty (no archived HTML keys
-                      yet).
-                    </p>
-                  ) : undefined
-                }
-              />
-              <StatRow
-                label="Image source mappings"
-                value={counts.imageSourceMappings}
-              />
-            </StatPanel>
+                  </div>
+                ) : crawlBucketSummary?.crawl_bucket_configured ? (
+                  <p className="text-[10px] text-gray-600 leading-snug">
+                    Bucket is configured but empty (no archived HTML keys yet).
+                  </p>
+                ) : undefined
+              }
+            />
+            <StatRow
+              label="Image source mappings"
+              value={counts.imageSourceMappings}
+            />
+          </StatPanel>
 
-            <StatPanel title="Community">
-              <StatRowWithDetail
-                label="Votes"
-                value={counts.votes}
-                detail={
-                  adminTableCounts &&
-                  Object.keys(adminTableCounts.votes_by_entity_type).length >
-                    0 ? (
-                    <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                      {Object.entries(adminTableCounts.votes_by_entity_type)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([entityType, n]) => (
-                          <div
-                            key={entityType}
-                            className="flex justify-between gap-1 min-w-0 leading-tight"
-                          >
-                            <span className="truncate">{entityType}</span>
-                            <span className="tabular-nums shrink-0 text-gray-400">
-                              {n.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  ) : undefined
-                }
-              />
-              <StatRowWithDetail
-                label="Reports"
-                value={counts.reports}
-                detail={
-                  adminTableCounts &&
-                  Object.keys(adminTableCounts.reports_by_entity_type).length >
-                    0 ? (
-                    <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
-                      {Object.entries(adminTableCounts.reports_by_entity_type)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([entityType, n]) => (
-                          <div
-                            key={entityType}
-                            className="flex justify-between gap-1 min-w-0 leading-tight"
-                          >
-                            <span className="truncate">{entityType}</span>
-                            <span className="tabular-nums shrink-0 text-gray-400">
-                              {n.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  ) : undefined
-                }
-              />
-              <StatRow label="Bug reports" value={counts.bugReports} />
-            </StatPanel>
-          </div>
-        )}
+          <StatPanel title="Community">
+            <StatRowWithDetail
+              label="Votes"
+              value={counts.votes}
+              detail={
+                adminTableCounts &&
+                Object.keys(adminTableCounts.votes_by_entity_type).length >
+                  0 ? (
+                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                    {Object.entries(adminTableCounts.votes_by_entity_type)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([entityType, n]) => (
+                        <div
+                          key={entityType}
+                          className="flex justify-between gap-1 min-w-0 leading-tight"
+                        >
+                          <span className="truncate">{entityType}</span>
+                          <span className="tabular-nums shrink-0 text-gray-400">
+                            {n.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : undefined
+              }
+            />
+            <StatRowWithDetail
+              label="Reports"
+              value={counts.reports}
+              detail={
+                adminTableCounts &&
+                Object.keys(adminTableCounts.reports_by_entity_type).length >
+                  0 ? (
+                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                    {Object.entries(adminTableCounts.reports_by_entity_type)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([entityType, n]) => (
+                        <div
+                          key={entityType}
+                          className="flex justify-between gap-1 min-w-0 leading-tight"
+                        >
+                          <span className="truncate">{entityType}</span>
+                          <span className="tabular-nums shrink-0 text-gray-400">
+                            {n.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : undefined
+              }
+            />
+            <StatRow label="Bug reports" value={counts.bugReports} />
+          </StatPanel>
+
+          <StatPanel title="System">
+            <StatRow label="Background jobs" value={counts.backgroundJobs} />
+          </StatPanel>
+        </div>
       </Card>
     </div>
   );

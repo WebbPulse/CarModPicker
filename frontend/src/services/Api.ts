@@ -115,7 +115,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout to prevent indefinite hangs on cold starts
+  timeout: 30000,
   paramsSerializer: (params) => {
     if (params instanceof URLSearchParams) {
       return params.toString();
@@ -1212,8 +1212,18 @@ export interface AdminTableCountsResponse {
   image_source_mappings: number;
   build_logs: number;
   part_cars: number;
+  background_jobs: number;
+  oauth_accounts: number;
+  webauthn_credentials: number;
+  crawler_adapter_configs: number;
+  crawler_schedules: number;
+  crawler_schedule_adapters: number;
   votes_by_entity_type: Record<string, number>;
   reports_by_entity_type: Record<string, number>;
+}
+
+/** Admin-only: full S3 listing of the crawl HTML bucket. On-demand; scans every key. */
+export interface CrawlBucketSummaryResponse {
   /** True when CRAWL_BUCKET is set and the S3 client initialized (scraped HTML may live here). */
   crawl_bucket_configured: boolean;
   crawl_bucket_total: number;
@@ -1430,6 +1440,10 @@ export const adminApi = {
   /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
   getTableCounts: () =>
     apiClient.get<AdminTableCountsResponse>('/admin/stats/table-counts'),
+
+  /** On-demand S3 list of the crawl HTML bucket (admin only). Scans every key — slow on large buckets. */
+  getCrawlBucketSummary: () =>
+    apiClient.get<CrawlBucketSummaryResponse>('/admin/stats/crawl-bucket'),
 
   // Background jobs
   listJobs: (params?: {

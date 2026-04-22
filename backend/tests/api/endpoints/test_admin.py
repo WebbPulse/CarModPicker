@@ -299,14 +299,39 @@ class TestAdminTableCounts:
             "part_cars",
             "votes_by_entity_type",
             "reports_by_entity_type",
-            "crawl_bucket_configured",
-            "crawl_bucket_total",
-            "crawl_bucket_by_prefix",
         ):
             assert key in data
         assert isinstance(data["build_list_phases"], int)
         assert isinstance(data["votes_by_entity_type"], dict)
         assert isinstance(data["reports_by_entity_type"], dict)
+        # Crawl-bucket stats have moved to /admin/stats/crawl-bucket so this endpoint
+        # is fast regardless of bucket size.
+        for key in (
+            "crawl_bucket_configured",
+            "crawl_bucket_total",
+            "crawl_bucket_by_prefix",
+        ):
+            assert key not in data
+
+
+class TestAdminCrawlBucketSummary:
+    """GET /admin/stats/crawl-bucket — on-demand S3 listing (admin only)."""
+
+    def test_crawl_bucket_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        token = create_and_login_user(client, db_session, "crawl_bucket_forbidden")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.get(f"{settings.API_STR}/admin/stats/crawl-bucket", headers=headers)
+        assert response.status_code == 403
+
+    def test_crawl_bucket_admin_ok(self, client: TestClient, db_session: Session) -> None:
+        token = create_and_login_admin_user(client, db_session, "crawl_bucket_ok")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.get(f"{settings.API_STR}/admin/stats/crawl-bucket", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "crawl_bucket_configured" in data
         assert isinstance(data["crawl_bucket_configured"], bool)
+        assert "crawl_bucket_total" in data
         assert isinstance(data["crawl_bucket_total"], int)
+        assert "crawl_bucket_by_prefix" in data
         assert isinstance(data["crawl_bucket_by_prefix"], dict)
