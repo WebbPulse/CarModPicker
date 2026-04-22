@@ -39,6 +39,7 @@ from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
+from .core.sentry import init_sentry
 from .core.worker_identity import WORKER_INSTANCE_ID
 from .db.session import SessionLocal, check_db_ready
 from .services import job_service
@@ -64,6 +65,11 @@ for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         _h.addFilter(_ctx_filter)
 
 logger = logging.getLogger(__name__)
+
+# Sentry SDK init — must run BEFORE `app = FastAPI(...)` so FastApiIntegration +
+# StarletteIntegration can patch the route handlers. No-ops in dev / test (see
+# init_sentry env gates). D-12.
+init_sentry(server_name="apprunner-backend")
 
 
 @asynccontextmanager

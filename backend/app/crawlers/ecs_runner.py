@@ -61,6 +61,13 @@ def _notify_completion(db, job_id: UUID) -> None:
 
 
 def main() -> None:
+    # Sentry init — inside main() (not module-level) so test collection /
+    # import-only pathways cannot fire it. No-ops unless TESTING!="true",
+    # APP_ENVIRONMENT ∈ {staging, production}, and SENTRY_DSN is set. D-11.
+    from app.core.sentry import init_sentry
+
+    init_sentry(server_name="ecs-crawler")
+
     from app.crawlers.adapters import ADAPTER_REGISTRY
     from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC
     from app.crawlers.runner import run_crawlers

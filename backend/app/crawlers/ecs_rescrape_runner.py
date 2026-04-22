@@ -51,6 +51,14 @@ def _notify_completion(db, job_id: UUID) -> None:
 
 
 def main() -> None:
+    # Sentry init — inside main() (not module-level) so test collection /
+    # import-only pathways cannot fire it. Same server_name as ecs_runner.py
+    # so all Fargate crawler exceptions aggregate under one Sentry "service"
+    # (D-11).
+    from app.core.sentry import init_sentry
+
+    init_sentry(server_name="ecs-crawler")
+
     from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
     from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
     from app.db.session import SessionLocal

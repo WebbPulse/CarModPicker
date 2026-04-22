@@ -157,6 +157,20 @@ class Settings(BaseSettings):
     )
     EMAIL_FROM: str = Field(default="")
 
+    # Sentry settings (Phase 2 / OBS-01)
+    SENTRY_DSN: str = Field(
+        default="",
+        description="Sentry DSN for error reporting. Empty = Sentry disabled. Injected via Secrets Manager in prod (D-01, D-55).",
+    )
+    SENTRY_RELEASE: str = Field(
+        default="",
+        description="Release identifier baked at Docker build time (typically git commit SHA, set by GitHub Actions per D-02).",
+    )
+    SENTRY_SERVICE_NAME: str = Field(
+        default="",
+        description="Per-process server_name tag: 'apprunner-backend', 'ecs-crawler', 'crawler-cli' (D-11).",
+    )
+
     # Crawler service account — machine identity used as the default author for all
     # crawler-created parts. Created automatically on startup.
     CRAWLER_SERVICE_ACCOUNT_USERNAME: str = Field(
