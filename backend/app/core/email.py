@@ -325,6 +325,28 @@ def _render_crawler_result_html(summary: dict) -> str:
                 f"{_render_http_error_pills(r.get('http_errors') or {})}</td>"
                 "</tr>"
             )
+            # CRAWL-07 (Plan 03-03): per-adapter ParseFailures block with up to
+            # 5 sample URLs. Silent for healthy adapters (parse_failures==0) or
+            # when the runner produced no samples. Rendered as a colspan row
+            # directly under the main adapter row so the samples visually
+            # belong to that adapter.
+            parse_failures = r.get("parse_failures", 0)
+            samples = r.get("sample_failure_urls") or []
+            if parse_failures > 0 and samples:
+                # Pitfall PR-01: truncate URLs > 160 chars (first-120 + ellipsis + last-40).
+                # Bounds the row width at ~5 * 160 = 800 chars regardless of how
+                # pathological a retailer URL is.
+                def _trunc(u: str) -> str:
+                    return u if len(u) <= 160 else f"{u[:120]}…{u[-40:]}"
+
+                sample_html = "<br/>".join(_escape_html(_trunc(u)) for u in samples)
+                rows_html.append(
+                    '<tr><td colspan="5" style="font-size:11px;color:#6b7280;'
+                    'padding:0 10px 8px 22px">'
+                    f'<strong>ParseFailures:</strong> {parse_failures} / {r.get("total", 0)} — '
+                    f"samples: {sample_html}"
+                    "</td></tr>"
+                )
         rows_html.append("</tbody></table>")
         table_html = (
             '<div style="background-color:#ffffff;border:1px solid #e4e4e7;'

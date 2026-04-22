@@ -424,6 +424,12 @@ def run_crawler(
                 "health_skipped": True,
                 "health_reason": f"health_{health.reason}",
                 "health_status_code": health.status_code,
+                # CRAWL-07: health check ran BEFORE the URL loop (and before
+                # `t0`), so elapsed_seconds is 0.0 on this path. parse_failures
+                # is trivially 0 — no URLs processed.
+                "parse_failures": 0,
+                "sample_failure_urls": [],
+                "elapsed_seconds": 0.0,
             }
 
         urls = list(adapter.discover_product_urls())
@@ -510,6 +516,12 @@ def run_crawler(
         rate_limit_bailout = False
         rate_limit_bailout_after = 0
         breaker = get_breaker(adapter_name)
+
+        # CRAWL-07 / Plan 03-03: wall-clock start for `elapsed_seconds` in the
+        # result dict. Captured AFTER check_health (which has its own timeout)
+        # so elapsed_seconds measures the URL-loop cost exclusively. Used by
+        # both the success-path return and the breaker-bail return below.
+        t0 = time.monotonic()
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -707,6 +719,14 @@ def run_crawler(
             "health_skipped": False,
             "health_reason": None,
             "health_status_code": None,
+            # CRAWL-07 (Plan 03-03): parse-failure count + first-5 URL samples
+            # (encounter order, URL-only per D-23) + wall-clock elapsed.
+            # `parse_failures` is an alias for `skipped_not_product` expressing
+            # intent distinctly from transport/HTTP "errors" — Phase 2 OBS-02
+            # CloudWatch reads these keys without any further schema change.
+            "parse_failures": skipped_not_product,
+            "sample_failure_urls": [p["url"] for p in parse_miss_urls[:5]],
+            "elapsed_seconds": round(time.monotonic() - t0, 3),
         }
     finally:
         # Close the fetcher if we got far enough to create one. FlareSolverr
