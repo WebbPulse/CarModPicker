@@ -2876,14 +2876,6 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
-      "EntityType": {
-        "enum": [
-          "build_list",
-          "part"
-        ],
-        "title": "EntityType",
-        "type": "string"
-      },
       "FlaggedEntitySummary": {
         "properties": {
           "created_at": {
@@ -4441,6 +4433,14 @@
         "title": "ReportCreate",
         "type": "object"
       },
+      "ReportEntityType": {
+        "enum": [
+          "build_list",
+          "part"
+        ],
+        "title": "ReportEntityType",
+        "type": "string"
+      },
       "ReportRead": {
         "properties": {
           "admin_notes": {
@@ -5770,6 +5770,15 @@
         "title": "VoteCreate",
         "type": "object"
       },
+      "VoteEntityType": {
+        "enum": [
+          "car_generation",
+          "build_list",
+          "part"
+        ],
+        "title": "VoteEntityType",
+        "type": "string"
+      },
       "VoteRead": {
         "properties": {
           "created_at": {
@@ -6072,15 +6081,6 @@
         ],
         "title": "WebAuthnRegisterVerifyRequest",
         "type": "object"
-      },
-      "app__api__schemas__vote__EntityType": {
-        "enum": [
-          "car_generation",
-          "build_list",
-          "part"
-        ],
-        "title": "EntityType",
-        "type": "string"
       }
     },
     "securitySchemes": {
@@ -14805,7 +14805,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/EntityType"
+                  "$ref": "#/components/schemas/ReportEntityType"
                 },
                 {
                   "type": "null"
@@ -14917,7 +14917,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/EntityType"
+                  "$ref": "#/components/schemas/ReportEntityType"
                 },
                 {
                   "type": "null"
@@ -15138,7 +15138,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/EntityType"
+              "$ref": "#/components/schemas/ReportEntityType"
             }
           },
           {
@@ -16456,7 +16456,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
+              "$ref": "#/components/schemas/VoteEntityType"
             }
           },
           {
@@ -16553,7 +16553,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
+              "$ref": "#/components/schemas/VoteEntityType"
             }
           },
           {
@@ -16615,7 +16615,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
+              "$ref": "#/components/schemas/VoteEntityType"
             }
           },
           {
@@ -16681,7 +16681,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
+              "$ref": "#/components/schemas/VoteEntityType"
             }
           },
           {

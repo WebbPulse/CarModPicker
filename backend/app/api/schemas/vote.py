@@ -11,10 +11,13 @@ class VoteType(str, Enum):
     DOWNVOTE = "downvote"
 
 
-class EntityType(str, Enum):
+class VoteEntityType(str, Enum):
     CAR_GENERATION = "car_generation"
     BUILD_LIST = "build_list"
     PART = "part"
+
+
+EntityType = VoteEntityType
 
 
 class VoteCreate(BaseModel):
