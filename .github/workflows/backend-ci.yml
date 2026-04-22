@@ -35,7 +35,7 @@ jobs:
           echo "=== CWD ==="
           pwd
           echo "=== Run Black with explicit config (match backend pyproject.toml) ==="
-          black --config pyproject.toml --line-length 120 --target-version py311 --check --diff .
+          black --config pyproject.toml --check --diff .
 
       - name: Check import sorting
         run: |
@@ -50,18 +50,11 @@ jobs:
       - name: Run security scan
         run: |
           cd backend
-          # Run Bandit security scanner
-          # First pass: Show all issues for visibility (low, medium, high)
-          # -r app: Recursively scan app directory
-          # Bandit auto-detects .bandit config file in the current directory
-          # -ll: Report all severity levels (for visibility)
-          # The config file skips known false positives (B404, B603, B607)
-          # Individual instances are suppressed with # nosec comments
-          echo "=== Bandit Security Scan (All Issues - Informational) ==="
-          bandit -r app -ll || true
-          echo ""
-          # Second pass: Only fail on medium/high severity issues
-          echo "=== Bandit Security Scan (Medium/High Severity - Failing) ==="
+          # Bandit auto-detects .bandit config file in the current directory.
+          # -r app: Recursively scan app directory.
+          # -ll: Report low/medium/high severity (fail on any finding).
+          # Known false positives (B404, B603, B607) are suppressed via .bandit config;
+          # individual instances use # nosec comments.
           bandit -r app -ll
 
       - name: Scan dependencies for vulnerabilities
