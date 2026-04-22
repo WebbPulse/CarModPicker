@@ -242,15 +242,6 @@ function BugReportReview() {
       ? bugReportsData.pagination
       : undefined;
 
-  if (isLoadingBugReports && !bugReportsData) {
-    return (
-      <>
-        <PageHeader title="Bug Report Review" />
-        <LoadingSpinner />
-      </>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
@@ -334,8 +325,19 @@ function BugReportReview() {
         </Card>
       )}
 
-      {bugReportsData && (
+      {isLoadingBugReports && !bugReportsData ? (
         <Card>
+          <div className="flex justify-center items-center py-16">
+            <LoadingSpinner />
+          </div>
+        </Card>
+      ) : bugReportsData ? (
+        <Card className="relative">
+          {isLoadingBugReports && (
+            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <LoadingSpinner />
+            </div>
+          )}
           <SectionHeader
             title={`${
               selectedStatus === 'all'
@@ -505,7 +507,7 @@ function BugReportReview() {
             </>
           )}
         </Card>
-      )}
+      ) : null}
 
       {/* Review Dialog */}
       <Dialog

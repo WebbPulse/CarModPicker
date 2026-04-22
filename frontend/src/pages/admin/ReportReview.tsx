@@ -200,15 +200,6 @@ function ReportReview() {
       ? reportsData.pagination
       : undefined;
 
-  if (isLoadingReports && !reportsData) {
-    return (
-      <>
-        <PageHeader title="Report Review" />
-        <LoadingSpinner />
-      </>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
@@ -254,8 +245,19 @@ function ReportReview() {
         </Card>
       )}
 
-      {reportsData && (
+      {isLoadingReports && !reportsData ? (
         <Card>
+          <div className="flex justify-center items-center py-16">
+            <LoadingSpinner />
+          </div>
+        </Card>
+      ) : reportsData ? (
+        <Card className="relative">
+          {isLoadingReports && (
+            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <LoadingSpinner />
+            </div>
+          )}
           <SectionHeader
             title={`${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Reports`}
           />
@@ -372,7 +374,7 @@ function ReportReview() {
             </>
           )}
         </Card>
-      )}
+      ) : null}
 
       {/* Review Dialog */}
       <Dialog
