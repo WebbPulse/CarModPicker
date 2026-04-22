@@ -418,6 +418,22 @@ def create_car_orm_in_db(
 
 
 @pytest.fixture
+def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
+    """caplog fixture augmented with RequestContextFilter on the handler so
+    LogRecords carry request_id + user_id attrs.
+
+    Landmine (02-RESEARCH.md §3 + §Landmine 15): pytest's caplog attaches its
+    own handler at the root logger but does NOT inherit root-logger filters
+    installed in app/main.py — without this augmentation, record.request_id
+    raises AttributeError despite the filter working fine in production.
+    """
+    from app.core.log_context import RequestContextFilter
+
+    caplog.handler.addFilter(RequestContextFilter())
+    return caplog
+
+
+@pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
     """
     Fake in-memory S3 using moto.
