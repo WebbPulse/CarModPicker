@@ -17,14 +17,12 @@ import sys
 import time
 from pathlib import Path
 
-import pytest
-
 # backend/scripts/ is not on sys.path by default; add it at collection time.
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from check_migrations import check_file  # noqa: E402
+from check_migrations import check_file  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 
 def _write(tmp_path: Path, body: str) -> Path:
