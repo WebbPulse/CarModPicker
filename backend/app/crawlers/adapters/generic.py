@@ -13,7 +13,7 @@ the admin archive rescrape pipeline.
 """
 
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -202,6 +202,8 @@ class GenericHtmlParser(RetailerCrawlerAdapter):
     Mirrors the chrome-extension scraping pipeline:
     JSON-LD → OG/meta tags → DOM heuristics.
     """
+
+    IS_FALLBACK: ClassVar[bool] = True
 
     def discover_product_urls(self) -> Iterator[str]:
         """Not applicable for a generic parser — yields nothing."""
