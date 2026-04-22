@@ -16,7 +16,7 @@
 # Note: this workflow pushes directly to main. If branch protection on main requires PRs,
 # you must allow `github-actions[bot]` to bypass it (Settings → Branches → Rule → Bypass list),
 # otherwise the push step will fail.
-name: Chrome Extension Release
+name: Chrome Extension Deploy
 
 on:
   push:
@@ -107,7 +107,7 @@ jobs:
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.zip.outputs.zip_path }}
           name: Chrome Extension v${{ steps.version.outputs.new }}
