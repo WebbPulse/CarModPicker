@@ -50,8 +50,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. After a crawler run, CloudWatch shows per-adapter `Ingested`, `ParseFailures`, and `ElapsedSeconds` metrics in the `CarModPicker/Crawlers` namespace
   3. A CloudWatch alarm triggers an SNS → SES email when any adapter's parse-failure rate exceeds 50%
   4. Frontend runtime errors appear in Sentry (or equivalent) via an `ErrorBoundary` integration
-**Plans**: TBD
-**Note**: Phase 2 is additive-only (no URL/model/schema changes). It may execute concurrently with Phase 3 — both are low regression risk after Phase 1 completes.
+**Plans:** 5 plans
+- [ ] 02-01-PLAN.md — OBS-04: request_id/user_id propagation audit + bg_log_context + CLI context + pytest regression guard
+- [ ] 02-02-PLAN.md — OBS-01: Sentry Python SDK 2.x init (FastAPI + Starlette + SQLAlchemy + Logging integrations) + before_send scope processor + Secrets Manager DSN + App Runner/ECS IAM grants
+- [ ] 02-03-PLAN.md — OBS-02: CloudWatch EMF per-adapter metrics (Ingested / ParseFailures / ElapsedSeconds in CarModPicker/Crawlers namespace) emitted from runner.py BEFORE summary log; rescrape runs emit RunType=rescrape
+- [ ] 02-04-PLAN.md — OBS-05: @sentry/react + Session Replay on-error + ErrorBoundary captureException + AuthContext setUser + CI-only vite-plugin sourcemap upload + beforeErrorSampling auth-route gate
+- [ ] 02-05-PLAN.md — OBS-03: Terraform composite parse-failure alarm (metric-math, NaN-via-0 suppression, RunType=live filter, TODO marker for Phase 3 per-adapter for_each) + Crawler Drift Runbook in CONCERNS.md + 02-HUMAN-UAT.md
+**Note**: Phase 2 is additive-only (no URL/model/schema changes). It may execute concurrently with Phase 3 — both are low regression risk after Phase 1 completes. Internal wave structure: Wave 1 → [02-01]; Wave 2 → [02-02, 02-04]; Wave 3 → [02-03]; Wave 4 → [02-05]. 02-05 is `autonomous: false` — prod terraform apply gates on 24h staging bake + 7-item HUMAN-UAT checklist per D-58.
 
 ### Phase 3: Non-Breaking Internal Improvements
 **Goal**: The crawler subsystem is hardened end-to-end (auto-discovery, circuit breaker, parallelization, pre-crawl health check, parse-failure reporting), startup latency improves, and Pydantic v1 anti-patterns are eliminated — without touching any external API contract
