@@ -23,7 +23,7 @@ on:
     branches: [main]
     paths:
       - "chrome-extension/**"
-      - ".github/workflows/chrome-extension-release.yml"
+      - ".github/workflows/chrome-extension-deploy.yml"
   workflow_dispatch:
 
 permissions:
