@@ -1622,6 +1622,28 @@ class CanonicalLinkGroupResponse(BaseModel):
     members: List[CanonicalLinkGroupMember]
 
 
+class UrlLookupMatch(BaseModel):
+    """A Part whose first PartListing's product_url matches a lookup URL."""
+
+    part_id: UUID
+    name: str
+    source: str
+    is_canonical: bool = Field(..., description="True when this part has no canonical_part_id set.")
+    canonical_id: UUID = Field(..., description="Canonical of this part's link group (self if canonical).")
+    retailer_id: Optional[UUID] = None
+
+
+class UrlLookupResponse(BaseModel):
+    normalized_url: str
+    matches: List[UrlLookupMatch] = Field(
+        ...,
+        description=(
+            "All parts with a PartListing at this URL. Non-UGC parts are unique on URL, "
+            "but UGC rows intentionally may share a URL so multiple matches are possible."
+        ),
+    )
+
+
 class PromoteCanonicalRequest(BaseModel):
     part_id: UUID = Field(..., description="Part to promote to canonical of its link group.")
 
@@ -1682,6 +1704,50 @@ def _link_group_member(db: Session, part: DBPart, canonical_id: UUID) -> Canonic
         retailer_id=listing.retailer_id if listing else None,
         created_at=part.created_at,
     )
+
+
+@router.get(
+    "/parts/lookup-by-url",
+    response_model=UrlLookupResponse,
+    responses=standard_responses(success_description="Parts matching URL", forbidden=True),
+)
+async def lookup_parts_by_product_url(
+    url: str = Query(
+        ..., min_length=1, description="Product URL to look up (matched against PartListing.product_url)."
+    ),
+    current_user: DBUser = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> UrlLookupResponse:
+    """Return every Part (canonical or duplicate, catalog or UGC) whose PartListing has this product_url."""
+    _ = current_user
+    normalized = url.strip()
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL is required")
+
+    listings = (
+        db.query(DBPartListing)
+        .join(DBPart, DBPart.id == DBPartListing.part_id)
+        .filter(DBPartListing.product_url == normalized)
+        .order_by(DBPart.source.asc(), DBPart.created_at.asc())
+        .all()
+    )
+
+    matches: List[UrlLookupMatch] = []
+    for listing in listings:
+        part = listing.part
+        canonical_id = part.canonical_part_id or part.id
+        matches.append(
+            UrlLookupMatch(
+                part_id=part.id,
+                name=part.name,
+                source=part.source,
+                is_canonical=part.canonical_part_id is None,
+                canonical_id=canonical_id,
+                retailer_id=listing.retailer_id,
+            )
+        )
+
+    return UrlLookupResponse(normalized_url=normalized, matches=matches)
 
 
 @router.get(

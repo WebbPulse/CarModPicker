@@ -15,6 +15,7 @@ import {
   type CanonicalLinkGroupMember,
   type CanonicalLinkGroupResponse,
   type RescanResponse,
+  type UrlLookupMatch,
 } from '../../services/Api';
 
 function formatAxiosError(err: unknown, fallback: string): string {
@@ -151,6 +152,11 @@ function PartsCuration() {
   const [isLoadingGroup, setIsLoadingGroup] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
 
+  const [lookupUrl, setLookupUrl] = useState('');
+  const [isLookingUpUrl, setIsLookingUpUrl] = useState(false);
+  const [urlLookupError, setUrlLookupError] = useState<string | null>(null);
+  const [urlMatches, setUrlMatches] = useState<UrlLookupMatch[] | null>(null);
+
   const [manualDuplicateId, setManualDuplicateId] = useState('');
   const [manualCanonicalId, setManualCanonicalId] = useState('');
   const [manualLinkError, setManualLinkError] = useState<string | null>(null);
@@ -211,6 +217,43 @@ function PartsCuration() {
     if (!trimmed) return;
     setSearchParams({ part: trimmed }, { replace: true });
     await loadGroup(trimmed);
+  };
+
+  const loadGroupForMatch = useCallback(
+    async (match: UrlLookupMatch) => {
+      setLookupId(match.part_id);
+      setSearchParams({ part: match.part_id }, { replace: true });
+      await loadGroup(match.part_id);
+    },
+    [loadGroup, setSearchParams]
+  );
+
+  const handleUrlLookup = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = lookupUrl.trim();
+    if (!trimmed) return;
+    setIsLookingUpUrl(true);
+    setUrlLookupError(null);
+    setUrlMatches(null);
+    try {
+      const resp = await adminApi.lookupPartsByProductUrl(trimmed);
+      const { matches } = resp.data;
+      const [first, second] = matches;
+      if (!first) {
+        setUrlLookupError('No part has a listing with that product URL.');
+        return;
+      }
+      setUrlMatches(matches);
+      if (!second) {
+        await loadGroupForMatch(first);
+      }
+    } catch (err) {
+      setUrlLookupError(
+        formatAxiosError(err, 'Failed to look up parts by URL.')
+      );
+    } finally {
+      setIsLookingUpUrl(false);
+    }
   };
 
   const handlePromote = async (partId: string) => {
@@ -364,6 +407,88 @@ function PartsCuration() {
             <ErrorAlert message={groupError} />
           </div>
         )}
+
+        <div className="mt-5 pt-4 border-t border-gray-800">
+          <form
+            onSubmit={(e) => {
+              void handleUrlLookup(e);
+            }}
+            className="flex flex-col sm:flex-row gap-2 items-end"
+          >
+            <div className="flex-1">
+              <Input
+                label="Product URL"
+                placeholder="Paste a retailer product URL (e.g. https://a90shop.com/products/…)"
+                value={lookupUrl}
+                onChange={(e) => setLookupUrl(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <ActionButton
+              onClick={() => {
+                void handleUrlLookup();
+              }}
+              disabled={isLookingUpUrl || !lookupUrl.trim()}
+            >
+              {isLookingUpUrl ? 'Searching…' : 'Find by URL'}
+            </ActionButton>
+          </form>
+          <p className="mt-2 text-[11px] text-gray-500">
+            Matches any Part — catalog canonical, duplicate, or UGC — whose
+            PartListing has this exact URL. UGC rows intentionally allow URL
+            collisions, so you may see multiple matches.
+          </p>
+          {urlLookupError && (
+            <div className="mt-3">
+              <ErrorAlert message={urlLookupError} />
+            </div>
+          )}
+          {urlMatches && urlMatches.length > 1 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-xs text-gray-400">
+                {urlMatches.length} parts match this URL. Pick one to load its
+                link group:
+              </div>
+              {urlMatches.map((m) => (
+                <div
+                  key={m.part_id}
+                  className="flex items-start gap-3 p-2.5 border border-gray-800 rounded-lg bg-gray-950/40"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {m.is_canonical ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-800/40 border border-emerald-600/60 text-emerald-300 text-[10px] font-semibold uppercase tracking-wide">
+                          Canonical
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-800/60 border border-gray-700 text-gray-400 text-[10px] font-semibold uppercase tracking-wide">
+                          Duplicate
+                        </span>
+                      )}
+                      <span className="text-sm font-semibold text-gray-100 truncate">
+                        {m.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        src: {m.source}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-500 truncate font-mono">
+                      {m.part_id}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void loadGroupForMatch(m)}
+                    className="px-2.5 py-1 rounded border border-gray-700 text-gray-300 text-xs hover:bg-gray-800 transition-colors shrink-0"
+                    disabled={isLoadingGroup}
+                  >
+                    Load group
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Card>
 
       {linkGroup && (

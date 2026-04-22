@@ -1246,6 +1246,26 @@ export interface CanonicalLinkGroupResponse {
   members: CanonicalLinkGroupMember[];
 }
 
+/** One Part whose first PartListing has a product_url matching a lookup query. */
+export interface UrlLookupMatch {
+  part_id: string;
+  name: string;
+  source: string;
+  is_canonical: boolean;
+  /** Canonical of this part's link group (self when canonical). */
+  canonical_id: string;
+  retailer_id: string | null;
+}
+
+export interface UrlLookupResponse {
+  normalized_url: string;
+  /**
+   * All parts matching this URL. Non-UGC parts are unique on URL; UGC rows may
+   * share a URL by design, so multiple matches are possible.
+   */
+  matches: UrlLookupMatch[];
+}
+
 /** One entry in the rescan diff: before/after canonical and the action that would be taken. */
 export interface RescanDiffEntry {
   part_id: string;
@@ -1459,6 +1479,10 @@ export const adminApi = {
     apiClient.get<CanonicalLinkGroupResponse>(
       `/admin/parts/${partId}/link-group`
     ),
+  lookupPartsByProductUrl: (url: string) =>
+    apiClient.get<UrlLookupResponse>('/admin/parts/lookup-by-url', {
+      params: { url },
+    }),
   promotePartToCanonical: (partId: string) =>
     apiClient.post<CanonicalLinkGroupResponse>(
       '/admin/parts/promote-canonical',
