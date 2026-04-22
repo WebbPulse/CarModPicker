@@ -54,6 +54,9 @@ boto3==1.42.91
 boto3-stubs[s3,sesv2]==1.42.91  # Type stubs for boto3 S3 and SES clients
 Pillow==12.2.0
 
+# Observability (Phase 2 / OBS-01)
+sentry-sdk>=2.0,<3
+
 # Testing: in-memory S3 mock (used with pytest fixtures; never runs in production)
 moto[s3]==5.1.22
 

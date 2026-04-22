@@ -84,6 +84,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
       Resource = [
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
+        aws_secretsmanager_secret.sentry_dsn.arn,
       ]
     }]
   })
@@ -213,6 +214,15 @@ resource "aws_ecs_task_definition" "crawler" {
       { name = "FLARESOLVERR_URL", value = var.flaresolverr_url },
       { name = "FLARESOLVERR_MAX_TIMEOUT_MS", value = tostring(var.flaresolverr_max_timeout_ms) },
       { name = "FLARESOLVERR_SESSION_NAME", value = var.flaresolverr_session_name },
+
+      # Observability (Phase 2 / OBS-01 + OBS-02). Same SENTRY_RELEASE source
+      # as App Runner; SENTRY_SERVICE_NAME=ecs-crawler aggregates both the
+      # per-run ecs_runner.py and ecs_rescrape_runner.py under one Sentry
+      # service identity (D-11). AWS_EMF_ENVIRONMENT=Local forces the EMF
+      # stdout sink so metrics ride the awslogs driver (RESEARCH Landmine 4).
+      { name = "SENTRY_RELEASE", value = var.sentry_release },
+      { name = "SENTRY_SERVICE_NAME", value = "ecs-crawler" },
+      { name = "AWS_EMF_ENVIRONMENT", value = "Local" },
     ]
 
     secrets = [
@@ -225,6 +235,10 @@ resource "aws_ecs_task_definition" "crawler" {
       {
         name      = "SECRET_KEY"
         valueFrom = aws_secretsmanager_secret.secret_key.arn
+      },
+      {
+        name      = "SENTRY_DSN"
+        valueFrom = aws_secretsmanager_secret.sentry_dsn.arn
       },
     ]
 
