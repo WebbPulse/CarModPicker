@@ -95,22 +95,24 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
     'rounded border-gray-500 bg-gray-800 text-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-gray-900';
 
   return (
-    <aside className="lg:w-64 flex-shrink-0">
-      <Card className="sticky top-4 overflow-hidden">
-        <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-5rem)]">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-700/60">
-            <h2 className="text-base font-semibold text-gray-100">Filters</h2>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-
+    <aside className="lg:w-64 flex-shrink-0 lg:self-stretch lg:min-h-[calc(100vh-2rem)]">
+      <Card
+        className="sticky top-4 overflow-hidden lg:h-full"
+        contentClassName="lg:absolute lg:inset-0 flex flex-col"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 flex-shrink-0">
+          <h2 className="text-base font-semibold text-gray-100">Filters</h2>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-8rem)] lg:max-h-none lg:flex-1 lg:min-h-0">
           {/* Car / Vehicle Filter */}
           <VehicleFilterSection
             showUniversalParts={showUniversalParts}
