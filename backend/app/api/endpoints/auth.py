@@ -79,8 +79,9 @@ from app.api.utils.google_oauth import GoogleIdentity, GoogleTokenError, verify_
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
 from app.core.email import send_reset_password_email, send_verify_email
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -89,7 +90,6 @@ router = APIRouter()
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead | bool]:
     """
     Authenticate user and return access token and user details.
@@ -132,7 +132,6 @@ async def login_for_access_token(
 async def login_with_2fa(
     request: TOTPLoginRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead]:
     """
     Complete login with 2FA OTP code.
@@ -186,7 +185,6 @@ async def login_with_2fa(
 async def verify_email(
     email: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Send verification email to user."""
     user = db.query(DBUser).filter(DBUser.email == email).first()
@@ -217,7 +215,6 @@ async def verify_email(
 async def verify_email_confirm(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> RedirectResponse:
     """Confirm email verification with token."""
     if settings.DEBUG:
@@ -278,7 +275,6 @@ async def verify_email_confirm(
 async def reset_password(
     email: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Send password reset email to user."""
     user = db.query(DBUser).filter(DBUser.email == email).first()
@@ -308,7 +304,6 @@ async def reset_password_confirm(
     token: str = Body(..., embed=True),
     new_password: NewPassword = Body(...),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Confirm password reset with token and new password."""
     try:
@@ -346,7 +341,6 @@ async def reset_password_confirm(
 
 @router.post("/logout")
 async def logout(
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """
     Logout endpoint for client-side token removal.
@@ -363,7 +357,6 @@ async def logout(
 async def setup_2fa(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> TOTPSetupResponse:
     """
     Generate a new 2FA secret and QR code for the current user.
@@ -413,7 +406,6 @@ async def verify_2fa(
     request: TOTPVerifyRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> TOTPVerifyResponse:
     """
     Verify the OTP code and enable 2FA for the current user.
@@ -456,7 +448,6 @@ async def disable_2fa(
     request: TOTPDisableRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """
     Disable 2FA for the current user.
@@ -535,7 +526,6 @@ async def webauthn_register_options(
     request: WebAuthnRegisterOptionsRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> WebAuthnRegisterOptionsResponse:
     """Start passkey registration: generate a challenge + options object for the browser."""
     nickname = request.nickname.strip()
@@ -574,7 +564,6 @@ async def webauthn_register_verify(
     request: WebAuthnRegisterVerifyRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> WebAuthnCredentialSummary:
     """Verify the browser's attestation and persist the new credential."""
     challenge, challenge_user_id = _decode_challenge_token(request.challenge_token, WEBAUTHN_REGISTER_PURPOSE)
@@ -628,7 +617,6 @@ async def webauthn_register_verify(
 async def webauthn_login_options(
     request: WebAuthnLoginOptionsRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> WebAuthnLoginOptionsResponse:
     """Start passkey login: generate a challenge. Username is optional (discoverable flow)."""
     challenge = secrets.token_bytes(32)
@@ -659,7 +647,6 @@ async def webauthn_login_options(
 async def webauthn_login_verify(
     request: WebAuthnLoginVerifyRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead]:
     """Verify a passkey assertion, bump sign_count, and mint an access token.
 
@@ -764,7 +751,6 @@ async def delete_webauthn_credential(
     credential_id: uuid.UUID,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     cred = (
         db.query(WebAuthnCredential)
@@ -851,7 +837,6 @@ def _maybe_2fa_challenge(user: DBUser) -> Optional[dict[str, str | bool]]:
 async def google_sign_in(
     request: GoogleSignInRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, Any]:
     """Verify a Google ID token and route to the right next step.
 
@@ -938,7 +923,6 @@ def _decode_purpose_token(token: str, expected_purpose: str) -> dict[str, Any]:
 async def google_link(
     request: GoogleLinkRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead]:
     """Merge a Google identity into an existing password account.
 
@@ -1004,7 +988,6 @@ async def google_link(
 async def google_signup(
     request: GoogleSignupRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead]:
     """Create a brand-new account from a Google identity. The email had no existing match
     when /auth/google was called; the client collected a username and submits it here.
@@ -1058,7 +1041,6 @@ async def google_signup(
 async def oauth_two_factor(
     request: OAuthTwoFactorRequest,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str | UserRead]:
     """Complete 2FA after an OAuth sign-in. Accepts the otp_token + OTP only — no password,
     since OAuth-only users may not have one.
@@ -1095,7 +1077,6 @@ async def google_connect(
     request: GoogleConnectRequest,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> OAuthAccountRead:
     """Link a Google account to the *currently logged-in* user.
 
@@ -1167,7 +1148,6 @@ async def delete_oauth_account(
     account_id: uuid.UUID,
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> dict[str, str]:
     """Remove a linked OAuth provider.
 

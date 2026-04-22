@@ -33,8 +33,9 @@ from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
 from app.api.protocols import HasId, HasUserId, UserOwnedModel
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # TypeVar for decorator return types
 P = ParamSpec("P")
@@ -103,21 +104,24 @@ def validate_pagination_params(skip: int, limit: int) -> Tuple[int, int]:
 # Standard endpoint dependencies
 def get_standard_endpoint_dependencies() -> Dict[str, Any]:
     """
-    Standard dependencies for endpoints that need database, logger, and current user.
+    Standard dependencies for endpoints that need database and current user.
+
+    Per QUAL-07 / 03-CONTEXT §D-34, endpoint modules take the logger via a
+    module-level `logger = logging.getLogger(__name__)` declaration — NOT via
+    FastAPI DI. This helper therefore omits the `logger` key; callers import
+    `logging.getLogger(__name__)` at the top of their own module.
 
     Returns:
         Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
-        "logger": Depends(get_logger),
         "current_user": Depends(get_current_user),
     }
 
 
 def get_standard_public_endpoint_dependencies(
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> PublicEndpointDeps:
     """
     Standard dependencies for public endpoints that need database and logger.
@@ -570,12 +574,15 @@ def get_common_dependencies() -> Dict[str, Any]:
     """
     Common dependencies for endpoints.
 
+    Per QUAL-07 / 03-CONTEXT §D-34, the logger is obtained via a module-level
+    `logger = logging.getLogger(__name__)` at the top of each endpoint module,
+    not via FastAPI DI — so no `logger` key is returned here.
+
     Returns:
         Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
-        "logger": Depends(get_logger),
         "current_user": Depends(get_current_user),
     }
 
@@ -584,12 +591,15 @@ def get_admin_dependencies() -> Dict[str, Any]:
     """
     Admin-only dependencies for endpoints.
 
+    Per QUAL-07 / 03-CONTEXT §D-34, the logger is obtained via a module-level
+    `logger = logging.getLogger(__name__)` at the top of each endpoint module,
+    not via FastAPI DI — so no `logger` key is returned here.
+
     Returns:
         Dictionary of Depends objects for FastAPI dependency injection
     """
     return {
         "db": Depends(get_db),
-        "logger": Depends(get_logger),
         "current_user": Depends(get_current_admin_user),
     }
 
