@@ -33,6 +33,7 @@ resource "aws_iam_role_policy" "apprunner_access_secrets" {
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
         aws_secretsmanager_secret.cron_secret_key.arn,
+        aws_secretsmanager_secret.sentry_dsn.arn,
       ]
     }]
   })
@@ -69,6 +70,7 @@ resource "aws_iam_role_policy" "apprunner_instance_secrets" {
         aws_secretsmanager_secret.database_url.arn,
         aws_secretsmanager_secret.secret_key.arn,
         aws_secretsmanager_secret.cron_secret_key.arn,
+        aws_secretsmanager_secret.sentry_dsn.arn,
       ]
     }]
   })
@@ -247,6 +249,15 @@ resource "aws_apprunner_service" "backend" {
           SCHEDULER_GROUP_NAME            = "default"
           SCHEDULER_TARGET_EVENT_BUS_ARN  = "arn:aws:events:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:event-bus/default"
           SCHEDULER_TARGET_ROLE_ARN       = aws_iam_role.eventbridge_scheduler.arn
+
+          # Observability (Phase 2 / OBS-01 + OBS-02). SENTRY_RELEASE is the
+          # git commit SHA baked at Docker build time; SENTRY_SERVICE_NAME tags
+          # exceptions with the App Runner process identity; AWS_EMF_ENVIRONMENT
+          # forces the aws-embedded-metrics stdout sink (RESEARCH Landmine 4 —
+          # required for plan 02-03 EMF emission to reach CloudWatch Logs).
+          SENTRY_RELEASE      = var.sentry_release
+          SENTRY_SERVICE_NAME = "apprunner-backend"
+          AWS_EMF_ENVIRONMENT = "Local"
         }
 
         # Sensitive values pulled from Secrets Manager at startup
@@ -254,6 +265,7 @@ resource "aws_apprunner_service" "backend" {
           DATABASE_URL    = aws_secretsmanager_secret_version.database_url.arn
           SECRET_KEY      = aws_secretsmanager_secret_version.secret_key.arn
           CRON_SECRET_KEY = aws_secretsmanager_secret_version.cron_secret_key.arn
+          SENTRY_DSN      = aws_secretsmanager_secret_version.sentry_dsn.arn
         }
       }
     }
