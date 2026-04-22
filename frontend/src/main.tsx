@@ -7,7 +7,10 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { GOOGLE_CLIENT_ID } from './config/google';
+import { initSentry } from './lib/sentry';
 import './index.css';
+
+initSentry();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
