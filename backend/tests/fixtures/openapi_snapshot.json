@@ -2878,7 +2878,6 @@
       },
       "EntityType": {
         "enum": [
-          "car_generation",
           "build_list",
           "part"
         ],
@@ -6074,8 +6073,9 @@
         "title": "WebAuthnRegisterVerifyRequest",
         "type": "object"
       },
-      "app__api__schemas__report__EntityType": {
+      "app__api__schemas__vote__EntityType": {
         "enum": [
+          "car_generation",
           "build_list",
           "part"
         ],
@@ -14805,7 +14805,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/app__api__schemas__report__EntityType"
+                  "$ref": "#/components/schemas/EntityType"
                 },
                 {
                   "type": "null"
@@ -14917,7 +14917,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/app__api__schemas__report__EntityType"
+                  "$ref": "#/components/schemas/EntityType"
                 },
                 {
                   "type": "null"
@@ -15138,7 +15138,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/app__api__schemas__report__EntityType"
+              "$ref": "#/components/schemas/EntityType"
             }
           },
           {
@@ -16456,7 +16456,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/EntityType"
+              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
             }
           },
           {
@@ -16553,7 +16553,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/EntityType"
+              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
             }
           },
           {
@@ -16615,7 +16615,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/EntityType"
+              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
             }
           },
           {
@@ -16681,7 +16681,7 @@
             "name": "entity_type",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/EntityType"
+              "$ref": "#/components/schemas/app__api__schemas__vote__EntityType"
             }
           },
           {
