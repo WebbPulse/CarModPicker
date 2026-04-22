@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02 repair drop_constraint(None) migration
-last_updated: "2026-04-22T07:55:59.302Z"
+stopped_at: Completed 01-03 SAFE-04 migration DROP guard
+last_updated: "2026-04-22T08:04:38.664Z"
 last_activity: 2026-04-22 -- Phase --phase execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 8
-  completed_plans: 2
-  percent: 25
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-22 -- Phase --phase execution started
 
-Progress: [███░░░░░░░] 25%
+Progress: [████░░░░░░] 38%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 25%
 
 *Updated after each plan completion*
 | Phase 01-safety-nets-ci-hardening P02 | 25 | 3 tasks | 4 files |
+| Phase 01-safety-nets-ci-hardening P03 | 30 | 3 tasks | 32 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - Roadmap: Coverage note — REQUIREMENTS.md header stated 56 requirements but 60 are actually defined. All 60 mapped; no orphans.
 - SAFE-08: Branch B (forward-only repair) chosen because all three broken revisions were already applied on prod
 - SAFE-08: Third FK constraint at repair migration downgrade time is parts_part_manufacturer_id_fkey on parts (not global_parts_brand_id_fkey — renamed by c1f3e8a92d45 and d2e9c4a1f57b)
+- SAFE-04: All 82 pre-existing unannotated downgrade() destructive ops annotated with downgrade-reversal SAFE comment to make checker exit 0 on current tree
+- SAFE-04: Two distinct annotation regexes — SAFE_ANNOTATION_RE anchored to line start (preceding-line), INLINE_SAFE_RE unanchored (same-line) — prevents docstring-embedded SAFE tokens from satisfying guard (T-03-02 defense)
 
 ### Pending Todos
 
@@ -87,8 +90,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T07:55:59.299Z
-Stopped at: Completed 01-02 repair drop_constraint(None) migration
+Last session: 2026-04-22T08:04:38.660Z
+Stopped at: Completed 01-03 SAFE-04 migration DROP guard
 Resume file: None
 
 **Planned Phase:** 01 (safety-nets-ci-hardening) — 8 plans — 2026-04-22T07:35:02.979Z

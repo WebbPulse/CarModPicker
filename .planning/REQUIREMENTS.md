@@ -14,7 +14,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 - [ ] **SAFE-01**: Backend `pytest.ini` enforces `--cov-fail-under=<measured baseline>` so coverage cannot silently drop
 - [ ] **SAFE-02**: `frontend-ci.yml` runs `npm test -- --run` on every PR (currently absent)
 - [ ] **SAFE-03**: Vitest config enforces a coverage threshold (`lines: 60`) for frontend
-- [ ] **SAFE-04**: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
+- [x] **SAFE-04
+**: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
 - [ ] **SAFE-05**: OpenAPI schema snapshot test catches unintended route/schema drift
 - [ ] **SAFE-06**: Auth characterization tests cover signup, verify-email, login, 2FA-TOTP, WebAuthn, OAuth, password-reset happy paths via `pytest-recording` before the auth refactor starts
 - [ ] **SAFE-07**: Crawler adapter VCR-style tests cover ≥5 representative adapters against archived S3 HTML before crawler refactor starts
