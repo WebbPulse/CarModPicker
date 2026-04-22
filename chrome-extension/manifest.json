@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CarModPicker Part Scraper",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Quickly scrape part information from web pages and add them to CarModPicker",
   "homepage_url": "https://carmodpicker.com",
   "permissions": [
