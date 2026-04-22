@@ -582,7 +582,10 @@ class MackinIndustriesAdapter(RetailerCrawlerAdapter):
         soup = BeautifulSoup(html, "html.parser")
 
         name = _extract_name(soup)
-        if not name or len(name) < 3:
+        # RAYS/Advan wheel models are routinely 2 chars ("M8", "S5", "R6") —
+        # a 3-char floor silently drops those. Drop empty only; the JSON-LD
+        # graph always emits a WebPage.name so empty means genuinely no page.
+        if not name:
             return None
 
         description = _extract_description(soup)

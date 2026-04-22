@@ -76,13 +76,19 @@ _NON_PRODUCT_PATH_PREFIXES = frozenset(
         "customer",
         "dealer-locator",
         "essex-designed-apracing-competition-brake-kits",
+        # Pluralized "radical" category sibling of the above — both are
+        # paginated category listings, not product pages.
+        "essex-designed-apracing-radical-competition-brake-kits",
+        "featured-products",
         "formula-sae",
+        "home-page",
         "manufacturer",
         "master-cylinders",
         "media-center",
         "new-products",
         "news-blog",
         "our-team",
+        "privacy-policy",
         "pro-race-series",
         "pro-race-services",
         "professional-racing-products",
@@ -93,6 +99,7 @@ _NON_PRODUCT_PATH_PREFIXES = frozenset(
         "support",
         "suspension",
         "temperature-indication-and-protection-products",
+        "terms-and-conditions",
         "versodeck-flooring",
         "wheels",
     }

@@ -133,6 +133,7 @@ _NON_PRODUCT_EXACT_SLUGS = frozenset(
         "support",
         "help",
         "faq",
+        "faq-v2",
         "faqs",
         "typography",
         "warranty",
@@ -152,8 +153,24 @@ _NON_PRODUCT_EXACT_SLUGS = frozenset(
         "product-carousels",
         "product-grid-columns",
         "products-grid",
+        # Staylime CMS fragments referenced by page builders (block widgets,
+        # reusable banner rows, editor templates). The sitemap generator
+        # emits them alongside real PDPs because they're stored as CMS pages.
+        "blog-widgets",
+        "blog-template",
+        "brands-widget",
+        "cms-banners",
+        "expand-content",
+        # Standalone CMS landing page about Full-Race's EIWG kits — links to
+        # the real EIWG product SKUs but carries `cms-page-view` itself.
+        "full-race-eiwg",
     }
 )
+
+# Slug prefixes that are always CMS / staging pages (page-builder tests,
+# demo templates with hash-suffixed slugs like ``test-template-652dc3c66b8be``).
+# Kept separate from the exact-slug set so hash-suffixed variants drop in bulk.
+_NON_PRODUCT_SLUG_PREFIXES = ("test-",)
 
 # Magento cache path — filename is ``/media/catalog/product/cache/<32-hex>/<asset-path>``.
 # The 32-hex token is a size/fit cache key; the asset path is stable per image.
@@ -226,8 +243,12 @@ def _is_product_url(url: str) -> bool:
     trimmed = path.strip("/")
     if not trimmed or "/" in trimmed:
         return False
-    if trimmed.lower() in _NON_PRODUCT_EXACT_SLUGS:
+    lowered = trimmed.lower()
+    if lowered in _NON_PRODUCT_EXACT_SLUGS:
         return False
+    for slug_prefix in _NON_PRODUCT_SLUG_PREFIXES:
+        if lowered.startswith(slug_prefix):
+            return False
     return True
 
 

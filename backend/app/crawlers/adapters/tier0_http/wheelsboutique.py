@@ -324,7 +324,10 @@ class WheelsBoutiqueAdapter(RetailerCrawlerAdapter):
         soup = BeautifulSoup(html, "html.parser")
 
         name = _extract_name(soup)
-        if not name or len(name) < 3:
+        # BBS wheel models are routinely 2 chars ("FI", "RN", "XA", "CH") —
+        # a 3-char floor silently drops legit wheel-model pages. Accept any
+        # non-empty H1; brand comes from the URL path regardless.
+        if not name:
             return None
 
         description = _extract_description(soup)

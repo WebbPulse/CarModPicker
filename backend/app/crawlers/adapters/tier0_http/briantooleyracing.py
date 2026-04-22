@@ -324,7 +324,20 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
         if not _is_product_url(url):
             return None
 
+        # BTR 301s retired slugs (e.g. ``/ac-delco-oil-filter-pf46-19210283-...``
+        # → ``/ac-delco-oil-filter-pf46-12731172.html``) to the canonical product
+        # page; the fetcher follows, and the JSON-LD on the landed page declares
+        # the canonical URL, not the requested one. The URL-strict helper then
+        # rejects it. Retry without URL-matching and accept the result only when
+        # it declares a same-host URL — that still excludes the Wix/a90shop
+        # cross-product JSON-LD footgun (different host / unrelated product).
         item = extract_json_ld_product(html, product_url=url)
+        if not item:
+            fallback = extract_json_ld_product(html)
+            if fallback:
+                declared = fallback.get("url")
+                if isinstance(declared, str) and _is_product_url(declared):
+                    item = fallback
         if not item:
             return None
 

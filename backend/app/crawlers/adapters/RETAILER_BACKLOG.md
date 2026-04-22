@@ -57,6 +57,9 @@ Shopify, BigCommerce, Magento 2, WooCommerce, custom).
   `ProductGroup`, so each adapter has its own ProductGroup-aware extractor.
   ETS child sitemap URLs must be fetched verbatim including the
   `?from=&to=` query — stripping it returns HTTP 400.
+  See [`VARIANTS.md`](./VARIANTS.md) for cross-adapter notes on
+  multi-permutation product pages and the design options we've sketched
+  for lifting the "one Part per URL" constraint.
 
 ### Smoke-test checklist (per adapter)
 

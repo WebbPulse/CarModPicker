@@ -237,6 +237,53 @@ class TestParseProductPage:
         assert result is not None
         assert result.image_urls == ["https://www.texas-speed.com/media/catalog/product/1/6/16987_1.jpg"]
 
+    def test_product_group_parent_page_parses(self) -> None:
+        # Products with size/oversize variants (pistons, rings) emit
+        # ``@type: "ProductGroup"`` for the *parent* listing URL, with
+        # ``hasVariant: [Product, ...]`` for each size. The shared
+        # ``extract_json_ld_product`` only accepts Product; the adapter must
+        # fall back to the ProductGroup block — it carries the full field set
+        # (name/sku/mpn/brand/image/description/offers as AggregateOffer with
+        # ``lowPrice``) — so the parent URL still yields a ScrapedPayload.
+        group_html = """
+        <html><head><title>UEM Silv-O-Lite Piston</title>
+          <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "ProductGroup",
+            "name": "UEM Silv-O-Lite Piston - Cast 390 Alloy",
+            "sku": "UEM-3540HCASTD",
+            "mpn": "3540HCA",
+            "image": "https://www.texas-speed.com/media/catalog/product/1/5/15470_1.jpg",
+            "brand": {"@type": "Brand", "name": "UEM Pistons and Rings"},
+            "description": "Cast 390 Alloy piston set; hypereutectic dome. Fits GM L86/L87/LT2.",
+            "offers": {
+              "@type": "AggregateOffer",
+              "lowPrice": "464.00",
+              "highPrice": "464.00",
+              "priceCurrency": "USD",
+              "offers": [
+                {"@type": "Offer", "url": "https://www.texas-speed.com/brand/umi-performance/p-variant-a/", "price": "464.00"}
+              ]
+            },
+            "productGroupID": "UEM-3540HCASTD",
+            "hasVariant": []
+          }
+          </script>
+        </head><body></body></html>
+        """
+        url = (
+            "https://www.texas-speed.com/brand/uem-pistons-and-rings/"
+            "p-uem-3540hcastd-uem-silv-o-lite-piston-cast-390-alloy/"
+        )
+        result = TexasSpeedAdapter().parse_product_page(group_html, url)
+        assert result is not None
+        assert result.name == "UEM Silv-O-Lite Piston - Cast 390 Alloy"
+        assert result.part_manufacturer == "UEM Pistons and Rings"
+        assert result.part_number == "3540HCA"
+        assert result.price_cents == 46400
+        assert result.product_url == url
+
     def test_non_product_url_returns_none(self) -> None:
         # Guard: archive rescrape must not feed category pages through this
         # adapter just because the host matches.

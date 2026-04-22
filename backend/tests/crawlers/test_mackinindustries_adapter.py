@@ -283,6 +283,16 @@ class TestParseItemPage:
         html = "<html><body><p>Stub.</p></body></html>"
         assert MackinIndustriesAdapter().parse_product_page(html, ITEM_URL) is None
 
+    def test_two_char_wheel_model_name_is_kept(self) -> None:
+        # RAYS / Advan wheel-model pages use 2-char model names as the H1
+        # (M8, S5, R6). A length floor would silently drop all of them.
+        result = MackinIndustriesAdapter().parse_product_page(
+            _item_html(og_title="M8 - Mackin Industries", h1="M8"),
+            "https://mackin-ind.com/item/m8/",
+        )
+        assert result is not None
+        assert result.name == "M8"
+
     def test_generic_accessory_has_no_brand(self) -> None:
         # "wheel-rack" slug misses every brand token; the ingest-layer
         # "Unknown" default will apply. Adapter must not invent a brand.

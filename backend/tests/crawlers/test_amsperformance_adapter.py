@@ -215,3 +215,17 @@ class TestParseProductPage:
         # skip them so the runner doesn't ingest a blank row.
         html = "<html><head><title>Page Not Found - AMS Performance</title></head><body></body></html>"
         assert AMSPerformanceAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+    def test_jsonld_url_mismatch_still_parses(self) -> None:
+        # WooCommerce sometimes renames a product slug and 301s the old URL to
+        # the new one; the JSON-LD then declares the post-redirect URL while
+        # the runner still passes the original. The adapter must not reject
+        # the block just because its declared URL doesn't match the input.
+        html = _product_page_html(
+            name="AMS Performance INFINITI Q50/Q60 80mm Air Intakes - AMS Performance",
+            sku="ALP.28.08.0003-1",
+        )
+        input_url = "https://www.amsperformance.com/product/old-ams-infiniti-intakes/"
+        result = AMSPerformanceAdapter().parse_product_page(html, input_url)
+        assert result is not None
+        assert result.part_number == "ALP.28.08.0003-1"

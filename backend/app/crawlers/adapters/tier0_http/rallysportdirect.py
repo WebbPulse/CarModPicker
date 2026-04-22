@@ -16,12 +16,14 @@ on the sitemap and product pages. Cloudflare fronts the origin but does not
 challenge non-browser clients. Promote to ``tls`` if ``cf-mitigated: challenge``
 ever appears in logs.
 
-Parsing: JSON-LD Product is authoritative — name, sku (manufacturer MPN,
-e.g. ``ACL5M8309H-.50``), brand.name, description, gtin, image (single hero),
-offers.price / priceCurrency. The shared ``scraped_payload_from_json_ld``
-doesn't pull gtin, so we extract it manually here (RSD emits it reliably per
-product). DOM gallery (``.product__media-list``) expands past the JSON-LD
-hero; og:image is a last-ditch hero source.
+Parsing: single-variant products ship a plain ``@type=Product`` JSON-LD block;
+multi-variant products ship a ``@type=ProductGroup`` block with the variants
+nested under ``hasVariant`` (each one a ``Product``). We handle both shapes:
+for ProductGroup we collapse the first variant's offers/gtin/image into the
+parent so downstream code sees a single Product-shaped dict. Fields pulled:
+name, sku, brand.name, description, gtin, image (single hero), offers.price /
+priceCurrency. DOM gallery (``.product__media-list``) expands past the
+JSON-LD hero; og:image is a last-ditch hero source.
 
 Brand policy: RSD is a Subaru-focused reseller (ACL, Cobb, Perrin, GrimmSpeed,
 Whiteline, Cusco, …). JSON-LD ``brand.name`` is populated per-SKU with the
@@ -29,6 +31,7 @@ actual manufacturer, so we trust it directly — no retailer house brand. Title 
 description heuristics cover the rare page that omits the brand field.
 """
 
+import json
 import os
 import re
 import time
@@ -233,6 +236,76 @@ def _extract_images(soup: BeautifulSoup) -> List[str]:
     return ordered[:12]
 
 
+def _flatten_product_group(item: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Collapse a ``ProductGroup`` into a single Product-shaped dict by merging
+    its first ``hasVariant`` entry's offers / gtin / image / sku onto the
+    group. Multi-variant products emit the group; the group carries the
+    shared name + description + brand, and each variant carries its own
+    price / sku / gtin / image. We use the first variant as the canonical
+    row — RSD's grid view and listing price key off the same variant.
+    Single-variant products already arrive as plain ``Product``; this is a
+    no-op for them.
+    """
+    t = item.get("@type")
+    is_group = t == "ProductGroup" or (isinstance(t, list) and "ProductGroup" in t)
+    if not is_group:
+        return item
+    variants = item.get("hasVariant")
+    if not isinstance(variants, list) or not variants:
+        return item
+    first: Any = None
+    for v in variants:
+        if isinstance(v, dict):
+            first = v
+            break
+    if not isinstance(first, dict):
+        return item
+    merged = dict(item)
+    merged["@type"] = "Product"
+    # Variant fields win where the group doesn't already have them.
+    for key in ("offers", "gtin", "gtin13", "gtin12", "gtin8", "gtin14", "sku", "mpn", "image"):
+        if key not in merged and key in first:
+            merged[key] = first[key]
+    return merged
+
+
+def _extract_product_or_group(html: str, url: str) -> Optional[Dict[str, Any]]:
+    """
+    Find the JSON-LD Product or ProductGroup that represents this page.
+
+    ``extract_json_ld_product`` only knows about ``@type=Product``; RSD's
+    Dawn-lineage theme emits ``ProductGroup`` for multi-variant items with
+    variants nested under ``hasVariant``. We walk the page's JSON-LD scripts
+    ourselves, collapse any ProductGroup into a Product-shaped dict, and fall
+    back to the shared helper for single-variant pages.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string
+        if not raw or not raw.strip():
+            continue
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        candidates: List[Any]
+        if isinstance(data, list):
+            candidates = data
+        elif isinstance(data, dict):
+            graph = data.get("@graph")
+            candidates = graph if isinstance(graph, list) else [data]
+        else:
+            continue
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            t = item.get("@type")
+            if t == "ProductGroup" or (isinstance(t, list) and "ProductGroup" in t):
+                return _flatten_product_group(item)
+    return extract_json_ld_product(html, product_url=url)
+
+
 def _gtin_from_json_ld(item: Dict[str, Any]) -> Optional[str]:
     """
     Pull a GTIN from the JSON-LD Product. RSD emits ``gtin`` at the product
@@ -275,11 +348,11 @@ class RallysportDirectAdapter(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse an RSD product page into a ``ScrapedPayload``. Returns ``None``
-        when no JSON-LD Product is present — RSD emits it on every real
-        product page, so a missing block means the URL is a soft-404 or
-        non-product.
+        when no Product / ProductGroup JSON-LD is present — RSD emits one on
+        every real product page, so a missing block means the URL is a
+        soft-404 or non-product.
         """
-        item = extract_json_ld_product(html, product_url=url)
+        item = _extract_product_or_group(html, url)
         if not item:
             return None
 

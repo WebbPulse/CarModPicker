@@ -161,6 +161,18 @@ class TestProductUrlShape:
         # Real product slugs are long and descriptive; short bare roots are navigation.
         assert not _is_product_url("https://www.essexparts.com/contact")
 
+    def test_sitemap_cms_slugs_rejected(self) -> None:
+        # Sitemap surfaces CMS / legal / home / category slugs as single-segment
+        # URLs that pass the length guard but are never product pages.
+        for path in (
+            "/privacy-policy",
+            "/terms-and-conditions",
+            "/home-page",
+            "/featured-products",
+            "/essex-designed-apracing-radical-competition-brake-kits",
+        ):
+            assert not _is_product_url(f"https://www.essexparts.com{path}"), path
+
 
 class TestNormalizePartManufacturer:
     """Co-brand aliases map to the upstream manufacturer; others pass through."""

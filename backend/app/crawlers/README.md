@@ -131,6 +131,8 @@ Files are stored as `CRAWL_HTML_SAVE_DIR/<adapter>/<url_hash>.html` with a sidec
 
 See `adapters/a90shop.py` and `adapters/studiorsr.py` for examples; `parsing.py` for shared helpers (JSON-LD, meta_content, extract_dom_price, part_manufacturer_from_title); and `base.py` for the `ScrapedPayload` contract.
 
+**Multi-variant product pages** (pistons in N oversizes, pads in N compounds, etc.) are a known gap — every adapter currently emits one `ScrapedPayload` per URL, so parent-with-variants pages collapse to whichever SKU "wins" per the adapter's rule. See `adapters/VARIANTS.md` for the cross-adapter survey of how each adapter copes, and sketched options (A–E) for expanding the model when variants become a blocker.
+
 ## Fetcher tiers
 
 Retailers vary wildly in how aggressively they block automated clients. Rather than always reach for a headless browser, each adapter declares which **fetcher tier** it needs and the runner constructs a matching fetcher at startup. See `app/crawlers/fetchers.py` for the implementations.

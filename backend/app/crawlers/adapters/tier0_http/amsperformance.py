@@ -187,8 +187,15 @@ class AMSPerformanceAdapter(RetailerCrawlerAdapter):
         Parse an AMS Performance product page into a ``ScrapedPayload``.
         Returns ``None`` when no JSON-LD Product is present (the page isn't a
         product — typically a soft-404 landing page with the site chrome).
+
+        AMS ships exactly one Product block per page (Rank Math's @graph
+        always terminates on the canonical product). Its declared URLs carry
+        a ``#richSnippet`` fragment, and crawler fetches frequently resolve
+        through a WooCommerce rename redirect — so the canonical-URL match in
+        ``extract_json_ld_product`` would reject valid products whose slug
+        changed. We skip the URL guard here and trust the block.
         """
-        item = extract_json_ld_product(html, product_url=url)
+        item = extract_json_ld_product(html)
         if not item:
             return None
 

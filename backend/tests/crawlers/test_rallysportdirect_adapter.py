@@ -249,6 +249,45 @@ class TestParseProductPage:
         html = "<html><head><title>Page Not Found</title></head><body></body></html>"
         assert RallysportDirectAdapter().parse_product_page(html, SAMPLE_URL) is None
 
+    def test_product_group_collapses_to_first_variant(self) -> None:
+        # Multi-variant products on RSD ship a ProductGroup whose hasVariant
+        # list carries the per-variant offers / gtin / image. The adapter
+        # flattens the group onto the first variant so the payload looks the
+        # same as a single-variant Product page.
+        page_url = "https://www.rallysportdirect.com/products/cob-511301-cobb-tuning-exhaust-hanger"
+        html = f"""
+        <html><head>
+          <script type="application/ld+json">
+          {{
+            "@context": "http://schema.org/",
+            "@type": "ProductGroup",
+            "name": "COBB Tuning 15MM Urethane Exhaust Hanger",
+            "url": "{page_url}",
+            "brand": {{"@type": "Brand", "name": "COBB"}},
+            "description": "Polyurethane exhaust hanger for Subaru models.",
+            "hasVariant": [{{
+              "@type": "Product",
+              "name": "COBB Tuning 15MM Urethane Exhaust Hanger - Black",
+              "gtin": "799928869225",
+              "image": "https://www.rallysportdirect.com/cdn/shop/files/hanger.jpg?v=1&width=1920",
+              "offers": {{
+                "@type": "Offer",
+                "price": "20.00",
+                "priceCurrency": "USD",
+                "url": "{page_url}"
+              }}
+            }}]
+          }}
+          </script>
+        </head><body></body></html>
+        """
+        result = RallysportDirectAdapter().parse_product_page(html, page_url)
+        assert result is not None
+        assert result.name == "COBB Tuning 15MM Urethane Exhaust Hanger"
+        assert result.part_manufacturer == "COBB"
+        assert result.price_cents == 2000
+        assert result.gtin == "799928869225"
+
     def test_html_entity_in_name_decoded(self) -> None:
         # Shopify JSON-LD escapes ``&`` as ``\u0026`` — the shared helper
         # decodes HTML entities, so "WRX \u0026 STI" becomes "WRX & STI".

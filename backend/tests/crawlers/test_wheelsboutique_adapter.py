@@ -264,6 +264,18 @@ class TestParseEdgeCases:
         html = "<html><body><p>Page not found</p></body></html>"
         assert WheelsBoutiqueAdapter().parse_product_page(html, WHEEL_URL) is None
 
+    def test_two_char_wheel_model_name_is_kept(self) -> None:
+        # BBS model pages (FI, RN, XA, CH) use 2-char model names as the H1.
+        # A length floor would silently drop every BBS forged-line product.
+        bbs_url = "https://wheelsboutique.com/wheels/bbs-wheels/forged-line-exclusive-series/fi"
+        result = WheelsBoutiqueAdapter().parse_product_page(
+            _wheel_html(name="FI", description_text="One Piece Forged Aluminum Wheels."),
+            bbs_url,
+        )
+        assert result is not None
+        assert result.name == "FI"
+        assert result.part_manufacturer == "BBS"
+
 
 class TestAdapterFetcherTier:
     """Wheels Boutique is plain nginx/WordPress — no Cloudflare, no TLS challenge."""

@@ -139,6 +139,36 @@ class TestIsProductUrl:
     def test_wrong_host_rejected(self) -> None:
         assert not _is_product_url("https://example.com/tial-mvs-38mm-external-wastegate")
 
+    def test_cms_fragment_slugs_rejected(self) -> None:
+        # Staylime CMS page-builder fragments leak into the Magento sitemap —
+        # they render as `cms-page-view` and parse as None, so drop them at
+        # discovery to save a round-trip.
+        for url in (
+            "https://www.full-race.com/blog-widgets",
+            "https://www.full-race.com/blog-template",
+            "https://www.full-race.com/brands-widget",
+            "https://www.full-race.com/cms-banners",
+            "https://www.full-race.com/expand-content",
+            "https://www.full-race.com/full-race-eiwg",
+        ):
+            assert not _is_product_url(url), url
+
+    def test_test_prefix_slugs_rejected(self) -> None:
+        # Page-builder test / staging slugs, including hash-suffixed variants.
+        for url in (
+            "https://www.full-race.com/test-page-home",
+            "https://www.full-race.com/test-template",
+            "https://www.full-race.com/test-page-template",
+            "https://www.full-race.com/test-template-652dc3c66b8be",
+        ):
+            assert not _is_product_url(url), url
+
+    def test_banner_product_still_accepted(self) -> None:
+        # "Full-Race Shop Banner 2' x 12'" is a real merch product — blanket
+        # blocking "*banner*" / "*template*" would lose it. Only the explicit
+        # CMS slug set + ``test-`` prefix should reject.
+        assert _is_product_url("https://www.full-race.com/full-race-shop-banner-2-x-12")
+
 
 class TestCanonicalImagePath:
     """Gallery dedupe key: different Magento cache hashes for the same asset

@@ -2,27 +2,32 @@
 Integrated Engineering (performancebyie.com) crawler adapter.
 
 Product URLs: https://performancebyie.com/products/<handle>
-Shopify store that emits a clean JSON-LD Product block with name, description,
-sku (top-level), price (from offers[0]), brand (plain string
-``"Integrated Engineering"``), and a single ImageObject. JSON-LD is the
-authoritative source for everything except the image gallery — JSON-LD ships
-only the hero image, so the full gallery is pulled from the DOM
-``.product-slideshow`` / ``[data-product-photos]`` container.
+Shopify store. The current Impulse theme no longer emits a JSON-LD Product
+block, so parsing is DOM-first:
 
-Brand: IE's JSON-LD consistently emits ``"Integrated Engineering"``. First-party
-catalog — every product is IE-branded. When JSON-LD omits the brand we still
-default to ``"Integrated Engineering"`` rather than relying on the title
-heuristic (titles lead with the chassis, e.g. ``"iE Catback Exhaust System For
-VW MK7 Golf R"``, which would otherwise get picked up as "VW").
+- ``og:title`` / ``og:image:secure_url`` / ``meta[name=description]`` supply
+  the product name, hero image, and (truncated) description.
+- The inline ``<script data-pdp-variant-json>`` array ships the authoritative
+  SKU and cents-denominated price for each variant; we read variant[0].
+- The ``.sidebar`` inside ``section.product-main#videos-photos`` holds the
+  full gallery as ``.sidebar-item[data-type="image"]`` thumbnails whose
+  ``data-src`` points at the full-resolution Shopify CDN image.
+
+Brand: every product on performancebyie.com is IE's own line. We default the
+manufacturer to ``"Integrated Engineering"`` rather than running a title
+heuristic — titles lead with the chassis (e.g. ``"iE Catback Exhaust System
+For VW MK7 Golf R"``), which the generic heuristic would misread as "VW".
 
 Discovery: ``/sitemap.xml`` → ``sitemap_products_N.xml`` children, filtered to
 ``/products/`` URLs. Override with ``CRAWLER_IE_START_URLS`` (comma-separated).
 """
 
+import html as html_lib
+import json
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import Any, Iterator, List, Optional
 from urllib.parse import urlencode, urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -37,10 +42,9 @@ from app.crawlers.base import (
     fetch_page,
 )
 from app.crawlers.parsing import (
-    extract_json_ld_product,
     meta_content,
+    normalize_description_text,
     normalize_part_number,
-    scraped_payload_from_json_ld,
 )
 
 IE_BASE = "https://performancebyie.com"
@@ -61,6 +65,13 @@ _SHOPIFY_CDN_MARKER = "/cdn/shop/"
 _NON_PRODUCT_MEDIA_RE = re.compile(
     r"/logo[/_-]|favicon|sprite|mega_?menu|placeholder|payment[_-]",
     re.IGNORECASE,
+)
+
+# Inline ``<script data-pdp-variant-json>`` array the Impulse theme ships on
+# every product page. variant[0] is authoritative for sku + price (cents).
+_VARIANT_JSON_RE = re.compile(
+    r"<script[^>]*\bdata-pdp-variant-json\b[^>]*>(.*?)</script>",
+    re.DOTALL | re.IGNORECASE,
 )
 
 
@@ -178,9 +189,12 @@ def _extract_images(soup: BeautifulSoup) -> List[str]:
     Collect product gallery image URLs.
 
     Starts with ``og:image:secure_url`` / ``og:image`` (the hero), then walks
-    the Shopify ``.product-slideshow`` / ``[data-product-photos]`` container so
-    hero/promo banners elsewhere on the page don't leak in. Falls back to the
-    ``.product__photos`` wrapper if the slideshow container is absent.
+    the current Impulse-theme gallery: ``.sidebar-item[data-type="image"]``
+    inside ``section.product-main#videos-photos``. ``data-src`` holds the
+    full-resolution URL; the nested ``<img>`` is a 220px thumbnail that would
+    dedupe to the same canonical form. Older themes exposed
+    ``.product-slideshow`` / ``[data-product-photos]`` / ``.product__photos``
+    — kept as fallbacks so a theme rollback doesn't break parsing.
     """
     ordered: List[str] = []
     seen: set[str] = set()
@@ -200,32 +214,105 @@ def _extract_images(soup: BeautifulSoup) -> List[str]:
         if content:
             add(content.strip())
 
-    scope: Optional[Tag] = None
-    for selector in (".product-slideshow", "[data-product-photos]", ".product__photos"):
-        found = soup.select_one(selector)
-        if isinstance(found, Tag):
-            scope = found
+    # Current theme: sidebar thumbnails with data-src pointing at full-res file.
+    for item in soup.select('section.product-main#videos-photos .sidebar .sidebar-item[data-type="image"]'):
+        if len(ordered) >= 12:
             break
+        if not isinstance(item, Tag):
+            continue
+        ds = item.get("data-src")
+        if isinstance(ds, str) and ds.strip():
+            add(ds.strip())
 
-    if scope is not None:
-        for img in scope.find_all("img"):
-            if not isinstance(img, Tag) or len(ordered) >= 12:
+    if len(ordered) <= 1:
+        scope: Optional[Tag] = None
+        for selector in (".product-slideshow", "[data-product-photos]", ".product__photos"):
+            found = soup.select_one(selector)
+            if isinstance(found, Tag):
+                scope = found
                 break
-            for attr in ("src", "data-src"):
-                val = img.get(attr)
-                if isinstance(val, str) and val.strip():
-                    add(val.strip())
+
+        if scope is not None:
+            for img in scope.find_all("img"):
+                if not isinstance(img, Tag) or len(ordered) >= 12:
                     break
+                for attr in ("src", "data-src"):
+                    val = img.get(attr)
+                    if isinstance(val, str) and val.strip():
+                        add(val.strip())
+                        break
 
     return ordered[:12]
+
+
+def _extract_variant_data(html: str) -> tuple[Optional[str], Optional[int]]:
+    """
+    Read sku and price (cents) from the first entry of the inline variant
+    JSON. Shopify ships ``price`` already in integer cents; we trust it
+    rather than rebuilding from decimal formatting.
+    """
+    m = _VARIANT_JSON_RE.search(html)
+    if not m:
+        return None, None
+    try:
+        variants = json.loads(m.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return None, None
+    if not isinstance(variants, list) or not variants:
+        return None, None
+    first = variants[0]
+    if not isinstance(first, dict):
+        return None, None
+    sku_raw: Any = first.get("sku")
+    price_raw: Any = first.get("price")
+    sku: Optional[str] = sku_raw.strip() if isinstance(sku_raw, str) and sku_raw.strip() else None
+    price_cents: Optional[int] = None
+    if isinstance(price_raw, bool):
+        price_raw = None
+    if isinstance(price_raw, int) and price_raw > 0:
+        price_cents = price_raw
+    elif isinstance(price_raw, float) and price_raw > 0:
+        price_cents = int(price_raw)
+    elif isinstance(price_raw, str) and price_raw.strip():
+        try:
+            num = float(price_raw)
+        except ValueError:
+            num = 0.0
+        if num > 0:
+            # Impulse emits cents as a plain integer; fall back to decimal-dollars
+            # only if the string has a decimal point.
+            price_cents = int(num) if "." not in price_raw else int(round(num * 100))
+    return sku, price_cents
+
+
+def _extract_og_content(soup: BeautifulSoup, *props: str) -> Optional[str]:
+    """Return the first populated meta content from the given og-style property names."""
+    for prop in props:
+        tag = soup.find("meta", property=prop)
+        if isinstance(tag, Tag):
+            content = meta_content(tag)
+            if content and content.strip():
+                return html_lib.unescape(content.strip())
+    return None
+
+
+def _extract_meta_description(soup: BeautifulSoup) -> Optional[str]:
+    """Fallback description source — ``<meta name="description">`` mirrors og:description."""
+    tag = soup.find("meta", attrs={"name": "description"})
+    if isinstance(tag, Tag):
+        content = meta_content(tag)
+        if content and content.strip():
+            return html_lib.unescape(content.strip())
+    return None
 
 
 class IEAdapter(RetailerCrawlerAdapter):
     """
     Integrated Engineering adapter. Discovery via ``/sitemap.xml`` →
-    ``sitemap_products_N.xml``. Parsing uses the JSON-LD Product block for
-    name/sku/price/description/brand; DOM is used only to expand the image
-    gallery beyond the single hero JSON-LD ships.
+    ``sitemap_products_N.xml``. Parsing is DOM-first: og:title / og:description
+    / og:image for name/description/hero, ``data-pdp-variant-json`` for
+    sku + cents price, and the Impulse sidebar gallery for the remaining
+    images. Brand defaults to the IE house brand (``IE_BRAND``).
     """
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -236,31 +323,37 @@ class IEAdapter(RetailerCrawlerAdapter):
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """
         Parse an IE product page into a ``ScrapedPayload``. Returns ``None``
-        when no JSON-LD Product is present — IE emits it on every real product
-        page, so a missing block means the URL is a soft-404 or non-product.
+        when the page carries neither an ``og:title`` nor an ``<h1>`` — i.e.
+        a soft-404 or non-product page.
         """
-        item = extract_json_ld_product(html, product_url=url)
-        if not item:
-            return None
-
-        payload = scraped_payload_from_json_ld(item, url)
-        if not payload or not payload.name:
-            return None
-
         soup = BeautifulSoup(html, "html.parser")
-        dom_images = _extract_images(soup)
 
-        part_manufacturer = (payload.part_manufacturer or "").strip() or IE_BRAND
-        part_number = normalize_part_number(payload.part_number) if payload.part_number else None
-        image_urls = dom_images[:12] if dom_images else payload.image_urls
+        name = _extract_og_content(soup, "og:title")
+        if not name:
+            h1 = soup.find("h1")
+            if isinstance(h1, Tag):
+                text = h1.get_text(strip=True)
+                if text:
+                    name = html_lib.unescape(text)
+        if not name:
+            return None
+
+        description_raw = _extract_og_content(soup, "og:description") or _extract_meta_description(soup)
+        description = normalize_description_text(description_raw, max_len=2000) if description_raw else None
+
+        sku, price_cents = _extract_variant_data(html)
+        part_number = normalize_part_number(sku) if sku else None
+
+        dom_images = _extract_images(soup)
+        image_urls = dom_images[:12] if dom_images else None
 
         return ScrapedPayload(
-            name=payload.name,
-            product_url=payload.product_url,
-            description=payload.description,
-            price_cents=payload.price_cents,
-            part_manufacturer=part_manufacturer,
+            name=name,
+            product_url=url,
+            description=description,
+            price_cents=price_cents,
+            part_manufacturer=IE_BRAND,
             part_number=part_number,
             image_urls=image_urls,
-            gtin=payload.gtin,
+            gtin=None,
         )

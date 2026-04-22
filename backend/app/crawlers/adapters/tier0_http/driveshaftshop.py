@@ -81,6 +81,15 @@ _DESCRIPTION_PART_RE = re.compile(
 
 _DSS_DEFAULT_BRAND = "Driveshaft Shop"
 
+# WooCommerce "size variant" stubs that DSS uses internally as configurator
+# options (driveshaft lengths in inches: ``/product/34/``, ``/product/34-5/``,
+# ``/product/36-5/`` — ~43 entries in the sitemap). These pages have no
+# JSON-LD Product block, an empty <p class="price">, an "Uncategorized"
+# breadcrumb, and an H1 like ``34"``. They always 0-parse downstream, so we
+# skip them at discovery to save a fetch per stub. Real product slugs carry
+# alphabetic tokens (e.g. ``2020-2023-g80-bmw-m3-axles``).
+_NUMERIC_ONLY_SLUG_RE = re.compile(r"^\d+(?:-\d+)?$")
+
 
 def _resolve_start_urls() -> List[str]:
     """Env override wins; otherwise discover via sitemap index, then default."""
@@ -105,6 +114,19 @@ def _is_product_child_sitemap(url: str) -> bool:
     return bool(_PRODUCT_SITEMAP_RE.search(path))
 
 
+def _is_numeric_only_product_slug(url: str) -> bool:
+    """True if ``url`` ends in a ``/product/<digits-only>/`` slug (size stub)."""
+    try:
+        path = urlparse(url).path or ""
+    except ValueError:
+        return False
+    parts = [p for p in path.split("/") if p]
+    # Expect exactly ["product", "<slug>"].
+    if len(parts) != 2 or parts[0].lower() != "product":
+        return False
+    return bool(_NUMERIC_ONLY_SLUG_RE.match(parts[1]))
+
+
 def _discover_product_urls_via_sitemap() -> List[str]:
     """
     Walk ``/sitemap_index.xml`` → each ``product-sitemap[N].xml`` urlset and
@@ -126,6 +148,8 @@ def _discover_product_urls_via_sitemap() -> List[str]:
             if PRODUCT_PAGE_PATH not in u:
                 continue
             base = u.split("?")[0]
+            if _is_numeric_only_product_slug(base):
+                continue
             if base in seen:
                 continue
             seen.add(base)

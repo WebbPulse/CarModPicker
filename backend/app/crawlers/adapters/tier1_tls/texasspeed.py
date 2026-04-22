@@ -19,7 +19,12 @@ origin, but it is a stale 23k-URL urlset pointing at ``mcprod.texas-speed.com/*`
 Magento ``no-route`` 404. The correct sitemap is the one under
 ``/sitemap/sitemap.xml``. Override via ``CRAWLER_TEXASSPEED_START_URLS``.
 
-Parsing: JSON-LD ``Product`` at the page root (not inside ``@graph``). Fields:
+Parsing: JSON-LD ``Product`` at the page root (not inside ``@graph``). Pages
+for products with size/oversize variants (e.g. pistons) instead emit
+``@type: "ProductGroup"`` with ``hasVariant: [Product, ...]``; the parent
+ProductGroup carries the same field set (name/sku/mpn/brand/image/description/
+offers as AggregateOffer with ``lowPrice``), so we fall back to it directly
+when the shared Product extractor returns nothing. Fields:
 
 - **name** — clean, no site-name suffix.
 - **brand.name** — clean brand (``"Texas Speed & Performance"``,
@@ -48,7 +53,7 @@ import json
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -116,6 +121,45 @@ def _resolve_start_urls_env() -> Optional[List[str]]:
     if not raw:
         return None
     return [u.strip() for u in raw.split(",") if u.strip()]
+
+
+def _find_product_group_json_ld(html: str) -> Optional[Dict[str, Any]]:
+    """
+    Find the first top-level ``ProductGroup`` JSON-LD block on the page.
+
+    Texas Speed emits ``@type: "ProductGroup"`` (with ``hasVariant: [Product,
+    ...]``) for product family pages that have size/oversize variants — the
+    parent URL itself isn't a variant, so the shared ``extract_json_ld_product``
+    returns None on these. The parent ProductGroup carries the full set of
+    fields we need (``name``, ``sku``, ``mpn``, ``brand``, ``image``,
+    ``description``, ``offers`` as AggregateOffer with ``lowPrice``), so we
+    can feed it straight into ``scraped_payload_from_json_ld`` without
+    descending into the variants.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string
+        if not raw or not raw.strip():
+            continue
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        items: List[Dict[str, Any]] = []
+        if isinstance(data, list):
+            items = cast(List[Dict[str, Any]], data)
+        elif isinstance(data, dict):
+            if "@graph" in data and isinstance(data["@graph"], list):
+                items = cast(List[Dict[str, Any]], data["@graph"])
+            else:
+                items = [data]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            t = item.get("@type")
+            if t == "ProductGroup" or (isinstance(t, list) and "ProductGroup" in t):
+                return item
+    return None
 
 
 def _extract_gallery_full_urls(html: str) -> List[str]:
@@ -298,6 +342,8 @@ class TexasSpeedAdapter(RetailerCrawlerAdapter):
             return None
 
         item = extract_json_ld_product(html, product_url=url)
+        if not item:
+            item = _find_product_group_json_ld(html)
         if not item:
             return None
 

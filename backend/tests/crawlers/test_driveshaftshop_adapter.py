@@ -8,6 +8,7 @@ with DSS-specific nested-priceSpecification extraction, description-embedded
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.driveshaftshop import (
     DriveshaftShopAdapter,
+    _is_numeric_only_product_slug,
     _is_product_child_sitemap,
     _part_number_from_description,
     _price_cents_from_price_specification,
@@ -198,6 +199,40 @@ class TestIsProductChildSitemap:
             "https://driveshaftshop.com/product/some-slug/",
         ):
             assert not _is_product_child_sitemap(bad), bad
+
+
+class TestNumericOnlyProductSlug:
+    """Discovery filter: driveshaft-length size stubs (``/product/34/`` etc.) are skipped."""
+
+    def test_bare_integer_slug_is_stub(self) -> None:
+        # Length-in-inches configurator stubs — no JSON-LD Product, empty
+        # price, Uncategorized breadcrumb. Parse always returns None.
+        for u in (
+            "https://driveshaftshop.com/product/30/",
+            "https://driveshaftshop.com/product/34/",
+            "https://driveshaftshop.com/product/37/",
+        ):
+            assert _is_numeric_only_product_slug(u), u
+
+    def test_decimal_hyphen_slug_is_stub(self) -> None:
+        # DSS encodes half-inch lengths as ``34-5`` (= 34.5 inches).
+        for u in (
+            "https://driveshaftshop.com/product/34-5/",
+            "https://driveshaftshop.com/product/36-5/",
+            "https://driveshaftshop.com/product/31-2/",
+        ):
+            assert _is_numeric_only_product_slug(u), u
+
+    def test_alphabetic_slug_is_real_product(self) -> None:
+        # Real-product slugs always carry at least one alphabetic token.
+        # Year prefixes (1998-2000, 2020-2023) don't trigger because the
+        # slug has additional segments after the numeric year range.
+        for u in (
+            "https://driveshaftshop.com/product/2020-2023-g80-bmw-m3-axles/",
+            "https://driveshaftshop.com/product/bmw-e30-1986-92-1-piece-chromoly-driveshaft/",
+            "https://driveshaftshop.com/product/2003-2008-g35-coupe-3-5-aluminum-driveshaft-1595613377/",
+        ):
+            assert not _is_numeric_only_product_slug(u), u
 
 
 class TestParseProductPage:

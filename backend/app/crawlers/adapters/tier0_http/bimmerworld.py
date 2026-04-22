@@ -75,8 +75,14 @@ _PRODUCT_PATH_RE = re.compile(r"^/[A-Za-z0-9][A-Za-z0-9_\-/]*\.html$")
 # CMS / cart / account paths that occasionally end in ``.html`` and would
 # otherwise pass the shape guard. Bimmerworld's main offenders are gift-card
 # and wishlist pages.
+#
+# ``/Garage-Sale/<SKU>-<...>-BLEMISHED.html`` is excluded too: garage-sale
+# items are one-off blemished units that sell through once and then serve a
+# 200 with ``<title>This item is no longer available.</title>`` (no
+# ``#productName``, no ``itemid`` script). Treating them as products
+# generates a stream of empty-parse failures in normal sitemap runs.
 _NON_PRODUCT_PATH_RE = re.compile(
-    r"^/(" r"Gift-Certificate|Wishlist|cart|checkout|login|register|search" r")(/|\.html)?$",
+    r"^/(" r"Gift-Certificate|Wishlist|cart|checkout|login|register|search|Garage-Sale" r")(/|\.html)?",
     re.IGNORECASE,
 )
 
