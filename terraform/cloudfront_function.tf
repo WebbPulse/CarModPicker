@@ -1,7 +1,11 @@
-# CloudFront Function: rewrite directory-style paths to their index.html so
-# prerendered SPA routes resolve against S3 keys like "about/index.html".
+# CloudFront Function: apex→www 301 redirect + URI rewrite for prerendered
+# SPA routes.
 #
-# Rules:
+# Host rules:
+#   carmodpicker.com      → 301 → https://www.carmodpicker.com<uri><query>
+#   www.carmodpicker.com  → fall through to URI rewrite below
+#
+# URI rewrite rules (for www host):
 #   /              → untouched (CloudFront default_root_object handles this)
 #   /foo/          → /foo/index.html
 #   /foo           → /foo/index.html          (extensionless, treated as directory)
@@ -15,7 +19,7 @@
 resource "aws_cloudfront_function" "frontend_uri_rewrite" {
   name    = "${local.prefix}-frontend-uri-rewrite"
   runtime = "cloudfront-js-2.0"
-  comment = "Append /index.html to extensionless paths so prerendered routes resolve."
+  comment = "Redirect apex→www and rewrite extensionless paths to index.html."
   publish = true
   code    = file("${path.module}/cloudfront_functions/uri_rewrite.js")
 }

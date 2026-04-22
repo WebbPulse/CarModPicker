@@ -6,7 +6,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = ["www.carmodpicker.com"]
+  aliases             = ["www.carmodpicker.com", "carmodpicker.com"]
   price_class         = "PriceClass_100" # US + Europe only — cheapest tier
 
   origin {

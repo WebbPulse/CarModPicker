@@ -2,15 +2,16 @@ resource "aws_route53_zone" "carmodpicker" {
   name = "carmodpicker.com"
 }
 
-# Apex → S3 redirect bucket (carmodpicker.com → www.carmodpicker.com)
+# Apex → CloudFront (redirect to www is done by the CloudFront viewer-request
+# function so we don't need a separate S3 website bucket to handle it).
 resource "aws_route53_record" "apex_a" {
   zone_id = aws_route53_zone.carmodpicker.zone_id
   name    = "carmodpicker.com"
   type    = "A"
 
   alias {
-    name                   = "s3-website-us-west-2.amazonaws.com"
-    zone_id                = "Z3BJ6K6RIION7M" # S3 hosted zone ID for us-west-2
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
     evaluate_target_health = false
   }
 }
