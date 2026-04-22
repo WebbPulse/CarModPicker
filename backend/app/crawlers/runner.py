@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
+from app.core.cloudwatch_emf import emit_crawler_run_metrics
 from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -521,7 +522,11 @@ def run_crawler(
         # result dict. Captured AFTER check_health (which has its own timeout)
         # so elapsed_seconds measures the URL-loop cost exclusively. Used by
         # both the success-path return and the breaker-bail return below.
-        t0 = time.monotonic()
+        # OBS-02 / D-17: `start_ts` aliases `t0` so the EMF emission at the
+        # end of run_crawler uses the same wall-clock window as the return
+        # dict's `elapsed_seconds` field.
+        start_ts = time.monotonic()
+        t0 = start_ts
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -676,6 +681,17 @@ def run_crawler(
         elif errors > 0 and errors >= max(1, total // 4):
             summary_level = logging.WARNING
             summary_reason = " — %s error(s) on %s URLs" % (errors, total)
+        # OBS-02 / D-17 — emit EMF BEFORE the summary log (RESEARCH Landmine 3:
+        # aws-embedded-metrics issue #109 drops the final EMF line if no non-EMF
+        # line follows; the summary log below acts as the flush trigger).
+        # NEVER reorder these two blocks.
+        emit_crawler_run_metrics(
+            adapter_name=adapter_name,
+            run_type="live",  # runner.py handles live path; rescrape path emits separately in ecs_rescrape_runner.py (D-21)
+            ingested=ingested,
+            parse_failures=skipped_not_product,  # D-22: parse_failures == skipped_not_product
+            elapsed_seconds=time.monotonic() - start_ts,
+        )
         logger.log(
             summary_level,
             "Adapter %s done. Ingested=%s skipped=%s (robots=%s not_product=%s gone=%s) errors=%s total=%s%s",

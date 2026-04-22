@@ -13,11 +13,22 @@ at ecs.run_task() time:
 Static environment (baked into the ECS task definition by Terraform):
     DATABASE_URL, USER_IMAGES_BUCKET, CRAWL_BUCKET, AWS_REGION,
     EMAIL_FROM, EMAIL_ENABLED, APP_ENVIRONMENT
+
+OBS-02 / D-21 — rescrape emits a single CloudWatch EMF record with
+``RunType="rescrape"`` and ``adapter_name="aggregate"`` at the end of
+main(). Rationale: ``run_rescrape_all_archived_pages`` returns an aggregate
+outcome-count dict (parsed_ok / parse_failed / ingest_failed / skipped_*)
+that is NOT broken down per adapter. Splitting per-adapter would require
+a second pass over the crawled_pages table and isn't worth the complexity
+— plan 02-05's alarm filters on ``RunType=live``, so the rescrape metric
+stream is purely informational for dashboards. ``ParseFailures`` here maps
+to ``parse_failed`` (the rescrape analog of ``skipped_not_product``).
 """
 
 import logging
 import os
 import sys
+import time
 import traceback
 from uuid import UUID
 
@@ -59,6 +70,10 @@ def main() -> None:
 
     init_sentry(server_name="ecs-crawler")
 
+    # OBS-02 / D-21 — EMF emitter for rescrape path. Local import mirrors
+    # Sentry's pattern (keeps aws-embedded-metrics out of test-collection
+    # import graph).
+    from app.core.cloudwatch_emf import emit_crawler_run_metrics
     from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
     from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
     from app.db.session import SessionLocal
@@ -96,6 +111,10 @@ def main() -> None:
             pdb.close()
 
     db = SessionLocal()
+    # OBS-02 / D-21 — wall-clock start for the ``ElapsedSeconds`` metric. We
+    # measure the full rescrape pass including resolve_crawler_user + DB query
+    # so the metric reflects total task-time from the operator's POV.
+    rescrape_start = time.monotonic()
     try:
         crawler_user = resolve_crawler_user(db, user_id)
         cat_id = resolve_default_category_id(db, UUID(category_id_str))
@@ -108,6 +127,26 @@ def main() -> None:
             progress_callback=_progress,
         )
         logger.info("ECS archive rescrape task completed: %s", counts)
+
+        # OBS-02 / D-21 — emit aggregate EMF record BEFORE the logger.info
+        # summary below (RESEARCH Landmine 3 — issue #109 drops the last EMF
+        # line). Rescrape is a single aggregate run (not per-adapter), so
+        # adapter_name="aggregate" per module docstring. ``parse_failures``
+        # maps to rescrape's ``parse_failed`` outcome (the analog of
+        # ``skipped_not_product`` in the live path, D-22).
+        emit_crawler_run_metrics(
+            adapter_name="aggregate",
+            run_type="rescrape",
+            ingested=int(counts.get("parsed_ok") or 0),
+            parse_failures=int(counts.get("parse_failed") or 0),
+            elapsed_seconds=time.monotonic() - rescrape_start,
+        )
+        logger.info(
+            "ECS archive rescrape EMF emitted: adapter=aggregate run_type=rescrape "
+            "parsed_ok=%s parse_failed=%s",
+            counts.get("parsed_ok"),
+            counts.get("parse_failed"),
+        )
 
         if job_id is not None:
             job_service.complete_job(db, job_id, result_summary=counts)
