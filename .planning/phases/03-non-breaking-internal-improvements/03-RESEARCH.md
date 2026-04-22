@@ -1017,32 +1017,37 @@ This way `from app.core.car_generations_data import slugify` still works in the 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `HEALTH_PROBE_URL` default to `None` (opt-in) or `f"{BASE_URL}/robots.txt"` with a full `BASE_URL` sweep?** (Pitfall HC-01 / DISC-04)
    - What we know: Zero adapters have `BASE_URL` today; D-18 says default derived from `BASE_URL`.
    - What's unclear: Whether the 108-adapter `BASE_URL` sweep doubles the plan scope or whether `None`-default + explicit opt-in is acceptable coverage.
    - **Recommendation:** Go with Option A (opt-in). The 5 Phase-1 characterization-tested adapters are a natural starting set. Full coverage is a follow-up. Planner to surface this trade-off in the CRAWL-06 plan.
+   - **RESOLVED:** Plan 02 adopts Option A — `HEALTH_PROBE_URL = None` opt-in default (DISC-04). No 108-adapter BASE_URL sweep.
 
 2. **Should pybreaker's `state_change` listener fire a log event for observability, or is that deferred to Phase 2 entirely?** (CONTEXT Deferred Ideas)
    - What we know: CONTEXT says "Observability instrumentation of the breaker itself ... belongs in Phase 2, not Phase 3."
    - What's unclear: Is a simple `logger.warning("Breaker for %s state %s→%s")` inside Phase 3 already "observability instrumentation"? Or just "logging"?
    - **Recommendation:** Phase 3 adds a minimal breaker-state-change LOG line (matches existing `logger.error("Adapter X: circuit breaker tripped...")` pattern). Phase 2 adds CloudWatch emission + Sentry crumbs on top of that same listener. Low risk of scope creep.
+   - **RESOLVED:** Deferred to Phase 2 per CONTEXT §"Deferred Ideas" — "Observability instrumentation of the breaker itself... belongs in Phase 2, not Phase 3."
 
 3. **Does the OpenAPI schema change when `Depends(get_logger)` parameters are removed from route functions?** (Pitfall QU-07)
    - What we know: FastAPI excludes `Depends()` from OpenAPI — so NO, the schema shouldn't change.
    - What's unclear: Edge cases where a util router module has non-Depends logger parameters mixed in.
    - **Recommendation:** Run `python -c "from app.main import app; print(app.openapi())"` before AND after the QUAL-07 sweep. Diff. Commit the diff (expected: empty). If non-empty, inspect + either update snapshot or revert the bad rename.
+   - **RESOLVED:** Plan 05 Task 2 step 8 runs `pytest backend/tests/test_openapi_snapshot.py -x` before/after and commits legitimate drift if any. Acceptance criterion asserts the snapshot test exits 0 post-sweep.
 
 4. **How are the `parse_failures` / `sample_failure_urls` keys consumed by Phase 2's CloudWatch code (D-24)?** (CONTEXT §specifics)
    - What we know: OBS-02 in REQUIREMENTS.md says "per-adapter `Ingested`, `ParseFailures`, `ElapsedSeconds` metrics" — maps 1:1 to `ingested`, `parse_failures`, elapsed.
    - What's unclear: Does `ElapsedSeconds` exist in the current result dict? (Grep: no — `elapsed` isn't a current key.)
    - **Recommendation:** Phase 3 adds `elapsed_seconds: float` (time.monotonic() delta around the URL loop) to the result dict. OBS-02 reads it. This is a 3-line addition and is in CRAWL-07 scope ("per-adapter failure counts + timings" is implied by D-22's email template including "Elapsed: {seconds}s").
+   - **RESOLVED:** Plan 03 adds `elapsed_seconds`, `parse_failures`, `sample_failure_urls` as additive keys to the runner result dict. Phase 2 reads the dict; no Phase 3 change required.
 
 5. **Does the thin-shim `car_generations_data.py` (DISC-05) cause a cyclic import with `car_generations.py`?** (QUAL-01 edge)
    - What we know: `car_generations.py` has zero imports from `car_generations_data`; the shim imports from it.
    - What's unclear: Whether any OTHER module imports from BOTH at runtime in a specific order that creates a cycle.
    - **Recommendation:** Build an import-order graph with `python -X importtime -c "import app.main"` before + after. If no cycle, proceed.
+   - **RESOLVED:** Plan 04 Task 2 step 5 verifies no cycle by running `python -c "import app.core.car_generations_data; import app.core.car_generations"` and asserting exit 0.
 
 ---
 

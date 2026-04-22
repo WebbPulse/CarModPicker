@@ -63,8 +63,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Per-adapter crawler execution runs in a bounded `ThreadPoolExecutor` (workers sized to `DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE`); each adapter worker holds its own `SessionLocal`
   4. `uvicorn --reload` startup latency is measurably reduced after `car_generations_data.py` is replaced with a JSON + `lru_cache` loader
   5. `pytest` run produces zero Pydantic v1 deprecation warnings
-**Plans**: TBD
-**Note**: Phase 3 may execute concurrently with Phase 2. Internal ordering within this phase: CRAWL-01/02/03 (auto-discovery + validation) must complete and count-assert green before CRAWL-05 (parallelization) lands.
+**Plans:** 5 plans
+- [ ] 03-01-PLAN.md — CRAWL-01/02/03: adapter auto-discovery (base-class + ADAPTER_NAME/IS_FALLBACK/HEALTH_PROBE_URL ClassVars + __init_subclass__ guard) + 108-adapter sweep via committed helper script + pkgutil.iter_modules scan in __init__.py + test_adapter_discovery.py (count=108, _IMPORT_ERRORS==[]) + 5 characterization tests re-keyed by ADAPTER_REGISTRY[name]
+- [ ] 03-02-PLAN.md — CRAWL-04/05/06: pybreaker==1.4.1 per-adapter-name registry (fail_max=3, reset_timeout=120) replacing custom counter block; terminal 429/503 pre-trip via breaker.open(); check_health() probe (HEALTH_PROBE_URL=None opt-in default); verify existing ThreadPoolExecutor + CRAWLER_MAX_ADAPTER_WORKERS + per-worker SessionLocal
+- [ ] 03-03-PLAN.md — CRAWL-07: extend runner result dict with parse_failures, sample_failure_urls (first-5), elapsed_seconds; extend _render_crawler_result_html in email.py with ParseFailures block; URL truncation for >160-char samples
+- [ ] 03-04-PLAN.md — QUAL-01: lazy JSON loader (car_generations.py with @lru_cache(maxsize=1) + importlib.resources.files) + car_generations_data.json asset + thin-shim car_generations_data.py preserving slugify/CarGenerationData/CAR_GENERATIONS/get_all_car_generations + one-shot export script + uvicorn startup latency measurement (D-28)
+- [ ] 03-05-PLAN.md — QUAL-02/03/07: three CI regression guards (Pydantic v1 grep + catch_warnings roundtrip; @app.on_event grep; Depends(get_logger) grep) + 68-site logger sweep across 10 files (auth=21, users=11, base_endpoint_router=8, base_report_router=6, reports=5, common_patterns=4, base_vote_router=4, bug_reports=4, admin_endpoint_patterns=3, votes=2)
+**Note**: Phase 3 may execute concurrently with Phase 2. Internal ordering within this phase: CRAWL-01/02/03 (auto-discovery + validation) must complete and count-assert green before CRAWL-05 (parallelization) lands. Dependency graph: Plans 01, 04, 05 in wave 1 (parallel); Plan 02 in wave 2 (depends on 01); Plan 03 in wave 3 (depends on 02).
 
 ### Phase 4: DB & Parts Hardening
 **Goal**: The N+1 query in build logs is fixed and regression-gated, part-link operations are transactional with concurrency tests, all FK join keys have indexes, and the `session.query()` legacy API is eliminated — the database layer is clean and production-pool-sized before any structural router work begins
@@ -113,7 +118,7 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 |-------|----------------|--------|-----------|
 | 1. Safety Nets & CI Hardening | 0/8 | Not started | - |
 | 2. Observability | 0/TBD | Not started | - |
-| 3. Non-Breaking Internal Improvements | 0/TBD | Not started | - |
+| 3. Non-Breaking Internal Improvements | 0/5 | Not started | - |
 | 4. DB & Parts Hardening | 0/TBD | Not started | - |
 | 5. Structural Router Splits | 0/TBD | Not started | - |
 | 6. Frontend Cleanup & Final CI Gates | 0/TBD | Not started | - |
