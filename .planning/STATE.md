@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-03 SAFE-04 migration DROP guard
-last_updated: "2026-04-22T08:04:38.664Z"
+stopped_at: Completed 01-04 coverage gates (SAFE-01 + SAFE-02); SAFE-03 deferred to 01-09
+last_updated: "2026-04-22T08:19:51.895Z"
 last_activity: 2026-04-22 -- Phase --phase execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-22 -- Phase --phase execution started
 
-Progress: [████░░░░░░] 38%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [████░░░░░░] 38%
 *Updated after each plan completion*
 | Phase 01-safety-nets-ci-hardening P02 | 25 | 3 tasks | 4 files |
 | Phase 01-safety-nets-ci-hardening P03 | 30 | 3 tasks | 32 files |
+| Phase 01-safety-nets-ci-hardening P04 | 35 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - SAFE-08: Third FK constraint at repair migration downgrade time is parts_part_manufacturer_id_fkey on parts (not global_parts_brand_id_fkey — renamed by c1f3e8a92d45 and d2e9c4a1f57b)
 - SAFE-04: All 82 pre-existing unannotated downgrade() destructive ops annotated with downgrade-reversal SAFE comment to make checker exit 0 on current tree
 - SAFE-04: Two distinct annotation regexes — SAFE_ANNOTATION_RE anchored to line start (preceding-line), INLINE_SAFE_RE unanchored (same-line) — prevents docstring-embedded SAFE tokens from satisfying guard (T-03-02 defense)
+- Option C: SAFE-03 frontend vitest threshold enforcement deferred to plan 01-09; vitest thresholds staged as commented D-06 literals in frontend/vitest.config.ts
+- Backend coverage baseline set at 51% (floor of measured run); --cov-fail-under=51 in backend/pytest.ini
 
 ### Pending Todos
 
@@ -90,8 +93,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T08:04:38.660Z
-Stopped at: Completed 01-03 SAFE-04 migration DROP guard
+Last session: 2026-04-22T08:19:51.891Z
+Stopped at: Completed 01-04 coverage gates (SAFE-01 + SAFE-02); SAFE-03 deferred to 01-09
 Resume file: None
 
 **Planned Phase:** 01 (safety-nets-ci-hardening) — 8 plans — 2026-04-22T07:35:02.979Z

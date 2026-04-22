@@ -11,8 +11,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 
 ### Safety Nets & CI Gates
 
-- [ ] **SAFE-01**: Backend `pytest.ini` enforces `--cov-fail-under=<measured baseline>` so coverage cannot silently drop
-- [ ] **SAFE-02**: `frontend-ci.yml` runs `npm test -- --run` on every PR (currently absent)
+- [x] **SAFE-01
+**: Backend `pytest.ini` enforces `--cov-fail-under=<measured baseline>` so coverage cannot silently drop
+- [x] **SAFE-02
+**: `frontend-ci.yml` runs `npm test -- --run` on every PR (currently absent)
 - [ ] **SAFE-03**: Vitest config enforces a coverage threshold (`lines: 60`) for frontend
 - [x] **SAFE-04
 **: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
