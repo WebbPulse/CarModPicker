@@ -16,27 +16,38 @@ from __future__ import annotations
 import logging
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.api.models.user import User
 from app.core.log_context import (
-    RequestContextFilter,
     bg_log_context,
     request_id_var,
     user_id_var,
 )
+from tests.conftest import login_user
 
 
-@pytest.fixture
-def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
-    """Local fixture for Task 1 — augments caplog with RequestContextFilter on the
-    handler so LogRecords carry request_id + user_id attrs.
-
-    Task 2 (02-01-02) promotes this fixture to backend/tests/conftest.py so it is
-    available to the broader test suite.  See Landmine 15 in 02-RESEARCH.md:
-    pytest's caplog does NOT inherit root-logger filters, so we must attach the
-    filter to caplog.handler explicitly or record.request_id raises AttributeError.
-    """
-    caplog.handler.addFilter(RequestContextFilter())
-    return caplog
+def test_log_propagation_request_scope(
+    client: TestClient,
+    test_user: User,
+    caplog_with_context,
+) -> None:
+    """Every log record during an auth'd request has request_id + user_id."""
+    caplog_with_context.set_level(logging.DEBUG)
+    token = login_user(client, test_user.username)
+    response = client.get(
+        "/api/users/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert len(caplog_with_context.records) > 0, "no log records captured"
+    for rec in caplog_with_context.records:
+        assert getattr(rec, "request_id", "-") != "-", (
+            f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
+        )
+        assert getattr(rec, "user_id", "-") != "-", (
+            f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
+        )
 
 
 def test_bg_log_context(caplog_with_context) -> None:
@@ -68,3 +79,48 @@ def test_bg_log_context_resets(caplog_with_context) -> None:
         assert request_id_var.get() == "bg:scope:1"
     assert request_id_var.get() == "-"
     assert user_id_var.get() == "-"
+
+
+def test_cli_log_context(caplog_with_context) -> None:
+    """CLI scope produces request_id=cli:<pid>, user_id=cli."""
+    caplog_with_context.set_level(logging.DEBUG)
+    logger = logging.getLogger("app.test.cli")
+    rid_token = request_id_var.set("cli:12345")
+    uid_token = user_id_var.set("cli")
+    try:
+        logger.info("cli startup")
+    finally:
+        request_id_var.reset(rid_token)
+        user_id_var.reset(uid_token)
+    rec = next(r for r in caplog_with_context.records if "cli startup" in r.getMessage())
+    assert rec.request_id == "cli:12345"
+    assert rec.user_id == "cli"
+
+
+def test_log_propagation_sqlalchemy(
+    client: TestClient,
+    test_user: User,
+    caplog_with_context,
+) -> None:
+    """SQL query log records during a request carry the request's request_id
+    (D-48: third-party loggers propagate via root logger filter)."""
+    sa_logger = logging.getLogger("sqlalchemy.engine")
+    prior_level = sa_logger.level
+    sa_logger.setLevel(logging.INFO)
+    caplog_with_context.set_level(logging.INFO)
+    try:
+        token = login_user(client, test_user.username)
+        resp = client.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+    finally:
+        sa_logger.setLevel(prior_level)
+    sa_records = [r for r in caplog_with_context.records if r.name.startswith("sqlalchemy")]
+    if not sa_records:
+        pytest.skip("sqlalchemy did not emit INFO log records in test env")
+    for rec in sa_records:
+        assert getattr(rec, "request_id", "-") != "-", (
+            f"sqlalchemy log missing request_id: {rec.getMessage()}"
+        )
