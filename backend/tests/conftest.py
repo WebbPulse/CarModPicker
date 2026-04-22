@@ -433,6 +433,71 @@ def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFi
     return caplog
 
 
+# Sentry test transport — 2.x uses capture_envelope (Landmine 3).
+# Defined at module scope so tests can import it via
+# `from tests.conftest import _CapturingTransport`.
+#
+# Must subclass sentry_sdk.transport.Transport in 2.x — otherwise the SDK
+# treats the class as a "function transport" (deprecated) and silently
+# discards envelopes despite accepting the argument.
+from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
+
+
+class _CapturingTransport(_SentryTransport):
+    """In-memory Sentry transport. Sentry 2.x API: capture_envelope (NOT
+    capture_event — that was 1.x). Instances share `events` via class attribute
+    so fixtures can observe the list even when the transport is re-constructed
+    by sentry_sdk.init.
+    """
+
+    events: list = []
+
+    def __init__(self, options=None):
+        # sentry_sdk.init passes options positionally; accept for signature compat.
+        # Reset on init so each sentry_sdk.init() call starts with empty buffer.
+        super().__init__(options)
+        self.__class__.events = []
+
+    def capture_envelope(self, envelope) -> None:  # 2.x entry point
+        self.__class__.events.append(envelope)
+
+    def flush(self, timeout=None, callback=None) -> None:
+        pass
+
+    def kill(self) -> None:
+        pass
+
+
+@pytest.fixture
+def sentry_events(monkeypatch: pytest.MonkeyPatch):
+    """Yield a list to which Sentry envelopes are appended. Closes the SDK
+    client on teardown so tests don't leak references across runs (Landmine 16
+    — Sentry init is process-global).
+
+    Sets env so init_sentry() would be active if called, but the fixture
+    itself bypasses init_sentry() and calls sentry_sdk.init() directly with
+    transport=_CapturingTransport.
+    """
+    import sentry_sdk
+
+    monkeypatch.setenv("TESTING", "")
+    monkeypatch.setenv("APP_ENVIRONMENT", "staging")
+    monkeypatch.setenv("SENTRY_DSN", "http://key@localhost/1")
+
+    sentry_sdk.init(
+        dsn="http://key@localhost/1",
+        transport=_CapturingTransport,
+        before_send=lambda ev, h: ev,
+        # intentionally minimal — full init invariants covered in test_sentry_init.py
+    )
+    try:
+        yield _CapturingTransport.events
+    finally:
+        client = sentry_sdk.get_client()
+        if client is not None:
+            client.close()
+
+
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
     """
