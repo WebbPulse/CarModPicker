@@ -10,6 +10,7 @@ adapter removals so re-adding a retailer reuses the known-good delay.
 
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.crawler_adapter_config import CrawlerAdapterConfig
@@ -22,12 +23,13 @@ logger = logging.getLogger(__name__)
 
 def init_crawler_adapter_configs(db: Session) -> None:
     """Insert a row for every registered adapter that doesn't already have one."""
-    existing = {
-        name
-        for (name,) in db.query(CrawlerAdapterConfig.adapter_name).filter(
-            CrawlerAdapterConfig.adapter_name.in_(list(ADAPTER_REGISTRY.keys()))
-        )
-    }
+    existing = set(
+        db.scalars(
+            select(CrawlerAdapterConfig.adapter_name).where(
+                CrawlerAdapterConfig.adapter_name.in_(list(ADAPTER_REGISTRY.keys()))
+            )
+        ).all()
+    )
     missing = [name for name in ADAPTER_REGISTRY.keys() if name not in existing]
     if not missing:
         return

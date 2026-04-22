@@ -3,7 +3,7 @@ Base report router with common patterns to reduce redundancy.
 """
 
 import logging
-from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,8 +13,9 @@ from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump, ReportModel
 from app.api.services.base_report_service import BaseReportService
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Generic types
 ReportModelType = TypeVar("ReportModelType", bound=ReportModel)
@@ -72,7 +73,6 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             entity_id: UUID,
             report: ReportCreateSchema,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> ReportModelType:
             """Create a report for an entity."""
@@ -95,9 +95,8 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
         )
         async def get_reports_by_entity(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
-            status: str = Query(None, description="Filter by report status"),
+            status: Optional[str] = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
         ) -> List[ReportModelType]:
             """Get all reports for a specific entity."""
             return self.service.get_reports_by_entity(
@@ -118,7 +117,6 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
         async def get_report_summary(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
             """Get report summary for an entity."""
             return self.service.get_report_summary(
@@ -136,9 +134,8 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def get_my_reports(  # pyright: ignore[reportUnusedFunction]
-            status: str = Query(None, description="Filter by report status"),
+            status: Optional[str] = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> List[ReportModelType]:
             """Get all reports created by the current user."""
@@ -163,7 +160,6 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             skip: int = Query(0, ge=0, description="Number of reports to skip"),
             limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> List[ReportModelType]:
             """Get all pending reports (admin only)."""
@@ -188,7 +184,6 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             report_id: UUID,
             status_update: Dict[str, Any],
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ReportModelType:
             """Update the status of a report (admin only)."""

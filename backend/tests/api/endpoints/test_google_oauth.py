@@ -30,10 +30,10 @@ from app.api.models.webauthn_credential import WebAuthnCredential
 from app.api.utils.google_oauth import GoogleIdentity
 from app.core.config import settings
 
-GOOGLE_PATH = f"{settings.API_STR}/auth/google"
-LINK_PATH = f"{settings.API_STR}/auth/google/link"
-SIGNUP_PATH = f"{settings.API_STR}/auth/google/signup"
-CONNECT_PATH = f"{settings.API_STR}/auth/google/connect"
+GOOGLE_PATH = f"{settings.API_STR}/auth/oauth/google"
+LINK_PATH = f"{settings.API_STR}/auth/oauth/google/link"
+SIGNUP_PATH = f"{settings.API_STR}/auth/oauth/google/signup"
+CONNECT_PATH = f"{settings.API_STR}/auth/oauth/google/connect"
 OAUTH_2FA_PATH = f"{settings.API_STR}/auth/oauth/2fa"
 OAUTH_LIST_PATH = f"{settings.API_STR}/auth/oauth"
 
@@ -100,7 +100,7 @@ def test_google_sign_in_returns_503_when_not_configured(client: TestClient, monk
 
 def test_google_sign_in_rejects_unverified_email(client: TestClient, google_configured: None) -> None:
     identity = _identity("g-sub-unv", "unv@example.com", email_verified=False)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 400
 
@@ -110,7 +110,7 @@ def test_google_sign_in_no_match_returns_signup_token(
 ) -> None:
     email = f"{_unique('newgoogle')}@example.com"
     identity = _identity("g-sub-new", email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -126,7 +126,7 @@ def test_google_sign_in_email_match_returns_link_token(
     username = _unique("emailmatch")
     user = _create_user(db_session, username)
     identity = _identity("g-sub-match", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -144,7 +144,7 @@ def test_google_sign_in_existing_link_logs_in(client: TestClient, db_session: Se
     )
     db_session.commit()
     identity = _identity("g-sub-existing", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -163,7 +163,7 @@ def test_google_sign_in_existing_link_with_totp_returns_otp_token(
     db_session.commit()
 
     identity = _identity("g-sub-totp", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 200
     body = resp.json()
@@ -187,7 +187,7 @@ def test_google_link_succeeds_with_correct_password(
     username = _unique("linkme")
     user = _create_user(db_session, username, password="rightpw")
     identity = _identity("g-sub-link", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         link_resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     link_token = link_resp.json()["link_token"]
 
@@ -208,7 +208,7 @@ def test_google_link_rejects_wrong_password(client: TestClient, db_session: Sess
     username = _unique("linkmebad")
     user = _create_user(db_session, username, password="rightpw")
     identity = _identity("g-sub-linkbad", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         link_token = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"}).json()["link_token"]
 
     resp = client.post(LINK_PATH, json={"link_token": link_token, "password": "wrongpw"})
@@ -222,7 +222,7 @@ def test_google_link_requires_otp_when_2fa_enabled(
     secret = pyotp.random_base32()
     user = _create_user(db_session, username, password="rightpw", totp_secret=secret)
     identity = _identity("g-sub-link2fa", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         body = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"}).json()
     assert body["has_totp"] is True
     link_token = body["link_token"]
@@ -248,7 +248,7 @@ def test_google_signup_creates_user_with_no_password(
 ) -> None:
     email = f"{_unique('signupg')}@example.com"
     identity = _identity("g-sub-signup", email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         signup_token = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"}).json()["signup_token"]
 
     chosen = _unique("g_user")
@@ -276,7 +276,7 @@ def test_google_signup_rejects_taken_username(client: TestClient, db_session: Se
 
     email = f"{_unique('signup2')}@example.com"
     identity = _identity("g-sub-signup2", email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         signup_token = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"}).json()["signup_token"]
 
     resp = client.post(SIGNUP_PATH, json={"signup_token": signup_token, "username": taken})
@@ -297,7 +297,7 @@ def test_google_connect_links_authenticated_user(
 
     # Different email at Google than at CarModPicker — allowed for connect.
     identity = _identity("g-sub-connect", f"{username}-google@example.com")
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -319,7 +319,7 @@ def test_google_connect_refuses_when_email_belongs_to_other_user(
     # Google email matches `other`, not `me` — must refuse to preserve the invariant
     # that no two users share an email.
     identity = _identity("g-sub-conflict", other.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
     assert resp.status_code == 409
     assert "EMAIL_BELONGS_TO_OTHER_USER" in resp.text
@@ -337,7 +337,7 @@ def test_google_connect_refuses_if_already_linked_to_other_user(
     token = _login(client, me.username)
 
     identity = _identity("g-sub-stolen", f"{me.username}-g@example.com")
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
     assert resp.status_code == 409
 
@@ -353,7 +353,7 @@ def test_google_connect_refuses_when_user_already_has_google(
     token = _login(client, user.username)
 
     identity = _identity("g-sub-second", f"{user.username}-second@example.com")
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
     assert resp.status_code == 409
 
@@ -394,7 +394,7 @@ def test_delete_oauth_account_refuses_when_only_login_method(
 
     # Login this user via the OAuth path (no password) — use the Google sub already linked.
     identity = _identity("g-sub-only", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         login_resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     token = login_resp.json()["access_token"]
 
@@ -428,7 +428,7 @@ def test_delete_oauth_account_allows_when_passkey_present(
     db_session.refresh(link)
 
     identity = _identity("g-sub-pk", user.email)
-    with patch("app.api.endpoints.auth.verify_google_id_token", return_value=identity):
+    with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         token = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"}).json()["access_token"]
 
     resp = client.delete(f"{OAUTH_LIST_PATH}/{link.id}", headers=_auth(token))

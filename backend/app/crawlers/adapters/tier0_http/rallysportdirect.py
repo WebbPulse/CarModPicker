@@ -35,7 +35,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from urllib.parse import urlencode, urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -340,6 +340,7 @@ class RallysportDirectAdapter(RetailerCrawlerAdapter):
     single hero image JSON-LD ships.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "rallysportdirect"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

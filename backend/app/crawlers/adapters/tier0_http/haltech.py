@@ -100,7 +100,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -518,6 +518,7 @@ class HaltechAdapter(RetailerCrawlerAdapter):
     # ``requests`` for the product tree, and ``/robots.txt`` / ``/sitemap_index.xml``
     # both return 200 on first try. Left explicit so the choice is documented
     # on the class itself, not only in the module docstring.
+    ADAPTER_NAME: ClassVar[str] = "haltech"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

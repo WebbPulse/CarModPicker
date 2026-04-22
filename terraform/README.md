@@ -108,6 +108,30 @@ A few resources require a plan/apply cycle to learn values before a downstream r
 - `final_snapshot_identifier` is set on RDS — destroy will create a snapshot named `carmodpicker-<env>-final-snapshot`.
 - Secrets use `recovery_window_in_days = 0` for immediate deletion (no 30-day grace period).
 
+## Bootstrap: Sentry
+
+Sentry DSN provisioning is out-of-band per D-55 (Terraform cannot create Sentry projects — only AWS Secrets Manager scaffolding). One-time operator flow:
+
+1. **Create Sentry project(s).** Operator creates one backend Sentry project and one frontend Sentry project in the Sentry dashboard (https://sentry.io). A single dual-purpose project works too — choice does not affect code.
+2. **Apply Terraform first** (this creates the empty `${prefix}/sentry-dsn` Secrets Manager secret):
+   ```
+   terraform apply
+   ```
+3. **Populate the backend DSN value:**
+   ```
+   aws secretsmanager put-secret-value \
+     --secret-id "${prefix}/sentry-dsn" \
+     --secret-string "https://<public-key>@<org>.ingest.sentry.io/<project-id>"
+   ```
+4. **Add GitHub Actions secrets** for the frontend build (plan 02-04 consumes these):
+   - `VITE_SENTRY_DSN` (frontend project DSN — safe to expose in public bundle per D-33)
+   - `SENTRY_AUTH_TOKEN` (Sentry user auth token with `project:write` scope)
+   - `SENTRY_ORG` (Sentry organization slug)
+   - `SENTRY_PROJECT` (Sentry project slug for the frontend)
+5. **Redeploy App Runner + ECS tasks** so they pick up the new SENTRY_DSN at next task start. App Runner: push to main → GHA redeploy. ECS: cycle tasks via EventBridge schedule or manual `aws ecs update-service --force-new-deployment`.
+
+Until step 3 completes, the Sentry SDK `init_sentry()` helper no-ops gracefully (D-01 env-gate handles empty DSN). No crash, no error — just no Sentry events.
+
 ## See also
 
 - `backend/app/crawlers/README.md` — FlareSolverr deployment and FETCHER_TIER details referenced by the scheduler/ECS config.

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -161,7 +162,9 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
 
         # Delete all associated build list parts first
         # This ensures proper cascade deletion and avoids foreign key constraint violations
-        build_list_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == entity_id).all()
+        build_list_parts = db.scalars(
+            select(DBBuildListPart).where(DBBuildListPart.build_list_id == entity_id)
+        ).all()
         for part in build_list_parts:
             db.delete(part)
 
@@ -187,7 +190,14 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     ) -> List[DBBuildList]:
         """Get build lists by car ID with pagination."""
         log = logger if logger is not None else get_logger()
-        build_lists = db.query(DBBuildList).filter(DBBuildList.car_id == car_id).offset(skip).limit(limit).all()
+        build_lists = list(
+            db.scalars(
+                select(DBBuildList)
+                .where(DBBuildList.car_id == car_id)
+                .offset(skip)
+                .limit(limit)
+            ).all()
+        )
 
         log.info(f"Retrieved {len(build_lists)} build lists for car {car_id}")
         return build_lists
@@ -202,7 +212,14 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     ) -> List[DBBuildList]:
         """Get build lists by user ID with pagination."""
         log = logger if logger is not None else get_logger()
-        build_lists = db.query(DBBuildList).filter(DBBuildList.user_id == user_id).offset(skip).limit(limit).all()
+        build_lists = list(
+            db.scalars(
+                select(DBBuildList)
+                .where(DBBuildList.user_id == user_id)
+                .offset(skip)
+                .limit(limit)
+            ).all()
+        )
 
         log.info(f"Retrieved {len(build_lists)} build lists for user {user_id}")
         return build_lists
@@ -215,7 +232,11 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     ) -> int:
         """Count build lists owned by a specific user."""
         log = logger if logger is not None else get_logger()
-        count = db.query(DBBuildList).filter(DBBuildList.user_id == user_id).count()
+        count = db.scalar(
+            select(func.count())
+            .select_from(DBBuildList)
+            .where(DBBuildList.user_id == user_id)
+        ) or 0
         log.info(f"Counted {count} build lists for user {user_id}")
         return count
 
@@ -257,6 +278,19 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # Get the original build list
         original_build_list = verify_entity_exists(db, DBBuildList, build_list_id, "build list")
 
+        # IN-02: enforce the free-tier cap on the copy path too. `create` already
+        # checks this for direct creates, but `copy_build_list` previously bypassed
+        # it — a free user at the 1-list cap could keep pressing "copy" and grow
+        # their own list count unbounded. The admin kill switch still makes
+        # is_user_premium return True for everyone when enabled.
+        if not is_user_premium(current_user, db):
+            count = self.count_by_user(db, current_user.id, logger=logger)
+            if count >= 1:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
+                )
+
         # Generate the new name
         if new_name is None:
             new_name = f"Copy of {original_build_list.name}"
@@ -281,11 +315,12 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         db.flush()
 
         # Copy phases: create new phases for the new build list in sort_order
-        original_phases = (
-            db.query(DBBuildListPhase)
-            .filter(DBBuildListPhase.build_list_id == build_list_id)
-            .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
-            .all()
+        original_phases = list(
+            db.scalars(
+                select(DBBuildListPhase)
+                .where(DBBuildListPhase.build_list_id == build_list_id)
+                .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+            ).all()
         )
         phase_id_mapping: Dict[UUID, UUID] = {}  # old_phase_id -> new_phase_id
         for orig_phase in original_phases:
@@ -299,7 +334,11 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             phase_id_mapping[orig_phase.id] = new_phase.id
 
         # Get all build list parts from the original build list
-        original_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
+        original_parts = list(
+            db.scalars(
+                select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)
+            ).all()
+        )
 
         # Create NEW BuildListPart entities for each original part
         # Each new part is a completely separate entity with its own primary key

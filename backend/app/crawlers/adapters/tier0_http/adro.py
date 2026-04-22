@@ -19,7 +19,7 @@ When JSON-LD brand is empty OR the title heuristic picked a car make, we force
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -412,6 +412,7 @@ class AdroAdapter(RetailerCrawlerAdapter):
     Not For Everybody / JSON-LD value. Bundle pages rejected outright.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "adro"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield real product URLs from sitemap.xml (minus bundle pages). Set

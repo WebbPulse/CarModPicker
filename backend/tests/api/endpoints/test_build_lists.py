@@ -598,10 +598,18 @@ class TestBuildLists:
 
         # The test demonstrates that unverified email users cannot access protected endpoints
 
-    def test_copy_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
-        """Test successfully copying a build list."""
+    def test_copy_build_list_success(
+        self, client: TestClient, premium_test_user: User, db_session: Session
+    ) -> None:
+        """Test successfully copying a build list.
+
+        Uses premium_test_user: IN-02 closed the free-tier cap bypass on the copy
+        path, so a free user who already has 1 build list (the source of the copy)
+        hits the cap on the POST /copy call. Premium bypasses the cap entirely,
+        which is the scenario this test actually cares about.
+        """
         # Login as test user and get token
-        token = get_auth_token(client, test_user.username)
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -667,7 +675,7 @@ class TestBuildLists:
         assert copied_build_list["name"] == f"Copy of {original_build_list['name']}"
         assert copied_build_list["description"] == original_build_list["description"]
         assert copied_build_list["car_id"] == original_build_list["car_id"]
-        assert copied_build_list["user_id"] == str(test_user.id)  # Should be owned by current user
+        assert copied_build_list["user_id"] == str(premium_test_user.id)  # Should be owned by current user
 
         # Verify parts were copied
         response = client.get(
@@ -681,10 +689,12 @@ class TestBuildLists:
         assert parts[0]["notes"] == "Original notes"
         assert parts[0]["quantity"] == 2
 
-    def test_copy_build_list_with_custom_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
-        """Test copying a build list with a custom name."""
+    def test_copy_build_list_with_custom_name(
+        self, client: TestClient, premium_test_user: User, db_session: Session
+    ) -> None:
+        """Test copying a build list with a custom name. Uses premium_test_user per IN-02 (see test_copy_build_list_success)."""
         # Login as test user and get token
-        token = get_auth_token(client, test_user.username)
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -715,11 +725,11 @@ class TestBuildLists:
         assert copied_build_list["id"] != original_build_list["id"]
 
     def test_copy_build_list_without_custom_name(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Session
     ) -> None:
-        """Test copying a build list without custom name (uses default)."""
+        """Test copying a build list without custom name (uses default). Uses premium_test_user per IN-02."""
         # Login as test user and get token
-        token = get_auth_token(client, test_user.username)
+        token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)

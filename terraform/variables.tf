@@ -125,3 +125,26 @@ variable "flaresolverr_session_name" {
   type        = string
   default     = "carmodpicker-crawler"
 }
+
+# ---------------------------------------------------------------------------
+# Observability (Phase 2 — OBS-01 Sentry, OBS-02 EMF/alarms)
+# ---------------------------------------------------------------------------
+
+variable "sentry_dsn" {
+  description = "Sentry DSN for backend error reporting. Empty = Sentry disabled (env-gate handles gracefully). Populated out-of-band via `aws secretsmanager put-secret-value` per D-55."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "sentry_release" {
+  description = "Sentry release identifier (typically git commit SHA, set by GitHub Actions per D-02)."
+  type        = string
+  default     = ""
+}
+
+variable "disabled_parse_alarms" {
+  description = "Adapter names to exclude from per-adapter parse-failure alarms. Unused by Phase 2's composite alarm; declared here so Phase 3's per-adapter for_each conversion is reversible (D-31)."
+  type        = list(string)
+  default     = []
+}

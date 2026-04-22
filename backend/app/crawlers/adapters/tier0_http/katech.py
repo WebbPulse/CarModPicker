@@ -57,7 +57,7 @@ ad-hoc runs.
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -292,6 +292,7 @@ class KatechAdapter(RetailerCrawlerAdapter):
     ``wsm_product_thumbs`` DOM with an OG-image fallback.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "katech"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -7,6 +7,8 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -53,7 +55,7 @@ async def count_build_log_posts(
     logger = deps["logger"]
 
     try:
-        count = db.query(DBBuildLogPost).count()
+        count = db.scalar(select(func.count()).select_from(DBBuildLogPost)) or 0
         logger.info(f"Retrieved build log posts count: {count}")
         return {"count": count}
     except Exception as e:
@@ -80,43 +82,51 @@ async def get_build_log_by_build_list(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists
-    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
+    # reference the returned entity — the eager-create path owns build_log.title).
+    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Get or create the build log for this build list
-    build_log = db.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
-
+    # Get the build log for this build list.
+    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
     if not build_log:
-        # Auto-create if it doesn't exist (for backward compatibility with existing build lists)
-        build_log = DBBuildLog(
-            build_list_id=build_list_id,
-            title=f"Build Log: {build_list.name}",
+        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
+        # If this branch fires, something broke the invariant — do not silently
+        # auto-create (the old fallback hid data-integrity issues).
+        logger.error(
+            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
         )
-        db.add(build_log)
-        db.commit()
-        db.refresh(build_log)
-        logger.info(f"Auto-created build log thread {build_log.id} for build list {build_list_id}")
+        ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Validate pagination parameters
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Get total count of posts
-    total_posts = db.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).count()
+    # Get total count of posts (modern select() form per DATA-06 sweep; Pitfall 5:
+    # select(func.count()).select_from(X) preserves COUNT(*) semantics).
+    # `db.scalar` returns Optional[int]; COUNT(*) is never NULL in practice (returns 0
+    # when no rows match), so coerce to int to satisfy create_paginated_response's
+    # non-optional `total` param.
+    total_posts = db.scalar(
+        select(func.count())
+        .select_from(DBBuildLogPost)
+        .where(DBBuildLogPost.build_log_id == build_log.id)
+    ) or 0
 
-    # Load paginated posts with author information
-    posts_query = (
-        db.query(DBBuildLogPost)
-        .filter(DBBuildLogPost.build_log_id == build_log.id)
+    # DATA-01: Load paginated posts + eager-load authors via selectinload.
+    # selectinload emits exactly 1 additional IN-clause SELECT for authors
+    # regardless of post count — fixes the old 1+N query pattern.
+    posts = db.scalars(
+        select(DBBuildLogPost)
+        .where(DBBuildLogPost.build_log_id == build_log.id)
         .order_by(DBBuildLogPost.created_at)
+        .options(selectinload(DBBuildLogPost.author))
         .offset(skip)
         .limit(limit)
-    )
-    posts = posts_query.all()
+    ).all()
 
     # Create response with author usernames and profile pictures
     posts_with_authors: List[BuildLogPostRead] = []
     for post in posts:
-        author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
+        author = post.author  # eager-loaded via selectinload; zero additional queries
         post_data = BuildLogPostRead.model_validate(post)
         post_data.author_username = author.username if author else None
         # Convert file key to presigned URL for profile picture
@@ -185,20 +195,20 @@ async def create_build_log_post(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists
-    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
+    # reference the returned entity — the eager-create path owns build_log.title).
+    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Get or create the build log for this build list
-    build_log = db.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
-
+    # Get the build log for this build list.
+    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
     if not build_log:
-        # Auto-create if it doesn't exist
-        build_log = DBBuildLog(
-            build_list_id=build_list_id,
-            title=f"Build Log: {build_list.name}",
+        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
+        # If this branch fires, something broke the invariant — do not silently
+        # auto-create (the old fallback hid data-integrity issues).
+        logger.error(
+            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
         )
-        db.add(build_log)
-        db.flush()
+        ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Create the post
     post = DBBuildLogPost(
@@ -211,7 +221,7 @@ async def create_build_log_post(
     db.refresh(post)
 
     # Load author information
-    author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
+    author = db.scalars(select(DBUser).where(DBUser.id == post.user_id)).first()
     post_response = BuildLogPostRead.model_validate(post)
     post_response.author_username = author.username if author else None
     # Convert file key to presigned URL for profile picture
@@ -247,11 +257,11 @@ async def update_build_log_post(
     post = get_entity_or_404(db, DBBuildLogPost, post_id, "build log post")
 
     # Get the build log and build list to check ownership
-    build_log = db.query(DBBuildLog).filter(DBBuildLog.id == post.build_log_id).first()
+    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.id == post.build_log_id)).first()
     if not build_log:
         ResponsePatterns.raise_not_found("build log", post.build_log_id)
 
-    build_list = db.query(DBBuildList).filter(DBBuildList.id == build_log.build_list_id).first()
+    build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_log.build_list_id)).first()
     if not build_list:
         ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
 
@@ -279,7 +289,7 @@ async def update_build_log_post(
     db.refresh(post)
 
     # Load author information
-    author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
+    author = db.scalars(select(DBUser).where(DBUser.id == post.user_id)).first()
     post_response = BuildLogPostRead.model_validate(post)
     post_response.author_username = author.username if author else None
     # Convert file key to presigned URL for profile picture
@@ -313,11 +323,11 @@ async def delete_build_log_post(
     post = get_entity_or_404(db, DBBuildLogPost, post_id, "build log post")
 
     # Get the build log and build list to check ownership
-    build_log = db.query(DBBuildLog).filter(DBBuildLog.id == post.build_log_id).first()
+    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.id == post.build_log_id)).first()
     if not build_log:
         ResponsePatterns.raise_not_found("build log", post.build_log_id)
 
-    build_list = db.query(DBBuildList).filter(DBBuildList.id == build_log.build_list_id).first()
+    build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_log.build_list_id)).first()
     if not build_list:
         ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
 

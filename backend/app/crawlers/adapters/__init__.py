@@ -2,250 +2,105 @@
 Per-retailer crawler adapters.
 
 Each adapter implements: discover_product_urls() and parse_product_page(html, url).
-Register new adapters in ADAPTER_REGISTRY so the runner can run them by name.
+Adapters are auto-discovered at import time by ``_discover_adapters()`` -- drop
+a new module into ``tier0_http/``, ``tier1_tls/``, or ``tier2_browser/`` and it
+will show up in ``ADAPTER_REGISTRY`` keyed by its ``ADAPTER_NAME`` ClassVar
+(CRAWL-01 / CRAWL-02).
 
-``generic`` is always the last-resort fallback and should not be passed to the
-crawler runner CLI (it has no discover_product_urls implementation).
+``generic`` is always the last-resort fallback (IS_FALLBACK=True, excluded
+from ``ADAPTER_REGISTRY``) and should not be passed to the crawler runner CLI
+(it has no discover_product_urls implementation).
 """
 
-from typing import Optional
+import importlib
+import logging
+import pkgutil
+from typing import Optional, Type
 from urllib.parse import urlparse
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 
-# Last-resort fallback — no discovery; used by URL-host mapping below.
+# Last-resort fallback -- no discovery; used by URL-host mapping below.
 from app.crawlers.adapters.generic import GenericHtmlParser
-
-# Tier 0 — plain HTTP (`HttpFetcher`)
-from app.crawlers.adapters.tier0_http.a90shop import A90ShopAdapter
-from app.crawlers.adapters.tier0_http.adro import AdroAdapter
-from app.crawlers.adapters.tier0_http.afepower import AfePowerAdapter
-from app.crawlers.adapters.tier0_http.amsperformance import AMSPerformanceAdapter
-from app.crawlers.adapters.tier0_http.aprperformance import APRPerformanceAdapter
-from app.crawlers.adapters.tier0_http.atpturbo import ATPTurboAdapter
-from app.crawlers.adapters.tier0_http.awetuning import AWETuningAdapter
-from app.crawlers.adapters.tier0_http.bcracing import BCRacingAdapter
-from app.crawlers.adapters.tier0_http.bimmerworld import BimmerworldAdapter
-from app.crawlers.adapters.tier0_http.bloxracing import BloxRacingAdapter
-from app.crawlers.adapters.tier0_http.briantooleyracing import BrianTooleyRacingAdapter
-from app.crawlers.adapters.tier0_http.burgermotorsports import BurgerMotorsportsAdapter
-from app.crawlers.adapters.tier0_http.buschurracing import BuschurRacingAdapter
-from app.crawlers.adapters.tier0_http.corksport import CorkSportAdapter
-from app.crawlers.adapters.tier0_http.csfrace import CSFRaceAdapter
-from app.crawlers.adapters.tier0_http.deatschwerks import DeatschwerksAdapter
-from app.crawlers.adapters.tier0_http.delicioustuning import DeliciousTuningAdapter
-from app.crawlers.adapters.tier0_http.driveshaftshop import DriveshaftShopAdapter
-from app.crawlers.adapters.tier0_http.ecutek import EcuTekAdapter
-from app.crawlers.adapters.tier0_http.englishracing import EnglishRacingAdapter
-from app.crawlers.adapters.tier0_http.essexparts import EssexPartsAdapter
-from app.crawlers.adapters.tier0_http.ets import ETSAdapter
-from app.crawlers.adapters.tier0_http.evasivemotorsports import EvasiveMotorsportsAdapter
-from app.crawlers.adapters.tier0_http.fifteen52 import Fifteen52Adapter
-from app.crawlers.adapters.tier0_http.flyinmiata import FlyinMiataAdapter
-from app.crawlers.adapters.tier0_http.ftpmotorsports import FTPMotorsportsAdapter
-from app.crawlers.adapters.tier0_http.fullrace import FullRaceAdapter
-from app.crawlers.adapters.tier0_http.functionwerk import FunctionwerkAdapter
-from app.crawlers.adapters.tier0_http.girodisc import GirodiscAdapter
-from app.crawlers.adapters.tier0_http.gmgracing import GMGRacingAdapter
-from app.crawlers.adapters.tier0_http.greddy import GReddyAdapter
-from app.crawlers.adapters.tier0_http.grimmspeed import GrimmSpeedAdapter
-from app.crawlers.adapters.tier0_http.haltech import HaltechAdapter
-from app.crawlers.adapters.tier0_http.hasport import HasportAdapter
-from app.crawlers.adapters.tier0_http.hennessey import HennesseyAdapter
-from app.crawlers.adapters.tier0_http.hksusa import HKSUSAAdapter
-from app.crawlers.adapters.tier0_http.hondata import HondataAdapter
-from app.crawlers.adapters.tier0_http.hrewheels import HREWheelsAdapter
-from app.crawlers.adapters.tier0_http.iagperformance import IAGPerformanceAdapter
-from app.crawlers.adapters.tier0_http.ie import IEAdapter
-from app.crawlers.adapters.tier0_http.ind import INDAdapter
-from app.crawlers.adapters.tier0_http.injectordynamics import InjectorDynamicsAdapter
-from app.crawlers.adapters.tier0_http.injentechnology import InjenTechnologyAdapter
-from app.crawlers.adapters.tier0_http.ioportracing import IOPortRacingAdapter
-from app.crawlers.adapters.tier0_http.jltperformance import JLTPerformanceAdapter
-from app.crawlers.adapters.tier0_http.karcepts import KarceptsAdapter
-from app.crawlers.adapters.tier0_http.katech import KatechAdapter
-from app.crawlers.adapters.tier0_http.ktuner import KTunerAdapter
-from app.crawlers.adapters.tier0_http.lingenfelter import LingenfelterAdapter
-from app.crawlers.adapters.tier0_http.linkecu import LinkEcuAdapter
-from app.crawlers.adapters.tier0_http.maperformance import MAPerformanceAdapter
-from app.crawlers.adapters.tier0_http.mishimoto import MishimotoAdapter
-from app.crawlers.adapters.tier0_http.modernmusclextreme import ModernMuscleXtremeAdapter
-from app.crawlers.adapters.tier0_http.motorsport034 import Motorsport034Adapter
-from app.crawlers.adapters.tier0_http.mountainpassperformance import MountainPassPerformanceAdapter
-from app.crawlers.adapters.tier0_http.ogracing import OGRacingAdapter
-from app.crawlers.adapters.tier0_http.openflashperformance import OpenFlashPerformanceAdapter
-from app.crawlers.adapters.tier0_http.perrinperformance import PerrinPerformanceAdapter
-from app.crawlers.adapters.tier0_http.prlmotorsports import PRLMotorsportsAdapter
-from app.crawlers.adapters.tier0_http.racerwholesale import RacerWholesaleAdapter
-from app.crawlers.adapters.tier0_http.radium import RadiumAdapter
-from app.crawlers.adapters.tier0_http.rallysportdirect import RallysportDirectAdapter
-from app.crawlers.adapters.tier0_http.roadraceengineering import RoadRaceEngineeringAdapter
-from app.crawlers.adapters.tier0_http.roadsportsupply import RoadSportSupplyAdapter
-from app.crawlers.adapters.tier0_http.rotiform import RotiformAdapter
-from app.crawlers.adapters.tier0_http.seiboncarbon import SeibonCarbonAdapter
-from app.crawlers.adapters.tier0_http.sheepeybuilt import SheepeyBuiltAdapter
-from app.crawlers.adapters.tier0_http.skunk2 import Skunk2Adapter
-from app.crawlers.adapters.tier0_http.stanceusa import StanceUsaAdapter
-from app.crawlers.adapters.tier0_http.steeda import SteedaAdapter
-from app.crawlers.adapters.tier0_http.stoptech import StoptechAdapter
-from app.crawlers.adapters.tier0_http.studiorsr import StudioRSRAdapter
-from app.crawlers.adapters.tier0_http.subispeed import SubispeedAdapter
-from app.crawlers.adapters.tier0_http.tein import TeinAdapter
-from app.crawlers.adapters.tier0_http.tickperformance import TickPerformanceAdapter
-from app.crawlers.adapters.tier0_http.titan7 import Titan7Adapter
-from app.crawlers.adapters.tier0_http.twentysevenwon import TwentySevenWonAdapter
-from app.crawlers.adapters.tier0_http.unpluggedperformance import UnpluggedPerformanceAdapter
-from app.crawlers.adapters.tier0_http.verusengineering import VerusEngineeringAdapter
-from app.crawlers.adapters.tier0_http.voltexusa import VoltexUsaAdapter
-from app.crawlers.adapters.tier0_http.wheelsboutique import WheelsBoutiqueAdapter
-from app.crawlers.adapters.tier0_http.wilwood import WilwoodAdapter
-from app.crawlers.adapters.tier0_http.xph import XPHAdapter
-
-# Tier 1 — TLS impersonation (`TlsFetcher`, `curl_cffi`)
-from app.crawlers.adapters.tier1_tls.apr import APRAdapter
-from app.crawlers.adapters.tier1_tls.cobbtuning import CobbTuningAdapter
-from app.crawlers.adapters.tier1_tls.enjukuracing import EnjukuRacingAdapter
-from app.crawlers.adapters.tier1_tls.forgeline import ForgelineAdapter
-from app.crawlers.adapters.tier1_tls.fortuneauto import FortuneAutoAdapter
-from app.crawlers.adapters.tier1_tls.goodwinracing import GoodWinRacingAdapter
-from app.crawlers.adapters.tier1_tls.kwsuspensions import KWSuspensionsAdapter
-from app.crawlers.adapters.tier1_tls.mackinindustries import MackinIndustriesAdapter
-from app.crawlers.adapters.tier1_tls.racingbeat import RacingBeatAdapter
-from app.crawlers.adapters.tier1_tls.suncoastparts import SuncoastPartsAdapter
-from app.crawlers.adapters.tier1_tls.texasspeed import TexasSpeedAdapter
-from app.crawlers.adapters.tier1_tls.tomeiusa import TomeiUsaAdapter
-from app.crawlers.adapters.tier1_tls.turnermotorsport import TurnerMotorsportAdapter
-from app.crawlers.adapters.tier1_tls.vividracing import VividRacingAdapter
-from app.crawlers.adapters.tier1_tls.z1motorsports import Z1MotorsportsAdapter
-
-# Tier 2 — FlareSolverr browser (`FlareSolverrFetcher`)
-from app.crawlers.adapters.tier2_browser.aemelectronics import AEMElectronicsAdapter
-from app.crawlers.adapters.tier2_browser.americanmuscle import AmericanMuscleAdapter
-from app.crawlers.adapters.tier2_browser.apexwheels import ApexWheelsAdapter
-from app.crawlers.adapters.tier2_browser.dinan import DinanAdapter
-from app.crawlers.adapters.tier2_browser.ecstuning import ECSTuningAdapter
-from app.crawlers.adapters.tier2_browser.fcpeuro import FCPEuroAdapter
-from app.crawlers.adapters.tier2_browser.jegs import JegsAdapter
-from app.crawlers.adapters.tier2_browser.speedindustry import SpeedIndustryAdapter
-from app.crawlers.adapters.tier2_browser.summitracing import SummitRacingAdapter
-from app.crawlers.adapters.tier2_browser.tirerack import TireRackAdapter
 from app.crawlers.fetchers import Fetcher
 
-ADAPTER_REGISTRY: dict[str, type[RetailerCrawlerAdapter]] = {
-    # Tier 0 — plain HTTP
-    "034motorsport": Motorsport034Adapter,
-    "27won": TwentySevenWonAdapter,
-    "a90shop": A90ShopAdapter,
-    "adro": AdroAdapter,
-    "afepower": AfePowerAdapter,
-    "amsperformance": AMSPerformanceAdapter,
-    "aprperformance": APRPerformanceAdapter,
-    "atpturbo": ATPTurboAdapter,
-    "awetuning": AWETuningAdapter,
-    "bcracing": BCRacingAdapter,
-    "bimmerworld": BimmerworldAdapter,
-    "bloxracing": BloxRacingAdapter,
-    "briantooleyracing": BrianTooleyRacingAdapter,
-    "burgermotorsports": BurgerMotorsportsAdapter,
-    "buschurracing": BuschurRacingAdapter,
-    "corksport": CorkSportAdapter,
-    "csfrace": CSFRaceAdapter,
-    "deatschwerks": DeatschwerksAdapter,
-    "delicioustuning": DeliciousTuningAdapter,
-    "driveshaftshop": DriveshaftShopAdapter,
-    "ecutek": EcuTekAdapter,
-    "englishracing": EnglishRacingAdapter,
-    "essexparts": EssexPartsAdapter,
-    "ets": ETSAdapter,
-    "evasivemotorsports": EvasiveMotorsportsAdapter,
-    "fifteen52": Fifteen52Adapter,
-    "flyinmiata": FlyinMiataAdapter,
-    "ftpmotorsports": FTPMotorsportsAdapter,
-    "fullrace": FullRaceAdapter,
-    "functionwerk": FunctionwerkAdapter,
-    "girodisc": GirodiscAdapter,
-    "gmgracing": GMGRacingAdapter,
-    "greddy": GReddyAdapter,
-    "grimmspeed": GrimmSpeedAdapter,
-    "haltech": HaltechAdapter,
-    "hasport": HasportAdapter,
-    "hennessey": HennesseyAdapter,
-    "hksusa": HKSUSAAdapter,
-    "hondata": HondataAdapter,
-    "hrewheels": HREWheelsAdapter,
-    "iagperformance": IAGPerformanceAdapter,
-    "ie": IEAdapter,
-    "ind": INDAdapter,
-    "injectordynamics": InjectorDynamicsAdapter,
-    "injentechnology": InjenTechnologyAdapter,
-    "ioportracing": IOPortRacingAdapter,
-    "jltperformance": JLTPerformanceAdapter,
-    "karcepts": KarceptsAdapter,
-    "katech": KatechAdapter,
-    "ktuner": KTunerAdapter,
-    "lingenfelter": LingenfelterAdapter,
-    "linkecu": LinkEcuAdapter,
-    "maperformance": MAPerformanceAdapter,
-    "mishimoto": MishimotoAdapter,
-    "modernmusclextreme": ModernMuscleXtremeAdapter,
-    "mountainpassperformance": MountainPassPerformanceAdapter,
-    "ogracing": OGRacingAdapter,
-    "openflashperformance": OpenFlashPerformanceAdapter,
-    "perrinperformance": PerrinPerformanceAdapter,
-    "prlmotorsports": PRLMotorsportsAdapter,
-    "racerwholesale": RacerWholesaleAdapter,
-    "radium": RadiumAdapter,
-    "rallysportdirect": RallysportDirectAdapter,
-    "roadraceengineering": RoadRaceEngineeringAdapter,
-    "roadsportsupply": RoadSportSupplyAdapter,
-    "rotiform": RotiformAdapter,
-    "seiboncarbon": SeibonCarbonAdapter,
-    "sheepeybuilt": SheepeyBuiltAdapter,
-    "skunk2": Skunk2Adapter,
-    "stanceusa": StanceUsaAdapter,
-    "steeda": SteedaAdapter,
-    "stoptech": StoptechAdapter,
-    "studiorsr": StudioRSRAdapter,
-    "subispeed": SubispeedAdapter,
-    "tein": TeinAdapter,
-    "tickperformance": TickPerformanceAdapter,
-    "titan7": Titan7Adapter,
-    "unpluggedperformance": UnpluggedPerformanceAdapter,
-    "verusengineering": VerusEngineeringAdapter,
-    "voltexusa": VoltexUsaAdapter,
-    "wheelsboutique": WheelsBoutiqueAdapter,
-    "wilwood": WilwoodAdapter,
-    "xph": XPHAdapter,
-    # Tier 1 — TLS impersonation
-    "apr": APRAdapter,
-    "cobbtuning": CobbTuningAdapter,
-    "enjukuracing": EnjukuRacingAdapter,
-    "forgeline": ForgelineAdapter,
-    "fortuneauto": FortuneAutoAdapter,
-    "goodwinracing": GoodWinRacingAdapter,
-    "kwsuspensions": KWSuspensionsAdapter,
-    "mackinindustries": MackinIndustriesAdapter,
-    "racingbeat": RacingBeatAdapter,
-    "suncoastparts": SuncoastPartsAdapter,
-    "texasspeed": TexasSpeedAdapter,
-    "tomeiusa": TomeiUsaAdapter,
-    "turnermotorsport": TurnerMotorsportAdapter,
-    "vividracing": VividRacingAdapter,
-    "z1motorsports": Z1MotorsportsAdapter,
-    # Tier 2 — FlareSolverr browser
-    "aemelectronics": AEMElectronicsAdapter,
-    "americanmuscle": AmericanMuscleAdapter,
-    "apexwheels": ApexWheelsAdapter,
-    "dinan": DinanAdapter,
-    "ecstuning": ECSTuningAdapter,
-    "fcpeuro": FCPEuroAdapter,
-    "jegs": JegsAdapter,
-    "speedindustry": SpeedIndustryAdapter,
-    "summitracing": SummitRacingAdapter,
-    "tirerack": TireRackAdapter,
-    # Fallback
-    "generic": GenericHtmlParser,
-}
+logger = logging.getLogger(__name__)
+
+#: Populated at import time by ``_discover_adapters()``; excludes ``IS_FALLBACK=True``
+#: adapters per D-03. Canonical read-only view of every concrete adapter keyed by
+#: its ``ADAPTER_NAME`` ClassVar.
+ADAPTER_REGISTRY: dict[str, Type[RetailerCrawlerAdapter]] = {}
+
+#: Non-empty ⇒ one or more adapter modules failed to import (or declared a duplicate
+#: slug). ``tests/crawlers/test_adapter_discovery.py::test_no_import_errors``
+#: asserts this is empty so CI fails loudly (D-05 / D-06).
+_IMPORT_ERRORS: list[tuple[str, BaseException]] = []
+
+
+def _discover_adapters() -> None:
+    """Walk ``tier0_http/``, ``tier1_tls/``, ``tier2_browser/``; collect concrete, non-fallback subclasses.
+
+    **Flat-structure invariant** (Pitfall AD-02): the three tier directories are
+    flat -- no sub-packages. ``pkgutil.iter_modules`` (not ``walk_packages``) is
+    therefore sufficient and avoids executing ``__init__.py`` submodules that
+    don't exist.
+
+    **Per-module try/except** (Pitfall AD-03): NEVER raise at import time. A
+    broken adapter module (SyntaxError / NameError / missing dependency) is
+    isolated and its failure accumulated in ``_IMPORT_ERRORS``.
+    ``test_adapter_discovery.py::test_no_import_errors`` is the single CI
+    enforcement point (D-05 / D-06). Raising here would poison every other test
+    module that transitively imports ``app.crawlers`` with a noisy stack.
+    """
+    # Imported lazily inside the function so a malformed tier_*.__init__ could
+    # never poison module-import of this package.
+    import app.crawlers.adapters.tier0_http as _tier0
+    import app.crawlers.adapters.tier1_tls as _tier1
+    import app.crawlers.adapters.tier2_browser as _tier2
+
+    for pkg in (_tier0, _tier1, _tier2):
+        for modinfo in pkgutil.iter_modules(pkg.__path__, prefix=f"{pkg.__name__}."):
+            try:
+                module = importlib.import_module(modinfo.name)
+            except BaseException as exc:  # noqa: BLE001 -- catch every import-time failure mode
+                logger.error(
+                    "failed to import adapter %s: %s",
+                    modinfo.name,
+                    exc,
+                    exc_info=True,
+                )
+                _IMPORT_ERRORS.append((modinfo.name, exc))
+                continue
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if (
+                    isinstance(attr, type)
+                    and issubclass(attr, RetailerCrawlerAdapter)
+                    and attr is not RetailerCrawlerAdapter
+                    and not getattr(attr, "IS_FALLBACK", False)
+                ):
+                    # __init_subclass__ on RetailerCrawlerAdapter guarantees a
+                    # non-empty ADAPTER_NAME slug on every concrete subclass.
+                    name = attr.ADAPTER_NAME
+                    if name in ADAPTER_REGISTRY:
+                        existing = ADAPTER_REGISTRY[name]
+                        if existing is attr:
+                            # Same class seen via a re-export -- ignore.
+                            continue
+                        _IMPORT_ERRORS.append(
+                            (
+                                modinfo.name,
+                                ValueError(
+                                    f"duplicate ADAPTER_NAME {name!r}: "
+                                    f"{existing.__module__} vs {attr.__module__}"
+                                ),
+                            )
+                        )
+                        continue
+                    ADAPTER_REGISTRY[name] = attr
+
+
+_discover_adapters()
 
 
 def adapter_name_for_product_url(url: str) -> str:
@@ -611,7 +466,15 @@ def get_adapter(name: str, fetcher: Optional[Fetcher] = None) -> RetailerCrawler
     When ``fetcher`` is provided (runner path), the adapter uses it directly.
     When omitted (tests, one-off scripts), the adapter constructs a fetcher
     matching its declared ``FETCHER_TIER``.
+
+    ``"generic"`` is a reserved name that returns the URL-host fallback
+    ``GenericHtmlParser``. It is not in ``ADAPTER_REGISTRY`` (``IS_FALLBACK=True``
+    per D-03), but ``adapter_name_for_product_url`` returns ``"generic"`` for
+    unknown hosts and the ``/scrape`` endpoint / archive rescrape pipeline call
+    ``get_adapter("generic")`` on that return value. Preserve that contract.
     """
+    if name == "generic":
+        return GenericHtmlParser(fetcher=fetcher) if fetcher is not None else GenericHtmlParser()
     if name not in ADAPTER_REGISTRY:
         raise KeyError(f"Unknown adapter: {name}. Available: {list(ADAPTER_REGISTRY.keys())}")
     return ADAPTER_REGISTRY[name](fetcher=fetcher) if fetcher is not None else ADAPTER_REGISTRY[name]()

@@ -45,6 +45,11 @@ jobs:
           cd frontend
           npm audit --audit-level=moderate
 
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test -- --run --coverage
+
       - name: Build application
         run: |
           cd frontend

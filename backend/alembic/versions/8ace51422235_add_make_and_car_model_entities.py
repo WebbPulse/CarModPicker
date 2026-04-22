@@ -99,7 +99,9 @@ def upgrade() -> None:
     op.create_foreign_key(
         op.f("cars_car_model_id_fkey"), "cars", "car_models", ["car_model_id"], ["id"], ondelete="CASCADE"
     )
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("cars", "make")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("cars", "model")
     # ### end Alembic commands ###
 
@@ -112,28 +114,28 @@ def downgrade() -> None:
     op.add_column("cars", sa.Column("make", sa.VARCHAR(), autoincrement=False, nullable=True))
     # Backfill: populate make/model from car_models and makes before dropping car_model_id
     conn = op.get_bind()
-    conn.execute(
-        text(
-            """
+    conn.execute(text("""
             UPDATE cars SET
                 make = (SELECT m.name FROM car_models cm JOIN makes m ON cm.make_id = m.id WHERE cm.id = cars.car_model_id),
                 model = (SELECT cm.name FROM car_models cm WHERE cm.id = cars.car_model_id)
-        """
-        )
-    )
+        """))
     # Now set NOT NULL
     op.alter_column("cars", "model", existing_type=sa.VARCHAR(), nullable=False)
     op.alter_column("cars", "make", existing_type=sa.VARCHAR(), nullable=False)
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_constraint(op.f("cars_car_model_id_fkey"), "cars", type_="foreignkey")
     op.drop_index(op.f("ix_cars_car_model_id"), table_name="cars")
     op.create_index(op.f("ix_cars_model"), "cars", ["model"], unique=False)
     op.create_index(op.f("ix_cars_make"), "cars", ["make"], unique=False)
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("cars", "car_model_id")
     op.drop_index(op.f("ix_car_models_name"), table_name="car_models")
     op.drop_index(op.f("ix_car_models_make_id"), table_name="car_models")
     op.drop_index(op.f("ix_car_models_id"), table_name="car_models")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("car_models")
     op.drop_index(op.f("ix_makes_name"), table_name="makes")
     op.drop_index(op.f("ix_makes_id"), table_name="makes")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("makes")
     # ### end Alembic commands ###

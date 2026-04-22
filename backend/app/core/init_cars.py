@@ -28,6 +28,7 @@ Not synced — safe for admin curation:
 
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.car_generations_data import get_all_car_generations
@@ -76,14 +77,16 @@ def init_car_generations(db: Session) -> None:
         generation_slug = _str_or_none(gen_data["generation_slug"]) or ""
 
         # Get or create CarMake (still by name — makes are identity-stable and few).
-        car_make = db.query(CarMake).filter(CarMake.name == car_make_name).first()
+        car_make = db.scalars(select(CarMake).where(CarMake.name == car_make_name)).first()
         if car_make is None:
             car_make = CarMake(name=car_make_name)
             db.add(car_make)
             db.flush()
 
         # Get or create CarModel by (make_id, slug). Name/display_name are synced fields.
-        car_model = db.query(CarModel).filter(CarModel.car_make_id == car_make.id, CarModel.slug == model_slug).first()
+        car_model = db.scalars(
+            select(CarModel).where(CarModel.car_make_id == car_make.id, CarModel.slug == model_slug)
+        ).first()
         if car_model is None:
             car_model = CarModel(
                 car_make_id=car_make.id,
@@ -106,11 +109,12 @@ def init_car_generations(db: Session) -> None:
                 model_updated += 1
 
         # Get or create CarGeneration by (model_id, slug).
-        existing = (
-            db.query(CarGeneration)
-            .filter(CarGeneration.car_model_id == car_model.id, CarGeneration.slug == generation_slug)
-            .first()
-        )
+        existing = db.scalars(
+            select(CarGeneration).where(
+                CarGeneration.car_model_id == car_model.id,
+                CarGeneration.slug == generation_slug,
+            )
+        ).first()
 
         if existing:
             for key in _CAR_GENERATION_SYNC_FIELDS:

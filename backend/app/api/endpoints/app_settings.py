@@ -10,6 +10,7 @@ clients can honor the toggle; write is admin-only.
 import logging
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -26,7 +27,7 @@ router = APIRouter()
 
 def _get_or_create_settings(db: Session) -> DBAppSettings:
     """Return the singleton settings row, creating it with defaults on first access."""
-    row = db.query(DBAppSettings).filter(DBAppSettings.id == 1).one_or_none()
+    row = db.scalars(select(DBAppSettings).where(DBAppSettings.id == 1)).one_or_none()
     if row is None:
         row = DBAppSettings(id=1)
         db.add(row)

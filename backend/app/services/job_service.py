@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.background_job import BackgroundJob
@@ -77,7 +77,7 @@ def complete_job(
     If the job was already cancelled (e.g. by an admin while the worker was
     still running), this is a no-op so the cancelled status is preserved.
     """
-    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None:
         return None
     if job.status == "cancelled":
@@ -97,7 +97,7 @@ def fail_job(
     result_summary: Optional[dict[str, Any]] = None,
 ) -> Optional[BackgroundJob]:
     """Mark a job as failed, recording the error and any partial result summary."""
-    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None:
         return None
     job.status = "failed"
@@ -116,7 +116,7 @@ def cancel_job(db: Session, job_id: UUID) -> Optional[BackgroundJob]:
     This is a best-effort DB flag — it does not interrupt the running asyncio
     task. Callers may check the flag inside long loops to exit early.
     """
-    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None:
         return None
     job.status = "cancelled"
@@ -128,7 +128,7 @@ def cancel_job(db: Session, job_id: UUID) -> Optional[BackgroundJob]:
 
 def get_job(db: Session, job_id: UUID) -> Optional[BackgroundJob]:
     """Return a single job by ID, or None if not found."""
-    return db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    return db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
 
 
 def heartbeat_job(
@@ -144,7 +144,7 @@ def heartbeat_job(
     it's terminal, the heartbeat is a no-op so we don't clobber
     completed/failed/cancelled state.
     """
-    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None or job.status != "running":
         return job
     job.last_heartbeat_at = datetime.now(UTC)
@@ -167,7 +167,7 @@ def update_job_progress(
     No-op once the job is terminal — the final ``complete_job`` / ``fail_job``
     write is authoritative and we must not stomp it.
     """
-    job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+    job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None or job.status != "running":
         return job
     job.result_summary = result_summary
@@ -231,7 +231,7 @@ def sweep_orphan_jobs(
     unowned_cutoff = now - timedelta(seconds=UNOWNED_GRACE_SEC)
     live_set = {str(jid) for jid in live_job_ids} if live_job_ids is not None else None
 
-    running = db.query(BackgroundJob).filter(BackgroundJob.status == "running").all()
+    running = list(db.scalars(select(BackgroundJob).where(BackgroundJob.status == "running")).all())
     swept: list[BackgroundJob] = []
 
     for job in running:
@@ -285,11 +285,15 @@ def list_jobs(
     """
     Return a page of jobs (newest first) and the total count matching the filters.
     """
-    q = db.query(BackgroundJob)
+    stmt = select(BackgroundJob)
     if status_filter:
-        q = q.filter(BackgroundJob.status == status_filter)
+        stmt = stmt.where(BackgroundJob.status == status_filter)
     if job_type_filter:
-        q = q.filter(BackgroundJob.job_type == job_type_filter)
-    total = q.count()
-    items = q.order_by(desc(BackgroundJob.started_at)).offset(offset).limit(limit).all()
+        stmt = stmt.where(BackgroundJob.job_type == job_type_filter)
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    items = list(
+        db.scalars(
+            stmt.order_by(desc(BackgroundJob.started_at)).offset(offset).limit(limit)
+        ).all()
+    )
     return items, total

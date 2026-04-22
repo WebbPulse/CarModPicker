@@ -82,7 +82,7 @@ Caveats:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -329,6 +329,7 @@ class FTPMotorsportsAdapter(RetailerCrawlerAdapter):
     keep their real manufacturer.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "ftpmotorsports"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

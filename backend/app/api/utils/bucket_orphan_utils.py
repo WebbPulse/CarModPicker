@@ -3,6 +3,7 @@ Utilities for admin bucket orphan cleanup.
 Collects all file keys referenced by entities so we can safely delete only unreferenced objects.
 """
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -30,24 +31,30 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
                     referenced.add(k)
 
     # Parts: image_urls gallery
-    for row in db.query(DBPart.image_urls).all():
-        _collect_image_urls(row.image_urls)
+    for image_urls in db.scalars(select(DBPart.image_urls)).all():
+        _collect_image_urls(image_urls)
 
     # Users: image_urls
-    for row in db.query(DBUser.image_urls).filter(DBUser.image_urls.isnot(None)).all():
-        _collect_image_urls(row.image_urls)
+    for image_urls in db.scalars(
+        select(DBUser.image_urls).where(DBUser.image_urls.isnot(None))
+    ).all():
+        _collect_image_urls(image_urls)
 
     # Cars: image_urls
-    for row in db.query(DBCar.image_urls).filter(DBCar.image_urls.isnot(None)).all():
-        _collect_image_urls(row.image_urls)
+    for image_urls in db.scalars(
+        select(DBCar.image_urls).where(DBCar.image_urls.isnot(None))
+    ).all():
+        _collect_image_urls(image_urls)
 
     # Build lists: image_urls
-    for row in db.query(DBBuildList.image_urls).filter(DBBuildList.image_urls.isnot(None)).all():
-        _collect_image_urls(row.image_urls)
+    for image_urls in db.scalars(
+        select(DBBuildList.image_urls).where(DBBuildList.image_urls.isnot(None))
+    ).all():
+        _collect_image_urls(image_urls)
 
     # Image source mappings (dedup cache)
-    for row in db.query(DBImageSourceMapping.file_key).all():
-        if row.file_key and is_file_key(row.file_key):
-            referenced.add(row.file_key)
+    for file_key in db.scalars(select(DBImageSourceMapping.file_key)).all():
+        if file_key and is_file_key(file_key):
+            referenced.add(file_key)
 
     return referenced

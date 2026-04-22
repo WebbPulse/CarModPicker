@@ -9,6 +9,7 @@ from typing import Dict, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
@@ -38,7 +39,13 @@ class CategoryService(BaseCRUDService[DBCategory, CategoryCreate, CategoryRespon
 
     def get_active_categories(self, db: Session) -> List[DBCategory]:
         """Get all active categories ordered by sort order."""
-        return db.query(DBCategory).filter(DBCategory.is_active.is_(True)).order_by(DBCategory.sort_order).all()
+        return list(
+            db.scalars(
+                select(DBCategory)
+                .where(DBCategory.is_active.is_(True))
+                .order_by(DBCategory.sort_order)
+            ).all()
+        )
 
 
 # Create router
@@ -96,7 +103,14 @@ async def get_parts_by_category(
     db = deps["db"]
     _ = get_entity_or_404(db, DBCategory, category_id, "category")
     skip, limit = validate_pagination_params(skip, limit)
-    parts = db.query(DBPart).filter(DBPart.category_id == category_id).offset(skip).limit(limit).all()
+    parts = list(
+        db.scalars(
+            select(DBPart)
+            .where(DBPart.category_id == category_id)
+            .offset(skip)
+            .limit(limit)
+        ).all()
+    )
     return [PartRead.model_validate(part) for part in parts]
 
 
@@ -117,7 +131,9 @@ async def get_category_parts_count(
     # Verify category exists
     get_entity_or_404(deps["db"], DBCategory, category_id, "category")
 
-    parts_count = deps["db"].query(DBPart).filter(DBPart.category_id == category_id).count()
+    parts_count = deps["db"].scalar(
+        select(func.count()).select_from(DBPart).where(DBPart.category_id == category_id)
+    ) or 0
     return {"parts_count": parts_count}
 
 

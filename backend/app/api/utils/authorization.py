@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -38,7 +39,9 @@ def can_edit_build_list_part(
         return build_list.user_id == user.id
 
     if db:
-        build_list = db.query(DBBuildList).filter(DBBuildList.id == build_list_part.build_list_id).first()
+        build_list = db.scalars(
+            select(DBBuildList).where(DBBuildList.id == build_list_part.build_list_id)
+        ).first()
         if build_list and build_list.user_id == user.id:
             return True
 

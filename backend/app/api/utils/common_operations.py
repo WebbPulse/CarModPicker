@@ -8,7 +8,8 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Query, Session
+from sqlalchemy import Select, select
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.models.user import User as DBUser
@@ -36,7 +37,7 @@ def verify_entity_exists(
     Raises:
         HTTPException: If entity not found
     """
-    entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
+    entity = db.scalars(select(model).where(model.id == entity_id)).first()  # type: ignore[arg-type]
     if not entity:
         raise HTTPException(status_code=404, detail=f"{entity_name.title()} not found")
     return entity
@@ -129,28 +130,28 @@ def verify_admin_access(current_user: DBUser) -> None:
 
 
 def apply_pagination_and_ordering(
-    query: Query[Any],
+    query: Select[Any],
     skip: int = 0,
     limit: int = 100,
     order_by_field: str = "created_at",
     order_direction: str = "desc",
-) -> Query[Any]:
+) -> Select[Any]:
     """
-    Apply pagination and ordering to a database query.
+    Apply pagination and ordering to a database Select statement.
 
     Args:
-        query: Base query to modify
+        query: Base Select statement to modify
         skip: Number of records to skip
         limit: Maximum number of records to return
         order_by_field: Field to order by
         order_direction: Order direction ('asc' or 'desc')
 
     Returns:
-        Modified query with pagination and ordering
+        Modified Select with pagination and ordering
     """
-    # Apply ordering
-    if hasattr(query.column_descriptions[0]["type"], order_by_field):
-        order_field = getattr(query.column_descriptions[0]["type"], order_by_field)
+    entity = query.column_descriptions[0].get("entity") or query.column_descriptions[0].get("type")
+    if entity is not None and hasattr(entity, order_by_field):
+        order_field = getattr(entity, order_by_field)
         if order_direction.lower() == "desc":
             query = query.order_by(order_field.desc())
         else:
@@ -160,37 +161,38 @@ def apply_pagination_and_ordering(
     return query.offset(skip).limit(limit)
 
 
-def build_filtered_query(base_query: Query[Any], filters: Dict[str, Any]) -> Query[Any]:
+def build_filtered_query(base_query: Select[Any], filters: Dict[str, Any]) -> Select[Any]:
     """
     Build a filtered query based on provided filters.
 
     Args:
-        base_query: Base query to apply filters to
+        base_query: Base Select statement to apply filters to
         filters: Dictionary of field names and values to filter by
 
     Returns:
-        Query with applied filters
+        Select with applied filters
     """
+    entity = base_query.column_descriptions[0].get("entity") or base_query.column_descriptions[0].get("type")
     for field_name, value in filters.items():
         if value is not None:
-            if hasattr(base_query.column_descriptions[0]["type"], field_name):
-                field = getattr(base_query.column_descriptions[0]["type"], field_name)
-                base_query = base_query.filter(field == value)
+            if entity is not None and hasattr(entity, field_name):
+                field = getattr(entity, field_name)
+                base_query = base_query.where(field == value)
 
     return base_query
 
 
-def build_search_query(base_query: Query[Any], search_term: str, search_fields: List[str]) -> Query[Any]:
+def build_search_query(base_query: Select[Any], search_term: str, search_fields: List[str]) -> Select[Any]:
     """
     Build a search query with ILIKE filters on multiple fields.
 
     Args:
-        base_query: Base query to apply search to
+        base_query: Base Select statement to apply search to
         search_term: Search term to look for
         search_fields: List of field names to search in
 
     Returns:
-        Query with search filters applied
+        Select with search filters applied
     """
     if not search_term:
         return base_query
@@ -198,18 +200,19 @@ def build_search_query(base_query: Query[Any], search_term: str, search_fields: 
     from sqlalchemy import or_
 
     search_conditions: List[ColumnElement[bool]] = []
-    model = base_query.column_descriptions[0]["type"]
+    model = base_query.column_descriptions[0].get("entity") or base_query.column_descriptions[0].get("type")
 
-    for field_name in search_fields:
-        if hasattr(model, field_name):
-            field = getattr(model, field_name)
-            # Only apply ilike to actual columns (not relationships)
-            if hasattr(field, "property") and hasattr(field.property, "columns"):
-                # This is a column attribute, safe to use ilike
-                search_conditions.append(field.ilike(f"%{search_term}%"))
+    if model is not None:
+        for field_name in search_fields:
+            if hasattr(model, field_name):
+                field = getattr(model, field_name)
+                # Only apply ilike to actual columns (not relationships)
+                if hasattr(field, "property") and hasattr(field.property, "columns"):
+                    # This is a column attribute, safe to use ilike
+                    search_conditions.append(field.ilike(f"%{search_term}%"))
 
     if search_conditions:
-        base_query = base_query.filter(or_(*search_conditions))
+        base_query = base_query.where(or_(*search_conditions))
 
     return base_query
 
@@ -578,20 +581,20 @@ def get_entities_with_pagination(
     Returns:
         List of entities
     """
-    query = db.query(model)
+    stmt: Select[Any] = select(model)
 
     # Apply filters
     if filters:
-        query = build_filtered_query(query, filters)
+        stmt = build_filtered_query(stmt, filters)
 
     # Apply search
     if search and search_fields:
-        query = build_search_query(query, search, search_fields)
+        stmt = build_search_query(stmt, search, search_fields)
 
     # Apply pagination and ordering
-    query = apply_pagination_and_ordering(query, skip, limit, order_by, order_direction)
+    stmt = apply_pagination_and_ordering(stmt, skip, limit, order_by, order_direction)
 
-    entities = query.all()
+    entities = list(db.scalars(stmt).all())
 
     if logger:
         logger.info(f"Retrieved {len(entities)} {model.__name__} entities")

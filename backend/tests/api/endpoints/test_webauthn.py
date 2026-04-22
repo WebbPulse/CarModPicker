@@ -114,7 +114,7 @@ def test_register_verify_persists_credential(client: TestClient, db_session: Ses
     )
 
     with patch(
-        "app.api.endpoints.auth.verify_registration_response",
+        "app.api.endpoints.auth.webauthn.verify_registration_response",
         return_value=verified,
     ):
         resp = client.post(
@@ -213,7 +213,7 @@ def test_login_verify_issues_token(client: TestClient, db_session: Session) -> N
         user_verified=True,
     )
     with patch(
-        "app.api.endpoints.auth.verify_authentication_response",
+        "app.api.endpoints.auth.webauthn.verify_authentication_response",
         return_value=verified,
     ):
         resp = client.post(
@@ -266,7 +266,7 @@ def test_login_verify_replay_rejected(client: TestClient, db_session: Session) -
     challenge_token = opts_resp.json()["challenge_token"]
 
     with patch(
-        "app.api.endpoints.auth.verify_authentication_response",
+        "app.api.endpoints.auth.webauthn.verify_authentication_response",
         side_effect=InvalidAuthenticationResponse("sign_count went backwards"),
     ):
         resp = client.post(
@@ -427,7 +427,7 @@ def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Se
         user_verified=True,
     )
     with patch(
-        "app.api.endpoints.auth.verify_authentication_response",
+        "app.api.endpoints.auth.webauthn.verify_authentication_response",
         return_value=verified,
     ):
         resp = client.post(

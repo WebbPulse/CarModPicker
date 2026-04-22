@@ -22,6 +22,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.part import Part as DBPart
@@ -123,7 +124,9 @@ def find_canonical_candidates(
 
 def _point_siblings_at(db: Session, old_canonical_id: UUID, new_canonical_id: UUID) -> int:
     """Repoint every part currently linked to ``old_canonical_id`` onto ``new_canonical_id``."""
-    rows = db.query(DBPart).filter(DBPart.canonical_part_id == old_canonical_id).all()
+    rows = list(
+        db.scalars(select(DBPart).where(DBPart.canonical_part_id == old_canonical_id)).all()
+    )
     for row in rows:
         row.canonical_part_id = new_canonical_id
         db.add(row)
@@ -137,12 +140,52 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
     Safe to call whether ``new_canonical`` is currently canonical or a sibling —
     at minimum it clears ``canonical_part_id`` and repoints any existing siblings.
     """
+    # IN-03: lock subject row FIRST, then re-read canonical_part_id under the lock
+    # before taking the early-return branch. The previous ordering read
+    # canonical_part_id off the passed-in ORM object (possibly stale) and returned
+    # early without any lock, so a concurrent link_new_part that was mid-flight
+    # setting new_canonical.canonical_part_id could leave this call with a
+    # "return value is canonical" contract violation. Under the subject-row lock
+    # the re-read is consistent with anything about to mutate it.
+    # Silent no-op on SQLite (Pitfall 1); concurrency guarantees hold on Postgres.
+    locked_subject = db.scalars(
+        select(DBPart).where(DBPart.id == new_canonical.id).with_for_update()
+    ).one_or_none()
+    if locked_subject is None:
+        # Row vanished (delete race). Fall back to returning the passed-in object;
+        # callers treat this as an already-canonical no-op.
+        return new_canonical
+    # Rebind to the freshly-locked row so subsequent mutations see consistent state.
+    new_canonical = locked_subject
+
     if new_canonical.canonical_part_id is None:
         # Already canonical; nothing to do unless callers want to repoint other
         # groups into this one, which they should do via link_new_part.
         return new_canonical
 
+    # DATA-03 (Phase 4 D-01/D-05): lock new_canonical + old_canonical + all siblings
+    # before reading/mutating. Siblings are discovered under the lock to freeze the
+    # set against a concurrent link_new_part that might be adding a new sibling.
+    # Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
+    #
+    # Phase 4 code-review WR-02: sort lock_ids before WHERE id IN (...) so that
+    # concurrent reelect_canonical / link_new_part calls acquire row locks in a
+    # deterministic (by-id) order. Without this, two transactions locking
+    # overlapping row sets in different orders can deadlock under index-dependent
+    # SQL lock acquisition.
     old_canonical_id = new_canonical.canonical_part_id
+    lock_ids_set: set[UUID] = {new_canonical.id, old_canonical_id}
+    sibling_ids = db.scalars(
+        select(DBPart.id)
+        .where(DBPart.canonical_part_id == old_canonical_id)
+        .with_for_update()
+    ).all()
+    lock_ids_set.update(sibling_ids)
+    lock_ids = sorted(lock_ids_set)
+    db.scalars(
+        select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()
+    ).all()
+
     old_canonical = db.get(DBPart, old_canonical_id)
 
     new_canonical.canonical_part_id = None
@@ -169,14 +212,43 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
 
 
 def unlink_part(db: Session, part: DBPart) -> DBPart:
-    """Make ``part`` its own canonical, detaching it from its current link group."""
-    if part.canonical_part_id is None:
-        return part
-    part.canonical_part_id = None
-    db.add(part)
+    """Make ``part`` its own canonical, detaching it from its current link group.
+
+    DATA-03 (Phase 4 D-01/D-05) lock scope: subject + canonical (if any) + siblings.
+    The full sibling set must be locked so that a concurrent reelect_canonical
+    cannot read subject.canonical_part_id as non-null and then mutate a stale
+    sibling view. The invariant to preserve: every sibling's canonical_part_id
+    resolves to a live Part row with canonical_part_id IS NULL.
+    Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
+    """
+    # Lock the subject row first (stable ordering — subject.id is always in set).
+    subject = db.scalars(
+        select(DBPart).where(DBPart.id == part.id).with_for_update()
+    ).one()
+
+    canonical_id = subject.canonical_part_id
+    if canonical_id is None:
+        return subject
+
+    # Lock the canonical row.
+    db.scalars(
+        select(DBPart).where(DBPart.id == canonical_id).with_for_update()
+    ).one()
+
+    # Lock every sibling that shares this canonical so any interleaving with
+    # reelect_canonical / _point_siblings_at / another unlink serializes here.
+    db.scalars(
+        select(DBPart.id)
+        .where(DBPart.canonical_part_id == canonical_id)
+        .with_for_update()
+    ).all()
+
+    # Now safe to mutate.
+    subject.canonical_part_id = None
+    db.add(subject)
     db.flush()
-    logger.info("Unlinked part %s from prior canonical", part.id)
-    return part
+    logger.info("Unlinked part %s from prior canonical", subject.id)
+    return subject
 
 
 def link_new_part(
@@ -210,6 +282,24 @@ def link_new_part(
     if not candidates:
         logger.debug("Linker: no canonical candidates for part %s; leaving canonical", new_part.id)
         return new_part
+
+    # DATA-03 (Phase 4 D-01/D-05): lock every candidate + new_part so concurrent
+    # link_new_part calls serialize on these rows. Re-reads the latest state in
+    # case the candidates lookup was stale. Silent no-op on SQLite (Pitfall 1) —
+    # concurrency test (test_part_linker_concurrency.py) runs on Postgres.
+    #
+    # Phase 4 code-review WR-02: sort lock_ids so overlapping link_new_part /
+    # reelect_canonical transactions acquire row locks in the same deterministic
+    # order and cannot deadlock on index-dependent lock acquisition.
+    lock_ids = sorted({c.id for c in candidates} | {new_part.id})
+    locked = db.scalars(
+        select(DBPart)
+        .where(DBPart.id.in_(lock_ids))
+        .with_for_update()
+    ).all()
+    locked_by_id = {p.id: p for p in locked}
+    candidates = [locked_by_id[c.id] for c in candidates]
+    new_part = locked_by_id[new_part.id]
 
     all_candidates = candidates + [new_part]
     chosen = max(all_candidates, key=_score_tuple)
@@ -277,5 +367,7 @@ def link_group_part_ids(db: Session, part_id: UUID) -> list[UUID]:
     if part is None:
         return [part_id]
     canonical_id = part.canonical_part_id or part.id
-    sibling_ids = [row[0] for row in db.query(DBPart.id).filter(DBPart.canonical_part_id == canonical_id).all()]
+    sibling_ids = list(
+        db.scalars(select(DBPart.id).where(DBPart.canonical_part_id == canonical_id)).all()
+    )
     return [canonical_id, *sibling_ids]

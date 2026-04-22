@@ -33,7 +33,7 @@ categories, tags, attribute taxonomies) are skipped. Override with
 import os
 import re
 import time
-from typing import Any, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Iterator, List, Optional, cast
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -237,6 +237,7 @@ class DriveshaftShopAdapter(RetailerCrawlerAdapter):
     WooCommerce numeric sku, and a brand default of ``"Driveshaft Shop"``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "driveshaftshop"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

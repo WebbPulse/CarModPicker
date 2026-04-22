@@ -66,15 +66,13 @@ class VoteService:
         _ = verify_entity_exists(db, entity_model, entity_id, entity_type.value)
 
         # Check for existing vote
-        existing_vote = (
-            db.query(DBVote)
-            .filter(
+        existing_vote = db.scalars(
+            select(DBVote).where(
                 DBVote.user_id == user_id,
                 DBVote.entity_type == entity_type.value,
                 DBVote.entity_id == entity_id,
             )
-            .first()
-        )
+        ).first()
 
         if existing_vote:
             # Update existing vote
@@ -121,15 +119,13 @@ class VoteService:
         Returns:
             True if vote was removed, False if no vote existed
         """
-        vote = (
-            db.query(DBVote)
-            .filter(
+        vote = db.scalars(
+            select(DBVote).where(
                 DBVote.user_id == user_id,
                 DBVote.entity_type == entity_type.value,
                 DBVote.entity_id == entity_id,
             )
-            .first()
-        )
+        ).first()
 
         if vote:
             db.delete(vote)
@@ -168,15 +164,14 @@ class VoteService:
         verify_entity_exists(db, entity_model, entity_id, entity_type.value)
 
         # Get vote counts
-        vote_counts = (
-            db.query(DBVote.vote_type, func.count(DBVote.id).label("count"))
-            .filter(
+        vote_counts = db.execute(
+            select(DBVote.vote_type, func.count(DBVote.id).label("count"))
+            .where(
                 DBVote.entity_type == entity_type.value,
                 DBVote.entity_id == entity_id,
             )
             .group_by(DBVote.vote_type)
-            .all()
-        )
+        ).all()
 
         # vote_counts is a list of tuples: (vote_type, count)
         upvotes = sum(int(count[1]) for count in vote_counts if count[0] == "upvote")
@@ -187,15 +182,13 @@ class VoteService:
         # Get user's vote if user_id provided
         user_vote = None
         if user_id:
-            user_vote_obj = (
-                db.query(DBVote)
-                .filter(
+            user_vote_obj = db.scalars(
+                select(DBVote).where(
                     DBVote.user_id == user_id,
                     DBVote.entity_type == entity_type.value,
                     DBVote.entity_id == entity_id,
                 )
-                .first()
-            )
+            ).first()
             user_vote = user_vote_obj.vote_type if user_vote_obj else None
 
         return VoteSummary(
@@ -231,7 +224,7 @@ class VoteService:
 
         # Calculate vote statistics for each entity
         vote_stats = (
-            db.query(
+            select(
                 DBVote.entity_id,
                 func.sum(case((DBVote.vote_type == "upvote", 1), else_=0)).label("upvotes"),
                 func.sum(case((DBVote.vote_type == "downvote", 1), else_=0)).label("downvotes"),
@@ -249,15 +242,15 @@ class VoteService:
                     )
                 ).label("recent_downvotes"),
             )
-            .filter(DBVote.entity_type == entity_type.value)
+            .where(DBVote.entity_type == entity_type.value)
             .group_by(DBVote.entity_id)
             .having(func.count(DBVote.id) >= 5)  # Only entities with at least 5 votes
             .subquery()
         )
 
         # Get entities with their vote stats and check for reports
-        flagged_entities = (
-            db.query(
+        flagged_entities = db.execute(
+            select(
                 entity_model,
                 vote_stats.c.upvotes,
                 vote_stats.c.downvotes,
@@ -283,7 +276,7 @@ class VoteService:
                 ).label("has_reports"),
             )
             .join(vote_stats, entity_model.id == vote_stats.c.entity_id)
-            .filter(
+            .where(
                 or_(
                     # High downvote ratio
                     case(
@@ -309,8 +302,7 @@ class VoteService:
                 vote_stats.c.recent_downvotes.desc(),
             )
             .limit(limit)
-            .all()
-        )
+        ).all()
 
         return [
             FlaggedEntitySummary(

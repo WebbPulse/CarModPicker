@@ -6,6 +6,7 @@ List and create are under build_lists (GET/POST /build-lists/{id}/phases).
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func, select, update
 
 from app.api.dependencies.auth import get_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -35,7 +36,7 @@ async def count_build_list_phases(
     """Total count of build list phases (public read, same pattern as other /count endpoints)."""
     db = deps["db"]
     logger = deps["logger"]
-    count = db.query(DBBuildListPhase).count()
+    count = db.scalar(select(func.count()).select_from(DBBuildListPhase)) or 0
     logger.info(f"Retrieved build list phases count: {count}")
     return {"count": count}
 
@@ -98,8 +99,10 @@ async def delete_build_list_phase(
     verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
     # Unassign parts from this phase
-    db.query(DBBuildListPart).filter(DBBuildListPart.build_list_phase_id == phase_id).update(
-        {DBBuildListPart.build_list_phase_id: None}
+    db.execute(
+        update(DBBuildListPart)
+        .where(DBBuildListPart.build_list_phase_id == phase_id)
+        .values(build_list_phase_id=None)
     )
 
     deleted_data = BuildListPhaseRead.model_validate(db_phase)

@@ -25,13 +25,17 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID
 
+import pybreaker
 import requests
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
+from app.core.cloudwatch_emf import emit_crawler_run_metrics
+from app.core.logging import configure_root_logging
 from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -47,11 +51,13 @@ from app.crawlers.base import (
 from app.crawlers.fetchers import FetcherError, get_fetcher
 from app.db.session import API_CONNECTION_RESERVE, DB_MAX_OVERFLOW, DB_POOL_SIZE, SessionLocal
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# IN-04: use the shared logging setup (single LOG_FORMAT +
+# RequestContextFilter across all entry points) so ``request_id`` /
+# ``user_id`` ContextVars — set by ``bg_log_context`` for App Runner
+# background jobs and by ``__main__.py`` for CLI runs — show up in log
+# output regardless of whether runner.py was imported by the web app
+# or invoked directly.
+configure_root_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -61,14 +67,40 @@ class CrawlerConfigError(ValueError):
     pass
 
 
-# Adapter-level circuit breaker: after this many consecutive URL fetches
-# exit the per-URL retry loop with a rate-limit / upstream-distress status
-# (429/502/503/504), bail on the whole adapter rather than grinding through
-# the rest of the URL list. Each exhausted retry chain can burn ~60s of
-# backoff (2+4+8+16+32s), so without this we could spend hours hammering a
-# struggling origin for zero ingested pages.
-RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD = 5
-RATE_LIMIT_CIRCUIT_BREAKER_STATUSES = frozenset({429, 502, 503, 504})
+# Per-adapter-name pybreaker registry (CRAWL-04 / D-08).
+# Replaces the old RATE_LIMIT_CIRCUIT_BREAKER_* counter block with a
+# thread-safe pybreaker CircuitBreaker keyed by ADAPTER_NAME. Breakers
+# are shared across ThreadPoolExecutor workers for the same adapter, so
+# a trip in one worker affects every subsequent fetch for that adapter.
+# Pitfall BR-01: module-level Lock + double-checked locking prevents
+# two workers constructing breakers for the same adapter in parallel.
+_BREAKERS: dict[str, pybreaker.CircuitBreaker] = {}
+_BREAKERS_LOCK = threading.Lock()
+
+
+def get_breaker(adapter_name: str) -> pybreaker.CircuitBreaker:
+    """Return the process-global breaker for ``adapter_name``, creating it on first access.
+
+    Config per D-09:
+      - ``fail_max=3``: three consecutive exceptions through ``breaker.call()``
+        trip it (the 4th call raises CircuitBreakerError).
+      - ``reset_timeout=120``: OPEN state lasts 120s before auto-transitioning
+        to HALF-OPEN for a single trial call.
+    """
+    breaker = _BREAKERS.get(adapter_name)
+    if breaker is not None:
+        return breaker
+    with _BREAKERS_LOCK:
+        breaker = _BREAKERS.get(adapter_name)
+        if breaker is not None:
+            return breaker
+        breaker = pybreaker.CircuitBreaker(
+            fail_max=3,
+            reset_timeout=120,
+            name=adapter_name,
+        )
+        _BREAKERS[adapter_name] = breaker
+        return breaker
 
 
 def _get_crawler_user(db: Session) -> DBUser:
@@ -77,18 +109,23 @@ def _get_crawler_user(db: Session) -> DBUser:
     Falls back to CRAWLER_USER_ID env var for backwards compatibility with local/CLI usage.
     Raises CrawlerConfigError when neither resolves (API-safe; does not sys.exit).
     """
-    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
     if user:
         return user
 
-    # Fallback: legacy env-var path (CLI / local dev before service account is seeded)
+    # Fallback: legacy env-var path (CLI / local dev before service account is seeded).
+    # WR-03: ``User.id`` is UUID-based (see ``is_service_account`` filter above and
+    # ``resolve_crawler_user`` below which uses the ``UUID`` type). The previous
+    # ``int(raw)`` cast was vestigial from the pre-UUID schema and produced a
+    # misleading "must be an integer" error for valid UUID strings. Parse as UUID
+    # to match the model.
     raw = os.environ.get("CRAWLER_USER_ID")
     if raw:
         try:
-            user_id = int(raw)
-        except ValueError:
-            raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
-        user = db.query(DBUser).filter(DBUser.id == user_id).first()
+            user_id = UUID(raw)
+        except ValueError as exc:
+            raise CrawlerConfigError("CRAWLER_USER_ID must be a valid UUID.") from exc
+        user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
         if not user:
             raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
         if user.disabled:
@@ -106,7 +143,7 @@ def resolve_crawler_user(db: Session, user_id_override: Optional[UUID] = None) -
     Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
     """
     if user_id_override is not None:
-        user = db.query(DBUser).filter(DBUser.id == user_id_override).first()
+        user = db.scalars(select(DBUser).where(DBUser.id == user_id_override)).first()
         if not user:
             raise CrawlerConfigError(f"Crawler user_id={user_id_override}: no user found.")
         if user.disabled:
@@ -120,7 +157,7 @@ def resolve_default_category_id(db: Session, category_id_override: Optional[UUID
     Resolve default category. Uses category_id_override if provided, else env vars.
     """
     if category_id_override is not None:
-        cat = db.query(DBCategory).filter(DBCategory.id == category_id_override).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.id == category_id_override)).first()
         if not cat or not cat.is_active:
             raise CrawlerConfigError(f"Default category_id={category_id_override}: not found or inactive.")
         return cat.id
@@ -139,20 +176,20 @@ def _get_default_category_id(db: Session) -> UUID:
         except ValueError:
             pass
         else:
-            cat = db.query(DBCategory).filter(DBCategory.id == cat_id).first()
+            cat = db.scalars(select(DBCategory).where(DBCategory.id == cat_id)).first()
             if cat and cat.is_active:
                 return cat.id
             logger.warning("CRAWLER_DEFAULT_CATEGORY_ID=%s: category not found or inactive.", raw_id)
 
     name = os.environ.get("CRAWLER_DEFAULT_CATEGORY_NAME", "").strip()
     if name:
-        cat = db.query(DBCategory).filter(DBCategory.name == name, DBCategory.is_active).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.name == name, DBCategory.is_active)).first()
         if cat:
             return cat.id
         logger.warning("CRAWLER_DEFAULT_CATEGORY_NAME=%r: category not found or inactive.", name)
 
     # Fallback: first active category
-    first = db.query(DBCategory).filter(DBCategory.is_active).order_by(DBCategory.sort_order).first()
+    first = db.scalars(select(DBCategory).where(DBCategory.is_active).order_by(DBCategory.sort_order)).first()
     if first:
         logger.info("Using first active category: id=%s name=%s", first.id, first.name)
         return first.id
@@ -364,6 +401,47 @@ def run_crawler(
         logger.info("Adapter %s: using fetcher tier %r (%s)", adapter_name, tier, fetcher.__class__.__name__)
         adapter = get_adapter(adapter_name, fetcher=fetcher)
 
+        # Pre-crawl health gate (CRAWL-06 / D-19). If the adapter's configured
+        # HEALTH_PROBE_URL comes back unhealthy, skip the URL loop entirely
+        # and return a result row tagged with health_skipped=True — the job
+        # report surfaces it so operators see "adapter X was down, not broken."
+        # Adapters that leave HEALTH_PROBE_URL=None (DISC-04 Option A default)
+        # short-circuit inside check_health and return healthy=True.
+        health = adapter.check_health()
+        if not health.healthy:
+            logger.warning(
+                "skipping %s: health=%s status=%s",
+                adapter_name,
+                health.reason,
+                health.status_code,
+            )
+            return {
+                "adapter": adapter_name,
+                "ingested": 0,
+                "skipped": 0,
+                "skipped_robots": 0,
+                "skipped_not_product": 0,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 0,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": True,
+                "health_reason": f"health_{health.reason}",
+                "health_status_code": health.status_code,
+                # CRAWL-07: health check ran BEFORE the URL loop (and before
+                # `t0`), so elapsed_seconds is 0.0 on this path. parse_failures
+                # is trivially 0 — no URLs processed.
+                "parse_failures": 0,
+                "sample_failure_urls": [],
+                "elapsed_seconds": 0.0,
+            }
+
         urls = list(adapter.discover_product_urls())
         if urls:
             canonical_urls = [canonicalize_url(u) for u in urls]
@@ -390,15 +468,14 @@ def run_crawler(
             statuses_to_skip = ["gone"]
             if skip_known_urls:
                 statuses_to_skip.append("parsed")
-            skip_set = {
-                row.url
-                for row in db.query(DBCrawledPage.url)
-                .filter(
-                    DBCrawledPage.url.in_(canonical_urls),
-                    DBCrawledPage.parse_status.in_(statuses_to_skip),
-                )
-                .all()
-            }
+            skip_set = set(
+                db.scalars(
+                    select(DBCrawledPage.url).where(
+                        DBCrawledPage.url.in_(canonical_urls),
+                        DBCrawledPage.parse_status.in_(statuses_to_skip),
+                    )
+                ).all()
+            )
             if skip_set:
                 before = len(urls)
                 urls = [u for u in urls if canonicalize_url(u) not in skip_set]
@@ -441,14 +518,24 @@ def run_crawler(
         error_urls: list[dict[str, Any]] = []
         parse_miss_urls: list[dict[str, Any]] = []
         _MAX_SAMPLES = 50
-        # Circuit-breaker state. `consecutive_rate_limited` counts URLs whose
-        # retry chain exhausted against 429/502/503/504; reset whenever a fetch
-        # returns (any HTTP response, including 4xx that prove the origin is
-        # alive). `rate_limit_bailout` flips to True when the threshold trips
-        # and is surfaced in the returned result.
-        consecutive_rate_limited = 0
+        # Circuit-breaker state (CRAWL-04). `rate_limit_bailout` flips to
+        # True when the pybreaker trips and is surfaced in the returned
+        # result. The breaker is process-global per ADAPTER_NAME, hoisted
+        # ONCE outside the URL loop so all iterations share state.
         rate_limit_bailout = False
         rate_limit_bailout_after = 0
+        breaker = get_breaker(adapter_name)
+
+        # CRAWL-07 / Plan 03-03 + OBS-02 / D-17: single wall-clock anchor for
+        # `elapsed_seconds` in the result dict AND for the EMF emit at the end
+        # of run_crawler. Captured AFTER check_health (which has its own
+        # timeout) so elapsed_seconds measures the URL-loop cost exclusively.
+        # Used by both the success-path return, the breaker-bail return, and
+        # the emit_crawler_run_metrics call below. IN-01: previously the two
+        # consumers used separate names (`start_ts` for EMF, `t0` for the
+        # return dict) that aliased the same value — collapsed to a single
+        # name so future refactors cannot silently diverge them.
+        t0 = time.monotonic()
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -470,11 +557,20 @@ def run_crawler(
                         url,
                     )
                     continue
-                html = adapter.fetcher.fetch(url)
-                # Fetch returned without raising — origin is responsive. Reset
-                # the circuit-breaker counter regardless of whether parsing
-                # succeeds downstream; we only care about upstream health here.
-                consecutive_rate_limited = 0
+                try:
+                    html = breaker.call(adapter.fetcher.fetch, url)
+                except pybreaker.CircuitBreakerError:
+                    # Pitfall BR-03: this handler MUST precede the generic
+                    # `except Exception` below. Breaker is OPEN — skip the
+                    # rest of the URL list and record the bailout.
+                    logger.error(
+                        "Adapter %s: breaker OPEN after %s URLs; bailing.",
+                        adapter_name,
+                        i,
+                    )
+                    rate_limit_bailout = True
+                    rate_limit_bailout_after = i
+                    break
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
                     skipped_not_product += 1
@@ -492,7 +588,7 @@ def run_crawler(
                     continue
                 arch_url = canonicalize_url(url)
                 html_utf8, _, html_sha = crawl_html_fingerprint(html)
-                existing = db.query(DBCrawledPage).filter(DBCrawledPage.url == arch_url).first()
+                existing = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == arch_url)).first()
                 storage_key: Optional[str]
                 if existing and existing.html_sha256 == html_sha and (existing.html_s3_key or existing.html_local_path):
                     storage_key = existing.html_s3_key or existing.html_local_path
@@ -533,16 +629,28 @@ def run_crawler(
                 status = _http_status_from_exception(e)
                 bucket = _classify_fetch_error(e, status)
                 http_errors[bucket] = http_errors.get(bucket, 0) + 1
-                # Circuit-breaker accounting: a status in the rate-limit set
-                # means the per-URL retry chain fully exhausted against the
-                # upstream. Any other HTTP status (e.g. 404/410) resets the
-                # counter because it proves the origin served our request.
-                # Non-HTTP failures (timeouts/connection errors, status=None)
-                # are ambiguous and left untouched.
-                if status in RATE_LIMIT_CIRCUIT_BREAKER_STATUSES:
-                    consecutive_rate_limited += 1
-                elif status is not None:
-                    consecutive_rate_limited = 0
+                # Pre-trip the breaker on any terminal 429/503 per D-11: a
+                # single such response is upstream explicitly telling us to
+                # back off. Manually opening here means the NEXT URL's
+                # breaker.call() raises CircuitBreakerError and bails out,
+                # without waiting for fail_max=3 to accumulate.
+                #
+                # WR-04: ``breaker.call`` already recorded this fetch as a
+                # failure for pybreaker's internal accounting before re-raising
+                # into this except block. Only force the state machine to OPEN
+                # when it's still CLOSED/HALF_OPEN — pybreaker treats open->open
+                # as a no-op, but this avoids re-issuing the warning in the
+                # already-open case (e.g. concurrent worker tripped it first)
+                # and keeps the manual override visibly tied to a state change.
+                if status in (429, 503):
+                    if breaker.current_state != "open":
+                        logger.warning(
+                            "Adapter %s: terminal %s on URL %s — forcing breaker OPEN for 120s (D-11)",
+                            adapter_name,
+                            status,
+                            url,
+                        )
+                        breaker.open()
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
@@ -566,20 +674,6 @@ def run_crawler(
                             }
                         )
                     db.rollback()
-                if consecutive_rate_limited >= RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD:
-                    logger.error(
-                        "Adapter %s: circuit breaker tripped after %s consecutive rate-limited "
-                        "fetches (last status %s). Bailing at %s/%s URLs to avoid hammering a "
-                        "struggling origin.",
-                        adapter_name,
-                        consecutive_rate_limited,
-                        status,
-                        i,
-                        total,
-                    )
-                    rate_limit_bailout = True
-                    rate_limit_bailout_after = i
-                    break
 
         skipped = skipped_robots + skipped_not_product + skipped_gone
         # Pick the summary log level based on how healthy the run looks. A
@@ -605,6 +699,17 @@ def run_crawler(
         elif errors > 0 and errors >= max(1, total // 4):
             summary_level = logging.WARNING
             summary_reason = " — %s error(s) on %s URLs" % (errors, total)
+        # OBS-02 / D-17 — emit EMF BEFORE the summary log (RESEARCH Landmine 3:
+        # aws-embedded-metrics issue #109 drops the final EMF line if no non-EMF
+        # line follows; the summary log below acts as the flush trigger).
+        # NEVER reorder these two blocks.
+        emit_crawler_run_metrics(
+            adapter_name=adapter_name,
+            run_type="live",  # runner.py handles live path; rescrape path emits separately in ecs_rescrape_runner.py (D-21)
+            ingested=ingested,
+            parse_failures=skipped_not_product,  # D-22: parse_failures == skipped_not_product
+            elapsed_seconds=time.monotonic() - t0,  # IN-01: single anchor shared with return dict
+        )
         logger.log(
             summary_level,
             "Adapter %s done. Ingested=%s skipped=%s (robots=%s not_product=%s gone=%s) errors=%s total=%s%s",
@@ -641,6 +746,21 @@ def run_crawler(
             # tripped; it records the URL index at which we bailed.
             "rate_limit_bailout": rate_limit_bailout,
             "rate_limit_bailout_after": rate_limit_bailout_after,
+            # Pre-crawl health-probe outcome (CRAWL-06). False on successful
+            # runs (this path); the early-return above sets True and fills
+            # `health_reason` / `health_status_code`. Present on every result
+            # for consistent schema across healthy + skipped paths.
+            "health_skipped": False,
+            "health_reason": None,
+            "health_status_code": None,
+            # CRAWL-07 (Plan 03-03): parse-failure count + first-5 URL samples
+            # (encounter order, URL-only per D-23) + wall-clock elapsed.
+            # `parse_failures` is an alias for `skipped_not_product` expressing
+            # intent distinctly from transport/HTTP "errors" — Phase 2 OBS-02
+            # CloudWatch reads these keys without any further schema change.
+            "parse_failures": skipped_not_product,
+            "sample_failure_urls": [p["url"] for p in parse_miss_urls[:5]],
+            "elapsed_seconds": round(time.monotonic() - t0, 3),
         }
     finally:
         # Close the fetcher if we got far enough to create one. FlareSolverr

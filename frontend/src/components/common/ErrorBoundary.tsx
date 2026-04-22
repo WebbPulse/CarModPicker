@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import React, { Component, type ReactNode } from 'react';
 
 interface Props {
@@ -21,7 +22,19 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // IN-06: the ``Sentry.captureException`` call below is the canonical
+    // reporting path (its presence is asserted by ErrorBoundary.test.tsx).
+    // The ``console.error`` here is purely a dev-tools artifact — in
+    // ``@sentry/react`` v10 the default console integration only produces
+    // *breadcrumbs* for ``console.error``, not separate events, so a single
+    // ErrorBoundary trigger still yields exactly one Sentry event. The
+    // breadcrumb is useful context (it carries the full React errorInfo
+    // argument, which ``captureException``'s ``extra.componentStack`` only
+    // captures as a string), so we intentionally keep both calls.
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    Sentry.captureException(error, {
+      extra: { componentStack: errorInfo.componentStack },
+    });
   }
 
   override render() {

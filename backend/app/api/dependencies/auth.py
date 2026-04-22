@@ -4,7 +4,9 @@ from typing import Any, Optional
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.user import User as DBUser
@@ -13,7 +15,7 @@ from app.core.config import settings
 from app.core.log_context import user_id_var
 from app.db.session import get_db
 
-ALGORITHM = "HS256"
+ALGORITHM = settings.JWT_ALGORITHM
 
 
 # OAuth2 scheme for Bearer token extraction (FastAPI standard)
@@ -96,10 +98,10 @@ async def get_current_user(
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None:
         raise credentials_exception
     if user.disabled:
@@ -128,10 +130,10 @@ async def get_optional_current_user(
         if username is None:
             return None
         token_data = TokenData(username=username)
-    except JWTError:
+    except InvalidTokenError:
         return None
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None or user.disabled or not user.email_verified:
         return None
 
@@ -156,10 +158,10 @@ async def get_current_active_user_optional(
         if username is None:
             return None  # Invalid token payload
         token_data = TokenData(username=username)
-    except JWTError:  # Covers expired, invalid signature, etc.
+    except InvalidTokenError:  # Covers expired, invalid signature, etc.
         return None  # Token is invalid or expired
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None:
         return None  # User from token not found in DB
 

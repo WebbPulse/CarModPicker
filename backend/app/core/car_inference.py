@@ -12,18 +12,14 @@ import re
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.core.car_generations_data import CAR_GENERATIONS
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-# Generation codes that must NOT match when they appear alone - too ambiguous.
-# Examples: "GR" matches both Subaru WRX GR and Toyota GR Supra; "Mk5" matches VW and Supra;
-# "B5" matches Audi platform and product codes; "D2" is D2 Racing brand; "8S" matches "8s" (quarter-mile);
-# "B4" is Bilstein B4 product line, not Audi RS2 B4; "EVO" is Bilstein EVO, not Huracán EVO;
-# "P1" appears in product codes (AT-P1), not just McLaren P1; "V10" in Rexpeed V10 is model, not Camry V10;
-# "HI" in HKS Hi Power, not Genesis G90 HI; "Mk4" alone can appear near Supra MKV; "NA" in CTEK MXS 5.0 NA battery charger, not Miata NA; "S", "I", etc. match everywhere.
 AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
     {
         "GR",
@@ -168,6 +164,37 @@ AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
         "T6",  # Ford Ranger T6 ↔ "6061-T6" aircraft aluminum tempering spec
     }
 )
+"""Generation codes that must NOT fire on their own because they collide with
+other tokens in scraped catalog data.
+
+Purpose:
+    Codes in this set require an adjacent make+model phrase (see PHRASE_TRIPLES
+    and CAR_ALIASES in this module) to disambiguate. Bare standalone matches
+    are suppressed by ``_build_phrase_triples`` to avoid false positives like
+    "HI" in "HKS Hi Power" incorrectly matching Genesis G90 HI, or "NA" in
+    "CTEK MXS 5.0 NA" incorrectly matching Miata NA.
+
+Criterion for adding a code:
+    - It matches a real product-name token (brand, SKU suffix, marketing phrase,
+      engine code, bore/displacement figure) that creates repeated false
+      positives in scraped catalog data, AND/OR
+    - It is shared across multiple make/model lineages and cannot disambiguate
+      without the paired make/model string.
+
+Criterion for removing a code:
+    - The colliding brand/product is retired or absent from the current retailer
+      catalog, AND
+    - No remaining collisions exist in representative scraped samples, AND
+    - Removing the entry provably improves recall without introducing new false
+      positives (verify against ``test_car_inference.py`` +
+      ``test_car_inference_ambiguity.py``).
+
+Known counterexamples:
+    See ``backend/tests/test_car_inference_ambiguity.py`` for ~20+ pinned
+    behaviors. Those tests assert CURRENT behavior, not CORRECTNESS. The
+    ML-based rewrite (PARTS-V2-01) is explicitly deferred to v2 per
+    ``.planning/REQUIREMENTS.md``.
+"""
 
 
 def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
@@ -2720,22 +2747,23 @@ def resolve_car_triples_to_ids(
     ids: list[UUID] = []
     seen_ids: set[UUID] = set()
     for car_make_name, car_model_name, gen_name in triples:
-        car_make = db.query(CarMake).filter(CarMake.name == car_make_name).first()
+        car_make = db.scalars(select(CarMake).where(CarMake.name == car_make_name)).first()
         if not car_make:
             continue
-        car_model = (
-            db.query(CarModel).filter(CarModel.car_make_id == car_make.id, CarModel.name == car_model_name).first()
-        )
+        car_model = db.scalars(
+            select(CarModel).where(
+                CarModel.car_make_id == car_make.id,
+                CarModel.name == car_model_name,
+            )
+        ).first()
         if not car_model:
             continue
-        car_generation = (
-            db.query(CarGeneration)
-            .filter(
+        car_generation = db.scalars(
+            select(CarGeneration).where(
                 CarGeneration.car_model_id == car_model.id,
                 CarGeneration.generation_name == gen_name,
             )
-            .first()
-        )
+        ).first()
         if car_generation and car_generation.id not in seen_ids:
             seen_ids.add(car_generation.id)
             ids.append(car_generation.id)

@@ -120,7 +120,7 @@ import html as html_module
 import json
 import os
 import re
-from typing import Dict, Iterator, List, Optional
+from typing import ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import quote, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -562,6 +562,7 @@ class LinkEcuAdapter(RetailerCrawlerAdapter):
     back to on-page microdata for archive-rescrape of URLs not in the cache.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "linkecu"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

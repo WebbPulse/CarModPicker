@@ -1,4 +1,5 @@
 // filepath: src/contexts/AuthContext.tsx
+import * as Sentry from '@sentry/react';
 import type { ReactNode } from 'react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +52,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     void checkAuthStatus();
   }, [checkAuthStatus]);
+
+  // D-40: bind Sentry user scope to current user. ONLY id — never email,
+  // username, or name. Mirrors backend D-09 PII posture. The [user] dep
+  // covers login, logout, and null transitions automatically.
+  useEffect(() => {
+    Sentry.setUser(user ? { id: String(user.id) } : null);
+  }, [user]);
 
   const login = (userData: UserRead) => {
     setUser(userData);

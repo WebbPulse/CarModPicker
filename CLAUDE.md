@@ -93,6 +93,7 @@ Browser / Chrome Extension
 - **`api/utils/`** — Shared patterns: `BaseEndpointRouter` (generic CRUD router), `BaseCRUDService`, `EndpointRegistry` (standardized router registration), `base_vote_router`, `base_report_router`, pagination, authorization, subscription checks.
 - **`crawlers/`** — Per-retailer scraping system. Subclass `RetailerCrawlerAdapter`, implement `discover_product_urls()` and `parse_product_page()`, register in `adapters/__init__.py`.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
+- **`backend/app/core/sentry.py`** — Sentry SDK 2.x init helper. Env-gated (TESTING+APP_ENVIRONMENT+DSN). Scope processor reads request_id/user_id from log_context ContextVars. Called with distinct server_name from each process entry point: `apprunner-backend` (main.py), `ecs-crawler` (ecs_runner.py + ecs_rescrape_runner.py), `crawler-cli` (__main__.py).
 - **`alembic/versions/`** — Migration history (never edit manually).
 
 **Auth:** JWT (HS256, configurable expiry 15 min–7 days per user preference) + bcrypt passwords + optional TOTP 2FA. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.

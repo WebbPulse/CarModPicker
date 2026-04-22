@@ -21,9 +21,12 @@ class ReportStatus(str, Enum):
     DISMISSED = "dismissed"
 
 
-class EntityType(str, Enum):
+class ReportEntityType(str, Enum):
     BUILD_LIST = "build_list"
     PART = "part"
+
+
+EntityType = ReportEntityType
 
 
 class ReportCreate(BaseModel):

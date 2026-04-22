@@ -8,6 +8,7 @@ are updated to match the latest data; new rows are created when missing.
 
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.part_categories_data import get_all_part_categories
@@ -36,7 +37,7 @@ def init_part_categories(db: Session) -> None:
     updated_count = 0
 
     for cat_data in all_categories:
-        existing = db.query(Category).filter(Category.name == cat_data["name"]).first()
+        existing = db.scalars(select(Category).where(Category.name == cat_data["name"])).first()
         if existing:
             for key in _CATEGORY_SYNC_FIELDS:
                 if key in cat_data:

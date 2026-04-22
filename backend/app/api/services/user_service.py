@@ -5,6 +5,7 @@ User service that extends the base CRUD service.
 import logging
 from typing import List, Optional
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.user import User as DBUser
@@ -32,7 +33,7 @@ class UserService(BaseCRUDService[DBUser, UserCreate, UserRead, UserUpdate]):
     ) -> Optional[DBUser]:
         """Get user by username."""
         log = logger if logger is not None else get_logger()
-        user = db.query(DBUser).filter(DBUser.username == username).first()
+        user = db.scalars(select(DBUser).where(DBUser.username == username)).first()
         if user:
             log.info(f"Retrieved user by username: {username}")
         else:
@@ -47,7 +48,7 @@ class UserService(BaseCRUDService[DBUser, UserCreate, UserRead, UserUpdate]):
     ) -> Optional[DBUser]:
         """Get user by email."""
         log = logger if logger is not None else get_logger()
-        user = db.query(DBUser).filter(DBUser.email == email).first()
+        user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
         if user:
             log.info(f"Retrieved user by email: {email}")
         else:
@@ -63,7 +64,7 @@ class UserService(BaseCRUDService[DBUser, UserCreate, UserRead, UserUpdate]):
     ) -> List[DBUser]:
         """Get all users with pagination (admin only)."""
         log = logger if logger is not None else get_logger()
-        users = db.query(DBUser).offset(skip).limit(limit).all()
+        users = list(db.scalars(select(DBUser).offset(skip).limit(limit)).all())
         log.info(f"Retrieved {len(users)} users")
         return users
 
@@ -74,6 +75,6 @@ class UserService(BaseCRUDService[DBUser, UserCreate, UserRead, UserUpdate]):
     ) -> int:
         """Get total count of users."""
         log = logger if logger is not None else get_logger()
-        count = db.query(DBUser).count()
+        count = db.scalar(select(func.count()).select_from(DBUser)) or 0
         log.info(f"Total user count: {count}")
         return count

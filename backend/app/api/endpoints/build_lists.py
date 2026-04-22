@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -101,17 +101,17 @@ async def read_build_lists_with_votes(
 
     # Subquery: best price (min last_known_price_cents) per part
     min_prices = (
-        db.query(
+        select(
             DBPartListing.part_id,
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
-        .filter(DBPartListing.last_known_price_cents.isnot(None))
+        .where(DBPartListing.last_known_price_cents.isnot(None))
         .group_by(DBPartListing.part_id)
         .subquery()
     )
     # Subquery: total cost per build list (sum of quantity * best_price per part)
     total_cost_subq = (
-        db.query(
+        select(
             DBBuildListPart.build_list_id,
             func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("total_cost_cents"),
         )
@@ -122,11 +122,11 @@ async def read_build_lists_with_votes(
 
     # Create subquery for upvote counts
     upvote_counts = (
-        db.query(
+        select(
             DBVote.entity_id,
             func.count(DBVote.id).label("upvote_count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "build_list",
             DBVote.vote_type == "upvote",
         )
@@ -136,11 +136,11 @@ async def read_build_lists_with_votes(
 
     # Create subquery for downvote counts
     downvote_counts = (
-        db.query(
+        select(
             DBVote.entity_id,
             func.count(DBVote.id).label("downvote_count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "build_list",
             DBVote.vote_type == "downvote",
         )
@@ -148,79 +148,84 @@ async def read_build_lists_with_votes(
         .subquery()
     )
 
-    # Build base query for counting; join total_cost for cost filtering
-    base_query = db.query(DBBuildList).outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
-    base_query = apply_standard_filters(
-        query=base_query,
-        search=search,
-        category_id=None,  # Build lists don't have categories
-        search_fields=["name", "description"],
-    )
-    # Car filter: car_ids (make/model) takes precedence over single car_id
-    if car_ids:
-        base_query = base_query.filter(DBBuildList.car_id.in_(car_ids))
-    elif car_id is not None:
-        base_query = base_query.filter(DBBuildList.car_id == car_id)
-    if owner_id is not None:
-        base_query = base_query.filter(DBBuildList.user_id == owner_id)
-    if min_cost_cents is not None:
-        base_query = base_query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
-    if max_cost_cents is not None:
-        base_query = base_query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+    # IN-01: single helper for the /with-votes filter stack so the count-select
+    # and the main result-select cannot drift apart. Both selects must apply
+    # identical predicates — otherwise `total` and the paginated page would be
+    # taken from different populations.
+    def _apply_build_list_filters(stmt_: Any) -> Any:
+        stmt_ = apply_standard_filters(
+            query=stmt_,
+            search=search,
+            category_id=None,  # Build lists don't have categories
+            search_fields=["name", "description"],
+        )
+        # Car filter: car_ids (make/model) takes precedence over single car_id
+        if car_ids:
+            stmt_ = stmt_.where(DBBuildList.car_id.in_(car_ids))
+        elif car_id is not None:
+            stmt_ = stmt_.where(DBBuildList.car_id == car_id)
+        if owner_id is not None:
+            stmt_ = stmt_.where(DBBuildList.user_id == owner_id)
+        if min_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
+        if max_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+        return stmt_
 
-    # Get total count from base query
-    total = base_query.count()
+    # Build base select for counting; join total_cost for cost filtering
+    base_stmt = select(DBBuildList).outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
+    base_stmt = _apply_build_list_filters(base_stmt)
 
-    # Build main query with LEFT JOINs to vote count and total cost for sorting and retrieval
-    query = (
-        db.query(DBBuildList)
+    # Get total count from base select
+    total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
+
+    # Build main select with LEFT JOINs to vote count and total cost for sorting and retrieval
+    stmt = (
+        select(DBBuildList)
         .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
         .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
         .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
     )
 
-    # Apply the same filters
-    query = apply_standard_filters(
-        query=query,
-        search=search,
-        category_id=None,
-        search_fields=["name", "description"],
-    )
-    if car_ids:
-        query = query.filter(DBBuildList.car_id.in_(car_ids))
-    elif car_id is not None:
-        query = query.filter(DBBuildList.car_id == car_id)
-    if owner_id is not None:
-        query = query.filter(DBBuildList.user_id == owner_id)
-    if min_cost_cents is not None:
-        query = query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
-    if max_cost_cents is not None:
-        query = query.filter(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+    # Apply the same filters via the shared helper
+    stmt = _apply_build_list_filters(stmt)
 
     # Sort: votes (default), votes_asc, price_asc, price_desc
     order_by_total_cost = func.coalesce(total_cost_subq.c.total_cost_cents, 0)
     order_by_votes = func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
     if sort == "price_asc":
-        query = query.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
+        stmt = stmt.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
     elif sort == "price_desc":
-        query = query.order_by(order_by_total_cost.desc(), DBBuildList.id.desc())
+        stmt = stmt.order_by(order_by_total_cost.desc(), DBBuildList.id.desc())
     elif sort == "votes_asc":
-        query = query.order_by(order_by_votes.asc(), DBBuildList.id.asc())
+        stmt = stmt.order_by(order_by_votes.asc(), DBBuildList.id.asc())
     else:
         # votes (default): net votes descending, then id
-        query = query.order_by(order_by_votes.desc(), DBBuildList.id.desc())
+        stmt = stmt.order_by(order_by_votes.desc(), DBBuildList.id.desc())
 
-    # Get paginated results
-    ordered_ids = [row[0] for row in query.with_entities(DBBuildList.id).offset(skip).limit(limit).all()]
+    # Get paginated IDs first so we can re-order the final fetch deterministically.
+    id_stmt = (
+        stmt.with_only_columns(DBBuildList.id).order_by(None)
+    )
+    # Reapply the same sort criteria to the id-only select
+    if sort == "price_asc":
+        id_stmt = id_stmt.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
+    elif sort == "price_desc":
+        id_stmt = id_stmt.order_by(order_by_total_cost.desc(), DBBuildList.id.desc())
+    elif sort == "votes_asc":
+        id_stmt = id_stmt.order_by(order_by_votes.asc(), DBBuildList.id.asc())
+    else:
+        id_stmt = id_stmt.order_by(order_by_votes.desc(), DBBuildList.id.desc())
+    ordered_ids = list(db.scalars(id_stmt.offset(skip).limit(limit)).all())
 
     if not ordered_ids:
         build_lists = []
     else:
         # Fetch full objects; apply same sort for consistent ordering
         if sort == "price_asc":
-            build_lists_query = (
-                db.query(DBBuildList)
-                .filter(DBBuildList.id.in_(ordered_ids))
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
                 .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
                 .order_by(
                     func.coalesce(total_cost_subq.c.total_cost_cents, 0).asc(),
@@ -228,9 +233,9 @@ async def read_build_lists_with_votes(
                 )
             )
         elif sort == "price_desc":
-            build_lists_query = (
-                db.query(DBBuildList)
-                .filter(DBBuildList.id.in_(ordered_ids))
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
                 .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
                 .order_by(
                     func.coalesce(total_cost_subq.c.total_cost_cents, 0).desc(),
@@ -238,22 +243,22 @@ async def read_build_lists_with_votes(
                 )
             )
         elif sort == "votes_asc":
-            build_lists_query = (
-                db.query(DBBuildList)
-                .filter(DBBuildList.id.in_(ordered_ids))
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
                 .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
                 .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
                 .order_by(order_by_votes.asc(), DBBuildList.id.asc())
             )
         else:
-            build_lists_query = (
-                db.query(DBBuildList)
-                .filter(DBBuildList.id.in_(ordered_ids))
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
                 .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
                 .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
                 .order_by(order_by_votes.desc(), DBBuildList.id.desc())
             )
-        build_lists = build_lists_query.all()
+        build_lists = list(db.scalars(build_lists_stmt).all())
         # Reorder to match the original order (in case the second query changes it)
         build_lists_dict = {bl.id: bl for bl in build_lists}
         build_lists = [build_lists_dict[bl_id] for bl_id in ordered_ids if bl_id in build_lists_dict]
@@ -267,14 +272,13 @@ async def read_build_lists_with_votes(
     build_list_ids = [bl.id for bl in build_lists]
 
     # Get total_cost_cents per build list (from same subquery logic)
-    cost_rows = (
-        db.query(
+    cost_rows = db.execute(
+        select(
             total_cost_subq.c.build_list_id,
             total_cost_subq.c.total_cost_cents,
         )
-        .filter(total_cost_subq.c.build_list_id.in_(build_list_ids))
-        .all()
-    )
+        .where(total_cost_subq.c.build_list_id.in_(build_list_ids))
+    ).all()
     total_cost_cents_dict: Dict[UUID, Optional[int]] = {}
     for row in cost_rows:
         total_cost_cents_dict[row.build_list_id] = (
@@ -282,19 +286,18 @@ async def read_build_lists_with_votes(
         )
 
     # Build vote count dictionaries
-    vote_counts = (
-        db.query(
+    vote_counts = db.execute(
+        select(
             DBVote.entity_id,
             DBVote.vote_type,
             func.count(DBVote.id).label("count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "build_list",
             DBVote.entity_id.in_(build_list_ids),
         )
         .group_by(DBVote.entity_id, DBVote.vote_type)
-        .all()
-    )
+    ).all()
 
     # Build vote count dictionaries
     upvotes_dict: Dict[UUID, int] = {}
@@ -308,15 +311,14 @@ async def read_build_lists_with_votes(
     # Bulk fetch user votes if user is authenticated
     user_votes_dict: Dict[UUID, str] = {}
     if current_user:
-        user_votes = (
-            db.query(DBVote.entity_id, DBVote.vote_type)
-            .filter(
+        user_votes = db.execute(
+            select(DBVote.entity_id, DBVote.vote_type)
+            .where(
                 DBVote.entity_type == "build_list",
                 DBVote.entity_id.in_(build_list_ids),
                 DBVote.user_id == current_user.id,
             )
-            .all()
-        )
+        ).all()
         user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
 
     # Convert build lists to schema with vote data and total cost
@@ -386,11 +388,12 @@ async def list_build_list_phases(
     logger = deps["logger"]
 
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    phases = (
-        db.query(DBBuildListPhase)
-        .filter(DBBuildListPhase.build_list_id == build_list_id)
-        .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
-        .all()
+    phases = list(
+        db.scalars(
+            select(DBBuildListPhase)
+            .where(DBBuildListPhase.build_list_id == build_list_id)
+            .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+        ).all()
     )
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     logger.info(f"{user_info}: Retrieved {len(phases)} phases for build list {build_list_id}")
@@ -420,10 +423,9 @@ async def create_build_list_phase(
     verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
 
     # Next sort_order: max + 1
-    max_order = (
-        db.query(func.coalesce(func.max(DBBuildListPhase.sort_order), -1))
-        .filter(DBBuildListPhase.build_list_id == build_list_id)
-        .scalar()
+    max_order = db.scalar(
+        select(func.coalesce(func.max(DBBuildListPhase.sort_order), -1))
+        .where(DBBuildListPhase.build_list_id == build_list_id)
     )
     sort_order = (max_order + 1) if max_order is not None else 0
 
@@ -466,20 +468,20 @@ async def read_build_lists_by_car(
     # Verify the car exists (cars are now centrally managed, no ownership check needed)
     get_entity_or_404(db, DBCar, car_id, "car")
 
-    # Build base query with search filter
-    base_query = db.query(DBBuildList).filter(DBBuildList.car_id == car_id)
-    base_query = apply_standard_filters(
-        query=base_query,
+    # Build base select with search filter
+    base_stmt = select(DBBuildList).where(DBBuildList.car_id == car_id)
+    base_stmt = apply_standard_filters(
+        query=base_stmt,
         search=search,
         category_id=None,  # Build lists don't have categories
         search_fields=["name", "description"],
     )
 
     # Get total count
-    total = base_query.count()
+    total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
 
     # Get paginated results
-    build_lists = base_query.offset(skip).limit(limit).all()
+    build_lists = list(db.scalars(base_stmt.offset(skip).limit(limit)).all())
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     if not build_lists:
         logger.info(f"{user_info}: No Build Lists found for car with id {car_id}")
@@ -512,10 +514,19 @@ async def read_my_build_lists(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Get total count
-    total = db.query(DBBuildList).filter(DBBuildList.user_id == current_user.id).count()
+    total = db.scalar(
+        select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == current_user.id)
+    ) or 0
 
     # Get paginated results
-    build_lists = db.query(DBBuildList).filter(DBBuildList.user_id == current_user.id).offset(skip).limit(limit).all()
+    build_lists = list(
+        db.scalars(
+            select(DBBuildList)
+            .where(DBBuildList.user_id == current_user.id)
+            .offset(skip)
+            .limit(limit)
+        ).all()
+    )
     if not build_lists:
         logger.info(f"No Build Lists found for user with id {current_user.id}")
     else:
@@ -548,7 +559,14 @@ async def read_build_lists_by_user(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    build_lists = db.query(DBBuildList).filter(DBBuildList.user_id == user_id).offset(skip).limit(limit).all()
+    build_lists = list(
+        db.scalars(
+            select(DBBuildList)
+            .where(DBBuildList.user_id == user_id)
+            .offset(skip)
+            .limit(limit)
+        ).all()
+    )
     if not build_lists:
         logger.info(f"No Build Lists found for user with id {user_id}")
     else:

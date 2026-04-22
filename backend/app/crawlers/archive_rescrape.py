@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Optional
 from uuid import UUID
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
@@ -76,7 +76,13 @@ def _compute_rescrape_workers(num_pages: int) -> int:
             if override > 0:
                 max_workers = min(max_workers, override)
         except ValueError:
-            pass
+            # IN-08: mirror runner.py's _compute_adapter_workers behavior —
+            # surface a bad env value in the logs instead of silently falling
+            # back to the DB-pool-sized default. CRAWLER_RESCRAPE_MAX_WORKERS=8x
+            # used to disappear without a trace; now operators see the typo.
+            logging.getLogger(__name__).warning(
+                "Ignoring non-integer CRAWLER_RESCRAPE_MAX_WORKERS=%r", override_raw
+            )
 
     return max(1, max_workers)
 
@@ -243,9 +249,9 @@ def run_rescrape_all_archived_pages(
     failures: list[dict[str, Any]] = []
     total_failures = 0
 
-    q = (
-        db.query(DBCrawledPage.id, DBCrawledPage.url, DBCrawledPage.source)
-        .filter(
+    stmt = (
+        select(DBCrawledPage.id, DBCrawledPage.url, DBCrawledPage.source)
+        .where(
             or_(
                 DBCrawledPage.html_s3_key.isnot(None),
                 DBCrawledPage.html_local_path.isnot(None),
@@ -254,8 +260,8 @@ def run_rescrape_all_archived_pages(
         .order_by(DBCrawledPage.id)
     )
     if source is not None:
-        q = q.filter(DBCrawledPage.source == source)
-    rows = q.all()
+        stmt = stmt.where(DBCrawledPage.source == source)
+    rows = db.execute(stmt).all()
     total = len(rows)
 
     def _build_result(processed_: int) -> dict[str, Any]:

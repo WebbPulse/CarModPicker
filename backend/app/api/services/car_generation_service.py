@@ -6,7 +6,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import or_
+from sqlalchemy import Select, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.car_generation import CarGeneration as DBCarGeneration
@@ -24,9 +24,9 @@ from app.api.utils.common_operations import (
 )
 
 
-def _car_generation_query_with_make_model(db: Session):
-    """Base query for CarGeneration with car_model and car_make eager-loaded."""
-    return db.query(DBCarGeneration).options(
+def _car_generation_select_with_make_model() -> Select[tuple[DBCarGeneration]]:
+    """Base Select for CarGeneration with car_model and car_make eager-loaded."""
+    return select(DBCarGeneration).options(
         joinedload(DBCarGeneration.car_model).joinedload(CarModel.car_make),
     )
 
@@ -60,7 +60,9 @@ class CarGenerationService(
         else:
             verify_entity_exists(db, self.model, entity_id, self.entity_name)
 
-        gen = _car_generation_query_with_make_model(db).filter(DBCarGeneration.id == entity_id).first()
+        gen = db.scalars(
+            _car_generation_select_with_make_model().where(DBCarGeneration.id == entity_id)
+        ).first()
         if gen is None:
             from fastapi import HTTPException
 
@@ -83,7 +85,7 @@ class CarGenerationService(
     ) -> List[DBCarGeneration]:
         """List car generations with car_model and car_make loaded."""
         validate_pagination_params(skip, limit)
-        query = _car_generation_query_with_make_model(db)
+        stmt: Select[tuple[DBCarGeneration]] = _car_generation_select_with_make_model()
 
         if search and search_fields:
             if (
@@ -91,7 +93,7 @@ class CarGenerationService(
                 or "car_model_name" in search_fields
                 or "generation_name" in search_fields
             ):
-                query = query.join(DBCarGeneration.car_model).join(CarModel.car_make)
+                stmt = stmt.join(DBCarGeneration.car_model).join(CarModel.car_make)
                 conditions = []
                 if "car_make_name" in search_fields:
                     conditions.append(CarMake.name.ilike(f"%{search}%"))
@@ -100,10 +102,10 @@ class CarGenerationService(
                 if "generation_name" in search_fields:
                     conditions.append(DBCarGeneration.generation_name.ilike(f"%{search}%"))
                 if conditions:
-                    query = query.filter(or_(*conditions))
+                    stmt = stmt.where(or_(*conditions))
 
-        query = apply_pagination_and_ordering(query, skip, limit, order_by, order_direction)
-        entities = query.all()
+        stmt = apply_pagination_and_ordering(stmt, skip, limit, order_by, order_direction)
+        entities = list(db.scalars(stmt).unique().all())
         if logger:
             logger.info(f"Retrieved {len(entities)} {self.entity_name} entities")
         return entities
@@ -117,7 +119,11 @@ class CarGenerationService(
         """Return car generations whose IDs are in the provided list."""
         if not ids:
             return []
-        gens = _car_generation_query_with_make_model(db).filter(DBCarGeneration.id.in_(ids)).all()
+        gens = list(
+            db.scalars(
+                _car_generation_select_with_make_model().where(DBCarGeneration.id.in_(ids))
+            ).unique().all()
+        )
         if logger:
             logger.info(f"Retrieved {len(gens)} car_generations by ID batch")
         return gens
@@ -135,15 +141,19 @@ class CarGenerationService(
         Get car generations filtered by car_make and/or car_model.
         """
         validate_pagination_params(skip, limit)
-        query = _car_generation_query_with_make_model(db).join(DBCarGeneration.car_model).join(CarModel.car_make)
+        stmt: Select[tuple[DBCarGeneration]] = (
+            _car_generation_select_with_make_model()
+            .join(DBCarGeneration.car_model)
+            .join(CarModel.car_make)
+        )
 
         if car_make_name:
-            query = query.filter(CarMake.name == car_make_name)
+            stmt = stmt.where(CarMake.name == car_make_name)
         if car_model_name:
-            query = query.filter(CarModel.name == car_model_name)
+            stmt = stmt.where(CarModel.name == car_model_name)
 
-        query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
-        entities = query.all()
+        stmt = apply_pagination_and_ordering(stmt, skip, limit, "created_at", "desc")
+        entities = list(db.scalars(stmt).unique().all())
         if logger:
             logger.info(f"Retrieved {len(entities)} car_generations by car_make/car_model")
         return entities
@@ -160,11 +170,11 @@ class CarGenerationService(
         Search car generations by car_make, car_model, or generation name.
         """
         validate_pagination_params(skip, limit)
-        query = (
-            _car_generation_query_with_make_model(db)
+        stmt: Select[tuple[DBCarGeneration]] = (
+            _car_generation_select_with_make_model()
             .join(DBCarGeneration.car_model)
             .join(CarModel.car_make)
-            .filter(
+            .where(
                 or_(
                     CarMake.name.ilike(f"%{search_term}%"),
                     CarModel.name.ilike(f"%{search_term}%"),
@@ -172,8 +182,8 @@ class CarGenerationService(
                 )
             )
         )
-        query = apply_pagination_and_ordering(query, skip, limit, "created_at", "desc")
-        entities = query.all()
+        stmt = apply_pagination_and_ordering(stmt, skip, limit, "created_at", "desc")
+        entities = list(db.scalars(stmt).unique().all())
         if logger:
             logger.info(f"Retrieved {len(entities)} car_generations for search")
         return entities

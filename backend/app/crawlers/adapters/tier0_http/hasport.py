@@ -52,7 +52,7 @@ the DOM gallery is empty.
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -268,6 +268,7 @@ class HasportAdapter(RetailerCrawlerAdapter):
     absent.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "hasport"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

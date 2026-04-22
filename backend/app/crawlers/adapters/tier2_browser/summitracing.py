@@ -29,7 +29,7 @@ import os
 import re
 import time
 from dataclasses import replace
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from bs4 import BeautifulSoup, Tag
@@ -228,6 +228,7 @@ class SummitRacingAdapter(RetailerCrawlerAdapter):
     ``parse_product_page``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "summitracing"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

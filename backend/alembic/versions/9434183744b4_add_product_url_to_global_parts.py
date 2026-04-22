@@ -26,4 +26,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "product_url")

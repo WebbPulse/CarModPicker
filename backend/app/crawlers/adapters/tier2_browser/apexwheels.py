@@ -59,7 +59,7 @@ lists, which is why we eat the cost of a Tier 2 fetcher.
 """
 
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -239,6 +239,7 @@ class ApexWheelsAdapter(RetailerCrawlerAdapter):
     warm FlareSolverr session).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "apexwheels"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

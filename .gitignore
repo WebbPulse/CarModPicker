@@ -51,6 +51,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Negation: frontend source directory named lib/ is NOT Python build output.
+!frontend/src/lib/
+!frontend/src/lib/**
 sdist/
 var/
 
@@ -127,3 +130,19 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# ── GSD baseline (auto-generated) ──
+.gsd-id
+.mcp.json
+.bg-shell/
+*~
+.vscode/
+*.code-workspace
+.env.*
+!.env.example
+.next/
+*.pyc
+target/
+vendor/
+.cache/
+tmp/

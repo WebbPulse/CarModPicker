@@ -7,9 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
-    admin,
     app_settings,
-    auth,
     bug_reports,
     build_list_parts,
     build_list_phases,
@@ -29,6 +27,19 @@ from .api.endpoints import (
     users,
     votes,
 )
+from .api.endpoints.admin import (
+    crawlers as admin_crawlers,
+    db_ops as admin_db_ops,
+    jobs as admin_jobs,
+    parts as admin_parts,
+    stats as admin_stats,
+)
+from .api.endpoints.auth import (
+    core as auth_core,
+    oauth as auth_oauth,
+    two_factor as auth_2fa,
+    webauthn as auth_webauthn,
+)
 from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.services import crawler_schedule_service
@@ -39,6 +50,7 @@ from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
+from .core.sentry import init_sentry
 from .core.worker_identity import WORKER_INSTANCE_ID
 from .db.session import SessionLocal, check_db_ready
 from .services import job_service
@@ -64,6 +76,11 @@ for _name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         _h.addFilter(_ctx_filter)
 
 logger = logging.getLogger(__name__)
+
+# Sentry SDK init — must run BEFORE `app = FastAPI(...)` so FastApiIntegration +
+# StarletteIntegration can patch the route handlers. No-ops in dev / test (see
+# init_sentry env gates). D-12.
+init_sentry(server_name="apprunner-backend")
 
 
 @asynccontextmanager
@@ -215,12 +232,30 @@ endpoint_registry.register_endpoint(
     description="Unified search across build lists, users, and global parts",
 )
 
-# Authentication endpoint
+# Authentication endpoints (split into sub-routers per D-08/D-10)
 endpoint_registry.register_endpoint(
-    auth.router,
+    auth_core.router,
     prefix="/auth",
     tags=["authentication"],
-    description="User authentication and authorization",
+    description="Authentication core (login, token refresh, email verify, password reset, logout)",
+)
+endpoint_registry.register_endpoint(
+    auth_2fa.router,
+    prefix="/auth/2fa",
+    tags=["authentication"],
+    description="TOTP 2FA setup and management",
+)
+endpoint_registry.register_endpoint(
+    auth_webauthn.router,
+    prefix="/auth/webauthn",
+    tags=["authentication"],
+    description="WebAuthn passkey registration and login",
+)
+endpoint_registry.register_endpoint(
+    auth_oauth.router,
+    prefix="/auth/oauth",
+    tags=["authentication"],
+    description="Google OAuth sign-in, link, connect, and account management",
 )
 
 # Unified vote and report endpoints
@@ -270,12 +305,36 @@ endpoint_registry.register_endpoint(
     description="Forum-style build log threads for build lists",
 )
 
-# Admin endpoint
+# Admin endpoints (split into sub-routers per D-08/D-09)
 endpoint_registry.register_endpoint(
-    admin.router,
-    prefix="/admin",
+    admin_stats.router,
+    prefix="/admin/stats",
     tags=["admin"],
-    description="Admin-only system management operations",
+    description="Admin statistics (table counts, crawl bucket listing)",
+)
+endpoint_registry.register_endpoint(
+    admin_jobs.router,
+    prefix="/admin/jobs",
+    tags=["admin"],
+    description="Admin background jobs (list, detail, crawler-progress, cancel)",
+)
+endpoint_registry.register_endpoint(
+    admin_crawlers.router,
+    prefix="/admin/crawlers",
+    tags=["admin"],
+    description="Admin crawler management (run, rescrape-archives, service-account)",
+)
+endpoint_registry.register_endpoint(
+    admin_db_ops.router,
+    prefix="/admin/db-ops",
+    tags=["admin"],
+    description="Admin database operations (migrations, init data, bulk delete)",
+)
+endpoint_registry.register_endpoint(
+    admin_parts.router,
+    prefix="/admin/parts",
+    tags=["admin"],
+    description="Admin canonical parts management (lookup, link, unlink, rescan)",
 )
 
 # Global app settings (public read, admin write)

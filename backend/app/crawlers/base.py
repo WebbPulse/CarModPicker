@@ -25,6 +25,7 @@ from urllib.robotparser import RobotFileParser
 from uuid import UUID
 
 import requests
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.endpoints.parts import PartService
@@ -692,7 +693,9 @@ def ingest_payload(
     category_id = default_category_id
     inferred_name = infer_category(payload.name, payload.description)
     if inferred_name:
-        cat = db.query(DBCategory).filter(DBCategory.name == inferred_name, DBCategory.is_active).first()
+        cat = db.scalars(
+            select(DBCategory).where(DBCategory.name == inferred_name, DBCategory.is_active)
+        ).first()
         if cat:
             category_id = cat.id
             logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])

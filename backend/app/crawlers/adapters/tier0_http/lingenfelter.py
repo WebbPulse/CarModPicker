@@ -61,7 +61,7 @@ product page.
 import json
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import defusedxml.ElementTree as ET
@@ -507,6 +507,7 @@ class LingenfelterAdapter(RetailerCrawlerAdapter):
     microdata ``brand`` is always LPE regardless of the actual brand.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "lingenfelter"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -29,7 +29,7 @@ FL5 Civic Type R, S650 Mustang).
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -281,6 +281,7 @@ class AWETuningAdapter(RetailerCrawlerAdapter):
     list doesn't split one brand across multiple rows.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "awetuning"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

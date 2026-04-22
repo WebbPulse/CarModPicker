@@ -37,7 +37,7 @@ adhoc crawls against a specific series page.
 
 import os
 import re
-from typing import Callable, Iterator, List, Optional
+from typing import Callable, ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -209,6 +209,7 @@ class FortuneAutoAdapter(RetailerCrawlerAdapter):
     TLS fingerprint.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "fortuneauto"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

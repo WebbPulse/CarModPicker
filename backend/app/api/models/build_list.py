@@ -26,9 +26,11 @@ class BuildList(Base):
     description: Mapped[Optional[str]] = mapped_column(index=True, nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Build list cover image(s)
     car_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True
+        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
@@ -40,12 +42,14 @@ class BuildList(Base):
         "BuildListPart",
         back_populates="build_list",
         cascade="all, delete-orphan",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
     )
     build_list_phases: Mapped[List["BuildListPhase"]] = relationship(
         "BuildListPhase",
         back_populates="build_list",
         cascade="all, delete-orphan",
         order_by="BuildListPhase.sort_order",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
     )
     # votes and reports
     votes: Mapped[List["Vote"]] = relationship(

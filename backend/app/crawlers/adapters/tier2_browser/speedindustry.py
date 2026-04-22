@@ -26,7 +26,7 @@ heuristics. We have not seen a real page yet, so the adapter intentionally
 avoids retailer-specific selectors until a fixture confirms them.
 """
 
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
@@ -98,6 +98,7 @@ class SpeedIndustryAdapter(RetailerCrawlerAdapter):
     is a no-op; flesh it out once Tier 2 is wired up (try sitemap.xml first).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "speedindustry"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

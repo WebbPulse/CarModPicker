@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.bug_report import BugReport as DBBugReport
@@ -91,15 +91,17 @@ class BugReportService:
         Returns:
             List of bug reports
         """
-        query = db.query(DBBugReport)
+        stmt = select(DBBugReport)
 
         if status:
-            query = query.filter(DBBugReport.status == status)
+            stmt = stmt.where(DBBugReport.status == status)
 
         if priority:
-            query = query.filter(DBBugReport.priority == priority)
+            stmt = stmt.where(DBBugReport.priority == priority)
 
-        bug_reports = query.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit).all()
+        bug_reports = db.scalars(
+            stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)
+        ).all()
 
         return [BugReportRead.model_validate(report) for report in bug_reports]
 
@@ -126,30 +128,38 @@ class BugReportService:
         Returns:
             Tuple of (list of bug reports with details, total count)
         """
-        query = db.query(DBBugReport)
+        stmt = select(DBBugReport)
 
         if status:
-            query = query.filter(DBBugReport.status == status)
+            stmt = stmt.where(DBBugReport.status == status)
 
         if priority:
-            query = query.filter(DBBugReport.priority == priority)
+            stmt = stmt.where(DBBugReport.priority == priority)
 
         # Get total count before pagination
-        total_count = query.count()
+        total_count = db.scalar(
+            select(func.count()).select_from(stmt.subquery())
+        ) or 0
 
         # Get bug reports with user details
         bug_reports_with_details: List[BugReportWithDetails] = []
-        for bug_report in query.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit).all():
+        for bug_report in db.scalars(
+            stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)
+        ).all():
             # Get reporter username if exists
             reporter_username = None
             if bug_report.user_id:
-                reporter = db.query(DBUser).filter(DBUser.id == bug_report.user_id).first()
+                reporter = db.scalars(
+                    select(DBUser).where(DBUser.id == bug_report.user_id)
+                ).first()
                 reporter_username = reporter.username if reporter else None
 
             # Get assignee username if exists
             assignee_username = None
             if bug_report.assigned_to:
-                assignee = db.query(DBUser).filter(DBUser.id == bug_report.assigned_to).first()
+                assignee = db.scalars(
+                    select(DBUser).where(DBUser.id == bug_report.assigned_to)
+                ).first()
                 assignee_username = assignee.username if assignee else None
 
             bug_reports_with_details.append(
@@ -200,7 +210,9 @@ class BugReportService:
         Raises:
             HTTPException: If bug report doesn't exist
         """
-        bug_report = db.query(DBBugReport).filter(DBBugReport.id == bug_report_id).first()
+        bug_report = db.scalars(
+            select(DBBugReport).where(DBBugReport.id == bug_report_id)
+        ).first()
         if not bug_report:
             raise HTTPException(status_code=404, detail="Bug report not found")
 
@@ -246,7 +258,9 @@ class BugReportService:
         Raises:
             HTTPException: If bug report doesn't exist
         """
-        bug_report = db.query(DBBugReport).filter(DBBugReport.id == bug_report_id).first()
+        bug_report = db.scalars(
+            select(DBBugReport).where(DBBugReport.id == bug_report_id)
+        ).first()
         if not bug_report:
             raise HTTPException(status_code=404, detail="Bug report not found")
 
@@ -273,7 +287,9 @@ class BugReportService:
         Returns:
             Bug report with details if found, None otherwise
         """
-        bug_report = db.query(DBBugReport).filter(DBBugReport.id == bug_report_id).first()
+        bug_report = db.scalars(
+            select(DBBugReport).where(DBBugReport.id == bug_report_id)
+        ).first()
 
         if not bug_report:
             return None
@@ -281,13 +297,17 @@ class BugReportService:
         # Get reporter username if exists
         reporter_username = None
         if bug_report.user_id:
-            reporter = db.query(DBUser).filter(DBUser.id == bug_report.user_id).first()
+            reporter = db.scalars(
+                select(DBUser).where(DBUser.id == bug_report.user_id)
+            ).first()
             reporter_username = reporter.username if reporter else None
 
         # Get assignee username if exists
         assignee_username = None
         if bug_report.assigned_to:
-            assignee = db.query(DBUser).filter(DBUser.id == bug_report.assigned_to).first()
+            assignee = db.scalars(
+                select(DBUser).where(DBUser.id == bug_report.assigned_to)
+            ).first()
             assignee_username = assignee.username if assignee else None
 
         return BugReportWithDetails(

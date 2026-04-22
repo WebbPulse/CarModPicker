@@ -41,7 +41,7 @@ OpenGraph + meta:
 import json
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import quote, urlparse
 from xml.etree.ElementTree import Element
 
@@ -333,6 +333,7 @@ class SuncoastPartsAdapter(RetailerCrawlerAdapter):
     retailer SKU and always wins over the on-page ``SKU:`` span.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "suncoastparts"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

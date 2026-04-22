@@ -20,7 +20,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -334,6 +334,7 @@ class MAPerformanceAdapter(RetailerCrawlerAdapter):
     sku/price/image), then plain Product JSON-LD, then DOM/og fallback.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "maperformance"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered from sitemap.xml. Set

@@ -62,7 +62,7 @@ them. Parse the DOM directly:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -318,6 +318,7 @@ class KWSuspensionsAdapter(RetailerCrawlerAdapter):
     Brand is always ``KW_BRAND`` — every SKU on the site is KW-made.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "kwsuspensions"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -32,7 +32,7 @@ of additional gallery images, deduped against the JSON-LD entry.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -241,6 +241,7 @@ class SubispeedAdapter(RetailerCrawlerAdapter):
     page that doesn't render JSON-LD.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "subispeed"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

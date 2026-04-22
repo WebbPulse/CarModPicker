@@ -107,7 +107,7 @@ Caveats:
 import os
 import re
 import time
-from typing import Any, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Iterator, List, Optional, cast
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -428,6 +428,7 @@ class StanceUsaAdapter(RetailerCrawlerAdapter):
     floor price the JSON-LD exposes.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "stanceusa"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

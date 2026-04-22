@@ -52,11 +52,17 @@ class BuildLogPost(Base):
     build_log_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("build_logs.id"), nullable=False, index=True
     )
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
     content: Mapped[str] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     build_log: Mapped["BuildLog"] = relationship("BuildLog", back_populates="posts")
-    author: Mapped["User"] = relationship("User", back_populates="build_log_posts")
+    author: Mapped["User"] = relationship(
+        "User",
+        back_populates="build_log_posts",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
+    )

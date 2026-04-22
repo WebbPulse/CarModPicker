@@ -51,7 +51,7 @@ import json
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -428,6 +428,7 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
     as name / description sources.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "flyinmiata"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

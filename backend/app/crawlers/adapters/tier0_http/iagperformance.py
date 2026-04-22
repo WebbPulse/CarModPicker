@@ -50,7 +50,7 @@ and product pages to plain ``requests`` with a normal UA. Promote to
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
@@ -379,6 +379,7 @@ class IAGPerformanceAdapter(RetailerCrawlerAdapter):
     single hero image by walking the Stencil gallery DOM.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "iagperformance"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

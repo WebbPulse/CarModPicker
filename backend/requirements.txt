@@ -24,9 +24,12 @@ alembic==1.16.2
 uuid6==2025.0.1
 
 # Authentication and security
-# Note: python-jose depends on ecdsa (CVE-2024-23342), but this is not exploitable
-# in this codebase as we use HS256 (HMAC) algorithm, not ECDSA-based algorithms.
-# The ecdsa maintainers have indicated no plans to fix this vulnerability.
+# PyJWT — primary JWT library (AUTH-04, Phase 5 D-06).
+PyJWT==2.12.1
+
+# python-jose — KEPT through Phase 5 only for test_pyjwt_migration.py parity assertion.
+# Scheduled for removal in Phase 6 dependency cleanup.
+# Note: python-jose depends on ecdsa (CVE-2024-23342), not exploitable in HS256-only usage.
 python-jose[cryptography]==3.5.0
 bcrypt==4.3.0
 python-multipart==0.0.26
@@ -38,6 +41,9 @@ google-auth==2.45.0
 requests==2.33.0
 beautifulsoup4==4.12.3
 defusedxml==0.7.1
+# Circuit breaker for crawler rate-limit protection (CRAWL-04). Pinned exact
+# version; see threat model T-03-02-02 for supply-chain posture.
+pybreaker==1.4.1
 
 # Crawler Tier 1 (TLS impersonation). Mimics real Chrome's TLS/JA3 handshake to
 # get past Cloudflare fingerprint checks where the IP is not banned but plain
@@ -51,6 +57,15 @@ boto3==1.42.91
 boto3-stubs[s3,sesv2]==1.42.91  # Type stubs for boto3 S3 and SES clients
 Pillow==12.2.0
 
+# Observability (Phase 2 / OBS-01 + OBS-02)
+sentry-sdk>=2.0,<3
+# aws-embedded-metrics: EMF emitter for CloudWatch custom metrics from the
+# crawler. Rides the existing awslogs CloudWatch Logs path so no extra IAM
+# or PutMetricData API calls are required. `AWS_EMF_ENVIRONMENT=Local` must
+# be set in the runtime (plan 02-02 terraform) to force the stdout sink on
+# ECS Fargate + App Runner (RESEARCH Landmine 4).
+aws-embedded-metrics>=3.0,<4
+
 # Testing: in-memory S3 mock (used with pytest fixtures; never runs in production)
 moto[s3]==5.1.22
 
@@ -59,6 +74,7 @@ pytest==9.0.3
 pytest-asyncio==1.3.0
 pytest-xdist==3.8.0
 pytest-cov==6.2.1
+pytest-recording==0.13.4
 httpx==0.28.1
 
 # Development tools

@@ -67,14 +67,14 @@ class TestAdminMigrations:
 
     def test_run_migrations_unauthorized(self, client: TestClient) -> None:
         """Test run migrations without auth returns 401."""
-        response = client.post(f"{settings.API_STR}/admin/migrations/run")
+        response = client.post(f"{settings.API_STR}/admin/db-ops/migrations/run")
         assert response.status_code == 401
 
     def test_run_migrations_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         """Test run migrations as non-admin returns 403."""
         token = create_and_login_user(client, db_session, "run_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
-        response = client.post(f"{settings.API_STR}/admin/migrations/run", headers=headers)
+        response = client.post(f"{settings.API_STR}/admin/db-ops/migrations/run", headers=headers)
         assert response.status_code == 403
 
     def test_run_migrations_success_admin(self, client: TestClient, db_session: Session) -> None:
@@ -91,7 +91,7 @@ class TestAdminMigrations:
         mock_current.check_returncode = MagicMock()
 
         with (patch("subprocess.run", side_effect=[mock_result, mock_current]) as mock_run,):
-            response = client.post(f"{settings.API_STR}/admin/migrations/run", headers=headers)
+            response = client.post(f"{settings.API_STR}/admin/db-ops/migrations/run", headers=headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -102,14 +102,14 @@ class TestAdminMigrations:
 
     def test_get_current_migration_unauthorized(self, client: TestClient) -> None:
         """Test get current migration without auth returns 401."""
-        response = client.get(f"{settings.API_STR}/admin/migrations/current")
+        response = client.get(f"{settings.API_STR}/admin/db-ops/migrations/current")
         assert response.status_code == 401
 
     def test_get_current_migration_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         """Test get current migration as non-admin returns 403."""
         token = create_and_login_user(client, db_session, "current_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
-        response = client.get(f"{settings.API_STR}/admin/migrations/current", headers=headers)
+        response = client.get(f"{settings.API_STR}/admin/db-ops/migrations/current", headers=headers)
         assert response.status_code == 403
 
     def test_get_current_migration_success_admin(self, client: TestClient, db_session: Session) -> None:
@@ -122,7 +122,7 @@ class TestAdminMigrations:
         mock_result.check_returncode = MagicMock()
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
-            response = client.get(f"{settings.API_STR}/admin/migrations/current", headers=headers)
+            response = client.get(f"{settings.API_STR}/admin/db-ops/migrations/current", headers=headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -138,7 +138,7 @@ class TestAdminRescrapeArchives:
     def test_rescrape_archives_unauthorized(self, client: TestClient) -> None:
         """Test rescrape archives without auth returns 401."""
         response = client.post(
-            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
             json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
         )
         assert response.status_code == 401
@@ -148,7 +148,7 @@ class TestAdminRescrapeArchives:
         token = create_and_login_user(client, db_session, "rescrape_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
             json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
             headers=headers,
         )
@@ -165,7 +165,7 @@ class TestAdminRescrapeArchives:
         cat_id = get_default_category_id(db_session)
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/crawled-pages/rescrape-archives",
+            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
             json={"crawler_user_id": str(admin.id), "default_category_id": str(cat_id)},
             headers=headers,
         )
@@ -180,7 +180,7 @@ class TestAdminDeleteAllPartManufacturers:
 
     def test_delete_all_part_manufacturers_unauthorized(self, client: TestClient) -> None:
         """Test delete all part_manufacturers without auth returns 401."""
-        response = client.post(f"{settings.API_STR}/admin/part-manufacturers/delete-all")
+        response = client.post(f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all")
         assert response.status_code == 401
 
     def test_delete_all_part_manufacturers_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
@@ -188,7 +188,7 @@ class TestAdminDeleteAllPartManufacturers:
         token = create_and_login_user(client, db_session, "delete_part_manufacturers_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
+            f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 403
@@ -211,7 +211,7 @@ class TestAdminDeleteAllPartManufacturers:
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_success")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
+            f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200
@@ -249,7 +249,7 @@ class TestAdminDeleteAllPartManufacturers:
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_nullify")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
+            f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200
@@ -266,7 +266,7 @@ class TestAdminDeleteAllPartManufacturers:
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_empty")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(
-            f"{settings.API_STR}/admin/part-manufacturers/delete-all",
+            f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
         )
         assert response.status_code == 200

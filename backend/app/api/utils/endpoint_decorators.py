@@ -273,6 +273,7 @@ def ownership_verification(
             if not all([entity_id, db_value, user_value]):
                 raise ValueError(f"Missing required parameters for ownership verification: {entity_name}")
 
+            from sqlalchemy import select
             from sqlalchemy.orm import Session
 
             from app.api.models.user import User as DBUser
@@ -280,7 +281,9 @@ def ownership_verification(
             db = cast(Session, db_value)
             current_user = cast(DBUser, user_value)
             model_class = func.__annotations__["return"]
-            entity = db.query(model_class).filter(getattr(model_class, "id") == entity_id).first()
+            entity = db.scalars(
+                select(model_class).where(getattr(model_class, "id") == entity_id)
+            ).first()
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"

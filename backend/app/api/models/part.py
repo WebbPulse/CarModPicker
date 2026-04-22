@@ -29,8 +29,12 @@ class Part(Base):
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
 
-    category_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
     """When True, part fits all cars; no need to list every car_id in part_cars."""
     part_manufacturer_id: Mapped[Optional[uuid.UUID]] = mapped_column(

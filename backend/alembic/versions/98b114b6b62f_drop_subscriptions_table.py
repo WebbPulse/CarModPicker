@@ -28,6 +28,7 @@ def upgrade() -> None:
     conn = op.get_bind()
     conn.execute(sa.text("SET LOCAL statement_timeout = '300000'"))  # 5 min in ms
     op.drop_index(op.f("ix_subscriptions_id"), table_name="subscriptions")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("subscriptions")
     # ### end Alembic commands ###
 

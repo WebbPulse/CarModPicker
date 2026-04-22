@@ -13,8 +13,9 @@ from app.api.dependencies.auth import get_current_user
 from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump
 from app.api.services.base_crud_service import BaseCRUDService
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Generic types - ModelType must have an 'id' attribute at minimum
 ModelType = TypeVar("ModelType", bound=BaseModel)
@@ -93,7 +94,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
         )
         async def count_entities(  # pyright: ignore[reportUnusedFunction]
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, int]:
             """Get total count of entities."""
             count = self.service.count_all(db=db, logger=logger)
@@ -117,7 +117,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             async def create_entity(  # pyright: ignore[reportUnusedFunction]
                 data: _create_schema,  # type: ignore[valid-type]  # Use the actual schema type for FastAPI validation
                 db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Create a new entity."""
@@ -145,7 +144,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 async def get_entity_public(  # pyright: ignore[reportUnusedFunction]
                     entity_id: UUID,
                     db: Session = Depends(get_db),
-                    logger: logging.Logger = Depends(get_logger),
                 ) -> ModelType:
                     """Get an entity by ID (public access)."""
                     return self.service.get_by_id(
@@ -169,7 +167,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 async def get_entity_private(  # pyright: ignore[reportUnusedFunction]
                     entity_id: UUID,
                     db: Session = Depends(get_db),
-                    logger: logging.Logger = Depends(get_logger),
                     current_user: DBUser = Depends(get_current_user),
                 ) -> ModelType:
                     """Get an entity by ID (private access)."""
@@ -204,7 +201,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                     description=f"Search in {self.entity_name} names and descriptions",
                 ),
                 db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
             ) -> List[ModelType]:
                 """List all entities with pagination and search."""
                 return self.service.list_all(
@@ -234,7 +230,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 entity_id: UUID,
                 data: _update_schema,  # type: ignore[valid-type]
                 db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Update an existing entity."""
@@ -262,7 +257,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             async def delete_entity(  # pyright: ignore[reportUnusedFunction]
                 entity_id: UUID,
                 db: Session = Depends(get_db),
-                logger: logging.Logger = Depends(get_logger),
                 current_user: DBUser = Depends(get_current_user),
             ) -> ModelType:
                 """Delete an entity and return the deleted data."""
@@ -299,8 +293,13 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             filter_field: Database field name to filter on
         """
 
+        # WR-02: use a fixed `{filter_id}` placeholder so the URL parameter name
+        # matches the function parameter name. Previously the URL embedded
+        # `{<filter_name>_id}` (e.g. `/category/{category_id}`) but the function
+        # declared `filter_id: UUID`, so FastAPI could not bind the path parameter
+        # and every request returned 422.
         @self.router.get(
-            f"/{filter_name}/{{{filter_name}_id}}",
+            f"/{filter_name}/{{filter_id}}",
             response_model=List[ReadSchema],
             responses={
                 200: {"description": f"List of {self.entity_name}s filtered by {filter_name} retrieved successfully"},
@@ -316,7 +315,6 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
                 description=f"Maximum number of {self.entity_name}s to return",
             ),
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
         ) -> List[ModelType]:
             """Filter entities by a specific field."""
             return self.service.filter_by_field(  # type: ignore[no-any-return, attr-defined]

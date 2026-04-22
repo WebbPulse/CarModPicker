@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES_MIN: int = 15
     ACCESS_TOKEN_EXPIRE_MINUTES_MAX: int = 10080  # 7 days
 
+    # JWT algorithm — PyJWT swap (AUTH-04 D-03). HS256 preserved per D-46.
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm used to sign + verify JWTs. Must match on encode and decode.",
+    )
+
     # Google OAuth — frontend uses this client id to mint ID tokens; backend uses it as the
     # `audience` when verifying. The client id itself is not a secret (it's embedded in the
     # frontend bundle anyway), so it lives in source. Override via env if/when rotated.
@@ -156,6 +162,20 @@ class Settings(BaseSettings):
         ),
     )
     EMAIL_FROM: str = Field(default="")
+
+    # Sentry settings (Phase 2 / OBS-01)
+    SENTRY_DSN: str = Field(
+        default="",
+        description="Sentry DSN for error reporting. Empty = Sentry disabled. Injected via Secrets Manager in prod (D-01, D-55).",
+    )
+    SENTRY_RELEASE: str = Field(
+        default="",
+        description="Release identifier baked at Docker build time (typically git commit SHA, set by GitHub Actions per D-02).",
+    )
+    SENTRY_SERVICE_NAME: str = Field(
+        default="",
+        description="Per-process server_name tag: 'apprunner-backend', 'ecs-crawler', 'crawler-cli' (D-11).",
+    )
 
     # Crawler service account — machine identity used as the default author for all
     # crawler-created parts. Created automatically on startup.

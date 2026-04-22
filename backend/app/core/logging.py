@@ -43,7 +43,7 @@ class ColorizedFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         record_copy = copy(record)
         if self.use_colors:
-            color_fn = LEVEL_NAME_COLORS.get(record_copy.levelno, lambda name: str(record_copy.levelname))
+            color_fn = LEVEL_NAME_COLORS.get(record_copy.levelno, lambda name: str(name))
             record_copy.levelname = color_fn(record_copy.levelname)
         return super().format(record_copy)
 
@@ -55,6 +55,38 @@ def make_formatter() -> logging.Formatter:
     return JsonFormatter(
         JSON_LOG_FORMAT, rename_fields={"levelname": "level", "name": "logger", "asctime": "timestamp"}
     )
+
+
+def configure_root_logging(level: int = logging.INFO) -> None:
+    """Configure the root logger with the app's formatter + RequestContextFilter.
+
+    IN-04: previously the three entry points (``main.py``, ``runner.py``,
+    ``ecs_runner.py``, ``ecs_rescrape_runner.py``) each called their own
+    ``logging.basicConfig(...)`` at import. ``main.py`` (App Runner) then
+    layered ``RequestContextFilter`` + ``make_formatter()`` on top, but
+    the crawler entry points did not — so their log records missed the
+    ``request_id`` / ``user_id`` attributes even after IN-03 set the
+    underlying ContextVars. This helper centralizes the setup so every
+    entry point gets the same filter + formatter in one call.
+
+    Safe to call multiple times: ``logging.basicConfig`` short-circuits
+    when the root logger already has handlers, so later calls only
+    re-attach the filter + formatter to whatever handlers exist.
+    """
+    logging.basicConfig(
+        level=level,
+        format=LOG_FORMAT,
+        handlers=[logging.StreamHandler()],
+    )
+    formatter = make_formatter()
+    ctx_filter = RequestContextFilter()
+    root = logging.getLogger()
+    for handler in root.handlers:
+        handler.setFormatter(formatter)
+        # Avoid stacking the same filter instance if called repeatedly
+        # in the same process (tests, re-import pathways).
+        if not any(isinstance(f, RequestContextFilter) for f in handler.filters):
+            handler.addFilter(ctx_filter)
 
 
 # Logger setup

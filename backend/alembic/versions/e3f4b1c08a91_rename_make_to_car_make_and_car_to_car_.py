@@ -32,18 +32,10 @@ def upgrade() -> None:
     op.execute("ALTER INDEX ix_car_models_make_id RENAME TO ix_car_models_car_make_id")
 
     # Rename PK, unique, and FK constraints (Postgres does not auto-rename on table/column rename)
-    op.execute(
-        "ALTER TABLE car_makes RENAME CONSTRAINT makes_pkey TO car_makes_pkey"
-    )
-    op.execute(
-        "ALTER TABLE car_generations RENAME CONSTRAINT cars_pkey TO car_generations_pkey"
-    )
-    op.execute(
-        "ALTER TABLE car_models RENAME CONSTRAINT uq_car_models_make_id_name TO uq_car_models_car_make_id_name"
-    )
-    op.execute(
-        "ALTER TABLE car_models RENAME CONSTRAINT car_models_make_id_fkey TO car_models_car_make_id_fkey"
-    )
+    op.execute("ALTER TABLE car_makes RENAME CONSTRAINT makes_pkey TO car_makes_pkey")
+    op.execute("ALTER TABLE car_generations RENAME CONSTRAINT cars_pkey TO car_generations_pkey")
+    op.execute("ALTER TABLE car_models RENAME CONSTRAINT uq_car_models_make_id_name TO uq_car_models_car_make_id_name")
+    op.execute("ALTER TABLE car_models RENAME CONSTRAINT car_models_make_id_fkey TO car_models_car_make_id_fkey")
     op.execute(
         "ALTER TABLE car_generations RENAME CONSTRAINT cars_car_model_id_fkey TO car_generations_car_model_id_fkey"
     )
@@ -58,18 +50,10 @@ def downgrade() -> None:
     op.execute(
         "ALTER TABLE car_generations RENAME CONSTRAINT car_generations_car_model_id_fkey TO cars_car_model_id_fkey"
     )
-    op.execute(
-        "ALTER TABLE car_models RENAME CONSTRAINT car_models_car_make_id_fkey TO car_models_make_id_fkey"
-    )
-    op.execute(
-        "ALTER TABLE car_models RENAME CONSTRAINT uq_car_models_car_make_id_name TO uq_car_models_make_id_name"
-    )
-    op.execute(
-        "ALTER TABLE car_generations RENAME CONSTRAINT car_generations_pkey TO cars_pkey"
-    )
-    op.execute(
-        "ALTER TABLE car_makes RENAME CONSTRAINT car_makes_pkey TO makes_pkey"
-    )
+    op.execute("ALTER TABLE car_models RENAME CONSTRAINT car_models_car_make_id_fkey TO car_models_make_id_fkey")
+    op.execute("ALTER TABLE car_models RENAME CONSTRAINT uq_car_models_car_make_id_name TO uq_car_models_make_id_name")
+    op.execute("ALTER TABLE car_generations RENAME CONSTRAINT car_generations_pkey TO cars_pkey")
+    op.execute("ALTER TABLE car_makes RENAME CONSTRAINT car_makes_pkey TO makes_pkey")
 
     op.execute("ALTER INDEX ix_car_models_car_make_id RENAME TO ix_car_models_make_id")
     op.execute("ALTER INDEX ix_car_generations_car_model_id RENAME TO ix_cars_car_model_id")

@@ -28,7 +28,7 @@ dedupe matches whatever KTuner/other adapters emit for the same manufacturer.
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup, Tag
@@ -350,6 +350,7 @@ class HondataAdapter(RetailerCrawlerAdapter):
     (no JSON-LD, no Open Graph on this storefront).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "hondata"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered via the ``/index.php?route=information/sitemap``

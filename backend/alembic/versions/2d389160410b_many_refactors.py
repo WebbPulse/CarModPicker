@@ -91,7 +91,9 @@ def upgrade() -> None:
     op.add_column("global_parts", sa.Column("image_urls", sa.JSON(), nullable=True))
     op.add_column("global_parts", sa.Column("gtin", sa.String(), nullable=True))
     op.create_index(op.f("ix_global_parts_gtin"), "global_parts", ["gtin"], unique=False)
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "product_url")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "price")
     # ### end Alembic commands ###
 
@@ -102,21 +104,27 @@ def downgrade() -> None:
     op.add_column("global_parts", sa.Column("price", sa.INTEGER(), autoincrement=False, nullable=True))
     op.add_column("global_parts", sa.Column("product_url", sa.VARCHAR(), autoincrement=False, nullable=True))
     op.drop_index(op.f("ix_global_parts_gtin"), table_name="global_parts")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "gtin")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_column("global_parts", "image_urls")
     op.drop_index(op.f("ix_part_price_history_part_listing_id"), table_name="part_price_history")
     op.drop_index(op.f("ix_part_price_history_observed_at"), table_name="part_price_history")
     op.drop_index(op.f("ix_part_price_history_id"), table_name="part_price_history")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("part_price_history")
     op.drop_index(op.f("ix_part_listings_retailer_id"), table_name="part_listings")
     op.drop_index(op.f("ix_part_listings_id"), table_name="part_listings")
     op.drop_index(op.f("ix_part_listings_global_part_id"), table_name="part_listings")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("part_listings")
     op.drop_index(op.f("ix_retailers_name"), table_name="retailers")
     op.drop_index(op.f("ix_retailers_id"), table_name="retailers")
     op.drop_index(op.f("ix_retailers_domain"), table_name="retailers")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("retailers")
     op.drop_index(op.f("ix_image_source_mappings_source_url"), table_name="image_source_mappings")
     op.drop_index(op.f("ix_image_source_mappings_id"), table_name="image_source_mappings")
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table("image_source_mappings")
     # ### end Alembic commands ###

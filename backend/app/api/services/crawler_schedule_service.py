@@ -20,6 +20,7 @@ from typing import Any, Dict, Optional
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.crawler_schedule import CrawlerSchedule
@@ -194,7 +195,9 @@ def delete_schedule(schedule_name: str) -> None:
 
 def reconcile_all(db: Session) -> list[dict[str, Any]]:
     """Reconcile every schedule row. Returns per-row results."""
-    rows = db.query(CrawlerSchedule).order_by(CrawlerSchedule.name).all()
+    rows = list(
+        db.scalars(select(CrawlerSchedule).order_by(CrawlerSchedule.name)).all()
+    )
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
@@ -218,7 +221,9 @@ def sweep_orphan_schedules(db: Session) -> list[str]:
     prefix = _prefix()
     our_prefix = f"{prefix}-crawler-"
     group = settings.SCHEDULER_GROUP_NAME
-    live_names = {schedule_name_for(r.name) for r in db.query(CrawlerSchedule.name).all()}
+    live_names = {
+        schedule_name_for(name) for name in db.scalars(select(CrawlerSchedule.name)).all()
+    }
 
     deleted: list[str] = []
     try:

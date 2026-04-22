@@ -5,6 +5,7 @@ Subscription helpers for premium tier and build list caps.
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.app_settings import AppSettings as DBAppSettings
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 def is_premium_system_disabled(db: Session) -> bool:
     """Return True when the admin kill switch has disconnected the premium system."""
-    row = db.query(DBAppSettings).filter(DBAppSettings.id == 1).one_or_none()
+    row = db.scalars(select(DBAppSettings).where(DBAppSettings.id == 1)).one_or_none()
     return bool(row and row.premium_disabled)
 
 

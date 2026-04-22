@@ -71,7 +71,7 @@ Brand canonicalization:
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 from xml.etree.ElementTree import Element
 
@@ -556,6 +556,7 @@ class Skunk2Adapter(RetailerCrawlerAdapter):
     authorized window.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "skunk2"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -11,16 +11,22 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 
 ### Safety Nets & CI Gates
 
-- [ ] **SAFE-01**: Backend `pytest.ini` enforces `--cov-fail-under=<measured baseline>` so coverage cannot silently drop
-- [ ] **SAFE-02**: `frontend-ci.yml` runs `npm test -- --run` on every PR (currently absent)
+- [x] **SAFE-01
+**: Backend `pytest.ini` enforces `--cov-fail-under=<measured baseline>` so coverage cannot silently drop
+- [x] **SAFE-02
+**: `frontend-ci.yml` runs `npm test -- --run` on every PR (currently absent)
 - [ ] **SAFE-03**: Vitest config enforces a coverage threshold (`lines: 60`) for frontend
-- [ ] **SAFE-04**: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
+- [x] **SAFE-04
+**: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
 - [ ] **SAFE-05**: OpenAPI schema snapshot test catches unintended route/schema drift
 - [ ] **SAFE-06**: Auth characterization tests cover signup, verify-email, login, 2FA-TOTP, WebAuthn, OAuth, password-reset happy paths via `pytest-recording` before the auth refactor starts
-- [ ] **SAFE-07**: Crawler adapter VCR-style tests cover ≥5 representative adapters against archived S3 HTML before crawler refactor starts
-- [ ] **SAFE-08**: Three migrations containing `op.drop_constraint(None, ...)` (`097024200e60`, `172d1c205fb3`, `6eae6b1393c5`) are surgically repaired
+- [x] **SAFE-07
+**: Crawler adapter VCR-style tests cover ≥5 representative adapters against archived S3 HTML before crawler refactor starts
+- [x] **SAFE-08
+**: Three migrations containing `op.drop_constraint(None, ...)` (`097024200e60`, `172d1c205fb3`, `6eae6b1393c5`) are surgically repaired
 - [ ] **SAFE-09**: SQLAlchemy `MetaData` uses an explicit `naming_convention` so future autogen produces named constraints
-- [ ] **SAFE-10**: Dependabot or equivalent configured for weekly dependency PRs on backend + frontend + extension
+- [x] **SAFE-10
+**: Dependabot or equivalent configured for weekly dependency PRs on backend + frontend + extension
 
 ### Observability
 
@@ -42,22 +48,35 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 
 ### Database, Migrations & Performance
 
-- [ ] **DATA-01**: N+1 query in `backend/app/api/endpoints/build_logs.py:119` (`DBUser` fetch inside post loop) replaced with `selectinload(Post.author)` batch fetch
-- [ ] **DATA-02**: A query-count regression test asserts the N+1 fix stays fixed
-- [ ] **DATA-03**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
-- [ ] **DATA-04**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
-- [ ] **DATA-05**: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
-- [ ] **DATA-06**: `session.query()` legacy API calls replaced with `select()` + `session.scalars()` across the codebase
-- [ ] **DATA-07**: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
-- [ ] **DATA-08**: Build-log creation moved from lazy (auto-create mid-request in `build_logs.py:87-98`) to eager (created alongside the parent build list); inconsistent-state branch eliminated
-- [ ] **DATA-09**: Alembic migration workflow documented in CONVENTIONS.md to require downgrade testing against a Postgres Docker instance before merge
-- [ ] **DATA-10**: `lazy="raise"` applied to relationships known to trigger silent N+1s; every refactor-phase test run is green under that constraint
+- [x] **DATA-01
+**: N+1 query in `backend/app/api/endpoints/build_logs.py:119` (`DBUser` fetch inside post loop) replaced with `selectinload(Post.author)` batch fetch
+- [x] **DATA-02
+**: A query-count regression test asserts the N+1 fix stays fixed
+- [x] **DATA-03
+**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
+- [x] **DATA-04
+**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
+- [x] **DATA-05
+**: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
+- [x] **DATA-06
+**: `session.query()` legacy API calls replaced with `select()` + `session.scalars()` across the codebase
+- [x] **DATA-07
+**: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
+- [x] **DATA-08
+**: Build-log creation moved from lazy (auto-create mid-request in `build_logs.py:87-98`) to eager (created alongside the parent build list); inconsistent-state branch eliminated
+- [x] **DATA-09
+**: Alembic migration workflow documented in CONVENTIONS.md to require downgrade testing against a Postgres Docker instance before merge
+- [x] **DATA-10
+**: `lazy="raise"` applied to relationships known to trigger silent N+1s; every refactor-phase test run is green under that constraint
 
 ### Parts & Canonical Dedup Consolidation
 
-- [ ] **PARTS-01**: Part-linking race condition eliminated (covered by DATA-03/DATA-04; cross-referenced here for traceability)
-- [ ] **PARTS-02**: `car_inference.py` ambiguity resolution reviewed — `AMBIGUOUS_STANDALONE_CODES` set is documented + a regression test pins current behavior; no new ML logic this milestone, just maintainability
-- [ ] **PARTS-03**: Canonical-part flow (create, link, unlink, merge) has integration test coverage matching PROJECT.md's Validated behavior
+- [x] **PARTS-01**: Part-linking race condition eliminated (covered by DATA-03
+/DATA-04; cross-referenced here for traceability)
+- [x] **PARTS-02
+**: `car_inference.py` ambiguity resolution reviewed — `AMBIGUOUS_STANDALONE_CODES` set is documented + a regression test pins current behavior; no new ML logic this milestone, just maintainability
+- [x] **PARTS-03
+**: Canonical-part flow (create, link, unlink, merge) has integration test coverage matching PROJECT.md's Validated behavior
 
 ### Auth Refactor
 

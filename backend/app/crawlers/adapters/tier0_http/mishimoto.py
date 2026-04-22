@@ -71,7 +71,7 @@ Varnish + Fastly, not Cloudflare). ``FETCHER_TIER`` stays at the default
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -500,6 +500,7 @@ class MishimotoAdapter(RetailerCrawlerAdapter):
     when the meta blob is missing.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "mishimoto"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

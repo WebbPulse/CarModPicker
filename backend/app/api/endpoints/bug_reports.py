@@ -6,7 +6,8 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_optional_current_user
@@ -25,8 +26,10 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import standard_responses
-from app.core.logging import get_logger
+from app.api.utils.response_patterns import ResponsePatterns
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter()
@@ -46,11 +49,14 @@ async def count_bug_reports(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Get total count of bug reports."""
+    # WR-05: use the module-level logger (app.api.endpoints.bug_reports) so log
+    # records carry this module's name. Previously the function shadowed it with
+    # ``deps["logger"]``, which is the common_patterns module's logger and broke
+    # the QUAL-07 "logs carry their own module name" invariant.
     db = deps["db"]
-    logger = deps["logger"]
 
     try:
-        count = db.query(DBBugReport).count()
+        count = db.scalar(select(func.count()).select_from(DBBugReport)) or 0
         logger.info(f"Retrieved bug reports count: {count}")
         return {"count": count}
     except Exception as e:
@@ -69,7 +75,6 @@ async def count_bug_reports(
 async def create_bug_report(
     bug_report_data: BugReportCreate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BugReportRead:
     """Create a new bug report. Can be created by authenticated or anonymous users."""
@@ -166,7 +171,6 @@ async def update_bug_report(
     bug_report_id: UUID,
     bug_report_update: BugReportUpdate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportRead:
     """Update a bug report (typically for admin review). Admin only."""
@@ -191,7 +195,6 @@ async def update_bug_report(
 async def delete_bug_report(
     bug_report_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, str]:
     """Delete a bug report (admin only)."""
@@ -216,7 +219,6 @@ async def delete_bug_report(
 async def get_bug_report(
     bug_report_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportWithDetails:
     """Get a specific bug report with details. Admin only."""
@@ -227,6 +229,9 @@ async def get_bug_report(
     )
 
     if not bug_report:
-        raise HTTPException(status_code=404, detail="Bug report not found")
+        # IN-06: use the centralized error-shape helper instead of raw
+        # ``HTTPException`` so the response follows the same {message,
+        # error_code, details} contract as the rest of the module.
+        ResponsePatterns.raise_not_found("Bug report", bug_report_id)
 
     return bug_report

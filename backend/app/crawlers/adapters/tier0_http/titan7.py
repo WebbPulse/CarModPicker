@@ -44,7 +44,7 @@ the storefront.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -314,6 +314,7 @@ class Titan7Adapter(RetailerCrawlerAdapter):
     list doesn't split one brand across multiple rows.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "titan7"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

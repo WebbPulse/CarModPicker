@@ -32,7 +32,7 @@ title heuristic when a page happens to ship without JSON-LD brand.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
@@ -190,6 +190,7 @@ class EnjukuRacingAdapter(RetailerCrawlerAdapter):
     this theme are already clean.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "enjukuracing"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

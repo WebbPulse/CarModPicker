@@ -15,7 +15,7 @@ Discovery: sitemap.xml (sitemap index → sitemap_products_N.xml) filtered to
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlencode, urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -260,6 +260,7 @@ class FunctionwerkAdapter(RetailerCrawlerAdapter):
     no JSON-LD Product block is emitted by the site.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "functionwerk"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Uses sitemap.xml (and child sitemaps) to find all

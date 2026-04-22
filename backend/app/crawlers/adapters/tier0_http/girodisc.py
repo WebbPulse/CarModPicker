@@ -35,7 +35,7 @@ always defaults to ``"Girodisc"``.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 from xml.etree.ElementTree import Element
 
@@ -400,6 +400,7 @@ class GirodiscAdapter(RetailerCrawlerAdapter):
     Brand is always ``"Girodisc"`` (single-brand manufacturer store).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "girodisc"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
