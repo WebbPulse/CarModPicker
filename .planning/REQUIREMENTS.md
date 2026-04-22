@@ -25,7 +25,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 - [x] **SAFE-08
 **: Three migrations containing `op.drop_constraint(None, ...)` (`097024200e60`, `172d1c205fb3`, `6eae6b1393c5`) are surgically repaired
 - [ ] **SAFE-09**: SQLAlchemy `MetaData` uses an explicit `naming_convention` so future autogen produces named constraints
-- [ ] **SAFE-10**: Dependabot or equivalent configured for weekly dependency PRs on backend + frontend + extension
+- [x] **SAFE-10
+**: Dependabot or equivalent configured for weekly dependency PRs on backend + frontend + extension
 
 ### Observability
 
