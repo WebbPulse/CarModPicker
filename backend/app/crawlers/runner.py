@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID
 
+import pybreaker
 import requests
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
@@ -61,14 +62,40 @@ class CrawlerConfigError(ValueError):
     pass
 
 
-# Adapter-level circuit breaker: after this many consecutive URL fetches
-# exit the per-URL retry loop with a rate-limit / upstream-distress status
-# (429/502/503/504), bail on the whole adapter rather than grinding through
-# the rest of the URL list. Each exhausted retry chain can burn ~60s of
-# backoff (2+4+8+16+32s), so without this we could spend hours hammering a
-# struggling origin for zero ingested pages.
-RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD = 5
-RATE_LIMIT_CIRCUIT_BREAKER_STATUSES = frozenset({429, 502, 503, 504})
+# Per-adapter-name pybreaker registry (CRAWL-04 / D-08).
+# Replaces the old RATE_LIMIT_CIRCUIT_BREAKER_* counter block with a
+# thread-safe pybreaker CircuitBreaker keyed by ADAPTER_NAME. Breakers
+# are shared across ThreadPoolExecutor workers for the same adapter, so
+# a trip in one worker affects every subsequent fetch for that adapter.
+# Pitfall BR-01: module-level Lock + double-checked locking prevents
+# two workers constructing breakers for the same adapter in parallel.
+_BREAKERS: dict[str, pybreaker.CircuitBreaker] = {}
+_BREAKERS_LOCK = threading.Lock()
+
+
+def get_breaker(adapter_name: str) -> pybreaker.CircuitBreaker:
+    """Return the process-global breaker for ``adapter_name``, creating it on first access.
+
+    Config per D-09:
+      - ``fail_max=3``: three consecutive exceptions through ``breaker.call()``
+        trip it (the 4th call raises CircuitBreakerError).
+      - ``reset_timeout=120``: OPEN state lasts 120s before auto-transitioning
+        to HALF-OPEN for a single trial call.
+    """
+    breaker = _BREAKERS.get(adapter_name)
+    if breaker is not None:
+        return breaker
+    with _BREAKERS_LOCK:
+        breaker = _BREAKERS.get(adapter_name)
+        if breaker is not None:
+            return breaker
+        breaker = pybreaker.CircuitBreaker(
+            fail_max=3,
+            reset_timeout=120,
+            name=adapter_name,
+        )
+        _BREAKERS[adapter_name] = breaker
+        return breaker
 
 
 def _get_crawler_user(db: Session) -> DBUser:
@@ -441,14 +468,13 @@ def run_crawler(
         error_urls: list[dict[str, Any]] = []
         parse_miss_urls: list[dict[str, Any]] = []
         _MAX_SAMPLES = 50
-        # Circuit-breaker state. `consecutive_rate_limited` counts URLs whose
-        # retry chain exhausted against 429/502/503/504; reset whenever a fetch
-        # returns (any HTTP response, including 4xx that prove the origin is
-        # alive). `rate_limit_bailout` flips to True when the threshold trips
-        # and is surfaced in the returned result.
-        consecutive_rate_limited = 0
+        # Circuit-breaker state (CRAWL-04). `rate_limit_bailout` flips to
+        # True when the pybreaker trips and is surfaced in the returned
+        # result. The breaker is process-global per ADAPTER_NAME, hoisted
+        # ONCE outside the URL loop so all iterations share state.
         rate_limit_bailout = False
         rate_limit_bailout_after = 0
+        breaker = get_breaker(adapter_name)
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -470,11 +496,20 @@ def run_crawler(
                         url,
                     )
                     continue
-                html = adapter.fetcher.fetch(url)
-                # Fetch returned without raising — origin is responsive. Reset
-                # the circuit-breaker counter regardless of whether parsing
-                # succeeds downstream; we only care about upstream health here.
-                consecutive_rate_limited = 0
+                try:
+                    html = breaker.call(adapter.fetcher.fetch, url)
+                except pybreaker.CircuitBreakerError:
+                    # Pitfall BR-03: this handler MUST precede the generic
+                    # `except Exception` below. Breaker is OPEN — skip the
+                    # rest of the URL list and record the bailout.
+                    logger.error(
+                        "Adapter %s: breaker OPEN after %s URLs; bailing.",
+                        adapter_name,
+                        i,
+                    )
+                    rate_limit_bailout = True
+                    rate_limit_bailout_after = i
+                    break
                 payload = adapter.parse_product_page(html, url)
                 if payload is None:
                     skipped_not_product += 1
@@ -533,16 +568,19 @@ def run_crawler(
                 status = _http_status_from_exception(e)
                 bucket = _classify_fetch_error(e, status)
                 http_errors[bucket] = http_errors.get(bucket, 0) + 1
-                # Circuit-breaker accounting: a status in the rate-limit set
-                # means the per-URL retry chain fully exhausted against the
-                # upstream. Any other HTTP status (e.g. 404/410) resets the
-                # counter because it proves the origin served our request.
-                # Non-HTTP failures (timeouts/connection errors, status=None)
-                # are ambiguous and left untouched.
-                if status in RATE_LIMIT_CIRCUIT_BREAKER_STATUSES:
-                    consecutive_rate_limited += 1
-                elif status is not None:
-                    consecutive_rate_limited = 0
+                # Pre-trip the breaker on any terminal 429/503 per D-11: a
+                # single such response is upstream explicitly telling us to
+                # back off. Manually opening here means the NEXT URL's
+                # breaker.call() raises CircuitBreakerError and bails out,
+                # without waiting for fail_max=3 to accumulate.
+                if status in (429, 503):
+                    logger.warning(
+                        "Adapter %s: terminal %s on URL %s — opening breaker for 120s (D-11)",
+                        adapter_name,
+                        status,
+                        url,
+                    )
+                    breaker.open()
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
@@ -566,20 +604,6 @@ def run_crawler(
                             }
                         )
                     db.rollback()
-                if consecutive_rate_limited >= RATE_LIMIT_CIRCUIT_BREAKER_THRESHOLD:
-                    logger.error(
-                        "Adapter %s: circuit breaker tripped after %s consecutive rate-limited "
-                        "fetches (last status %s). Bailing at %s/%s URLs to avoid hammering a "
-                        "struggling origin.",
-                        adapter_name,
-                        consecutive_rate_limited,
-                        status,
-                        i,
-                        total,
-                    )
-                    rate_limit_bailout = True
-                    rate_limit_bailout_after = i
-                    break
 
         skipped = skipped_robots + skipped_not_product + skipped_gone
         # Pick the summary log level based on how healthy the run looks. A
