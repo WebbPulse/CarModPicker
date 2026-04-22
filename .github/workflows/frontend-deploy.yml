@@ -48,6 +48,9 @@ jobs:
         working-directory: frontend
         env:
           VITE_API_URL: https://api.carmodpicker.com
+          # Allowlist for the /extension-auth token hand-off. Without this, the
+          # page refuses to send the JWT to any extension in production builds.
+          VITE_ALLOWED_EXTENSION_IDS: ${{ vars.CWS_EXTENSION_ID }}
         run: npm run build
 
       - name: Configure AWS credentials via OIDC
