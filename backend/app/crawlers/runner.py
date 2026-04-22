@@ -391,6 +391,41 @@ def run_crawler(
         logger.info("Adapter %s: using fetcher tier %r (%s)", adapter_name, tier, fetcher.__class__.__name__)
         adapter = get_adapter(adapter_name, fetcher=fetcher)
 
+        # Pre-crawl health gate (CRAWL-06 / D-19). If the adapter's configured
+        # HEALTH_PROBE_URL comes back unhealthy, skip the URL loop entirely
+        # and return a result row tagged with health_skipped=True — the job
+        # report surfaces it so operators see "adapter X was down, not broken."
+        # Adapters that leave HEALTH_PROBE_URL=None (DISC-04 Option A default)
+        # short-circuit inside check_health and return healthy=True.
+        health = adapter.check_health()
+        if not health.healthy:
+            logger.warning(
+                "skipping %s: health=%s status=%s",
+                adapter_name,
+                health.reason,
+                health.status_code,
+            )
+            return {
+                "adapter": adapter_name,
+                "ingested": 0,
+                "skipped": 0,
+                "skipped_robots": 0,
+                "skipped_not_product": 0,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 0,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": True,
+                "health_reason": f"health_{health.reason}",
+                "health_status_code": health.status_code,
+            }
+
         urls = list(adapter.discover_product_urls())
         if urls:
             canonical_urls = [canonicalize_url(u) for u in urls]
@@ -665,6 +700,13 @@ def run_crawler(
             # tripped; it records the URL index at which we bailed.
             "rate_limit_bailout": rate_limit_bailout,
             "rate_limit_bailout_after": rate_limit_bailout_after,
+            # Pre-crawl health-probe outcome (CRAWL-06). False on successful
+            # runs (this path); the early-return above sets True and fills
+            # `health_reason` / `health_status_code`. Present on every result
+            # for consistent schema across healthy + skipped paths.
+            "health_skipped": False,
+            "health_reason": None,
+            "health_status_code": None,
         }
     finally:
         # Close the fetcher if we got far enough to create one. FlareSolverr

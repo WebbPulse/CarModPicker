@@ -95,13 +95,53 @@ class RetailerCrawlerAdapter(ABC):
         ...
 
     def check_health(self) -> HealthResult:
-        """Opt-in pre-crawl health probe. Default implementation honors HEALTH_PROBE_URL=None.
+        """Pre-crawl health probe (CRAWL-06 / D-19).
 
-        Plan 02 (CRAWL-06) will wire the probe I/O path; Plan 01 lands the
-        opt-out default only so subclasses can already opt in declaratively.
+        When ``HEALTH_PROBE_URL`` is set, fetch it through this adapter's own
+        fetcher (tier-specific transport — http/tls/browser) with a 5-second
+        timeout (D-18). Classify the outcome into a ``HealthResult``:
+
+          - 2xx (fetch returned, no exception) → healthy=True, reason="ok"
+          - 4xx → healthy=False, reason="http_4xx"
+          - 5xx → healthy=False, reason="http_5xx"
+          - Timeout → healthy=False, reason="timeout"
+          - Other (connection/fetcher/etc) → healthy=False, reason=<bucket>
+
+        When ``HEALTH_PROBE_URL=None`` (the default per DISC-04 Option A),
+        returns healthy=True with reason="skipped_by_config" — the adapter
+        opts out of probing and the runner proceeds directly to the URL loop.
         """
         probe_url = type(self).HEALTH_PROBE_URL
         if probe_url is None:
             return HealthResult(healthy=True, reason="skipped_by_config", status_code=None)
-        # Probe I/O wired in Plan 02 (CRAWL-06). For Plan 01, fall through to the opt-out default.
-        return HealthResult(healthy=True, reason="skipped_by_config", status_code=None)
+
+        # Helpers live in runner.py (transport-layer classification). Imported
+        # lazily to avoid a circular import (runner imports ADAPTER_REGISTRY
+        # from this package).
+        from app.crawlers.fetchers import FetcherError
+        from app.crawlers.runner import _classify_fetch_error, _http_status_from_exception
+
+        try:
+            # D-18: 5s timeout — robots.txt is expected to return fast.
+            self.fetcher.fetch(probe_url, timeout=5)
+        except FetcherError as e:
+            status = _http_status_from_exception(e)
+            if status is not None and 400 <= status < 500:
+                return HealthResult(healthy=False, reason="http_4xx", status_code=status)
+            if status is not None and 500 <= status < 600:
+                return HealthResult(healthy=False, reason="http_5xx", status_code=status)
+            bucket = _classify_fetch_error(e, status)
+            return HealthResult(healthy=False, reason=bucket or "connection", status_code=status)
+        except Exception as e:
+            # Non-FetcherError (e.g. requests.exceptions.Timeout raised directly
+            # by an HttpFetcher that didn't wrap, or a connection reset).
+            status = _http_status_from_exception(e)
+            if status is not None and 400 <= status < 500:
+                return HealthResult(healthy=False, reason="http_4xx", status_code=status)
+            if status is not None and 500 <= status < 600:
+                return HealthResult(healthy=False, reason="http_5xx", status_code=status)
+            bucket = _classify_fetch_error(e, status)
+            return HealthResult(healthy=False, reason=bucket or "connection", status_code=status)
+
+        # Fetch returned without raising → response was 2xx.
+        return HealthResult(healthy=True, reason="ok", status_code=200)
