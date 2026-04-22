@@ -154,12 +154,17 @@ async function apiRequest<T>(
  */
 const AUTH_NONCE_STORAGE_KEY = "pendingWebAuth";
 const AUTH_NONCE_TTL_MS = 10 * 60 * 1000;
-const ALLOWED_WEB_HOSTS: ReadonlyArray<string> = [
-  "carmodpicker.com",
-  "staging.carmodpicker.com",
-  "localhost",
-  "127.0.0.1",
-];
+// Base domains whose subdomains (incl. www, staging) are permitted to hand off
+// auth tokens. Kept in sync with `externally_connectable.matches` in manifest.json.
+const ALLOWED_WEB_HOST_SUFFIXES: ReadonlyArray<string> = ["carmodpicker.com"];
+const ALLOWED_EXACT_HOSTS: ReadonlyArray<string> = ["localhost", "127.0.0.1"];
+
+function isAllowedWebHost(hostname: string): boolean {
+  if (ALLOWED_EXACT_HOSTS.includes(hostname)) return true;
+  return ALLOWED_WEB_HOST_SUFFIXES.some(
+    (suffix) => hostname === suffix || hostname.endsWith("." + suffix),
+  );
+}
 
 type PendingWebAuth = {
   state: string;
@@ -245,7 +250,7 @@ async function handleExternalMessage(
   sender: chrome.runtime.MessageSender,
 ): Promise<{ success: boolean; error?: string }> {
   const senderUrl = sender.url ? new URL(sender.url) : null;
-  if (!senderUrl || !ALLOWED_WEB_HOSTS.includes(senderUrl.hostname)) {
+  if (!senderUrl || !isAllowedWebHost(senderUrl.hostname)) {
     return { success: false, error: "Unauthorized sender" };
   }
 
