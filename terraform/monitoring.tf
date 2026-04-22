@@ -139,3 +139,82 @@ resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory" {
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
 }
+
+# ---------------------------------------------------------------------------
+# Crawler parse-failure composite alarm (Phase 2 / OBS-03)
+#
+# Aggregate-across-all-adapters alarm: fires when, in the last hour,
+# ParseFailures / (Ingested + ParseFailures) > 0.5 on RunType=live metrics
+# emitted into the CarModPicker/Crawlers namespace by plan 02-03's EMF helper.
+#
+# NaN-via-0 small-sample suppression (D-23): when combined samples < 10 the
+# expression returns 0 — idle adapters stay quiet, matches runner.py total>=10
+# drift threshold in plan 03's SAFE-07 characterization window.
+#
+# Landmines pinned:
+#   7  — NO top-level `period` attribute (terraform-provider-aws#29398).
+#        period lives ONLY inside each metric_query.metric {} block.
+#   8  — NaN-via-0 (not NaN) so GreaterThanThreshold comparison is portable.
+#   9  — datapoints_to_alarm (1) <= evaluation_periods (1).
+#   10 — GreaterThanThreshold is strict > (NOT GreaterThanOrEqualToThreshold).
+#
+# SNS deviation (D-24): reuses aws_sns_topic.alarms (email-protocol subs to
+# tyler@webbpulse.com + tylert2610@gmail.com). REQUIREMENTS OBS-03 says
+# "SNS -> SES"; operator experience is identical. Captured in 02-HUMAN-UAT.md.
+# ---------------------------------------------------------------------------
+resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_composite" {
+  alarm_name        = "${local.prefix}-crawler-parse-failure-composite"
+  alarm_description = "Parse-failure rate >50% across all live-mode crawlers. Runbook: .planning/codebase/CONCERNS.md#crawler-drift-runbook"
+
+  comparison_operator = "GreaterThanThreshold" # strict > (Landmine 10)
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1 # 1 of 1 (Landmine 9)
+  threshold           = 0.5
+  treat_missing_data  = "notBreaching" # idle adapters stay quiet
+
+  # NO top-level `period` — bug terraform-provider-aws#29398 / Landmine 7.
+  # period lives only inside each metric_query.metric {} block below.
+
+  metric_query {
+    id = "ingested"
+    metric {
+      metric_name = "Ingested"
+      namespace   = "CarModPicker/Crawlers"
+      period      = 3600 # 1 hour — matches hourly crawl cadence
+      stat        = "Sum"
+      dimensions = {
+        Environment = var.environment
+        RunType     = "live" # exclude rescrape (D-21)
+      }
+    }
+  }
+
+  metric_query {
+    id = "failures"
+    metric {
+      metric_name = "ParseFailures"
+      namespace   = "CarModPicker/Crawlers"
+      period      = 3600
+      stat        = "Sum"
+      dimensions = {
+        Environment = var.environment
+        RunType     = "live"
+      }
+    }
+  }
+
+  metric_query {
+    id          = "rate"
+    expression  = "IF((ingested + failures) < 10, 0, failures / (ingested + failures))"
+    label       = "Parse failure rate (suppressed below 10 samples)"
+    return_data = true # exactly one query has return_data=true
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  # TODO(phase-3): convert composite alarm to per-adapter via:
+  #   for_each = toset(setsubtract(file("${path.module}/adapter_names.txt"), var.disabled_parse_alarms))
+  # after CRAWL-01/02 adapter auto-discovery lands; add AdapterName dimension
+  # to each metric_query.metric.dimensions map. Cost: 114 alarms x $0.10/mo = $11.40/mo.
+}
