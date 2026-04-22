@@ -97,7 +97,6 @@ None yet.
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
 | Phase 01 | SAFE-03: frontend vitest threshold enforcement | Deferred (target: plan 01-09): frontend coverage threshold enforcement | 2026-04-22 |
-| Phase 01 | OpenAPI schema name determinism: two `EntityType` classes (schemas/report.py and schemas/vote.py) collide; pydantic disambiguates based on import order, so SAFE-05 snapshot drifts whenever module load order changes. Add `model_config = ConfigDict(title=...)` override to one class to force deterministic naming. | Deferred (follow-up) | 2026-04-22 |
 | Phase 01 | OAuth cassette recording: 2 OAuth characterization tests (signin, link) currently skip because cassettes are absent. A developer with Google sandbox creds must record them per 01-06-SUMMARY.md instructions, then confirm both tests move from SKIPPED → PASSED. | Deferred (manual) | 2026-04-22 |
 
 ## Session Continuity
