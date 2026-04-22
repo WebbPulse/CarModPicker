@@ -148,7 +148,7 @@ fetcher upgrade is needed.
 """
 
 import os
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload
@@ -190,6 +190,7 @@ class RoadRaceEngineeringAdapter(RetailerCrawlerAdapter):
 
     # Default Tier 0 — plain HTTP is enough (no Cloudflare, no JS
     # challenge). Left explicit so the choice is documented on the class.
+    ADAPTER_NAME: ClassVar[str] = "roadraceengineering"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

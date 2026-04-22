@@ -20,7 +20,7 @@ Override with ``CRAWLER_EVASIVEMOTORSPORTS_START_URLS`` (comma-separated).
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin
 from xml.etree.ElementTree import Element
 
@@ -308,6 +308,7 @@ class EvasiveMotorsportsAdapter(RetailerCrawlerAdapter):
     Specs table for brand and MPN (preferred over the retailer-prefixed SKU).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "evasivemotorsports"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

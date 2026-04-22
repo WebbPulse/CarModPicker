@@ -44,7 +44,7 @@ ingest-time default of ``"Unknown"`` is honest and better than mis-attributing.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -496,6 +496,7 @@ class MackinIndustriesAdapter(RetailerCrawlerAdapter):
     (<ins> wins on sale) and SKU. /item/ pages never carry price or SKU.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "mackinindustries"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

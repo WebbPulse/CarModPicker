@@ -114,7 +114,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -550,6 +550,7 @@ class KarceptsAdapter(RetailerCrawlerAdapter):
     prices are dropped.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "karcepts"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

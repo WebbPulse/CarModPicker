@@ -23,7 +23,7 @@ Override the discovered list with ``CRAWLER_ESSEXPARTS_START_URLS``
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import defusedxml.ElementTree as ET
@@ -379,6 +379,7 @@ class EssexPartsAdapter(RetailerCrawlerAdapter):
     and ``itemprop=image`` + ``.thumb-swap`` for images.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "essexparts"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

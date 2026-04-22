@@ -32,7 +32,7 @@ explicitly. Override with ``CRAWLER_WHEELSBOUTIQUE_START_URLS``
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -301,6 +301,7 @@ class WheelsBoutiqueAdapter(RetailerCrawlerAdapter):
     only way it's surfaced) and from a description-text check for exhausts.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "wheelsboutique"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -100,7 +100,7 @@ Caveats — critical to remember during smoke-test:
 """
 
 import os
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import defusedxml.ElementTree as ET
@@ -403,6 +403,7 @@ class HennesseyAdapter(RetailerCrawlerAdapter):
     design; cross-retailer dedupe falls back to ``(retailer, url)``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "hennessey"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

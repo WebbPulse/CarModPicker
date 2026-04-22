@@ -30,7 +30,7 @@ injected by the theme.
 """
 
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -131,6 +131,7 @@ class JegsAdapter(RetailerCrawlerAdapter):
     sitemap is handled.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "jegs"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

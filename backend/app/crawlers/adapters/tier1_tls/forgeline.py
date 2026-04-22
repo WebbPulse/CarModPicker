@@ -48,7 +48,7 @@ only OpenGraph + a marketing template. Strategy:
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -321,6 +321,7 @@ class ForgelineAdapter(RetailerCrawlerAdapter):
     Manufacturer is always Forgeline (direct site).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "forgeline"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

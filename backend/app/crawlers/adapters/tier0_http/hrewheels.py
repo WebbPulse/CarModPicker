@@ -66,7 +66,7 @@ import os
 import re
 import tempfile
 import threading
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import certifi
@@ -403,6 +403,7 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
     single page represents many orderable SKUs.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "hrewheels"
     FETCHER_TIER = "http"
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:

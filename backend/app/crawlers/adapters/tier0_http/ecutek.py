@@ -140,7 +140,7 @@ import html as html_mod
 import json
 import os
 import re
-from typing import Any, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Iterator, List, Optional, cast
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -594,6 +594,7 @@ class EcuTekAdapter(RetailerCrawlerAdapter):
     ``injectordynamics`` / ``hennessey`` precedent.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "ecutek"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -150,7 +150,7 @@ Caveats
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -413,6 +413,7 @@ class TeinAdapter(RetailerCrawlerAdapter):
     ``part_manufacturer`` is the constant ``"Tein"``.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "tein"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

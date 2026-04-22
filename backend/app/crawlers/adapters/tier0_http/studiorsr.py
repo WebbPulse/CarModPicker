@@ -12,7 +12,7 @@ Override with CRAWLER_STUDIORSR_START_URLS (comma-separated) to use a fixed list
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -219,6 +219,7 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
     Parsing: JSON-LD first (Shopify), then shared DOM helpers (og:meta, h1, price, part_manufacturer, images).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "studiorsr"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Uses sitemap.xml (and child sitemaps) to find all

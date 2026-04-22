@@ -34,7 +34,7 @@ import logging
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -229,6 +229,7 @@ class VividRacingAdapter(RetailerCrawlerAdapter):
     number — it is Vivid's internal id, not a manufacturer SKU.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "vividracing"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

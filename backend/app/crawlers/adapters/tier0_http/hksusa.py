@@ -28,7 +28,7 @@ No per-product brand field to fall back on.
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
@@ -240,6 +240,7 @@ class HKSUSAAdapter(RetailerCrawlerAdapter):
     first-party storefront, and there's nothing else on-site to disambiguate.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "hksusa"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

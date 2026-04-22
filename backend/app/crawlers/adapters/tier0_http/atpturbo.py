@@ -50,7 +50,7 @@ Product_Code query param (category URLs handed to the parser by mistake).
 import os
 import re
 from collections import deque
-from typing import Callable, Deque, Iterator, List, Optional, Set
+from typing import Callable, ClassVar, Deque, Iterator, List, Optional, Set
 from urllib.parse import parse_qs, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup, Tag
@@ -434,6 +434,7 @@ class ATPTurboAdapter(RetailerCrawlerAdapter):
     fallback for unknown prefixes.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "atpturbo"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from BFS discovery; env override wins when set."""
 

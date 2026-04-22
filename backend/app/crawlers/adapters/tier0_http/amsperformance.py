@@ -29,7 +29,7 @@ with ``CRAWLER_AMSPERFORMANCE_START_URLS`` (comma-separated) for a fixed list.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -177,6 +177,7 @@ class AMSPerformanceAdapter(RetailerCrawlerAdapter):
     defaults to ``"AMS Performance"`` when no third-party brand is set.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "amsperformance"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

@@ -35,7 +35,7 @@ children are walked. Override with ``CRAWLER_ROADSPORTSUPPLY_START_URLS``
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
@@ -271,6 +271,7 @@ class RoadSportSupplyAdapter(RetailerCrawlerAdapter):
     JSON-LD is incomplete.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "roadsportsupply"
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs; env override wins when set."""
         env_urls = _resolve_start_urls_env()

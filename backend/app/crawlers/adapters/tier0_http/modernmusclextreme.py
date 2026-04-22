@@ -59,7 +59,7 @@ fixed list for ad-hoc runs or local smoke tests.
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
@@ -401,6 +401,7 @@ class ModernMuscleXtremeAdapter(RetailerCrawlerAdapter):
     """
 
     # Plain requests works; MMX is ASP.NET / AbleCommerce, no Cloudflare.
+    ADAPTER_NAME: ClassVar[str] = "modernmusclextreme"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

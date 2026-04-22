@@ -108,7 +108,7 @@ Caveats:
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from bs4 import BeautifulSoup, Tag
 
@@ -407,6 +407,7 @@ class AEMElectronicsAdapter(RetailerCrawlerAdapter):
     plug-and-play fitment strings.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "aemelectronics"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

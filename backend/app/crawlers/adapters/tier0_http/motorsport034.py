@@ -25,7 +25,7 @@ platforms), we normalize to ``034Motorsport``.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -257,6 +257,7 @@ class Motorsport034Adapter(RetailerCrawlerAdapter):
     fallback using the shared parsing helpers.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "034motorsport"
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs from /media/sitemaps/sitemap.xml. Set

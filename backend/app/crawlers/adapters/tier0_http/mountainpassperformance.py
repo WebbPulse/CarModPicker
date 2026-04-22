@@ -143,7 +143,7 @@ Caveats:
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import defusedxml.ElementTree as ET
@@ -457,6 +457,7 @@ class MountainPassPerformanceAdapter(RetailerCrawlerAdapter):
     §5; the parent SKU and low-end-of-range price win.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "mountainpassperformance"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

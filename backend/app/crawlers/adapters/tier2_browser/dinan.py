@@ -97,7 +97,7 @@ Override live-crawl start URLs (once Tier 2 is live) via
 """
 
 import json
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 
 from bs4 import BeautifulSoup, Tag
 
@@ -398,6 +398,7 @@ class DinanAdapter(RetailerCrawlerAdapter):
     through unchanged.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "dinan"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

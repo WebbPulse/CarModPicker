@@ -57,7 +57,7 @@ import json
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -277,6 +277,7 @@ class APRAdapter(RetailerCrawlerAdapter):
     description, images, UPC, and current price.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "apr"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

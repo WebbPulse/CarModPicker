@@ -72,7 +72,7 @@ children are skipped. Override with ``CRAWLER_RADIUM_START_URLS``
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -347,6 +347,7 @@ class RadiumAdapter(RetailerCrawlerAdapter):
     …) from chassis-led product names, and this shop is strictly first-party.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "radium"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

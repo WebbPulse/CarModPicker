@@ -162,7 +162,7 @@ import html as html_lib
 import json
 import os
 import re
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from urllib.parse import urljoin, urlparse
 
 import defusedxml.ElementTree as ET
@@ -645,6 +645,7 @@ class WilwoodAdapter(RetailerCrawlerAdapter):
     ``"Wilwood"`` (single-brand manufacturer store).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "wilwood"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -46,7 +46,7 @@ shifters — so both need to be in the index for a complete FK8/FL5 build.
 import os
 import re
 import time
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import Element
 
@@ -305,6 +305,7 @@ class TwentySevenWonAdapter(RetailerCrawlerAdapter):
     is empty or any self-spelling variant.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "27won"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

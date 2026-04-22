@@ -41,7 +41,7 @@ import logging
 import os
 import re
 import time
-from typing import Iterator, List, Optional, Set
+from typing import ClassVar, Iterator, List, Optional, Set
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -336,6 +336,7 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
     "Accessport" or "Stage" as manufacturers.
     """
 
+    ADAPTER_NAME: ClassVar[str] = "cobbtuning"
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

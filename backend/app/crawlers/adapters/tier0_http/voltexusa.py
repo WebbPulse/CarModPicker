@@ -132,7 +132,7 @@ Caveats:
 
 import os
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -502,6 +502,7 @@ class VoltexUsaAdapter(RetailerCrawlerAdapter):
     would all be wrong as ``part_manufacturer``).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "voltexusa"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

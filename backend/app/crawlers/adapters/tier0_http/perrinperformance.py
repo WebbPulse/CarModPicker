@@ -60,7 +60,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, cast
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -466,6 +466,7 @@ class PerrinPerformanceAdapter(RetailerCrawlerAdapter):
     # Default Tier 0 — plain HTTP is enough (Cloudflare on this origin does
     # not challenge ``requests``). Left explicit so the choice is documented
     # on the class itself rather than only in the module docstring.
+    ADAPTER_NAME: ClassVar[str] = "perrinperformance"
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

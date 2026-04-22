@@ -40,7 +40,7 @@ than a retailer-specific tag.
 """
 
 import re
-from typing import Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -164,6 +164,7 @@ class ECSTuningAdapter(RetailerCrawlerAdapter):
     up under many fitment branches).
     """
 
+    ADAPTER_NAME: ClassVar[str] = "ecstuning"
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:
