@@ -18,8 +18,9 @@ from app.api.models.user import User as DBUser
 from app.api.protocols import HasId
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
 from app.api.utils.response_patterns import ResponsePatterns
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Generic types
 ModelType = TypeVar("ModelType", bound="HasId")
@@ -64,7 +65,6 @@ def admin_list_endpoint(
                 description=f"Maximum number of {entity_name}s to return",
             ),
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> List[ModelType]:
             """Get all entities (admin only)."""
@@ -110,7 +110,6 @@ def admin_update_endpoint(
             entity_id: UUID,
             update_data: UpdateSchema,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Update an entity with admin privileges (admin only)."""
@@ -156,7 +155,6 @@ def admin_delete_endpoint(
         async def wrapper(
             entity_id: UUID,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Delete an entity with admin privileges (admin only)."""

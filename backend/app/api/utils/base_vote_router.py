@@ -13,8 +13,9 @@ from app.api.dependencies.auth import get_current_user
 from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump, VoteModel
 from app.api.services.base_vote_service import BaseVoteService
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Generic types - constrained to match BaseVoteService requirements
 VoteModelType = TypeVar("VoteModelType", bound=VoteModel)
@@ -72,7 +73,6 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
             entity_id: UUID,
             vote: VoteCreateSchema,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> VoteModelType:
             """Vote on an entity (upvote or downvote)."""
@@ -94,7 +94,6 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
         async def remove_vote(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> Dict[str, str]:
             """Remove user's vote on an entity."""
@@ -121,7 +120,6 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
         async def get_vote_summary(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
         ) -> Dict[str, Any]:
             """Get vote summary for an entity."""
             return self.service.get_vote_summary(
@@ -142,7 +140,6 @@ class BaseVoteRouter(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, En
         async def get_my_vote(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
             db: Session = Depends(get_db),
-            logger: logging.Logger = Depends(get_logger),
             current_user: DBUser = Depends(get_current_user),
         ) -> VoteModelType:
             """Get the current user's vote on a specific entity."""

@@ -25,8 +25,9 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import standard_responses
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter()
@@ -69,7 +70,6 @@ async def count_bug_reports(
 async def create_bug_report(
     bug_report_data: BugReportCreate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BugReportRead:
     """Create a new bug report. Can be created by authenticated or anonymous users."""
@@ -166,7 +166,6 @@ async def update_bug_report(
     bug_report_id: UUID,
     bug_report_update: BugReportUpdate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportRead:
     """Update a bug report (typically for admin review). Admin only."""
@@ -191,7 +190,6 @@ async def update_bug_report(
 async def delete_bug_report(
     bug_report_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, str]:
     """Delete a bug report (admin only)."""
@@ -216,7 +214,6 @@ async def delete_bug_report(
 async def get_bug_report(
     bug_report_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportWithDetails:
     """Get a specific bug report with details. Admin only."""

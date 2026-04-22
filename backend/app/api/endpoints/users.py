@@ -38,8 +38,9 @@ from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.core.logging import get_logger
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter()
@@ -73,7 +74,6 @@ async def read_users_me_route(
 )
 async def count_users(
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> Dict[str, int]:
     """
     Get total count of users.
@@ -91,7 +91,6 @@ async def upload_profile_picture(
     file: UploadFile = File(...),
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> UserRead:
     """
     Upload a profile picture for the current user.
@@ -157,7 +156,6 @@ async def upload_profile_picture(
 async def delete_profile_picture(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> UserRead:
     """
     Delete the current user's profile picture.
@@ -219,7 +217,6 @@ async def delete_profile_picture(
 async def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> Union[UserRead, PublicUserRead]:
     """
@@ -262,7 +259,6 @@ async def list_users(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
     search: Optional[str] = Query(None, description="Search in usernames and emails"),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> List[Union[UserRead, PublicUserRead]]:
     """
@@ -335,7 +331,6 @@ base_router = BaseEndpointRouter(
 async def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
 ) -> DBUser:
     """
     Creates a new user in the database.
@@ -383,7 +378,6 @@ async def update_user(
     user: UserUpdate,
     response: Response,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
     db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
@@ -514,7 +508,6 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
     """
@@ -550,7 +543,6 @@ async def get_all_users(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
     search: Optional[str] = Query(None, description="Search in usernames and emails"),
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> Dict[str, Any]:
     """
@@ -605,7 +597,6 @@ async def admin_update_user(
     user_id: UUID,
     user_update: AdminUserUpdate,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
     """
@@ -649,7 +640,6 @@ async def admin_update_user(
 async def admin_delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    logger: logging.Logger = Depends(get_logger),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
     """
