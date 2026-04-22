@@ -20,7 +20,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 **: CI step fails any PR whose migration contains `drop_column`, `drop_table`, or `drop_constraint` without an explicit `# SAFE: <reason>` annotation
 - [ ] **SAFE-05**: OpenAPI schema snapshot test catches unintended route/schema drift
 - [ ] **SAFE-06**: Auth characterization tests cover signup, verify-email, login, 2FA-TOTP, WebAuthn, OAuth, password-reset happy paths via `pytest-recording` before the auth refactor starts
-- [ ] **SAFE-07**: Crawler adapter VCR-style tests cover ≥5 representative adapters against archived S3 HTML before crawler refactor starts
+- [x] **SAFE-07
+**: Crawler adapter VCR-style tests cover ≥5 representative adapters against archived S3 HTML before crawler refactor starts
 - [x] **SAFE-08
 **: Three migrations containing `op.drop_constraint(None, ...)` (`097024200e60`, `172d1c205fb3`, `6eae6b1393c5`) are surgically repaired
 - [ ] **SAFE-09**: SQLAlchemy `MetaData` uses an explicit `naming_convention` so future autogen produces named constraints
