@@ -41,6 +41,7 @@ type FetcherTier = 'http' | 'tls' | 'browser' | 'unverified';
 // an adapter has been confirmed to produce correct ScrapedPayload end-to-end
 // on a real crawl, delete it from this set.
 const UNVERIFIED_ADAPTERS: ReadonlySet<string> = new Set([
+  // Phase 1 (landed 2026-04-20)
   'burgermotorsports',
   'corksport',
   'ets',
@@ -51,6 +52,43 @@ const UNVERIFIED_ADAPTERS: ReadonlySet<string> = new Set([
   'seiboncarbon',
   'skunk2',
   'verusengineering',
+  // Phase 2 batch 2A (landed 2026-04-21) — Tier-0-likely house brands
+  'csfrace',
+  'deatschwerks',
+  'delicioustuning',
+  'dinan',
+  'injectordynamics',
+  'injentechnology',
+  'mountainpassperformance',
+  'openflashperformance',
+  'perrinperformance',
+  'unpluggedperformance',
+  // Phase 2 batch 2B (landed 2026-04-21) — multi-brand resellers + house brands
+  'afepower',
+  'bloxracing',
+  'buschurracing',
+  'englishracing',
+  'ftpmotorsports',
+  'hennessey',
+  'jltperformance',
+  'karcepts',
+  'racingbeat',
+  'roadraceengineering',
+  // Phase 2 batch 2C (landed 2026-04-21) — open verticals (ECU, track aero, safety, suspension, BBK, wheels)
+  'aemelectronics',
+  'aprperformance',
+  'ecutek',
+  'haltech',
+  'ioportracing',
+  'linkecu',
+  'ogracing',
+  'racerwholesale',
+  'rotiform',
+  'stanceusa',
+  'stoptech',
+  'tein',
+  'voltexusa',
+  'wilwood',
 ]);
 
 const TIER_META: Record<
