@@ -118,4 +118,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after initialization*
+*Last updated: 2026-04-22 after Phase 3 complete — crawler hardening (auto-discovery, pybreaker, health checks, parse-failure email reporting) + car_generations JSON extract + Pydantic v1 / on_event / Depends(get_logger) regression guards*
