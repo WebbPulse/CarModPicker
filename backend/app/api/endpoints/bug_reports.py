@@ -48,8 +48,11 @@ async def count_bug_reports(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Get total count of bug reports."""
+    # WR-05: use the module-level logger (app.api.endpoints.bug_reports) so log
+    # records carry this module's name. Previously the function shadowed it with
+    # ``deps["logger"]``, which is the common_patterns module's logger and broke
+    # the QUAL-07 "logs carry their own module name" invariant.
     db = deps["db"]
-    logger = deps["logger"]
 
     try:
         count = db.scalar(select(func.count()).select_from(DBBugReport)) or 0

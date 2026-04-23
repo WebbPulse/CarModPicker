@@ -49,8 +49,10 @@ async def count_reports(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Get total count of reports."""
+    # WR-05: use the module-level logger (app.api.endpoints.reports). Previously
+    # ``deps["logger"]`` shadowed it with common_patterns' logger and tagged log
+    # records with the wrong module name (breaks QUAL-07 / log-routing filters).
     db = deps["db"]
-    logger = deps["logger"]
 
     try:
         count = db.scalar(select(func.count()).select_from(DBReport)) or 0

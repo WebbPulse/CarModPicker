@@ -52,8 +52,10 @@ async def count_votes(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Get total count of votes."""
+    # WR-05: use the module-level logger (app.api.endpoints.votes). Previously
+    # ``deps["logger"]`` shadowed it with common_patterns' logger and tagged log
+    # records with the wrong module name (breaks QUAL-07 / log-routing filters).
     db = deps["db"]
-    logger = deps["logger"]
 
     try:
         count = db.scalar(select(func.count()).select_from(DBVote)) or 0
