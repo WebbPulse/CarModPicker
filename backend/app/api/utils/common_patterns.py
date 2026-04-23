@@ -647,8 +647,9 @@ def handle_vote_operation(
     # Verify entity exists
     entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
+        # IN-05: ``ResponsePatterns.raise_not_found`` is typed ``-> NoReturn``,
+        # so nothing below executes when the entity is missing.
         ResponsePatterns.raise_not_found(entity_name, entity_id)
-        raise  # Type hint - unreachable code
 
     try:
         if existing_vote:
@@ -675,7 +676,6 @@ def handle_vote_operation(
         db.rollback()
         logger.error(f"Failed to handle vote operation: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to process vote")
-        raise  # Type hint - unreachable code
 
 
 def remove_vote_operation(
@@ -721,7 +721,6 @@ def remove_vote_operation(
 
     if not vote:
         ResponsePatterns.raise_not_found(f"Vote on {entity_name}")
-        raise  # Type hint - unreachable code
 
     try:
         db.delete(vote)
@@ -732,7 +731,6 @@ def remove_vote_operation(
         db.rollback()
         logger.error(f"Failed to remove vote: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to remove vote")
-        raise  # Type hint - unreachable code
 
 
 def get_vote_summary(
@@ -798,7 +796,6 @@ def get_vote_summary(
     except Exception as e:
         logger.error(f"Failed to get vote summary: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to get vote summary")
-        raise  # Type narrowing
 
 
 # Report-related patterns
@@ -872,7 +869,6 @@ def handle_report_creation(
         db.rollback()
         logger.error(f"Failed to create report: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to create report")
-        raise  # Type hint - unreachable code
 
 
 def get_reports_by_entity(
@@ -910,7 +906,6 @@ def get_reports_by_entity(
     entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
-        raise  # Type hint - unreachable code
 
     try:
         # Query using polymorphic pattern
@@ -929,7 +924,6 @@ def get_reports_by_entity(
     except Exception as e:
         logger.error(f"Failed to get reports: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to get reports")
-        raise  # Type narrowing
 
 
 def update_report_status(
@@ -959,7 +953,6 @@ def update_report_status(
     report = db.scalars(select(report_model).where(report_model.id == report_id)).first()
     if not report:
         ResponsePatterns.raise_not_found("Report", report_id)
-        raise  # Type hint - unreachable code
 
     # Type narrowing - report is guaranteed to exist here
     # The check above ensures report is not None, so we can safely proceed
@@ -980,4 +973,3 @@ def update_report_status(
         db.rollback()
         logger.error(f"Failed to update report status: {e}")
         ResponsePatterns.raise_internal_server_error("Failed to update report status")
-        raise  # Type hint - unreachable code
