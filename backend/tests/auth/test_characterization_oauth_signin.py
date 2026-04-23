@@ -71,7 +71,7 @@ def test_google_oauth_signin(client: TestClient, db_session: Session) -> None:
     email_from_cassette = "<EMAIL_FROM_CASSETTE>"
 
     response = client.post(
-        f"{settings.API_STR}/auth/google",
+        f"{settings.API_STR}/auth/oauth/google",
         json={"id_token": id_token_from_cassette, "nonce": nonce_from_cassette},
     )
 

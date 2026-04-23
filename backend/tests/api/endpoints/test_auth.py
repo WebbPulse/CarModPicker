@@ -398,7 +398,7 @@ def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Se
 
 
 def test_logout_success(client: TestClient, db_session: Session) -> None:
-    """Test logout functionality."""
+    """Test logout functionality (post-split: auth-gated per D-31/AUTH-03)."""
     username = get_unique_username("logout_user")
     password = "password123"
     email = f"{username}@example.com"
@@ -413,9 +413,13 @@ def test_logout_success(client: TestClient, db_session: Session) -> None:
     assert login_response.status_code == 200
     login_data_response = login_response.json()
     assert "access_token" in login_data_response
+    access_token = login_data_response["access_token"]
 
-    # Logout (with Bearer tokens, logout is client-side, but endpoint confirms)
-    logout_response = client.post(f"{settings.API_STR}/auth/logout")
+    # Logout with Bearer token (auth-gated per plan 05-04 must_haves.truths)
+    logout_response = client.post(
+        f"{settings.API_STR}/auth/logout",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert logout_response.status_code == 200
     assert logout_response.json()["message"] == "Logged out successfully"
 
@@ -424,12 +428,11 @@ def test_logout_success(client: TestClient, db_session: Session) -> None:
 
 
 def test_logout_without_login(client: TestClient, db_session: Session) -> None:
-    """Test logout when not logged in (should still succeed)."""
+    """Post-split: /auth/logout is auth-gated; unauthenticated callers get 401."""
     client.cookies.clear()
 
     response = client.post(f"{settings.API_STR}/auth/logout")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Logged out successfully"
+    assert response.status_code == 401
 
 
 # --- 2FA Tests ---

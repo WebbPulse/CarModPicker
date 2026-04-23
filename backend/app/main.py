@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
     app_settings,
-    auth,
     bug_reports,
     build_list_parts,
     build_list_phases,
@@ -34,6 +33,12 @@ from .api.endpoints.admin import (
     jobs as admin_jobs,
     parts as admin_parts,
     stats as admin_stats,
+)
+from .api.endpoints.auth import (
+    core as auth_core,
+    oauth as auth_oauth,
+    two_factor as auth_2fa,
+    webauthn as auth_webauthn,
 )
 from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
@@ -227,12 +232,30 @@ endpoint_registry.register_endpoint(
     description="Unified search across build lists, users, and global parts",
 )
 
-# Authentication endpoint
+# Authentication endpoints (split into sub-routers per D-08/D-10)
 endpoint_registry.register_endpoint(
-    auth.router,
+    auth_core.router,
     prefix="/auth",
     tags=["authentication"],
-    description="User authentication and authorization",
+    description="Authentication core (login, token refresh, email verify, password reset, logout)",
+)
+endpoint_registry.register_endpoint(
+    auth_2fa.router,
+    prefix="/auth/2fa",
+    tags=["authentication"],
+    description="TOTP 2FA setup and management",
+)
+endpoint_registry.register_endpoint(
+    auth_webauthn.router,
+    prefix="/auth/webauthn",
+    tags=["authentication"],
+    description="WebAuthn passkey registration and login",
+)
+endpoint_registry.register_endpoint(
+    auth_oauth.router,
+    prefix="/auth/oauth",
+    tags=["authentication"],
+    description="Google OAuth sign-in, link, connect, and account management",
 )
 
 # Unified vote and report endpoints

@@ -8,10 +8,10 @@ The four library functions patched at the `app.api.endpoints.auth` import
 boundary (T-06-06 mitigation — pin the exact import targets so a Phase-5
 refactor that moves the imports will be caught by these patches failing):
 
-  @patch("app.api.endpoints.auth.generate_registration_options")
-  @patch("app.api.endpoints.auth.verify_registration_response")
-  @patch("app.api.endpoints.auth.generate_authentication_options")
-  @patch("app.api.endpoints.auth.verify_authentication_response")
+  @patch("app.api.endpoints.auth.webauthn.generate_registration_options")
+  @patch("app.api.endpoints.auth.webauthn.verify_registration_response")
+  @patch("app.api.endpoints.auth.webauthn.generate_authentication_options")
+  @patch("app.api.endpoints.auth.webauthn.verify_authentication_response")
 
 Note: generate_* functions do not hit external HTTP (local PRNG only), but
 we pin them here so that a future refactor breaking the import path causes an
@@ -66,10 +66,10 @@ def _login(client: TestClient, user: DBUser) -> str:
     return r.json()["access_token"]
 
 
-@patch("app.api.endpoints.auth.verify_authentication_response")
-@patch("app.api.endpoints.auth.generate_authentication_options")
-@patch("app.api.endpoints.auth.verify_registration_response")
-@patch("app.api.endpoints.auth.generate_registration_options")
+@patch("app.api.endpoints.auth.webauthn.verify_authentication_response")
+@patch("app.api.endpoints.auth.webauthn.generate_authentication_options")
+@patch("app.api.endpoints.auth.webauthn.verify_registration_response")
+@patch("app.api.endpoints.auth.webauthn.generate_registration_options")
 def test_webauthn_register_and_authenticate(
     mock_gen_reg: Any,
     mock_ver_reg: Any,

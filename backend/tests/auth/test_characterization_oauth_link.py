@@ -89,9 +89,9 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Session
     db_session.commit()
     db_session.refresh(user)
 
-    # Step 2 — POST /api/auth/google → should return link_token (email match, no existing link)
+    # Step 2 — POST /api/auth/oauth/google → should return link_token (email match, no existing link)
     google_resp = client.post(
-        f"{settings.API_STR}/auth/google",
+        f"{settings.API_STR}/auth/oauth/google",
         json={"id_token": id_token_from_cassette, "nonce": nonce_from_cassette},
     )
     assert google_resp.status_code == 200, google_resp.text
@@ -99,9 +99,9 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Session
     assert "link_token" in google_body, f"Expected link_token, got: {list(google_body.keys())}"
     link_token = google_body["link_token"]
 
-    # Step 3 — POST /api/auth/google/link → verifies password + creates OAuthAccount
+    # Step 3 — POST /api/auth/oauth/google/link → verifies password + creates OAuthAccount
     link_resp = client.post(
-        f"{settings.API_STR}/auth/google/link",
+        f"{settings.API_STR}/auth/oauth/google/link",
         json={"link_token": link_token, "password": password},
     )
     assert link_resp.status_code == 200, link_resp.text

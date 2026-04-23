@@ -7724,206 +7724,9 @@
         ]
       }
     },
-    "/api/auth/google": {
-      "post": {
-        "description": "Verify a Google ID token and route to the right next step.\n\nOutcomes:\n  - Google `sub` is already linked \u2192 log the user in (or 2FA challenge).\n  - Email matches an existing user \u2192 return a `link_token`; client prompts for password.\n  - No match \u2192 return a `signup_token`; client collects a username.",
-        "operationId": "google_sign_in_api_auth_google_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleSignInRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Google Sign In Api Auth Google Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Google Sign In",
-        "tags": [
-          "authentication"
-        ]
-      }
-    },
-    "/api/auth/google/connect": {
-      "post": {
-        "description": "Link a Google account to the *currently logged-in* user.\n\nRefuses if the Google email matches a *different* user \u2014 the user must instead sign out\nand use the merge flow from the login page. This preserves the invariant that no two\naccounts share an email.",
-        "operationId": "google_connect_api_auth_google_connect_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleConnectRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthAccountRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Google Connect",
-        "tags": [
-          "authentication"
-        ]
-      }
-    },
-    "/api/auth/google/link": {
-      "post": {
-        "description": "Merge a Google identity into an existing password account.\n\nRequired after the initial /auth/google call returned `requires_link: true`.\nVerifies the user's password (and OTP if 2FA is enabled), creates the oauth_accounts row,\nand returns an access token.",
-        "operationId": "google_link_api_auth_google_link_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleLinkRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "$ref": "#/components/schemas/UserRead"
-                      }
-                    ]
-                  },
-                  "title": "Response Google Link Api Auth Google Link Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Google Link",
-        "tags": [
-          "authentication"
-        ]
-      }
-    },
-    "/api/auth/google/signup": {
-      "post": {
-        "description": "Create a brand-new account from a Google identity. The email had no existing match\nwhen /auth/google was called; the client collected a username and submits it here.",
-        "operationId": "google_signup_api_auth_google_signup_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleSignupRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "$ref": "#/components/schemas/UserRead"
-                      }
-                    ]
-                  },
-                  "title": "Response Google Signup Api Auth Google Signup Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Google Signup",
-        "tags": [
-          "authentication"
-        ]
-      }
-    },
     "/api/auth/logout": {
       "post": {
-        "description": "Logout endpoint for client-side token removal.\nNote: With Bearer tokens, the client is responsible for removing the token from storage.",
+        "description": "Logout endpoint for client-side token removal.\nNote: With Bearer tokens, the client is responsible for removing the token from storage.\nAuth-gated so unauthenticated callers get a clean 401 (AUTH-03 / D-31 post-split truth).",
         "operationId": "logout_api_auth_logout_post",
         "responses": {
           "200": {
@@ -7941,6 +7744,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Logout",
         "tags": [
           "authentication"
@@ -8025,6 +7833,203 @@
           }
         },
         "summary": "Oauth Two Factor",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/oauth/google": {
+      "post": {
+        "description": "Verify a Google ID token and route to the right next step.\n\nOutcomes:\n  - Google `sub` is already linked \u2192 log the user in (or 2FA challenge).\n  - Email matches an existing user \u2192 return a `link_token`; client prompts for password.\n  - No match \u2192 return a `signup_token`; client collects a username.",
+        "operationId": "google_sign_in_api_auth_oauth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Google Sign In Api Auth Oauth Google Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Sign In",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/connect": {
+      "post": {
+        "description": "Link a Google account to the *currently logged-in* user.\n\nRefuses if the Google email matches a *different* user \u2014 the user must instead sign out\nand use the merge flow from the login page. This preserves the invariant that no two\naccounts share an email.",
+        "operationId": "google_connect_api_auth_oauth_google_connect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAccountRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Google Connect",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/link": {
+      "post": {
+        "description": "Merge a Google identity into an existing password account.\n\nRequired after the initial /auth/google call returned `requires_link: true`.\nVerifies the user's password (and OTP if 2FA is enabled), creates the oauth_accounts row,\nand returns an access token.",
+        "operationId": "google_link_api_auth_oauth_google_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/components/schemas/UserRead"
+                      }
+                    ]
+                  },
+                  "title": "Response Google Link Api Auth Oauth Google Link Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Link",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/signup": {
+      "post": {
+        "description": "Create a brand-new account from a Google identity. The email had no existing match\nwhen /auth/google was called; the client collected a username and submits it here.",
+        "operationId": "google_signup_api_auth_oauth_google_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/components/schemas/UserRead"
+                      }
+                    ]
+                  },
+                  "title": "Response Google Signup Api Auth Oauth Google Signup Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Signup",
         "tags": [
           "authentication"
         ]
