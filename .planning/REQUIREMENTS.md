@@ -48,8 +48,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 
 ### Database, Migrations & Performance
 
-- [ ] **DATA-01**: N+1 query in `backend/app/api/endpoints/build_logs.py:119` (`DBUser` fetch inside post loop) replaced with `selectinload(Post.author)` batch fetch
-- [ ] **DATA-02**: A query-count regression test asserts the N+1 fix stays fixed
+- [x] **DATA-01
+**: N+1 query in `backend/app/api/endpoints/build_logs.py:119` (`DBUser` fetch inside post loop) replaced with `selectinload(Post.author)` batch fetch
+- [x] **DATA-02
+**: A query-count regression test asserts the N+1 fix stays fixed
 - [ ] **DATA-03**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
 - [ ] **DATA-04**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
 - [x] **DATA-05

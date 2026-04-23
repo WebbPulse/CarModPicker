@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02
-last_updated: "2026-04-23T03:52:22.128Z"
+stopped_at: Completed 04-03
+last_updated: "2026-04-23T04:02:52.627Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 24
-  completed_plans: 20
-  percent: 83
+  completed_plans: 21
+  percent: 88
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 04 (db-parts-hardening) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 83%
 | Phase 01-safety-nets-ci-hardening P08 | 1 | 1 tasks | 1 files |
 | Phase 04-db-parts-hardening P04-01 | 15 | 3 tasks | 11 files |
 | Phase Phase 04-db-parts-hardening PP04-02 | 20 | 3 tasks tasks | 5 files files |
+| Phase 04-db-parts-hardening P04-03 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,10 @@ Recent decisions affecting current work:
 - Plan 04-02: downgrade() is deliberate no-op with SAFE-04 annotation — reversing backfill would destroy user posts captured against backfilled rows (D-26)
 - Plan 04-02: Retained db.query(...).first() lines in both deleted branches — plan 04-04 owns the session.query → select() sweep
 - Plan 04-02: CREATE EXTENSION pgcrypto NOT prepended — gen_random_uuid() verified on local Postgres 16 without extension; prod RDS 16 verification deferred to operator per VALIDATION.md Manual-Only Verifications
+- Plan 04-03: Option Y (inline select in regression test) chosen over Option X (new build_log_service.py helper) — no existing service module justifies premature abstraction
+- Plan 04-03: read-path only — create_build_log_post (line 221) and update_build_log_post (line 289) single-author fetches NOT touched per plan directive line 417; plan 04-04 sweep owns them
+- Plan 04-03: db.scalar(select(func.count())) returns Optional[int]; coerced with `or 0` to satisfy create_paginated_response non-optional total param — COUNT(*) semantically never returns NULL
+- Plan 04-03: load_only(User.id, User.username, User.image_urls) NOT applied per D-35 Claude's Discretion — matches old N+1 code's full-row fetch; zero OpenAPI drift; future optimization pass can add it
 
 ### Pending Todos
 
@@ -112,8 +117,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T03:52:22.124Z
-Stopped at: Completed 04-02
+Last session: 2026-04-23T04:02:40.623Z
+Stopped at: Completed 04-03
 Resume file: None
 
 **Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z
