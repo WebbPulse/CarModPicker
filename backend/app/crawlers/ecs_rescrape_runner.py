@@ -32,11 +32,12 @@ import time
 import traceback
 from uuid import UUID
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from app.core.logging import configure_root_logging
+
+# IN-04: use the shared logging setup (single LOG_FORMAT +
+# RequestContextFilter across all entry points) so ``request_id`` /
+# ``user_id`` attributes set by IN-03 actually appear in log output.
+configure_root_logging()
 logger = logging.getLogger(__name__)
 
 

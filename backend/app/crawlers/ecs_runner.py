@@ -31,11 +31,14 @@ import sys
 import traceback
 from uuid import UUID
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from app.core.logging import configure_root_logging
+
+# IN-04: use the shared logging setup (single LOG_FORMAT +
+# RequestContextFilter across all entry points) instead of a local
+# ``logging.basicConfig`` that omitted ``request_id`` / ``user_id`` from
+# the format string. Without this helper, the ContextVars set in IN-03
+# would still not appear in log output.
+configure_root_logging()
 logger = logging.getLogger(__name__)
 
 

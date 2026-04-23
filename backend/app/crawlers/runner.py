@@ -35,6 +35,7 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.core.cloudwatch_emf import emit_crawler_run_metrics
+from app.core.logging import configure_root_logging
 from app.crawlers.adapters import ADAPTER_REGISTRY, get_adapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -50,11 +51,13 @@ from app.crawlers.base import (
 from app.crawlers.fetchers import FetcherError, get_fetcher
 from app.db.session import API_CONNECTION_RESERVE, DB_MAX_OVERFLOW, DB_POOL_SIZE, SessionLocal
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# IN-04: use the shared logging setup (single LOG_FORMAT +
+# RequestContextFilter across all entry points) so ``request_id`` /
+# ``user_id`` ContextVars — set by ``bg_log_context`` for App Runner
+# background jobs and by ``__main__.py`` for CLI runs — show up in log
+# output regardless of whether runner.py was imported by the web app
+# or invoked directly.
+configure_root_logging()
 logger = logging.getLogger(__name__)
 
 
