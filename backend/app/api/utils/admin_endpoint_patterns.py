@@ -11,6 +11,7 @@ from typing import Any, List, Type, TypeVar
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -69,7 +70,7 @@ def admin_list_endpoint(
         ) -> List[ModelType]:
             """Get all entities (admin only)."""
             skip, limit = validate_pagination_params(skip=skip, limit=limit)
-            entities = db.query(model).offset(skip).limit(limit).all()
+            entities = list(db.scalars(select(model).offset(skip).limit(limit)).all())
             logger.info(f"Admin {current_user.id} retrieved {len(entities)} {entity_name}s")
             return func(entities, db, logger, current_user) if func != admin_list_endpoint else entities
 
@@ -113,7 +114,7 @@ def admin_update_endpoint(
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Update an entity with admin privileges (admin only)."""
-            db_entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
+            db_entity = db.scalars(select(model).where(model.id == entity_id)).first()  # type: ignore[arg-type]
             if db_entity is None:
                 ResponsePatterns.raise_not_found(entity_name.title(), entity_id)
                 raise
@@ -158,7 +159,7 @@ def admin_delete_endpoint(
             current_user: DBUser = Depends(get_current_admin_user),
         ) -> ModelType:
             """Delete an entity with admin privileges (admin only)."""
-            db_entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
+            db_entity = db.scalars(select(model).where(model.id == entity_id)).first()  # type: ignore[arg-type]
             if db_entity is None:
                 ResponsePatterns.raise_not_found(entity_name.title(), entity_id)
                 raise

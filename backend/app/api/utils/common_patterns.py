@@ -25,7 +25,7 @@ from typing import (
 from uuid import UUID
 
 from fastapi import Depends, Query
-from sqlalchemy.orm import Query as SQLAlchemyQuery
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -192,7 +192,8 @@ def verify_entity_ownership_or_admin(
 
 # Standard pagination response patterns
 def get_paginated_response(
-    query: SQLAlchemyQuery[ModelT],
+    db: Session,
+    stmt: Select[Tuple[ModelT]],
     skip: int,
     limit: int,
     logger: logging.Logger,
@@ -203,7 +204,8 @@ def get_paginated_response(
     Get paginated response with consistent logging.
 
     Args:
-        query: SQLAlchemy query object
+        db: Database session
+        stmt: SQLAlchemy Select statement
         skip: Number of items to skip
         limit: Maximum number of items to return
         logger: Logger instance
@@ -213,7 +215,7 @@ def get_paginated_response(
     Returns:
         List of paginated items
     """
-    items: List[ModelT] = query.offset(skip).limit(limit).all()
+    items: List[ModelT] = list(db.scalars(stmt.offset(skip).limit(limit)).all())
 
     if not items:
         if user_id:
@@ -231,29 +233,28 @@ def get_paginated_response(
 
 # Standard search and filter patterns
 def apply_standard_filters(
-    query: SQLAlchemyQuery[ModelT],
+    query: Select[Any],
     search: Optional[str] = None,
     category_id: Optional[UUID] = None,
     search_fields: Optional[List[str]] = None,
-) -> SQLAlchemyQuery[ModelT]:
+) -> Select[Any]:
     """
-    Apply standard search and filter patterns to a query.
+    Apply standard search and filter patterns to a Select statement.
 
     Args:
-        query: SQLAlchemy query object
+        query: SQLAlchemy Select statement
         search: Optional search term
         category_id: Optional category ID filter
         search_fields: List of fields to search in
 
     Returns:
-        Modified query object
+        Modified Select statement
     """
-    # Extract the entity class from the query
-    # Use column_descriptions to get the model class (more reliable than _entity_zero)
+    # Extract the entity class from the select statement
     entity_class = query.column_descriptions[0]["entity"]
 
     if category_id:
-        query = query.filter(getattr(entity_class, "category_id") == category_id)
+        query = query.where(getattr(entity_class, "category_id") == category_id)
 
     if search and search_fields:
         search_term = f"%{search}%"
@@ -265,7 +266,7 @@ def apply_standard_filters(
         if search_filters:
             from sqlalchemy import or_
 
-            query = query.filter(or_(*search_filters))
+            query = query.where(or_(*search_filters))
 
     return query
 
@@ -307,7 +308,9 @@ def verify_ownership(
             current_user = cast(DBUser, user_value)
 
             model_class = func.__annotations__["return"]
-            entity = db.query(model_class).filter(getattr(model_class, "id") == entity_id).first()
+            entity = db.scalars(
+                select(model_class).where(getattr(model_class, "id") == entity_id)
+            ).first()
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"
@@ -367,7 +370,7 @@ def get_entity_or_404(
     Raises:
         HTTPException: 404 if entity not found
     """
-    entity = db.query(model).filter(model.id == entity_id).first()  # type: ignore[arg-type]
+    entity = db.scalars(select(model).where(model.id == entity_id)).first()  # type: ignore[arg-type]
     if not entity:
         if logger:
             logger.warning(f"Attempt to access non-existent {entity_name} {entity_id}")
@@ -407,20 +410,20 @@ def verify_entity_ownership(
 
 # Common query building
 def build_search_query(
-    query: SQLAlchemyQuery[ModelT],
+    query: Select[Any],
     search_term: Optional[str],
     search_fields: List[str],
-) -> SQLAlchemyQuery[ModelT]:
+) -> Select[Any]:
     """
     Build a search query with LIKE filters.
 
     Args:
-        query: Base SQLAlchemy query
+        query: Base SQLAlchemy Select statement
         search_term: Search term to filter by
         search_fields: List of field names to search in
 
     Returns:
-        Modified query with search filters
+        Modified Select with search filters
     """
     if not search_term:
         return query
@@ -432,53 +435,53 @@ def build_search_query(
     if search_filters:
         from sqlalchemy import or_
 
-        query = query.filter(or_(*search_filters))
+        query = query.where(or_(*search_filters))
 
     return query
 
 
 def build_filtered_query(
-    query: SQLAlchemyQuery[ModelT],
+    query: Select[Any],
     filters: Dict[str, Any],
-) -> SQLAlchemyQuery[ModelT]:
+) -> Select[Any]:
     """
     Build a filtered query based on filter parameters.
 
     Args:
-        query: Base SQLAlchemy query
+        query: Base SQLAlchemy Select statement
         filters: Dictionary of field names and values to filter by
 
     Returns:
-        Modified query with filters
+        Modified Select with filters
     """
     for field_name, value in filters.items():
         if value is not None:
             if hasattr(query.column_descriptions[0]["entity"], field_name):
                 field = getattr(query.column_descriptions[0]["entity"], field_name)
-                query = query.filter(field == value)
+                query = query.where(field == value)
 
     return query
 
 
 def build_sorted_query(
-    query: SQLAlchemyQuery[ModelT],
+    query: Select[Any],
     sort_by: Optional[str],
     sort_order: str,
     allowed_sort_fields: List[str],
     default_sort: str = "id",
-) -> SQLAlchemyQuery[ModelT]:
+) -> Select[Any]:
     """
     Build a sorted query.
 
     Args:
-        query: Base SQLAlchemy query
+        query: Base SQLAlchemy Select statement
         sort_by: Field name to sort by
         sort_order: Sort order (asc/desc)
         allowed_sort_fields: List of allowed field names for sorting
         default_sort: Default field to sort by
 
     Returns:
-        Modified query with sorting
+        Modified Select with sorting
     """
     if sort_by and sort_by in allowed_sort_fields:
         sort_field = getattr(query.column_descriptions[0]["entity"], sort_by)
@@ -638,7 +641,7 @@ def handle_vote_operation(
         The vote object (created or updated)
     """
     # Verify entity exists
-    entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
+    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
         raise  # Type hint - unreachable code
@@ -699,20 +702,18 @@ def remove_vote_operation(
         Success message
     """
     # Verify entity exists
-    entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
+    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
     # Find and remove vote using polymorphic pattern
-    vote = (
-        db.query(vote_model)
-        .filter(
+    vote = db.scalars(
+        select(vote_model).where(
             vote_model.user_id == user_id,
             vote_model.entity_type == entity_type,
             vote_model.entity_id == entity_id,
         )
-        .first()
-    )
+    ).first()
 
     if not vote:
         ResponsePatterns.raise_not_found(f"Vote on {entity_name}")
@@ -756,23 +757,20 @@ def get_vote_summary(
         Dictionary with vote statistics
     """
     # Verify entity exists
-    entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
+    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
     try:
-        from sqlalchemy import func
-
         # Get vote counts using polymorphic pattern
-        vote_counts = (
-            db.query(vote_model.vote_type, func.count(vote_model.id).label("count"))
-            .filter(
+        vote_counts = db.execute(
+            select(vote_model.vote_type, func.count(vote_model.id).label("count"))
+            .where(
                 vote_model.entity_type == entity_type,
                 vote_model.entity_id == entity_id,
             )
             .group_by(vote_model.vote_type)
-            .all()
-        )
+        ).all()
 
         # Calculate totals
         upvotes = 0
@@ -831,25 +829,23 @@ def handle_report_creation(
         The created report object
     """
     # Verify entity exists
-    query = db.query(entity_model).filter(entity_model.id == entity_id)
+    entity_stmt = select(entity_model).where(entity_model.id == entity_id)
     if additional_filters:
         for key, value in additional_filters.items():
-            query = query.filter(getattr(entity_model, key) == value)
+            entity_stmt = entity_stmt.where(getattr(entity_model, key) == value)
 
-    entity = query.first()
+    entity = db.scalars(entity_stmt).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
 
     # Check if user has already reported this entity using polymorphic pattern
-    existing_report = (
-        db.query(report_model)
-        .filter(
+    existing_report = db.scalars(
+        select(report_model).where(
             report_model.user_id == user_id,
             report_model.entity_type == entity_type,
             report_model.entity_id == entity_id,
         )
-        .first()
-    )
+    ).first()
 
     if existing_report:
         ResponsePatterns.raise_conflict(f"User has already reported this {entity_name}")
@@ -907,22 +903,22 @@ def get_reports_by_entity(
         List of reports
     """
     # Verify entity exists
-    entity = db.query(entity_model).filter(entity_model.id == entity_id).first()
+    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
     if not entity:
         ResponsePatterns.raise_not_found(entity_name, entity_id)
         raise  # Type hint - unreachable code
 
     try:
         # Query using polymorphic pattern
-        query = db.query(report_model).filter(
+        reports_stmt = select(report_model).where(
             report_model.entity_type == entity_type,
             report_model.entity_id == entity_id,
         )
 
         if status_filter:
-            query = query.filter(report_model.status == status_filter)
+            reports_stmt = reports_stmt.where(report_model.status == status_filter)
 
-        reports = query.offset(skip).limit(limit).all()
+        reports = list(db.scalars(reports_stmt.offset(skip).limit(limit)).all())
 
         logger.info(f"Retrieved {len(reports)} reports for {entity_name} {entity_id}")
         return reports
@@ -956,7 +952,7 @@ def update_report_status(
     Returns:
         Success message
     """
-    report = db.query(report_model).filter(report_model.id == report_id).first()
+    report = db.scalars(select(report_model).where(report_model.id == report_id)).first()
     if not report:
         ResponsePatterns.raise_not_found("Report", report_id)
         raise  # Type hint - unreachable code
