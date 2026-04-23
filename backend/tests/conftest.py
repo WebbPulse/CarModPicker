@@ -369,7 +369,6 @@ def create_and_login_user(
     client: TestClient,
     username: str,
     password_override: str = "testpassword",
-    db_session: Optional[Session] = None,
 ) -> Dict[str, Any]:
     """Create a user and log them in, returning the user info."""
     from app.core.config import settings
