@@ -13377,11 +13377,86 @@
     },
     "/api/parts/category/{category_id}": {
       "get": {
-        "description": "Filter entities by a specific field.",
-        "operationId": "filter_entities_api_parts_category__category_id__get",
+        "description": "Get parts by category with pagination.",
+        "operationId": "get_parts_by_category_api_parts_category__category_id__get",
         "parameters": [
           {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Category Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Number of parts to skip",
             "in": "query",
+            "name": "skip",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of parts to skip",
+              "minimum": 0,
+              "title": "Skip",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of parts to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum number of parts to return",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartRead"
+                  },
+                  "title": "Response Get Parts By Category Api Parts Category  Category Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of parts retrieved successfully"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parts By Category",
+        "tags": [
+          "parts"
+        ]
+      }
+    },
+    "/api/parts/category/{filter_id}": {
+      "get": {
+        "description": "Filter entities by a specific field.",
+        "operationId": "filter_entities_api_parts_category__filter_id__get",
+        "parameters": [
+          {
+            "in": "path",
             "name": "filter_id",
             "required": true,
             "schema": {
@@ -13424,7 +13499,7 @@
               "application/json": {
                 "schema": {
                   "items": {},
-                  "title": "Response Filter Entities Api Parts Category  Category Id  Get",
+                  "title": "Response Filter Entities Api Parts Category  Filter Id  Get",
                   "type": "array"
                 }
               }

@@ -293,8 +293,13 @@ class BaseEndpointRouter(Generic[ModelType, CreateSchema, ReadSchema, UpdateSche
             filter_field: Database field name to filter on
         """
 
+        # WR-02: use a fixed `{filter_id}` placeholder so the URL parameter name
+        # matches the function parameter name. Previously the URL embedded
+        # `{<filter_name>_id}` (e.g. `/category/{category_id}`) but the function
+        # declared `filter_id: UUID`, so FastAPI could not bind the path parameter
+        # and every request returned 422.
         @self.router.get(
-            f"/{filter_name}/{{{filter_name}_id}}",
+            f"/{filter_name}/{{filter_id}}",
             response_model=List[ReadSchema],
             responses={
                 200: {"description": f"List of {self.entity_name}s filtered by {filter_name} retrieved successfully"},
