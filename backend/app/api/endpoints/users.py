@@ -271,8 +271,9 @@ async def list_users(
 
     Otherwise returns PublicUserRead (without sensitive fields) for each user.
     """
-    from app.api.utils.endpoint_decorators import validate_pagination_params
-
+    # IN-03: ``validate_pagination_params`` is already imported at module top
+    # (line ~39) via ``from app.api.utils.endpoint_decorators import ...``.
+    # The previous function-local re-import was redundant.
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Build statement

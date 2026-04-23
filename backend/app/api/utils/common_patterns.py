@@ -80,25 +80,15 @@ def get_standard_pagination_params(
     return skip, limit
 
 
-def validate_pagination_params(skip: int, limit: int) -> Tuple[int, int]:
-    """
-    Validate and normalize pagination parameters.
-
-    Args:
-        skip: Number of items to skip
-        limit: Maximum number of items to return
-
-    Returns:
-        Tuple of validated (skip, limit) values
-    """
-    if skip < 0:
-        skip = 0
-    if limit < 1:
-        limit = 1
-    elif limit > 1000:
-        limit = 1000
-
-    return skip, limit
+# IN-03: ``validate_pagination_params`` lived in two modules with identical
+# bodies. Kept the canonical definition in ``endpoint_decorators`` (which has
+# the ``standard_pagination_params`` FastAPI dependency alongside it) and
+# re-export from here so existing ``from common_patterns import
+# validate_pagination_params`` call sites keep working without touching every
+# endpoint module.
+from app.api.utils.endpoint_decorators import (  # noqa: E402
+    validate_pagination_params as validate_pagination_params,
+)
 
 
 # Standard endpoint dependencies
