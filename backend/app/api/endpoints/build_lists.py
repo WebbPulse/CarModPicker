@@ -148,25 +148,33 @@ async def read_build_lists_with_votes(
         .subquery()
     )
 
+    # IN-01: single helper for the /with-votes filter stack so the count-select
+    # and the main result-select cannot drift apart. Both selects must apply
+    # identical predicates — otherwise `total` and the paginated page would be
+    # taken from different populations.
+    def _apply_build_list_filters(stmt_: Any) -> Any:
+        stmt_ = apply_standard_filters(
+            query=stmt_,
+            search=search,
+            category_id=None,  # Build lists don't have categories
+            search_fields=["name", "description"],
+        )
+        # Car filter: car_ids (make/model) takes precedence over single car_id
+        if car_ids:
+            stmt_ = stmt_.where(DBBuildList.car_id.in_(car_ids))
+        elif car_id is not None:
+            stmt_ = stmt_.where(DBBuildList.car_id == car_id)
+        if owner_id is not None:
+            stmt_ = stmt_.where(DBBuildList.user_id == owner_id)
+        if min_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
+        if max_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+        return stmt_
+
     # Build base select for counting; join total_cost for cost filtering
     base_stmt = select(DBBuildList).outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
-    base_stmt = apply_standard_filters(
-        query=base_stmt,
-        search=search,
-        category_id=None,  # Build lists don't have categories
-        search_fields=["name", "description"],
-    )
-    # Car filter: car_ids (make/model) takes precedence over single car_id
-    if car_ids:
-        base_stmt = base_stmt.where(DBBuildList.car_id.in_(car_ids))
-    elif car_id is not None:
-        base_stmt = base_stmt.where(DBBuildList.car_id == car_id)
-    if owner_id is not None:
-        base_stmt = base_stmt.where(DBBuildList.user_id == owner_id)
-    if min_cost_cents is not None:
-        base_stmt = base_stmt.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
-    if max_cost_cents is not None:
-        base_stmt = base_stmt.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+    base_stmt = _apply_build_list_filters(base_stmt)
 
     # Get total count from base select
     total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
@@ -179,23 +187,8 @@ async def read_build_lists_with_votes(
         .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
     )
 
-    # Apply the same filters
-    stmt = apply_standard_filters(
-        query=stmt,
-        search=search,
-        category_id=None,
-        search_fields=["name", "description"],
-    )
-    if car_ids:
-        stmt = stmt.where(DBBuildList.car_id.in_(car_ids))
-    elif car_id is not None:
-        stmt = stmt.where(DBBuildList.car_id == car_id)
-    if owner_id is not None:
-        stmt = stmt.where(DBBuildList.user_id == owner_id)
-    if min_cost_cents is not None:
-        stmt = stmt.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
-    if max_cost_cents is not None:
-        stmt = stmt.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+    # Apply the same filters via the shared helper
+    stmt = _apply_build_list_filters(stmt)
 
     # Sort: votes (default), votes_asc, price_asc, price_desc
     order_by_total_cost = func.coalesce(total_cost_subq.c.total_cost_cents, 0)
