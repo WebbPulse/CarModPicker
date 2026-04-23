@@ -39,6 +39,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _coerce_bool(v) -> bool:
+    """Coerce a JSON-decoded value to a Python bool.
+
+    Handles the case where an upstream producer serializes booleans as
+    strings (e.g. ``{"a90shop": "false"}``): a bare ``bool("false")``
+    returns ``True`` because non-empty strings are truthy, which silently
+    inverts the intended semantics. This helper mirrors the ``.lower() in
+    (...)`` pattern used for sibling env vars like ``CRAWLER_PARALLEL``
+    and ``CRAWLER_SKIP_KNOWN_URLS`` (WR-01 from Phase 02 review).
+    """
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes")
+    return bool(v)
+
+
 def _notify_completion(db, job_id: UUID) -> None:
     """Send job-report email to superadmins. Best-effort — never raises."""
     try:
@@ -122,7 +139,12 @@ def main() -> None:
     skip_by_adapter_str = os.environ.get("CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER")
     skip_known_urls_by_adapter: dict[str, bool] | None = None
     if skip_by_adapter_str:
-        skip_known_urls_by_adapter = {k: bool(v) for k, v in json.loads(skip_by_adapter_str).items()}
+        # WR-01 — use ``_coerce_bool`` so JSON string values like
+        # ``{"a90shop": "false"}`` are parsed correctly rather than being
+        # silently treated as truthy.
+        skip_known_urls_by_adapter = {
+            k: _coerce_bool(v) for k, v in json.loads(skip_by_adapter_str).items()
+        }
 
     logger.info(
         "ECS crawler task starting: adapters=%s category_id=%s job_id=%s delay_sec=%s parallel=%s",
