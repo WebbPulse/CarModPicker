@@ -8,6 +8,7 @@ from typing import Dict, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
@@ -51,11 +52,12 @@ class PartManufacturerService(
 
     def get_active_part_manufacturers(self, db: Session) -> List[DBPartManufacturer]:
         """Get all active part manufacturers ordered by name."""
-        return (
-            db.query(DBPartManufacturer)
-            .filter(DBPartManufacturer.is_active.is_(True))
-            .order_by(DBPartManufacturer.name)
-            .all()
+        return list(
+            db.scalars(
+                select(DBPartManufacturer)
+                .where(DBPartManufacturer.is_active.is_(True))
+                .order_by(DBPartManufacturer.name)
+            ).all()
         )
 
 
@@ -95,7 +97,7 @@ async def get_part_manufacturers(
     if active_only:
         part_manufacturers = part_manufacturer_service.get_active_part_manufacturers(db)
     else:
-        part_manufacturers = db.query(DBPartManufacturer).order_by(DBPartManufacturer.name).all()
+        part_manufacturers = list(db.scalars(select(DBPartManufacturer).order_by(DBPartManufacturer.name)).all())
     return [PartManufacturerResponse.model_validate(pm) for pm in part_manufacturers]
 
 
@@ -154,7 +156,7 @@ async def get_parts_by_part_manufacturer(
 
     skip, limit = validate_pagination_params(skip, limit)
 
-    parts = db.query(DBPart).filter(DBPart.part_manufacturer_id == part_manufacturer_id).offset(skip).limit(limit).all()
+    parts = list(db.scalars(select(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id).offset(skip).limit(limit)).all())
     return [PartRead.model_validate(part) for part in parts]
 
 
@@ -173,7 +175,7 @@ async def create_part_manufacturer(
     """
     db = deps["db"]
 
-    existing_pm = db.query(DBPartManufacturer).filter(DBPartManufacturer.name.ilike(part_manufacturer.name)).first()
+    existing_pm = db.scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(part_manufacturer.name))).first()
     if existing_pm:
         return PartManufacturerResponse.model_validate(existing_pm)
 
@@ -201,9 +203,9 @@ async def update_part_manufacturer(
     db_pm = get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
 
     if part_manufacturer.name and part_manufacturer.name != db_pm.name:
-        existing_pm = (
-            deps["db"].query(DBPartManufacturer).filter(DBPartManufacturer.name.ilike(part_manufacturer.name)).first()
-        )
+        existing_pm = deps["db"].scalars(
+            select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(part_manufacturer.name))
+        ).first()
         if existing_pm:
             ResponsePatterns.raise_conflict(
                 "Part manufacturer with this name already exists", "PART_MANUFACTURER_EXISTS"
@@ -239,7 +241,7 @@ async def delete_part_manufacturer(
     """
     db_pm = get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
 
-    parts_count = deps["db"].query(DBPart).filter(DBPart.part_manufacturer_id == part_manufacturer_id).count()
+    parts_count = deps["db"].scalar(select(func.count()).select_from(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id)) or 0
     if parts_count > 0:
         ResponsePatterns.raise_conflict(
             f"Cannot delete part manufacturer that has {parts_count} associated parts",
@@ -269,7 +271,7 @@ async def get_part_manufacturer_parts_count(
     """
     get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
 
-    parts_count = deps["db"].query(DBPart).filter(DBPart.part_manufacturer_id == part_manufacturer_id).count()
+    parts_count = deps["db"].scalar(select(func.count()).select_from(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id)) or 0
     return {"parts_count": parts_count}
 
 

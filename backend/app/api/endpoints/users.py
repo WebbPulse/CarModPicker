@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -229,7 +230,7 @@ async def get_user(
 
     Otherwise returns PublicUserRead (without sensitive fields).
     """
-    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
     if not db_user:
         ResponsePatterns.raise_not_found("User", user_id)
 
@@ -274,15 +275,15 @@ async def list_users(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Build query
-    query = db.query(DBUser)
+    # Build statement
+    stmt = select(DBUser)
 
     # Apply search if provided
     if search:
         from sqlalchemy import or_
 
         search_term = f"%{search}%"
-        query = query.filter(
+        stmt = stmt.where(
             or_(
                 DBUser.username.ilike(search_term),
                 DBUser.email.ilike(search_term),
@@ -290,7 +291,7 @@ async def list_users(
         )
 
     # Get users
-    users = query.offset(skip).limit(limit).all()
+    users = list(db.scalars(stmt.offset(skip).limit(limit)).all())
 
     # Check if current user has permission to see sensitive fields
     can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
@@ -337,11 +338,11 @@ async def create_user(
     """
 
     # Checked if the user already exists
-    db_user_by_username = db.query(DBUser).filter(DBUser.username == user.username).first()
+    db_user_by_username = db.scalars(select(DBUser).where(DBUser.username == user.username)).first()
     if db_user_by_username:
         ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
-    db_user_by_email = db.query(DBUser).filter(DBUser.email == user.email).first()
+    db_user_by_email = db.scalars(select(DBUser).where(DBUser.email == user.email)).first()
     if db_user_by_email:
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
 
@@ -380,7 +381,7 @@ async def update_user(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
-    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
 
     if not db_user:
         logger.warning(f"Attempt to update non-existent user {user_id}.")
@@ -518,7 +519,7 @@ async def delete_user(
         logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
-    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
     if not db_user:
         ResponsePatterns.raise_not_found("User", user_id)
 
@@ -556,12 +557,12 @@ async def get_all_users(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Eager-load oauth_accounts so the listing isn't N+1 when serializing UserRead.
-    query = db.query(DBUser).options(selectinload(DBUser.oauth_accounts))
+    stmt = select(DBUser).options(selectinload(DBUser.oauth_accounts))
 
     # Apply search if provided
     if search:
         search_term = f"%{search}%"
-        query = query.filter(
+        stmt = stmt.where(
             or_(
                 DBUser.username.ilike(search_term),
                 DBUser.email.ilike(search_term),
@@ -569,10 +570,12 @@ async def get_all_users(
         )
 
     # Get total count (after applying search filter)
-    total_count = query.count()
+    total_count = db.scalar(
+        select(func.count()).select_from(stmt.subquery())
+    ) or 0
 
     # Get paginated users
-    users = query.offset(skip).limit(limit).all()
+    users = list(db.scalars(stmt.offset(skip).limit(limit)).all())
     user_reads = [UserRead.model_validate(user) for user in users]
 
     logger.info(
@@ -602,7 +605,7 @@ async def admin_update_user(
     """
     Update a user with admin privileges (admin only).
     """
-    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 
@@ -649,7 +652,7 @@ async def admin_delete_user(
     if user_id == current_user.id:
         ResponsePatterns.raise_bad_request("Cannot delete your own account")
 
-    db_user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 

@@ -17,6 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -90,7 +91,7 @@ def _persist_extension_crawl_archive(
     Returns ``(storage_key, archived, skipped_duplicate_write)``.
     When ``archived`` is False, no DB upsert is performed and ``skipped_duplicate_write`` is False.
     """
-    existing = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+    existing = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == url)).first()
     skipped = bool(
         existing and existing.html_sha256 == html_sha256 and (existing.html_s3_key or existing.html_local_path)
     )
@@ -350,7 +351,7 @@ async def upload_html_from_extension(
 
     if not archived:
         logger.warning("save_crawl_page_html returned None for %s; skipping DB upsert to avoid phantom row", url)
-        page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+        page = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == url)).first()
         if page is None:
             raise HTTPException(
                 status_code=503,
@@ -366,7 +367,7 @@ async def upload_html_from_extension(
             archive_skipped_duplicate=False,
         )
 
-    page = db.query(DBCrawledPage).filter(DBCrawledPage.url == url).first()
+    page = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == url)).first()
     assert page is not None
     return HtmlUploadResponse(
         id=page.id,
@@ -390,7 +391,7 @@ async def count_crawled_pages(
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """Admin only: total crawled_pages rows."""
-    count = db.query(DBCrawledPage).count()
+    count = db.scalar(select(func.count()).select_from(DBCrawledPage)) or 0
     logger.info("Admin %s retrieved crawled_pages count: %s", current_user.id, count)
     return {"count": count}
 
@@ -406,9 +407,10 @@ async def count_crawled_pages_by_source(
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """Admin only: crawled_pages row count per source (adapter name or chrome_extension)."""
-    from sqlalchemy import func
-
-    rows = db.query(DBCrawledPage.source, func.count(DBCrawledPage.id)).group_by(DBCrawledPage.source).all()
+    rows = db.execute(
+        select(DBCrawledPage.source, func.count(DBCrawledPage.id))
+        .group_by(DBCrawledPage.source)
+    ).all()
     result = {source: count for source, count in rows}
     logger.info("Admin %s retrieved crawled_pages counts-by-source: %s sources", current_user.id, len(result))
     return result
@@ -427,13 +429,10 @@ async def count_crawled_pages_by_source_and_status(
     """Admin only: crawled_pages row count per (source, parse_status). Drives the
     parsed/total progress indicator in CrawlerAdmin — lets us see how close each
     adapter is to a full catalog even across interrupted runs."""
-    from sqlalchemy import func
-
-    rows = (
-        db.query(DBCrawledPage.source, DBCrawledPage.parse_status, func.count(DBCrawledPage.id))
+    rows = db.execute(
+        select(DBCrawledPage.source, DBCrawledPage.parse_status, func.count(DBCrawledPage.id))
         .group_by(DBCrawledPage.source, DBCrawledPage.parse_status)
-        .all()
-    )
+    ).all()
     result: dict[str, dict[str, int]] = {}
     for source, status, count in rows:
         result.setdefault(source, {})[status] = count
@@ -462,16 +461,18 @@ async def list_crawled_pages(
     db: Session = Depends(get_db),
 ) -> List[DBCrawledPage]:
     """Admin: list HTML-archived pages with optional filters."""
-    q = db.query(DBCrawledPage)
+    stmt = select(DBCrawledPage)
     if source:
-        q = q.filter(DBCrawledPage.source == source)
+        stmt = stmt.where(DBCrawledPage.source == source)
     if parse_status:
-        q = q.filter(DBCrawledPage.parse_status == parse_status)
+        stmt = stmt.where(DBCrawledPage.parse_status == parse_status)
     if from_date:
-        q = q.filter(DBCrawledPage.crawled_at >= from_date)
+        stmt = stmt.where(DBCrawledPage.crawled_at >= from_date)
     if to_date:
-        q = q.filter(DBCrawledPage.crawled_at <= to_date)
-    return q.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit).all()
+        stmt = stmt.where(DBCrawledPage.crawled_at <= to_date)
+    return list(db.scalars(
+        stmt.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit)
+    ).all())
 
 
 # ---------------------------------------------------------------------------

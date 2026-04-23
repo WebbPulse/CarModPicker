@@ -9,7 +9,8 @@ import logging
 from typing import Any, List, Optional, Tuple, TypeVar
 
 from fastapi import Query
-from sqlalchemy.orm import Query as SQLAlchemyQuery
+from sqlalchemy import Select, func, select
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.utils.endpoint_decorators import validate_pagination_params
@@ -48,17 +49,19 @@ def get_pagination_params(
 
 
 def paginate_query(
-    query: SQLAlchemyQuery[ModelType],
+    db: Session,
+    stmt: Select[Any],
     skip: int,
     limit: int,
     logger: Optional[logging.Logger] = None,
     entity_name: str = "items",
-) -> List[ModelType]:
+) -> List[Any]:
     """
-    Apply pagination to a SQLAlchemy query.
+    Apply pagination to a SQLAlchemy Select statement.
 
     Args:
-        query: SQLAlchemy query to paginate
+        db: Database session
+        stmt: SQLAlchemy Select to paginate
         skip: Number of items to skip
         limit: Maximum number of items to return
         logger: Logger instance for logging
@@ -67,8 +70,7 @@ def paginate_query(
     Returns:
         List of paginated results
     """
-    paginated_query = query.offset(skip).limit(limit)
-    results = paginated_query.all()
+    results = list(db.scalars(stmt.offset(skip).limit(limit)).all())
 
     if logger:
         logger.info(f"Retrieved {len(results)} {entity_name} (skip: {skip}, limit: {limit})")
@@ -76,17 +78,18 @@ def paginate_query(
     return results
 
 
-def get_total_count(query: SQLAlchemyQuery[ModelType]) -> int:
+def get_total_count(db: Session, stmt: Select[Any]) -> int:
     """
-    Get total count of items in a query.
+    Get total count of items in a Select statement.
 
     Args:
-        query: SQLAlchemy query to count
+        db: Database session
+        stmt: SQLAlchemy Select to count
 
     Returns:
         Total count of items
     """
-    return query.count()
+    return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
 
 def create_paginated_response(
@@ -129,59 +132,61 @@ def create_paginated_response(
 
 
 def apply_search_filter(
-    query: SQLAlchemyQuery[ModelType],
+    query: Select[Any],
     search: Optional[str],
     search_fields: List[str],
     case_sensitive: bool = False,
-) -> SQLAlchemyQuery[ModelType]:
+) -> Select[Any]:
     """
-    Apply search filter to a query.
+    Apply search filter to a Select statement.
 
     Args:
-        query: SQLAlchemy query to filter
+        query: SQLAlchemy Select to filter
         search: Search term
         search_fields: List of field names to search in
         case_sensitive: Whether search should be case sensitive
 
     Returns:
-        Filtered query
+        Filtered Select
     """
     if not search:
         return query
 
     search_terms: List[ColumnElement[bool]] = []
-    for field in search_fields:
-        if hasattr(query.column_descriptions[0]["entity"], field):
-            if case_sensitive:
-                search_terms.append(getattr(query.column_descriptions[0]["entity"], field).ilike(f"%{search}%"))
-            else:
-                search_terms.append(getattr(query.column_descriptions[0]["entity"], field).ilike(f"%{search}%"))
+    entity = query.column_descriptions[0].get("entity") or query.column_descriptions[0].get("type")
+    if entity is not None:
+        for field in search_fields:
+            if hasattr(entity, field):
+                if case_sensitive:
+                    search_terms.append(getattr(entity, field).ilike(f"%{search}%"))
+                else:
+                    search_terms.append(getattr(entity, field).ilike(f"%{search}%"))
 
     if search_terms:
         from sqlalchemy import or_
 
-        query = query.filter(or_(*search_terms))
+        query = query.where(or_(*search_terms))
 
     return query
 
 
 def apply_sorting(
-    query: SQLAlchemyQuery[ModelType],
+    query: Select[Any],
     sort_by: Optional[str],
     sort_order: str = "asc",
     allowed_sort_fields: Optional[List[str]] = None,
-) -> SQLAlchemyQuery[ModelType]:
+) -> Select[Any]:
     """
-    Apply sorting to a query.
+    Apply sorting to a Select statement.
 
     Args:
-        query: SQLAlchemy query to sort
+        query: SQLAlchemy Select to sort
         sort_by: Field name to sort by
         sort_order: Sort order ('asc' or 'desc')
         allowed_sort_fields: List of allowed field names for sorting
 
     Returns:
-        Sorted query
+        Sorted Select
     """
     if not sort_by:
         return query
@@ -190,10 +195,10 @@ def apply_sorting(
     if allowed_sort_fields and sort_by not in allowed_sort_fields:
         return query
 
-    # Get the model class from the query
-    model_class = query.column_descriptions[0]["entity"]
+    # Get the model class from the select
+    model_class = query.column_descriptions[0].get("entity") or query.column_descriptions[0].get("type")
 
-    if hasattr(model_class, sort_by):
+    if model_class is not None and hasattr(model_class, sort_by):
         sort_field = getattr(model_class, sort_by)
         if sort_order.lower() == "desc":
             query = query.order_by(sort_field.desc())

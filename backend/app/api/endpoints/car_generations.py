@@ -9,6 +9,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 
 from app.api.models.car_generation import CarGeneration as DBCarGeneration
 from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarGenerationUpdate
@@ -67,7 +68,7 @@ async def count_car_makes(
 
     db = deps["db"]
     logger = deps["logger"]
-    count = db.query(CarMake).count()
+    count = db.scalar(select(func.count()).select_from(CarMake)) or 0
     logger.info(f"Retrieved car_makes count: {count}")
     return {"count": count}
 
@@ -85,7 +86,7 @@ async def count_car_models(
 
     db = deps["db"]
     logger = deps["logger"]
-    count = db.query(CarModel).count()
+    count = db.scalar(select(func.count()).select_from(CarModel)) or 0
     logger.info(f"Retrieved car_models count: {count}")
     return {"count": count}
 
@@ -144,23 +145,20 @@ async def get_car_make_stats(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> dict[str, int]:
     """Get statistics of car generations by car make."""
-    from sqlalchemy import func
-
     from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
 
     db = deps["db"]
     logger = deps["logger"]
 
-    stats = (
-        db.query(CarMake.name, func.count(DBCarGeneration.id).label("count"))
+    stats = db.execute(
+        select(CarMake.name, func.count(DBCarGeneration.id).label("count"))
         .select_from(DBCarGeneration)
         .join(DBCarGeneration.car_model)
         .join(CarModel.car_make)
         .group_by(CarMake.name)
         .order_by(func.count(DBCarGeneration.id).desc())
-        .all()
-    )
+    ).all()
 
     result = {row[0]: row[1] for row in stats}
     logger.info(f"Retrieved car_make statistics: {len(result)} car_makes")

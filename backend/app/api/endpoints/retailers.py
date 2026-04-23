@@ -10,6 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
@@ -41,7 +42,7 @@ class RetailerService(BaseCRUDService[DBRetailer, RetailerCreate, RetailerRead, 
 
     def get_active_retailers(self, db: Session) -> List[DBRetailer]:
         """Get all active retailers ordered by name."""
-        return db.query(DBRetailer).filter(DBRetailer.is_active.is_(True)).order_by(DBRetailer.name).all()
+        return list(db.scalars(select(DBRetailer).where(DBRetailer.is_active.is_(True)).order_by(DBRetailer.name)).all())
 
 
 router = APIRouter()
@@ -71,7 +72,7 @@ async def get_retailers(
     if active_only:
         retailers = retailer_service.get_active_retailers(db)
     else:
-        retailers = db.query(DBRetailer).order_by(DBRetailer.name).all()
+        retailers = list(db.scalars(select(DBRetailer).order_by(DBRetailer.name)).all())
     return [RetailerRead.model_validate(r) for r in retailers]
 
 
@@ -151,7 +152,7 @@ async def create_retailer(
     """Create a new retailer (admin only)."""
     db = deps["db"]
     if retailer.domain:
-        existing = db.query(DBRetailer).filter(DBRetailer.domain == retailer.domain).first()
+        existing = db.scalars(select(DBRetailer).where(DBRetailer.domain == retailer.domain)).first()
         if existing:
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
@@ -180,7 +181,7 @@ async def update_retailer(
     db = deps["db"]
     db_retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
     if retailer.domain is not None and retailer.domain != db_retailer.domain:
-        existing = db.query(DBRetailer).filter(DBRetailer.domain == retailer.domain).first()
+        existing = db.scalars(select(DBRetailer).where(DBRetailer.domain == retailer.domain)).first()
         if existing:
             ResponsePatterns.raise_conflict(
                 f"A retailer with domain '{retailer.domain}' already exists",
@@ -214,7 +215,7 @@ async def delete_retailer(
     """Delete a retailer (admin only)."""
     db = deps["db"]
     db_retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
-    listings_count = db.query(DBPartListing).filter(DBPartListing.retailer_id == retailer_id).count()
+    listings_count = db.scalar(select(func.count()).select_from(DBPartListing).where(DBPartListing.retailer_id == retailer_id)) or 0
     if listings_count > 0:
         ResponsePatterns.raise_conflict(
             f"Cannot delete retailer that has {listings_count} part listing(s)",

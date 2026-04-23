@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import exists, func, or_
+from sqlalchemy import Select, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
@@ -275,14 +275,14 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         from app.api.utils.common_operations import build_filtered_query, build_search_query
 
         validate_pagination_params(skip, limit)
-        query = db.query(DBPart).filter(DBPart.canonical_part_id.is_(None))
+        stmt: Select[Any] = select(DBPart).where(DBPart.canonical_part_id.is_(None))
         if filters:
-            query = build_filtered_query(query, filters)
+            stmt = build_filtered_query(stmt, filters)
         if search and search_fields:
-            query = build_search_query(query, search, search_fields)
+            stmt = build_search_query(stmt, search, search_fields)
         order_field = getattr(DBPart, order_by, DBPart.created_at)
-        query = query.order_by(order_field.desc() if order_direction == "desc" else order_field.asc())
-        return query.offset(skip).limit(limit).all()
+        stmt = stmt.order_by(order_field.desc() if order_direction == "desc" else order_field.asc())
+        return list(db.scalars(stmt.offset(skip).limit(limit)).all())
 
     def update(
         self,
@@ -410,11 +410,11 @@ async def read_parts_with_votes(
     has_price_filter = min_price_cents is not None or max_price_cents is not None
 
     upvote_counts = (
-        db.query(
+        select(
             DBVote.entity_id,
             func.count(DBVote.id).label("upvote_count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "part",
             DBVote.vote_type == "upvote",
         )
@@ -423,11 +423,11 @@ async def read_parts_with_votes(
     )
 
     downvote_counts = (
-        db.query(
+        select(
             DBVote.entity_id,
             func.count(DBVote.id).label("downvote_count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "part",
             DBVote.vote_type == "downvote",
         )
@@ -435,9 +435,9 @@ async def read_parts_with_votes(
         .subquery()
     )
 
-    base_query = db.query(DBPart)
-    base_query = _apply_parts_list_filters(
-        base_query,
+    base_stmt: Select[Any] = select(DBPart)
+    base_stmt = _apply_parts_list_filters(
+        base_stmt,
         effective_category_ids,
         effective_part_manufacturer_ids,
         effective_car_ids,
@@ -448,13 +448,13 @@ async def read_parts_with_votes(
         include_ugc=include_ugc,
     )
 
-    query = (
-        db.query(DBPart)
+    stmt: Select[Any] = (
+        select(DBPart)
         .outerjoin(upvote_counts, DBPart.id == upvote_counts.c.entity_id)
         .outerjoin(downvote_counts, DBPart.id == downvote_counts.c.entity_id)
     )
-    query = _apply_parts_list_filters(
-        query,
+    stmt = _apply_parts_list_filters(
+        stmt,
         effective_category_ids,
         effective_part_manufacturer_ids,
         effective_car_ids,
@@ -469,94 +469,97 @@ async def read_parts_with_votes(
     # toward the canonical's best price. For a canonical (no canonical_part_id)
     # the grouping key is its own id, so this is a no-op there.
     min_price_subq = (
-        db.query(
+        select(
             func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id"),
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
         .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .filter(DBPartListing.last_known_price_cents.isnot(None))
+        .where(DBPartListing.last_known_price_cents.isnot(None))
         .group_by(func.coalesce(DBPart.canonical_part_id, DBPart.id))
         .subquery()
     )
 
     if has_price_filter:
-        base_query = base_query.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
+        base_stmt = base_stmt.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
         if min_price_cents is not None:
-            base_query = base_query.filter(min_price_subq.c.min_price >= min_price_cents)
+            base_stmt = base_stmt.where(min_price_subq.c.min_price >= min_price_cents)
         if max_price_cents is not None:
-            base_query = base_query.filter(min_price_subq.c.min_price <= max_price_cents)
-        query = query.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
+            base_stmt = base_stmt.where(min_price_subq.c.min_price <= max_price_cents)
+        stmt = stmt.join(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
         if min_price_cents is not None:
-            query = query.filter(min_price_subq.c.min_price >= min_price_cents)
+            stmt = stmt.where(min_price_subq.c.min_price >= min_price_cents)
         if max_price_cents is not None:
-            query = query.filter(min_price_subq.c.min_price <= max_price_cents)
+            stmt = stmt.where(min_price_subq.c.min_price <= max_price_cents)
 
-    total = base_query.count()
+    total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
 
     net_votes = func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
 
     if sort == "lowest_price":
         if not has_price_filter:
-            query = query.outerjoin(min_price_subq, DBPart.id == min_price_subq.c.part_id)
-        query = query.order_by(
+            stmt = stmt.outerjoin(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
+        stmt = stmt.order_by(
             min_price_subq.c.min_price.asc().nullslast(),
             DBPart.id.desc(),
         )
     elif sort == "highest_price":
         if not has_price_filter:
-            query = query.outerjoin(min_price_subq, DBPart.id == min_price_subq.c.part_id)
-        query = query.order_by(
+            stmt = stmt.outerjoin(min_price_subq, DBPart.id == min_price_subq.c.canonical_id)
+        stmt = stmt.order_by(
             min_price_subq.c.min_price.desc().nullslast(),
             DBPart.id.desc(),
         )
     elif sort == "votes_asc":
-        query = query.order_by(net_votes.asc(), DBPart.id.desc())
+        stmt = stmt.order_by(net_votes.asc(), DBPart.id.desc())
     elif sort == "name_asc":
-        query = query.order_by(DBPart.name.asc().nullslast(), DBPart.id.desc())
+        stmt = stmt.order_by(DBPart.name.asc().nullslast(), DBPart.id.desc())
     elif sort == "name_desc":
-        query = query.order_by(DBPart.name.desc().nullslast(), DBPart.id.desc())
+        stmt = stmt.order_by(DBPart.name.desc().nullslast(), DBPart.id.desc())
     elif sort == "part_number_asc":
-        query = query.order_by(DBPart.part_number.asc().nullslast(), DBPart.id.desc())
+        stmt = stmt.order_by(DBPart.part_number.asc().nullslast(), DBPart.id.desc())
     elif sort == "part_number_desc":
-        query = query.order_by(DBPart.part_number.desc().nullslast(), DBPart.id.desc())
+        stmt = stmt.order_by(DBPart.part_number.desc().nullslast(), DBPart.id.desc())
     elif sort == "part_manufacturer_asc":
-        query = query.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
+        stmt = stmt.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
             DBPartManufacturer.name.asc().nullslast(), DBPart.id.desc()
         )
     elif sort == "part_manufacturer_desc":
-        query = query.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
+        stmt = stmt.outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id).order_by(
             DBPartManufacturer.name.desc().nullslast(), DBPart.id.desc()
         )
     elif sort == "category_asc":
-        query = query.join(DBCategory, DBPart.category_id == DBCategory.id).order_by(
+        stmt = stmt.join(DBCategory, DBPart.category_id == DBCategory.id).order_by(
             func.coalesce(DBCategory.display_name, DBCategory.name).asc().nullslast(),
             DBPart.id.desc(),
         )
     elif sort == "category_desc":
-        query = query.join(DBCategory, DBPart.category_id == DBCategory.id).order_by(
+        stmt = stmt.join(DBCategory, DBPart.category_id == DBCategory.id).order_by(
             func.coalesce(DBCategory.display_name, DBCategory.name).desc().nullslast(),
             DBPart.id.desc(),
         )
     else:
-        query = query.order_by(net_votes.desc(), DBPart.id.desc())
+        stmt = stmt.order_by(net_votes.desc(), DBPart.id.desc())
 
-    ordered_ids = [row[0] for row in query.with_entities(DBPart.id).offset(skip).limit(limit).all()]
+    id_stmt = stmt.with_only_columns(DBPart.id)
+    ordered_ids = list(db.scalars(id_stmt.offset(skip).limit(limit)).all())
 
     if not ordered_ids:
         parts = []
     else:
-        parts = (
-            db.query(DBPart)
-            .filter(DBPart.id.in_(ordered_ids))
-            .outerjoin(upvote_counts, DBPart.id == upvote_counts.c.entity_id)
-            .outerjoin(downvote_counts, DBPart.id == downvote_counts.c.entity_id)
-            .order_by(
-                (
-                    func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
-                ).desc(),
-                DBPart.id.desc(),
-            )
-            .all()
+        parts = list(
+            db.scalars(
+                select(DBPart)
+                .where(DBPart.id.in_(ordered_ids))
+                .outerjoin(upvote_counts, DBPart.id == upvote_counts.c.entity_id)
+                .outerjoin(downvote_counts, DBPart.id == downvote_counts.c.entity_id)
+                .order_by(
+                    (
+                        func.coalesce(upvote_counts.c.upvote_count, 0)
+                        - func.coalesce(downvote_counts.c.downvote_count, 0)
+                    ).desc(),
+                    DBPart.id.desc(),
+                )
+            ).all()
         )
         parts_dict = {part.id: part for part in parts}
         parts = [parts_dict[part_id] for part_id in ordered_ids if part_id in parts_dict]
@@ -567,19 +570,18 @@ async def read_parts_with_votes(
 
     part_ids = [part.id for part in parts]
 
-    vote_counts = (
-        db.query(
+    vote_counts = db.execute(
+        select(
             DBVote.entity_id,
             DBVote.vote_type,
             func.count(DBVote.id).label("count"),
         )
-        .filter(
+        .where(
             DBVote.entity_type == "part",
             DBVote.entity_id.in_(part_ids),
         )
         .group_by(DBVote.entity_id, DBVote.vote_type)
-        .all()
-    )
+    ).all()
 
     upvotes_dict: Dict[UUID, int] = {}
     downvotes_dict: Dict[UUID, int] = {}
@@ -592,32 +594,30 @@ async def read_parts_with_votes(
     # Best price per canonical: a duplicate's listings contribute to its canonical's
     # best price, so rows returned (canonicals only) see prices from the whole link group.
     canonical_id_expr = func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id")
-    min_prices = (
-        db.query(
+    min_prices = db.execute(
+        select(
             canonical_id_expr,
             func.min(DBPartListing.last_known_price_cents).label("min_price"),
         )
         .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .filter(
+        .where(
             canonical_id_expr.in_(part_ids),
             DBPartListing.last_known_price_cents.isnot(None),
         )
         .group_by(canonical_id_expr)
-        .all()
-    )
+    ).all()
     best_price_cents_dict: Dict[UUID, int] = {p_id: int(mp) for p_id, mp in min_prices}
 
     user_votes_dict: Dict[UUID, str] = {}
     if current_user:
-        user_votes = (
-            db.query(DBVote.entity_id, DBVote.vote_type)
-            .filter(
+        user_votes = db.execute(
+            select(DBVote.entity_id, DBVote.vote_type)
+            .where(
                 DBVote.entity_type == "part",
                 DBVote.entity_id.in_(part_ids),
                 DBVote.user_id == current_user.id,
             )
-            .all()
-        )
+        ).all()
         user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
 
     parts_data: List[PartReadWithVotes] = []
@@ -667,22 +667,22 @@ def _apply_parts_list_filters(
         search_fields=["name", "description"],
     )
     if category_ids:
-        query = query.filter(DBPart.category_id.in_(category_ids))
+        query = query.where(DBPart.category_id.in_(category_ids))
     if part_manufacturer_ids:
-        query = query.filter(DBPart.part_manufacturer_id.in_(part_manufacturer_ids))
+        query = query.where(DBPart.part_manufacturer_id.in_(part_manufacturer_ids))
     if universal is True:
-        query = query.filter(DBPart.is_universal == True)  # noqa: E712
+        query = query.where(DBPart.is_universal == True)  # noqa: E712
     elif car_ids:
         part_fits_any_car = exists().where((part_cars.c.part_id == DBPart.id) & (part_cars.c.car_id.in_(car_ids)))
-        query = query.filter(or_(DBPart.is_universal, part_fits_any_car))
+        query = query.where(or_(DBPart.is_universal, part_fits_any_car))
     if user_id is not None:
-        query = query.filter(DBPart.user_id == user_id)
+        query = query.where(DBPart.user_id == user_id)
     else:
-        query = query.filter(DBPart.canonical_part_id.is_(None))
+        query = query.where(DBPart.canonical_part_id.is_(None))
         if not include_ugc:
-            query = query.filter(DBPart.source != "user_created")
+            query = query.where(DBPart.source != "user_created")
     if retailer_id is not None:
-        query = query.join(DBPartListing).filter(
+        query = query.join(DBPartListing).where(
             DBPartListing.part_id == DBPart.id,
             DBPartListing.retailer_id == retailer_id,
         )
@@ -701,8 +701,8 @@ def _parts_base_query(
     universal: Optional[bool] = None,
     include_ugc: bool = True,
 ):
-    """Build base query for parts list with filters applied (no pagination/sort)."""
-    q = db.query(DBPart)
+    """Build base select for parts list with filters applied (no pagination/sort)."""
+    q: Select[Any] = select(DBPart)
     return _apply_parts_list_filters(
         q,
         category_ids,
@@ -754,16 +754,20 @@ async def get_parts_filter_options(
         universal=universal,
         include_ugc=include_ugc,
     )
-    available_categories = [
-        row[0] for row in q.with_entities(DBPart.category_id).distinct().filter(DBPart.category_id.isnot(None)).all()
-    ]
-    available_part_manufacturers = [
-        row[0]
-        for row in q.with_entities(DBPart.part_manufacturer_id)
-        .distinct()
-        .filter(DBPart.part_manufacturer_id.isnot(None))
-        .all()
-    ]
+    available_categories = list(
+        db.scalars(
+            q.with_only_columns(DBPart.category_id)
+            .distinct()
+            .where(DBPart.category_id.isnot(None))
+        ).all()
+    )
+    available_part_manufacturers = list(
+        db.scalars(
+            q.with_only_columns(DBPart.part_manufacturer_id)
+            .distinct()
+            .where(DBPart.part_manufacturer_id.isnot(None))
+        ).all()
+    )
     result: Dict[str, Any] = {
         "category_ids": available_categories,
         "part_manufacturer_ids": available_part_manufacturers,
@@ -782,24 +786,23 @@ async def get_parts_filter_options(
             universal=universal,
             include_ugc=include_ugc,
         )
-        available_car_ids = [
-            row[0]
-            for row in q_no_car.join(part_cars, DBPart.id == part_cars.c.part_id)
-            .with_entities(part_cars.c.car_id)
-            .distinct()
-            .all()
-        ]
+        available_car_ids = list(
+            db.scalars(
+                q_no_car.join(part_cars, DBPart.id == part_cars.c.part_id)
+                .with_only_columns(part_cars.c.car_id)
+                .distinct()
+            ).all()
+        )
         result["car_ids"] = available_car_ids
         if available_car_ids:
-            make_rows = (
-                db.query(DBMake.name)
+            make_rows = db.scalars(
+                select(DBMake.name)
                 .join(DBCarModel, DBCarModel.car_make_id == DBMake.id)
                 .join(DBCar, DBCar.car_model_id == DBCarModel.id)
-                .filter(DBCar.id.in_(available_car_ids))
+                .where(DBCar.id.in_(available_car_ids))
                 .distinct()
-                .all()
-            )
-            result["make_names"] = sorted({row[0] for row in make_rows if row[0]})
+            ).all()
+            result["make_names"] = sorted({name for name in make_rows if name})
         else:
             result["make_names"] = []
 
@@ -823,15 +826,16 @@ async def get_parts_by_category(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    parts = (
-        db.query(DBPart)
-        .filter(
-            DBPart.category_id == category_id,
-            DBPart.canonical_part_id.is_(None),
-        )
-        .offset(skip)
-        .limit(limit)
-        .all()
+    parts = list(
+        db.scalars(
+            select(DBPart)
+            .where(
+                DBPart.category_id == category_id,
+                DBPart.canonical_part_id.is_(None),
+            )
+            .offset(skip)
+            .limit(limit)
+        ).all()
     )
     logger.info(f"Retrieved {len(parts)} parts for category {category_id}")
     return [PartRead.model_validate(part) for part in parts]
@@ -900,11 +904,12 @@ async def get_part_listings(
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
     group_ids = link_group_part_ids(db, part_id)
-    listings = (
-        db.query(DBPartListing)
-        .filter(DBPartListing.part_id.in_(group_ids))
-        .options(joinedload(DBPartListing.retailer))
-        .all()
+    listings = list(
+        db.scalars(
+            select(DBPartListing)
+            .where(DBPartListing.part_id.in_(group_ids))
+            .options(joinedload(DBPartListing.retailer))
+        ).all()
     )
     return [PartListingReadWithRetailer.model_validate(l) for l in listings]
 
@@ -937,12 +942,11 @@ async def create_or_update_part_listing(
     )
     db.commit()
     db.refresh(listing)
-    listing_with_retailer = (
-        db.query(DBPartListing)
-        .filter(DBPartListing.id == listing.id)
+    listing_with_retailer = db.scalars(
+        select(DBPartListing)
+        .where(DBPartListing.id == listing.id)
         .options(joinedload(DBPartListing.retailer))
-        .first()
-    )
+    ).first()
     return PartListingReadWithRetailer.model_validate(listing_with_retailer)
 
 
@@ -1076,17 +1080,16 @@ async def get_part_best_listing(
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
     group_ids = link_group_part_ids(db, part_id)
-    best = (
-        db.query(DBPartListing)
-        .filter(
+    best = db.scalars(
+        select(DBPartListing)
+        .where(
             DBPartListing.part_id.in_(group_ids),
             DBPartListing.last_known_price_cents.isnot(None),
             DBPartListing.last_known_price_cents >= 0,
         )
         .order_by(DBPartListing.last_known_price_cents.asc())
         .options(joinedload(DBPartListing.retailer))
-        .first()
-    )
+    ).first()
     if not best:
         ResponsePatterns.raise_http_exception(
             status.HTTP_404_NOT_FOUND,
@@ -1109,11 +1112,12 @@ async def get_part_with_listings(
     db = deps["db"]
     part = get_entity_or_404(db, DBPart, part_id, "part")
     group_ids = link_group_part_ids(db, part_id)
-    listings = (
-        db.query(DBPartListing)
-        .filter(DBPartListing.part_id.in_(group_ids))
-        .options(joinedload(DBPartListing.retailer))
-        .all()
+    listings = list(
+        db.scalars(
+            select(DBPartListing)
+            .where(DBPartListing.part_id.in_(group_ids))
+            .options(joinedload(DBPartListing.retailer))
+        ).all()
     )
     priced = [l for l in listings if l.last_known_price_cents is not None and l.last_known_price_cents >= 0]
     best_listing = min(priced, key=lambda l: l.last_known_price_cents or 0) if priced else None
@@ -1141,15 +1145,15 @@ async def get_part_price_history(
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
     group_ids = link_group_part_ids(db, part_id)
-    query = (
-        db.query(DBPartPriceHistory, DBPartListing, DBRetailer)
+    stmt = (
+        select(DBPartPriceHistory, DBPartListing, DBRetailer)
         .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
         .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
-        .filter(DBPartListing.part_id.in_(group_ids))
+        .where(DBPartListing.part_id.in_(group_ids))
     )
     if retailer_id is not None:
-        query = query.filter(DBPartListing.retailer_id == retailer_id)
-    rows = query.order_by(DBPartPriceHistory.observed_at.desc()).all()
+        stmt = stmt.where(DBPartListing.retailer_id == retailer_id)
+    rows = db.execute(stmt.order_by(DBPartPriceHistory.observed_at.desc())).all()
     return [
         PartPriceHistoryReadWithRetailer(
             id=h.id,
@@ -1187,7 +1191,9 @@ async def count_parts_by_user(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Count parts created by a specific user."""
-    count = deps["db"].query(DBPart).filter(DBPart.user_id == user_id).count()
+    count = deps["db"].scalar(
+        select(func.count()).select_from(DBPart).where(DBPart.user_id == user_id)
+    ) or 0
     return {"count": count}
 
 

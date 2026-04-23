@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_optional_current_user
@@ -51,7 +52,7 @@ async def count_bug_reports(
     logger = deps["logger"]
 
     try:
-        count = db.query(DBBugReport).count()
+        count = db.scalar(select(func.count()).select_from(DBBugReport)) or 0
         logger.info(f"Retrieved bug reports count: {count}")
         return {"count": count}
     except Exception as e:

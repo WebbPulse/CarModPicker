@@ -10,7 +10,7 @@ This endpoint provides unified search functionality across:
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -89,12 +89,12 @@ async def search_all(
     search_term = q.strip()
 
     # Search build lists (name, description, and associated car_make/car_model/generation/year range)
-    build_list_query = (
-        db.query(DBBuildList)
+    build_list_stmt = (
+        select(DBBuildList)
         .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
         .outerjoin(DBCarModel, DBCar.car_model_id == DBCarModel.id)
         .outerjoin(DBMake, DBCarModel.car_make_id == DBMake.id)
-        .filter(
+        .where(
             or_(
                 DBBuildList.name.ilike(f"%{search_term}%"),
                 DBBuildList.description.ilike(f"%{search_term}%"),
@@ -107,20 +107,20 @@ async def search_all(
         )
         .options(joinedload(DBBuildList.car_generation).joinedload(DBCar.car_model).joinedload(DBCarModel.car_make))
     )
-    build_list_total = get_total_count(build_list_query)
-    build_lists = build_list_query.offset(skip).limit(limit).all()
+    build_list_total = get_total_count(db, build_list_stmt)
+    build_lists = list(db.scalars(build_list_stmt.offset(skip).limit(limit)).unique().all())
     build_list_results = [BuildListRead.model_validate(bl) for bl in build_lists]
     build_list_has_next = (skip + limit) < build_list_total
 
     # Search users (username, email)
-    user_query = db.query(DBUser).filter(
+    user_stmt = select(DBUser).where(
         or_(
             DBUser.username.ilike(f"%{search_term}%"),
             DBUser.email.ilike(f"%{search_term}%"),
         )
     )
-    user_total = get_total_count(user_query)
-    users = user_query.offset(skip).limit(limit).all()
+    user_total = get_total_count(db, user_stmt)
+    users = list(db.scalars(user_stmt.offset(skip).limit(limit)).all())
     # Use PublicUserRead to exclude sensitive fields (email_verified, totp_enabled)
     user_results = [PublicUserRead.model_validate(u) for u in users]
     user_has_next = (skip + limit) < user_total
@@ -128,10 +128,10 @@ async def search_all(
     # Search parts (name, description, part_manufacturer name, part_number).
     # Non-canonical duplicates are hidden so search returns only surface parts.
     # When include_ugc=False, user-contributed parts are also filtered out.
-    part_query = (
-        db.query(DBPart)
+    part_stmt = (
+        select(DBPart)
         .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
-        .filter(
+        .where(
             DBPart.canonical_part_id.is_(None),
             or_(
                 DBPart.name.ilike(f"%{search_term}%"),
@@ -144,9 +144,9 @@ async def search_all(
         .options(joinedload(DBPart.part_manufacturer))
     )
     if not include_ugc:
-        part_query = part_query.filter(DBPart.source != "user_created")
-    part_total = get_total_count(part_query)
-    parts_list = part_query.offset(skip).limit(limit).all()
+        part_stmt = part_stmt.where(DBPart.source != "user_created")
+    part_total = get_total_count(db, part_stmt)
+    parts_list = list(db.scalars(part_stmt.offset(skip).limit(limit)).all())
     part_results = [PartRead.model_validate(p) for p in parts_list]
     part_has_next = (skip + limit) < part_total
 

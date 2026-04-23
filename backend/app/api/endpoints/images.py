@@ -9,6 +9,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
@@ -39,7 +40,7 @@ async def get_image_by_source_url(
     Returns the existing file_key if found, so clients can skip re-uploading.
     """
     canonical = get_canonical_image_url(source_url)
-    mapping = db.query(DBImageSourceMapping).filter(DBImageSourceMapping.source_url == canonical).first()
+    mapping = db.scalars(select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)).first()
     if not mapping:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No cached image for this source URL")
     return {"file_key": mapping.file_key}
@@ -91,11 +92,11 @@ async def upload_image(
 
         entity_owned = False
         if entity_type == "build_list":
-            entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
+            entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "part":
-            entity = db.query(DBPart).filter(DBPart.id == entity_id).first()
+            entity = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "user":
@@ -116,7 +117,7 @@ async def upload_image(
             if entity_id:
                 from app.api.models.build_list import BuildList as DBBuildList
 
-                build_list = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
+                build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
                 if build_list:
                     # Any authenticated user can upload images for build log posts
                     # (build logs are public-readable, so images should be too)
@@ -140,7 +141,7 @@ async def upload_image(
         if entity_type == "part":
             from app.api.schemas.part import MAX_IMAGES_PER_PART
 
-            part = db.query(DBPart).filter(DBPart.id == entity_id).first()
+            part = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
             if part:
                 current_count = len(part.image_urls or [])
                 if current_count >= MAX_IMAGES_PER_PART:
@@ -153,7 +154,7 @@ async def upload_image(
         # Deduplication: if source_url provided and we already have it, return existing file_key
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
-            existing = db.query(DBImageSourceMapping).filter(DBImageSourceMapping.source_url == canonical).first()
+            existing = db.scalars(select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)).first()
             if existing:
                 presigned_url = storage_service.get_presigned_url(existing.file_key)
                 logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")

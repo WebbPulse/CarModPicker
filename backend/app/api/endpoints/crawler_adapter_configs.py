@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -41,7 +42,11 @@ async def list_adapter_configs(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CrawlerAdapterConfigList:
     _ = current_user
-    rows = db.query(CrawlerAdapterConfig).order_by(CrawlerAdapterConfig.adapter_name).all()
+    rows = list(
+        db.scalars(
+            select(CrawlerAdapterConfig).order_by(CrawlerAdapterConfig.adapter_name)
+        ).all()
+    )
     return CrawlerAdapterConfigList(items=[CrawlerAdapterConfigRead.model_validate(r) for r in rows])
 
 
@@ -70,7 +75,9 @@ async def update_adapter_config(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Unknown adapter '{adapter_name}'. Available: {list(ADAPTER_REGISTRY)}",
         )
-    row = db.query(CrawlerAdapterConfig).filter(CrawlerAdapterConfig.adapter_name == adapter_name).first()
+    row = db.scalars(
+        select(CrawlerAdapterConfig).where(CrawlerAdapterConfig.adapter_name == adapter_name)
+    ).first()
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -78,7 +85,9 @@ async def update_adapter_config(
         )
 
     if body.default_category_id is not None:
-        cat = db.query(DBCategory).filter(DBCategory.id == body.default_category_id).first()
+        cat = db.scalars(
+            select(DBCategory).where(DBCategory.id == body.default_category_id)
+        ).first()
         if cat is None or not cat.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
@@ -55,7 +56,7 @@ async def count_votes(
     logger = deps["logger"]
 
     try:
-        count = db.query(DBVote).count()
+        count = db.scalar(select(func.count()).select_from(DBVote)) or 0
         logger.info(f"Retrieved votes count: {count}")
         return {"count": count}
     except Exception as e:

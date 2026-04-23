@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
@@ -73,7 +73,7 @@ async def count_build_list_parts(
     logger = deps["logger"]
 
     try:
-        count = db.query(DBBuildListPart).count()
+        count = db.scalar(select(func.count()).select_from(DBBuildListPart)) or 0
         logger.info(f"Retrieved build list parts count: {count}")
         return {"count": count}
     except Exception as e:
@@ -107,14 +107,12 @@ async def add_part_to_build_list(
 
     _ = get_entity_or_404(db, DBPart, part_id, "part")
 
-    existing_relationship = (
-        db.query(DBBuildListPart)
-        .filter(
+    existing_relationship = db.scalars(
+        select(DBBuildListPart).where(
             DBBuildListPart.build_list_id == build_list_id,
             DBBuildListPart.part_id == part_id,
         )
-        .first()
-    )
+    ).first()
     if existing_relationship:
         ResponsePatterns.raise_conflict("Part already exists in build list")
 
@@ -156,7 +154,7 @@ async def get_build_list_parts(
 
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_parts = db.query(DBBuildListPart).filter(DBBuildListPart.build_list_id == build_list_id).all()
+    db_build_list_parts = list(db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all())
 
     build_list_parts = [BuildListPartRead.model_validate(part) for part in db_build_list_parts]
 
@@ -428,14 +426,15 @@ async def get_parts_in_build_list(
 
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_parts = (
-        db.query(DBBuildListPart)
-        .options(
-            joinedload(DBBuildListPart.part),
-            joinedload(DBBuildListPart.build_list_phase),
-        )
-        .filter(DBBuildListPart.build_list_id == build_list_id)
-        .all()
+    db_build_list_parts = list(
+        db.scalars(
+            select(DBBuildListPart)
+            .options(
+                joinedload(DBBuildListPart.part),
+                joinedload(DBBuildListPart.build_list_phase),
+            )
+            .where(DBBuildListPart.build_list_id == build_list_id)
+        ).unique().all()
     )
 
     # Resolve each BuildListPart.part to its canonical for display. BuildListPart.part_id
@@ -446,7 +445,7 @@ async def get_parts_in_build_list(
     }
     canonicals: Dict[UUID, DBPart] = {}
     if canonical_ids_to_load:
-        canonicals = {cp.id: cp for cp in db.query(DBPart).filter(DBPart.id.in_(canonical_ids_to_load)).all()}
+        canonicals = {cp.id: cp for cp in db.scalars(select(DBPart).where(DBPart.id.in_(canonical_ids_to_load))).all()}
 
     def effective_part(stored: DBPart) -> DBPart:
         if stored.canonical_part_id and stored.canonical_part_id in canonicals:
@@ -457,19 +456,18 @@ async def get_parts_in_build_list(
     best_price_cents_dict: Dict[UUID, int] = {}
     if effective_ids:
         canonical_id_expr = func.coalesce(DBPart.canonical_part_id, DBPart.id).label("canonical_id")
-        min_prices = (
-            db.query(
+        min_prices = db.execute(
+            select(
                 canonical_id_expr,
                 func.min(DBPartListing.last_known_price_cents).label("min_price"),
             )
             .join(DBPart, DBPart.id == DBPartListing.part_id)
-            .filter(
+            .where(
                 canonical_id_expr.in_(list(effective_ids)),
                 DBPartListing.last_known_price_cents.isnot(None),
             )
             .group_by(canonical_id_expr)
-            .all()
-        )
+        ).all()
         best_price_cents_dict = {p_id: int(mp) for p_id, mp in min_prices}
 
     def part_read_with_best_price(db_part: DBPart) -> PartRead:
@@ -519,14 +517,12 @@ async def update_part_in_build_list(
 
     db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_part = (
-        db.query(DBBuildListPart)
-        .filter(
+    db_build_list_part = db.scalars(
+        select(DBBuildListPart).where(
             DBBuildListPart.build_list_id == build_list_id,
             DBBuildListPart.part_id == part_id,
         )
-        .first()
-    )
+    ).first()
     if not db_build_list_part:
         ResponsePatterns.raise_not_found("Build list part not found in build list")
 
@@ -567,14 +563,12 @@ async def remove_part_from_build_list(
 
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_part = (
-        db.query(DBBuildListPart)
-        .filter(
+    db_build_list_part = db.scalars(
+        select(DBBuildListPart).where(
             DBBuildListPart.build_list_id == build_list_id,
             DBBuildListPart.part_id == part_id,
         )
-        .first()
-    )
+    ).first()
     if not db_build_list_part:
         ResponsePatterns.raise_not_found("Build list part not found in build list")
 
@@ -606,7 +600,7 @@ async def count_build_lists_containing_part(
 
     _ = get_entity_or_404(db, DBPart, part_id, "part")
 
-    count = db.query(DBBuildListPart.build_list_id).filter(DBBuildListPart.part_id == part_id).distinct().count()
+    count = db.scalar(select(func.count(func.distinct(DBBuildListPart.build_list_id))).where(DBBuildListPart.part_id == part_id)) or 0
 
     logger.info(f"Part {part_id} is contained in {count} build list(s)")
     return {"count": count}

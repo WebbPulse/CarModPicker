@@ -16,6 +16,7 @@ from typing import Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -62,7 +63,7 @@ async def list_schedules(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CrawlerScheduleList:
     _ = current_user
-    rows = db.query(CrawlerSchedule).order_by(CrawlerSchedule.name).all()
+    rows = list(db.scalars(select(CrawlerSchedule).order_by(CrawlerSchedule.name)).all())
     return CrawlerScheduleList(
         items=[CrawlerScheduleRead.model_validate(r) for r in rows],
         presets=CRON_PRESETS,
@@ -86,7 +87,7 @@ async def create_schedule(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CrawlerScheduleRead:
     _ = current_user
-    if db.query(CrawlerSchedule).filter(CrawlerSchedule.name == body.name).first() is not None:
+    if db.scalars(select(CrawlerSchedule).where(CrawlerSchedule.name == body.name)).first() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Schedule '{body.name}' already exists.",
@@ -143,7 +144,7 @@ async def read_schedule(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CrawlerScheduleRead:
     _ = current_user
-    row = db.query(CrawlerSchedule).filter(CrawlerSchedule.id == schedule_id).first()
+    row = db.scalars(select(CrawlerSchedule).where(CrawlerSchedule.id == schedule_id)).first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Schedule {schedule_id} not found")
     return CrawlerScheduleRead.model_validate(row)
@@ -166,7 +167,7 @@ async def update_schedule(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CrawlerScheduleRead:
     _ = current_user
-    row = db.query(CrawlerSchedule).filter(CrawlerSchedule.id == schedule_id).first()
+    row = db.scalars(select(CrawlerSchedule).where(CrawlerSchedule.id == schedule_id)).first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Schedule {schedule_id} not found")
 
@@ -234,7 +235,7 @@ async def delete_schedule(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> None:
     _ = current_user
-    row = db.query(CrawlerSchedule).filter(CrawlerSchedule.id == schedule_id).first()
+    row = db.scalars(select(CrawlerSchedule).where(CrawlerSchedule.id == schedule_id)).first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Schedule {schedule_id} not found")
 
