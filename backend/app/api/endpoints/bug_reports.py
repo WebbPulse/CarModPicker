@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,7 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
 )
 from app.api.utils.endpoint_decorators import standard_responses
+from app.api.utils.response_patterns import ResponsePatterns
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -228,6 +229,9 @@ async def get_bug_report(
     )
 
     if not bug_report:
-        raise HTTPException(status_code=404, detail="Bug report not found")
+        # IN-06: use the centralized error-shape helper instead of raw
+        # ``HTTPException`` so the response follows the same {message,
+        # error_code, details} contract as the rest of the module.
+        ResponsePatterns.raise_not_found("Bug report", bug_report_id)
 
     return bug_report
