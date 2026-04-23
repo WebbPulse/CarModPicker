@@ -149,14 +149,21 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
     # before reading/mutating. Siblings are discovered under the lock to freeze the
     # set against a concurrent link_new_part that might be adding a new sibling.
     # Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
+    #
+    # Phase 4 code-review WR-02: sort lock_ids before WHERE id IN (...) so that
+    # concurrent reelect_canonical / link_new_part calls acquire row locks in a
+    # deterministic (by-id) order. Without this, two transactions locking
+    # overlapping row sets in different orders can deadlock under index-dependent
+    # SQL lock acquisition.
     old_canonical_id = new_canonical.canonical_part_id
-    lock_ids: set[UUID] = {new_canonical.id, old_canonical_id}
+    lock_ids_set: set[UUID] = {new_canonical.id, old_canonical_id}
     sibling_ids = db.scalars(
         select(DBPart.id)
         .where(DBPart.canonical_part_id == old_canonical_id)
         .with_for_update()
     ).all()
-    lock_ids.update(sibling_ids)
+    lock_ids_set.update(sibling_ids)
+    lock_ids = sorted(lock_ids_set)
     db.scalars(
         select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()
     ).all()
@@ -262,7 +269,11 @@ def link_new_part(
     # link_new_part calls serialize on these rows. Re-reads the latest state in
     # case the candidates lookup was stale. Silent no-op on SQLite (Pitfall 1) —
     # concurrency test (test_part_linker_concurrency.py) runs on Postgres.
-    lock_ids = [c.id for c in candidates] + [new_part.id]
+    #
+    # Phase 4 code-review WR-02: sort lock_ids so overlapping link_new_part /
+    # reelect_canonical transactions acquire row locks in the same deterministic
+    # order and cannot deadlock on index-dependent lock acquisition.
+    lock_ids = sorted({c.id for c in candidates} | {new_part.id})
     locked = db.scalars(
         select(DBPart)
         .where(DBPart.id.in_(lock_ids))
