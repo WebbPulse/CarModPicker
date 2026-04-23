@@ -313,7 +313,11 @@ def verify_ownership(
             ).first()
 
             if not entity:
-                detail = not_found_detail or f"{entity_name.title()} not found"
+                # IN-02: ``ResponsePatterns.raise_not_found`` builds its own message
+                # from ``entity_name`` + ``entity_id`` — the ``not_found_detail``
+                # override is intentionally unused here (kept on the decorator
+                # signature for API compatibility with call sites that may pass
+                # it; only ``forbidden_detail`` flows through below).
                 ResponsePatterns.raise_not_found(entity_name, entity_id if isinstance(entity_id, UUID) else None)
 
             if getattr(entity, user_id_field) != current_user.id:
