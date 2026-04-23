@@ -56,7 +56,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 - [ ] **DATA-04**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
 - [x] **DATA-05
 **: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
-- [ ] **DATA-06**: `session.query()` legacy API calls replaced with `select()` + `session.scalars()` across the codebase
+- [x] **DATA-06
+**: `session.query()` legacy API calls replaced with `select()` + `session.scalars()` across the codebase
 - [x] **DATA-07
 **: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
 - [x] **DATA-08

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03
-last_updated: "2026-04-23T04:02:52.627Z"
+stopped_at: Completed 04-04
+last_updated: "2026-04-23T04:43:41.320Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 24
-  completed_plans: 21
-  percent: 88
+  completed_plans: 22
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 04 (db-parts-hardening) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 88%
 | Phase 04-db-parts-hardening P04-01 | 15 | 3 tasks | 11 files |
 | Phase Phase 04-db-parts-hardening PP04-02 | 20 | 3 tasks tasks | 5 files files |
 | Phase 04-db-parts-hardening P04-03 | 5 | 2 tasks | 4 files |
+| Phase 04-db-parts-hardening P04 | 65 | 2 tasks tasks | 55 files files |
 
 ## Accumulated Context
 
@@ -97,6 +98,10 @@ Recent decisions affecting current work:
 - Plan 04-03: read-path only — create_build_log_post (line 221) and update_build_log_post (line 289) single-author fetches NOT touched per plan directive line 417; plan 04-04 sweep owns them
 - Plan 04-03: db.scalar(select(func.count())) returns Optional[int]; coerced with `or 0` to satisfy create_paginated_response non-optional total param — COUNT(*) semantically never returns NULL
 - Plan 04-03: load_only(User.id, User.username, User.image_urls) NOT applied per D-35 Claude's Discretion — matches old N+1 code's full-row fetch; zero OpenAPI drift; future optimization pass can add it
+- Plan 04-04: Helper-function signature migration (common_patterns / common_operations / pagination_utils) — accept Select[Any] at entry, gain db: Session param at terminal points (get_paginated_response / get_total_count / paginate_query). Enables clean Select-end-to-end code paths in callers without double conversion.
+- Plan 04-04: Bulk DML migrated to sql_delete/sql_update + execution_options(synchronize_session=False) for admin /cars/delete-all and /part-manufacturers/delete-all — preserves table-level DELETE/UPDATE semantics without per-row ORM cascade.
+- Plan 04-04: with_entities(Model.id) → Select.with_only_columns(Model.id) for two-query id-then-hydrate pagination pattern in build_lists.py and parts.py. Preserves sort-then-fetch semantics exactly.
+- Plan 04-04: COUNT(*) consistently rewritten to select(func.count()).select_from(Model).where(...) per Pitfall 5; coerced with or 0 to satisfy non-Optional[int] callers (db.scalar returns Optional[int] but COUNT(*) semantically never returns NULL).
 
 ### Pending Todos
 
@@ -117,8 +122,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:02:40.623Z
-Stopped at: Completed 04-03
+Last session: 2026-04-23T04:43:41.316Z
+Stopped at: Completed 04-04
 Resume file: None
 
 **Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z
