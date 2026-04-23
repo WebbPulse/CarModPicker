@@ -3,7 +3,7 @@ Base report router with common patterns to reduce redundancy.
 """
 
 import logging
-from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -95,7 +95,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
         )
         async def get_reports_by_entity(  # pyright: ignore[reportUnusedFunction]
             entity_id: UUID,
-            status: str = Query(None, description="Filter by report status"),
+            status: Optional[str] = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
         ) -> List[ReportModelType]:
             """Get all reports for a specific entity."""
@@ -134,7 +134,7 @@ class BaseReportRouter(Generic[ReportModelType, ReportCreateSchema, ReportReadSc
             },
         )
         async def get_my_reports(  # pyright: ignore[reportUnusedFunction]
-            status: str = Query(None, description="Filter by report status"),
+            status: Optional[str] = Query(None, description="Filter by report status"),
             db: Session = Depends(get_db),
             current_user: DBUser = Depends(get_current_user),
         ) -> List[ReportModelType]:
