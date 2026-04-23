@@ -43,6 +43,8 @@ logger = logging.getLogger(__name__)
 def _notify_completion(db, job_id: UUID) -> None:
     """Send job-report email to superadmins. Best-effort — never raises."""
     try:
+        from sqlalchemy import select
+
         from app.api.models.user import User as DBUser
         from app.core.email import send_job_report_email
         from app.services import job_service
@@ -50,10 +52,13 @@ def _notify_completion(db, job_id: UUID) -> None:
         job = job_service.get_job(db, job_id)
         if job is None:
             return
-        recipients = [
-            row.email
-            for row in db.query(DBUser.email).filter(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)).all()
-        ]
+        recipients = list(
+            db.scalars(
+                select(DBUser.email).where(
+                    DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)
+                )
+            ).all()
+        )
         if recipients:
             sent = send_job_report_email(job, recipients)
             logger.info("Job #%s report sent to %s superadmin(s)", job_id, sent)

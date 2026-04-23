@@ -10,6 +10,7 @@ import logging
 import secrets
 
 import bcrypt
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -33,7 +34,7 @@ def init_crawler_service_account(db: Session) -> None:
     from app.api.models.user import User
 
     username = settings.CRAWLER_SERVICE_ACCOUNT_USERNAME
-    user = db.query(User).filter(User.username == username).first()
+    user = db.scalars(select(User).where(User.username == username)).first()
 
     if user is None:
         user = User(

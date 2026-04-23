@@ -27,6 +27,7 @@ from uuid import UUID
 
 import pybreaker
 import requests
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -105,7 +106,7 @@ def _get_crawler_user(db: Session) -> DBUser:
     Falls back to CRAWLER_USER_ID env var for backwards compatibility with local/CLI usage.
     Raises CrawlerConfigError when neither resolves (API-safe; does not sys.exit).
     """
-    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
     if user:
         return user
 
@@ -116,7 +117,7 @@ def _get_crawler_user(db: Session) -> DBUser:
             user_id = int(raw)
         except ValueError:
             raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
-        user = db.query(DBUser).filter(DBUser.id == user_id).first()
+        user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
         if not user:
             raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
         if user.disabled:
@@ -134,7 +135,7 @@ def resolve_crawler_user(db: Session, user_id_override: Optional[UUID] = None) -
     Resolve crawler user. Uses user_id_override if provided, else CRAWLER_USER_ID env.
     """
     if user_id_override is not None:
-        user = db.query(DBUser).filter(DBUser.id == user_id_override).first()
+        user = db.scalars(select(DBUser).where(DBUser.id == user_id_override)).first()
         if not user:
             raise CrawlerConfigError(f"Crawler user_id={user_id_override}: no user found.")
         if user.disabled:
@@ -148,7 +149,7 @@ def resolve_default_category_id(db: Session, category_id_override: Optional[UUID
     Resolve default category. Uses category_id_override if provided, else env vars.
     """
     if category_id_override is not None:
-        cat = db.query(DBCategory).filter(DBCategory.id == category_id_override).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.id == category_id_override)).first()
         if not cat or not cat.is_active:
             raise CrawlerConfigError(f"Default category_id={category_id_override}: not found or inactive.")
         return cat.id
@@ -167,20 +168,20 @@ def _get_default_category_id(db: Session) -> UUID:
         except ValueError:
             pass
         else:
-            cat = db.query(DBCategory).filter(DBCategory.id == cat_id).first()
+            cat = db.scalars(select(DBCategory).where(DBCategory.id == cat_id)).first()
             if cat and cat.is_active:
                 return cat.id
             logger.warning("CRAWLER_DEFAULT_CATEGORY_ID=%s: category not found or inactive.", raw_id)
 
     name = os.environ.get("CRAWLER_DEFAULT_CATEGORY_NAME", "").strip()
     if name:
-        cat = db.query(DBCategory).filter(DBCategory.name == name, DBCategory.is_active).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.name == name, DBCategory.is_active)).first()
         if cat:
             return cat.id
         logger.warning("CRAWLER_DEFAULT_CATEGORY_NAME=%r: category not found or inactive.", name)
 
     # Fallback: first active category
-    first = db.query(DBCategory).filter(DBCategory.is_active).order_by(DBCategory.sort_order).first()
+    first = db.scalars(select(DBCategory).where(DBCategory.is_active).order_by(DBCategory.sort_order)).first()
     if first:
         logger.info("Using first active category: id=%s name=%s", first.id, first.name)
         return first.id
@@ -459,15 +460,14 @@ def run_crawler(
             statuses_to_skip = ["gone"]
             if skip_known_urls:
                 statuses_to_skip.append("parsed")
-            skip_set = {
-                row.url
-                for row in db.query(DBCrawledPage.url)
-                .filter(
-                    DBCrawledPage.url.in_(canonical_urls),
-                    DBCrawledPage.parse_status.in_(statuses_to_skip),
-                )
-                .all()
-            }
+            skip_set = set(
+                db.scalars(
+                    select(DBCrawledPage.url).where(
+                        DBCrawledPage.url.in_(canonical_urls),
+                        DBCrawledPage.parse_status.in_(statuses_to_skip),
+                    )
+                ).all()
+            )
             if skip_set:
                 before = len(urls)
                 urls = [u for u in urls if canonicalize_url(u) not in skip_set]
@@ -579,7 +579,7 @@ def run_crawler(
                     continue
                 arch_url = canonicalize_url(url)
                 html_utf8, _, html_sha = crawl_html_fingerprint(html)
-                existing = db.query(DBCrawledPage).filter(DBCrawledPage.url == arch_url).first()
+                existing = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == arch_url)).first()
                 storage_key: Optional[str]
                 if existing and existing.html_sha256 == html_sha and (existing.html_s3_key or existing.html_local_path):
                     storage_key = existing.html_s3_key or existing.html_local_path

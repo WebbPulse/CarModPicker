@@ -5,7 +5,7 @@ import os
 from typing import Generator
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -42,14 +42,16 @@ def test_db_session() -> Generator[Session, None, None]:
     for i in range(20):
         make_name = f"Make{i % 5}"
         model_name = f"Model{i}"
-        make_entity = session.query(CarMake).filter(CarMake.name == make_name).first()
+        make_entity = session.scalars(select(CarMake).where(CarMake.name == make_name)).first()
         if make_entity is None:
             make_entity = CarMake(name=make_name)
             session.add(make_entity)
             session.flush()
-        car_model_entity = (
-            session.query(CarModel).filter(CarModel.car_make_id == make_entity.id, CarModel.name == model_name).first()
-        )
+        car_model_entity = session.scalars(
+            select(CarModel).where(
+                CarModel.car_make_id == make_entity.id, CarModel.name == model_name
+            )
+        ).first()
         if car_model_entity is None:
             car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
             session.add(car_model_entity)
@@ -96,38 +98,38 @@ class TestPaginateQuery:
 
     def test_paginate_query_first_page(self, test_db_session: Session) -> None:
         """Test paginating first page of results."""
-        query = test_db_session.query(CarGeneration)
-        results = paginate_query(query, skip=0, limit=10, entity_name="cars")
+        stmt = select(CarGeneration)
+        results = paginate_query(test_db_session, stmt, skip=0, limit=10, entity_name="cars")
 
         assert len(results) == 10
         assert all(isinstance(car, CarGeneration) for car in results)
 
     def test_paginate_query_second_page(self, test_db_session: Session) -> None:
         """Test paginating second page of results."""
-        query = test_db_session.query(CarGeneration)
-        results = paginate_query(query, skip=10, limit=10, entity_name="cars")
+        stmt = select(CarGeneration)
+        results = paginate_query(test_db_session, stmt, skip=10, limit=10, entity_name="cars")
 
         assert len(results) == 10
 
     def test_paginate_query_partial_page(self, test_db_session: Session) -> None:
         """Test paginating partial page at end of results."""
-        query = test_db_session.query(CarGeneration)
-        results = paginate_query(query, skip=15, limit=10, entity_name="cars")
+        stmt = select(CarGeneration)
+        results = paginate_query(test_db_session, stmt, skip=15, limit=10, entity_name="cars")
 
         assert len(results) == 5  # Only 5 remaining
 
     def test_paginate_query_beyond_results(self, test_db_session: Session) -> None:
         """Test paginating beyond available results."""
-        query = test_db_session.query(CarGeneration)
-        results = paginate_query(query, skip=100, limit=10, entity_name="cars")
+        stmt = select(CarGeneration)
+        results = paginate_query(test_db_session, stmt, skip=100, limit=10, entity_name="cars")
 
         assert len(results) == 0
 
     def test_paginate_query_with_logger(self, test_db_session: Session) -> None:
         """Test pagination with logger."""
         logger = logging.getLogger("test")
-        query = test_db_session.query(CarGeneration)
-        results = paginate_query(query, skip=0, limit=5, logger=logger, entity_name="test_cars")
+        stmt = select(CarGeneration)
+        results = paginate_query(test_db_session, stmt, skip=0, limit=5, logger=logger, entity_name="test_cars")
 
         assert len(results) == 5
 
@@ -137,20 +139,20 @@ class TestTotalCount:
 
     def test_get_total_count(self, test_db_session: Session) -> None:
         """Test getting total count of query."""
-        query = test_db_session.query(CarGeneration)
-        total = get_total_count(query)
+        stmt = select(CarGeneration)
+        total = get_total_count(test_db_session, stmt)
 
         assert total == 20
 
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
         """Test getting total count of filtered query (by make via join)."""
-        query = (
-            test_db_session.query(CarGeneration)
+        stmt = (
+            select(CarGeneration)
             .join(CarGeneration.car_model)
             .join(CarModel.car_make)
-            .filter(CarMake.name == "Make1")
+            .where(CarMake.name == "Make1")
         )
-        total = get_total_count(query)
+        total = get_total_count(test_db_session, stmt)
 
         assert total == 4  # 20 total / 5 makes = 4 per make
 
@@ -217,36 +219,36 @@ class TestSearchFilter:
 
     def test_apply_search_filter_with_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns results (CarGeneration column: generation_name)."""
-        query = test_db_session.query(CarGeneration)
-        filtered_query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
+        stmt = select(CarGeneration)
+        filtered_stmt = apply_search_filter(stmt, search="Gen1", search_fields=["generation_name"])
 
-        results = filtered_query.all()
+        results = list(test_db_session.scalars(filtered_stmt).all())
         # Should find Gen1, Gen10-19 (11 total)
         assert len(results) >= 1
         assert all("Gen1" in car.generation_name for car in results)
 
     def test_apply_search_filter_no_search_term(self, test_db_session: Session) -> None:
         """Test applying search filter with no search term."""
-        query = test_db_session.query(CarGeneration)
-        filtered_query = apply_search_filter(query, search=None, search_fields=["generation_name"])
+        stmt = select(CarGeneration)
+        filtered_stmt = apply_search_filter(stmt, search=None, search_fields=["generation_name"])
 
-        results = filtered_query.all()
+        results = list(test_db_session.scalars(filtered_stmt).all())
         assert len(results) == 20  # Should return all results
 
     def test_apply_search_filter_no_results(self, test_db_session: Session) -> None:
         """Test applying search filter that returns no results."""
-        query = test_db_session.query(CarGeneration)
-        filtered_query = apply_search_filter(query, search="NonExistentGen", search_fields=["generation_name"])
+        stmt = select(CarGeneration)
+        filtered_stmt = apply_search_filter(stmt, search="NonExistentGen", search_fields=["generation_name"])
 
-        results = filtered_query.all()
+        results = list(test_db_session.scalars(filtered_stmt).all())
         assert len(results) == 0
 
     def test_apply_search_filter_multiple_fields(self, test_db_session: Session) -> None:
         """Test applying search filter across multiple fields (CarGeneration columns only)."""
-        query = test_db_session.query(CarGeneration)
-        filtered_query = apply_search_filter(query, search="Gen", search_fields=["generation_name"])
+        stmt = select(CarGeneration)
+        filtered_stmt = apply_search_filter(stmt, search="Gen", search_fields=["generation_name"])
 
-        results = filtered_query.all()
+        results = list(test_db_session.scalars(filtered_stmt).all())
         assert len(results) == 20  # All have generation_name containing "Gen"
 
 
@@ -255,50 +257,50 @@ class TestSorting:
 
     def test_apply_sorting_ascending(self, test_db_session: Session) -> None:
         """Test applying ascending sort."""
-        query = test_db_session.query(CarGeneration)
-        sorted_query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
+        stmt = select(CarGeneration)
+        sorted_stmt = apply_sorting(stmt, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
-        results = sorted_query.all()
+        results = list(test_db_session.scalars(sorted_stmt).all())
         years = [car.start_year for car in results]
         assert years == sorted(years)
 
     def test_apply_sorting_descending(self, test_db_session: Session) -> None:
         """Test applying descending sort."""
-        query = test_db_session.query(CarGeneration)
-        sorted_query = apply_sorting(query, sort_by="start_year", sort_order="desc", allowed_sort_fields=["start_year"])
+        stmt = select(CarGeneration)
+        sorted_stmt = apply_sorting(stmt, sort_by="start_year", sort_order="desc", allowed_sort_fields=["start_year"])
 
-        results = sorted_query.all()
+        results = list(test_db_session.scalars(sorted_stmt).all())
         years = [car.start_year for car in results]
         assert years == sorted(years, reverse=True)
 
     def test_apply_sorting_no_sort_field(self, test_db_session: Session) -> None:
         """Test applying sort with no sort field."""
-        query = test_db_session.query(CarGeneration)
-        sorted_query = apply_sorting(query, sort_by=None, sort_order="asc")
+        stmt = select(CarGeneration)
+        sorted_stmt = apply_sorting(stmt, sort_by=None, sort_order="asc")
 
-        results = sorted_query.all()
+        results = list(test_db_session.scalars(sorted_stmt).all())
         assert len(results) == 20
 
     def test_apply_sorting_invalid_field(self, test_db_session: Session) -> None:
         """Test applying sort with invalid field."""
-        query = test_db_session.query(CarGeneration)
-        sorted_query = apply_sorting(
-            query,
+        stmt = select(CarGeneration)
+        sorted_stmt = apply_sorting(
+            stmt,
             sort_by="invalid_field",
             sort_order="asc",
             allowed_sort_fields=["start_year"],
         )
 
         # Should return unsorted results
-        results = sorted_query.all()
+        results = list(test_db_session.scalars(sorted_stmt).all())
         assert len(results) == 20
 
     def test_apply_sorting_without_allowed_fields(self, test_db_session: Session) -> None:
         """Test applying sort without allowed fields restriction (use CarGeneration column)."""
-        query = test_db_session.query(CarGeneration)
-        sorted_query = apply_sorting(query, sort_by="generation_name", sort_order="asc")
+        stmt = select(CarGeneration)
+        sorted_stmt = apply_sorting(stmt, sort_by="generation_name", sort_order="asc")
 
-        results = sorted_query.all()
+        results = list(test_db_session.scalars(sorted_stmt).all())
         names = [car.generation_name for car in results]
         assert names == sorted(names)
 
@@ -308,13 +310,13 @@ class TestIntegration:
 
     def test_full_pagination_workflow(self, test_db_session: Session) -> None:
         """Test complete pagination workflow (search on CarGeneration column: generation_name)."""
-        query = test_db_session.query(CarGeneration)
+        stmt = select(CarGeneration)
 
-        query = apply_search_filter(query, search="Gen1", search_fields=["generation_name"])
-        query = apply_sorting(query, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
+        stmt = apply_search_filter(stmt, search="Gen1", search_fields=["generation_name"])
+        stmt = apply_sorting(stmt, sort_by="start_year", sort_order="asc", allowed_sort_fields=["start_year"])
 
-        total = get_total_count(query)
-        results = paginate_query(query, skip=0, limit=2, entity_name="cars")
+        total = get_total_count(test_db_session, stmt)
+        results = paginate_query(test_db_session, stmt, skip=0, limit=2, entity_name="cars")
         response = create_paginated_response(data=results, total=total, skip=0, limit=2, entity_name="cars")
 
         assert len(response["data"]) <= 2

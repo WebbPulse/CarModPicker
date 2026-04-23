@@ -12,6 +12,8 @@ import re
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.core.car_generations_data import CAR_GENERATIONS
 
 if TYPE_CHECKING:
@@ -2720,22 +2722,23 @@ def resolve_car_triples_to_ids(
     ids: list[UUID] = []
     seen_ids: set[UUID] = set()
     for car_make_name, car_model_name, gen_name in triples:
-        car_make = db.query(CarMake).filter(CarMake.name == car_make_name).first()
+        car_make = db.scalars(select(CarMake).where(CarMake.name == car_make_name)).first()
         if not car_make:
             continue
-        car_model = (
-            db.query(CarModel).filter(CarModel.car_make_id == car_make.id, CarModel.name == car_model_name).first()
-        )
+        car_model = db.scalars(
+            select(CarModel).where(
+                CarModel.car_make_id == car_make.id,
+                CarModel.name == car_model_name,
+            )
+        ).first()
         if not car_model:
             continue
-        car_generation = (
-            db.query(CarGeneration)
-            .filter(
+        car_generation = db.scalars(
+            select(CarGeneration).where(
                 CarGeneration.car_model_id == car_model.id,
                 CarGeneration.generation_name == gen_name,
             )
-            .first()
-        )
+        ).first()
         if car_generation and car_generation.id not in seen_ids:
             seen_ids.add(car_generation.id)
             ids.append(car_generation.id)

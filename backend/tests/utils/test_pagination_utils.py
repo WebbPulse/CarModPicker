@@ -1,6 +1,6 @@
 """Tests for pagination utility functions."""
 
-from sqlalchemy.orm import Query
+from sqlalchemy import select
 
 from app.api.models.build_list import BuildList
 from app.api.utils.pagination_utils import (
@@ -40,8 +40,8 @@ class TestPaginationUtils:
             db_session.add(build_list)
         db_session.commit()
 
-        query = db_session.query(BuildList)
-        result = paginate_query(query, skip=1, limit=2)
+        stmt = select(BuildList)
+        result = paginate_query(db_session, stmt, skip=1, limit=2)
 
         assert len(result) == 2
 
@@ -69,8 +69,8 @@ class TestPaginationUtils:
             db_session.add(build_list)
         db_session.commit()
 
-        query = db_session.query(BuildList).filter(BuildList.user_id == user.id)
-        count = get_total_count(query)
+        stmt = select(BuildList).where(BuildList.user_id == user.id)
+        count = get_total_count(db_session, stmt)
 
         assert count >= 3
 
@@ -115,10 +115,10 @@ class TestPaginationUtils:
         db_session.add_all([build_list1, build_list2])
         db_session.commit()
 
-        query = db_session.query(BuildList).filter(BuildList.user_id == user.id)
-        filtered_query = apply_search_filter(query, search="Test", search_fields=["name"])
+        stmt = select(BuildList).where(BuildList.user_id == user.id)
+        filtered_stmt = apply_search_filter(stmt, search="Test", search_fields=["name"])
 
-        results = filtered_query.all()
+        results = list(db_session.scalars(filtered_stmt).all())
         assert len(results) >= 1
         assert any("Test" in bl.name for bl in results)
 
@@ -150,10 +150,10 @@ class TestPaginationUtils:
         db_session.add_all([build_list1, build_list2])
         db_session.commit()
 
-        query = db_session.query(BuildList).filter(BuildList.user_id == user.id)
-        sorted_query = apply_sorting(query, sort_by="name", sort_order="asc", allowed_sort_fields=["name"])
+        stmt = select(BuildList).where(BuildList.user_id == user.id)
+        sorted_stmt = apply_sorting(stmt, sort_by="name", sort_order="asc", allowed_sort_fields=["name"])
 
-        results = sorted_query.all()
+        results = list(db_session.scalars(sorted_stmt).all())
         assert len(results) >= 2
         # Results should be sorted by name ascending
         names = [bl.name for bl in results]
