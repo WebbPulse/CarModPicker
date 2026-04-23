@@ -23,7 +23,8 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import func, select, update as sql_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
@@ -111,8 +112,8 @@ async def _heartbeat_loop(job_id: UUID, interval: float = _HEARTBEAT_INTERVAL_SE
 
 def _get_superadmin_emails(db: Session) -> List[str]:
     """Return email addresses of all active superusers for job notification."""
-    users = db.query(DBUser.email).filter(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)).all()
-    return [row.email for row in users]
+    users = db.scalars(select(DBUser.email).where(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False))).all()
+    return list(users)
 
 
 def _notify_job_completion(job_id: UUID) -> None:
@@ -199,10 +200,10 @@ async def get_admin_table_counts(
     """
     _ = current_user
 
-    vote_rows = db.query(DBVote.entity_type, func.count(DBVote.id)).group_by(DBVote.entity_type).all()
+    vote_rows = db.execute(select(DBVote.entity_type, func.count(DBVote.id)).group_by(DBVote.entity_type)).all()
     votes_by_entity_type = {str(row[0]): int(row[1]) for row in vote_rows}
 
-    report_rows = db.query(DBReport.entity_type, func.count(DBReport.id)).group_by(DBReport.entity_type).all()
+    report_rows = db.execute(select(DBReport.entity_type, func.count(DBReport.id)).group_by(DBReport.entity_type)).all()
     reports_by_entity_type = {str(row[0]): int(row[1]) for row in report_rows}
 
     return {
@@ -509,17 +510,24 @@ async def delete_all_cars(
     db = SessionLocal()
     try:
         # Unlink build lists from cars so we can delete cars (FK has no ON DELETE)
-        db.query(DBBuildList).filter(DBBuildList.car_id.isnot(None)).update(
-            {DBBuildList.car_id: None}, synchronize_session=False
+        db.execute(
+            sql_update(DBBuildList)
+            .where(DBBuildList.car_id.isnot(None))
+            .values(car_id=None)
+            .execution_options(synchronize_session=False)
         )
         # Remove votes that reference cars
-        db.query(DBVote).filter(DBVote.entity_type == "car_generation").delete(synchronize_session=False)
-        count = db.query(DBCar).count()
-        db.query(DBCar).delete(synchronize_session=False)
-        car_models_count = db.query(DBCarModel).count()
-        db.query(DBCarModel).delete(synchronize_session=False)
-        makes_count = db.query(DBMake).count()
-        db.query(DBMake).delete(synchronize_session=False)
+        db.execute(
+            sql_delete(DBVote)
+            .where(DBVote.entity_type == "car_generation")
+            .execution_options(synchronize_session=False)
+        )
+        count = db.scalar(select(func.count()).select_from(DBCar)) or 0
+        db.execute(sql_delete(DBCar).execution_options(synchronize_session=False))
+        car_models_count = db.scalar(select(func.count()).select_from(DBCarModel)) or 0
+        db.execute(sql_delete(DBCarModel).execution_options(synchronize_session=False))
+        makes_count = db.scalar(select(func.count()).select_from(DBMake)) or 0
+        db.execute(sql_delete(DBMake).execution_options(synchronize_session=False))
         db.commit()
         logger.info(
             "Admin %s deleted all cars: %s cars, %s car models, %s makes",
@@ -847,7 +855,7 @@ async def run_crawlers_endpoint(
 
     # Validate crawler user and category upfront so we return 400 instead of 200 + silent failure
     if body.crawler_user_id is not None:
-        crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+        crawler_user = db.scalars(select(DBUser).where(DBUser.id == body.crawler_user_id)).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -860,7 +868,7 @@ async def run_crawlers_endpoint(
             )
     else:
         # Ensure service account exists before kicking off the job
-        crawler_user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+        crawler_user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -881,7 +889,7 @@ async def run_crawlers_endpoint(
     parallel: bool = body.parallel
 
     if body.schedule_id is not None:
-        sched = db.query(DBCrawlerSchedule).filter(DBCrawlerSchedule.id == body.schedule_id).first()
+        sched = db.scalars(select(DBCrawlerSchedule).where(DBCrawlerSchedule.id == body.schedule_id)).first()
         if not sched:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -893,7 +901,7 @@ async def run_crawlers_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Schedule '{sched.name}' has no adapters.",
             )
-        configs = db.query(DBCrawlerAdapterConfig).filter(DBCrawlerAdapterConfig.adapter_name.in_(member_names)).all()
+        configs = list(db.scalars(select(DBCrawlerAdapterConfig).where(DBCrawlerAdapterConfig.adapter_name.in_(member_names))).all())
         configs_by_name = {c.adapter_name: c for c in configs}
         missing = [n for n in member_names if n not in configs_by_name]
         if missing:
@@ -937,7 +945,7 @@ async def run_crawlers_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="crawler_default_category_id is required when schedule_id is not set.",
             )
-        cat = db.query(DBCategory).filter(DBCategory.id == body.crawler_default_category_id).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.id == body.crawler_default_category_id)).first()
         if not cat or not cat.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1229,7 +1237,7 @@ async def rescrape_all_archived_crawled_pages(
     acting_user_id: Optional[UUID] = None if is_scheduled else (current_user.id if current_user else None)
 
     if body.crawler_user_id is not None:
-        crawler_user = db.query(DBUser).filter(DBUser.id == body.crawler_user_id).first()
+        crawler_user = db.scalars(select(DBUser).where(DBUser.id == body.crawler_user_id)).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1241,13 +1249,13 @@ async def rescrape_all_archived_crawled_pages(
                 detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
             )
     else:
-        crawler_user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+        crawler_user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No crawler service account found. Restart the app to create it.",
             )
-    cat = db.query(DBCategory).filter(DBCategory.id == body.default_category_id).first()
+    cat = db.scalars(select(DBCategory).where(DBCategory.id == body.default_category_id)).first()
     if not cat or not cat.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1348,7 +1356,7 @@ async def get_crawler_service_account(
     This account is created on startup and is used as the default author for all
     crawler-created parts when no explicit user ID is provided.
     """
-    user = db.query(DBUser).filter(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False)).first()
+    user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1494,20 +1502,19 @@ async def get_crawler_job_progress(
     }
 
     if selected and job.started_at is not None:
-        rows = (
-            db.query(
+        rows = db.execute(
+            select(
                 DBCrawledPage.source,
                 func.count(DBCrawledPage.id),
                 func.max(DBCrawledPage.last_parsed_at),
             )
-            .filter(
+            .where(
                 DBCrawledPage.source.in_(selected),
                 DBCrawledPage.last_parsed_at.isnot(None),
                 DBCrawledPage.last_parsed_at >= job.started_at,
             )
             .group_by(DBCrawledPage.source)
-            .all()
-        )
+        ).all()
         for source, count, last_at in rows:
             adapters[source] = CrawlerAdapterProgress(
                 parsed_this_run=count,
@@ -1607,7 +1614,7 @@ async def delete_all_parts(
     """
     db = SessionLocal()
     try:
-        parts = db.query(DBPart).all()
+        parts = list(db.scalars(select(DBPart)).all())
         count = len(parts)
         for part in parts:
             db.delete(part)
@@ -1710,12 +1717,11 @@ class RescanResponse(BaseModel):
 
 
 def _first_listing_for(db: Session, part_id: UUID) -> Optional[DBPartListing]:
-    return (
-        db.query(DBPartListing)
-        .filter(DBPartListing.part_id == part_id)
+    return db.scalars(
+        select(DBPartListing)
+        .where(DBPartListing.part_id == part_id)
         .order_by(DBPartListing.created_at.asc())
-        .first()
-    )
+    ).first()
 
 
 def _link_group_member(db: Session, part: DBPart, canonical_id: UUID) -> CanonicalLinkGroupMember:
@@ -1754,13 +1760,12 @@ async def lookup_parts_by_product_url(
     if not normalized:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL is required")
 
-    listings = (
-        db.query(DBPartListing)
+    listings = list(db.scalars(
+        select(DBPartListing)
         .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .filter(DBPartListing.product_url == normalized)
+        .where(DBPartListing.product_url == normalized)
         .order_by(DBPart.source.asc(), DBPart.created_at.asc())
-        .all()
-    )
+    ).all())
 
     matches: List[UrlLookupMatch] = []
     for listing in listings:
@@ -1799,7 +1804,7 @@ async def get_part_link_group(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Part not found")
     canonical_id = root.canonical_part_id or root.id
     member_ids = link_group_part_ids(db, part_id)
-    parts = db.query(DBPart).filter(DBPart.id.in_(member_ids)).all()
+    parts = list(db.scalars(select(DBPart).where(DBPart.id.in_(member_ids))).all())
     # Canonical first, then siblings by richness desc, created_at asc.
     from app.api.services.part_linker_service import score_metadata_richness
 
@@ -1940,8 +1945,13 @@ async def rescan_parts_for_canonical_linking(
     offset = 0
     batch_size = body.batch_size
     while True:
-        batch = (
-            db.query(DBPart).order_by(DBPart.created_at.asc(), DBPart.id.asc()).offset(offset).limit(batch_size).all()
+        batch = list(
+            db.scalars(
+                select(DBPart)
+                .order_by(DBPart.created_at.asc(), DBPart.id.asc())
+                .offset(offset)
+                .limit(batch_size)
+            ).all()
         )
         if not batch:
             break
@@ -2036,10 +2046,13 @@ async def delete_all_part_manufacturers(
     """
     try:
         # Nullify part_manufacturer_id on all global parts so we can delete part_manufacturers
-        db.query(DBPart).filter(DBPart.part_manufacturer_id.isnot(None)).update(
-            {DBPart.part_manufacturer_id: None}, synchronize_session=False
+        db.execute(
+            sql_update(DBPart)
+            .where(DBPart.part_manufacturer_id.isnot(None))
+            .values(part_manufacturer_id=None)
+            .execution_options(synchronize_session=False)
         )
-        part_manufacturers = db.query(DBPartManufacturer).all()
+        part_manufacturers = list(db.scalars(select(DBPartManufacturer)).all())
         count = len(part_manufacturers)
         for part_manufacturer in part_manufacturers:
             db.delete(part_manufacturer)

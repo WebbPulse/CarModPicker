@@ -21,6 +21,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -97,7 +98,7 @@ async def login_for_access_token(
     If 2FA is enabled, returns requires_2fa: true and user must call /token/2fa to complete login.
     Returns Bearer token in response body for standard OAuth2 flow.
     """
-    user = db.query(DBUser).filter(DBUser.username == form_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         logger.warning(f"Failed login attempt for username: {form_data.username}")
         ResponsePatterns.raise_unauthorized("Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
@@ -137,7 +138,7 @@ async def login_with_2fa(
     Complete login with 2FA OTP code.
     User must have called /token first to verify username/password.
     """
-    user = db.query(DBUser).filter(DBUser.username == request.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == request.username)).first()
     if not user:
         logger.warning(f"2FA login attempt for non-existent user: {request.username}")
         ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
@@ -187,7 +188,7 @@ async def verify_email(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """Send verification email to user."""
-    user = db.query(DBUser).filter(DBUser.email == email).first()
+    user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
     if not user:
         logger.warning(f"Email verification requested for non-existent email: {email}")
         ResponsePatterns.raise_not_found("User")
@@ -234,7 +235,7 @@ async def verify_email_confirm(
                 status_code=302,
             )
 
-        user = db.query(DBUser).filter(DBUser.email == email).first()
+        user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
         if not user:
             logger.warning(f"Email verification attempted for non-existent user: {email}")
             return RedirectResponse(
@@ -277,7 +278,7 @@ async def reset_password(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """Send password reset email to user."""
-    user = db.query(DBUser).filter(DBUser.email == email).first()
+    user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
     if not user:
         logger.warning(f"Password reset requested for non-existent email: {email}")
         # Don't reveal if email exists or not for security
@@ -315,7 +316,7 @@ async def reset_password_confirm(
             logger.warning("Invalid password reset token")
             ResponsePatterns.raise_bad_request("Invalid or expired reset token")
 
-        user = db.query(DBUser).filter(DBUser.email == email).first()
+        user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
         if not user:
             logger.warning(f"Password reset attempted for non-existent user: {email}")
             ResponsePatterns.raise_not_found("User")
@@ -533,7 +534,7 @@ async def webauthn_register_options(
         ResponsePatterns.raise_bad_request("Nickname cannot be empty")
 
     challenge = secrets.token_bytes(32)
-    existing = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == current_user.id).all()
+    existing = list(db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.user_id == current_user.id)).all())
     exclude = [PublicKeyCredentialDescriptor(id=cred.credential_id) for cred in existing]
 
     options = generate_registration_options(
@@ -585,7 +586,7 @@ async def webauthn_register_verify(
         logger.warning(f"WebAuthn registration verify failed for {current_user.username}: {e}")
         ResponsePatterns.raise_bad_request(f"Registration failed: {e}")
 
-    if db.query(WebAuthnCredential).filter(WebAuthnCredential.credential_id == verified.credential_id).first():
+    if db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == verified.credential_id)).first():
         ResponsePatterns.raise_conflict("This credential is already registered", "CREDENTIAL_EXISTS")
 
     transports = None
@@ -623,9 +624,9 @@ async def webauthn_login_options(
 
     allow_credentials: list[PublicKeyCredentialDescriptor] = []
     if request.username:
-        user = db.query(DBUser).filter(DBUser.username == request.username).first()
+        user = db.scalars(select(DBUser).where(DBUser.username == request.username)).first()
         if user:
-            creds = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == user.id).all()
+            creds = list(db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id)).all())
             allow_credentials = [PublicKeyCredentialDescriptor(id=c.credential_id) for c in creds]
 
     options = generate_authentication_options(
@@ -662,12 +663,12 @@ async def webauthn_login_verify(
     except (ValueError, binascii.Error):
         ResponsePatterns.raise_bad_request("Invalid credential id")
 
-    cred = db.query(WebAuthnCredential).filter(WebAuthnCredential.credential_id == credential_id_bytes).first()
+    cred = db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == credential_id_bytes)).first()
     if not cred:
         logger.warning("WebAuthn login: credential not recognized")
         ResponsePatterns.raise_unauthorized("Unknown credential")
 
-    user = db.query(DBUser).filter(DBUser.id == cred.user_id).first()
+    user = db.scalars(select(DBUser).where(DBUser.id == cred.user_id)).first()
     if not user:
         logger.error(f"WebAuthn credential {cred.id} has no matching user")
         ResponsePatterns.raise_unauthorized("Unknown credential")
@@ -714,12 +715,11 @@ async def list_webauthn_credentials(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WebAuthnCredentialSummary]:
-    creds = (
-        db.query(WebAuthnCredential)
-        .filter(WebAuthnCredential.user_id == current_user.id)
+    creds = list(db.scalars(
+        select(WebAuthnCredential)
+        .where(WebAuthnCredential.user_id == current_user.id)
         .order_by(WebAuthnCredential.created_at.desc())
-        .all()
-    )
+    ).all())
     return [WebAuthnCredentialSummary.model_validate(c) for c in creds]
 
 
@@ -733,11 +733,10 @@ async def rename_webauthn_credential(
     nickname = request.nickname.strip()
     if not nickname:
         ResponsePatterns.raise_bad_request("Nickname cannot be empty")
-    cred = (
-        db.query(WebAuthnCredential)
-        .filter(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
-        .first()
-    )
+    cred = db.scalars(
+        select(WebAuthnCredential)
+        .where(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
+    ).first()
     if not cred:
         ResponsePatterns.raise_not_found("Passkey")
     cred.nickname = nickname
@@ -752,11 +751,10 @@ async def delete_webauthn_credential(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
-    cred = (
-        db.query(WebAuthnCredential)
-        .filter(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
-        .first()
-    )
+    cred = db.scalars(
+        select(WebAuthnCredential)
+        .where(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
+    ).first()
     if not cred:
         ResponsePatterns.raise_not_found("Passkey")
     db.delete(cred)
@@ -802,7 +800,7 @@ def _suggest_username(email: str, db: Session) -> str:
     base = "".join(ch for ch in local if ch.isalnum() or ch in ("_", "-", ".")) or "user"
     candidate = base
     suffix = 1
-    while db.query(DBUser).filter(DBUser.username == candidate).first() is not None:
+    while db.scalars(select(DBUser).where(DBUser.username == candidate)).first() is not None:
         suffix += 1
         candidate = f"{base}{suffix}"
         if suffix > 100:
@@ -848,16 +846,14 @@ async def google_sign_in(
     _ensure_google_enabled()
     identity = _verify_google_or_400(request.id_token, request.nonce, logger)
 
-    existing_link = (
-        db.query(OAuthAccount)
-        .filter(
+    existing_link = db.scalars(
+        select(OAuthAccount).where(
             OAuthAccount.provider == GOOGLE_PROVIDER,
             OAuthAccount.provider_account_id == identity.sub,
         )
-        .first()
-    )
+    ).first()
     if existing_link is not None:
-        user = db.query(DBUser).filter(DBUser.id == existing_link.user_id).first()
+        user = db.scalars(select(DBUser).where(DBUser.id == existing_link.user_id)).first()
         if user is None:
             logger.error(f"OAuth link {existing_link.id} points to missing user {existing_link.user_id}")
             ResponsePatterns.raise_unauthorized("Account not available")
@@ -872,7 +868,7 @@ async def google_sign_in(
         logger.info(f"Google sign-in: existing link, logging in user {user.username}")
         return _issue_login_response(user)
 
-    email_match = db.query(DBUser).filter(DBUser.email == identity.email).first()
+    email_match = db.scalars(select(DBUser).where(DBUser.email == identity.email)).first()
     if email_match is not None:
         if email_match.disabled or email_match.is_service_account:
             ResponsePatterns.raise_bad_request("Account not available")
@@ -937,7 +933,7 @@ async def google_link(
     if not google_sub or not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
 
-    user = db.query(DBUser).filter(DBUser.email == email).first()
+    user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
     if user is None or user.disabled or user.is_service_account:
         ResponsePatterns.raise_unauthorized("Account not available")
     assert user is not None  # for type checker
@@ -961,15 +957,19 @@ async def google_link(
 
     # Race-safety: another concurrent link could have inserted the row. Check both
     # constraints we'll hit and return clear errors instead of a 500 IntegrityError.
-    if (
-        db.query(OAuthAccount)
-        .filter(OAuthAccount.provider == GOOGLE_PROVIDER, OAuthAccount.provider_account_id == google_sub)
-        .first()
-    ) is not None:
+    if db.scalars(
+        select(OAuthAccount).where(
+            OAuthAccount.provider == GOOGLE_PROVIDER,
+            OAuthAccount.provider_account_id == google_sub,
+        )
+    ).first() is not None:
         ResponsePatterns.raise_conflict("This Google account is already linked", "OAUTH_ALREADY_LINKED")
-    if (
-        db.query(OAuthAccount).filter(OAuthAccount.user_id == user.id, OAuthAccount.provider == GOOGLE_PROVIDER).first()
-    ) is not None:
+    if db.scalars(
+        select(OAuthAccount).where(
+            OAuthAccount.user_id == user.id,
+            OAuthAccount.provider == GOOGLE_PROVIDER,
+        )
+    ).first() is not None:
         ResponsePatterns.raise_conflict("Account already has Google linked", "OAUTH_ACCOUNT_EXISTS")
 
     link = OAuthAccount(
@@ -1003,17 +1003,18 @@ async def google_signup(
     if not username:
         ResponsePatterns.raise_bad_request("Username cannot be empty")
 
-    if db.query(DBUser).filter(DBUser.username == username).first() is not None:
+    if db.scalars(select(DBUser).where(DBUser.username == username)).first() is not None:
         ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
-    if db.query(DBUser).filter(DBUser.email == email).first() is not None:
+    if db.scalars(select(DBUser).where(DBUser.email == email)).first() is not None:
         # Race: someone else (or another tab) signed up with this email between the initial
         # call and this one. Force them through the merge flow instead.
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-    if (
-        db.query(OAuthAccount)
-        .filter(OAuthAccount.provider == GOOGLE_PROVIDER, OAuthAccount.provider_account_id == google_sub)
-        .first()
-    ) is not None:
+    if db.scalars(
+        select(OAuthAccount).where(
+            OAuthAccount.provider == GOOGLE_PROVIDER,
+            OAuthAccount.provider_account_id == google_sub,
+        )
+    ).first() is not None:
         ResponsePatterns.raise_conflict("This Google account is already linked", "OAUTH_ALREADY_LINKED")
 
     user = DBUser(
@@ -1054,7 +1055,7 @@ async def oauth_two_factor(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token") from e
 
-    user = db.query(DBUser).filter(DBUser.id == user_uuid).first()
+    user = db.scalars(select(DBUser).where(DBUser.id == user_uuid)).first()
     if user is None or user.disabled or user.is_service_account:
         ResponsePatterns.raise_unauthorized("Account not available")
     assert user is not None
@@ -1087,14 +1088,12 @@ async def google_connect(
     _ensure_google_enabled()
     identity = _verify_google_or_400(request.id_token, request.nonce, logger)
 
-    existing_link = (
-        db.query(OAuthAccount)
-        .filter(
+    existing_link = db.scalars(
+        select(OAuthAccount).where(
             OAuthAccount.provider == GOOGLE_PROVIDER,
             OAuthAccount.provider_account_id == identity.sub,
         )
-        .first()
-    )
+    ).first()
     if existing_link is not None:
         if existing_link.user_id == current_user.id:
             ResponsePatterns.raise_conflict("Google is already linked to this account", "OAUTH_ACCOUNT_EXISTS")
@@ -1102,14 +1101,15 @@ async def google_connect(
             "This Google account is linked to a different user", "OAUTH_LINKED_TO_OTHER_USER"
         )
 
-    if (
-        db.query(OAuthAccount)
-        .filter(OAuthAccount.user_id == current_user.id, OAuthAccount.provider == GOOGLE_PROVIDER)
-        .first()
-    ) is not None:
+    if db.scalars(
+        select(OAuthAccount).where(
+            OAuthAccount.user_id == current_user.id,
+            OAuthAccount.provider == GOOGLE_PROVIDER,
+        )
+    ).first() is not None:
         ResponsePatterns.raise_conflict("Google is already linked to this account", "OAUTH_ACCOUNT_EXISTS")
 
-    email_match = db.query(DBUser).filter(DBUser.email == identity.email).first()
+    email_match = db.scalars(select(DBUser).where(DBUser.email == identity.email)).first()
     if email_match is not None and email_match.id != current_user.id:
         ResponsePatterns.raise_conflict(
             "Another account already uses this Google email — sign out and use 'Sign in with Google' to merge.",
@@ -1134,12 +1134,11 @@ async def list_oauth_accounts(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[OAuthAccountRead]:
-    rows = (
-        db.query(OAuthAccount)
-        .filter(OAuthAccount.user_id == current_user.id)
+    rows = list(db.scalars(
+        select(OAuthAccount)
+        .where(OAuthAccount.user_id == current_user.id)
         .order_by(OAuthAccount.created_at.desc())
-        .all()
-    )
+    ).all())
     return [OAuthAccountRead.model_validate(r) for r in rows]
 
 
@@ -1154,16 +1153,21 @@ async def delete_oauth_account(
     Refuses if removing it would leave the user with no way to sign in: no password set,
     no other linked OAuth accounts, and no passkeys.
     """
-    link = db.query(OAuthAccount).filter(OAuthAccount.id == account_id, OAuthAccount.user_id == current_user.id).first()
+    link = db.scalars(select(OAuthAccount).where(OAuthAccount.id == account_id, OAuthAccount.user_id == current_user.id)).first()
     if link is None:
         ResponsePatterns.raise_not_found("OAuth account")
     assert link is not None
 
     if not current_user.hashed_password:
-        other_oauth = (
-            db.query(OAuthAccount).filter(OAuthAccount.user_id == current_user.id, OAuthAccount.id != link.id).first()
-        )
-        passkey = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == current_user.id).first()
+        other_oauth = db.scalars(
+            select(OAuthAccount).where(
+                OAuthAccount.user_id == current_user.id,
+                OAuthAccount.id != link.id,
+            )
+        ).first()
+        passkey = db.scalars(
+            select(WebAuthnCredential).where(WebAuthnCredential.user_id == current_user.id)
+        ).first()
         if other_oauth is None and passkey is None:
             ResponsePatterns.raise_bad_request(
                 "Set a password or register a passkey before removing your only sign-in method"
