@@ -278,6 +278,19 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # Get the original build list
         original_build_list = verify_entity_exists(db, DBBuildList, build_list_id, "build list")
 
+        # IN-02: enforce the free-tier cap on the copy path too. `create` already
+        # checks this for direct creates, but `copy_build_list` previously bypassed
+        # it — a free user at the 1-list cap could keep pressing "copy" and grow
+        # their own list count unbounded. The admin kill switch still makes
+        # is_user_premium return True for everyone when enabled.
+        if not is_user_premium(current_user, db):
+            count = self.count_by_user(db, current_user.id, logger=logger)
+            if count >= 1:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
+                )
+
         # Generate the new name
         if new_name is None:
             new_name = f"Copy of {original_build_list.name}"
