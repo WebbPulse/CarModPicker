@@ -7,6 +7,8 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
@@ -98,23 +100,33 @@ async def get_build_log_by_build_list(
     # Validate pagination parameters
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Get total count of posts
-    total_posts = db.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).count()
+    # Get total count of posts (modern select() form per DATA-06 sweep; Pitfall 5:
+    # select(func.count()).select_from(X) preserves COUNT(*) semantics).
+    # `db.scalar` returns Optional[int]; COUNT(*) is never NULL in practice (returns 0
+    # when no rows match), so coerce to int to satisfy create_paginated_response's
+    # non-optional `total` param.
+    total_posts = db.scalar(
+        select(func.count())
+        .select_from(DBBuildLogPost)
+        .where(DBBuildLogPost.build_log_id == build_log.id)
+    ) or 0
 
-    # Load paginated posts with author information
-    posts_query = (
-        db.query(DBBuildLogPost)
-        .filter(DBBuildLogPost.build_log_id == build_log.id)
+    # DATA-01: Load paginated posts + eager-load authors via selectinload.
+    # selectinload emits exactly 1 additional IN-clause SELECT for authors
+    # regardless of post count — fixes the old 1+N query pattern.
+    posts = db.scalars(
+        select(DBBuildLogPost)
+        .where(DBBuildLogPost.build_log_id == build_log.id)
         .order_by(DBBuildLogPost.created_at)
+        .options(selectinload(DBBuildLogPost.author))
         .offset(skip)
         .limit(limit)
-    )
-    posts = posts_query.all()
+    ).all()
 
     # Create response with author usernames and profile pictures
     posts_with_authors: List[BuildLogPostRead] = []
     for post in posts:
-        author = db.query(DBUser).filter(DBUser.id == post.user_id).first()
+        author = post.author  # eager-loaded via selectinload; zero additional queries
         post_data = BuildLogPostRead.model_validate(post)
         post_data.author_username = author.username if author else None
         # Convert file key to presigned URL for profile picture
