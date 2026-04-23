@@ -1385,13 +1385,14 @@ export const appSettingsApi = {
 };
 
 export const adminApi = {
-  runMigrations: () => apiClient.post<MigrationResult>('/admin/migrations/run'),
+  runMigrations: () =>
+    apiClient.post<MigrationResult>('/admin/db-ops/migrations/run'),
   getCurrentRevision: () =>
-    apiClient.get<CurrentRevisionResult>('/admin/migrations/current'),
+    apiClient.get<CurrentRevisionResult>('/admin/db-ops/migrations/current'),
   initCarGenerations: () =>
-    apiClient.post<InitDataResult>('/admin/init/car-generations'),
+    apiClient.post<InitDataResult>('/admin/db-ops/init/car-generations'),
   initPartCategories: () =>
-    apiClient.post<InitDataResult>('/admin/init/part-categories'),
+    apiClient.post<InitDataResult>('/admin/db-ops/init/part-categories'),
 
   // Crawlers
   getCrawlers: () =>
@@ -1400,14 +1401,14 @@ export const adminApi = {
       adapter_info: { name: string; tier: 'http' | 'tls' | 'browser' }[];
     }>('/admin/crawlers'),
   getCrawlerServiceAccount: () =>
-    apiClient.get<CrawlerServiceAccount>('/admin/service-accounts/crawler'),
+    apiClient.get<CrawlerServiceAccount>('/admin/crawlers/service-account'),
   runCrawlers: (body: CrawlerRunRequest) =>
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
 
   /** Re-parse all archived HTML into parts (background job; admin only). */
   rescrapeArchives: (body: RescrapeArchivesRequest) =>
     apiClient.post<RescrapeArchivesQueuedResponse>(
-      '/admin/crawled-pages/rescrape-archives',
+      '/admin/crawlers/rescrape-archives',
       body
     ),
 
@@ -1423,7 +1424,7 @@ export const adminApi = {
 
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllParts: () =>
-    apiClient.post<{ deleted_count: number }>('/admin/parts/delete-all'),
+    apiClient.post<{ deleted_count: number }>('/admin/db-ops/parts/delete-all'),
 
   /** Delete all cars / car generations (admin only). Also deletes car models and makes for a clean init. */
   deleteAllCars: () =>
@@ -1431,12 +1432,12 @@ export const adminApi = {
       deleted_count: number;
       deleted_car_models_count: number;
       deleted_makes_count: number;
-    }>('/admin/cars/delete-all'),
+    }>('/admin/db-ops/cars/delete-all'),
 
   /** Delete all part_manufacturers (admin only). Nullifies part_manufacturer on parts first, then deletes all part_manufacturers. */
   deleteAllPartManufacturers: () =>
     apiClient.post<{ deleted_count: number }>(
-      '/admin/part-manufacturers/delete-all'
+      '/admin/db-ops/part-manufacturers/delete-all'
     ),
 
   /** Supplemental table counts and polymorphic vote/report breakdown (admin only). */
