@@ -140,6 +140,24 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
     Safe to call whether ``new_canonical`` is currently canonical or a sibling —
     at minimum it clears ``canonical_part_id`` and repoints any existing siblings.
     """
+    # IN-03: lock subject row FIRST, then re-read canonical_part_id under the lock
+    # before taking the early-return branch. The previous ordering read
+    # canonical_part_id off the passed-in ORM object (possibly stale) and returned
+    # early without any lock, so a concurrent link_new_part that was mid-flight
+    # setting new_canonical.canonical_part_id could leave this call with a
+    # "return value is canonical" contract violation. Under the subject-row lock
+    # the re-read is consistent with anything about to mutate it.
+    # Silent no-op on SQLite (Pitfall 1); concurrency guarantees hold on Postgres.
+    locked_subject = db.scalars(
+        select(DBPart).where(DBPart.id == new_canonical.id).with_for_update()
+    ).one_or_none()
+    if locked_subject is None:
+        # Row vanished (delete race). Fall back to returning the passed-in object;
+        # callers treat this as an already-canonical no-op.
+        return new_canonical
+    # Rebind to the freshly-locked row so subsequent mutations see consistent state.
+    new_canonical = locked_subject
+
     if new_canonical.canonical_part_id is None:
         # Already canonical; nothing to do unless callers want to repoint other
         # groups into this one, which they should do via link_new_part.
