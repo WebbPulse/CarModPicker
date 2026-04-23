@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-04-23T02:14:30.188Z"
-last_activity: 2026-04-22
+status: executing
+stopped_at: Completed 04-01
+last_updated: "2026-04-23T03:40:59.651Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
-  percent: 100
+  total_plans: 24
+  completed_plans: 19
+  percent: 79
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** A single, coherent place to discover, price, and plan car modifications across fragmented retailer and enthusiast sources.
-**Current focus:** Phase 03 — non-breaking-internal-improvements
+**Current focus:** Phase 04 — db-parts-hardening
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-22
+Phase: 04 (db-parts-hardening) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-04-23
 
-Progress: [██████████] 100%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 01-safety-nets-ci-hardening P04 | 35 | 3 tasks | 4 files |
 | Phase 01-safety-nets-ci-hardening P07 | 55 | 3 tasks | 16 files |
 | Phase 01-safety-nets-ci-hardening P08 | 1 | 1 tasks | 1 files |
+| Phase 04-db-parts-hardening P04-01 | 15 | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - SAFE-07: D-21 corrected — crawl archives in carmodpicker-local-crawl (local) and carmodpicker-production-crawl-data (prod), not carmodpicker-prod-user-images
 - SAFE-10: No ignore block in dependabot.yml — majors auto-raised individually per Dependabot default (RESEARCH Pitfall 6)
 - SAFE-10: Single npm entry with directories: [/frontend, /chrome-extension] — schema v2 multi-dir, not two separate entries
+- Plan 04-01: FK audit scope grew from 9 confirmed FKs to 13 during systematic sweep (added BuildLogPost.user_id, BugReport.assigned_to, BuildListPhase.build_list_id, CrawlerAdapterConfig.default_category_id)
+- Plan 04-01: Discarded non-index autogenerate output (4 ops: categories UNIQUE rename + 3 FK convention-name re-adds) per D-13/Pitfall 10 — forward-only historic-name deferrals
+- Plan 04-01: pool_recycle=1800 literal committed; pool_size=25 + max_overflow=75 + API_CONNECTION_RESERVE=20 preserved per Phase 3 D-14 crawler formula coupling
 
 ### Pending Todos
 
@@ -103,8 +107,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 4 context gathered
-Resume file: --resume-file
+Last session: 2026-04-23T03:40:59.647Z
+Stopped at: Completed 04-01
+Resume file: None
 
-**Planned Phase:** 01 (safety-nets-ci-hardening) — 8 plans — 2026-04-22T07:35:02.979Z
+**Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z

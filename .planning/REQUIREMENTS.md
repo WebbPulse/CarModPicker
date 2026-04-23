@@ -52,9 +52,11 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 - [ ] **DATA-02**: A query-count regression test asserts the N+1 fix stays fixed
 - [ ] **DATA-03**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
 - [ ] **DATA-04**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
-- [ ] **DATA-05**: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
+- [x] **DATA-05
+**: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
 - [ ] **DATA-06**: `session.query()` legacy API calls replaced with `select()` + `session.scalars()` across the codebase
-- [ ] **DATA-07**: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
+- [x] **DATA-07
+**: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
 - [ ] **DATA-08**: Build-log creation moved from lazy (auto-create mid-request in `build_logs.py:87-98`) to eager (created alongside the parent build list); inconsistent-state branch eliminated
 - [ ] **DATA-09**: Alembic migration workflow documented in CONVENTIONS.md to require downgrade testing against a Postgres Docker instance before merge
 - [ ] **DATA-10**: `lazy="raise"` applied to relationships known to trigger silent N+1s; every refactor-phase test run is green under that constraint
