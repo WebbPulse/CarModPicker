@@ -31,7 +31,7 @@ API_CONNECTION_RESERVE = 20
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Enable connection health checks
-    pool_recycle=3600,  # Recycle connections after 1 hour
+    pool_recycle=1800,  # Recycle connections after 30 minutes (Phase 4 D-20 — tightens RDS staleness)
     pool_size=DB_POOL_SIZE,
     max_overflow=DB_MAX_OVERFLOW,
 )
