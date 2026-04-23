@@ -4,6 +4,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generator, Optional
+from urllib.parse import urlparse, urlunparse
 from uuid import UUID
 
 import pytest
@@ -136,6 +137,72 @@ def query_counter(engine: Engine):
             event.remove(engine, "before_cursor_execute", _before)
 
     return _ctx
+
+
+def _postgres_url_for_worker() -> Optional[str]:
+    """DATA-04 D-02: derive a per-worker Postgres URL from POSTGRES_TEST_URL.
+
+    pytest-xdist sets PYTEST_XDIST_WORKER=gw0, gw1, ... We suffix the database
+    name so that workers do not collide (Pitfall 8). Returns None when
+    POSTGRES_TEST_URL is unset — fixture will pytest.skip().
+    """
+    base = os.environ.get("POSTGRES_TEST_URL")
+    if not base:
+        return None
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    parsed = urlparse(base)
+    new_path = f"{parsed.path.rstrip('/')}_{worker}"
+    return urlunparse(parsed._replace(path=new_path))
+
+
+@pytest.fixture(scope="session")
+def postgres_engine():
+    """Session-scoped Postgres engine for @pytest.mark.postgres tests.
+
+    CONTRACT (WARN 8): Tests using this fixture MUST filter their queries by a
+    per-test unique key (e.g., ``shared_gtin = f"G{worker}{uuid.uuid4().hex[:12]}"``)
+    and MUST NOT scan full tables. Cross-test data pollution is NOT cleaned up
+    between tests within the session-scoped engine; isolation comes from the
+    per-test unique key.
+
+    Skips cleanly when POSTGRES_TEST_URL is unset — matches the default
+    local-dev contract of SQLite-only tests.
+    """
+    url = _postgres_url_for_worker()
+    if not url:
+        pytest.skip("POSTGRES_TEST_URL not set; skipping postgres-backed tests")
+    from app.db.base import Base
+
+    eng = create_engine(url, pool_pre_ping=True)
+    Base.metadata.create_all(bind=eng)
+    yield eng
+    Base.metadata.drop_all(bind=eng)
+    eng.dispose()
+
+
+@pytest.fixture
+def postgres_session(postgres_engine):
+    """Function-scoped Postgres session with BEGIN + ROLLBACK per test (WARN 8 alternative).
+
+    Use when your test cannot structure its seed around a per-test unique key.
+    Slower but fully isolated across tests.
+
+    WARNING: Transaction-rollback isolation defeats pessimistic-lock semantics —
+    the concurrency tests (test_part_linker_concurrency.py) MUST use
+    ``postgres_engine`` directly with per-worker/per-test unique keys, NOT this
+    fixture. ROLLBACK would undo the very lock acquisition this plan is
+    validating.
+    """
+    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
+    conn = postgres_engine.connect()
+    trans = conn.begin()
+    session = SessionLocal(bind=conn)
+    try:
+        yield session
+    finally:
+        session.close()
+        trans.rollback()
+        conn.close()
 
 
 @pytest.fixture
