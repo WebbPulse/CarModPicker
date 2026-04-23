@@ -7,7 +7,7 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, desc, func
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.protocols import BaseModel, HasModelDump, ReportModel
@@ -82,17 +82,15 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
         )
 
         # Check if user has already reported this entity
-        existing_report = (
-            db.query(self.report_model)
-            .filter(
+        existing_report = db.scalars(
+            select(self.report_model).where(
                 and_(
                     getattr(self.report_model, "user_id") == user_id,
                     getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "pending",
                 )
             )
-            .first()
-        )
+        ).first()
 
         if existing_report:
             raise HTTPException(
@@ -144,12 +142,16 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
             entity_name=self.entity_name,
         )
 
-        query = db.query(self.report_model).filter(getattr(self.report_model, self.report_entity_id_field) == entity_id)
+        stmt = select(self.report_model).where(
+            getattr(self.report_model, self.report_entity_id_field) == entity_id
+        )
 
         if status:
-            query = query.filter(getattr(self.report_model, "status") == status)
+            stmt = stmt.where(getattr(self.report_model, "status") == status)
 
-        reports = query.order_by(desc(getattr(self.report_model, "created_at"))).all()
+        reports = list(
+            db.scalars(stmt.order_by(desc(getattr(self.report_model, "created_at")))).all()
+        )
 
         logger.info(f"Retrieved {len(reports)} reports for {self.entity_name} {entity_id}")
         return reports
@@ -180,7 +182,9 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
         Raises:
             HTTPException: If report not found or status update fails
         """
-        report = db.query(self.report_model).filter(getattr(self.report_model, "id") == report_id).first()
+        report = db.scalars(
+            select(self.report_model).where(getattr(self.report_model, "id") == report_id)
+        ).first()
 
         if not report:
             raise HTTPException(
@@ -218,13 +222,14 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
         Returns:
             List of pending reports
         """
-        reports = (
-            db.query(self.report_model)
-            .filter(getattr(self.report_model, "status") == "pending")
-            .order_by(desc(getattr(self.report_model, "created_at")))
-            .offset(skip)
-            .limit(limit)
-            .all()
+        reports = list(
+            db.scalars(
+                select(self.report_model)
+                .where(getattr(self.report_model, "status") == "pending")
+                .order_by(desc(getattr(self.report_model, "created_at")))
+                .offset(skip)
+                .limit(limit)
+            ).all()
         )
 
         logger.info(f"Retrieved {len(reports)} pending reports")
@@ -259,38 +264,38 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
         )
 
         # Get report counts by status - Protocol ensures id and status attributes exist
-        pending_reports = (
-            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
-            .filter(
+        pending_reports = db.scalar(
+            select(func.count())
+            .select_from(self.report_model)
+            .where(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "pending",
                 )
             )
-            .scalar()
-        )
+        ) or 0
 
-        resolved_reports = (
-            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
-            .filter(
+        resolved_reports = db.scalar(
+            select(func.count())
+            .select_from(self.report_model)
+            .where(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "resolved",
                 )
             )
-            .scalar()
-        )
+        ) or 0
 
-        dismissed_reports = (
-            db.query(func.count(self.report_model.id))  # type: ignore[arg-type]
-            .filter(
+        dismissed_reports = db.scalar(
+            select(func.count())
+            .select_from(self.report_model)
+            .where(
                 and_(
                     getattr(self.report_model, self.report_entity_id_field) == entity_id,
                     getattr(self.report_model, "status") == "dismissed",
                 )
             )
-            .scalar()
-        )
+        ) or 0
 
         total_reports = pending_reports + resolved_reports + dismissed_reports
 
@@ -326,12 +331,14 @@ class BaseReportService(Generic[ReportModelType, ReportCreateSchema, ReportReadS
         Returns:
             List of reports created by the user
         """
-        query = db.query(self.report_model).filter(getattr(self.report_model, "user_id") == user_id)
+        stmt = select(self.report_model).where(getattr(self.report_model, "user_id") == user_id)
 
         if status:
-            query = query.filter(getattr(self.report_model, "status") == status)
+            stmt = stmt.where(getattr(self.report_model, "status") == status)
 
-        reports = query.order_by(desc(getattr(self.report_model, "created_at"))).all()
+        reports = list(
+            db.scalars(stmt.order_by(desc(getattr(self.report_model, "created_at")))).all()
+        )
 
         logger.info(f"Retrieved {len(reports)} reports by user {user_id}")
         return reports

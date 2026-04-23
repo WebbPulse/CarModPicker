@@ -22,6 +22,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.part import Part as DBPart
@@ -123,7 +124,9 @@ def find_canonical_candidates(
 
 def _point_siblings_at(db: Session, old_canonical_id: UUID, new_canonical_id: UUID) -> int:
     """Repoint every part currently linked to ``old_canonical_id`` onto ``new_canonical_id``."""
-    rows = db.query(DBPart).filter(DBPart.canonical_part_id == old_canonical_id).all()
+    rows = list(
+        db.scalars(select(DBPart).where(DBPart.canonical_part_id == old_canonical_id)).all()
+    )
     for row in rows:
         row.canonical_part_id = new_canonical_id
         db.add(row)
@@ -277,5 +280,7 @@ def link_group_part_ids(db: Session, part_id: UUID) -> list[UUID]:
     if part is None:
         return [part_id]
     canonical_id = part.canonical_part_id or part.id
-    sibling_ids = [row[0] for row in db.query(DBPart.id).filter(DBPart.canonical_part_id == canonical_id).all()]
+    sibling_ids = list(
+        db.scalars(select(DBPart.id).where(DBPart.canonical_part_id == canonical_id)).all()
+    )
     return [canonical_id, *sibling_ids]

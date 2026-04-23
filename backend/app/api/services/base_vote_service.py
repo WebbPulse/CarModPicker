@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.api.protocols import BaseModel, HasModelDump, VoteModel
@@ -82,16 +82,14 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         )
 
         # Check if user has already voted on this entity
-        existing_vote = (
-            db.query(self.vote_model)
-            .filter(
+        existing_vote = db.scalars(
+            select(self.vote_model).where(
                 and_(
                     getattr(self.vote_model, "user_id") == user_id,
                     getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                 )
             )
-            .first()
-        )
+        ).first()
 
         if existing_vote:
             # Update existing vote - Protocol ensures vote_type attribute exists
@@ -147,16 +145,14 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         )
 
         # Find and delete the vote
-        existing_vote = (
-            db.query(self.vote_model)
-            .filter(
+        existing_vote = db.scalars(
+            select(self.vote_model).where(
                 and_(
                     getattr(self.vote_model, "user_id") == user_id,
                     getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                 )
             )
-            .first()
-        )
+        ).first()
 
         if existing_vote:
             db.delete(existing_vote)
@@ -196,27 +192,27 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         )
 
         # Get vote counts - Protocol ensures id and vote_type attributes exist
-        upvotes = (
-            db.query(func.count(self.vote_model.id))  # type: ignore[arg-type]
-            .filter(
+        upvotes = db.scalar(
+            select(func.count())
+            .select_from(self.vote_model)
+            .where(
                 and_(
                     getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                     self.vote_model.vote_type == "upvote",  # type: ignore[arg-type]
                 )
             )
-            .scalar()
-        )
+        ) or 0
 
-        downvotes = (
-            db.query(func.count(self.vote_model.id))  # type: ignore[arg-type]
-            .filter(
+        downvotes = db.scalar(
+            select(func.count())
+            .select_from(self.vote_model)
+            .where(
                 and_(
                     getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                     self.vote_model.vote_type == "downvote",  # type: ignore[arg-type]
                 )
             )
-            .scalar()
-        )
+        ) or 0
 
         total_votes = upvotes + downvotes
         score = upvotes - downvotes
@@ -252,16 +248,14 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         Returns:
             The user's vote or None if no vote exists
         """
-        vote = (
-            db.query(self.vote_model)
-            .filter(
+        vote = db.scalars(
+            select(self.vote_model).where(
                 and_(
                     getattr(self.vote_model, "user_id") == user_id,
                     getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
                 )
             )
-            .first()
-        )
+        ).first()
 
         if vote:
             # VoteModelType is bound to HasVoteType which has vote_type attribute

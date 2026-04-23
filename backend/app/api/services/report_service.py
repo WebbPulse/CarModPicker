@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -74,16 +74,14 @@ class ReportService:
             )
 
         # Check if user has already reported this entity with a pending report
-        existing_report = (
-            db.query(DBReport)
-            .filter(
+        existing_report = db.scalars(
+            select(DBReport).where(
                 DBReport.user_id == user_id,
                 DBReport.entity_type == entity_type.value,
                 DBReport.entity_id == entity_id,
                 DBReport.status == "pending",
             )
-            .first()
-        )
+        ).first()
 
         if existing_report:
             raise HTTPException(status_code=400, detail="You have already reported this entity")
@@ -126,15 +124,17 @@ class ReportService:
         Returns:
             List of reports
         """
-        query = db.query(DBReport)
+        stmt = select(DBReport)
 
         if entity_type:
-            query = query.filter(DBReport.entity_type == entity_type.value)
+            stmt = stmt.where(DBReport.entity_type == entity_type.value)
 
         if status:
-            query = query.filter(DBReport.status == status)
+            stmt = stmt.where(DBReport.status == status)
 
-        reports = query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
+        reports = db.scalars(
+            stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
+        ).all()
 
         return [ReportRead.model_validate(report) for report in reports]
 
@@ -161,30 +161,36 @@ class ReportService:
         Returns:
             Tuple of (list of reports with details, total count)
         """
-        query = db.query(
+        base_stmt = select(
             DBReport,
             DBUser.username.label("reporter_username"),
             DBUser.id.label("reporter_id"),
         ).join(DBUser, DBReport.user_id == DBUser.id)
 
         if entity_type:
-            query = query.filter(DBReport.entity_type == entity_type.value)
+            base_stmt = base_stmt.where(DBReport.entity_type == entity_type.value)
 
         if status:
-            query = query.filter(DBReport.status == status)
+            base_stmt = base_stmt.where(DBReport.status == status)
 
         # Get total count before pagination
-        total_count = query.count()
+        total_count = db.scalar(
+            select(func.count()).select_from(base_stmt.subquery())
+        ) or 0
 
         # Get entity details based on type
         entity_details: List[ReportWithDetails] = []
-        for report, reporter_username, _ in query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all():
+        for report, reporter_username, _ in db.execute(
+            base_stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
+        ).all():
             entity = self._get_entity_details(db, report.entity_type, report.entity_id)
 
             # Get reviewer username if reviewed
             reviewer_username = None
             if report.reviewed_by:
-                reviewer = db.query(DBUser).filter(DBUser.id == report.reviewed_by).first()
+                reviewer = db.scalars(
+                    select(DBUser).where(DBUser.id == report.reviewed_by)
+                ).first()
                 reviewer_username = reviewer.username if reviewer else None
 
             entity_details.append(
@@ -236,7 +242,7 @@ class ReportService:
         Raises:
             HTTPException: If report doesn't exist
         """
-        report = db.query(DBReport).filter(DBReport.id == report_id).first()
+        report = db.scalars(select(DBReport).where(DBReport.id == report_id)).first()
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
 
@@ -271,7 +277,7 @@ class ReportService:
         Raises:
             HTTPException: If report doesn't exist
         """
-        report = db.query(DBReport).filter(DBReport.id == report_id).first()
+        report = db.scalars(select(DBReport).where(DBReport.id == report_id)).first()
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
 
@@ -304,12 +310,14 @@ class ReportService:
         Returns:
             List of reports created by the user
         """
-        query = db.query(DBReport).filter(DBReport.user_id == user_id)
+        stmt = select(DBReport).where(DBReport.user_id == user_id)
 
         if status:
-            query = query.filter(DBReport.status == status)
+            stmt = stmt.where(DBReport.status == status)
 
-        reports = query.order_by(desc(DBReport.created_at)).offset(skip).limit(limit).all()
+        reports = db.scalars(
+            stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
+        ).all()
 
         if logger:
             logger.info(f"Retrieved {len(reports)} reports by user {user_id}")
@@ -338,17 +346,15 @@ class ReportService:
             Report with details if found and authorized, None otherwise
         """
         # Query the report with user details
-        query = (
-            db.query(
+        result = db.execute(
+            select(
                 DBReport,
                 DBUser.username.label("reporter_username"),
                 DBUser.id.label("reporter_id"),
             )
             .join(DBUser, DBReport.user_id == DBUser.id)
-            .filter(DBReport.id == report_id)
-        )
-
-        result = query.first()
+            .where(DBReport.id == report_id)
+        ).first()
 
         if not result:
             return None
@@ -365,7 +371,9 @@ class ReportService:
         # Get reviewer username if reviewed
         reviewer_username = None
         if report.reviewed_by:
-            reviewer = db.query(DBUser).filter(DBUser.id == report.reviewed_by).first()
+            reviewer = db.scalars(
+                select(DBUser).where(DBUser.id == report.reviewed_by)
+            ).first()
             reviewer_username = reviewer.username if reviewer else None
 
         return ReportWithDetails(
@@ -399,12 +407,12 @@ class ReportService:
     def _get_entity_details(self, db: Session, entity_type: str, entity_id: UUID) -> Dict[str, Any]:
         """Get entity details for report display."""
         if entity_type == "build_list":
-            entity = db.query(DBBuildList).filter(DBBuildList.id == entity_id).first()
-            if entity:
-                return {"name": entity.name, "description": entity.description}
+            bl = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+            if bl:
+                return {"name": bl.name, "description": bl.description}
         elif entity_type == "part":
-            entity = db.query(DBPart).filter(DBPart.id == entity_id).first()
-            if entity:
-                return {"name": entity.name, "description": entity.description}
+            part = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
+            if part:
+                return {"name": part.name, "description": part.description}
 
         return {"name": f"Unknown {entity_type}", "description": None}

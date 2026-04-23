@@ -5,6 +5,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.models.user import User as DBUser
@@ -99,7 +100,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None:
         raise credentials_exception
     if user.disabled:
@@ -131,7 +132,7 @@ async def get_optional_current_user(
     except JWTError:
         return None
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None or user.disabled or not user.email_verified:
         return None
 
@@ -159,7 +160,7 @@ async def get_current_active_user_optional(
     except JWTError:  # Covers expired, invalid signature, etc.
         return None  # Token is invalid or expired
 
-    user = db.query(DBUser).filter(DBUser.username == token_data.username).first()
+    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
     if user is None:
         return None  # User from token not found in DB
 

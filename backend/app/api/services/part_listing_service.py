@@ -13,7 +13,7 @@ from typing import Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -40,14 +40,16 @@ def get_or_create_retailer(
             domain_alt = domain_normalized[4:]
         else:
             domain_alt = "www." + domain_normalized
-        retailer = (
-            db.query(DBRetailer)
-            .filter(or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt))
-            .first()
-        )
+        retailer = db.scalars(
+            select(DBRetailer).where(
+                or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt)
+            )
+        ).first()
         if retailer:
             return retailer
-    retailer = db.query(DBRetailer).filter(DBRetailer.name.ilike(name.strip())).first()
+    retailer = db.scalars(
+        select(DBRetailer).where(DBRetailer.name.ilike(name.strip()))
+    ).first()
     if retailer:
         if domain and not retailer.domain:
             retailer.domain = domain.strip().lower()
@@ -71,7 +73,9 @@ def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[
     if not name or not name.strip():
         return None
     name_normalized = name.strip()
-    part_manufacturer = db.query(DBPartManufacturer).filter(DBPartManufacturer.name.ilike(name_normalized)).first()
+    part_manufacturer = db.scalars(
+        select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))
+    ).first()
     if part_manufacturer:
         return part_manufacturer
     # SAVEPOINT-scoped insert: parallel rescrape workers can race here and both
@@ -85,7 +89,9 @@ def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[
             db.flush()
         return part_manufacturer
     except IntegrityError:
-        existing = db.query(DBPartManufacturer).filter(DBPartManufacturer.name.ilike(name_normalized)).first()
+        existing = db.scalars(
+            select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))
+        ).first()
         if existing is not None:
             return existing
         raise
@@ -148,16 +154,16 @@ def find_part_by_product_url(
     normalized = _normalize_url(product_url)
     if not normalized:
         return None
-    query = (
-        db.query(DBPartListing)
+    stmt = (
+        select(DBPartListing)
         .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .filter(DBPartListing.product_url == normalized)
+        .where(DBPartListing.product_url == normalized)
     )
     if not include_ugc:
-        query = query.filter(DBPart.source != "user_created")
+        stmt = stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
-        query = query.filter(DBPart.user_id == creator_id)
-    listing = query.first()
+        stmt = stmt.where(DBPart.user_id == creator_id)
+    listing = db.scalars(stmt).first()
     if listing:
         return listing.part
     return None
@@ -186,16 +192,16 @@ def find_part_by_part_manufacturer_and_part_number(
     if not normalized:
         return None
     exact = part_number.strip()
-    query = db.query(DBPart).filter(
+    stmt = select(DBPart).where(
         DBPart.part_manufacturer_id == part_manufacturer_id,
         or_(DBPart.part_number == normalized, DBPart.part_number == exact),
         DBPart.canonical_part_id.is_(None),
     )
     if not include_ugc:
-        query = query.filter(DBPart.source != "user_created")
+        stmt = stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
-        query = query.filter(DBPart.user_id == creator_id)
-    candidates = query.all()
+        stmt = stmt.where(DBPart.user_id == creator_id)
+    candidates = db.scalars(stmt).all()
     for c in candidates:
         if normalize_part_number(c.part_number) == normalized:
             return c
@@ -231,26 +237,26 @@ def find_part_by_gtin(
     normalized = normalize_gtin(gtin)
     if not normalized:
         return None
-    exact_query = db.query(DBPart).filter(
+    exact_stmt = select(DBPart).where(
         DBPart.gtin == normalized,
         DBPart.canonical_part_id.is_(None),
     )
     if not include_ugc:
-        exact_query = exact_query.filter(DBPart.source != "user_created")
+        exact_stmt = exact_stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
-        exact_query = exact_query.filter(DBPart.user_id == creator_id)
-    part = exact_query.first()
+        exact_stmt = exact_stmt.where(DBPart.user_id == creator_id)
+    part = db.scalars(exact_stmt).first()
     if part:
         return part
-    fuzzy_query = db.query(DBPart).filter(
+    fuzzy_stmt = select(DBPart).where(
         DBPart.gtin.isnot(None),
         DBPart.canonical_part_id.is_(None),
     )
     if not include_ugc:
-        fuzzy_query = fuzzy_query.filter(DBPart.source != "user_created")
+        fuzzy_stmt = fuzzy_stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
-        fuzzy_query = fuzzy_query.filter(DBPart.user_id == creator_id)
-    for c in fuzzy_query.all():
+        fuzzy_stmt = fuzzy_stmt.where(DBPart.user_id == creator_id)
+    for c in db.scalars(fuzzy_stmt).all():
         if c.gtin and normalize_gtin(c.gtin) == normalized:
             return c
     return None
@@ -316,25 +322,21 @@ def create_or_update_listing_and_price(
     If price_cents is provided, append PartPriceHistory and update listing's last_known_price_cents/last_price_updated_at.
     Returns the PartListing.
     """
-    listing = (
-        db.query(DBPartListing)
-        .filter(
+    listing = db.scalars(
+        select(DBPartListing).where(
             DBPartListing.part_id == part_id,
             DBPartListing.retailer_id == retailer_id,
         )
-        .first()
-    )
+    ).first()
     if not listing and product_url:
         normalized_url = _normalize_url(product_url)
         if normalized_url:
-            listing = (
-                db.query(DBPartListing)
-                .filter(
+            listing = db.scalars(
+                select(DBPartListing).where(
                     DBPartListing.part_id == part_id,
                     DBPartListing.product_url == normalized_url,
                 )
-                .first()
-            )
+            ).first()
     if not listing:
         listing = DBPartListing(
             part_id=part_id,
@@ -356,14 +358,12 @@ def create_or_update_listing_and_price(
         target_date = ts.date()
 
         # Max one price record per listing per calendar day (UTC); upsert if same day
-        existing = (
-            db.query(DBPartPriceHistory)
-            .filter(
+        existing = db.scalars(
+            select(DBPartPriceHistory).where(
                 DBPartPriceHistory.part_listing_id == listing.id,
                 func.date(DBPartPriceHistory.observed_at) == target_date,
             )
-            .first()
-        )
+        ).first()
         if existing:
             existing.price_cents = price_cents
             existing.observed_at = ts
@@ -386,16 +386,15 @@ def create_or_update_listing_and_price(
 
 def get_best_listing_for_part(db: Session, part_id: UUID) -> Optional[DBPartListing]:
     """Return the PartListing with the lowest current price for this part."""
-    return (
-        db.query(DBPartListing)
-        .filter(
+    return db.scalars(
+        select(DBPartListing)
+        .where(
             DBPartListing.part_id == part_id,
             DBPartListing.last_known_price_cents.isnot(None),
             DBPartListing.last_known_price_cents >= 0,
         )
         .order_by(DBPartListing.last_known_price_cents.asc())
-        .first()
-    )
+    ).first()
 
 
 def domain_from_url(url: str) -> Optional[str]:

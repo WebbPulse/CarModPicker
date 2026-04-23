@@ -7,6 +7,7 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.user import User as DBUser
@@ -320,7 +321,11 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             raise AttributeError(f"Model {self.model.__name__} does not have a user_id attribute")
 
         # Use getattr for dynamic attribute access
-        count = db.query(self.model).filter(getattr(self.model, "user_id") == user_id).count()
+        count = db.scalar(
+            select(func.count())
+            .select_from(self.model)
+            .where(getattr(self.model, "user_id") == user_id)
+        ) or 0
 
         if logger:
             logger.info(f"Counted {count} {self.entity_name}s for user {user_id}")
@@ -340,7 +345,9 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             True if entity exists, False otherwise
         """
         # Use getattr for dynamic attribute access
-        exists = db.query(self.model).filter(getattr(self.model, "id") == entity_id).first() is not None
+        exists = db.scalars(
+            select(self.model).where(getattr(self.model, "id") == entity_id)
+        ).first() is not None
 
         if logger:
             logger.info(f"Entity {self.entity_name} {entity_id} exists: {exists}")
@@ -373,14 +380,14 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
         Raises:
             HTTPException: If entity not found or access denied
         """
-        # Build query with relations
-        query = db.query(self.model)
+        # Build select with relations
+        stmt = select(self.model)
         for relation in relations:
             if hasattr(self.model, relation):
-                query = query.options(joinedload(getattr(self.model, relation)))
+                stmt = stmt.options(joinedload(getattr(self.model, relation)))
 
         # Get entity - use getattr for dynamic attribute access
-        entity = query.filter(getattr(self.model, "id") == entity_id).first()
+        entity = db.scalars(stmt.where(getattr(self.model, "id") == entity_id)).first()
         if not entity:
             raise HTTPException(status_code=404, detail=f"{self.entity_name.title()} not found")
 
