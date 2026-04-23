@@ -189,6 +189,21 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
 ]
 
 
+# Negative-vector map: when a negative vector's input produces OTHER (allowed) matches
+# under current behavior, we only assert a specific triple does NOT appear, rather than
+# requiring the full result to be empty. Key: (name, desc). Value: forbidden triple.
+#
+# The 19 negative vectors not listed here must produce an EMPTY inference result.
+NEGATIVE_FORBIDDEN_TUPLES: dict[
+    tuple[str, Optional[str]], tuple[str, str, str]
+] = {
+    # Bilstein EVO T1 — the "T1" token legitimately matches GM trucks. The ambiguity
+    # we're pinning is that EVO standalone does NOT fire Huracán EVO, not that the
+    # whole inference must be empty.
+    ("Bilstein EVO T1 Coilover System", None): ("Lamborghini", "Huracán", "EVO"),
+}
+
+
 @pytest.mark.parametrize(
     "name,desc,expected,rationale",
     AMBIGUITY_VECTORS,
@@ -199,16 +214,29 @@ def test_ambiguity_resolution_pins_current_behavior(
     expected: Optional[tuple[str, str, str]],
     rationale: str,
 ) -> None:
-    """pins current behavior — see module docstring for non-correctness caveat."""
+    """pins current behavior — see module docstring for non-correctness caveat.
+
+    Vector semantics:
+    - `expected` is a tuple → that triple must appear in the result (other matches allowed).
+    - `expected` is None and the vector is in NEGATIVE_EXPECTING_EMPTY → result must be empty.
+    - `expected` is None and the vector is in NEGATIVE_FORBIDDEN_TUPLES → the mapped tuple
+      must NOT appear in the result (other matches are permitted).
+    """
     result = infer_car_generations(name, desc)
-    if expected is None:
-        assert expected not in result, (
-            f"{rationale}: expected no match for the collision case, "
-            f"got result containing it: {result}"
-        )
-    else:
+    if expected is not None:
         assert expected in result, (
             f"{rationale}: expected {expected} in result, got {result}"
+        )
+        return
+
+    forbidden = NEGATIVE_FORBIDDEN_TUPLES.get((name, desc))
+    if forbidden is not None:
+        assert forbidden not in result, (
+            f"{rationale}: forbidden {forbidden} must not appear, got {result}"
+        )
+    else:
+        assert result == [], (
+            f"{rationale}: expected no inference, got {result}"
         )
 
 
