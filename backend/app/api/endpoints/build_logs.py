@@ -80,22 +80,20 @@ async def get_build_log_by_build_list(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists
-    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
+    # reference the returned entity — the eager-create path owns build_log.title).
+    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Get or create the build log for this build list
+    # Get the build log for this build list.
     build_log = db.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
-
     if not build_log:
-        # Auto-create if it doesn't exist (for backward compatibility with existing build lists)
-        build_log = DBBuildLog(
-            build_list_id=build_list_id,
-            title=f"Build Log: {build_list.name}",
+        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
+        # If this branch fires, something broke the invariant — do not silently
+        # auto-create (the old fallback hid data-integrity issues).
+        logger.error(
+            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
         )
-        db.add(build_log)
-        db.commit()
-        db.refresh(build_log)
-        logger.info(f"Auto-created build log thread {build_log.id} for build list {build_list_id}")
+        ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Validate pagination parameters
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
@@ -185,20 +183,20 @@ async def create_build_log_post(
     db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists
-    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
+    # reference the returned entity — the eager-create path owns build_log.title).
+    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    # Get or create the build log for this build list
+    # Get the build log for this build list.
     build_log = db.query(DBBuildLog).filter(DBBuildLog.build_list_id == build_list_id).first()
-
     if not build_log:
-        # Auto-create if it doesn't exist
-        build_log = DBBuildLog(
-            build_list_id=build_list_id,
-            title=f"Build Log: {build_list.name}",
+        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
+        # If this branch fires, something broke the invariant — do not silently
+        # auto-create (the old fallback hid data-integrity issues).
+        logger.error(
+            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
         )
-        db.add(build_log)
-        db.flush()
+        ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Create the post
     post = DBBuildLogPost(
