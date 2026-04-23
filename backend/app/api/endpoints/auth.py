@@ -20,7 +20,8 @@ import qrcode
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from webauthn import (
@@ -258,7 +259,7 @@ async def verify_email_confirm(
             status_code=302,
         )
 
-    except JWTError as e:
+    except InvalidTokenError as e:
         logger.warning(f"JWT error during email verification: {e}")
         return RedirectResponse(
             url=f"{frontend_base_url}?status=error&message=Invalid+or+expired+verification+link",
@@ -329,7 +330,7 @@ async def reset_password_confirm(
         logger.info(f"Password reset successfully for user: {email}")
         return {"message": "Password reset successfully"}
 
-    except JWTError as e:
+    except InvalidTokenError as e:
         logger.warning(f"JWT error during password reset: {e}")
         ResponsePatterns.raise_bad_request("Invalid or expired reset token")
     except HTTPException:
@@ -512,7 +513,7 @@ def _build_challenge_token(purpose: str, challenge: bytes, user_id: str | None =
 def _decode_challenge_token(token: str, expected_purpose: str) -> tuple[bytes, str | None]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+    except InvalidTokenError:
         ResponsePatterns.raise_bad_request("Invalid or expired challenge")
     if payload.get("purpose") != expected_purpose:
         ResponsePatterns.raise_bad_request("Invalid challenge")
@@ -908,7 +909,7 @@ async def google_sign_in(
 def _decode_purpose_token(token: str, expected_purpose: str) -> dict[str, Any]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError as e:
+    except InvalidTokenError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token") from e
     if payload.get("purpose") != expected_purpose:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")

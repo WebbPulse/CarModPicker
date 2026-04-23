@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES_MIN: int = 15
     ACCESS_TOKEN_EXPIRE_MINUTES_MAX: int = 10080  # 7 days
 
+    # JWT algorithm — PyJWT swap (AUTH-04 D-03). HS256 preserved per D-46.
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm used to sign + verify JWTs. Must match on encode and decode.",
+    )
+
     # Google OAuth — frontend uses this client id to mint ID tokens; backend uses it as the
     # `audience` when verifying. The client id itself is not a secret (it's embedded in the
     # frontend bundle anyway), so it lives in source. Override via env if/when rotated.
