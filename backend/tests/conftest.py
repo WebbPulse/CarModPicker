@@ -48,11 +48,11 @@ def engine() -> Generator[Engine, None, None]:
     # SQLite defaults to autocommit-ish behavior that breaks SAVEPOINT nesting.
     # This disables pysqlite's implicit BEGIN so SQLAlchemy fully controls transactions.
     @event.listens_for(eng, "connect")
-    def _disable_pysqlite_autobegin(dbapi_connection, _):  # type: ignore[no-untyped-def]
+    def _disable_pysqlite_autobegin(dbapi_connection: Any, _: Any) -> None:
         dbapi_connection.isolation_level = None
 
     @event.listens_for(eng, "begin")
-    def _emit_begin(conn):  # type: ignore[no-untyped-def]
+    def _emit_begin(conn: Any) -> None:
         conn.exec_driver_sql("BEGIN")
 
     Base.metadata.create_all(bind=eng)
