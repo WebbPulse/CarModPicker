@@ -50,10 +50,10 @@ def init_crawler_service_account(db: Session) -> None:
         db.add(user)
         db.commit()
         db.refresh(user)
-        logger.info("Created crawler service account: username=%s id=%d", username, user.id)
+        logger.info("Created crawler service account: username=%s id=%s", username, user.id)
     elif not user.is_service_account:
         user.is_service_account = True
         db.commit()
-        logger.info("Marked existing user as service account: username=%s id=%d", username, user.id)
+        logger.info("Marked existing user as service account: username=%s id=%s", username, user.id)
     else:
-        logger.debug("Crawler service account already exists: username=%s id=%d", username, user.id)
+        logger.debug("Crawler service account already exists: username=%s id=%s", username, user.id)
