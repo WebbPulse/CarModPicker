@@ -36,6 +36,7 @@ class CrawlerAdapterConfig(Base):
         Uuid(as_uuid=True),
         ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), nullable=False)

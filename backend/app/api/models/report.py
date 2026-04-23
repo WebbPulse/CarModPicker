@@ -35,7 +35,9 @@ class Report(Base):
         default="pending", nullable=False
     )  # 'pending', 'reviewed', 'resolved', 'dismissed'
     admin_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
-    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

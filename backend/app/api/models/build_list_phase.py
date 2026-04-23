@@ -22,7 +22,7 @@ class BuildListPhase(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     build_list_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("build_lists.id", ondelete="CASCADE"), nullable=False
+        Uuid(as_uuid=True), ForeignKey("build_lists.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(nullable=False)
     sort_order: Mapped[int] = mapped_column(default=0, nullable=False)

@@ -26,9 +26,11 @@ class BuildList(Base):
     description: Mapped[Optional[str]] = mapped_column(index=True, nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Build list cover image(s)
     car_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True
+        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
