@@ -56,6 +56,25 @@ def _coerce_bool(v) -> bool:
     return bool(v)
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable with a consistent truthy vocabulary.
+
+    IN-02: previously ``CRAWLER_PARALLEL`` used ``.lower() not in
+    ("false", "0", "no")`` (default True) and ``CRAWLER_SKIP_KNOWN_URLS``
+    used ``.lower() in ("true", "1", "yes")`` (default False). The two
+    predicates were not exact negations — e.g. the value ``"maybe"`` was
+    truthy for PARALLEL but falsy for SKIP_KNOWN_URLS. Consolidating into
+    this single helper prevents that drift: the vocabulary is truthy-only
+    (``"true"``, ``"1"``, ``"yes"``) and unset / unrecognized values fall
+    back to ``default``. This also matches the semantics already used by
+    ``_coerce_bool`` above for JSON-decoded per-adapter overrides.
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("true", "1", "yes")
+
+
 def _notify_completion(db, job_id: UUID) -> None:
     """Send job-report email to superadmins. Best-effort — never raises."""
     try:
@@ -152,8 +171,14 @@ def main() -> None:
         if category_ids_str:
             default_category_ids = {k: UUID(v) for k, v in json.loads(category_ids_str).items()}
 
-        parallel = os.environ.get("CRAWLER_PARALLEL", "true").lower() not in ("false", "0", "no")
-        skip_known_urls = os.environ.get("CRAWLER_SKIP_KNOWN_URLS", "false").lower() in ("true", "1", "yes")
+        # IN-02: ``_env_bool`` gives both vars a single truthy vocabulary
+        # (``"true"``/``"1"``/``"yes"``) — previously ``CRAWLER_PARALLEL``
+        # used a negative predicate and ``CRAWLER_SKIP_KNOWN_URLS`` a
+        # positive one, so values like ``"maybe"`` mapped to True/False
+        # inconsistently across the two vars. Default-True vs default-False
+        # semantics are preserved via the ``default=`` argument.
+        parallel = _env_bool("CRAWLER_PARALLEL", default=True)
+        skip_known_urls = _env_bool("CRAWLER_SKIP_KNOWN_URLS", default=False)
 
         skip_by_adapter_str = os.environ.get("CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER")
         skip_known_urls_by_adapter: dict[str, bool] | None = None
