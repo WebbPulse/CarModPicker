@@ -32,6 +32,7 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
         start_year=2016,
         end_year=2021,
     )
+    assert car is not None
 
     svc = BuildListService()
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
@@ -59,6 +60,7 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
         start_year=2019,
         end_year=2025,
     )
+    assert car is not None
 
     svc = BuildListService()
     for i in range(3):
