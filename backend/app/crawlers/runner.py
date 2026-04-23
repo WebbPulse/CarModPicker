@@ -630,14 +630,23 @@ def run_crawler(
                 # back off. Manually opening here means the NEXT URL's
                 # breaker.call() raises CircuitBreakerError and bails out,
                 # without waiting for fail_max=3 to accumulate.
+                #
+                # WR-04: ``breaker.call`` already recorded this fetch as a
+                # failure for pybreaker's internal accounting before re-raising
+                # into this except block. Only force the state machine to OPEN
+                # when it's still CLOSED/HALF_OPEN — pybreaker treats open->open
+                # as a no-op, but this avoids re-issuing the warning in the
+                # already-open case (e.g. concurrent worker tripped it first)
+                # and keeps the manual override visibly tied to a state change.
                 if status in (429, 503):
-                    logger.warning(
-                        "Adapter %s: terminal %s on URL %s — opening breaker for 120s (D-11)",
-                        adapter_name,
-                        status,
-                        url,
-                    )
-                    breaker.open()
+                    if breaker.current_state != "open":
+                        logger.warning(
+                            "Adapter %s: terminal %s on URL %s — forcing breaker OPEN for 120s (D-11)",
+                            adapter_name,
+                            status,
+                            url,
+                        )
+                        breaker.open()
                 if status in (404, 410):
                     skipped_gone += 1
                     logger.warning("[%s/%s] Skipped (HTTP %s gone): %s", i, total, status, url)
