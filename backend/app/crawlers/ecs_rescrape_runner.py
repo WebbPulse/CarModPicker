@@ -84,18 +84,19 @@ def main() -> None:
     from app.db.session import SessionLocal
     from app.services import job_service
 
+    # --- Parse JOB_ID early (outside the main try/except) so the
+    # exception handler can reference it. WR-02: validate permissively
+    # — a malformed JOB_ID means we have no job row to update, so the
+    # best we can do is log and exit (Sentry catches the exception).
     job_id_str = os.environ.get("JOB_ID")
-    job_id = UUID(job_id_str) if job_id_str else None
-
-    category_id_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
-    if not category_id_str:
-        logger.error("CRAWLER_DEFAULT_CATEGORY_ID is required but not set")
+    try:
+        job_id = UUID(job_id_str) if job_id_str else None
+    except ValueError:
+        logger.exception(
+            "JOB_ID=%r is not a valid UUID; aborting without job update.",
+            job_id_str,
+        )
         sys.exit(1)
-
-    user_id_str = os.environ.get("CRAWLER_USER_ID")
-    user_id = UUID(user_id_str) if user_id_str else None
-
-    logger.info("ECS archive rescrape task starting: job_id=%s", job_id)
 
     def _progress(processed: int, total: int, counts_snapshot: dict[str, int]) -> None:
         # ECS-backed jobs still have a BackgroundJob row; pushing partial
@@ -120,7 +121,21 @@ def main() -> None:
     # measure the full rescrape pass including resolve_crawler_user + DB query
     # so the metric reflects total task-time from the operator's POV.
     rescrape_start = time.monotonic()
+    # WR-02: parse CRAWLER_DEFAULT_CATEGORY_ID and CRAWLER_USER_ID INSIDE
+    # the main try/except so that malformed UUIDs update the job row via
+    # ``job_service.fail_job`` and fire the superadmin email via
+    # ``_notify_completion`` instead of exiting with an uncaught
+    # ``ValueError`` that leaves the job stuck in "running".
     try:
+        category_id_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
+        if not category_id_str:
+            raise ValueError("CRAWLER_DEFAULT_CATEGORY_ID is required but not set")
+
+        user_id_str = os.environ.get("CRAWLER_USER_ID")
+        user_id = UUID(user_id_str) if user_id_str else None
+
+        logger.info("ECS archive rescrape task starting: job_id=%s", job_id)
+
         crawler_user = resolve_crawler_user(db, user_id)
         cat_id = resolve_default_category_id(db, UUID(category_id_str))
 
@@ -162,9 +177,12 @@ def main() -> None:
         if job_id is not None:
             try:
                 job_service.fail_job(db, job_id, error_message=traceback.format_exc())
-                _notify_completion(db, job_id)
             except Exception:
                 logger.exception("Failed to update job #%s on failure", job_id)
+            # _notify_completion is best-effort / never raises; call
+            # it independently of fail_job so superadmins are emailed
+            # even if the DB update failed (mirrors IN-05 pattern).
+            _notify_completion(db, job_id)
         sys.exit(1)
     finally:
         db.close()

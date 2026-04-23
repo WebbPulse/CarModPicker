@@ -96,67 +96,85 @@ def main() -> None:
     from app.db.session import SessionLocal
     from app.services import job_service
 
-    # --- Parse env vars ---
+    # --- Parse JOB_ID early (outside the main try/except) so the
+    # exception handler can reference it. WR-02: validate permissively
+    # — a malformed JOB_ID means we have no job row to update, so the
+    # best we can do is log and exit (Sentry catches the exception;
+    # the App Runner startup orphan sweeper is not applicable because
+    # no matching BackgroundJob exists).
     job_id_str = os.environ.get("JOB_ID")
-    job_id = UUID(job_id_str) if job_id_str else None
-
-    adapters_str = os.environ.get("CRAWLER_ADAPTERS", "all")
-    adapters = [a.strip() for a in adapters_str.split(",") if a.strip()]
-    if adapters == ["all"]:
-        adapters = list(ADAPTER_REGISTRY.keys())
-
-    category_id_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
-    if not category_id_str:
-        logger.error("CRAWLER_DEFAULT_CATEGORY_ID is required but not set")
-        sys.exit(1)
-    default_category_id = UUID(category_id_str)
-
-    user_id_str = os.environ.get("CRAWLER_USER_ID")
-    user_id = UUID(user_id_str) if user_id_str else None
-
-    limits_str = os.environ.get("CRAWLER_LIMITS")
-    limits = json.loads(limits_str) if limits_str else None
-
-    global_limit_str = os.environ.get("CRAWLER_GLOBAL_LIMIT")
-    global_limit = int(global_limit_str) if global_limit_str else None
-
-    delay_sec_str = os.environ.get("CRAWLER_DELAY_SEC")
-    delay_sec = float(delay_sec_str) if delay_sec_str else DEFAULT_REQUEST_DELAY_SEC
-
-    delays_str = os.environ.get("CRAWLER_DELAYS")
-    delays: dict[str, float] | None = None
-    if delays_str:
-        delays = {k: float(v) for k, v in json.loads(delays_str).items()}
-
-    category_ids_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_IDS")
-    default_category_ids: dict[str, UUID] | None = None
-    if category_ids_str:
-        default_category_ids = {k: UUID(v) for k, v in json.loads(category_ids_str).items()}
-
-    parallel = os.environ.get("CRAWLER_PARALLEL", "true").lower() not in ("false", "0", "no")
-    skip_known_urls = os.environ.get("CRAWLER_SKIP_KNOWN_URLS", "false").lower() in ("true", "1", "yes")
-
-    skip_by_adapter_str = os.environ.get("CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER")
-    skip_known_urls_by_adapter: dict[str, bool] | None = None
-    if skip_by_adapter_str:
-        # WR-01 — use ``_coerce_bool`` so JSON string values like
-        # ``{"a90shop": "false"}`` are parsed correctly rather than being
-        # silently treated as truthy.
-        skip_known_urls_by_adapter = {
-            k: _coerce_bool(v) for k, v in json.loads(skip_by_adapter_str).items()
-        }
-
-    logger.info(
-        "ECS crawler task starting: adapters=%s category_id=%s job_id=%s delay_sec=%s parallel=%s",
-        adapters,
-        default_category_id,
-        job_id,
-        delay_sec,
-        parallel,
-    )
-
-    # --- Run ---
     try:
+        job_id = UUID(job_id_str) if job_id_str else None
+    except ValueError:
+        logger.exception(
+            "JOB_ID=%r is not a valid UUID; aborting without job update.",
+            job_id_str,
+        )
+        sys.exit(1)
+
+    # WR-02: all OTHER env parsing (including UUID() calls for
+    # CRAWLER_DEFAULT_CATEGORY_ID, CRAWLER_USER_ID, etc.) moves INSIDE
+    # the main try/except so that malformed values update the job row
+    # via ``job_service.fail_job`` and fire the superadmin email
+    # notification via ``_notify_completion`` instead of exiting with an
+    # uncaught ``ValueError`` that leaves the job stuck in "running".
+    try:
+        # --- Parse env vars ---
+        adapters_str = os.environ.get("CRAWLER_ADAPTERS", "all")
+        adapters = [a.strip() for a in adapters_str.split(",") if a.strip()]
+        if adapters == ["all"]:
+            adapters = list(ADAPTER_REGISTRY.keys())
+
+        category_id_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_ID")
+        if not category_id_str:
+            raise ValueError("CRAWLER_DEFAULT_CATEGORY_ID is required but not set")
+        default_category_id = UUID(category_id_str)
+
+        user_id_str = os.environ.get("CRAWLER_USER_ID")
+        user_id = UUID(user_id_str) if user_id_str else None
+
+        limits_str = os.environ.get("CRAWLER_LIMITS")
+        limits = json.loads(limits_str) if limits_str else None
+
+        global_limit_str = os.environ.get("CRAWLER_GLOBAL_LIMIT")
+        global_limit = int(global_limit_str) if global_limit_str else None
+
+        delay_sec_str = os.environ.get("CRAWLER_DELAY_SEC")
+        delay_sec = float(delay_sec_str) if delay_sec_str else DEFAULT_REQUEST_DELAY_SEC
+
+        delays_str = os.environ.get("CRAWLER_DELAYS")
+        delays: dict[str, float] | None = None
+        if delays_str:
+            delays = {k: float(v) for k, v in json.loads(delays_str).items()}
+
+        category_ids_str = os.environ.get("CRAWLER_DEFAULT_CATEGORY_IDS")
+        default_category_ids: dict[str, UUID] | None = None
+        if category_ids_str:
+            default_category_ids = {k: UUID(v) for k, v in json.loads(category_ids_str).items()}
+
+        parallel = os.environ.get("CRAWLER_PARALLEL", "true").lower() not in ("false", "0", "no")
+        skip_known_urls = os.environ.get("CRAWLER_SKIP_KNOWN_URLS", "false").lower() in ("true", "1", "yes")
+
+        skip_by_adapter_str = os.environ.get("CRAWLER_SKIP_KNOWN_URLS_BY_ADAPTER")
+        skip_known_urls_by_adapter: dict[str, bool] | None = None
+        if skip_by_adapter_str:
+            # WR-01 — use ``_coerce_bool`` so JSON string values like
+            # ``{"a90shop": "false"}`` are parsed correctly rather than being
+            # silently treated as truthy.
+            skip_known_urls_by_adapter = {
+                k: _coerce_bool(v) for k, v in json.loads(skip_by_adapter_str).items()
+            }
+
+        logger.info(
+            "ECS crawler task starting: adapters=%s category_id=%s job_id=%s delay_sec=%s parallel=%s",
+            adapters,
+            default_category_id,
+            job_id,
+            delay_sec,
+            parallel,
+        )
+
+        # --- Run ---
         result = run_crawlers(
             adapters,
             limits=limits,
@@ -186,7 +204,13 @@ def main() -> None:
         if job_id is not None:
             db = SessionLocal()
             try:
-                job_service.fail_job(db, job_id, error_message=traceback.format_exc())
+                try:
+                    job_service.fail_job(db, job_id, error_message=traceback.format_exc())
+                except Exception:
+                    logger.exception("Failed to update job #%s on failure", job_id)
+                # _notify_completion is best-effort / never raises; call
+                # it independently of fail_job so superadmins are emailed
+                # even if the DB update failed (mirrors IN-05 pattern).
                 _notify_completion(db, job_id)
             finally:
                 db.close()
