@@ -385,27 +385,11 @@ def create_and_login_user(
     user_data_response: Dict[str, Any] = response.json()
     assert isinstance(user_data_response, dict)
 
-    # Manually verify the email for testing purposes
-    from app.api.models.user import User
-
-    # Use the provided database session or get one from the test client
-    if db_session is None:
-        from app.db.session import get_db
-
-        db = next(get_db())
-        try:
-            user = db.query(User).filter(User.username == username).first()
-            if user:
-                user.email_verified = True
-                db.commit()
-        finally:
-            db.close()
-    else:
-        # Use the provided session
-        user = db_session.query(User).filter(User.username == username).first()
-        if user:
-            user.email_verified = True
-            db_session.commit()
+    # IN-11: POST /api/users/ already auto-verifies email_verified=True when
+    # TESTING=true (see endpoints/users.py::register_user), which conftest sets
+    # at import time before any app code loads. The manual flip block that used
+    # to live here was a no-op — it flipped True to True and happened to be two
+    # of the 8 residual 1.x db.query() calls tracked under WR-01. Delete.
 
     # Login (token is returned but not stored - tests should use it explicitly)
     login_user(client, username, password_override)
