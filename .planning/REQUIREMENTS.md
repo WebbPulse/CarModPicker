@@ -64,15 +64,19 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 **: Production DB pool config: `DB_POOL_SIZE=50`, `pool_pre_ping=True`, `pool_recycle=1800`; `API_CONNECTION_RESERVE` sized for parallel crawlers
 - [x] **DATA-08
 **: Build-log creation moved from lazy (auto-create mid-request in `build_logs.py:87-98`) to eager (created alongside the parent build list); inconsistent-state branch eliminated
-- [ ] **DATA-09**: Alembic migration workflow documented in CONVENTIONS.md to require downgrade testing against a Postgres Docker instance before merge
-- [ ] **DATA-10**: `lazy="raise"` applied to relationships known to trigger silent N+1s; every refactor-phase test run is green under that constraint
+- [x] **DATA-09
+**: Alembic migration workflow documented in CONVENTIONS.md to require downgrade testing against a Postgres Docker instance before merge
+- [x] **DATA-10
+**: `lazy="raise"` applied to relationships known to trigger silent N+1s; every refactor-phase test run is green under that constraint
 
 ### Parts & Canonical Dedup Consolidation
 
 - [x] **PARTS-01**: Part-linking race condition eliminated (covered by DATA-03
 /DATA-04; cross-referenced here for traceability)
-- [ ] **PARTS-02**: `car_inference.py` ambiguity resolution reviewed — `AMBIGUOUS_STANDALONE_CODES` set is documented + a regression test pins current behavior; no new ML logic this milestone, just maintainability
-- [ ] **PARTS-03**: Canonical-part flow (create, link, unlink, merge) has integration test coverage matching PROJECT.md's Validated behavior
+- [x] **PARTS-02
+**: `car_inference.py` ambiguity resolution reviewed — `AMBIGUOUS_STANDALONE_CODES` set is documented + a regression test pins current behavior; no new ML logic this milestone, just maintainability
+- [x] **PARTS-03
+**: Canonical-part flow (create, link, unlink, merge) has integration test coverage matching PROJECT.md's Validated behavior
 
 ### Auth Refactor
 

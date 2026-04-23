@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 04-05
-last_updated: "2026-04-23T04:57:05.316Z"
+status: verifying
+stopped_at: Completed 04-06 — Phase 4 COMPLETE
+last_updated: "2026-04-23T05:12:45.999Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 24
-  completed_plans: 23
-  percent: 96
+  completed_plans: 24
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 Phase: 04 (db-parts-hardening) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-23
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [██████████] 96%
 | Phase 04-db-parts-hardening P04-03 | 5 | 2 tasks | 4 files |
 | Phase 04-db-parts-hardening P04 | 65 | 2 tasks tasks | 55 files files |
 | Phase 04-db-parts-hardening P04-05 | 8min | 3 tasks | 6 files |
+| Phase 04-db-parts-hardening P06 | 9min | 4 tasks tasks | 8 files files |
 
 ## Accumulated Context
 
@@ -107,6 +108,13 @@ Recent decisions affecting current work:
 - Plan 04-05: @pytest.mark.postgres marker + postgres_engine session-scoped fixture + per-test unique gtin keys chosen over BEGIN+ROLLBACK isolation — ROLLBACK defeats pessimistic-lock semantics because locks commit with the transaction
 - Plan 04-05: CI psql CREATE DATABASE retry loop (5 attempts × 2s backoff) per INFO 12 — services.postgres healthcheck catches most readiness issues but first-boot parameter-group races can still surface
 - Plan 04-05: docker-compose.test.yml uses port 5433 (not 5432) to avoid colliding with backend/docker-compose.yml dev Postgres — local devs can run both simultaneously
+- Plan 04-06: No caller changes needed for lazy='raise' — audit found zero lazy consumers of build_list_parts/build_list_phases in app/, and BuildLogPost.author was already paired with selectinload by plan 04-03
+- Plan 04-06: test_lazy_raise_callers.py uses first-access trigger (WARN 10) — no db_session.expire() hack; freshly-fetched entity without selectinload is already in 'unloaded' state
+- Plan 04-06: AMBIGUOUS_STANDALONE_CODES docstring placed AFTER the frozenset (dangling-docstring idiom) to preserve frozenset literal contents
+- Plan 04-06: 26 ambiguity vectors committed (>plan floor of 20) — 7 positive + 19 negative covering B4/B6/B8/B16/HI/NA/EVO/D2/V10/P1/HD/S1/OS/MD/XT/BP/RS/V/0.42
+- Plan 04-06: Integration merge case seeds concrete DBPartListing row so find_part_by_product_url returns canon_b while find_part_by_gtin returns canon_a — exercises multi-canonical merge path on SQLite per WARN 7
+- Plan 04-06: Round-trip script REVISION arg is REQUIRED (INFO 13) — silent head-defaulting disabled to force explicit reviewer-verifiable intent
+- Plan 04-06: Final-cleanup task (stale imports) audit returned zero unused imports — Wave 4 sweep landed clean; no cleanup commit created
 
 ### Pending Todos
 
@@ -127,8 +135,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:57:05.312Z
-Stopped at: Completed 04-05
+Last session: 2026-04-23T05:12:45.995Z
+Stopped at: Completed 04-06 — Phase 4 COMPLETE
 Resume file: None
 
 **Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z
