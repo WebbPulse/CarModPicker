@@ -1,5 +1,8 @@
 import os
+import re
 import uuid
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from typing import Any, Dict, Generator, Optional
 from uuid import UUID
 
@@ -83,6 +86,56 @@ def db_session(engine: Engine) -> Generator[Session, None, None]:
         if transaction.is_active:
             transaction.rollback()
         connection.close()
+
+
+_SELECT_PATTERN = re.compile(r"^\s*SELECT\b", re.IGNORECASE)
+
+
+@dataclass
+class QueryCounter:
+    """DATA-02 — counts SELECT statements inside a query_counter() context block.
+
+    Filters to SELECT only so that BEGIN / COMMIT / SAVEPOINT / RELEASE noise
+    from the SAVEPOINT-per-test fixture does not pollute the count.
+    """
+
+    count: int = 0
+    statements: list[str] = field(default_factory=list)
+
+    def record(self, statement: str) -> None:
+        if _SELECT_PATTERN.match(statement):
+            self.count += 1
+            self.statements.append(statement)
+
+
+@pytest.fixture
+def query_counter(engine: Engine):
+    """Return a context manager that counts SELECT statements emitted by `engine`.
+
+    Usage:
+        def test_something(client, query_counter):
+            with query_counter() as counter:
+                client.get(...)
+            assert counter.count == 2
+
+    Pitfall 3: event.remove MUST fire in the finally block; otherwise listeners
+    leak across tests and every subsequent counter observes prior queries.
+    """
+
+    @contextmanager
+    def _ctx():
+        counter = QueryCounter()
+
+        def _before(conn, cursor, statement, parameters, context, executemany):
+            counter.record(statement)
+
+        event.listen(engine, "before_cursor_execute", _before)
+        try:
+            yield counter
+        finally:
+            event.remove(engine, "before_cursor_execute", _before)
+
+    return _ctx
 
 
 @pytest.fixture
