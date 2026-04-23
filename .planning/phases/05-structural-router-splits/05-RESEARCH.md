@@ -835,37 +835,49 @@ And in PR 4 for auth:
 
 **Warning signs:** Test fails with 422 where 401 expected. Error message reveals path-parameter validation error.
 
-## Open Questions for Planner
+## Open Questions (RESOLVED)
 
 1. **Parity test pattern — how long does `python-jose` stay in requirements.txt?**
    - What we know: D-05 parity test requires `jose` import; removing `jose` breaks the test.
    - What's unclear: CONTEXT.md's "Claude's Discretion" section says the parity test's lifetime is discretionary. If it stays, `python-jose` stays. If it's removed post-migration, `python-jose` can go too.
    - **Recommendation:** KEEP the parity test AND `python-jose` through Phase 5 entirely. Revisit in Phase 6 dependency cleanup. The `python-jose[cryptography]` CVE note in `backend/requirements.txt:27` is already acknowledged — one more phase of coexistence is low-risk.
 
+   **RESOLVED** — Plan 02 keeps `python-jose[cryptography]==3.5.0` in requirements.txt alongside PyJWT 2.12.1 (Task 1 explicit, Risk 6 mitigation). Parity test `test_pyjwt_migration.py` created and runs green. Removal deferred to Phase 6 per CONTEXT.md.
+
 2. **Single tag or per-sub-module tag in OpenAPI?**
    - What we know: Claude's Discretion per Finding 2; single `"admin"` tag preserves current Swagger UI grouping; per-sub-module tags (e.g., `"admin-stats"`) give finer navigation at cost of more sections.
    - What's unclear: Project preference for Swagger UI organization.
    - **Recommendation:** Single tag per package (`"admin"`, `"authentication"`) to preserve current UX and minimize OpenAPI snapshot churn. Finer tags can be added later without a phase dependency.
+
+   **RESOLVED** — Plans 01 and 04 both register sub-routers with a single shared `tags=["admin"]` or `tags=["authentication"]` string across every sub-module registration (PATTERNS.md §19). OpenAPI snapshot diffs in review will show path moves only, not tag reshuffling.
 
 3. **Does the 401/403 test cover the 2 admin routes that use `Optional[DBUser] = Depends(get_current_admin_user)`?**
    - What we know: admin.py lines 834 (`POST /crawlers/run`) and 1216 (`POST /crawled-pages/rescrape-archives`) use `Optional[DBUser]` — they accept EITHER a JWT admin OR an `X-Admin-Cron-Key` header for EventBridge invocation.
    - What's unclear: Without `X-Admin-Cron-Key` AND without JWT, these routes raise 403 from their own body check (`_verify_cron_key(x_admin_cron_key)` → `raise HTTPException(status_code=403)`). So they would pass the 401 test's expected-401 assertion ONLY if FastAPI's auth dependency raises 401 first — but `get_current_admin_user` with `Optional` might not raise.
    - **Recommendation:** Planner verifies behavior in PR 1. If these two routes return 403 (not 401) without auth, they're the public-route allow-list analogue for admin — add them to an admin-side allow-list in the test. Alternative: test asserts `resp.status_code in (401, 403)` — both indicate "auth-gated", which is what the test is measuring.
 
+   **RESOLVED** — Plan 01 Task 1 defines `DUAL_AUTH_ROUTES = {("POST", "/api/admin/crawlers/run"), ("POST", "/api/admin/crawlers/rescrape-archives")}` in `test_admin_auth_coverage.py` and asserts `status_code in (401, 403)` for them while asserting `== 401` for all other admin routes. Threat T-05-01-02 mitigation.
+
 4. **Regression test scope — does `test_jwt_algorithm_regression.py` scan `backend/tests/`?**
    - What we know: Phase 4 `test_session_query_regression.py` explicitly scopes to `backend/app/` (not tests). Phase 3 logger regression same pattern.
    - What's unclear: Whether `jwt.decode` without `algorithms=` in tests is a real risk (tests shouldn't decode tokens at all — they generate them via conftest fixtures).
    - **Recommendation:** Scope to `backend/app/` only (per Phase 3/4 precedent). Test tokens in conftest are issued by the app code path, so any test that decodes one is already going through the hardened path.
+
+   **RESOLVED** — Plan 02 Task 1 creates `test_jwt_algorithm_regression.py` with `APP_DIR = Path(__file__).resolve().parent.parent / "app"` — scoped to `backend/app/` only, matching `test_session_query_regression.py` (Phase 4). Tests directory is excluded by design.
 
 5. **Where does the D-24 ECS launcher code live post-split — really inline in `admin/crawlers.py`?**
    - What we know: D-24 locks "ECS task launchers stay inline (~300 lines)".
    - What's unclear: ~300 lines in `admin/crawlers.py` (4 routes + launcher code) might push the file to 500-600 lines — still reasonable, but worth confirming at plan-writing time that the sub-module file sizes are balanced.
    - **Recommendation:** Accept D-24's locked decision. If `admin/crawlers.py` ends up >800 lines post-split, flag in plan SUMMARY for potential Phase 6 extraction. Not a Phase 5 deliverable.
 
+   **RESOLVED** — Plan 01 Task 2 action (sub-module-specific extras for `admin/crawlers.py`) copies `_launch_ecs_crawler_task`, `_run_crawlers_in_process`, `_launch_ecs_rescrape_task`, `_run_rescrape_in_process` inline verbatim per D-24. Plan 01 `<output>` section requires SUMMARY.md to note file size and flag potential Phase 6 extraction if >800 lines.
+
 6. **Order of PR 2 (PyJWT) and PR 3 (API_CONTRACT)?**
    - What we know: D-41 says PR 3 can land in parallel with PR 2.
    - What's unclear: If they land in true parallel on `main` (two concurrent branches), merge conflicts are possible — PR 2 updates `requirements.txt`, PR 3 doesn't. No overlap. Parallelism is safe.
    - **Recommendation:** Run them in parallel. Generator PR can be written and reviewed while PyJWT swap is in review. Both merge cleanly.
+
+   **RESOLVED** — Plan 02 and Plan 03 both declared `wave: 2` with `depends_on: [05-01-admin-split]` and ZERO `files_modified` overlap (Plan 02: requirements.txt, config.py, dependencies/auth.py, endpoints/auth.py, 2 test files; Plan 03: scripts/generate_ext_api_contract.py, chrome-extension/API_CONTRACT.md, 1 test file, 05-HUMAN-UAT.md). Parallel-safe per D-41.
 
 ## Environment Availability
 
