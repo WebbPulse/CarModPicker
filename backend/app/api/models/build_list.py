@@ -42,12 +42,14 @@ class BuildList(Base):
         "BuildListPart",
         back_populates="build_list",
         cascade="all, delete-orphan",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
     )
     build_list_phases: Mapped[List["BuildListPhase"]] = relationship(
         "BuildListPhase",
         back_populates="build_list",
         cascade="all, delete-orphan",
         order_by="BuildListPhase.sort_order",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
     )
     # votes and reports
     votes: Mapped[List["Vote"]] = relationship(

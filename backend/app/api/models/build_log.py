@@ -61,4 +61,8 @@ class BuildLogPost(Base):
 
     # Relationships
     build_log: Mapped["BuildLog"] = relationship("BuildLog", back_populates="posts")
-    author: Mapped["User"] = relationship("User", back_populates="build_log_posts")
+    author: Mapped["User"] = relationship(
+        "User",
+        back_populates="build_log_posts",
+        lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
+    )
