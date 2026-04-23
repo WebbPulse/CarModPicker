@@ -6123,106 +6123,6 @@
         "summary": "Read Root"
       }
     },
-    "/api/admin/cars/delete-all": {
-      "post": {
-        "description": "Delete all cars / car generations (admin only).\n\nUnlinks build lists from cars (sets car_id to null), removes car votes and\npart_cars links, then deletes all Car, CarModel, and Make rows so\nInit Car Generations can repopulate from a clean slate.\nThis action cannot be undone.",
-        "operationId": "delete_all_cars_api_admin_cars_delete_all_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteAllCarsResponse"
-                }
-              }
-            },
-            "description": "All cars deleted"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete All Cars",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/crawled-pages/rescrape-archives": {
-      "post": {
-        "description": "Start a background job that re-parses every crawled page with stored HTML.\n\nAccepts either a superadmin JWT (manual trigger) or ``X-Admin-Cron-Key`` header\n(EventBridge Scheduler scheduled trigger).\n\nFor each row: load archived HTML, run the appropriate retailer parser (including\nextension-sourced URLs matched by host), then ``ingest_payload`` so parts are\ncreated/updated with full inference and listing refresh. Price history is updated\nwhen the parsed payload includes a price (same path as live crawls).\n\nHTML is stored under one canonical object per URL (``crawl_html/by_url/\u2026``).",
-        "operationId": "rescrape_all_archived_crawled_pages_api_admin_crawled_pages_rescrape_archives_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "x-admin-cron-key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Admin-Cron-Key"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RescrapeArchivesRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Rescrape All Archived Crawled Pages Api Admin Crawled Pages Rescrape Archives Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Archive rescrape job started"
-          },
-          "403": {
-            "description": "Access denied"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Rescrape All Archived Crawled Pages",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
     "/api/admin/crawler-adapter-configs/": {
       "get": {
         "operationId": "list_adapter_configs_api_admin_crawler_adapter_configs__get",
@@ -6569,17 +6469,17 @@
         ]
       }
     },
-    "/api/admin/crawlers": {
+    "/api/admin/crawlers/": {
       "get": {
         "description": "List available crawler adapters (admin only).\n\nReturns both a flat ``adapters`` list (for back-compat) and a richer\n``adapter_info`` list that carries each adapter's declared fetcher tier\n(``http``, ``tls``, or ``browser``) so the admin UI can visually group\nthem by blocking difficulty.",
-        "operationId": "list_crawlers_api_admin_crawlers_get",
+        "operationId": "list_crawlers_api_admin_crawlers__get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response List Crawlers Api Admin Crawlers Get",
+                  "title": "Response List Crawlers Api Admin Crawlers  Get",
                   "type": "object"
                 }
               }
@@ -6596,6 +6496,76 @@
           }
         ],
         "summary": "List Crawlers",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/crawlers/rescrape-archives": {
+      "post": {
+        "description": "Start a background job that re-parses every crawled page with stored HTML.\n\nAccepts either a superadmin JWT (manual trigger) or ``X-Admin-Cron-Key`` header\n(EventBridge Scheduler scheduled trigger).\n\nFor each row: load archived HTML, run the appropriate retailer parser (including\nextension-sourced URLs matched by host), then ``ingest_payload`` so parts are\ncreated/updated with full inference and listing refresh. Price history is updated\nwhen the parsed payload includes a price (same path as live crawls).\n\nHTML is stored under one canonical object per URL (``crawl_html/by_url/\u2026``).",
+        "operationId": "rescrape_all_archived_crawled_pages_api_admin_crawlers_rescrape_archives_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-cron-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Cron-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescrapeArchivesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rescrape All Archived Crawled Pages Api Admin Crawlers Rescrape Archives Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Archive rescrape job started"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Rescrape All Archived Crawled Pages",
         "tags": [
           "admin"
         ]
@@ -6671,17 +6641,79 @@
         ]
       }
     },
-    "/api/admin/init/car-generations": {
-      "post": {
-        "description": "Initialize car generations from source of truth (admin only).\n\nSyncs makes, car models, and car generations from car_generations_data\ninto the database. Run this manually after deploying or when seed data\nhas been updated.",
-        "operationId": "init_car_generations_endpoint_api_admin_init_car_generations_post",
+    "/api/admin/crawlers/service-account": {
+      "get": {
+        "description": "Return the crawler service account (admin only).\n\nThis account is created on startup and is used as the default author for all\ncrawler-created parts when no explicit user ID is provided.",
+        "operationId": "get_crawler_service_account_api_admin_crawlers_service_account_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Init Car Generations Endpoint Api Admin Init Car Generations Post",
+                  "title": "Response Get Crawler Service Account Api Admin Crawlers Service Account Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Crawler service account info"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Crawler Service Account",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/cars/delete-all": {
+      "post": {
+        "description": "Delete all cars / car generations (admin only).\n\nUnlinks build lists from cars (sets car_id to null), removes car votes and\npart_cars links, then deletes all Car, CarModel, and Make rows so\nInit Car Generations can repopulate from a clean slate.\nThis action cannot be undone.",
+        "operationId": "delete_all_cars_api_admin_db_ops_cars_delete_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAllCarsResponse"
+                }
+              }
+            },
+            "description": "All cars deleted"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete All Cars",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/init/car-generations": {
+      "post": {
+        "description": "Initialize car generations from source of truth (admin only).\n\nSyncs makes, car models, and car generations from car_generations_data\ninto the database. Run this manually after deploying or when seed data\nhas been updated.",
+        "operationId": "init_car_generations_endpoint_api_admin_db_ops_init_car_generations_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Init Car Generations Endpoint Api Admin Db Ops Init Car Generations Post",
                   "type": "object"
                 }
               }
@@ -6703,17 +6735,17 @@
         ]
       }
     },
-    "/api/admin/init/part-categories": {
+    "/api/admin/db-ops/init/part-categories": {
       "post": {
         "description": "Initialize part categories from source of truth (admin only).\n\nSyncs part categories from part_categories_data into the database.\nRun this manually after deploying or when seed data has been updated.",
-        "operationId": "init_part_categories_endpoint_api_admin_init_part_categories_post",
+        "operationId": "init_part_categories_endpoint_api_admin_db_ops_init_part_categories_post",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Init Part Categories Endpoint Api Admin Init Part Categories Post",
+                  "title": "Response Init Part Categories Endpoint Api Admin Db Ops Init Part Categories Post",
                   "type": "object"
                 }
               }
@@ -6735,10 +6767,134 @@
         ]
       }
     },
-    "/api/admin/jobs": {
+    "/api/admin/db-ops/migrations/current": {
+      "get": {
+        "description": "Get the current database migration revision (admin only).\n\nReturns:\n    - current_revision: Current database revision\n    - output: Full alembic current output",
+        "operationId": "get_current_migration_revision_api_admin_db_ops_migrations_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Current Migration Revision Api Admin Db Ops Migrations Current Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Current migration revision retrieved"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Current Migration Revision",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/migrations/run": {
+      "post": {
+        "description": "Run database migrations manually (admin only).\n\nThis endpoint allows admins to trigger database migrations manually\nin case automatic migrations fail or need to be run on-demand.\n\nReturns:\n    - success: Whether migrations completed successfully\n    - output: Migration command output\n    - error: Error message if migration failed\n    - current_revision: Current database revision after migration",
+        "operationId": "run_migrations_api_admin_db_ops_migrations_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Migrations Api Admin Db Ops Migrations Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Migrations executed successfully"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Run Migrations",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/part-manufacturers/delete-all": {
+      "post": {
+        "description": "Delete all part manufacturers (admin only).\n\nFirst nullifies part_manufacturer_id on all global parts, then deletes all part_manufacturers.\nThis action cannot be undone.",
+        "operationId": "delete_all_part_manufacturers_api_admin_db_ops_part_manufacturers_delete_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAllPartManufacturersResponse"
+                }
+              }
+            },
+            "description": "All part manufacturers deleted"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete All Part Manufacturers",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/parts/delete-all": {
+      "post": {
+        "description": "Delete all parts (admin only).\n\nCascades to part listings, votes, reports, build list parts, and car associations.\nThis action cannot be undone.",
+        "operationId": "delete_all_parts_api_admin_db_ops_parts_delete_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAllPartsResponse"
+                }
+              }
+            },
+            "description": "All parts deleted"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete All Parts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/jobs/": {
       "get": {
         "description": "List background jobs (admin only), newest first.\n\nFilter by ``status`` (running / completed / failed / cancelled) or\n``job_type`` (crawler_run / archive_rescrape).\n\nBefore returning, reconciles the running-jobs state against this process:\nany \"running\" row owned by a prior worker instance, or owned by us but\nwith a stale heartbeat and no live asyncio task, is marked failed. Covers\nthe window between \"prior process died\" and \"admin hits refresh\" even if\nthe startup sweep was skipped, and catches the asyncio-task-died-without-\ncleanup edge case.",
-        "operationId": "list_background_jobs_api_admin_jobs_get",
+        "operationId": "list_background_jobs_api_admin_jobs__get",
         "parameters": [
           {
             "in": "query",
@@ -6983,130 +7139,6 @@
           }
         ],
         "summary": "Get Crawler Job Progress",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/migrations/current": {
-      "get": {
-        "description": "Get the current database migration revision (admin only).\n\nReturns:\n    - current_revision: Current database revision\n    - output: Full alembic current output",
-        "operationId": "get_current_migration_revision_api_admin_migrations_current_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Current Migration Revision Api Admin Migrations Current Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Current migration revision retrieved"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Get Current Migration Revision",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/migrations/run": {
-      "post": {
-        "description": "Run database migrations manually (admin only).\n\nThis endpoint allows admins to trigger database migrations manually\nin case automatic migrations fail or need to be run on-demand.\n\nReturns:\n    - success: Whether migrations completed successfully\n    - output: Migration command output\n    - error: Error message if migration failed\n    - current_revision: Current database revision after migration",
-        "operationId": "run_migrations_api_admin_migrations_run_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Run Migrations Api Admin Migrations Run Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Migrations executed successfully"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Run Migrations",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/part-manufacturers/delete-all": {
-      "post": {
-        "description": "Delete all part manufacturers (admin only).\n\nFirst nullifies part_manufacturer_id on all global parts, then deletes all part_manufacturers.\nThis action cannot be undone.",
-        "operationId": "delete_all_part_manufacturers_api_admin_part_manufacturers_delete_all_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteAllPartManufacturersResponse"
-                }
-              }
-            },
-            "description": "All part manufacturers deleted"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete All Part Manufacturers",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/parts/delete-all": {
-      "post": {
-        "description": "Delete all parts (admin only).\n\nCascades to part listings, votes, reports, build list parts, and car associations.\nThis action cannot be undone.",
-        "operationId": "delete_all_parts_api_admin_parts_delete_all_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteAllPartsResponse"
-                }
-              }
-            },
-            "description": "All parts deleted"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete All Parts",
         "tags": [
           "admin"
         ]
@@ -7428,38 +7460,6 @@
           }
         ],
         "summary": "Get Part Link Group",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/service-accounts/crawler": {
-      "get": {
-        "description": "Return the crawler service account (admin only).\n\nThis account is created on startup and is used as the default author for all\ncrawler-created parts when no explicit user ID is provided.",
-        "operationId": "get_crawler_service_account_api_admin_service_accounts_crawler_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Crawler Service Account Api Admin Service Accounts Crawler Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Crawler service account info"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Get Crawler Service Account",
         "tags": [
           "admin"
         ]
