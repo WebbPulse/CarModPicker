@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -7,10 +8,17 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import settings
-from app.core.logging import logger
 
 if TYPE_CHECKING:
     from app.api.models.background_job import BackgroundJob
+
+# IN-07: declare the logger at module level (QUAL-07 idiom) so log records
+# emitted from ``email.py`` carry ``name="app.core.email"`` instead of the
+# shared ``app.core.logging.logger`` module name. Importing the module-level
+# ``logger`` helper directly from ``app.core.logging`` is fine for runtime
+# behavior, but it tags records with the logging-module's name and breaks
+# log-routing filters keyed on module origin.
+logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "email_templates"
 _CONFIG_SET = "carmodpicker-transactional"
