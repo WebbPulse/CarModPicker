@@ -948,11 +948,23 @@ async def google_link(
         if not user.totp_secret:
             logger.error(f"2FA enabled but no secret for user {user.username}")
             ResponsePatterns.raise_internal_server_error("2FA configuration error")
+        # WR-06: split into (a) construct TOTP, (b) verify code — mirrors
+        # ``verify_2fa`` (line ~419-434). Previously a single try/except wrapped
+        # both calls, so a verify-time secret-format error would surface as
+        # "Invalid OTP code" via the unauthorized helper while a construct-time
+        # error surfaced as "2FA configuration error". Splitting keeps each
+        # error message accurately scoped to its failure mode.
         try:
             totp = pyotp.TOTP(user.totp_secret)
+        except (ValueError, TypeError, binascii.Error):
+            logger.error(f"Invalid TOTP secret format for user: {user.username}")
+            ResponsePatterns.raise_internal_server_error("2FA configuration error")
+
+        try:
             if not totp.verify(request.otp, valid_window=1):
                 ResponsePatterns.raise_unauthorized("Invalid OTP code")
         except (ValueError, TypeError, binascii.Error):
+            logger.error(f"TOTP verification failed for user: {user.username}")
             ResponsePatterns.raise_internal_server_error("2FA configuration error")
 
     # Race-safety: another concurrent link could have inserted the row. Check both
