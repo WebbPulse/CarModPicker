@@ -109,6 +109,7 @@ def main() -> None:
 
     init_sentry(server_name="ecs-crawler")
 
+    from app.core.log_context import request_id_var, user_id_var
     from app.crawlers.adapters import ADAPTER_REGISTRY
     from app.crawlers.base import DEFAULT_REQUEST_DELAY_SEC
     from app.crawlers.runner import run_crawlers
@@ -130,6 +131,17 @@ def main() -> None:
             job_id_str,
         )
         sys.exit(1)
+
+    # IN-03: set log-context ContextVars for the ECS task scope so every
+    # log record produced by this process is grep-distinguishable from
+    # HTTP requests (request_context_middleware) and CLI runs
+    # (__main__.py sets ``cli:<pid>``). ECS tasks never re-enter, so the
+    # explicit ``set()`` without a reset token is sufficient — we don't
+    # need ``bg_log_context``'s re-entrant-safe reset semantics. Job id
+    # falls back to ``"-"`` when JOB_ID is unset (which only happens in
+    # local one-shot invocations; production always injects it).
+    request_id_var.set(f"ecs:{os.getpid()}:{job_id or '-'}")
+    user_id_var.set("ecs")
 
     # WR-02: all OTHER env parsing (including UUID() calls for
     # CRAWLER_DEFAULT_CATEGORY_ID, CRAWLER_USER_ID, etc.) moves INSIDE

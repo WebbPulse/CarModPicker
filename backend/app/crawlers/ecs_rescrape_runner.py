@@ -79,6 +79,7 @@ def main() -> None:
     # Sentry's pattern (keeps aws-embedded-metrics out of test-collection
     # import graph).
     from app.core.cloudwatch_emf import emit_crawler_run_metrics
+    from app.core.log_context import request_id_var, user_id_var
     from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
     from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
     from app.db.session import SessionLocal
@@ -97,6 +98,14 @@ def main() -> None:
             job_id_str,
         )
         sys.exit(1)
+
+    # IN-03: set log-context ContextVars for the ECS task scope so every
+    # log record produced by this process is grep-distinguishable from
+    # HTTP requests and CLI runs. Matches the pattern used in
+    # ``ecs_runner.py`` so rescrape and live-crawl log streams share a
+    # single ``ecs:`` prefix convention.
+    request_id_var.set(f"ecs:{os.getpid()}:{job_id or '-'}")
+    user_id_var.set("ecs")
 
     def _progress(processed: int, total: int, counts_snapshot: dict[str, int]) -> None:
         # ECS-backed jobs still have a BackgroundJob row; pushing partial
