@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-04
-last_updated: "2026-04-23T04:43:41.320Z"
+stopped_at: Completed 04-05
+last_updated: "2026-04-23T04:57:05.316Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 24
-  completed_plans: 22
-  percent: 92
+  completed_plans: 23
+  percent: 96
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 04 (db-parts-hardening) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [█████████░] 92%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 92%
 | Phase Phase 04-db-parts-hardening PP04-02 | 20 | 3 tasks tasks | 5 files files |
 | Phase 04-db-parts-hardening P04-03 | 5 | 2 tasks | 4 files |
 | Phase 04-db-parts-hardening P04 | 65 | 2 tasks tasks | 55 files files |
+| Phase 04-db-parts-hardening P04-05 | 8min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,10 @@ Recent decisions affecting current work:
 - Plan 04-04: Bulk DML migrated to sql_delete/sql_update + execution_options(synchronize_session=False) for admin /cars/delete-all and /part-manufacturers/delete-all — preserves table-level DELETE/UPDATE semantics without per-row ORM cascade.
 - Plan 04-04: with_entities(Model.id) → Select.with_only_columns(Model.id) for two-query id-then-hydrate pagination pattern in build_lists.py and parts.py. Preserves sort-then-fetch semantics exactly.
 - Plan 04-04: COUNT(*) consistently rewritten to select(func.count()).select_from(Model).where(...) per Pitfall 5; coerced with or 0 to satisfy non-Optional[int] callers (db.scalar returns Optional[int] but COUNT(*) semantically never returns NULL).
+- Plan 04-05: unlink_part lock scope covers subject + canonical + full sibling set per D-05 — naive subject-only lock would leave reelect_canonical free to mutate stale siblings
+- Plan 04-05: @pytest.mark.postgres marker + postgres_engine session-scoped fixture + per-test unique gtin keys chosen over BEGIN+ROLLBACK isolation — ROLLBACK defeats pessimistic-lock semantics because locks commit with the transaction
+- Plan 04-05: CI psql CREATE DATABASE retry loop (5 attempts × 2s backoff) per INFO 12 — services.postgres healthcheck catches most readiness issues but first-boot parameter-group races can still surface
+- Plan 04-05: docker-compose.test.yml uses port 5433 (not 5432) to avoid colliding with backend/docker-compose.yml dev Postgres — local devs can run both simultaneously
 
 ### Pending Todos
 
@@ -122,8 +127,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:43:41.316Z
-Stopped at: Completed 04-04
+Last session: 2026-04-23T04:57:05.312Z
+Stopped at: Completed 04-05
 Resume file: None
 
 **Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z

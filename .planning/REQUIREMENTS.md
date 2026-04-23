@@ -52,8 +52,10 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 **: N+1 query in `backend/app/api/endpoints/build_logs.py:119` (`DBUser` fetch inside post loop) replaced with `selectinload(Post.author)` batch fetch
 - [x] **DATA-02
 **: A query-count regression test asserts the N+1 fix stays fixed
-- [ ] **DATA-03**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
-- [ ] **DATA-04**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
+- [x] **DATA-03
+**: Part-linking endpoints use `.with_for_update()` (pessimistic row lock) to eliminate race conditions on canonical linking/unlinking
+- [x] **DATA-04
+**: Concurrency test (10-thread `ThreadPoolExecutor`) simulates simultaneous part link/unlink and asserts no orphaned / circular canonical references
 - [x] **DATA-05
 **: FK index audit across all 22+ models — missing indexes on join keys added via `Index()` declarations
 - [x] **DATA-06
@@ -67,7 +69,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase (see Tra
 
 ### Parts & Canonical Dedup Consolidation
 
-- [ ] **PARTS-01**: Part-linking race condition eliminated (covered by DATA-03/DATA-04; cross-referenced here for traceability)
+- [x] **PARTS-01**: Part-linking race condition eliminated (covered by DATA-03
+/DATA-04; cross-referenced here for traceability)
 - [ ] **PARTS-02**: `car_inference.py` ambiguity resolution reviewed — `AMBIGUOUS_STANDALONE_CODES` set is documented + a regression test pins current behavior; no new ML logic this milestone, just maintainability
 - [ ] **PARTS-03**: Canonical-part flow (create, link, unlink, merge) has integration test coverage matching PROJECT.md's Validated behavior
 
