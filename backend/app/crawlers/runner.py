@@ -110,13 +110,18 @@ def _get_crawler_user(db: Session) -> DBUser:
     if user:
         return user
 
-    # Fallback: legacy env-var path (CLI / local dev before service account is seeded)
+    # Fallback: legacy env-var path (CLI / local dev before service account is seeded).
+    # WR-03: ``User.id`` is UUID-based (see ``is_service_account`` filter above and
+    # ``resolve_crawler_user`` below which uses the ``UUID`` type). The previous
+    # ``int(raw)`` cast was vestigial from the pre-UUID schema and produced a
+    # misleading "must be an integer" error for valid UUID strings. Parse as UUID
+    # to match the model.
     raw = os.environ.get("CRAWLER_USER_ID")
     if raw:
         try:
-            user_id = int(raw)
-        except ValueError:
-            raise CrawlerConfigError("CRAWLER_USER_ID must be an integer.")
+            user_id = UUID(raw)
+        except ValueError as exc:
+            raise CrawlerConfigError("CRAWLER_USER_ID must be a valid UUID.") from exc
         user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
         if not user:
             raise CrawlerConfigError(f"CRAWLER_USER_ID={user_id}: no user found.")
