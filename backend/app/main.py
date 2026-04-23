@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api.endpoints import (
-    admin,
     app_settings,
     auth,
     bug_reports,
@@ -28,6 +27,13 @@ from .api.endpoints import (
     search,
     users,
     votes,
+)
+from .api.endpoints.admin import (
+    crawlers as admin_crawlers,
+    db_ops as admin_db_ops,
+    jobs as admin_jobs,
+    parts as admin_parts,
+    stats as admin_stats,
 )
 from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
@@ -276,12 +282,36 @@ endpoint_registry.register_endpoint(
     description="Forum-style build log threads for build lists",
 )
 
-# Admin endpoint
+# Admin endpoints (split into sub-routers per D-08/D-09)
 endpoint_registry.register_endpoint(
-    admin.router,
-    prefix="/admin",
+    admin_stats.router,
+    prefix="/admin/stats",
     tags=["admin"],
-    description="Admin-only system management operations",
+    description="Admin statistics (table counts, crawl bucket listing)",
+)
+endpoint_registry.register_endpoint(
+    admin_jobs.router,
+    prefix="/admin/jobs",
+    tags=["admin"],
+    description="Admin background jobs (list, detail, crawler-progress, cancel)",
+)
+endpoint_registry.register_endpoint(
+    admin_crawlers.router,
+    prefix="/admin/crawlers",
+    tags=["admin"],
+    description="Admin crawler management (run, rescrape-archives, service-account)",
+)
+endpoint_registry.register_endpoint(
+    admin_db_ops.router,
+    prefix="/admin/db-ops",
+    tags=["admin"],
+    description="Admin database operations (migrations, init data, bulk delete)",
+)
+endpoint_registry.register_endpoint(
+    admin_parts.router,
+    prefix="/admin/parts",
+    tags=["admin"],
+    description="Admin canonical parts management (lookup, link, unlink, rescan)",
 )
 
 # Global app settings (public read, admin write)
