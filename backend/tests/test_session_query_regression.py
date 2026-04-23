@@ -1,8 +1,21 @@
 """DATA-06 regression: zero db.query() / session.query() / self.db.query() call sites.
 
-Phase 4 D-09 sweep — all 301+ legacy calls rewritten to db.scalars(select(...)) /
-db.scalar(select(func.count()).select_from(...)). This test is the permanent CI
-gate that prevents regression.
+Phase 4 D-09 sweep — all 301+ legacy calls in ``backend/app/`` rewritten to
+``db.scalars(select(...))`` / ``db.scalar(select(func.count()).select_from(...))``.
+This test is the permanent CI gate that prevents regression in application code.
+
+Scope (Phase 4 code-review WR-01): this guard is intentionally scoped to
+``backend/app/`` — the runtime/request path. It deliberately does NOT scan:
+
+- ``backend/tests/`` — test helpers (conftest.py fixtures, test utilities) may
+  continue to use the 1.x Query API for terse setup/teardown. The Query API is
+  not removed in SQLAlchemy 2.x, only deprecated for new code. Rewriting these
+  sites carries regression risk that outweighs the invariant value (tests
+  don't go through the request path). If tests ever start asserting query-count
+  contracts via ``query_counter``, those specific files should be migrated as
+  needed.
+- ``backend/scripts/`` — one-off maintenance/migration scripts run out-of-band
+  against a direct DB connection. Scoped exempt for the same reason as tests.
 
 Companion tests: test_pydantic_v1_regression.py (QUAL-02), test_logger_migration_regression.py (QUAL-07).
 """
@@ -12,6 +25,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+# Scoped to ``backend/app/`` only — see module docstring (WR-01) for the rationale
+# behind excluding ``tests/`` and ``scripts/``.
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 
 # Conservative pattern — matches .query( when preceded by db / session / self.db / self.session.
