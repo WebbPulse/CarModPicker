@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01
-last_updated: "2026-04-23T03:40:59.651Z"
+stopped_at: Completed 04-02
+last_updated: "2026-04-23T03:52:22.128Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 24
-  completed_plans: 19
-  percent: 79
+  completed_plans: 20
+  percent: 83
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 04 (db-parts-hardening) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-04-23
 
-Progress: [████████░░] 79%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [████████░░] 79%
 | Phase 01-safety-nets-ci-hardening P07 | 55 | 3 tasks | 16 files |
 | Phase 01-safety-nets-ci-hardening P08 | 1 | 1 tasks | 1 files |
 | Phase 04-db-parts-hardening P04-01 | 15 | 3 tasks | 11 files |
+| Phase Phase 04-db-parts-hardening PP04-02 | 20 | 3 tasks tasks | 5 files files |
 
 ## Accumulated Context
 
@@ -87,6 +88,10 @@ Recent decisions affecting current work:
 - Plan 04-01: FK audit scope grew from 9 confirmed FKs to 13 during systematic sweep (added BuildLogPost.user_id, BugReport.assigned_to, BuildListPhase.build_list_id, CrawlerAdapterConfig.default_category_id)
 - Plan 04-01: Discarded non-index autogenerate output (4 ops: categories UNIQUE rename + 3 FK convention-name re-adds) per D-13/Pitfall 10 — forward-only historic-name deferrals
 - Plan 04-01: pool_recycle=1800 literal committed; pool_size=25 + max_overflow=75 + API_CONNECTION_RESERVE=20 preserved per Phase 3 D-14 crawler formula coupling
+- Plan 04-02: gen_random_uuid() chosen over Python-side uuid7() callable per Pitfall 2 — Python callable in raw INSERT fires once at statement-prepare, tripping uq_build_logs_build_list_id on row 2
+- Plan 04-02: downgrade() is deliberate no-op with SAFE-04 annotation — reversing backfill would destroy user posts captured against backfilled rows (D-26)
+- Plan 04-02: Retained db.query(...).first() lines in both deleted branches — plan 04-04 owns the session.query → select() sweep
+- Plan 04-02: CREATE EXTENSION pgcrypto NOT prepended — gen_random_uuid() verified on local Postgres 16 without extension; prod RDS 16 verification deferred to operator per VALIDATION.md Manual-Only Verifications
 
 ### Pending Todos
 
@@ -107,8 +112,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T03:40:59.647Z
-Stopped at: Completed 04-01
+Last session: 2026-04-23T03:52:22.124Z
+Stopped at: Completed 04-02
 Resume file: None
 
 **Planned Phase:** 04 (db-parts-hardening) — 6 plans — 2026-04-23T03:29:38.710Z
