@@ -145,7 +145,22 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
         # groups into this one, which they should do via link_new_part.
         return new_canonical
 
+    # DATA-03 (Phase 4 D-01/D-05): lock new_canonical + old_canonical + all siblings
+    # before reading/mutating. Siblings are discovered under the lock to freeze the
+    # set against a concurrent link_new_part that might be adding a new sibling.
+    # Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
     old_canonical_id = new_canonical.canonical_part_id
+    lock_ids: set[UUID] = {new_canonical.id, old_canonical_id}
+    sibling_ids = db.scalars(
+        select(DBPart.id)
+        .where(DBPart.canonical_part_id == old_canonical_id)
+        .with_for_update()
+    ).all()
+    lock_ids.update(sibling_ids)
+    db.scalars(
+        select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()
+    ).all()
+
     old_canonical = db.get(DBPart, old_canonical_id)
 
     new_canonical.canonical_part_id = None
@@ -172,14 +187,43 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
 
 
 def unlink_part(db: Session, part: DBPart) -> DBPart:
-    """Make ``part`` its own canonical, detaching it from its current link group."""
-    if part.canonical_part_id is None:
-        return part
-    part.canonical_part_id = None
-    db.add(part)
+    """Make ``part`` its own canonical, detaching it from its current link group.
+
+    DATA-03 (Phase 4 D-01/D-05) lock scope: subject + canonical (if any) + siblings.
+    The full sibling set must be locked so that a concurrent reelect_canonical
+    cannot read subject.canonical_part_id as non-null and then mutate a stale
+    sibling view. The invariant to preserve: every sibling's canonical_part_id
+    resolves to a live Part row with canonical_part_id IS NULL.
+    Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
+    """
+    # Lock the subject row first (stable ordering — subject.id is always in set).
+    subject = db.scalars(
+        select(DBPart).where(DBPart.id == part.id).with_for_update()
+    ).one()
+
+    canonical_id = subject.canonical_part_id
+    if canonical_id is None:
+        return subject
+
+    # Lock the canonical row.
+    db.scalars(
+        select(DBPart).where(DBPart.id == canonical_id).with_for_update()
+    ).one()
+
+    # Lock every sibling that shares this canonical so any interleaving with
+    # reelect_canonical / _point_siblings_at / another unlink serializes here.
+    db.scalars(
+        select(DBPart.id)
+        .where(DBPart.canonical_part_id == canonical_id)
+        .with_for_update()
+    ).all()
+
+    # Now safe to mutate.
+    subject.canonical_part_id = None
+    db.add(subject)
     db.flush()
-    logger.info("Unlinked part %s from prior canonical", part.id)
-    return part
+    logger.info("Unlinked part %s from prior canonical", subject.id)
+    return subject
 
 
 def link_new_part(
@@ -213,6 +257,20 @@ def link_new_part(
     if not candidates:
         logger.debug("Linker: no canonical candidates for part %s; leaving canonical", new_part.id)
         return new_part
+
+    # DATA-03 (Phase 4 D-01/D-05): lock every candidate + new_part so concurrent
+    # link_new_part calls serialize on these rows. Re-reads the latest state in
+    # case the candidates lookup was stale. Silent no-op on SQLite (Pitfall 1) —
+    # concurrency test (test_part_linker_concurrency.py) runs on Postgres.
+    lock_ids = [c.id for c in candidates] + [new_part.id]
+    locked = db.scalars(
+        select(DBPart)
+        .where(DBPart.id.in_(lock_ids))
+        .with_for_update()
+    ).all()
+    locked_by_id = {p.id: p for p in locked}
+    candidates = [locked_by_id[c.id] for c in candidates]
+    new_part = locked_by_id[new_part.id]
 
     all_candidates = candidates + [new_part]
     chosen = max(all_candidates, key=_score_tuple)
