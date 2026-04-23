@@ -859,7 +859,7 @@ export const authApi = {
   // required / signup required); the caller dispatches on the discriminator. Token
   // storage happens in the page handler so the merge / signup flows can complete first.
   googleSignIn: (data: GoogleSignInRequest) =>
-    apiClient.post<GoogleSignInResponse>('/auth/google', data),
+    apiClient.post<GoogleSignInResponse>('/auth/oauth/google', data),
   googleLink: async (
     data: GoogleLinkRequest
   ): Promise<AxiosResponse<UserRead>> => {
@@ -867,7 +867,7 @@ export const authApi = {
       access_token: string;
       token_type: string;
       user: UserRead;
-    }>('/auth/google/link', data);
+    }>('/auth/oauth/google/link', data);
     if (response.data.access_token) setStoredToken(response.data.access_token);
     return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
   },
@@ -878,7 +878,7 @@ export const authApi = {
       access_token: string;
       token_type: string;
       user: UserRead;
-    }>('/auth/google/signup', data);
+    }>('/auth/oauth/google/signup', data);
     if (response.data.access_token) setStoredToken(response.data.access_token);
     return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
   },
@@ -894,7 +894,7 @@ export const authApi = {
     return { ...response, data: response.data.user } as AxiosResponse<UserRead>;
   },
   googleConnect: (data: GoogleConnectRequest) =>
-    apiClient.post<OAuthAccountRead>('/auth/google/connect', data),
+    apiClient.post<OAuthAccountRead>('/auth/oauth/google/connect', data),
   listOAuthAccounts: () => apiClient.get<OAuthAccountRead[]>('/auth/oauth'),
   deleteOAuthAccount: (id: string) =>
     apiClient.delete<Record<string, string>>(`/auth/oauth/${id}`),
