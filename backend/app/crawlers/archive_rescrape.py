@@ -76,7 +76,13 @@ def _compute_rescrape_workers(num_pages: int) -> int:
             if override > 0:
                 max_workers = min(max_workers, override)
         except ValueError:
-            pass
+            # IN-08: mirror runner.py's _compute_adapter_workers behavior —
+            # surface a bad env value in the logs instead of silently falling
+            # back to the DB-pool-sized default. CRAWLER_RESCRAPE_MAX_WORKERS=8x
+            # used to disappear without a trace; now operators see the typo.
+            logging.getLogger(__name__).warning(
+                "Ignoring non-integer CRAWLER_RESCRAPE_MAX_WORKERS=%r", override_raw
+            )
 
     return max(1, max_workers)
 
