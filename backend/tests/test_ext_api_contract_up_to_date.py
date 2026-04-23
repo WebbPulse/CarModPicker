@@ -7,11 +7,11 @@ here if the committed doc is stale.
 IMPORTANT: this test does NOT import the generator as a Python module.
 ``backend/scripts/`` has no ``__init__.py`` and ``backend/`` itself is not on
 ``sys.path`` as a package (pytest.ini sets testpaths=tests with rootdir at
-``backend/``). A ``from backend.scripts.generate_ext_api_contract import ...``
-would raise ``ModuleNotFoundError``. Instead we subprocess-invoke the script
-with ``--stdout``, which is how ``test_openapi_snapshot.py`` avoids script-import
-issues too (it calls ``app.openapi()`` directly in-process rather than importing
-any script).
+``backend/``). A Python-level import of the generator would raise
+``ModuleNotFoundError``. Instead we subprocess-invoke the script with
+``--stdout``, which is how ``test_openapi_snapshot.py`` avoids script-import
+issues too (it calls ``app.openapi()`` directly in-process rather than
+importing any script).
 
 Same shape as ``test_openapi_snapshot.py`` in spirit — diff IS the review
 artifact.
