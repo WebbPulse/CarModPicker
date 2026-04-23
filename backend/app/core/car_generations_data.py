@@ -16,7 +16,7 @@ To add a new car generation:
 from __future__ import annotations
 
 import re
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
@@ -61,10 +61,23 @@ class CarModelData(TypedDict):
     slug: NotRequired[str]
 
 
-# Module-level reference to the lru_cached dict — one-time load on first use.
-# WARNING: Callers MUST NOT mutate this dict (see Pitfall JS-01 in 03-RESEARCH.md).
+# Module-level CAR_GENERATIONS is now exposed lazily via __getattr__ so importing
+# this shim no longer eagerly parses the ~hundreds-of-ms JSON asset (WR-01 / D-28).
+# The first attribute access invokes load_car_generations(), which is @lru_cache'd —
+# subsequent accesses return the same dict without re-parsing.
+# WARNING: Callers MUST NOT mutate the returned dict (see Pitfall JS-01 in 03-RESEARCH.md).
 # @lru_cache returns the SAME object on every call; mutation would leak across callers.
-CAR_GENERATIONS: dict[str, list[CarModelData]] = load_car_generations()  # type: ignore[assignment]
+def __getattr__(name: str) -> Any:
+    """Defer the JSON load until CAR_GENERATIONS is actually accessed (PEP 562).
+
+    Re-exporting via `from app.core.car_generations_data import CAR_GENERATIONS`
+    triggers this hook on first access; the returned dict is the @lru_cache'd
+    output of load_car_generations(), so identity comparisons against the
+    loader's result still hold.
+    """
+    if name == "CAR_GENERATIONS":
+        return load_car_generations()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def get_all_car_generations() -> list[dict[str, str | int | None]]:
@@ -85,7 +98,7 @@ def get_all_car_generations() -> list[dict[str, str | int | None]]:
     explicit None to clear any stale DB value (rather than leaving it in place).
     """
     generations: list[dict[str, str | int | None]] = []
-    for make, models in CAR_GENERATIONS.items():
+    for make, models in load_car_generations().items():
         for model_data in models:
             model = model_data["model"]
             model_display_name = model_data.get("model_display_name")
