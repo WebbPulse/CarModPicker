@@ -43,7 +43,7 @@ class ColorizedFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         record_copy = copy(record)
         if self.use_colors:
-            color_fn = LEVEL_NAME_COLORS.get(record_copy.levelno, lambda name: str(record_copy.levelname))
+            color_fn = LEVEL_NAME_COLORS.get(record_copy.levelno, lambda name: str(name))
             record_copy.levelname = color_fn(record_copy.levelname)
         return super().format(record_copy)
 
