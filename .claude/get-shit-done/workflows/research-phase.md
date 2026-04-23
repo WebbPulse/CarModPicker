@@ -13,14 +13,14 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 
 ## Step 0: Resolve Model Profile
 
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/model-profile-resolution.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/model-profile-resolution.md
 
 Resolve model for:
 - `gsd-phase-researcher`
 
 ## Step 1: Normalize and Validate Phase
 
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/phase-argument-parsing.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/phase-argument-parsing.md
 
 ```bash
 PHASE_INFO=$(gsd-sdk query roadmap.get-phase "${PHASE}")

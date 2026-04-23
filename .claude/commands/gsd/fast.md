@@ -22,9 +22,9 @@ you could describe in one sentence and execute in under 2 minutes.
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/fast.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/fast.md
 </execution_context>
 
 <process>
-Execute the fast workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/fast.md end-to-end.
+Execute the fast workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/fast.md end-to-end.
 </process>

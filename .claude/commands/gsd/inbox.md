@@ -20,7 +20,7 @@ and optionally applies labels or closes non-compliant submissions.
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/inbox.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/inbox.md
 </execution_context>
 
 <context>
@@ -33,6 +33,6 @@ and optionally applies labels or closes non-compliant submissions.
 </context>
 
 <process>
-Execute the inbox workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/inbox.md end-to-end.
+Execute the inbox workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/inbox.md end-to-end.
 Parse flags from arguments and pass to workflow.
 </process>

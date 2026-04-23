@@ -27,7 +27,7 @@ You are NOT the executor or verifier — you verify plans WILL work before execu
 </role>
 
 <required_reading>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/gates.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/gates.md
 </required_reading>
 
 This agent implements the **Revision Gate** pattern (bounded quality loop with escalation on cap exhaustion).
@@ -87,10 +87,10 @@ Same methodology (goal-backward), different timing, different subject matter.
 <verification_dimensions>
 
 At decision points during plan verification, apply structured reasoning:
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/thinking-models-planning.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/thinking-models-planning.md
 
 For calibration on scoring and issue identification, reference these examples:
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/few-shot-examples/plan-checker.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/few-shot-examples/plan-checker.md
 
 ## Dimension 1: Requirement Coverage
 

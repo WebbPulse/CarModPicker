@@ -3,7 +3,7 @@ Audit Nyquist validation gaps for a completed phase. Generate missing tests. Upd
 </purpose>
 
 <required_reading>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ui-brand.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ui-brand.md
 </required_reading>
 
 <available_agent_types>
@@ -94,7 +94,7 @@ Call AskUserQuestion with gap table and options:
 
 ```
 Task(
-  prompt="Read /Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/agents/gsd-nyquist-auditor.md for instructions.\n\n" +
+  prompt="Read /home/tyler-webb/Documents/Github/CarModPicker/.claude/agents/gsd-nyquist-auditor.md for instructions.\n\n" +
     "<files_to_read>{PLAN, SUMMARY, impl files, VALIDATION.md}</files_to_read>" +
     "<gaps>{gap list}</gaps>" +
     "<test_infrastructure>{framework, config, commands}</test_infrastructure>" +
@@ -114,7 +114,7 @@ Handle return:
 ## 6. Generate/Update VALIDATION.md
 
 **State B (create):**
-1. Read template from `/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/templates/VALIDATION.md`
+1. Read template from `/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/templates/VALIDATION.md`
 2. Fill: frontmatter, Test Infrastructure, Per-Task Map, Manual-Only, Sign-Off
 3. Write to `${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md`
 

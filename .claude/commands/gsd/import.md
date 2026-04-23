@@ -22,10 +22,10 @@ Future: `--prd` mode for PRD extraction is planned for a follow-up PR.
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/import.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ui-brand.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/gate-prompts.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/doc-conflict-engine.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/import.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ui-brand.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/gate-prompts.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/doc-conflict-engine.md
 </execution_context>
 
 <context>

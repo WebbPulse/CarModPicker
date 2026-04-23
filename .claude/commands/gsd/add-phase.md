@@ -19,7 +19,7 @@ Routes to the add-phase workflow which handles:
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/add-phase.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/add-phase.md
 </execution_context>
 
 <context>
@@ -29,7 +29,7 @@ Roadmap and state are resolved in-workflow via `init phase-op` and targeted tool
 </context>
 
 <process>
-**Follow the add-phase workflow** from `@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/add-phase.md`.
+**Follow the add-phase workflow** from `@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/add-phase.md`.
 
 The workflow handles all logic including:
 1. Argument parsing and validation

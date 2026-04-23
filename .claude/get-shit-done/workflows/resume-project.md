@@ -11,7 +11,7 @@ Instantly restore full project context so "Where were we?" has an immediate, com
 </purpose>
 
 <required_reading>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/continuation-format.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/continuation-format.md
 </required_reading>
 
 <process>

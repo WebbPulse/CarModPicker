@@ -17,8 +17,8 @@ project history. Output skill goes to `./.claude/skills/spike-findings-[project]
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/spike-wrap-up.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ui-brand.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/spike-wrap-up.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <runtime_note>
@@ -26,6 +26,6 @@ project history. Output skill goes to `./.claude/skills/spike-findings-[project]
 </runtime_note>
 
 <process>
-Execute the spike-wrap-up workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/spike-wrap-up.md end-to-end.
+Execute the spike-wrap-up workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/spike-wrap-up.md end-to-end.
 Preserve all curation gates (per-spike review, grouping approval, CLAUDE.md routing line).
 </process>

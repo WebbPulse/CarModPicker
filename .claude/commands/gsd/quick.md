@@ -39,7 +39,7 @@ Granular flags are composable: `--discuss --research --validate` gives the same 
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/quick.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/quick.md
 </execution_context>
 
 <context>
@@ -153,7 +153,7 @@ When SUBCMD=resume and SLUG is set (already sanitized):
 
 When SUBCMD=run:
 
-Execute the quick workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/quick.md end-to-end.
+Execute the quick workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/quick.md end-to-end.
 Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).
 
 </process>

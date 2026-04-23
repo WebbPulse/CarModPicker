@@ -11,10 +11,10 @@ Supports two modes:
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
 
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-theme-system.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-variant-patterns.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-interactivity.md
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/sketch-tooling.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-theme-system.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-variant-patterns.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-interactivity.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/sketch-tooling.md
 </required_reading>
 
 <process>

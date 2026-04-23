@@ -19,7 +19,7 @@ planning via /gsd-plan-phase --reviews.
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/review.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/review.md
 </execution_context>
 
 <context>
@@ -36,5 +36,5 @@ Phase number: extracted from $ARGUMENTS (required)
 </context>
 
 <process>
-Execute the review workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/review.md end-to-end.
+Execute the review workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/review.md end-to-end.
 </process>

@@ -25,9 +25,9 @@ Flags:
 </objective>
 
 <execution_context>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/audit-fix.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/audit-fix.md
 </execution_context>
 
 <process>
-Execute the audit-fix workflow from @/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/workflows/audit-fix.md end-to-end.
+Execute the audit-fix workflow from @/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/workflows/audit-fix.md end-to-end.
 </process>

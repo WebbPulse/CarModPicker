@@ -5,7 +5,7 @@ Use after /gsd-execute-phase to verify that the evaluation strategy from AI-SPEC
 </purpose>
 
 <required_reading>
-@/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/references/ai-evals.md
+@/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/references/ai-evals.md
 </required_reading>
 
 <process>
@@ -78,7 +78,7 @@ Build file list for auditor:
 Build prompt:
 
 ```markdown
-Read /Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/agents/gsd-eval-auditor.md for instructions.
+Read /home/tyler-webb/Documents/Github/CarModPicker/.claude/agents/gsd-eval-auditor.md for instructions.
 
 <objective>
 Conduct evaluation coverage audit of Phase {phase_number}: {phase_name}

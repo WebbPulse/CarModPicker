@@ -236,7 +236,7 @@ keeps raw file contents out of the main context window, protecting token budget.
 **Resolve calibration tier (if USER-PROFILE.md exists):**
 
 ```bash
-PROFILE_PATH="/Users/tyler.webb/Documents/GitHub/Personal Projects/CarModPicker/.claude/get-shit-done/USER-PROFILE.md"
+PROFILE_PATH="/home/tyler-webb/Documents/Github/CarModPicker/.claude/get-shit-done/USER-PROFILE.md"
 ```
 
 If file exists at PROFILE_PATH:
