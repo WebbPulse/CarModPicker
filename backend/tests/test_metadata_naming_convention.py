@@ -7,11 +7,11 @@ SQLAlchemy-recommended convention locked by D-11.
 
 from __future__ import annotations
 
+from app.db.base_class import Base
+
 
 def test_metadata_naming_convention_has_five_expected_keys() -> None:
     """SAFE-09 contract: Base.metadata.naming_convention has exactly 5 keys."""
-    from app.db.base_class import Base
-
     convention = Base.metadata.naming_convention
     assert isinstance(convention, dict)
     assert set(convention.keys()) == {
@@ -25,8 +25,6 @@ def test_metadata_naming_convention_has_five_expected_keys() -> None:
 
 def test_metadata_naming_convention_fk_template_is_sqlalchemy_recommended() -> None:
     """SAFE-09 contract: fk template matches the SQLAlchemy-recommended shape (D-11)."""
-    from app.db.base_class import Base
-
     convention = Base.metadata.naming_convention
     assert (
         convention["fk"] == "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s"
