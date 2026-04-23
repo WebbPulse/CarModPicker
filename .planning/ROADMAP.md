@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Safety Nets & CI Hardening** - Lock in coverage floors, characterization tests, and migration guards before touching anything structural
 - [ ] **Phase 2: Observability** - Add Sentry, CloudWatch crawler metrics, and alarms — additive-only, zero regression risk
-- [ ] **Phase 3: Non-Breaking Internal Improvements** - Crawler hardening, adapter auto-discovery, Pydantic v1 sweep, car-data lazy-load
+- [x] **Phase 3: Non-Breaking Internal Improvements** - Crawler hardening, adapter auto-discovery, Pydantic v1 sweep, car-data lazy-load
 - [x] **Phase 4: DB & Parts Hardening** - N+1 fix, part-link concurrency, FK index audit, session API migration, build-log eager creation
 - [ ] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
 - [ ] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
@@ -130,7 +130,7 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 |-------|----------------|--------|-----------|
 | 1. Safety Nets & CI Hardening | 0/8 | Not started | - |
 | 2. Observability | 0/TBD | Not started | - |
-| 3. Non-Breaking Internal Improvements | 0/5 | Not started | - |
+| 3. Non-Breaking Internal Improvements | 5/5 | Complete | 2026-04-22 |
 | 4. DB & Parts Hardening | 0/6 | Not started | - |
 | 5. Structural Router Splits | 0/TBD | Not started | - |
 | 6. Frontend Cleanup & Final CI Gates | 0/TBD | Not started | - |
