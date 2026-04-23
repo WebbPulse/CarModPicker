@@ -24,9 +24,12 @@ alembic==1.16.2
 uuid6==2025.0.1
 
 # Authentication and security
-# Note: python-jose depends on ecdsa (CVE-2024-23342), but this is not exploitable
-# in this codebase as we use HS256 (HMAC) algorithm, not ECDSA-based algorithms.
-# The ecdsa maintainers have indicated no plans to fix this vulnerability.
+# PyJWT — primary JWT library (AUTH-04, Phase 5 D-06).
+PyJWT==2.12.1
+
+# python-jose — KEPT through Phase 5 only for test_pyjwt_migration.py parity assertion.
+# Scheduled for removal in Phase 6 dependency cleanup.
+# Note: python-jose depends on ecdsa (CVE-2024-23342), not exploitable in HS256-only usage.
 python-jose[cryptography]==3.5.0
 bcrypt==4.3.0
 python-multipart==0.0.26
