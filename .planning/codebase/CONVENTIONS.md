@@ -366,6 +366,77 @@ def validate_instagram_url(cls, v: Optional[str]) -> Optional[str]:
     return _validate_social_url(v, "Instagram", SOCIAL_PLATFORM_HOSTS["instagram"])
 ```
 
+## Alembic downgrade testing
+
+(Phase 4 DATA-09 / D-31)
+
+Every migration PR must include documented evidence that the Alembic revision
+round-trips cleanly against a local Docker Postgres. CI automation is
+deferred until the Postgres side-car matures beyond the single
+concurrency-test job (see Phase 4 Deferred Ideas in
+`.planning/phases/04-db-parts-hardening/04-CONTEXT.md`). The convention is
+reviewer-gated: it is the migration author's responsibility to run the
+round-trip locally and paste the green output into the PR.
+
+### Procedure
+
+1. Start a local Postgres instance. Two common options:
+
+   ```
+   # Recommended for migration work: the test-only side-car on port 5433
+   # (added by plan 04-05; ephemeral tmpfs volume, no persistence).
+   docker compose -f docker-compose.test.yml up -d postgres-test
+   ```
+
+   ```
+   # Or use the dev default on port 5432 if you prefer.
+   docker compose -f backend/docker-compose.yml up -d
+   ```
+
+2. Run the round-trip helper with an EXPLICIT revision id or the literal
+   `head`:
+
+   ```
+   cd backend
+   ./scripts/test_migration_round_trip.sh <revision_id>
+   # or explicitly target head:
+   ./scripts/test_migration_round_trip.sh head
+   ```
+
+   The script runs:
+
+   ```
+   alembic upgrade <revision_id>
+   alembic downgrade -1
+   alembic upgrade head
+   ```
+
+   and exits non-zero if any step fails. The REVISION argument is REQUIRED
+   (INFO 13) — omitting it fails with a usage message instead of silently
+   defaulting to `head`, so reviewers can confirm the author ran the script
+   against the specific revision under review.
+
+3. Paste the script's green output into the PR conversation under a
+   "Migration round-trip" heading. Reviewers verify the three-step sequence
+   completed; if any step failed, block the PR.
+
+### Exceptions
+
+- **Forward-only data migrations** — `downgrade()` is annotated with the
+  `# SAFE: forward-only data backfill; no reversal needed` convention (Phase
+  1 SAFE-04). The round-trip still runs, but the downgrade step is expected
+  to be a no-op.
+- **Already-applied migrations on prod** — historic revisions that pre-date
+  this convention are grandfathered (see Phase 1 SAFE-08 repair pattern).
+
+### Rationale
+
+`alembic downgrade -1` followed by `upgrade head` is the smallest invariant
+that catches the most common migration-authoring bugs: missing `op.drop_*`
+in `downgrade()`, mismatched column types, naming-convention drift,
+ordering issues in destructive ops, etc. Automating in CI is a future task;
+a reviewer-gated doc check is sufficient for the current team size.
+
 ---
 
 *Convention analysis: 2026-04-22*
