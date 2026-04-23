@@ -523,15 +523,16 @@ def run_crawler(
         rate_limit_bailout_after = 0
         breaker = get_breaker(adapter_name)
 
-        # CRAWL-07 / Plan 03-03: wall-clock start for `elapsed_seconds` in the
-        # result dict. Captured AFTER check_health (which has its own timeout)
-        # so elapsed_seconds measures the URL-loop cost exclusively. Used by
-        # both the success-path return and the breaker-bail return below.
-        # OBS-02 / D-17: `start_ts` aliases `t0` so the EMF emission at the
-        # end of run_crawler uses the same wall-clock window as the return
-        # dict's `elapsed_seconds` field.
-        start_ts = time.monotonic()
-        t0 = start_ts
+        # CRAWL-07 / Plan 03-03 + OBS-02 / D-17: single wall-clock anchor for
+        # `elapsed_seconds` in the result dict AND for the EMF emit at the end
+        # of run_crawler. Captured AFTER check_health (which has its own
+        # timeout) so elapsed_seconds measures the URL-loop cost exclusively.
+        # Used by both the success-path return, the breaker-bail return, and
+        # the emit_crawler_run_metrics call below. IN-01: previously the two
+        # consumers used separate names (`start_ts` for EMF, `t0` for the
+        # return dict) that aliased the same value — collapsed to a single
+        # name so future refactors cannot silently diverge them.
+        t0 = time.monotonic()
 
         for i, url in enumerate(urls, 1):
             if stop_event is not None and stop_event.is_set():
@@ -704,7 +705,7 @@ def run_crawler(
             run_type="live",  # runner.py handles live path; rescrape path emits separately in ecs_rescrape_runner.py (D-21)
             ingested=ingested,
             parse_failures=skipped_not_product,  # D-22: parse_failures == skipped_not_product
-            elapsed_seconds=time.monotonic() - start_ts,
+            elapsed_seconds=time.monotonic() - t0,  # IN-01: single anchor shared with return dict
         )
         logger.log(
             summary_level,
