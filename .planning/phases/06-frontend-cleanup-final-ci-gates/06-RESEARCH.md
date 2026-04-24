@@ -896,24 +896,26 @@ export default tseslint.config(
 
 **Required user confirmation:** A2 (FE-04 structural interpretation) is the single high-risk assumption and must be resolved before planning begins.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **FE-04: Split `services/Api.ts` into `frontend/src/api/*.ts` per-domain — yes or no?**
+> All four questions resolved 2026-04-23 during planning. See `06-CONTEXT.md` §Planning-time resolutions for the authoritative decisions.
+
+1. **FE-04: Split `services/Api.ts` into `frontend/src/api/*.ts` per-domain — yes or no?** — **RESOLVED (D-22):** YES, split per-domain. Per-domain modules mirror the backend endpoint split. See `06-CONTEXT.md` §Planning-time resolutions D-22.
    - What we know: CONTEXT.md D-04 says "next to each API client module in `frontend/src/api/`". The phrase "each API client module" implies multiple modules exist. But current codebase has a single `frontend/src/services/Api.ts` (1521 lines) with all domain APIs (usersApi, carGenerationsApi, buildListsApi, partsApi, categoriesApi, partManufacturersApi, retailersApi, votesApi, reportsApi, etc.) grouped in one file.
    - What's unclear: Does D-04 intend (a) a structural refactor to split Api.ts into many files, OR (b) co-located types INSIDE the existing Api.ts sections, OR (c) write new `src/api/` domain modules alongside `services/Api.ts` just for the types?
    - Recommendation: **The planner MUST surface this as a pre-planning question and get user confirmation.** If (a) — the scope grows significantly; Phase 6's typing work would now include a ~1500-line file-split. If (b) — the scope matches the CONTEXT.md-sized work. If (c) — unusual; avoid. I recommend interpretation (b) as it matches D-01's "small blast radius" framing: write response-type interfaces AT THE TOP OF EACH SECTION of the existing `services/Api.ts`, not split the file. If interpretation (a) is confirmed, this becomes a Phase 6 second plan, not a single PR.
 
-2. **Do we delete `backend/tests/test_pyjwt_migration.py` AND audit `backend/tests/dependencies/test_auth_utils.py`?**
+2. **Do we delete `backend/tests/test_pyjwt_migration.py` AND audit `backend/tests/dependencies/test_auth_utils.py`?** — **RESOLVED (D-14 + D-23):** DELETE `test_pyjwt_migration.py`; MIGRATE `test_auth_utils.py` from `from jose import jwt` to PyJWT (`import jwt`). See `06-CONTEXT.md` D-14 + planning-time D-23.
    - What we know: D-14 explicitly says "delete the test when jose is removed". test_pyjwt_migration.py is the documented one; test_auth_utils.py also imports `from jose import jwt` (line 3).
    - What's unclear: Is test_auth_utils.py meant to be migrated to PyJWT (equivalent API for HS256 is drop-in) or deleted?
    - Recommendation: Planner should assume **migrate test_auth_utils.py to PyJWT** (`from jwt import encode, decode` instead of `from jose import jwt`). If the test still has value as an auth-utility regression, migration preserves that value with zero API surface change. If deletion is intended, it should be an explicit call-out in the PR-B plan.
 
-3. **Does the route-group boundary coverage test (D-10) use AST or RTL approach?**
+3. **Does the route-group boundary coverage test (D-10) use AST or RTL approach?** — **RESOLVED (D-24):** RTL with MemoryRouter. Parametrized vitest test that renders each `<Route>` in a MemoryRouter, forces a component throw from its `element`, and asserts the route-group wrapper's fallback UI renders. See `06-CONTEXT.md` §Planning-time resolutions D-24.
    - What we know: D-10 accepts both; Claude's Discretion in CONTEXT.md confirms the planner picks. The backend Phase 5 pattern (parametrized over `app.routes`) is runtime-introspection on a live-built FastAPI app — that's runtime, not AST. The analog for React Router 7 is `<Routes>` is a set of JSX Route elements, not a runtime introspectable tree until render time.
    - What's unclear: Runtime RTL-render cost per route (~40 lazy components to resolve + mock). AST cost: TypeScript compiler API boilerplate to walk App.tsx.
    - Recommendation: **RTL parametrized render with `MemoryRouter` + data-testid markers on `RouteGroupBoundary`** (Example 3 shown above). RTL is durable to JSX restructuring; AST is faster but brittle. For 40-ish routes, vitest runtime is acceptable (<5s in practice for a fresh cache). If vitest runtime becomes a problem, AST is a mechanical rewrite later.
 
-4. **Does PR-A need a test-order change for xdist parallelism?**
+4. **Does PR-A need a test-order change for xdist parallelism?** — **RESOLVED (diagnostic-only):** No default change. Planners keep `pytest -p no:xdist` available as a bisect tool only, documented in Plan 06-04. Not a pre-execution decision.
    - What we know: pytest `-n auto` is the norm. PR-A touches Pydantic; the existing `catch_warnings` guard may surface deprecations from ANY test, not just auth characterization.
    - What's unclear: If Pydantic 2.13 emits NEW deprecations (e.g., about `field_validator` signatures we have been using correctly), the warning stream order across parallel workers may make the failing test identification harder.
    - Recommendation: Planner should include a task to run `pytest -p no:xdist` as a diagnostic step IF PR-A CI fails in unexpected places. Not a default requirement, just a bisect tool.
