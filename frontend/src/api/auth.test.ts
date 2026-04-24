@@ -120,7 +120,7 @@ describe('authApi — TOTP 2FA', () => {
   });
 
   it('loginWith2FA POSTs /auth/token/2fa, stores token, and unwraps user', async () => {
-    const data = { session_token: 'sess', code: '123456' };
+    const data = { username: 'u', password: 'p', otp: '123456' };
     postMock.mockResolvedValueOnce({
       data: {
         access_token: 'tfa-tok',
@@ -148,7 +148,7 @@ describe('authApi — TOTP 2FA', () => {
   });
 
   it('verify2FA POSTs /auth/2fa/verify with the TOTPVerifyRequest body', async () => {
-    const data = { code: '123456' };
+    const data = { otp: '123456' };
     postMock.mockResolvedValueOnce({ data: { success: true } });
 
     const result = await authApi.verify2FA(data);
@@ -158,13 +158,13 @@ describe('authApi — TOTP 2FA', () => {
   });
 
   it('disable2FA POSTs /auth/2fa/disable with the TOTPDisableRequest body', async () => {
-    const data = { password: 'pw', code: '123456' };
+    const data = { password: 'pw', otp: '123456' };
     postMock.mockResolvedValueOnce({ data: { message: 'disabled' } });
 
     const result = await authApi.disable2FA(data);
 
     expect(postMock).toHaveBeenCalledWith('/auth/2fa/disable', data);
-    expect(result.data.message).toBe('disabled');
+    expect(result.data['message']).toBe('disabled');
   });
 });
 
@@ -180,7 +180,7 @@ describe('authApi — email verification & password reset', () => {
     const result = await authApi.verifyEmail(data);
 
     expect(postMock).toHaveBeenCalledWith('/auth/verify-email', data);
-    expect(result.data.message).toBe('sent');
+    expect(result.data['message']).toBe('sent');
   });
 
   it('verifyEmailConfirm GETs /auth/verify-email/confirm with token param', async () => {
@@ -191,7 +191,7 @@ describe('authApi — email verification & password reset', () => {
     expect(getMock).toHaveBeenCalledWith('/auth/verify-email/confirm', {
       params: { token: 'confirm-token-xyz' },
     });
-    expect(result.data.message).toBe('verified');
+    expect(result.data['message']).toBe('verified');
   });
 
   it('resetPassword POSTs /auth/reset-password with the body', async () => {
@@ -207,14 +207,14 @@ describe('authApi — email verification & password reset', () => {
     postMock.mockResolvedValueOnce({ data: { message: 'reset' } });
 
     const result = await authApi.resetPasswordConfirm('reset-tok', {
-      new_password: 'newpw',
+      password: 'newpw',
     });
 
     expect(postMock).toHaveBeenCalledWith('/auth/reset-password/confirm', {
       token: 'reset-tok',
-      new_password: { new_password: 'newpw' },
+      new_password: { password: 'newpw' },
     });
-    expect(result.data.message).toBe('reset');
+    expect(result.data['message']).toBe('reset');
   });
 });
 
@@ -368,7 +368,7 @@ describe('authApi — Google OAuth', () => {
   });
 
   it('googleSignIn POSTs /auth/oauth/google with the GoogleSignInRequest body', async () => {
-    const data = { id_token: 'google-id-token' };
+    const data = { id_token: 'google-id-token', nonce: 'n-1' };
     postMock.mockResolvedValueOnce({
       data: { status: 'token', access_token: 'g-tok', user: mockUser },
     });
@@ -380,8 +380,7 @@ describe('authApi — Google OAuth', () => {
 
   it('googleLink POSTs /auth/oauth/google/link, stores token, unwraps user', async () => {
     const data = {
-      id_token: 'google-id-token',
-      username: 'u',
+      link_token: 'link-token-xyz',
       password: 'pw',
     };
     postMock.mockResolvedValueOnce({
@@ -400,7 +399,7 @@ describe('authApi — Google OAuth', () => {
   });
 
   it('googleSignup POSTs /auth/oauth/google/signup, stores token, unwraps user', async () => {
-    const data = { id_token: 'google-id-token', username: 'newuser' };
+    const data = { signup_token: 'signup-token-xyz', username: 'newuser' };
     postMock.mockResolvedValueOnce({
       data: {
         access_token: 'gsignup-tok',
@@ -420,7 +419,7 @@ describe('authApi — Google OAuth', () => {
   });
 
   it('oauthTwoFactor POSTs /auth/oauth/2fa, stores token, unwraps user', async () => {
-    const data = { session_token: 'sess', code: '123456' };
+    const data = { otp_token: 'otp-tok', otp: '123456' };
     postMock.mockResolvedValueOnce({
       data: {
         access_token: 'otfa-tok',
@@ -437,7 +436,7 @@ describe('authApi — Google OAuth', () => {
   });
 
   it('googleConnect POSTs /auth/oauth/google/connect with the body', async () => {
-    const data = { id_token: 'google-id-token' };
+    const data = { id_token: 'google-id-token', nonce: 'n-2' };
     postMock.mockResolvedValueOnce({
       data: {
         id: 'oauth-1',
