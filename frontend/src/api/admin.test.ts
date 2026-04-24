@@ -31,7 +31,14 @@ import {
   makeUrlLookup,
   makeRescanResponse,
 } from '../test/mocks/admin/curation';
-import { makeAdapterCatalog } from '../test/mocks/admin/crawlers';
+import {
+  makeAdapterCatalog,
+  makeCrawlerAdapter,
+  makeAdapterList,
+  makeSchedule,
+  makeScheduleList,
+} from '../test/mocks/admin/crawlers';
+import { makeJob, makeJobsList } from '../test/mocks/admin/jobs';
 
 describe('adminApi — migrations & db-ops', () => {
   beforeEach(() => {
@@ -427,5 +434,241 @@ describe('adminApi — canonical-part curation', () => {
     );
     expect(result.data.scanned).toBe(100);
     expect(result.data.changes).toBe(3);
+  });
+});
+
+describe('adminApi — background jobs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('listJobs GETs /admin/jobs with no params when none provided', async () => {
+    const jobs = makeJobsList();
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: jobs });
+
+    const result = await adminApi.listJobs();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs', {
+      params: undefined,
+    });
+    expect(result.data.items[0]?.job_type).toBe('crawler_run');
+  });
+
+  it('listJobs forwards status/job_type/limit/offset filters', async () => {
+    const jobs = makeJobsList({ running: true });
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: jobs });
+    const params = {
+      status: 'running',
+      job_type: 'crawler_run',
+      limit: 10,
+      offset: 20,
+    };
+
+    await adminApi.listJobs(params);
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs', {
+      params,
+    });
+  });
+
+  it('getJob GETs /admin/jobs/:id', async () => {
+    const job = makeJob();
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: job });
+
+    await adminApi.getJob(job.id);
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      `/admin/jobs/${job.id}`
+    );
+  });
+
+  it('getCrawlerJobProgress GETs /admin/jobs/:id/crawler-progress', async () => {
+    const jobId = '99999999-9999-7999-8999-999999999999';
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: {
+        job_id: jobId,
+        status: 'running',
+        started_at: '2026-04-24T00:00:00Z',
+        now: '2026-04-24T00:05:00Z',
+        adapters: {
+          'adapter-a': { parsed_this_run: 25, last_parsed_at: null },
+        },
+      },
+    });
+
+    const result = await adminApi.getCrawlerJobProgress(jobId);
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      `/admin/jobs/${jobId}/crawler-progress`
+    );
+    expect(result.data.adapters['adapter-a']?.parsed_this_run).toBe(25);
+  });
+
+  it('cancelJob POSTs to /admin/jobs/:id/cancel', async () => {
+    const job = makeJob({ status: 'cancelled' });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: job });
+
+    const result = await adminApi.cancelJob(job.id);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      `/admin/jobs/${job.id}/cancel`
+    );
+    expect(result.data.status).toBe('cancelled');
+  });
+});
+
+describe('adminApi — crawler schedules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('listCrawlerSchedules GETs /admin/crawler-schedules/', async () => {
+    const list = makeScheduleList();
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: list });
+
+    const result = await adminApi.listCrawlerSchedules();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/admin/crawler-schedules/'
+    );
+    expect(Object.keys(result.data.presets)).toContain('weekly');
+  });
+
+  it('createCrawlerSchedule POSTs body to /admin/crawler-schedules/', async () => {
+    const body = {
+      name: 'nightly-all',
+      description: 'Runs every night',
+      enabled: true,
+      schedule_expression: 'cron(0 0 * * ? *)',
+      adapters: ['test-adapter'],
+    };
+    const schedule = makeSchedule({ name: body.name });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: schedule });
+
+    await adminApi.createCrawlerSchedule(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawler-schedules/',
+      body
+    );
+  });
+
+  it('createCrawlerSchedule accepts preset shorthand in body', async () => {
+    const body = {
+      name: 'weekly-all',
+      preset: 'weekly' as const,
+      adapters: ['test-adapter'],
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: makeSchedule({ name: body.name }),
+    });
+
+    await adminApi.createCrawlerSchedule(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawler-schedules/',
+      expect.objectContaining({ preset: 'weekly' })
+    );
+  });
+
+  it('updateCrawlerSchedule PATCHes /admin/crawler-schedules/:id', async () => {
+    const scheduleId = 'bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb';
+    const body = { enabled: false, description: 'paused' };
+    vi.mocked(apiClient.patch).mockResolvedValueOnce({
+      data: makeSchedule({ id: scheduleId, enabled: false }),
+    });
+
+    await adminApi.updateCrawlerSchedule(scheduleId, body);
+
+    expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith(
+      `/admin/crawler-schedules/${scheduleId}`,
+      body
+    );
+  });
+
+  it('deleteCrawlerSchedule DELETEs /admin/crawler-schedules/:id', async () => {
+    const scheduleId = 'bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb';
+    vi.mocked(apiClient.delete).mockResolvedValueOnce({ data: undefined });
+
+    await adminApi.deleteCrawlerSchedule(scheduleId);
+
+    expect(vi.mocked(apiClient.delete)).toHaveBeenCalledWith(
+      `/admin/crawler-schedules/${scheduleId}`
+    );
+  });
+
+  it('reconcileCrawlerSchedules POSTs to /admin/crawler-schedules/reconcile', async () => {
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: {
+        results: [{ schedule_name: 'weekly-all', ok: true, error: null }],
+      },
+    });
+
+    const result = await adminApi.reconcileCrawlerSchedules();
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawler-schedules/reconcile'
+    );
+    expect(result.data.results[0]?.ok).toBe(true);
+  });
+});
+
+describe('adminApi — crawler adapter configs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('listCrawlerAdapterConfigs GETs /admin/crawler-adapter-configs/', async () => {
+    const list = makeAdapterList([makeCrawlerAdapter({ delay_sec: 10 })]);
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: list });
+
+    const result = await adminApi.listCrawlerAdapterConfigs();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/admin/crawler-adapter-configs/'
+    );
+    expect(result.data.items[0]?.delay_sec).toBe(10);
+  });
+
+  it('updateCrawlerAdapterConfig PATCHes /admin/crawler-adapter-configs/:name with body', async () => {
+    const adapterName = 'test-adapter';
+    const body = {
+      delay_sec: 15,
+      per_run_limit: 50,
+      skip_known_urls: false,
+    };
+    vi.mocked(apiClient.patch).mockResolvedValueOnce({
+      data: makeCrawlerAdapter({
+        adapter_name: adapterName,
+        delay_sec: 15,
+        per_run_limit: 50,
+        skip_known_urls: false,
+      }),
+    });
+
+    await adminApi.updateCrawlerAdapterConfig(adapterName, body);
+
+    expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith(
+      `/admin/crawler-adapter-configs/${adapterName}`,
+      body
+    );
+  });
+
+  it('updateCrawlerAdapterConfig supports clear_per_run_limit flag', async () => {
+    const adapterName = 'test-adapter';
+    const body = { clear_per_run_limit: true };
+    vi.mocked(apiClient.patch).mockResolvedValueOnce({
+      data: makeCrawlerAdapter({
+        adapter_name: adapterName,
+        per_run_limit: null,
+      }),
+    });
+
+    await adminApi.updateCrawlerAdapterConfig(adapterName, body);
+
+    expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith(
+      `/admin/crawler-adapter-configs/${adapterName}`,
+      expect.objectContaining({ clear_per_run_limit: true })
+    );
   });
 });
