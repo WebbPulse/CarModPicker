@@ -181,11 +181,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
 - [x] 08-13-PLAN.md — Wave 3 buildLists/: 2 pages (BuildListsCatalog + ViewBuildLog with compose-post)
 - [x] 08-14-PLAN.md — Wave 3 public top-level: 13 pages (static: About/PrivacyPolicy/TermsOfService/Support/NotFound; interactive: Home/ContactUs/Pricing/Checkout/Search/BugReport; authenticated: Profile/ViewUser)
-- [ ] 08-15-PLAN.md — Wave 4 admin: AdminDashboard.test.tsx + SystemStatistics.test.tsx (bundled — AdminDashboard is 131 lines)
-- [ ] 08-16-PLAN.md — Wave 4 admin: UserManagement.test.tsx + SystemAdmin.test.tsx
-- [ ] 08-17-PLAN.md — Wave 4 admin: ReportReview.test.tsx + BugReportReview.test.tsx
-- [ ] 08-18-PLAN.md — Wave 4 admin: PartsCuration.test.tsx (solo — merge-canonical flow)
-- [ ] 08-19-PLAN.md — Wave 4 admin: CrawlerAdmin.test.tsx (2,665 lines, 4 Card sections + fake-timers polling path — first vi.useFakeTimers use in repo)
+- [x] 08-15-PLAN.md — Wave 4 admin: AdminDashboard.test.tsx + SystemStatistics.test.tsx (bundled — AdminDashboard is 131 lines)
+- [x] 08-16-PLAN.md — Wave 4 admin: UserManagement.test.tsx + SystemAdmin.test.tsx
+- [x] 08-17-PLAN.md — Wave 4 admin: ReportReview.test.tsx + BugReportReview.test.tsx
+- [x] 08-18-PLAN.md — Wave 4 admin: PartsCuration.test.tsx (solo — merge-canonical flow)
+- [x] 08-19-PLAN.md — Wave 4 admin: CrawlerAdmin.test.tsx (2,665 lines, 4 Card sections + fake-timers polling path — first vi.useFakeTimers use in repo)
 - [ ] 08-20-PLAN.md — Wave 5: components gap-fill + D-22 uncomment coverage.thresholds in vitest.config.ts + fail-force proof per VALIDATION.md Manual-Only + final phase-gate checks (autonomous: false)
 **Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). 170 source files, 9 existing tests — breadth-focused test-writing pass. Wave structure: Wave 0 (1) → Wave 1 (6) → Wave 2 (2) → Wave 3 (5) → Wave 4 (5) → Wave 5 (1). Every Wave 1-4 plan depends on 08-01 (shared infra). Wave 5 depends on every Wave 1-4 plan. Depth tiers per D-08/D-09/D-10/D-11/D-02: API modules = URL + method + body assertions per method; hooks = renderHook with all branches; contexts = state transitions; customer pages = full happy-path + ≥1 error/empty state; admin pages = full happy-path per tab/section. No MSW, no Playwright, no snapshot testing, no runtime schema validation — all declined per CONTEXT.md.
 
@@ -203,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 14/20 | In progress | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 19/20 | In progress | - |
