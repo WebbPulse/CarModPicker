@@ -191,6 +191,13 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_per_adapter" {
   alarm_name        = "${local.prefix}-crawler-parse-failure-${each.value}"
   alarm_description = "Parse-failure rate >50% for adapter ${each.value} (live runs only). Runbook: .planning/codebase/CONCERNS.md#crawler-drift-runbook"
 
+  # WR-02: master kill-switch that lets an operator silence the entire
+  # per-adapter fan-out without tearing down alarm resources. Flip
+  # var.enable_per_adapter_alarms=false during a retailer-wide outage or
+  # noisy incident to stop SNS/email paging while keeping alarm history
+  # intact in CloudWatch.
+  actions_enabled = var.enable_per_adapter_alarms
+
   comparison_operator = "GreaterThanThreshold" # strict > (Landmine 10)
   evaluation_periods  = 1
   datapoints_to_alarm = 1 # 1 of 1 (Landmine 9)
