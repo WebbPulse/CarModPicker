@@ -7,7 +7,7 @@ import { type ReactElement } from 'react';
 import { expect, vi } from 'vitest';
 import type { UserRead } from '../../types/Api';
 import { setupApiMocks } from '../mocks/api';
-import { mockUseAuth } from './test-mocks';
+import { mockAdminUser, mockSuperuserUser, mockUseAuth } from './test-mocks';
 import { AllTheProviders } from './TestWrapper';
 
 // Custom render function that includes providers
@@ -143,6 +143,21 @@ export const testScenarios = {
       isAuthenticated: false,
       user: null,
       isLoading: true,
+    },
+  },
+  // Phase 8 D-05: admin + superuser scenarios for admin-area page + hook tests.
+  adminAuthenticated: {
+    initialAuthState: {
+      isAuthenticated: true,
+      user: mockAdminUser,
+      isLoading: false,
+    },
+  },
+  superuserAuthenticated: {
+    initialAuthState: {
+      isAuthenticated: true,
+      user: mockSuperuserUser,
+      isLoading: false,
     },
   },
 };

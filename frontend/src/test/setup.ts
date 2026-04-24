@@ -10,8 +10,21 @@ const mockApiClient = {
   patch: vi.fn().mockResolvedValue({ data: null }),
 };
 
+// Dual mock per Phase 8 D-18/D-19 — both resolve to the same mockApiClient
+// (services/Api.ts is a re-export shim for ../api/client). Legacy tests that
+// import from `../services/Api` and new Phase 8 tests that import from
+// `../api/<domain>` (which internally imports `../api/client`) both get the
+// same mocked Axios surface.
 vi.mock('../services/Api', () => ({
   default: mockApiClient,
+}));
+
+vi.mock('../api/client', () => ({
+  default: mockApiClient,
+  apiClient: mockApiClient,
+  setStoredToken: vi.fn(),
+  getStoredToken: vi.fn(() => null),
+  removeStoredToken: vi.fn(),
 }));
 
 // Mock console methods to reduce noise in tests
