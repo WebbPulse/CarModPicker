@@ -152,8 +152,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 07-02-code-review-residue-PLAN.md — IN-01 static regression for build_lists.py `_apply_build_list_filters` helper consolidation
 - [x] 07-03-dead-code-cleanup-PLAN.md — delete test_runner_circuit_breaker.py stub, remove 11 common_patterns.py dead helpers (zero callers), migrate 6 legacy db.query sites in tests/conftest.py to SQLAlchemy 2.0 select()
 - [x] 07-04-integration-advisory-A01-PLAN.md — wrap main.py lifespan orphan sweeps in bg_log_context + convert terraform composite alarm to per-adapter for_each (adapter_names.txt seed)
-- [ ] 07-05-nyquist-validation-close-PLAN.md — run `/gsd-validate-phase 01..06` and flip wave_0_complete + nyquist_compliant to true across all 6 phase VALIDATION.md files
-- [ ] 07-06-documentation-drift-sync-PLAN.md — flip 59 REQUIREMENTS.md traceability rows (Pending → Satisfied) and checkboxes ([ ] → [x]); update ROADMAP.md Progress table with actual Phase 1/2/4/5/6 completion dates
+- [x] 07-05-nyquist-validation-close-PLAN.md — run `/gsd-validate-phase 01..06` and flip wave_0_complete + nyquist_compliant to true across all 6 phase VALIDATION.md files
+- [x] 07-06-documentation-drift-sync-PLAN.md — flip 59 REQUIREMENTS.md traceability rows (Pending → Satisfied) and checkboxes ([ ] → [x]); update ROADMAP.md Progress table with actual Phase 1/2/4/5/6 completion dates
 **Note**: Force-created by `/gsd-plan-milestone-gaps` from the `tech_debt` block of `.planning/v1.0-MILESTONE-AUDIT.md` despite the audit's empty `gaps[]` array. Scope intentionally excludes documented intentional deviations (DATA-07 pool override, AUTH-02 OAuth restructure, AUTH-03 logout gating), already-signed UAT items, and the Alembic round-trip CI automation deferred per Plan 04 D-31. SAFE-03 split to Phase 8.
 
 ### Phase 8: Frontend Coverage Expansion (SAFE-03)
