@@ -42,7 +42,7 @@ beforeAll(() => {
       return 0;
     }
   );
-  vi.stubGlobal('cancelAnimationFrame', (_id: number): void => {});
+  vi.stubGlobal('cancelAnimationFrame', (): void => {});
 });
 
 describe('useContainerWidth', () => {

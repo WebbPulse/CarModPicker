@@ -24,9 +24,14 @@ function makeContextValue(
   scenario: (typeof testScenarios)[keyof typeof testScenarios]
 ): AuthContextType {
   const { initialAuthState } = scenario;
+  // Do NOT pull `user` directly from `initialAuthState` — the legacy
+  // createMockUser() helper in test-utils.tsx returns a shape that lacks
+  // subscription_tier/is_service_account/totp_enabled, so it is not assignable
+  // to UserRead. We seed `user: null` here and the per-test body swaps in
+  // mockUser (or a variant) from test/mocks/api.ts for authenticated cases.
   return {
     isAuthenticated: initialAuthState.isAuthenticated,
-    user: initialAuthState.user ?? null,
+    user: null,
     isLoading: initialAuthState.isLoading ?? false,
     login: vi.fn(),
     logout: vi.fn(),

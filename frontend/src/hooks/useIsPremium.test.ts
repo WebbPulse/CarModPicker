@@ -24,10 +24,14 @@ function authValue(
   scenario: (typeof testScenarios)[keyof typeof testScenarios],
   userOverride?: UserRead | null
 ): AuthContextType {
+  // Do NOT pull `user` from scenario.initialAuthState — createMockUser() in
+  // test-utils.tsx returns a legacy shape that does not satisfy UserRead.
+  // All callers of authValue pass a UserRead explicitly (or omit for the
+  // unauthenticated case where `user` is null).
   const base = scenario.initialAuthState;
   return {
     isAuthenticated: base.isAuthenticated,
-    user: userOverride !== undefined ? userOverride : (base.user ?? null),
+    user: userOverride !== undefined ? userOverride : null,
     isLoading: base.isLoading ?? false,
     login: vi.fn(),
     logout: vi.fn(),

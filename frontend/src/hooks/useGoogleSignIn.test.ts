@@ -29,7 +29,7 @@ vi.mock('../services/Api', async () => {
   };
 });
 
-async function buildGoogleResponse(data: unknown) {
+async function buildGoogleResponse<T>(data: T) {
   const { AxiosHeaders } = await import('axios');
   return {
     data,
