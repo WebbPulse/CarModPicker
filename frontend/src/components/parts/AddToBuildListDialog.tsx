@@ -166,7 +166,7 @@ function AddToBuildListDialog({
               />
             </div>
             <div className="flex-grow">
-              <h3 className="text-lg font-semibold text-white mb-2">
+              <h3 className="text-xl font-semibold text-white mb-2">
                 {part.name}
               </h3>
               {part.part_manufacturer && (
@@ -214,7 +214,7 @@ function AddToBuildListDialog({
 
         {/* Build List Selection */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-neutral-200">
+          <h3 className="text-xl font-semibold text-neutral-200">
             Select Build List(s)
           </h3>
           <p className="text-sm text-neutral-400">

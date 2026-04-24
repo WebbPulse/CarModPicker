@@ -74,9 +74,70 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 ***
 
-## 4. Parts-catalog polish visual acceptance (FE-07 — forward reference to Plan 06-06)
+## 4. Parts-catalog polish visual acceptance (FE-07 / D-17)
 
-Placeholder — will be populated by Plan 06-06. Parts-catalog polish checklist (Card variants, spacing, typography, responsive grid) drafted by the planner, approved here by the operator.
+**Scope:** Plan 06-06 applied a bounded visual polish pass to `frontend/src/pages/parts/*` + `frontend/src/components/parts/*`. This item verifies the polish reads correctly in a real browser and no regression occurred.
+
+**Prerequisites:**
+- Phase 6 Plans 06-01 through 06-06 merged to staging OR running locally via `npm run dev`.
+- Logged-in test user with at least 3 parts saved.
+
+**Steps:**
+1. Visit `/parts` (public catalog). Verify:
+   - [ ] Page title uses `text-3xl` size (matches Home.tsx landing scale; rendered by `PageHeader.tsx`).
+   - [ ] Responsive layout: filter sidebar collapses to top-of-list on mobile, side-by-side on desktop (`flex-col lg:flex-row`).
+   - [ ] Part list rows (when card layout active) use rounded-xl corners + shadow-md (matches `Card.tsx` vocabulary).
+   - [ ] Spacing between list rows is consistent (`space-y-2` outer, `p-4` inner — was `p-3` pre-polish).
+   - [ ] No visual regression vs. pre-Phase-6 baseline (spot-check 5 random rows).
+2. Click into any part -> `/parts/:partId`. Verify:
+   - [ ] Part detail page renders without layout shift on mobile viewport (DevTools -> Responsive Mode -> iPhone 14 Pro).
+   - [ ] Body/metadata text is readable (text-sm text-gray-400 for metadata, text-base for description).
+   - [ ] Image gallery thumbnails maintain consistent rounded-lg corners and 24x24 sizing.
+3. Visit `/my-parts`. Verify:
+   - [ ] User's parts render with the same list pattern as PartsCatalog.
+   - [ ] Create / Edit / Delete affordances are clearly identifiable on each row.
+   - [ ] "Browse All Parts" outline button (top-right) renders with consistent btn-outline styling.
+4. Click "Edit" on one part -> `/parts/:partId/edit`. Verify:
+   - [ ] Form fields use consistent spacing (`space-y-4` between fields; no visual squeeze).
+   - [ ] Primary submit button is `ActionButton` (correct color, weight).
+   - [ ] Secondary cancel button is `SecondaryButton`.
+   - [ ] If a duplicate-URL banner appears (paste a known existing product URL), the banner uses `p-4` padding (was `p-3` pre-polish).
+5. From the parts catalog, click "Add to Build List" on any part to open the dialog. Verify:
+   - [ ] Dialog uses the dark Dialog panel from `common/Dialog.tsx`.
+   - [ ] Part-preview h3 (the part name) is `text-xl` (was `text-lg` pre-polish).
+   - [ ] "Select Build List(s)" h3 is `text-xl` (was `text-lg` pre-polish).
+   - [ ] Close / Cancel / Confirm affordances are clear; clicking Cancel dismisses without side effects.
+
+**Polish checklist applied (source: Plan 06-06 Task 2):**
+- [x] Spacing scale consistency — PartList card-layout inner row `p-3` -> `p-4`; CreatePartForm duplicate-URL banner `p-3` -> `p-4`
+- [x] Typography hierarchy — AddToBuildListDialog h3s `text-lg` -> `text-xl` (Part Preview heading + "Select Build List(s)" heading)
+- [x] Card.tsx shadow + rounded alignment — PartList card-layout surface `rounded-lg` -> `rounded-xl shadow-md` (matches Card.tsx vocabulary)
+- [x] Button variant consistency — REVIEWED: parts-catalog already uses `ActionButton` / `SecondaryButton` / `LinkButton` consistently; no changes required
+- [x] Responsive grid — REVIEWED: PartsCatalog uses `flex-col lg:flex-row` sidebar pattern (not a grid); already responsive; no changes required
+
+**Files modified by Plan 06-06:**
+- `frontend/src/components/parts/PartList.tsx` (refactor 06-06)
+- `frontend/src/components/parts/CreatePartForm.tsx` (refactor 06-06)
+- `frontend/src/components/parts/AddToBuildListDialog.tsx` (refactor 06-06)
+
+**Files in scope but not modified (already compliant):**
+- `frontend/src/pages/parts/PartsCatalog.tsx` — uses `PageHeader` (canonical) + standard layout; no violations
+- `frontend/src/pages/parts/EditPart.tsx` — uses `PageHeader` + `Card` (canonical); no violations
+- `frontend/src/pages/parts/UserParts.tsx` — uses `PageHeader` (canonical); no violations
+- `frontend/src/components/parts/PartListItem.tsx` — h3 already `text-xl` (canonical)
+- `frontend/src/components/parts/EditPartForm.tsx` — hand-rolled `<select>` element styled to match `input-modern` form pattern; replacing with SearchableSelect would be structural refactor (out of D-17 scope)
+- `frontend/src/components/parts/ImageGalleryManage.tsx` — `gap-3` is part of an established gallery convention; matches non-parts ImageGallery sibling
+- `frontend/src/components/parts/ImageGallery.tsx` — same convention as ImageGalleryManage
+- `frontend/src/components/parts/PartsFilterSidebar.tsx`, `PartsActiveFilterChips.tsx`, `CategoryFilter.tsx`, `VoteButtons.tsx`, `PriceHistoryLineChart.tsx` — internal class strings consistent with their existing patterns; no obvious violations of canonical Card/Button/Home scale
+
+**Expected result:** Every checkbox above ticked by the operator. No visual regression vs. pre-Phase-6 staging screenshots.
+
+**Out of scope (explicitly NOT verified here):**
+- Information-architecture changes (none made per D-17)
+- New components or pages (none added)
+- Copy changes (none made)
+- Color-palette migration `gray-*` -> `neutral-*` across the parts catalog (deferred — that's a design-token rollout, not bounded polish; revisit in UX-V2-01)
+- Full parts-catalog redesign (deferred to UX-V2-01)
 
 **Sign-off:** _____________________ (date: ____________)
 
