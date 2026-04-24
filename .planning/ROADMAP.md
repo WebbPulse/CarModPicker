@@ -75,7 +75,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 03-02-PLAN.md — CRAWL-04/05/06: pybreaker==1.4.1 per-adapter-name registry (fail_max=3, reset_timeout=120) replacing custom counter block; terminal 429/503 pre-trip via breaker.open(); check_health() probe (HEALTH_PROBE_URL=None opt-in default); verify existing ThreadPoolExecutor + CRAWLER_MAX_ADAPTER_WORKERS + per-worker SessionLocal
 - [x] 03-03-PLAN.md — CRAWL-07: extend runner result dict with parse_failures, sample_failure_urls (first-5), elapsed_seconds; extend _render_crawler_result_html in email.py with ParseFailures block; URL truncation for >160-char samples
 - [x] 03-04-PLAN.md — QUAL-01: lazy JSON loader (car_generations.py with @lru_cache(maxsize=1) + importlib.resources.files) + car_generations_data.json asset + thin-shim car_generations_data.py preserving slugify/CarGenerationData/CAR_GENERATIONS/get_all_car_generations + one-shot export script + uvicorn startup latency measurement (D-28)
-- [x] 03-05-PLAN.md — QUAL-02/03/07: three CI regression guards (Pydantic v1 grep + catch_warnings roundtrip; @app.on_event grep; Depends(get_logger) grep) + 68-site logger sweep across 10 files (auth=21, users=11, base_endpoint_router=8, base_report_router=6, reports=5, common_patterns=4, base_vote_router=4, bug_reports=4, admin_endpoint_patterns=3, votes=2)
+- [x] 03-05-PLAN.md — QUAL-02/03/07: three CI regression guards (Pydantic v1 grep + catch_warnings roundtrip; @app.on_event grep; Depends(get_logger) grep) + 68-site logger sweep across 10 files (auth=21, users=11, base_endpoint_router=8, reports=5, common_patterns=4, base_vote_router=4, bug_reports=4, admin_endpoint_patterns=3, votes=2)
 **Note**: Phase 3 may execute concurrently with Phase 2. Internal ordering within this phase: CRAWL-01/02/03 (auto-discovery + validation) must complete and count-assert green before CRAWL-05 (parallelization) lands. Dependency graph: Plans 01, 04, 05 in wave 1 (parallel); Plan 02 in wave 2 (depends on 01); Plan 03 in wave 3 (depends on 02).
 
 ### Phase 4: DB & Parts Hardening
@@ -166,7 +166,28 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `frontend-ci.yml` fails any PR that drops coverage below the thresholds
   4. Shared test infrastructure exists for the common mock surface (axios client, AuthContext, React Router wrapper) — documented in `frontend/src/test/setup.ts` or a sibling helpers file
   5. Any files excluded from coverage via vitest `exclude` have an inline rationale comment (pure types, third-party shims)
-**Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). Frontend has 170 source files and 9 existing tests — scope is a breadth-focused test-writing pass prioritized by: (a) API client modules in `frontend/src/api/` (17+ files, high-leverage), (b) contexts and custom hooks (small surface, high branch coverage impact), (c) lazy-loaded pages (render smoke + one error path), (d) components as needed to hit thresholds. Plan count TBD during `/gsd-plan-phase 8`.
+**Plans:** 20 plans
+- [ ] 08-01-PLAN.md — Wave 0: baseline + shared infra (setup.ts D-18 dual mock, test-mocks.ts admin variants D-05, test-utils.tsx admin scenarios D-05, test/mocks/admin/ 7 factory files D-06, async.ts fake-timer helpers D-07 [no EventSource per research], guard relocation D-17, vitest.config.ts D-13 exclusions, commit 08-COVERAGE-BASELINE.txt D-24)
+- [ ] 08-02-PLAN.md — Wave 1 Auth cluster: auth.test.ts (23 methods) + users.test.ts (FormData) + images.test.ts (FormData) + client.test.ts (interceptors + paramsSerializer + env-driven baseURL via vi.stubEnv)
+- [ ] 08-03-PLAN.md — Wave 1 Parts cluster: parts.test.ts + car_generations.test.ts + categories.test.ts + part_manufacturers.test.ts + retailers.test.ts (D-15 exclude candidate)
+- [ ] 08-04-PLAN.md — Wave 1 Build-list cluster: build_lists.test.ts + build_list_parts.test.ts (nested URLs) + build_list_phases.test.ts + build_logs.test.ts
+- [ ] 08-05-PLAN.md — Wave 1 Votes + Reports: votes.test.ts (polymorphic entity_type) + reports.test.ts + bug_reports.test.ts
+- [ ] 08-06-PLAN.md — Wave 1 Utility: search.test.ts + app_settings.test.ts + utility.test.ts (D-15 exclude candidate)
+- [ ] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
+- [ ] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
+- [ ] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
+- [ ] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
+- [ ] 08-11-PLAN.md — Wave 3 builder/: 4 pages (Builder, ViewCar, ViewBuildlist, ViewPart-800-lines with vote widget)
+- [ ] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
+- [ ] 08-13-PLAN.md — Wave 3 buildLists/: 2 pages (BuildListsCatalog + ViewBuildLog with compose-post)
+- [ ] 08-14-PLAN.md — Wave 3 public top-level: 13 pages (static: About/PrivacyPolicy/TermsOfService/Support/NotFound; interactive: Home/ContactUs/Pricing/Checkout/Search/BugReport; authenticated: Profile/ViewUser)
+- [ ] 08-15-PLAN.md — Wave 4 admin: AdminDashboard.test.tsx + SystemStatistics.test.tsx (bundled — AdminDashboard is 131 lines)
+- [ ] 08-16-PLAN.md — Wave 4 admin: UserManagement.test.tsx + SystemAdmin.test.tsx
+- [ ] 08-17-PLAN.md — Wave 4 admin: ReportReview.test.tsx + BugReportReview.test.tsx
+- [ ] 08-18-PLAN.md — Wave 4 admin: PartsCuration.test.tsx (solo — merge-canonical flow)
+- [ ] 08-19-PLAN.md — Wave 4 admin: CrawlerAdmin.test.tsx (2,665 lines, 4 Card sections + fake-timers polling path — first vi.useFakeTimers use in repo)
+- [ ] 08-20-PLAN.md — Wave 5: components gap-fill + D-22 uncomment coverage.thresholds in vitest.config.ts + fail-force proof per VALIDATION.md Manual-Only + final phase-gate checks (autonomous: false)
+**Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). 170 source files, 9 existing tests — breadth-focused test-writing pass. Wave structure: Wave 0 (1) → Wave 1 (6) → Wave 2 (2) → Wave 3 (5) → Wave 4 (5) → Wave 5 (1). Every Wave 1-4 plan depends on 08-01 (shared infra). Wave 5 depends on every Wave 1-4 plan. Depth tiers per D-08/D-09/D-10/D-11/D-02: API modules = URL + method + body assertions per method; hooks = renderHook with all branches; contexts = state transitions; customer pages = full happy-path + ≥1 error/empty state; admin pages = full happy-path per tab/section. No MSW, no Playwright, no snapshot testing, no runtime schema validation — all declined per CONTEXT.md.
 
 ## Progress
 
@@ -182,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 0/TBD | Not started | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 0/20 | Not started | - |
