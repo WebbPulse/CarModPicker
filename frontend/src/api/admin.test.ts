@@ -25,6 +25,13 @@ import {
   makeSystemStats,
   makeCrawlBucketSummary,
 } from '../test/mocks/admin/stats';
+import {
+  makeCurationCandidate,
+  makeCurationQueue,
+  makeUrlLookup,
+  makeRescanResponse,
+} from '../test/mocks/admin/curation';
+import { makeAdapterCatalog } from '../test/mocks/admin/crawlers';
 
 describe('adminApi — migrations & db-ops', () => {
   beforeEach(() => {
@@ -209,5 +216,216 @@ describe('adminApi — crawled page counts', () => {
       '/crawled-pages/counts-by-source-and-status'
     );
     expect(result.data['adapter-a']?.['parsed']).toBe(80);
+  });
+});
+
+describe('adminApi — crawlers base', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getCrawlers GETs /admin/crawlers and returns adapter catalog', async () => {
+    const catalog = makeAdapterCatalog();
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: catalog });
+
+    const result = await adminApi.getCrawlers();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/crawlers');
+    expect(result.data.adapters).toEqual(['test-adapter']);
+    expect(result.data.adapter_info[0]?.tier).toBe('http');
+  });
+
+  it('getCrawlerServiceAccount GETs /admin/crawlers/service-account', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: {
+        id: '22222222-2222-7222-8222-222222222222',
+        username: 'crawler-bot',
+        email: 'crawler@example.com',
+        is_service_account: true,
+        created_at: '2026-04-24T00:00:00Z',
+      },
+    });
+
+    const result = await adminApi.getCrawlerServiceAccount();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/admin/crawlers/service-account'
+    );
+    expect(result.data.is_service_account).toBe(true);
+  });
+
+  it('runCrawlers POSTs body to /admin/crawlers/run', async () => {
+    const body = {
+      adapters: ['test-adapter'],
+      crawler_default_category_id: '55555555-5555-7555-8555-555555555555',
+      global_limit: 100,
+      parallel: false,
+      delay_sec: 5,
+      skip_known_urls: true,
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: {
+        status: 'started',
+        job_id: '99999999-9999-7999-8999-999999999999',
+        adapters: ['test-adapter'],
+        triggered_by: 'manual',
+        message: 'started',
+      },
+    });
+
+    const result = await adminApi.runCrawlers(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawlers/run',
+      body
+    );
+    expect(result.data.status).toBe('started');
+  });
+});
+
+describe('adminApi — archive rescrape', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rescrapeArchives POSTs body to /admin/crawlers/rescrape-archives', async () => {
+    const body = {
+      default_category_id: '55555555-5555-7555-8555-555555555555',
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: {
+        status: 'queued',
+        job_id: '88888888-8888-7888-8888-888888888888',
+        triggered_by: 'manual',
+        message: 'queued',
+      },
+    });
+
+    const result = await adminApi.rescrapeArchives(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawlers/rescrape-archives',
+      body
+    );
+    expect(result.data.job_id).toBe('88888888-8888-7888-8888-888888888888');
+  });
+
+  it('rescrapeArchives forwards optional crawler_user_id override', async () => {
+    const body = {
+      crawler_user_id: '33333333-3333-7333-8333-333333333333',
+      default_category_id: '55555555-5555-7555-8555-555555555555',
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: {
+        status: 'queued',
+        job_id: 'x',
+        triggered_by: 'manual',
+        message: 'ok',
+      },
+    });
+
+    await adminApi.rescrapeArchives(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawlers/rescrape-archives',
+      expect.objectContaining({
+        crawler_user_id: '33333333-3333-7333-8333-333333333333',
+      })
+    );
+  });
+});
+
+describe('adminApi — canonical-part curation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getPartLinkGroup GETs /admin/parts/:id/link-group', async () => {
+    const group = makeCurationQueue([makeCurationCandidate({ name: 'Alpha' })]);
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: group });
+    const partId = 'dddddddd-dddd-7ddd-8ddd-dddddddddddd';
+
+    const result = await adminApi.getPartLinkGroup(partId);
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      `/admin/parts/${partId}/link-group`
+    );
+    expect(result.data.members[0]?.name).toBe('Alpha');
+  });
+
+  it('lookupPartsByProductUrl GETs /admin/parts/lookup-by-url with url param', async () => {
+    const lookup = makeUrlLookup({
+      normalized_url: 'https://example.com/x',
+      matches: [],
+    });
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: lookup });
+
+    await adminApi.lookupPartsByProductUrl('https://example.com/x');
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/admin/parts/lookup-by-url',
+      { params: { url: 'https://example.com/x' } }
+    );
+  });
+
+  it('promotePartToCanonical POSTs part_id body to /admin/parts/promote-canonical', async () => {
+    const candidate = makeCurationCandidate();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: { canonical_id: candidate.id, members: [candidate] },
+    });
+
+    await adminApi.promotePartToCanonical(candidate.id);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/parts/promote-canonical',
+      { part_id: candidate.id }
+    );
+  });
+
+  it('unlinkPartFromCanonical POSTs part_id body to /admin/parts/unlink', async () => {
+    const candidate = makeCurationCandidate();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: { canonical_id: candidate.id, members: [candidate] },
+    });
+
+    await adminApi.unlinkPartFromCanonical(candidate.id);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/parts/unlink',
+      { part_id: candidate.id }
+    );
+  });
+
+  it('manuallyLinkParts POSTs duplicate_id + canonical_id to /admin/parts/link', async () => {
+    const body = {
+      duplicate_id: 'eeeeeeee-eeee-7eee-8eee-eeeeeeeeeeee',
+      canonical_id: 'cccccccc-cccc-7ccc-8ccc-cccccccccccc',
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: { canonical_id: body.canonical_id, members: [] },
+    });
+
+    await adminApi.manuallyLinkParts(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/parts/link',
+      body
+    );
+  });
+
+  it('rescanPartsForCanonicalLinking POSTs dry_run + batch_size to /admin/parts/rescan', async () => {
+    const body = { dry_run: true, batch_size: 100 };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: makeRescanResponse({ scanned: 100, changes: 3 }),
+    });
+
+    const result = await adminApi.rescanPartsForCanonicalLinking(body);
+
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/parts/rescan',
+      body
+    );
+    expect(result.data.scanned).toBe(100);
+    expect(result.data.changes).toBe(3);
   });
 });
