@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 06 (frontend-cleanup-final-ci-gates) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 06
-Last activity: 2026-04-24 -- Phase 06 execution started
+Plan: 2 of 6
+Status: Wave 1 complete (06-01) — Wave 2 pending
+Last activity: 2026-04-24 -- Wave 1 (06-01) merged + tests green
 
 Progress: [██████████] 100%
 
