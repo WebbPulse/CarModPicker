@@ -141,27 +141,30 @@ describe('authApi — TOTP 2FA', () => {
       data: { secret: 'SECRETABC', otpauth_url: 'otpauth://x', qr_code: 'qr' },
     });
 
-    await authApi.setup2FA();
+    const result = await authApi.setup2FA();
 
     expect(postMock).toHaveBeenCalledWith('/auth/2fa/setup');
+    expect(result.data.secret).toBe('SECRETABC');
   });
 
   it('verify2FA POSTs /auth/2fa/verify with the TOTPVerifyRequest body', async () => {
     const data = { code: '123456' };
     postMock.mockResolvedValueOnce({ data: { success: true } });
 
-    await authApi.verify2FA(data);
+    const result = await authApi.verify2FA(data);
 
     expect(postMock).toHaveBeenCalledWith('/auth/2fa/verify', data);
+    expect(result.data).toEqual({ success: true });
   });
 
   it('disable2FA POSTs /auth/2fa/disable with the TOTPDisableRequest body', async () => {
     const data = { password: 'pw', code: '123456' };
     postMock.mockResolvedValueOnce({ data: { message: 'disabled' } });
 
-    await authApi.disable2FA(data);
+    const result = await authApi.disable2FA(data);
 
     expect(postMock).toHaveBeenCalledWith('/auth/2fa/disable', data);
+    expect(result.data.message).toBe('disabled');
   });
 });
 
@@ -174,19 +177,21 @@ describe('authApi — email verification & password reset', () => {
     const data = { email: 'x@y.z' };
     postMock.mockResolvedValueOnce({ data: { message: 'sent' } });
 
-    await authApi.verifyEmail(data);
+    const result = await authApi.verifyEmail(data);
 
     expect(postMock).toHaveBeenCalledWith('/auth/verify-email', data);
+    expect(result.data.message).toBe('sent');
   });
 
   it('verifyEmailConfirm GETs /auth/verify-email/confirm with token param', async () => {
     getMock.mockResolvedValueOnce({ data: { message: 'verified' } });
 
-    await authApi.verifyEmailConfirm('confirm-token-xyz');
+    const result = await authApi.verifyEmailConfirm('confirm-token-xyz');
 
     expect(getMock).toHaveBeenCalledWith('/auth/verify-email/confirm', {
       params: { token: 'confirm-token-xyz' },
     });
+    expect(result.data.message).toBe('verified');
   });
 
   it('resetPassword POSTs /auth/reset-password with the body', async () => {
@@ -201,12 +206,15 @@ describe('authApi — email verification & password reset', () => {
   it('resetPasswordConfirm POSTs /auth/reset-password/confirm with {token, new_password}', async () => {
     postMock.mockResolvedValueOnce({ data: { message: 'reset' } });
 
-    await authApi.resetPasswordConfirm('reset-tok', { new_password: 'newpw' });
+    const result = await authApi.resetPasswordConfirm('reset-tok', {
+      new_password: 'newpw',
+    });
 
     expect(postMock).toHaveBeenCalledWith('/auth/reset-password/confirm', {
       token: 'reset-tok',
       new_password: { new_password: 'newpw' },
     });
+    expect(result.data.message).toBe('reset');
   });
 });
 
