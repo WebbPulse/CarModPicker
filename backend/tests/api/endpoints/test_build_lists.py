@@ -827,7 +827,7 @@ class TestBuildLists:
 
         # Verify copied build list is owned by test_user, not original_owner
         assert copied_build_list["user_id"] == str(test_user.id)
-        assert copied_build_list["user_id"] != original_owner.id
+        assert copied_build_list["user_id"] != str(original_owner.id)
 
     def test_copy_free_tier_cap(
         self, client: TestClient, test_user: User, db_session: Session
