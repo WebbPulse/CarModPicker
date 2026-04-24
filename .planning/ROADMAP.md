@@ -18,6 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: DB & Parts Hardening** - N+1 fix, part-link concurrency, FK index audit, session API migration, build-log eager creation
 - [ ] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
 - [ ] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
+- [ ] **Phase 7: v1.0 Residue Cleanup & Audit-Drift Sync** - Operational bugs, code-review residue, dead code, integration advisory A-01, Nyquist Wave 0 close, REQUIREMENTS/ROADMAP doc sync
+- [ ] **Phase 8: Frontend Coverage Expansion (SAFE-03)** - Lift frontend test coverage from 0.43% baseline to D-06 targets (60/50/50/60) and enforce thresholds in CI
 
 ## Phase Details
 
@@ -131,6 +133,34 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 06-06-PLAN.md — FE-07: opportunistic polish on touched files from Plans 06-01..05 + bounded parts-catalog pass on `pages/parts/*` + `components/parts/*` ONLY (D-17); expand 06-HUMAN-UAT.md Section 4 with 5-step checklist; operator visual sign-off
 **UI hint**: yes
 
+### Phase 7: v1.0 Residue Cleanup & Audit-Drift Sync
+**Goal**: Close the 22 tracked tech-debt items from the v1.0 milestone audit — operational bugs, code-review residue, dead code, integration advisory A-01, the six draft Nyquist Wave 0 validation docs, and REQUIREMENTS/ROADMAP documentation drift — before `/gsd-complete-milestone v1.0`.
+**Depends on**: Phase 6
+**Requirements**: None (closes `tech_debt` items from .planning/v1.0-MILESTONE-AUDIT.md, not formal REQ-IDs)
+**Success Criteria** (what must be TRUE):
+  1. `backend/app/core/init_service_accounts.py:53,57` uses `%s` (not `%d`) for the UUID log fields; unit test asserts cold-start service-account creation does not raise TypeError (WR-04)
+  2. `backend/app/crawlers/runner.py:117-122` CRAWLER_USER_ID fallback handles UUID strings correctly; regression test covers the env-var-fallback path (WR-03)
+  3. `part_linker_service.py::reelect_canonical` applies deterministic row-lock ordering (sort by id before `WHERE IN`); a multi-threaded concurrency test proves no deadlock across link_new_part / reelect_canonical / unlink_part (WR-02)
+  4. `backend/pytest.ini testpaths` points at a valid directory (or is removed); `pytest -n auto` still collects the full 2154-test suite (WR-01)
+  5. `build_lists.py` with-votes filter duplication (lines 153-169 / 183-198) consolidated into a shared helper (IN-01); free-tier build-list cap enforced in `copy_build_list` with a regression test (IN-02)
+  6. Dead-code cleanup: `test_runner_circuit_breaker.py` stub removed; `common_patterns.py` dead helpers deleted (zero repo-wide callers); 8 legacy `db.query(...)` sites in `backend/tests/conftest.py` migrated to `select()` + `session.scalars()`
+  7. Integration advisory A-01 closed: lifespan orphan-job sweep in `main.py:102-132` uses `bg_log_context`; `terraform/monitoring.tf:216` TODO resolved via per-adapter `for_each` parse-failure alarm
+  8. All 6 phase `VALIDATION.md` files have `wave_0_complete: true` and `nyquist_compliant: true` (via `/gsd-validate-phase 01..06`)
+  9. `REQUIREMENTS.md` traceability table: 59 rows flipped `Pending` → `Satisfied`; checkboxes `[ ]` → `[x]` for all 59 satisfied requirements (SAFE-03 remains Pending as it moves to Phase 8). `ROADMAP.md` Progress table: Phase 1/2/5/6 rows updated from "Not started" to "Complete" with actual completion dates
+**Note**: Force-created by `/gsd-plan-milestone-gaps` from the `tech_debt` block of `.planning/v1.0-MILESTONE-AUDIT.md` despite the audit's empty `gaps[]` array. Scope intentionally excludes documented intentional deviations (DATA-07 pool override, AUTH-02 OAuth restructure, AUTH-03 logout gating), already-signed UAT items, and the Alembic round-trip CI automation deferred per Plan 04 D-31. SAFE-03 split to Phase 8.
+
+### Phase 8: Frontend Coverage Expansion (SAFE-03)
+**Goal**: Lift frontend test coverage from the 2026-04-22 baseline (lines 0.43% / functions 10.52% / branches 18.43% / statements 0.43%) to the D-06 targets (lines 60 / functions 50 / branches 50 / statements 60) and enforce the thresholds in `frontend/vitest.config.ts` so SAFE-03 is CI-gated.
+**Depends on**: Phase 7
+**Requirements**: SAFE-03
+**Success Criteria** (what must be TRUE):
+  1. `npm run test:coverage` in `frontend/` reports lines ≥60, functions ≥50, branches ≥50, statements ≥60
+  2. The `thresholds` block in `frontend/vitest.config.ts` is uncommented and enforcing (D-06 values removed from staged-comment status)
+  3. `frontend-ci.yml` fails any PR that drops coverage below the thresholds
+  4. Shared test infrastructure exists for the common mock surface (axios client, AuthContext, React Router wrapper) — documented in `frontend/src/test/setup.ts` or a sibling helpers file
+  5. Any files excluded from coverage via vitest `exclude` have an inline rationale comment (pure types, third-party shims)
+**Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). Frontend has 170 source files and 9 existing tests — scope is a breadth-focused test-writing pass prioritized by: (a) API client modules in `frontend/src/api/` (17+ files, high-leverage), (b) contexts and custom hooks (small surface, high branch coverage impact), (c) lazy-loaded pages (render smoke + one error path), (d) components as needed to hit thresholds. Plan count TBD during `/gsd-plan-phase 8`.
+
 ## Progress
 
 **Execution Order:**
@@ -144,3 +174,5 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 4. DB & Parts Hardening | 0/6 | Not started | - |
 | 5. Structural Router Splits | 0/TBD | Not started | - |
 | 6. Frontend Cleanup & Final CI Gates | 0/TBD | Not started | - |
+| 7. v1.0 Residue Cleanup & Audit-Drift Sync | 0/TBD | Not started | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 0/TBD | Not started | - |

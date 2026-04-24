@@ -180,7 +180,7 @@ Populated during roadmap creation (2026-04-21).
 |-------------|-------|--------|
 | SAFE-01 | Phase 1 | Pending |
 | SAFE-02 | Phase 1 | Pending |
-| SAFE-03 | Phase 1 | Pending |
+| SAFE-03 | Phase 8 | Pending |
 | SAFE-04 | Phase 1 | Pending |
 | SAFE-05 | Phase 1 | Pending |
 | SAFE-06 | Phase 1 | Pending |
