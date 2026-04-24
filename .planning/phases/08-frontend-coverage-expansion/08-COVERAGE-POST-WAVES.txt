@@ -1,0 +1,1347 @@
+
+> carmodpicker-frontend@0.0.0 test:coverage
+> vitest --coverage --run
+
+
+ RUN  v3.2.4 /home/tyler-webb/Documents/Github/CarModPicker/frontend
+      Coverage enabled with v8
+
+stderr | src/pages/Home.test.tsx > Home page > renders the CarModPicker hero + unauthenticated CTAs (Get Started + Sign In)
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/ContactUs.test.tsx (3 tests) 126ms
+ ✓ src/api/client.test.ts (20 tests) 483ms
+stderr | src/pages/Home.test.tsx > Home page > renders authenticated hero CTAs (Create Build + Browse Parts) when user is logged in
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/Pricing.test.tsx (3 tests) 168ms
+stderr | src/pages/Home.test.tsx > Home page > renders Featured Builds and Popular Parts section headings
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/admin/AdminDashboard.test.tsx (3 tests) 165ms
+ ✓ src/pages/Home.test.tsx (4 tests) 232ms
+ ✓ src/pages/ViewUser.test.tsx (2 tests) 131ms
+ ✓ src/pages/About.test.tsx (2 tests) 213ms
+ ✓ src/pages/Search.test.tsx (3 tests) 187ms
+ ✓ src/hooks/useGoogleSignIn.test.ts (7 tests) 123ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Crawler Schedules section > renders the Crawler Schedules heading after mount
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+stderr | src/pages/parts/UserParts.test.tsx > UserParts page > shows a login-required error when the viewer is unauthenticated
+An update to UserParts inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserParts inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserParts inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserParts inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserParts inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/authentication/ForgotPasswordConfirm.test.tsx (3 tests) 194ms
+ ✓ src/pages/authentication/ForgotPassword.test.tsx (3 tests) 199ms
+stderr | src/pages/parts/EditPart.test.tsx > EditPart page > submits edits via apiClient.put(/parts/:partId, ...)
+No routes matched location "/parts/44444444-4444-7444-8444-444444444444" 
+
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Crawler Schedules section > lists schedules fetched from the API
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/parts/UserParts.test.tsx (3 tests) 328ms
+ ✓ src/pages/BugReport.test.tsx (3 tests) 580ms
+ ✓ src/pages/parts/PartsCatalog.test.tsx (3 tests) 385ms
+ ✓ src/pages/buildLists/BuildListsCatalog.test.tsx (3 tests) 264ms
+ ✓ src/pages/parts/EditPart.test.tsx (3 tests) 514ms
+   ✓ EditPart page > submits edits via apiClient.put(/parts/:partId, ...)  377ms
+ ✓ src/pages/authentication/Register.test.tsx (4 tests) 408ms
+ ✓ src/pages/Profile.test.tsx (3 tests) 446ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Crawler Schedules section > triggers a reconcile-all POST when the "Force sync with AWS" button is clicked
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/authentication/Login.test.tsx (4 tests) 391ms
+ ✓ src/pages/admin/SystemStatistics.test.tsx (4 tests) 408ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Crawler Schedules section > triggers a reconcile-all POST when the "Force sync with AWS" button is clicked
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Adapter Tuning section > renders the Adapter Tuning heading and per-retailer settings block
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+stderr | src/pages/admin/ReportReview.test.tsx > ReportReview page > denies access to non-admin authenticated users
+An update to ReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/builder/ViewCar.test.tsx (3 tests) 377ms
+stderr | src/pages/admin/SystemAdmin.test.tsx > SystemAdmin page > denies access to authenticated non-admin user
+An update to SystemAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SystemAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/SystemAdmin.test.tsx > SystemAdmin page > shows a login prompt when no user is authenticated
+An update to SystemAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SystemAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/BugReportReview.test.tsx > BugReportReview page > denies access to non-admin authenticated users
+An update to BugReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to BugReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to BugReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to BugReportReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/admin/ReportReview.test.tsx (4 tests) 634ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Adapter Tuning section > issues a PATCH when an adapter delay select is changed
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Adapter Tuning section > issues a PATCH when an adapter delay select is changed
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/admin/SystemAdmin.test.tsx (7 tests) 793ms
+ ✓ src/pages/admin/BugReportReview.test.tsx (4 tests) 793ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Background Jobs section > renders the Background Jobs heading
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+stderr | src/pages/admin/UserManagement.test.tsx > UserManagement page > denies access to authenticated non-admin user
+An update to UserManagement inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserManagement inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/UserManagement.test.tsx > UserManagement page > shows a login prompt when no user is authenticated
+An update to UserManagement inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to UserManagement inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Background Jobs section > polls /admin/jobs every 5 s while a job is running
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/builder/ViewPart.test.tsx (3 tests) 562ms
+ ✓ src/pages/builder/ViewBuildlist.test.tsx (3 tests) 538ms
+   ✓ ViewBuildList page > renders the build list name, owner, and associated car when fetches succeed  359ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Background Jobs section > does NOT poll /admin/jobs when no jobs are running
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/admin/UserManagement.test.tsx (5 tests) 1006ms
+   ✓ UserManagement page > debounces the search input and re-fetches with a search param  490ms
+ ✓ src/pages/buildLists/ViewBuildLog.test.tsx (4 tests) 1103ms
+   ✓ ViewBuildLog page > submits a new post via the compose dialog  680ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Manual Run section > renders the Manual Run heading and the live-crawlers block
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/NotFound.test.tsx (2 tests) 151ms
+ ✓ src/pages/authentication/VerifyEmail.test.tsx (3 tests) 234ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Manual Run section > POSTs to /admin/crawlers/run when "Run all" is clicked
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/authentication/VerifyEmailConfirm.test.tsx (3 tests) 157ms
+ ✓ src/pages/Support.test.tsx (2 tests) 335ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Manual Run section > POSTs to /admin/crawlers/run when "Run all" is clicked
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Manual Run section > POSTs to /admin/crawlers/rescrape-archives when "Rescrape latest archives" is clicked
+You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+
+ ✓ src/pages/builder/Builder.test.tsx (2 tests) 135ms
+stderr | src/pages/admin/CrawlerAdmin.test.tsx > CrawlerAdmin — Manual Run section > POSTs to /admin/crawlers/rescrape-archives when "Rescrape latest archives" is clicked
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CrawlerAdmin inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/pages/PrivacyPolicy.test.tsx (2 tests) 246ms
+ ✓ src/lib/sentry.test.ts (19 tests) 72ms
+ ✓ src/hooks/useResponsiveColumns.test.ts (5 tests) 43ms
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — initial state > exposes pagination defaults and derived params
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — setters > toggleCategory adds then removes a category id
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — setters > setSearchTerm + setPriceMin produce derived price_cents + search params
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/hooks/useAppSettings.test.ts (4 tests) 42ms
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — setters > setShowUniversalParts flips the universal param
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — setters > clearAllFilters resets every user-driven filter
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/hooks/usePartsFilters.test.tsx > usePartsFilters — user-scoped variant > forwards user_id into params when the option is set
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/hooks/useDocumentMeta.test.ts (5 tests) 81ms
+ ✓ src/hooks/UseApiRequest.test.tsx (8 tests) 62ms
+ ✓ src/components/common/ErrorBoundary.test.tsx (2 tests) 59ms
+ ✓ src/pages/admin/CrawlerAdmin.test.tsx (13 tests) 1894ms
+ ✓ src/pages/authentication/ExtensionAuth.test.tsx (4 tests) 124ms
+ ✓ src/contexts/AppSettingsContext.test.tsx (4 tests) 116ms
+ ✓ src/hooks/useAuth.test.ts (5 tests) 53ms
+ ✓ src/hooks/usePartsFilters.test.tsx (7 tests) 101ms
+ ✓ src/pages/Checkout.test.tsx (3 tests) 257ms
+ ✓ src/pages/TermsOfService.test.tsx (2 tests) 261ms
+ ✓ src/contexts/AuthContext.test.tsx (6 tests) 142ms
+ ✓ src/hooks/useContainerWidth.test.tsx (4 tests) 50ms
+ ✓ src/hooks/useIsPremium.test.ts (7 tests) 37ms
+ ✓ src/components/common/RouteGroupBoundary.test.tsx (3 tests) 156ms
+ ✓ src/hooks/useCookieConsent.test.ts (6 tests) 48ms
+ ✓ src/api/admin.test.ts (37 tests) 29ms
+ ✓ src/pages/admin/PartsCuration.test.tsx (5 tests) 2345ms
+   ✓ PartsCuration page > loads a link group on lookup and renders members with Promote + Unlink  798ms
+   ✓ PartsCuration page > approves (promotes) a duplicate to canonical via adminApi.promotePartToCanonical  662ms
+   ✓ PartsCuration page > merges a duplicate into a canonical via adminApi.manuallyLinkParts  783ms
+ ✓ src/api/images.test.ts (9 tests) 17ms
+ ✓ src/api/build_lists.test.ts (14 tests) 19ms
+ ✓ src/api/parts.test.ts (22 tests) 17ms
+ ✓ src/api/reports.test.ts (16 tests) 16ms
+ ✓ src/api/auth.test.ts (27 tests) 24ms
+ ✓ src/api/users.test.ts (13 tests) 16ms
+ ✓ src/api/part_manufacturers.test.ts (12 tests) 9ms
+ ✓ src/test/guards/no-process-env.test.ts (1 test) 13ms
+ ✓ src/api/bug_reports.test.ts (8 tests) 11ms
+ ✓ src/api/car_generations.test.ts (13 tests) 10ms
+ ✓ src/test/guards/no-legacy-gradient.test.ts (1 test) 11ms
+ ✓ src/api/build_list_parts.test.ts (10 tests) 9ms
+ ✓ src/utils/externalImageUrls.test.ts (5 tests) 7ms
+ ✓ src/api/votes.test.ts (18 tests) 10ms
+ ✓ src/test/guards/extension-content-type.test.ts (1 test) 8ms
+ ✓ src/api/categories.test.ts (6 tests) 7ms
+ ✓ src/api/build_logs.test.ts (6 tests) 8ms
+ ✓ src/api/utility.test.ts (2 tests) 5ms
+ ✓ src/api/search.test.ts (3 tests) 6ms
+ ✓ src/utils/carUtils.test.ts (6 tests) 3ms
+ ✓ src/api/retailers.test.ts (1 test) 4ms
+ ✓ src/api/app_settings.test.ts (3 tests) 7ms
+ ✓ src/api/build_list_phases.test.ts (2 tests) 5ms
+ ✓ src/App.coverage.test.tsx (38 tests) 2708ms
+   ✓ App route coverage (FE-03 drift guard, D-10, D-24) > path='/' group='public' > forces child throw; route-group boundary renders fallback with data-route-group="public"  330ms
+
+ Test Files  78 passed (78)
+      Tests  516 passed (516)
+   Start at  11:47:21
+   Duration  5.78s (transform 6.35s, setup 7.68s, collect 28.82s, tests 21.93s, environment 46.45s, prepare 10.64s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   63.68 |       70 |   53.73 |   63.68 |                   
+ scripts           |       0 |        0 |       0 |       0 |                   
+  prerender.mjs    |       0 |        0 |       0 |       0 | 1-149             
+ src               |   99.21 |    88.23 |     100 |   99.21 |                   
+  App.tsx          |   99.21 |    88.23 |     100 |   99.21 | 235,310           
+ src/api           |     100 |    97.88 |   99.47 |     100 |                   
+  admin.ts         |     100 |      100 |     100 |     100 |                   
+  app_settings.ts  |     100 |      100 |     100 |     100 |                   
+  auth.ts          |     100 |      100 |     100 |     100 |                   
+  bug_reports.ts   |     100 |      100 |     100 |     100 |                   
+  ...list_parts.ts |     100 |    83.33 |     100 |     100 | 28-35             
+  ...ist_phases.ts |     100 |      100 |     100 |     100 |                   
+  build_lists.ts   |     100 |      100 |     100 |     100 |                   
+  build_logs.ts    |     100 |      100 |     100 |     100 |                   
+  ...enerations.ts |     100 |      100 |     100 |     100 |                   
+  categories.ts    |     100 |      100 |     100 |     100 |                   
+  client.ts        |     100 |    94.59 |     100 |     100 | 112,135           
+  images.ts        |     100 |      100 |     100 |     100 |                   
+  ...ufacturers.ts |     100 |      100 |     100 |     100 |                   
+  parts.ts         |     100 |      100 |     100 |     100 |                   
+  reports.ts       |     100 |      100 |   91.66 |     100 |                   
+  retailers.ts     |     100 |      100 |     100 |     100 |                   
+  search.ts        |     100 |      100 |     100 |     100 |                   
+  users.ts         |     100 |      100 |     100 |     100 |                   
+  utility.ts       |     100 |      100 |     100 |     100 |                   
+  votes.ts         |     100 |    92.85 |     100 |     100 | 71                
+ ...mponents/admin |   70.23 |    33.33 |   16.66 |   70.23 |                   
+  ReportDialog.tsx |   70.23 |    33.33 |   16.66 |   70.23 | 35-56,59-64       
+ ...components/ads |   84.11 |    58.82 |     100 |   84.11 |                   
+  AdBanner.tsx     |   81.11 |       50 |     100 |   81.11 | ...5,59-66,97-103 
+  ...umnSpacer.tsx |     100 |      100 |     100 |     100 |                   
+  adsenseConfig.ts |     100 |      100 |     100 |     100 |                   
+ ...omponents/auth |     100 |      100 |     100 |     100 |                   
+  AuthCard.tsx     |     100 |      100 |     100 |     100 |                   
+  AuthForm.tsx     |     100 |      100 |     100 |     100 |                   
+  ...irectLink.tsx |     100 |      100 |     100 |     100 |                   
+ ...authentication |       0 |        0 |       0 |       0 |                   
+  ...eAuthFlow.tsx |       0 |        0 |       0 |       0 | 1-297             
+ ...buildListParts |    36.5 |    48.69 |   30.23 |    36.5 |                   
+  ...tPartList.tsx |   89.88 |     47.5 |   55.55 |   89.88 | ...43-648,757,761 
+  ...tListItem.tsx |       0 |        0 |       0 |       0 | 1-235             
+  ...ListParts.tsx |   56.71 |    52.94 |   28.57 |   56.71 | ...97,407,448-492 
+  ...tPartForm.tsx |    2.24 |      100 |       0 |    2.24 | 43,45-1058        
+  ...tPartForm.tsx |    5.08 |      100 |       0 |    5.08 | 24-175            
+ ...nts/buildLists |   17.98 |    58.33 |   30.76 |   17.98 |                   
+  ...dListCard.tsx |      98 |       50 |     100 |      98 | 31                
+  ...talogList.tsx |    7.27 |      100 |       0 |    7.27 | 44,47-258         
+  ...dListItem.tsx |    7.03 |      100 |       0 |    7.03 | 25-174            
+  ...dListList.tsx |   82.56 |    61.11 |      50 |   82.56 | ...20-121,140-143 
+  ...dListForm.tsx |    5.14 |      100 |       0 |    5.14 | 28,31-388         
+  ...dListForm.tsx |    4.58 |      100 |       0 |    4.58 | 35-37,41-466      
+ ...onents/buttons |     100 |    88.88 |     100 |     100 |                   
+  ActionButton.tsx |     100 |      100 |     100 |     100 |                   
+  Button.tsx       |     100 |       80 |     100 |     100 | 48                
+  LinkButton.tsx   |     100 |      100 |     100 |     100 |                   
+  ...aryButton.tsx |     100 |      100 |     100 |     100 |                   
+  ...tchButton.tsx |     100 |      100 |     100 |     100 |                   
+ ...omponents/cars |       0 |        0 |       0 |       0 |                   
+  CarList.tsx      |       0 |        0 |       0 |       0 | 1-142             
+  CarListItem.tsx  |       0 |        0 |       0 |       0 | 1-42              
+ ...ponents/common |   71.32 |    62.42 |   53.73 |   71.32 |                   
+  AddItemTile.tsx  |     100 |      100 |     100 |     100 |                   
+  Alerts.tsx       |   87.87 |       75 |     100 |   87.87 | 31-32,51-52       
+  BetaBanner.tsx   |   88.88 |    66.66 |      50 |   88.88 | 14-16             
+  Button.tsx       |   85.71 |       50 |     100 |   85.71 | 48-58             
+  ...ltiSelect.tsx |   76.14 |      100 |      50 |   76.14 | ...68,74-78,84-85 
+  Card.tsx         |     100 |      100 |     100 |     100 |                   
+  CardInfoItem.tsx |     100 |      100 |     100 |     100 |                   
+  ...sionPromo.tsx |   22.98 |       40 |   16.66 |   22.98 | ...2,43-61,66-123 
+  ...entBanner.tsx |    90.9 |       50 |      50 |    90.9 | 10-13             
+  ...ionDialog.tsx |       0 |        0 |       0 |       0 | 1-122             
+  ...ionDialog.tsx |    85.1 |       25 |     100 |    85.1 | 30-38             
+  Dialog.tsx       |     100 |      100 |     100 |     100 |                   
+  ...rBoundary.tsx |   95.65 |       75 |      80 |   95.65 | 43-44             
+  ImageUpload.tsx  |   81.56 |    64.28 |      50 |   81.56 | ...20-127,130-131 
+  ...aceholder.tsx |   84.37 |    66.66 |      50 |   84.37 | 38-45             
+  Input.tsx        |   97.65 |    65.21 |     100 |   97.65 | 83,100-101        
+  ...ngSpinner.tsx |   88.09 |       75 |     100 |   88.09 | 66-77             
+  Pagination.tsx   |   39.63 |    28.57 |      50 |   39.63 | ...09-139,151-152 
+  ...ationLink.tsx |      90 |       50 |     100 |      90 | 18-19             
+  ...leWrapper.tsx |     100 |        0 |     100 |     100 | 30                
+  ...pBoundary.tsx |   88.46 |       80 |      80 |   88.46 | 44-49             
+  ...bleSelect.tsx |   64.61 |    57.57 |   18.18 |   64.61 | ...51-256,281-291 
+  ...tionPromo.tsx |   33.89 |       40 |      50 |   33.89 | 21-24,26-27,32-84 
+  ...lterChips.tsx |   72.05 |       25 |      50 |   72.05 | 23-38,94-97       
+  ...erSection.tsx |   83.33 |      100 |   33.33 |   83.33 | ...05-107,150-154 
+ ...ponents/layout |     100 |      100 |     100 |     100 |                   
+  Divider.tsx      |     100 |      100 |     100 |     100 |                   
+  PageHeader.tsx   |     100 |      100 |     100 |     100 |                   
+  ...ionHeader.tsx |     100 |      100 |     100 |     100 |                   
+ ...t/globalFooter |     100 |      100 |     100 |     100 |                   
+  Footer.tsx       |     100 |      100 |     100 |     100 |                   
+ ...t/globalHeader |   74.57 |    55.55 |      15 |   74.57 |                   
+  Header.tsx       |   81.86 |    71.42 |   16.66 |   81.86 | ...90-311,339-362 
+  ...erNavLink.tsx |       0 |        0 |       0 |       0 | 1-26              
+  ...Separator.tsx |       0 |        0 |       0 |       0 | 1-7               
+ ...mponents/parts |   48.08 |    63.26 |      32 |   48.08 |                   
+  ...istDialog.tsx |   49.79 |    45.45 |   16.66 |   49.79 | ...30-294,347,349 
+  ...oryFilter.tsx |       0 |        0 |       0 |       0 | 1-38              
+  ...ePartForm.tsx |       0 |        0 |       0 |       0 | 1-628             
+  EditPartForm.tsx |   76.92 |    61.53 |   44.44 |   76.92 | ...56-458,460-462 
+  ImageGallery.tsx |    93.4 |    11.11 |   33.33 |    93.4 | 32-37,94-95       
+  ...eryManage.tsx |   45.41 |    11.11 |    9.09 |   45.41 | ...36-237,241-287 
+  PartList.tsx     |   81.43 |    76.99 |      40 |   81.43 | ...01,638-643,802 
+  PartListItem.tsx |       0 |        0 |       0 |       0 | 1-57              
+  ...lterChips.tsx |   63.09 |    33.33 |     100 |   63.09 | 53-93             
+  ...erSidebar.tsx |   97.14 |    66.66 |    12.5 |   97.14 | 248-252           
+  ...LineChart.tsx |    5.26 |      100 |       0 |    5.26 | 48-138,158-757    
+  VoteButtons.tsx  |   89.65 |    67.74 |   83.33 |   89.65 | ...98,109,125-126 
+ ...onents/profile |   22.05 |    22.72 |     5.4 |   22.05 |                   
+  ...ordDialog.tsx |       0 |        0 |       0 |       0 | 1-218             
+  ...sSettings.tsx |    9.67 |      100 |       0 |    9.67 | ...8,21-24,27-167 
+  ...ySettings.tsx |    5.71 |      100 |       0 |    5.71 | 15-239            
+  ...ySettings.tsx |       0 |        0 |       0 |       0 | 1-604             
+  ...ngsDialog.tsx |   56.63 |       20 |     3.7 |   56.63 | ...62-667,722-725 
+  SocialLinks.tsx  |   73.52 |       50 |     100 |   73.52 | 87-111            
+  ...uthDialog.tsx |       0 |        0 |       0 |       0 | 1-322             
+ ...ponents/routes |   57.57 |    58.82 |     100 |   57.57 |                   
+  ...fiedRoute.tsx |      50 |    57.14 |     100 |      50 | 11-12,15-16,19-29 
+  GuestRoute.tsx   |   59.09 |       60 |     100 |   59.09 | 12-13,16-22       
+  ...ctedRoute.tsx |   66.66 |       60 |     100 |   66.66 | 11-12,15-18       
+ ...mponents/users |   22.72 |      100 |       0 |   22.72 |                   
+  UserCard.tsx     |   22.72 |      100 |       0 |   22.72 | 11-38             
+ src/config        |     100 |      100 |     100 |     100 |                   
+  google.ts        |     100 |      100 |     100 |     100 |                   
+ src/constants     |     100 |      100 |     100 |     100 |                   
+  index.ts         |     100 |      100 |     100 |     100 |                   
+ src/contexts      |   98.38 |    95.23 |     100 |   98.38 |                   
+  ...gsContext.tsx |     100 |      100 |     100 |     100 |                   
+  ...Definition.ts |     100 |      100 |     100 |     100 |                   
+  AuthContext.tsx  |   97.67 |    93.33 |     100 |   97.67 | 45-46             
+  ...Definition.ts |     100 |      100 |     100 |     100 |                   
+ src/hooks         |   79.87 |    78.96 |      92 |   79.87 |                   
+  ...piRequest.tsx |    90.9 |    89.47 |     100 |    90.9 | 26,28-31          
+  ...ppSettings.ts |     100 |      100 |     100 |     100 |                   
+  useAuth.ts       |     100 |      100 |     100 |     100 |                   
+  ...ainerWidth.ts |     100 |      100 |     100 |     100 |                   
+  ...kieConsent.ts |   89.18 |    72.72 |   88.88 |   89.18 | ...57,70-71,81-82 
+  ...cumentMeta.ts |   98.38 |    84.61 |     100 |   98.38 | 76                
+  ...ogleSignIn.ts |   88.23 |    73.33 |   66.66 |   88.23 | 56-58,60-62,86-87 
+  useIsPremium.ts  |     100 |      100 |     100 |     100 |                   
+  ...rtsFilters.ts |   71.42 |    74.21 |     100 |   71.42 | ...30,634-637,668 
+  ...iveColumns.ts |   94.59 |     87.5 |     100 |   94.59 | 40-41             
+ src/lib           |     100 |      100 |     100 |     100 |                   
+  sentry.ts        |     100 |      100 |     100 |     100 |                   
+ src/pages         |   85.45 |    70.43 |   47.91 |   85.45 |                   
+  About.tsx        |     100 |      100 |     100 |     100 |                   
+  BugReport.tsx    |   83.77 |    59.09 |   85.71 |   83.77 | ...57,189,192-195 
+  Checkout.tsx     |     100 |      100 |     100 |     100 |                   
+  ContactUs.tsx    |     100 |      100 |     100 |     100 |                   
+  Home.tsx         |   82.82 |    77.77 |     100 |   82.82 | ...54-256,260-296 
+  NotFound.tsx     |     100 |      100 |     100 |     100 |                   
+  Pricing.tsx      |     100 |     92.3 |     100 |     100 | 75                
+  ...acyPolicy.tsx |     100 |      100 |     100 |     100 |                   
+  Profile.tsx      |   66.18 |    38.46 |   13.63 |   66.18 | ...42-447,449-454 
+  Search.tsx       |    69.3 |     65.3 |   28.57 |    69.3 | ...60-265,267-279 
+  Support.tsx      |    98.4 |       50 |     100 |    98.4 | 25,31             
+  ...OfService.tsx |     100 |      100 |     100 |     100 |                   
+  ViewUser.tsx     |   96.22 |       90 |     100 |   96.22 | 132,134-136       
+ src/pages/admin   |    72.2 |    66.91 |   38.34 |    72.2 |                   
+  ...Dashboard.tsx |     100 |      100 |     100 |     100 |                   
+  ...ortReview.tsx |   95.73 |    71.42 |      50 |   95.73 | ...54,491,496,503 
+  CrawlerAdmin.tsx |   58.74 |    68.94 |   24.19 |   58.74 | ...2558,2602,2649 
+  ...sCuration.tsx |   78.08 |       64 |   39.39 |   78.08 | ...05-606,742-743 
+  ReportReview.tsx |   94.35 |     80.7 |    62.5 |   94.35 | ...69,358,363,370 
+  SystemAdmin.tsx  |    72.8 |       68 |   33.33 |    72.8 | ...03-805,815-817 
+  ...tatistics.tsx |   66.79 |    51.75 |      70 |   66.79 | ...00-715,725-740 
+  ...anagement.tsx |   83.23 |    66.66 |   35.48 |   83.23 | ...65,679,683-688 
+ ...authentication |   83.51 |    73.55 |   76.08 |   83.51 |                   
+  ...nsionAuth.tsx |   70.58 |    64.28 |     100 |   70.58 | ...40-145,148-152 
+  ...tPassword.tsx |     100 |      100 |     100 |     100 |                   
+  ...rdConfirm.tsx |   91.26 |    81.25 |     100 |   91.26 | 46-48,51-53,55-57 
+  Login.tsx        |   72.86 |    64.28 |      50 |   72.86 | ...55-258,319-321 
+  Register.tsx     |    95.6 |    73.91 |   66.66 |    95.6 | ...,65-66,205-207 
+  VerifyEmail.tsx  |   81.81 |    76.92 |     100 |   81.81 | 27-29,41-46,49-55 
+  ...ilConfirm.tsx |     100 |      100 |     100 |     100 |                   
+ ...ges/buildLists |   80.24 |    58.51 |   28.94 |   80.24 |                   
+  ...tsCatalog.tsx |   80.43 |    55.31 |      10 |   80.43 | ...90-605,620-621 
+  ViewBuildLog.tsx |   80.04 |    65.85 |   35.71 |   80.04 | ...25-628,650-652 
+ src/pages/builder |   84.54 |    71.05 |   29.68 |   84.54 |                   
+  Builder.tsx      |   79.69 |       65 |      20 |   79.69 | ...30-131,162-165 
+  ...Buildlist.tsx |   83.08 |       78 |   21.73 |   83.08 | ...03,372-374,376 
+  ViewCar.tsx      |   89.04 |    79.31 |   36.36 |   89.04 | ...10-111,114-115 
+  ViewPart.tsx     |   84.79 |    65.93 |      36 |   84.79 | ...93,667,671-675 
+ src/pages/parts   |   86.91 |     87.5 |   35.71 |   86.91 |                   
+  EditPart.tsx     |   78.43 |    88.23 |      75 |   78.43 | ...,64-75,114-125 
+  PartsCatalog.tsx |   98.46 |      100 |      20 |   98.46 | 39-40             
+  UserParts.tsx    |   83.23 |    83.33 |      20 |   83.23 | ...,55-68,196-199 
+ src/services      |     100 |      100 |     100 |     100 |                   
+  Api.ts           |     100 |      100 |     100 |     100 |                   
+ src/utils         |   68.72 |    66.19 |   76.47 |   68.72 |                   
+  carUtils.ts      |   98.43 |    44.44 |     100 |   98.43 | 52                
+  dailyDismiss.ts  |   17.39 |      100 |       0 |   17.39 | 7-13,16-21,24-29  
+  ...lImageUrls.ts |   86.07 |    78.12 |     100 |   86.07 | ...8-69,86-91,102 
+  ...WithReload.ts |       0 |        0 |       0 |       0 | 1-44              
+  subscription.ts  |     100 |     90.9 |     100 |     100 | 15                
+-------------------|---------|----------|---------|---------|-------------------
