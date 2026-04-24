@@ -88,6 +88,7 @@ const ViewPart = lazy(() => import('./pages/builder/ViewPart.tsx'));
 const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
 const PartsCatalog = lazy(() => import('./pages/parts/PartsCatalog.tsx'));
 const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
+const NotFound = lazy(() => import('./pages/NotFound.tsx'));
 
 /** Paths where neither ads nor spacers are shown (landing + auth). */
 const NO_AD_SPACE_PATHS = new Set([
@@ -263,28 +264,11 @@ function App() {
                   <Route path="/parts/:partId" element={<ViewPart />} />
                   <Route path="/parts" element={<PartsCatalog />} />
 
-                  {/* 404 Catch-all — MUST be last inside the public group */}
-                  <Route
-                    path="*"
-                    element={
-                      <div className="container mx-auto px-4 py-20 text-center">
-                        <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
-                          <h1 className="text-4xl font-bold text-gradient mb-4">
-                            404
-                          </h1>
-                          <p className="text-neutral-400 mb-6">
-                            Page not found
-                          </p>
-                          <a
-                            href="/"
-                            className="btn-primary inline-flex items-center"
-                          >
-                            Go Home
-                          </a>
-                        </div>
-                      </div>
-                    }
-                  />
+                  {/* 404 Catch-all — MUST be last inside the public group.
+                      Lazy-loaded (Phase 6 FE-03) so the route-coverage test
+                      (src/App.coverage.test.tsx) can apply the same
+                      lazyWithReload throwing-stub mock here as elsewhere. */}
+                  <Route path="*" element={<NotFound />} />
                 </Route>
 
                 {/* Authentication group — login / register / forgot-password (redirect if logged in) */}
