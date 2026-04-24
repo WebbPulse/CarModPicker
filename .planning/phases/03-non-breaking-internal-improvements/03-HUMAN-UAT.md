@@ -87,3 +87,7 @@ blocked: 0
 ## Gaps
 
 - **SC4 phrasing mismatch:** ROADMAP Phase 3 success criterion 4 ("uvicorn --reload startup latency is measurably reduced") is contradicted by end-to-end measurement. The refactor's value is maintainability, not latency. Consider amending SC4 language to "car_generations_data.py reduced from 8,412 → 108 lines via JSON extraction with `@lru_cache` loader" for future milestones' clarity. Non-blocking for phase completion — phase goal (crawler hardening + Pydantic v1 elimination) is met independently of this nuance.
+
+
+
+user manually fully signs off

@@ -1,8 +1,8 @@
 ---
 phase: 05-structural-router-splits
 verified: 2026-04-23T16:45:00Z
-status: human_needed
-score: 9/9 must-haves verified
+status: verified
+score: 9/9 must-haves verified; AUTH-05 staging UAT manually signed off by user 2026-04-23
 overrides_applied: 0
 re_verification: null
 human_verification:
