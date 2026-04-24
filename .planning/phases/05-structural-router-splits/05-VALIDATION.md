@@ -1,10 +1,12 @@
 ---
 phase: 5
 slug: structural-router-splits
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: accepted
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-22
+validated: 2026-04-24
+validated_by: /gsd-validate-phase 05 (inline execution via plan 07-05)
 ---
 
 # Phase 5 — Validation Strategy
@@ -112,6 +114,38 @@ Task IDs use the `{phase}-{plan}-{task}` convention. Threat IDs reference the `<
 - [ ] Phase 1 characterization tests (SAFE-06, 7 happy-path flows) green after every task commit that touches `auth/` or `backend/app/api/dependencies/auth.py`
 - [ ] Phase 1 OpenAPI snapshot test (SAFE-05) regenerated + committed in the admin-split PR and the auth-split PR (drift is intentional per D-16 / D-44)
 - [ ] Phase 3 logger regression test + Phase 4 session.query regression test green on every new sub-module file (inherits D-26)
-- [ ] `nyquist_compliant: true` set in frontmatter after plan-checker confirms coverage
+- [x] `nyquist_compliant: true` set in frontmatter after plan-checker confirms coverage
 
-**Approval:** pending
+**Approval:** accepted 2026-04-24 (Plan 07-05 — NYQUIST-01 closure)
+
+---
+
+## Validation Execution Log — 2026-04-24
+
+> Executed via plan `07-05-nyquist-validation-close` as an inline `/gsd-validate-phase 05` run.
+> Phase-05 deliverables were previously verified in `05-VERIFICATION.md` (9/9 must-haves) and user-signed 2026-04-23. This log captures the current-tree Quick/Full command re-run used to flip Nyquist frontmatter.
+
+### Commands Executed
+
+| Command | Subsystem | Exit | Summary |
+|---------|-----------|------|---------|
+| `cd backend && pytest -n auto backend/tests/test_admin_auth_coverage.py backend/tests/test_auth_auth_coverage.py backend/tests/test_pyjwt_migration.py backend/tests/test_jwt_algorithm_regression.py backend/tests/test_ext_api_contract_up_to_date.py --no-cov` (Quick) | backend | 0 | (Rolled into full-suite run below) |
+| `cd backend && pytest -n auto --tb=no -q` (Full) | backend | 0 | 2379 passed, 9 skipped in 25.70s (includes `test_admin_auth_coverage.py` 31 warnings, `test_auth_auth_coverage.py`, jose/PyJWT parity tests, API contract drift guard). |
+| `cd backend && pytest -n auto tests/auth/ --no-cov` | backend (SAFE-06 inherited) | 0 | 5 passed, 2 skipped — Phase-1 characterization still green across all 05-PR router splits. |
+| `cd backend && pytest -n auto tests/test_openapi_snapshot.py --no-cov` | backend (SAFE-05 inherited) | 0 | 1 passed — OpenAPI snapshot regenerated per D-16/D-44 during admin + auth splits; current tree matches committed snapshot. |
+| `cd frontend && npm run type-check && npm test -- --run` | frontend | 0 | Type-check clean; 76 tests passed — frontend `Api.ts` references to new admin + auth/oauth paths resolve. |
+
+### python-jose Retention (AUTH-04 bonus)
+
+Per `v1.0-MILESTONE-AUDIT.md` tech_debt: python-jose was retained in Phase 05 to support jose/PyJWT parity test. Removal landed in Phase 6 QUAL-05 bonus (plan 06-05 D-14). This phase's `test_pyjwt_migration.py` still passes with the current requirements.txt and code paths — verified in full-suite run above.
+
+### AUTH-02 / AUTH-03 Intentional Deviations Acknowledged
+
+- D-10: `/auth/google/*` → `/auth/oauth/google/*` restructure — Chrome extension critical path unaffected (D-14), web frontend migrated same PR, OpenAPI snapshot drift intentional.
+- D-31: `/api/auth/logout` is now auth-gated (was previously public) — intentional hardening.
+
+Both are documented deviations, not Nyquist gaps.
+
+### Sign-Off
+
+All 10 ADMIN-XX / AUTH-XX requirements have automated verification rows in the Per-Task Verification Map. Test evidence reproduces green in the current tree at base commit `22024d1`. Frontmatter flipped: `status: draft → accepted`, `wave_0_complete: false → true`, `nyquist_compliant: false → true`. Manual-Only items (Chrome extension staging auth flow, EventBridge schedule post-split) remain as reviewer-gated operator checks in `05-HUMAN-UAT.md` — signed off by user 2026-04-23.

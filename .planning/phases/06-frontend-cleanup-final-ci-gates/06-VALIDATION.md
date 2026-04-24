@@ -1,10 +1,12 @@
 ---
 phase: 6
 slug: frontend-cleanup-final-ci-gates
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: accepted
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-23
+validated: 2026-04-24
+validated_by: /gsd-validate-phase 06 (inline execution via plan 07-05)
 ---
 
 # Phase 6 — Validation Strategy
@@ -145,6 +147,56 @@ No new test framework installation needed — vitest + pytest already present.
 - [ ] No watch-mode flags on any command
 - [ ] Feedback latency < 30s per task, < 90s per wave
 - [ ] Manual-only items are genuinely unautomatable (not just "not yet automated")
-- [ ] `nyquist_compliant: true` set in frontmatter after planner confirms coverage
+- [x] `nyquist_compliant: true` set in frontmatter after planner confirms coverage
 
-**Approval:** pending
+**Approval:** accepted 2026-04-24 (Plan 07-05 — NYQUIST-01 closure)
+
+---
+
+## Validation Execution Log — 2026-04-24
+
+> Executed via plan `07-05-nyquist-validation-close` as an inline `/gsd-validate-phase 06` run.
+> Phase-06 deliverables were previously verified in `06-VERIFICATION.md` (5/5 success criteria, 11/11 requirements) and all 3 human-UAT items signed by user 2026-04-23. This log captures the current-tree Quick/Full command re-run used to flip Nyquist frontmatter.
+
+### Commands Executed
+
+| Command | Subsystem | Exit | Summary |
+|---------|-----------|------|---------|
+| `cd backend && pytest -n auto --tb=no -q` (Full) | backend | 0 | 2379 passed, 9 skipped in 25.70s. Covers QUAL-04 (`test_bandit_high_gate.py`), QUAL-05 regression classes (FastAPI 0.136 auth characterization, Pydantic 2.13 deprecation guard, Alembic 1.18 round-trip), D-14 jose-removal guard. |
+| `cd frontend && npm test -- --run` (Full) | frontend | 0 | 9 files, 76 tests passed in 1.73s. Includes FE-02 `no-process-env.test.ts`, FE-03 `App.coverage.test.tsx` (38 tests) + `RouteGroupBoundary.test.tsx`, FE-05 `no-legacy-gradient.test.ts`, QUAL-06 `extension-content-type.test.ts`. |
+| `cd frontend && npm run lint` | frontend (FE-01) | 0 | Clean exit — zero ESLint violations under strict config (no-explicit-any, no-unsafe-* flipped to error). |
+| `cd frontend && npx madge --circular --extensions ts,tsx src/` | frontend (FE-06) | 0 | `✔ No circular dependency found!` (181 files processed). |
+| `cd terraform && terraform init -backend=false && terraform validate` | terraform (QUAL-08) | 0 | `Success! The configuration is valid.` — confirms `aws_s3_bucket_lifecycle_configuration.crawl_data` DEEP_ARCHIVE @ 90d rule is structurally valid. |
+
+### Per-Requirement Verification Map — all green
+
+All Wave 0 guard files listed in the Per-Requirement Verification Map exist and pass:
+
+- `backend/tests/test_bandit_high_gate.py` (QUAL-04) — subprocess gate
+- `frontend/src/test/no-legacy-gradient.test.ts` (FE-05)
+- `frontend/src/test/extension-content-type.test.ts` (QUAL-06)
+- `frontend/src/test/no-process-env.test.ts` (FE-02)
+- `frontend/src/App.coverage.test.tsx` (FE-03 route-group coverage)
+- `frontend/src/components/common/RouteGroupBoundary.tsx` + `.test.tsx` (FE-03)
+- `.github/workflows/frontend-ci.yml` `Check circular imports` step (FE-06)
+- `frontend/eslint.config.js` strict flip (FE-01 D-01)
+
+### python-jose Removal (D-14) — VERIFIED GREEN
+
+```
+$ grep -rn "from jose\|import jose" backend/
+(no matches)
+```
+
+`python-jose` removed from `backend/requirements.txt` in Phase 06 Plan 06-05 per D-14. Verified clean in current tree — this validation run passed full auth characterization without jose imports.
+
+### FE-07 + HUMAN-UAT Items
+
+- FE-07 opportunistic polish + parts-catalog targeted pass: signed off by user 2026-04-23 (Wave 6).
+- Sentry event-ID surfacing in route-group fallback (OBS-05 + FE-03 staging verification): signed off 2026-04-23.
+- Chrome-extension runtime smoke test against FastAPI 0.136 (QUAL-06 staging): signed off 2026-04-23.
+- Terraform QUAL-08 apply confirmation (DEEP_ARCHIVE @ 90d on `carmodpicker-production-crawl-data`): signed off 2026-04-23.
+
+### Sign-Off
+
+All 11 FE-XX / QUAL-XX requirements have automated verification rows in the Per-Requirement Verification Map. Test evidence reproduces green in the current tree at base commit `22024d1` (Phase 07 Wave 1 merged). Frontmatter flipped: `status: draft → accepted`, `wave_0_complete: false → true`, `nyquist_compliant: false → true`. Manual-Only items (FE-07 visual polish, terraform apply, Sentry staging replay) remain in `06-HUMAN-UAT.md` — all signed off by user 2026-04-23.

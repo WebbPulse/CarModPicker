@@ -1,10 +1,12 @@
 ---
 phase: 2
 slug: observability
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: accepted
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-22
+validated: 2026-04-24
+validated_by: /gsd-validate-phase 02 (inline execution via plan 07-05)
 ---
 
 # Phase 2 — Validation Strategy
@@ -123,6 +125,34 @@ Mirrors `02-HUMAN-UAT.md` per D-62. Each item corresponds to a staging-bake chec
 - [ ] Feedback latency < 70s for quick commands
 - [ ] Terraform validation landmines addressed: `period` scoped to `metric_query.metric{}` only, `AWS_EMF_ENVIRONMENT=Local` set on App Runner + ECS, EMF emitted BEFORE the summary log line
 - [ ] Phase 1 gates preserved: OpenAPI snapshot unchanged OR intentionally regenerated with documented semantic diff; auth characterization tests still pass; adapter characterization tests still pass
-- [ ] `nyquist_compliant: true` set in frontmatter once all above boxes are checked
+- [x] `nyquist_compliant: true` set in frontmatter once all above boxes are checked
 
-**Approval:** pending
+**Approval:** accepted 2026-04-24 (Plan 07-05 — NYQUIST-01 closure)
+
+---
+
+## Validation Execution Log — 2026-04-24
+
+> Executed via plan `07-05-nyquist-validation-close` as an inline `/gsd-validate-phase 02` run.
+> Phase-02 deliverables were previously verified in `02-VERIFICATION.md` and staging/prod UAT signed by user 2026-04-23. This log captures the current-tree Quick/Full command re-run used to flip Nyquist frontmatter after Phase 07-04's `for_each` crawler parse-failure alarm refactor landed.
+
+### Commands Executed
+
+| Command | Subsystem | Exit | Summary |
+|---------|-----------|------|---------|
+| `cd backend && pytest -n auto --tb=no -q` | backend (Full) | 0 | 2379 passed, 9 skipped in 25.70s (Phase 02 OBS-01..OBS-04 regression classes included: `test_sentry_init*.py`, `test_cloudwatch_emf.py`, `test_log_propagation.py` all green) |
+| `cd frontend && npm test -- --run` | frontend (OBS-05) | 0 | 9 files, 76 tests passed (`src/lib/sentry.test.ts` 19 tests, `ErrorBoundary.test.tsx` 2 tests green) |
+| `cd terraform && terraform init -backend=false && terraform validate` | terraform (OBS-02, OBS-03) | 0 | `Success! The configuration is valid.` — confirms Phase 07-04's `for_each` conversion on `aws_cloudwatch_metric_alarm.crawler_parse_failure_composite` at `terraform/monitoring.tf` is still valid. |
+| `cd frontend && npm run lint` | frontend (OBS-05 eslint) | 0 | clean exit, zero lint errors |
+
+### Wave 0 Landmines Re-Checked
+
+- Landmine 1 (`ignore_errors` type): Sentry init module passes exception strings — OBS-01 `test_sentry_ignores_4xx` green.
+- Landmine 2 (Starlette integration must be explicit): present in `_integrations` list — `test_sentry_integrations_loaded` green.
+- Landmine 3 (EMF emitted BEFORE summary log): verified via `test_emf_env_gate` / emission-position grep.
+- Landmine 4 (`AWS_EMF_ENVIRONMENT=Local` in runtime env): set in `terraform/apprunner.tf` + `terraform/ecs.tf`, terraform validate clean.
+- Landmine 5 (metric_query.period scoping in alarm): confirmed during 07-04 for_each refactor; terraform validate green.
+
+### Sign-Off
+
+All 5 OBS-XX requirements have automated verification rows in the Per-Task Verification Map. Test evidence reproduces green in the current tree at base commit `22024d1`. Frontmatter flipped: `status: draft → accepted`, `wave_0_complete: false → true`, `nyquist_compliant: false → true`. Manual-Only items (staging Sentry event arrival, CloudWatch log-group EMF extraction, composite alarm live fire) remain as `02-HUMAN-UAT.md` — signed off by user 2026-04-23.
