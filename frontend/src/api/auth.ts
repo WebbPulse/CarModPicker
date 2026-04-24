@@ -58,10 +58,18 @@ export const authApi = {
     if (response.data.access_token) {
       setStoredToken(response.data.access_token);
     }
+    // Enforce the contract: non-2FA login MUST return a user payload.
+    // Previously `response.data.user!` silently produced AxiosResponse<UserRead>
+    // whose .data was `undefined`, causing confusing downstream crashes.
+    if (!response.data.user) {
+      throw new Error(
+        'Login response missing user payload (server contract violation)'
+      );
+    }
     // Return response with user data as the main data field
     return {
       ...response,
-      data: response.data.user!,
+      data: response.data.user,
     } as AxiosResponse<UserRead>;
   },
   loginWith2FA: async (
