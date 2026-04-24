@@ -10,7 +10,7 @@ function Footer() {
   return (
     <footer className="relative mt-auto w-full">
       {/* Background with gradient */}
-      <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95"></div>
+      <div className="absolute inset-0 bg-linear-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95"></div>
 
       {/* Footer Content */}
       <div className="relative">
@@ -20,10 +20,10 @@ function Footer() {
             {/* PartManufacturer Section */}
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-linear-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
                   <GiRaceCar className="text-white text-sm" />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+                <span className="text-xl font-bold bg-linear-to-r from-white to-neutral-300 bg-clip-text text-transparent">
                   CarModPicker
                 </span>
               </div>

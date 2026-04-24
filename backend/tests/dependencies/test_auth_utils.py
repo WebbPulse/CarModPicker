@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+import jwt
 
 from app.api.dependencies.auth import (
     ALGORITHM,

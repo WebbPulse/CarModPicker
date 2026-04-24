@@ -122,11 +122,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `madge --circular src/` reports zero circular imports after any module restructure
   4. `bandit -l -i` HIGH-severity findings fail CI; all current HIGH findings are resolved
   5. Stack patch upgrades (FastAPI 0.136, Uvicorn 0.45, SQLAlchemy 2.0.49, Alembic 1.18, Pydantic 2.13) are applied and all tests pass
-**Plans:** 4 plans
-- [ ] 05-01-admin-split-PLAN.md — ADMIN-01/02/03/04: decompose admin.py into admin/ sub-package (5 sub-routers + _helpers), regenerate OpenAPI snapshot, migrate frontend admin URLs, parametrized 401/403 coverage test
-- [ ] 05-02-pyjwt-migration-PLAN.md — AUTH-04: swap python-jose for PyJWT 2.12.1 with JWT_ALGORITHM config hoist, 7 JWTError → InvalidTokenError rewrites, jose/PyJWT parity test, bare-jwt.decode grep guard
-- [ ] 05-03-api-contract-generator-PLAN.md — AUTH-05/06: OpenAPI-driven chrome-extension/API_CONTRACT.md generator + drift-guard pytest + 05-HUMAN-UAT.md staging checklist
-- [ ] 05-04-auth-split-PLAN.md — AUTH-01/02/03: decompose auth.py into auth/ sub-package (4 sub-routers + _helpers), aggressive /auth/google/* → /auth/oauth/google/* restructure, parametrized 401 coverage test with public-route allow-list
+**Plans:** 6 plans
+- [x] 06-01-wave0-infra-parallel-small-PLAN.md — FE-01/FE-02/FE-05/FE-06/QUAL-04/QUAL-08: eslint rule flip + lint baseline, 3 vitest grep guards (FE-02/FE-05/QUAL-06-Content-Type), Tailwind v3→v4 gradient codemod, madge devDep + CI step, bandit HIGH regression test, Terraform Glacier lifecycle on crawl-data bucket (DEEP_ARCHIVE @ 90d)
+- [x] 06-02-PLAN.md — FE-01/FE-04: lazyWithReload `any`→`unknown` fix, directory-chunked lint fix sweep, D-22 split `services/Api.ts` (1520 lines) into `frontend/src/api/*.ts` per backend domain (17+ modules + shared `client.ts`) with co-located response types (D-04) and unknown+narrowing (D-03)
+- [x] 06-03-PLAN.md — FE-03: RouteGroupBoundary component (Sentry.ErrorBoundary + FallbackRender with eventId + Retry + Go Home) + unit test + App.tsx wiring of 4 route-group wrappers (admin/authentication/builder/public, D-07) + App.coverage.test.tsx parametrized RTL coverage with drift guard (D-10, D-24)
+- [x] 06-04-PLAN.md — QUAL-05/QUAL-06 (PR-A): bump fastapi 0.128→0.136.1 + pydantic 2.11→2.13.3 in requirements.txt; rides existing guards (Phase 3 Pydantic-v1 catch_warnings + Phase 1 OpenAPI snapshot + SAFE-06 auth characterization); seed 06-HUMAN-UAT.md with QUAL-06 extension smoke-test + route-group Sentry UAT
+- [x] 06-05-PLAN.md — QUAL-05 (PR-B) + D-14/D-23: bump sqlalchemy 2.0.41→2.0.49 + alembic 1.16→1.18.4 + uvicorn 0.34→0.45.0; remove python-jose from requirements.txt; delete test_pyjwt_migration.py; migrate test_auth_utils.py to PyJWT; Alembic 1.18 round-trip canary (plan 04-06)
+- [x] 06-06-PLAN.md — FE-07: opportunistic polish on touched files from Plans 06-01..05 + bounded parts-catalog pass on `pages/parts/*` + `components/parts/*` ONLY (D-17); expand 06-HUMAN-UAT.md Section 4 with 5-step checklist; operator visual sign-off
 **UI hint**: yes
 
 ## Progress

@@ -118,4 +118,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after Phase 2 complete — observability (Sentry SDK 2.x backend + @sentry/react 10.x frontend with Session Replay on-error, CloudWatch EMF per-adapter crawler metrics, composite parse-failure alarm, request_id/user_id log propagation regression guard, 02-HUMAN-UAT pending staging validation)*
+*Last updated: 2026-04-23 after Phase 6 complete — frontend cleanup & final CI gates (ESLint strict typing rules at error, RouteGroupBoundary on 4 lazy route groups with Sentry FallbackRender + drift-guard coverage test, services/Api.ts split into 20 per-domain modules under frontend/src/api/*, FastAPI 0.136.1 + Pydantic 2.13.3 + SQLAlchemy 2.0.49 + Alembic 1.18.4 + Uvicorn 0.45.0 + python-jose→PyJWT migration, bandit HIGH gate, madge circular-dep CI, Tailwind v4 gradient codemod, Glacier lifecycle on crawl-data S3 bucket; 5/5 success criteria verified mechanically; 06-HUMAN-UAT.md Sections 1-3 operator-pending — chrome-extension smoke, Sentry route-group tags in staging, Terraform apply confirmation. Milestone v1.0 complete.)*

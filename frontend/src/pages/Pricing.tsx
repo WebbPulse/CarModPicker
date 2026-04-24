@@ -88,10 +88,10 @@ function Pricing() {
             <div className="animate-fadeInScale">
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-amber-400 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <FaCrown className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-gradient-to-br from-amber-400/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-linear-to-br from-amber-400/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -130,14 +130,14 @@ function Pricing() {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 {tier.highlight && (
-                  <div className="inline-flex self-start items-center gap-1.5 px-3 py-1 mb-4 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-500 text-neutral-900">
+                  <div className="inline-flex self-start items-center gap-1.5 px-3 py-1 mb-4 rounded-full text-xs font-semibold bg-linear-to-r from-amber-400 to-orange-500 text-neutral-900">
                     <FaCrown className="text-[0.7rem]" />
                     Most Popular
                   </div>
                 )}
 
                 <div
-                  className={`w-14 h-14 bg-gradient-to-br ${tier.iconColor} rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg`}
+                  className={`w-14 h-14 bg-linear-to-br ${tier.iconColor} rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg`}
                 >
                   <FaCrown className="text-2xl" />
                 </div>
@@ -193,7 +193,7 @@ function Pricing() {
                 {tier.highlight && !userIsPremium ? (
                   <Link
                     to={tier.ctaTo}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-neutral-900 bg-gradient-to-r from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:brightness-110 transition-all duration-200"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-neutral-900 bg-linear-to-r from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:brightness-110 transition-all duration-200"
                   >
                     <FaCrown />
                     {tier.ctaLabel}

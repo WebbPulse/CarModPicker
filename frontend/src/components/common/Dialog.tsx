@@ -35,7 +35,7 @@ const Dialog: React.FC<DialogProps> = ({
       >
         <div className="flex-shrink-0 p-6 border-b border-white/10">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-linear-to-r from-white to-neutral-300 bg-clip-text text-transparent">
               {title}
             </h2>
             <button

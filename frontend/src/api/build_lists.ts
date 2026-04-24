@@ -1,0 +1,80 @@
+// Build Lists domain API. Mirrors backend endpoints/build_lists.py.
+// Extracted from services/Api.ts (lines 276-342) per Phase 6 D-22.
+// Build-list-scoped vote/report wrappers (legacy) live in their respective
+// `votes.ts` / `reports.ts` modules, not here.
+import { apiClient } from './client';
+import type {
+  BuildListCreate,
+  BuildListPhaseCreate,
+  BuildListPhaseRead,
+  BuildListRead,
+  BuildListReadWithVotes,
+  BuildListUpdate,
+  PaginatedResponse,
+} from '../types/Api';
+
+export const buildListsApi = {
+  createBuildList: (data: BuildListCreate) =>
+    apiClient.post<BuildListRead>('/build-lists/', data),
+  getBuildList: (buildListId: string) =>
+    apiClient.get<BuildListRead>(`/build-lists/${buildListId}`),
+  updateBuildList: (buildListId: string, data: BuildListUpdate) =>
+    apiClient.put<BuildListRead>(`/build-lists/${buildListId}`, data),
+  deleteBuildList: (buildListId: string) =>
+    apiClient.delete<BuildListRead>(`/build-lists/${buildListId}`),
+
+  // List and filter endpoints
+  listBuildLists: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+  }) => apiClient.get<BuildListRead[]>('/build-lists/', { params }),
+  getBuildListsWithVotes: (params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    car_id?: string;
+    car_ids?: string[];
+    owner_id?: string;
+    min_cost_cents?: number;
+    max_cost_cents?: number;
+    sort?: 'votes' | 'votes_asc' | 'price_asc' | 'price_desc';
+  }) =>
+    apiClient.get<PaginatedResponse<BuildListReadWithVotes>>(
+      '/build-lists/with-votes',
+      {
+        params,
+      }
+    ),
+  getBuildListsByCar: (
+    carId: string,
+    params?: { skip?: number; limit?: number; search?: string }
+  ) =>
+    apiClient.get<PaginatedResponse<BuildListRead>>(
+      `/build-lists/car/${carId}`,
+      { params }
+    ),
+  getBuildListsByUser: (
+    userId: string,
+    params?: { skip?: number; limit?: number }
+  ) =>
+    apiClient.get<BuildListRead[]>(`/build-lists/user/${userId}`, { params }),
+
+  // Count endpoint
+  countBuildLists: () => apiClient.get<{ count: number }>('/build-lists/count'),
+
+  // Copy build list
+  copyBuildList: (buildListId: string, newName?: string) =>
+    apiClient.post<BuildListRead>(`/build-lists/${buildListId}/copy`, {
+      new_name: newName || null,
+    }),
+
+  // Phases (priority groups) for a build list
+  getPhases: (buildListId: string) =>
+    apiClient.get<BuildListPhaseRead[]>(`/build-lists/${buildListId}/phases`),
+  createPhase: (buildListId: string, data: BuildListPhaseCreate) =>
+    apiClient.post<BuildListPhaseRead>(
+      `/build-lists/${buildListId}/phases`,
+      data
+    ),
+};

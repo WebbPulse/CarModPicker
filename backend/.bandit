@@ -1,3 +1,9 @@
+# QUAL-04 / D-18 path A (Phase 6): the CI invocation `bandit -r app -ll`
+# intentionally fails on MEDIUM and HIGH. backend/tests/test_bandit_high_gate.py
+# pins this behavior against regression. Empirical verification 2026-04-23:
+# `-ll` exits 1 on B602 HIGH fixture. Do NOT weaken this flag without also
+# updating the regression test.
+
 [bandit]
 # Bandit configuration for CarModPicker backend
 # This file configures Bandit security scanner settings

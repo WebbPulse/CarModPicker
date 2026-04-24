@@ -39,7 +39,7 @@ const Button: React.FC<ButtonProps> = ({
     outline: 'btn-outline',
     ghost: 'glass-button hover:bg-white/20',
     danger:
-      'bg-gradient-to-r from-red-500 to-pink-500 text-white border-0 hover:from-red-600 hover:to-pink-600 shadow-lg hover:shadow-xl',
+      'bg-linear-to-r from-red-500 to-pink-500 text-white border-0 hover:from-red-600 hover:to-pink-600 shadow-lg hover:shadow-xl',
   };
 
   const classes = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
