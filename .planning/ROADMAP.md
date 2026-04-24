@@ -168,12 +168,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Any files excluded from coverage via vitest `exclude` have an inline rationale comment (pure types, third-party shims)
 **Plans:** 20 plans
 - [x] 08-01-PLAN.md — Wave 0: baseline + shared infra (setup.ts D-18 dual mock, test-mocks.ts admin variants D-05, test-utils.tsx admin scenarios D-05, test/mocks/admin/ 7 factory files D-06, async.ts fake-timer helpers D-07 [no EventSource per research], guard relocation D-17, vitest.config.ts D-13 exclusions, commit 08-COVERAGE-BASELINE.txt D-24)
-- [ ] 08-02-PLAN.md — Wave 1 Auth cluster: auth.test.ts (23 methods) + users.test.ts (FormData) + images.test.ts (FormData) + client.test.ts (interceptors + paramsSerializer + env-driven baseURL via vi.stubEnv)
-- [ ] 08-03-PLAN.md — Wave 1 Parts cluster: parts.test.ts + car_generations.test.ts + categories.test.ts + part_manufacturers.test.ts + retailers.test.ts (D-15 exclude candidate)
-- [ ] 08-04-PLAN.md — Wave 1 Build-list cluster: build_lists.test.ts + build_list_parts.test.ts (nested URLs) + build_list_phases.test.ts + build_logs.test.ts
-- [ ] 08-05-PLAN.md — Wave 1 Votes + Reports: votes.test.ts (polymorphic entity_type) + reports.test.ts + bug_reports.test.ts
-- [ ] 08-06-PLAN.md — Wave 1 Utility: search.test.ts + app_settings.test.ts + utility.test.ts (D-15 exclude candidate)
-- [ ] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
+- [x] 08-02-PLAN.md — Wave 1 Auth cluster: auth.test.ts (23 methods) + users.test.ts (FormData) + images.test.ts (FormData) + client.test.ts (interceptors + paramsSerializer + env-driven baseURL via vi.stubEnv)
+- [x] 08-03-PLAN.md — Wave 1 Parts cluster: parts.test.ts + car_generations.test.ts + categories.test.ts + part_manufacturers.test.ts + retailers.test.ts (D-15 exclude candidate)
+- [x] 08-04-PLAN.md — Wave 1 Build-list cluster: build_lists.test.ts + build_list_parts.test.ts (nested URLs) + build_list_phases.test.ts + build_logs.test.ts
+- [x] 08-05-PLAN.md — Wave 1 Votes + Reports: votes.test.ts (polymorphic entity_type) + reports.test.ts + bug_reports.test.ts
+- [x] 08-06-PLAN.md — Wave 1 Utility: search.test.ts + app_settings.test.ts + utility.test.ts (D-15 exclude candidate)
+- [x] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
 - [ ] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
 - [ ] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
 - [ ] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
@@ -203,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 1/20 | In progress | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 7/20 | In progress | - |
