@@ -147,6 +147,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   7. Integration advisory A-01 closed: lifespan orphan-job sweep in `main.py:102-132` uses `bg_log_context`; `terraform/monitoring.tf:216` TODO resolved via per-adapter `for_each` parse-failure alarm
   8. All 6 phase `VALIDATION.md` files have `wave_0_complete: true` and `nyquist_compliant: true` (via `/gsd-validate-phase 01..06`)
   9. `REQUIREMENTS.md` traceability table: 59 rows flipped `Pending` → `Satisfied`; checkboxes `[ ]` → `[x]` for all 59 satisfied requirements (SAFE-03 remains Pending as it moves to Phase 8). `ROADMAP.md` Progress table: Phase 1/2/5/6 rows updated from "Not started" to "Complete" with actual completion dates
+**Plans:** 6 plans
+- [ ] 07-01-operational-bug-verification-PLAN.md — WR-01/WR-02/WR-03/WR-04/IN-02 regression tests pinning already-landed Phase 4 code-review fixes (init_service_accounts %s, CRAWLER_USER_ID UUID, reelect_canonical concurrency, copy_build_list free-tier cap)
+- [ ] 07-02-code-review-residue-PLAN.md — IN-01 static regression for build_lists.py `_apply_build_list_filters` helper consolidation
+- [ ] 07-03-dead-code-cleanup-PLAN.md — delete test_runner_circuit_breaker.py stub, remove 11 common_patterns.py dead helpers (zero callers), migrate 6 legacy db.query sites in tests/conftest.py to SQLAlchemy 2.0 select()
+- [ ] 07-04-integration-advisory-A01-PLAN.md — wrap main.py lifespan orphan sweeps in bg_log_context + convert terraform composite alarm to per-adapter for_each (adapter_names.txt seed)
+- [ ] 07-05-nyquist-validation-close-PLAN.md — run `/gsd-validate-phase 01..06` and flip wave_0_complete + nyquist_compliant to true across all 6 phase VALIDATION.md files
+- [ ] 07-06-documentation-drift-sync-PLAN.md — flip 59 REQUIREMENTS.md traceability rows (Pending → Satisfied) and checkboxes ([ ] → [x]); update ROADMAP.md Progress table with actual Phase 1/2/4/5/6 completion dates
 **Note**: Force-created by `/gsd-plan-milestone-gaps` from the `tech_debt` block of `.planning/v1.0-MILESTONE-AUDIT.md` despite the audit's empty `gaps[]` array. Scope intentionally excludes documented intentional deviations (DATA-07 pool override, AUTH-02 OAuth restructure, AUTH-03 logout gating), already-signed UAT items, and the Alembic round-trip CI automation deferred per Plan 04 D-31. SAFE-03 split to Phase 8.
 
 ### Phase 8: Frontend Coverage Expansion (SAFE-03)
