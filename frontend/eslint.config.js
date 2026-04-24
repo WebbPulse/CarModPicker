@@ -58,24 +58,17 @@ export default tseslint.config(
       // Disable React 19 warnings for now since we're not using React 19
       'react-x/no-use-context': 'off',
       'react-x/no-context-provider': 'off',
-    },
-  },
-  // Test files with relaxed type checking
-  {
-    files: ['src/test/**/*.ts', 'src/test/**/*.tsx'],
-    extends: [...tseslint.configs.recommended],
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2021,
-      },
-    },
-    rules: {
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // Phase 6 FE-01: strict typing rules flipped to error (Plan 06-01).
+      // Per D-05, the test-file override block was removed so src/test/** also
+      // runs strict rules. Plan 06-02 owns the violation fix sweep — between
+      // these two plans landing, `npm run lint` will be red on main if they
+      // do not co-merge (see 06-01 PLAN.md verification §Notes on Merge Ordering).
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
     },
   },
   eslintConfigPrettier // Add this last
