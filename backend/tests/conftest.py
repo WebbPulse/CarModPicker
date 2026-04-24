@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -337,7 +337,7 @@ def test_superuser_user(db_session: Session) -> User:
 # Test utilities
 def get_default_category_id(db_session: Session) -> UUID:
     """Get the ID of the 'other' category for testing."""
-    category = db_session.query(Category).filter(Category.name == "other").first()
+    category = db_session.scalars(select(Category).where(Category.name == "other")).first()
     if not category:
         # Create the 'other' category if it doesn't exist
         category = Category(
@@ -388,7 +388,9 @@ def create_and_login_user(
     # TESTING=true (see endpoints/users.py::register_user), which conftest sets
     # at import time before any app code loads. The manual flip block that used
     # to live here was a no-op — it flipped True to True and happened to be two
-    # of the 8 residual 1.x db.query() calls tracked under WR-01. Delete.
+    # of the legacy db.query() calls that Phase 4 WR-01 flagged as residue.
+    # (The remaining 6 conftest helpers were migrated in Phase 07 plan 07-03 —
+    # zero legacy .query() calls remain in this file.)
 
     # Login (token is returned but not stored - tests should use it explicitly)
     login_user(client, username, password_override)
@@ -435,13 +437,18 @@ def create_car_in_db(
     from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
 
-    make_entity = db.query(CarMake).filter(CarMake.name == make).first()
+    make_entity = db.scalars(select(CarMake).where(CarMake.name == make)).first()
     if make_entity is None:
         make_entity = CarMake(name=make)
         db.add(make_entity)
         db.flush()
 
-    car_model_entity = db.query(CarModel).filter(CarModel.car_make_id == make_entity.id, CarModel.name == model).first()
+    car_model_entity = db.scalars(
+        select(CarModel).where(
+            CarModel.car_make_id == make_entity.id,
+            CarModel.name == model,
+        )
+    ).first()
     if car_model_entity is None:
         car_model_entity = CarModel(car_make_id=make_entity.id, name=model)
         db.add(car_model_entity)
@@ -488,13 +495,18 @@ def create_car_orm_in_db(
     from app.api.models.car_make import CarMake
     from app.api.models.car_model import CarModel
 
-    make_entity = db.query(CarMake).filter(CarMake.name == make).first()
+    make_entity = db.scalars(select(CarMake).where(CarMake.name == make)).first()
     if make_entity is None:
         make_entity = CarMake(name=make)
         db.add(make_entity)
         db.flush()
 
-    car_model_entity = db.query(CarModel).filter(CarModel.car_make_id == make_entity.id, CarModel.name == model).first()
+    car_model_entity = db.scalars(
+        select(CarModel).where(
+            CarModel.car_make_id == make_entity.id,
+            CarModel.name == model,
+        )
+    ).first()
     if car_model_entity is None:
         car_model_entity = CarModel(car_make_id=make_entity.id, name=model)
         db.add(car_model_entity)
@@ -511,12 +523,11 @@ def create_car_orm_in_db(
     db.commit()
     db.refresh(car)
     # Reload with relationships so car.car_make_name / car.car_model_name work
-    car = (
-        db.query(CarGeneration)
+    car = db.scalars(
+        select(CarGeneration)
         .options(joinedload(CarGeneration.car_model).joinedload(CarModel.car_make))
-        .filter(CarGeneration.id == car.id)
-        .first()
-    )
+        .where(CarGeneration.id == car.id)
+    ).first()
     return car
 
 
