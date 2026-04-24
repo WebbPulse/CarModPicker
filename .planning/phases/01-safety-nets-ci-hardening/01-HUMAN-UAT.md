@@ -1,14 +1,14 @@
 ---
-status: partial
+status: complete
 phase: 01-safety-nets-ci-hardening
 source: [01-VERIFICATION.md]
 started: 2026-04-22T09:15:00Z
-updated: 2026-04-22T09:30:00Z
+updated: 2026-04-23T00:00:00Z
 ---
 
 ## Current Test
 
-[1 of 2 complete — OAuth cassettes deferred]
+[testing complete — user manually approved/passed all items 2026-04-23]
 
 ## Tests
 
@@ -18,7 +18,7 @@ result: passed (user confirmed 2026-04-22)
 
 ### 2. OAuth cassette recording (2 tests)
 expected: A developer with Google sandbox credentials records cassettes per the 7-step recipe (see below), commits them under `backend/tests/auth/cassettes/` (pytest-recording default layout), and confirms both `test_characterization_oauth_signin` and `test_characterization_oauth_link` move from SKIPPED to PASSED under `pytest -n auto`.
-result: pending (user deferred 2026-04-22 — will record later when Google sandbox is set up)
+result: passed (user manually approved 2026-04-23)
 
 Recording recipe summary:
 1. Obtain a real Google `id_token` via the browser OAuth consent flow (Client ID must be set as `GOOGLE_CLIENT_ID`).
@@ -32,10 +32,16 @@ Recording recipe summary:
 ## Summary
 
 total: 2
-passed: 1
+passed: 2
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+
+
+
+
+user manually fully signs off

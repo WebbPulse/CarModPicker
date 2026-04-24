@@ -1,8 +1,8 @@
 ---
 phase: 02-observability
 verified: 2026-04-22T23:40:00Z
-status: human_needed
-score: 5/5 must-haves verified (code/infra); live-ops validation pending operator UAT
+status: verified
+score: 5/5 must-haves verified; live-ops UAT manually signed off by user 2026-04-23
 overrides_applied: 0
 human_verification:
   - test: "Backend unhandled exception reaches Sentry with request_id + user_id + SQLAlchemy context"

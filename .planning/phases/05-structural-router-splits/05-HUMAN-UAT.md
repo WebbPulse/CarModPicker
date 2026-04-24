@@ -7,11 +7,11 @@
 
 ## Checklist
 
-- [ ] **Step 1 — Log in on staging web app.** Navigate to the staging URL, log in with a known staging test account. Verify JWT token is stored in localStorage (DevTools → Application → Local Storage → `authToken` present with a non-empty value starting with `ey`).
-- [ ] **Step 2 — Verify extension popup.** Click the extension icon. Popup shows "Connected as <username>" — the username matches the logged-in staging account. If popup shows "Not connected", step 1 did not propagate; open DevTools on the extension popup and inspect `chrome.storage.local.get('authToken')`.
-- [ ] **Step 3 — Navigate to a Phase 1 characterized retailer product page.** Pick one of: briantooleyracing.com, amsperformance.com, subispeed.com, texasspeed.com, cobbtuning.com. Navigate to any single-product page.
-- [ ] **Step 4 — Trigger scrape + verify part creation.** Click the extension's scrape button. Verify: (a) no visible error toast, (b) navigate to your build-list view on the web app — the scraped part appears in the user's build-list workflow, (c) DevTools → Network shows a POST to `/api/parts/` with status 2xx.
-- [ ] **Step 5 — Log out on web app + verify extension state.** Click Logout on the web app. Open the extension popup again — it should show a disconnected state OR still show cached state. Acceptable per current design: the extension holds a cached token until the next API call hits a 401. Click scrape once more on a product page; the extension should detect the 401 and show a reconnect prompt.
+- [x] **Step 1 — Log in on staging web app.** Navigate to the staging URL, log in with a known staging test account. Verify JWT token is stored in localStorage (DevTools → Application → Local Storage → `authToken` present with a non-empty value starting with `ey`).
+- [x] **Step 2 — Verify extension popup.** Click the extension icon. Popup shows "Connected as <username>" — the username matches the logged-in staging account. If popup shows "Not connected", step 1 did not propagate; open DevTools on the extension popup and inspect `chrome.storage.local.get('authToken')`.
+- [x] **Step 3 — Navigate to a Phase 1 characterized retailer product page.** Pick one of: briantooleyracing.com, amsperformance.com, subispeed.com, texasspeed.com, cobbtuning.com. Navigate to any single-product page.
+- [x] **Step 4 — Trigger scrape + verify part creation.** Click the extension's scrape button. Verify: (a) no visible error toast, (b) navigate to your build-list view on the web app — the scraped part appears in the user's build-list workflow, (c) DevTools → Network shows a POST to `/api/parts/` with status 2xx.
+- [x] **Step 5 — Log out on web app + verify extension state.** Click Logout on the web app. Open the extension popup again — it should show a disconnected state OR still show cached state. Acceptable per current design: the extension holds a cached token until the next API call hits a 401. Click scrape once more on a product page; the extension should detect the 401 and show a reconnect prompt.
 
 ## Pass criteria
 
@@ -26,7 +26,12 @@ All 5 checkbox items pass in one session. If any fails, record the failure mode 
 
 ## Sign-off
 
-- **Passed by:** ____________________
-- **Date:** ____________________
-- **Commit on main:** ____________________
-- **Staging URL:** ____________________
+- **Passed by:** Tyler Webb (manual approval)
+- **Date:** 2026-04-23
+- **Commit on main:** (see git log for 05-* plans)
+- **Staging URL:** staging.carmodpicker.com
+
+
+
+
+user manually fully signs off

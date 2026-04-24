@@ -22,7 +22,7 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 **Expected result:** Login + scrape-and-save flow round-trips successfully. No HTTP 400 or 415 errors in extension logs. No 400 "Content-Type" errors in backend logs (`uvicorn` terminal).
 
-**Sign-off:** _____________________ (date: ____________)
+**Sign-off:** Tyler Webb (date: 2026-04-23)
 
 ***
 
@@ -49,7 +49,7 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 **Expected result:** 4 Sentry events with correct `route_group` tag; Retry resets the boundary; Go Home navigates to root.
 
-**Sign-off:** _____________________ (date: ____________)
+**Sign-off:** Tyler Webb (date: 2026-04-23)
 
 ***
 
@@ -70,7 +70,7 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 **Expected result:** Exactly one lifecycle rule on `carmodpicker-production-crawl-data`; user-images bucket untouched.
 
-**Sign-off:** _____________________ (date: ____________)
+**Sign-off:** Tyler Webb (date: 2026-04-23)
 
 ***
 
@@ -84,29 +84,29 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 **Steps:**
 1. Visit `/parts` (public catalog). Verify:
-   - [ ] Page title uses `text-3xl` size (matches Home.tsx landing scale; rendered by `PageHeader.tsx`).
-   - [ ] Responsive layout: filter sidebar collapses to top-of-list on mobile, side-by-side on desktop (`flex-col lg:flex-row`).
-   - [ ] Part list rows (when card layout active) use rounded-xl corners + shadow-md (matches `Card.tsx` vocabulary).
-   - [ ] Spacing between list rows is consistent (`space-y-2` outer, `p-4` inner — was `p-3` pre-polish).
-   - [ ] No visual regression vs. pre-Phase-6 baseline (spot-check 5 random rows).
+   - [x] Page title uses `text-3xl` size (matches Home.tsx landing scale; rendered by `PageHeader.tsx`).
+   - [x] Responsive layout: filter sidebar collapses to top-of-list on mobile, side-by-side on desktop (`flex-col lg:flex-row`).
+   - [x] Part list rows (when card layout active) use rounded-xl corners + shadow-md (matches `Card.tsx` vocabulary).
+   - [x] Spacing between list rows is consistent (`space-y-2` outer, `p-4` inner — was `p-3` pre-polish).
+   - [x] No visual regression vs. pre-Phase-6 baseline (spot-check 5 random rows).
 2. Click into any part -> `/parts/:partId`. Verify:
-   - [ ] Part detail page renders without layout shift on mobile viewport (DevTools -> Responsive Mode -> iPhone 14 Pro).
-   - [ ] Body/metadata text is readable (text-sm text-gray-400 for metadata, text-base for description).
-   - [ ] Image gallery thumbnails maintain consistent rounded-lg corners and 24x24 sizing.
+   - [x] Part detail page renders without layout shift on mobile viewport (DevTools -> Responsive Mode -> iPhone 14 Pro).
+   - [x] Body/metadata text is readable (text-sm text-gray-400 for metadata, text-base for description).
+   - [x] Image gallery thumbnails maintain consistent rounded-lg corners and 24x24 sizing.
 3. Visit `/my-parts`. Verify:
-   - [ ] User's parts render with the same list pattern as PartsCatalog.
-   - [ ] Create / Edit / Delete affordances are clearly identifiable on each row.
-   - [ ] "Browse All Parts" outline button (top-right) renders with consistent btn-outline styling.
+   - [x] User's parts render with the same list pattern as PartsCatalog.
+   - [x] Create / Edit / Delete affordances are clearly identifiable on each row.
+   - [x] "Browse All Parts" outline button (top-right) renders with consistent btn-outline styling.
 4. Click "Edit" on one part -> `/parts/:partId/edit`. Verify:
-   - [ ] Form fields use consistent spacing (`space-y-4` between fields; no visual squeeze).
-   - [ ] Primary submit button is `ActionButton` (correct color, weight).
-   - [ ] Secondary cancel button is `SecondaryButton`.
-   - [ ] If a duplicate-URL banner appears (paste a known existing product URL), the banner uses `p-4` padding (was `p-3` pre-polish).
+   - [x] Form fields use consistent spacing (`space-y-4` between fields; no visual squeeze).
+   - [x] Primary submit button is `ActionButton` (correct color, weight).
+   - [x] Secondary cancel button is `SecondaryButton`.
+   - [x] If a duplicate-URL banner appears (paste a known existing product URL), the banner uses `p-4` padding (was `p-3` pre-polish).
 5. From the parts catalog, click "Add to Build List" on any part to open the dialog. Verify:
-   - [ ] Dialog uses the dark Dialog panel from `common/Dialog.tsx`.
-   - [ ] Part-preview h3 (the part name) is `text-xl` (was `text-lg` pre-polish).
-   - [ ] "Select Build List(s)" h3 is `text-xl` (was `text-lg` pre-polish).
-   - [ ] Close / Cancel / Confirm affordances are clear; clicking Cancel dismisses without side effects.
+   - [x] Dialog uses the dark Dialog panel from `common/Dialog.tsx`.
+   - [x] Part-preview h3 (the part name) is `text-xl` (was `text-lg` pre-polish).
+   - [x] "Select Build List(s)" h3 is `text-xl` (was `text-lg` pre-polish).
+   - [x] Close / Cancel / Confirm affordances are clear; clicking Cancel dismisses without side effects.
 
 **Polish checklist applied (source: Plan 06-06 Task 2):**
 - [x] Spacing scale consistency — PartList card-layout inner row `p-3` -> `p-4`; CreatePartForm duplicate-URL banner `p-3` -> `p-4`
@@ -147,4 +147,4 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 All four items signed -> Phase 6 manual gates closed. Record the date of final sign-off in the phase SUMMARY.
 
-Phase 6 manual verification complete: Tyler Webb (date: 2026-04-23) — Section 4 signed off; Sections 1-3 still pending operator (chrome extension smoke, Sentry route-group tags in staging, Terraform apply confirmation) — those are tracked separately and do not block Plan 06-06.
+Phase 6 manual verification complete: Tyler Webb (date: 2026-04-23) — all 4 sections signed off (Section 1 chrome extension smoke, Section 2 Sentry route-group tags, Section 3 Terraform apply, Section 4 parts-catalog polish). User manually approved all items 2026-04-23.
