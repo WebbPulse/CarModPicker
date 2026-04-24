@@ -28,7 +28,7 @@
  * introspection. See Builder.test.tsx for the in-repo precedent.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   render,
@@ -46,6 +46,11 @@ import {
 } from '../../test/mocks/admin/crawlers';
 import { makeJobsList } from '../../test/mocks/admin/jobs';
 import { mockCategory, mockUser } from '../../test/mocks/api';
+import {
+  startFakeTimers,
+  stopFakeTimers,
+  advanceTimersAndFlush,
+} from '../../test/utils/async';
 import CrawlerAdmin from './CrawlerAdmin';
 
 // Default GET routing used by the happy-path tests. Each branch matches the
@@ -271,5 +276,122 @@ describe('CrawlerAdmin — Adapter Tuning section', () => {
     );
     // The PATCH was called exactly once — no stray duplicate dispatches.
     expect(vi.mocked(apiClient.patch)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CrawlerAdmin — Background Jobs section', () => {
+  // Per PATTERNS.md Gotcha #2 + Pitfall 5: the Background Jobs section owns
+  // the fake-timer polling tests. IMPORTANT: we enable fake timers BEFORE
+  // mount so the polling useEffect's setInterval(..., 5000) is registered
+  // against the fake clock — a real setInterval would not be driven by
+  // vi.advanceTimersByTime and the test would observe zero polling fetches
+  // (Pitfall 5 variant). We explicitly do NOT call `waitFor` inside a
+  // fake-timer test: @testing-library's waitFor uses an internal setInterval
+  // retry loop which, under faked timers, never retries unless we advance
+  // timers — that trap is easy to wander into, so we drive everything with
+  // `advanceTimersAndFlush(...)` instead.
+  //
+  // afterEach always stops fake timers so a test that throws between
+  // startFakeTimers and the advance step doesn't leak fake-timer state into
+  // the next test.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    stopFakeTimers();
+  });
+
+  it('renders the Background Jobs heading', async () => {
+    vi.mocked(apiClient.get).mockImplementation(defaultGetImpl);
+    // No fake timers here — just assert the heading renders under the
+    // standard real-timer waitFor path.
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: /background jobs/i })
+      ).toBeInTheDocument()
+    );
+  });
+
+  it('polls /admin/jobs every 5 s while a job is running', async () => {
+    // Always return a running-job payload so the 5 s polling effect stays
+    // mounted for the full test window.
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.startsWith('/admin/jobs'))
+        return Promise.resolve({ data: makeJobsList({ running: true }) });
+      return defaultGetImpl(url);
+    });
+
+    // Enable fake timers BEFORE mount so the polling useEffect's
+    // setInterval(..., 5000) is registered against the fake clock.
+    startFakeTimers();
+
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+
+    // Flush the initial mount's promise chain so /admin/jobs resolves and
+    // jobsList state settles into a running-job payload. advanceTimersAndFlush
+    // wraps `vi.advanceTimersByTimeAsync` in `await act(...)`, which flushes
+    // pending microtasks AND React's state batch — the polling useEffect
+    // registers its 5 s setInterval inside this flush. We call it twice so
+    // the second microtask pass catches any setState that scheduled a new
+    // effect re-run.
+    await advanceTimersAndFlush(0);
+    await advanceTimersAndFlush(0);
+
+    const jobCallsInitial = vi
+      .mocked(apiClient.get)
+      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
+      .length;
+
+    // Advance past the first 5 s poll tick. We expect at least one extra
+    // /admin/jobs fetch from the setInterval callback.
+    await advanceTimersAndFlush(5000);
+
+    const jobCallsAfter = vi
+      .mocked(apiClient.get)
+      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
+      .length;
+
+    expect(jobCallsAfter).toBeGreaterThan(jobCallsInitial);
+  });
+
+  it('does NOT poll /admin/jobs when no jobs are running', async () => {
+    // Return an empty jobs list so hasRunning === false and the poll effect
+    // early-returns without scheduling a setInterval.
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.startsWith('/admin/jobs'))
+        return Promise.resolve({
+          data: { items: [], total: 0, limit: 20, offset: 0 },
+        });
+      return defaultGetImpl(url);
+    });
+
+    // Enable fake timers before mount — mirrors the "polls" test. If a
+    // setInterval were registered under real timers (hypothetically a bug
+    // in CrawlerAdmin), this test would still catch it because fake-timer
+    // advancement doesn't drive real intervals → mock.calls.length would
+    // stay equal either way. But symmetry with the positive test is more
+    // important than catching that hypothetical.
+    startFakeTimers();
+
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+
+    await advanceTimersAndFlush(0);
+    await advanceTimersAndFlush(0);
+
+    const jobCallsInitial = vi
+      .mocked(apiClient.get)
+      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
+      .length;
+
+    // Advance well past the 5 s poll tick; no running job → no new fetch.
+    await advanceTimersAndFlush(10000);
+
+    const jobCallsAfter = vi
+      .mocked(apiClient.get)
+      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
+      .length;
+
+    expect(jobCallsAfter).toBe(jobCallsInitial);
   });
 });
