@@ -274,7 +274,25 @@ def create_error_response(
 
 def validate_pagination_params(skip: int, limit: int, max_limit: int = 1000) -> None:
     """
-    Validate pagination parameters.
+    Validate pagination parameters (raising variant).
+
+    Returns ``None`` and raises ``HTTPException(400)`` on out-of-range
+    input. Used by service-layer code (``base_crud_service``,
+    ``car_generation_service``) that wants a hard rejection surfaced to
+    the client rather than silent clamping.
+
+    WR-01 (Phase 7): a second ``validate_pagination_params`` exists in
+    ``app.api.utils.endpoint_decorators`` that **silently clamps**
+    out-of-range values (``limit=2000`` → ``1000``) and returns a
+    tuple. The two variants share a name but have incompatible
+    contracts — do NOT "consolidate" them without re-auditing every
+    call site. The clamping variant is consumed by API endpoint
+    handlers (``build_lists``, ``parts``, ``car_generations``, ...)
+    where the caller unpacks the return value as
+    ``skip, limit = validate_pagination_params(...)``; collapsing to
+    this raising variant would break those endpoints' error-handling
+    contracts. See the review note in ``07-REVIEW.md`` before touching
+    either function.
 
     Args:
         skip: Number of records to skip

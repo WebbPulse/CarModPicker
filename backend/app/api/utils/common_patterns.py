@@ -70,6 +70,15 @@ class AdminEndpointDeps(TypedDict):
 # re-export from here so existing ``from common_patterns import
 # validate_pagination_params`` call sites keep working without touching every
 # endpoint module.
+#
+# WR-01 (Phase 7): this re-export points at the **clamping** variant in
+# ``endpoint_decorators``. A second, semantically-different
+# ``validate_pagination_params`` still lives in
+# ``app.api.utils.common_operations`` (raises HTTPException on bad input
+# instead of clamping) and is consumed by ``base_crud_service`` and
+# ``car_generation_service``. The two functions share a name but have
+# incompatible contracts — see the docstrings on each definition before
+# attempting any further consolidation.
 from app.api.utils.endpoint_decorators import (  # noqa: E402
     validate_pagination_params as validate_pagination_params,
 )
