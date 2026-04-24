@@ -829,6 +829,69 @@ class TestBuildLists:
         assert copied_build_list["user_id"] == str(test_user.id)
         assert copied_build_list["user_id"] != original_owner.id
 
+    def test_copy_free_tier_cap(
+        self, client: TestClient, test_user: User, db_session: Session
+    ) -> None:
+        """IN-02 regression — free-tier user at the 1-list cap cannot copy to
+        create a second list.
+
+        Before IN-02 landed, ``copy_build_list`` bypassed the cap enforcement
+        that ``create`` already applied — a free user could press Copy to grow
+        unbounded. The service now raises 402 at the copy path too
+        (build_list_service.py:281-292). This test pins the 402 so a future
+        PR that removes or relaxes the check fails CI.
+        """
+        token = get_auth_token(client, test_user.username)
+        headers = get_auth_headers(token)
+
+        car = create_car_in_db(db_session)
+
+        # Step 1: create the one allowed build list → count=1, at cap.
+        original_data = {
+            "name": get_unique_name("at_cap"),
+            "description": "first and only free-tier build list",
+            "car_id": str(car["id"]),
+        }
+        resp = client.post(
+            f"{settings.API_STR}/build-lists/", json=original_data, headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        original_id = resp.json()["id"]
+
+        # Step 2: attempt to copy → must be 402 (cap enforced at copy path).
+        resp = client.post(
+            f"{settings.API_STR}/build-lists/{original_id}/copy",
+            json={"new_name": "should-fail"},
+            headers=headers,
+        )
+        assert resp.status_code == 402, (
+            f"Expected 402 on copy at free-tier cap, got {resp.status_code}: {resp.text}"
+        )
+        # The error-handler middleware (app/api/middleware/error_handler.py:105)
+        # maps HTTPException.detail → response body's "message" key. Accept
+        # either shape for forward-compatibility — same pattern used by the
+        # sibling `test_free_user_cannot_create_second_build_list` test above.
+        data = resp.json()
+        msg = data.get("detail") or data.get("message") or ""
+        assert "Free accounts are limited to 1 build list" in msg, (
+            f"Expected cap-exceeded message in 402 body, got: {data}"
+        )
+
+        # Step 3: verify no 2nd build list was created. Uses the by-user
+        # endpoint which returns a flat list (not paginated dict) so we can
+        # assert length directly.
+        resp = client.get(
+            f"{settings.API_STR}/build-lists/user/{test_user.id}",
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        user_lists = resp.json()
+        assert isinstance(user_lists, list), f"Expected list response, got {type(user_lists)}"
+        assert len(user_lists) == 1, (
+            f"Expected exactly 1 build list after blocked copy, got {len(user_lists)}"
+        )
+        assert user_lists[0]["id"] == original_id
+
     def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test retrieving build lists with vote data."""
         # Login as test user and get token
