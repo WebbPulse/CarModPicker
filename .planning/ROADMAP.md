@@ -167,7 +167,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Shared test infrastructure exists for the common mock surface (axios client, AuthContext, React Router wrapper) — documented in `frontend/src/test/setup.ts` or a sibling helpers file
   5. Any files excluded from coverage via vitest `exclude` have an inline rationale comment (pure types, third-party shims)
 **Plans:** 20 plans
-- [ ] 08-01-PLAN.md — Wave 0: baseline + shared infra (setup.ts D-18 dual mock, test-mocks.ts admin variants D-05, test-utils.tsx admin scenarios D-05, test/mocks/admin/ 7 factory files D-06, async.ts fake-timer helpers D-07 [no EventSource per research], guard relocation D-17, vitest.config.ts D-13 exclusions, commit 08-COVERAGE-BASELINE.txt D-24)
+- [x] 08-01-PLAN.md — Wave 0: baseline + shared infra (setup.ts D-18 dual mock, test-mocks.ts admin variants D-05, test-utils.tsx admin scenarios D-05, test/mocks/admin/ 7 factory files D-06, async.ts fake-timer helpers D-07 [no EventSource per research], guard relocation D-17, vitest.config.ts D-13 exclusions, commit 08-COVERAGE-BASELINE.txt D-24)
 - [ ] 08-02-PLAN.md — Wave 1 Auth cluster: auth.test.ts (23 methods) + users.test.ts (FormData) + images.test.ts (FormData) + client.test.ts (interceptors + paramsSerializer + env-driven baseURL via vi.stubEnv)
 - [ ] 08-03-PLAN.md — Wave 1 Parts cluster: parts.test.ts + car_generations.test.ts + categories.test.ts + part_manufacturers.test.ts + retailers.test.ts (D-15 exclude candidate)
 - [ ] 08-04-PLAN.md — Wave 1 Build-list cluster: build_lists.test.ts + build_list_parts.test.ts (nested URLs) + build_list_phases.test.ts + build_logs.test.ts
@@ -203,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 0/20 | Not started | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 1/20 | In progress | - |
