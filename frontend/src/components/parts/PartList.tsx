@@ -590,10 +590,11 @@ function PartList({
           );
         case 'rating':
           return mult * (getNetVotes(a) - getNetVotes(b));
-        case 'price':
+        case 'price': {
           const pa = a.best_price_cents ?? 0;
           const pb = b.best_price_cents ?? 0;
           return mult * (pa - pb);
+        }
         default:
           return 0;
       }
