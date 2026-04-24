@@ -298,11 +298,28 @@ export const adminApi = {
       body
     ),
 
-  /** Admin: archived page count per source (adapter name or chrome_extension). */
+  /**
+   * Admin: archived page count per source (adapter name or chrome_extension).
+   *
+   * NOTE: URL is under `/crawled-pages/...` rather than `/admin/crawled-pages/...`
+   * because the backend crawled_pages router is mounted at `/crawled-pages`
+   * (see backend/app/main.py EndpointRegistry). Admin-only access is enforced
+   * at the handler level via `Depends(get_current_admin_user)` on
+   * `count_crawled_pages_by_source` in
+   * backend/app/api/endpoints/crawled_pages.py — verified in Phase 6 WR-05.
+   * A non-admin token will receive 403 Forbidden from the backend.
+   */
   getCrawledPageCountsBySource: () =>
     apiClient.get<Record<string, number>>('/crawled-pages/counts-by-source'),
 
-  /** Admin: per-source, per-parse_status counts — drives the parsed/total progress pill. */
+  /**
+   * Admin: per-source, per-parse_status counts — drives the parsed/total progress pill.
+   *
+   * Admin access is enforced by the backend handler
+   * (`count_crawled_pages_by_source_and_status` uses
+   * `Depends(get_current_admin_user)`); see note on
+   * `getCrawledPageCountsBySource` above for the URL-prefix rationale.
+   */
   getCrawledPageCountsBySourceAndStatus: () =>
     apiClient.get<Record<string, Record<string, number>>>(
       '/crawled-pages/counts-by-source-and-status'
