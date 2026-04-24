@@ -19,6 +19,11 @@ export default defineConfig({
         '**/coverage/**',
         'dist/',
         'build/',
+        // D-13 (Phase 8): app bootstrap; executes once on mount, not
+        // meaningfully testable as a unit.
+        'src/main.tsx',
+        // D-13 (Phase 8): pure TypeScript types; no executable runtime code.
+        'src/types/Api.ts',
       ],
       // Deferred to plan 01-09 (SAFE-03 threshold enforcement).
       // D-06 targets: lines: 60, functions: 50, branches: 50, statements: 60.

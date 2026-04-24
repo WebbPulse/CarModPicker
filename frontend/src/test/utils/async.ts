@@ -29,9 +29,13 @@ export function stopFakeTimers(): void {
  * Advance timers and flush React state updates. ALWAYS await this wrapper in
  * polling tests — per research §Pitfall 5, a bare `vi.advanceTimersByTime()`
  * leaves React with an unflushed batch and assertions see stale DOM.
+ *
+ * Uses `vi.advanceTimersByTimeAsync(...)` so that any promise chains kicked
+ * off by polling callbacks (e.g. `setInterval(() => apiClient.get(...))`)
+ * get a chance to settle within the same `act(...)` batch.
  */
 export async function advanceTimersAndFlush(ms: number): Promise<void> {
   await act(async () => {
-    vi.advanceTimersByTime(ms);
+    await vi.advanceTimersByTimeAsync(ms);
   });
 }
