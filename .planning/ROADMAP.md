@@ -174,8 +174,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 08-05-PLAN.md — Wave 1 Votes + Reports: votes.test.ts (polymorphic entity_type) + reports.test.ts + bug_reports.test.ts
 - [x] 08-06-PLAN.md — Wave 1 Utility: search.test.ts + app_settings.test.ts + utility.test.ts (D-15 exclude candidate)
 - [x] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
-- [ ] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
-- [ ] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
+- [x] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
+- [x] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
 - [ ] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
 - [ ] 08-11-PLAN.md — Wave 3 builder/: 4 pages (Builder, ViewCar, ViewBuildlist, ViewPart-800-lines with vote widget)
 - [ ] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
@@ -203,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 7/20 | In progress | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 9/20 | In progress | - |
