@@ -18,15 +18,19 @@ from app.core.log_context import request_id_var, user_id_var
 @pytest.mark.asyncio
 async def test_orphan_schedule_sweep_runs_under_bg_log_context() -> None:
     """During crawler_schedule_service.sweep_orphan_schedules, the
-    request_id ContextVar should be 'bg:orphan-schedule-sweep:-'.
+    request_id ContextVar should be 'bg:orphan-schedule-sweep:-' and
+    user_id ContextVar should be 'bg'.
+
+    Capturing both vars catches a future refactor that silently drops
+    either assignment inside bg_log_context (log_context.py).
     """
     from app import main as main_module
 
-    captured_request_ids: list[str] = []
+    captured: list[tuple[str, str]] = []
 
     def fake_sweep_orphan_schedules(db: object) -> list[object]:
-        # Capture the request_id at the exact moment the sweep runs.
-        captured_request_ids.append(request_id_var.get())
+        # Capture both context vars at the exact moment the sweep runs.
+        captured.append((request_id_var.get(), user_id_var.get()))
         return []
 
     def fake_sweep_orphan_jobs(db: object, current_worker_instance_id: object = None) -> list[object]:
@@ -50,26 +54,30 @@ async def test_orphan_schedule_sweep_runs_under_bg_log_context() -> None:
         async with main_module.lifespan(MagicMock()):
             pass
 
-    assert captured_request_ids == ["bg:orphan-schedule-sweep:-"], (
+    assert captured == [("bg:orphan-schedule-sweep:-", "bg")], (
         f"Expected sweep_orphan_schedules to run with "
-        f"request_id='bg:orphan-schedule-sweep:-', got {captured_request_ids}"
+        f"(request_id, user_id)=('bg:orphan-schedule-sweep:-', 'bg'), "
+        f"got {captured}"
     )
 
 
 @pytest.mark.asyncio
 async def test_orphan_jobs_sweep_runs_under_bg_log_context() -> None:
     """During job_service.sweep_orphan_jobs, the request_id ContextVar
-    should be 'bg:orphan-jobs-sweep:-'.
+    should be 'bg:orphan-jobs-sweep:-' and user_id should be 'bg'.
+
+    Capturing both vars catches a future refactor that silently drops
+    either assignment inside bg_log_context (log_context.py).
     """
     from app import main as main_module
 
-    captured_request_ids: list[str] = []
+    captured: list[tuple[str, str]] = []
 
     def fake_sweep_orphan_schedules(db: object) -> list[object]:
         return []
 
     def fake_sweep_orphan_jobs(db: object, current_worker_instance_id: object = None) -> list[object]:
-        captured_request_ids.append(request_id_var.get())
+        captured.append((request_id_var.get(), user_id_var.get()))
         return []
 
     with patch.object(
@@ -90,9 +98,10 @@ async def test_orphan_jobs_sweep_runs_under_bg_log_context() -> None:
         async with main_module.lifespan(MagicMock()):
             pass
 
-    assert captured_request_ids == ["bg:orphan-jobs-sweep:-"], (
+    assert captured == [("bg:orphan-jobs-sweep:-", "bg")], (
         f"Expected sweep_orphan_jobs to run with "
-        f"request_id='bg:orphan-jobs-sweep:-', got {captured_request_ids}"
+        f"(request_id, user_id)=('bg:orphan-jobs-sweep:-', 'bg'), "
+        f"got {captured}"
     )
 
 
