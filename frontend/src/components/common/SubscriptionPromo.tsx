@@ -50,7 +50,7 @@ function SubscriptionPromo() {
       </button>
       <div className="p-5 pr-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
             <FaCrown className="text-white text-lg" />
           </div>
           <h3 className="text-base font-semibold text-white">

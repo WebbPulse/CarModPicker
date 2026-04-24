@@ -130,7 +130,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative flex flex-col min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
+      <div className="relative flex flex-col min-h-screen bg-linear-to-br from-neutral-900 via-neutral-800 to-neutral-900">
         {/* Background Pattern */}
         <div className="fixed inset-0 opacity-5">
           <div
@@ -146,13 +146,13 @@ function App() {
           className="absolute inset-0 pointer-events-none overflow-hidden opacity-50"
           style={{ zIndex: 0 }}
         >
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-linear-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-float"></div>
           <div
-            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-pink-500/20 to-red-500/20 rounded-full blur-3xl animate-float"
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-linear-to-r from-pink-500/20 to-red-500/20 rounded-full blur-3xl animate-float"
             style={{ animationDelay: '1s' }}
           ></div>
           <div
-            className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-full blur-3xl animate-float"
+            className="absolute top-1/2 left-1/2 w-64 h-64 bg-linear-to-r from-purple-500/20 to-blue-500/20 rounded-full blur-3xl animate-float"
             style={{ animationDelay: '2s' }}
           ></div>
         </div>

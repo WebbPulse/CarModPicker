@@ -148,12 +148,12 @@ export default function HomePage() {
         <div className="container mx-auto relative z-10">
           <div className="text-center max-w-3xl mx-auto animate-slideInUp">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-2xl animate-glow">
+              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-2xl animate-glow">
                 <GiRaceCar className="text-white text-2xl" />
               </div>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-primary-100 to-primary-300 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-linear-to-r from-white via-primary-100 to-primary-300 bg-clip-text text-transparent">
               CarModPicker
             </h1>
 
@@ -195,7 +195,7 @@ export default function HomePage() {
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
                   <FaFire className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white">
@@ -240,7 +240,7 @@ export default function HomePage() {
             {/* Popular Parts */}
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-primary-600 rounded-lg flex items-center justify-center">
                   <HiSparkles className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Popular Parts</h2>
@@ -309,7 +309,7 @@ export default function HomePage() {
             {/* Quick Actions */}
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-emerald-500 to-primary-600 rounded-lg flex items-center justify-center">
                   <GiCarWheel className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Quick Actions</h2>

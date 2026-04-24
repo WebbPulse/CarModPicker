@@ -33,7 +33,7 @@ function Header() {
   return (
     <header className="w-full">
       {/* Background with gradient */}
-      <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95 backdrop-blur-md"></div>
+      <div className="absolute inset-0 bg-linear-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95 backdrop-blur-md"></div>
 
       {/* Main Header Content */}
       <div className="relative">
@@ -45,10 +45,10 @@ function Header() {
               to="/"
               className="flex items-center space-x-2 group animate-slideInLeft"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-primary-500/25 transition-all duration-300 group-hover:scale-110">
+              <div className="w-10 h-10 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-primary-500/25 transition-all duration-300 group-hover:scale-110">
                 <GiRaceCar className="text-white text-xl" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-linear-to-r from-white to-neutral-300 bg-clip-text text-transparent">
                 CarModPicker
               </span>
             </Link>

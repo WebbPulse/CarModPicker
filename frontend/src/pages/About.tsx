@@ -98,10 +98,10 @@ function About() {
               {/* Logo */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-primary-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <GiRaceCar className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-gradient-to-br from-primary-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-linear-to-br from-primary-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -182,7 +182,7 @@ function About() {
               >
                 <div className="flex items-start space-x-4">
                   <div
-                    className={`w-12 h-12 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300 shadow-lg shrink-0`}
+                    className={`w-12 h-12 bg-linear-to-br ${feature.color} rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300 shadow-lg shrink-0`}
                   >
                     {feature.icon}
                   </div>
@@ -222,7 +222,7 @@ function About() {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div
-                  className={`w-14 h-14 bg-gradient-to-br ${value.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg`}
+                  className={`w-14 h-14 bg-linear-to-br ${value.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg`}
                 >
                   {value.icon}
                 </div>
