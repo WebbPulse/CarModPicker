@@ -172,8 +172,17 @@ resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory" {
 # "SNS -> SES"; operator experience is identical. Captured in 02-HUMAN-UAT.md.
 # ---------------------------------------------------------------------------
 locals {
-  _adapter_names_raw   = split("\n", trimspace(file("${path.module}/adapter_names.txt")))
-  parse_alarm_adapters = toset(setsubtract(local._adapter_names_raw, var.disabled_parse_alarms))
+  # IN-05: defensive parsing of adapter_names.txt. The file is a trust
+  # boundary (plain text → alarm cardinality at plan time). Guard against
+  # blank mid-lines, trailing whitespace, and Windows \r\n endings so
+  # bad input fails plan loudly rather than silently producing malformed
+  # alarm names (e.g. "...-crawler-parse-failure-" with empty suffix, or
+  # "...-crawler-parse-failure-adro\r" that fails CloudWatch validation).
+  _adapter_names_raw = split("\n", trimspace(file("${path.module}/adapter_names.txt")))
+  _adapter_names_clean = [
+    for n in local._adapter_names_raw : trimspace(n) if trimspace(n) != ""
+  ]
+  parse_alarm_adapters = toset(setsubtract(local._adapter_names_clean, var.disabled_parse_alarms))
 }
 
 resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_per_adapter" {
