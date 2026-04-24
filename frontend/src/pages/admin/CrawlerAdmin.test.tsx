@@ -395,3 +395,96 @@ describe('CrawlerAdmin — Background Jobs section', () => {
     expect(jobCallsAfter).toBe(jobCallsInitial);
   });
 });
+
+describe('CrawlerAdmin — Manual Run section', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockImplementation(defaultGetImpl);
+  });
+
+  it('renders the Manual Run heading and the live-crawlers block', async () => {
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: /manual run/i })
+      ).toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: /live crawlers/i })
+      ).toBeInTheDocument()
+    );
+    // The Archive Rescrape subsection lives in the same Card.
+    expect(
+      screen.getByRole('heading', { name: /archive rescrape/i })
+    ).toBeInTheDocument();
+  });
+
+  it('POSTs to /admin/crawlers/run when "Run all" is clicked', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: {
+        status: 'started',
+        message: 'Crawler job started.',
+        adapters: ['test-adapter'],
+      },
+    });
+
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+
+    // Wait until the manual-run controls are available (default category
+    // is auto-selected when the /categories response contains "other").
+    const runAllButton = await screen.findByRole('button', {
+      name: /^run all$/i,
+    });
+    expect(runAllButton).toBeEnabled();
+    runAllButton.click();
+
+    await waitFor(() =>
+      expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+        '/admin/crawlers/run',
+        expect.objectContaining({
+          adapters: ['all'],
+          parallel: true,
+        })
+      )
+    );
+    // The run POST body must include the auto-picked default category id.
+    expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+      '/admin/crawlers/run',
+      expect.objectContaining({
+        crawler_default_category_id: '66666666-6666-7666-8666-666666666666',
+      })
+    );
+  });
+
+  it('POSTs to /admin/crawlers/rescrape-archives when "Rescrape latest archives" is clicked', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { status: 'started', message: 'Job queued.' },
+    });
+
+    render(<CrawlerAdmin />, testScenarios.adminAuthenticated);
+
+    const rescrapeButton = await screen.findByRole('button', {
+      name: /rescrape latest archives/i,
+    });
+    expect(rescrapeButton).toBeEnabled();
+    rescrapeButton.click();
+
+    // The default category id comes from defaultGetImpl's "other" seed.
+    await waitFor(() =>
+      expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
+        '/admin/crawlers/rescrape-archives',
+        expect.objectContaining({
+          default_category_id: '66666666-6666-7666-8666-666666666666',
+        })
+      )
+    );
+    // The rescrape endpoint should have been hit exactly once.
+    const rescrapeCalls = vi
+      .mocked(apiClient.post)
+      .mock.calls.filter(([url]) =>
+        String(url).startsWith('/admin/crawlers/rescrape-archives')
+      );
+    expect(rescrapeCalls).toHaveLength(1);
+  });
+});
