@@ -877,9 +877,9 @@ function PartList({
           {parts.map((part) => (
             <div
               key={part.id}
-              className="bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors"
+              className="bg-gray-800 rounded-xl shadow-md border border-gray-700 hover:border-blue-500 transition-colors"
             >
-              <div className="flex flex-row items-center gap-4 p-3">
+              <div className="flex flex-row items-center gap-4 p-4">
                 {/* Image */}
                 <Link to={`/parts/${part.id}`} className="flex-shrink-0">
                   <div className="w-20 h-20">
