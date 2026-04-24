@@ -50,6 +50,11 @@ jobs:
           cd frontend
           npm test -- --run --coverage
 
+      - name: Check circular imports
+        run: |
+          cd frontend
+          npx madge --circular --extensions ts,tsx src/
+
       - name: Build application
         run: |
           cd frontend
