@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 06 (frontend-cleanup-final-ci-gates) — EXECUTING
-Plan: 5 of 6
-Status: Wave 4 complete (06-04 FastAPI/Pydantic PR-A) — Wave 5 pending
-Last activity: 2026-04-24 -- Wave 4 (06-04) committed + 2365 backend tests green
+Plan: 6 of 6
+Status: Wave 5 complete (06-05 PR-B deps + jose removal) — Wave 6 pending (non-autonomous)
+Last activity: 2026-04-24 -- Wave 5 (06-05) merged + 2363 backend tests green
 
 Progress: [██████████] 100%
 
