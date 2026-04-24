@@ -176,11 +176,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
 - [x] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
 - [x] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
-- [ ] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
-- [ ] 08-11-PLAN.md — Wave 3 builder/: 4 pages (Builder, ViewCar, ViewBuildlist, ViewPart-800-lines with vote widget)
-- [ ] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
-- [ ] 08-13-PLAN.md — Wave 3 buildLists/: 2 pages (BuildListsCatalog + ViewBuildLog with compose-post)
-- [ ] 08-14-PLAN.md — Wave 3 public top-level: 13 pages (static: About/PrivacyPolicy/TermsOfService/Support/NotFound; interactive: Home/ContactUs/Pricing/Checkout/Search/BugReport; authenticated: Profile/ViewUser)
+- [x] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
+- [x] 08-11-PLAN.md — Wave 3 builder/: 4 pages (Builder, ViewCar, ViewBuildlist, ViewPart-800-lines with vote widget)
+- [x] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
+- [x] 08-13-PLAN.md — Wave 3 buildLists/: 2 pages (BuildListsCatalog + ViewBuildLog with compose-post)
+- [x] 08-14-PLAN.md — Wave 3 public top-level: 13 pages (static: About/PrivacyPolicy/TermsOfService/Support/NotFound; interactive: Home/ContactUs/Pricing/Checkout/Search/BugReport; authenticated: Profile/ViewUser)
 - [ ] 08-15-PLAN.md — Wave 4 admin: AdminDashboard.test.tsx + SystemStatistics.test.tsx (bundled — AdminDashboard is 131 lines)
 - [ ] 08-16-PLAN.md — Wave 4 admin: UserManagement.test.tsx + SystemAdmin.test.tsx
 - [ ] 08-17-PLAN.md — Wave 4 admin: ReportReview.test.tsx + BugReportReview.test.tsx
@@ -203,4 +203,4 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 | 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
 | 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
 | 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 9/20 | In progress | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 14/20 | In progress | - |
