@@ -10,8 +10,11 @@ Fix: one helper `_apply_build_list_filters(stmt_)` called from both
 the count-select and the main result-select, so `total` and the
 paginated page are always drawn from the same population.
 """
+import ast
 from pathlib import Path
 
+
+_HELPER_NAME = "_apply_build_list_filters"
 
 _BUILD_LISTS_PATH = (
     Path(__file__).resolve().parent.parent
@@ -24,26 +27,47 @@ def _load_source() -> str:
     return _BUILD_LISTS_PATH.read_text()
 
 
+def _load_tree() -> ast.Module:
+    return ast.parse(_load_source())
+
+
 def test_apply_build_list_filters_helper_exists() -> None:
-    src = _load_source()
-    occurrences = src.count("def _apply_build_list_filters")
-    assert occurrences == 1, (
-        f"Expected exactly 1 definition of _apply_build_list_filters, "
-        f"found {occurrences}. The IN-01 helper must exist exactly once."
+    """AST-based check: the helper must be defined exactly once as a
+    module-level `FunctionDef`. Text `src.count("def ...")` would also
+    match a comment or docstring that happens to contain that literal
+    string, so we parse and count real definitions instead.
+    """
+    tree = _load_tree()
+    defs = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == _HELPER_NAME
+    ]
+    assert len(defs) == 1, (
+        f"Expected exactly 1 FunctionDef named {_HELPER_NAME!r}, "
+        f"found {len(defs)}. The IN-01 helper must exist exactly once."
     )
 
 
 def test_helper_invoked_from_both_count_and_main_select() -> None:
-    """The helper name must appear at least 3 times total:
-    - 1x in the `def _apply_build_list_filters(...)` signature
-    - 1x in the count-select path (`base_stmt = _apply_build_list_filters(base_stmt)`)
-    - 1x in the main-select path (`stmt = _apply_build_list_filters(stmt)`)
+    """AST-based check: the helper must be *called* exactly twice
+    (count-select path and main-select path).
+
+    Counting string occurrences as in the pre-IN-04 form produced
+    false positives: a docstring or comment mentioning the helper by
+    name would satisfy the >=3 threshold even if real call sites
+    regressed from 2 to 1. Parsing instead asserts on invocations.
     """
-    src = _load_source()
-    total = src.count("_apply_build_list_filters")
-    assert total >= 3, (
-        f"Expected >=3 mentions of _apply_build_list_filters (1 def + 2 call sites), "
-        f"found {total}. IN-01 consolidation may have regressed."
+    tree = _load_tree()
+    calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == _HELPER_NAME
+    ]
+    assert len(calls) == 2, (
+        f"Expected exactly 2 call sites for {_HELPER_NAME!r} "
+        f"(count-select + main-select paths), found {len(calls)}. "
+        "IN-01 consolidation may have regressed."
     )
 
 
