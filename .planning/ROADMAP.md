@@ -12,12 +12,12 @@ This milestone pays down eight areas of structural and operational debt across a
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Safety Nets & CI Hardening** - Lock in coverage floors, characterization tests, and migration guards before touching anything structural
-- [ ] **Phase 2: Observability** - Add Sentry, CloudWatch crawler metrics, and alarms — additive-only, zero regression risk
+- [x] **Phase 1: Safety Nets & CI Hardening** - Lock in coverage floors, characterization tests, and migration guards before touching anything structural
+- [x] **Phase 2: Observability** - Add Sentry, CloudWatch crawler metrics, and alarms — additive-only, zero regression risk
 - [x] **Phase 3: Non-Breaking Internal Improvements** - Crawler hardening, adapter auto-discovery, Pydantic v1 sweep, car-data lazy-load
 - [x] **Phase 4: DB & Parts Hardening** - N+1 fix, part-link concurrency, FK index audit, session API migration, build-log eager creation
-- [ ] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
-- [ ] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
+- [x] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
+- [x] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
 - [ ] **Phase 7: v1.0 Residue Cleanup & Audit-Drift Sync** - Operational bugs, code-review residue, dead code, integration advisory A-01, Nyquist Wave 0 close, REQUIREMENTS/ROADMAP doc sync
 - [ ] **Phase 8: Frontend Coverage Expansion (SAFE-03)** - Lift frontend test coverage from 0.43% baseline to D-06 targets (60/50/50/60) and enforce thresholds in CI
 
@@ -108,10 +108,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. `chrome-extension/API_CONTRACT.md` documents every endpoint the extension calls with request/response shapes
   5. `python-jose` is replaced with `PyJWT 2.12.1`; zero `JWTError` references remain; algorithm is explicitly specified on every decode call
 **Plans:** 4 plans
-- [ ] 05-01-admin-split-PLAN.md — ADMIN-01/02/03/04: decompose admin.py into admin/ sub-package (5 sub-routers + _helpers), regenerate OpenAPI snapshot, migrate frontend admin URLs, parametrized 401/403 coverage test
-- [ ] 05-02-pyjwt-migration-PLAN.md — AUTH-04: swap python-jose for PyJWT 2.12.1 with JWT_ALGORITHM config hoist, 7 JWTError → InvalidTokenError rewrites, jose/PyJWT parity test, bare-jwt.decode grep guard
-- [ ] 05-03-api-contract-generator-PLAN.md — AUTH-05/06: OpenAPI-driven chrome-extension/API_CONTRACT.md generator + drift-guard pytest + 05-HUMAN-UAT.md staging checklist
-- [ ] 05-04-auth-split-PLAN.md — AUTH-01/02/03: decompose auth.py into auth/ sub-package (4 sub-routers + _helpers), aggressive /auth/google/* → /auth/oauth/google/* restructure, parametrized 401 coverage test with public-route allow-list
+- [x] 05-01-admin-split-PLAN.md — ADMIN-01/02/03/04: decompose admin.py into admin/ sub-package (5 sub-routers + _helpers), regenerate OpenAPI snapshot, migrate frontend admin URLs, parametrized 401/403 coverage test
+- [x] 05-02-pyjwt-migration-PLAN.md — AUTH-04: swap python-jose for PyJWT 2.12.1 with JWT_ALGORITHM config hoist, 7 JWTError → InvalidTokenError rewrites, jose/PyJWT parity test, bare-jwt.decode grep guard
+- [x] 05-03-api-contract-generator-PLAN.md — AUTH-05/06: OpenAPI-driven chrome-extension/API_CONTRACT.md generator + drift-guard pytest + 05-HUMAN-UAT.md staging checklist
+- [x] 05-04-auth-split-PLAN.md — AUTH-01/02/03: decompose auth.py into auth/ sub-package (4 sub-routers + _helpers), aggressive /auth/google/* → /auth/oauth/google/* restructure, parametrized 401 coverage test with public-route allow-list
 **Note**: Within Phase 5, admin split (ADMIN-01—04) must precede auth split (AUTH-01—06). Admin is not in the Chrome extension critical path; use it as a dry run for the split pattern before the highest-stakes refactor.
 
 ### Phase 6: Frontend Cleanup & Final CI Gates
@@ -175,11 +175,11 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Nets & CI Hardening | 0/8 | Not started | - |
-| 2. Observability | 0/TBD | Not started | - |
+| 1. Safety Nets & CI Hardening | 8/8 | Complete | 2026-04-23 |
+| 2. Observability | 5/5 | Complete | 2026-04-23 |
 | 3. Non-Breaking Internal Improvements | 5/5 | Complete | 2026-04-22 |
-| 4. DB & Parts Hardening | 0/6 | Not started | - |
-| 5. Structural Router Splits | 0/TBD | Not started | - |
-| 6. Frontend Cleanup & Final CI Gates | 0/TBD | Not started | - |
-| 7. v1.0 Residue Cleanup & Audit-Drift Sync | 0/TBD | Not started | - |
+| 4. DB & Parts Hardening | 6/6 | Complete | 2026-04-23 |
+| 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
+| 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
+| 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
 | 8. Frontend Coverage Expansion (SAFE-03) | 0/TBD | Not started | - |
