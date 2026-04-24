@@ -15,9 +15,21 @@ const mockApiClient = {
 // import from `../services/Api` and new Phase 8 tests that import from
 // `../api/<domain>` (which internally imports `../api/client`) both get the
 // same mocked Axios surface.
-vi.mock('../services/Api', () => ({
-  default: mockApiClient,
-}));
+//
+// Phase 8 plan 08-10 fix: preserve the shim's re-exports (authApi,
+// buildListsApi, etc.) via importOriginal so page tests that import
+// `{ authApi } from '../../services/Api'` get the real domain API objects
+// whose internal `apiClient.post(...)` calls land on our mocked client.
+// Previously this factory returned ONLY `default`, stripping every named
+// export and causing pages like Login.tsx to crash with "No <export> export
+// defined on the ../../services/Api mock".
+vi.mock('../services/Api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/Api')>();
+  return {
+    ...actual,
+    default: mockApiClient,
+  };
+});
 
 vi.mock('../api/client', () => ({
   default: mockApiClient,
