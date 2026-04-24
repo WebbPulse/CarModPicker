@@ -93,8 +93,13 @@ Final-gate phase for the tech-debt milestone. Two distinct workstreams:
 
 - Exact shape of the `lazyWithReload` generic fix (`ComponentType<unknown>` vs a narrower bound) — planner picks based on React.lazy inference compatibility with the call sites.
 - Directory-chunking strategy for FE-01 fix tasks (by-folder vs by-violation-count) — planner picks based on the 06-LINT-BASELINE.txt output.
-- Whether the FE-03 coverage test reads App.tsx statically (AST) or runs RTL renders — planner picks the least-fragile option.
 - Parts-catalog polish checklist contents — planner drafts, UAT approves.
+
+### Planning-time resolutions (2026-04-23, after research surfaced open questions)
+
+- **D-22:** FE-04 scope = **split `frontend/src/services/Api.ts` (1520 lines) into `frontend/src/api/*.ts` per backend domain**. Per-domain modules mirror the backend endpoint split (`auth.ts`, `users.ts`, `parts.ts`, `build_lists.ts`, `build_list_parts.ts`, `build_list_phases.ts`, `build_logs.ts`, `votes.ts`, `reports.ts`, `images.ts`, `search.ts`, `admin.ts`, `crawled_pages.ts`, `part_manufacturers.ts`, `categories.ts`, `retailers.ts`, `bug_reports.ts` plus a shared `client.ts` for the Axios instance). Response types live co-located with each domain module (D-04 pattern preserved, just across the new files instead of within one). This is a refactor on top of the typing gate — the planner must scope it as its own plan with clear import-migration tasks.
+- **D-23:** D-14 python-jose removal covers **BOTH** jose-importing tests: `backend/tests/test_pyjwt_migration.py` is deleted (no longer load-bearing), AND `backend/tests/dependencies/test_auth_utils.py` is **migrated to PyJWT imports** (`from jose import jwt` → `import jwt` from PyJWT). The auth-util coverage in `test_auth_utils.py` is kept; only the JWT library it uses changes. This lands in PR-B alongside the jose removal from `requirements.txt`.
+- **D-24:** FE-03 route-coverage test mechanism = **parametrized vitest test using React Testing Library + MemoryRouter**. Renders each `<Route>` in isolation, forces a component throw from its `element`, asserts the route-group wrapper's fallback UI renders (not a blank page, not the app-root boundary). Mirrors the Phase 5 parametrized coverage pattern. Static AST inspection is explicitly rejected — it's brittle to `<Routes>` refactors and fragile against the `element={<Wrapper><Outlet /></Wrapper>}` idiom D-07 uses.
 
 </decisions>
 
