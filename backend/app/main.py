@@ -48,7 +48,7 @@ from .core.config import settings
 from .core.init_cars import init_car_generations
 from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
 from .core.init_service_accounts import init_crawler_service_account
-from .core.log_context import RequestContextFilter
+from .core.log_context import RequestContextFilter, bg_log_context
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
 from .core.worker_identity import WORKER_INSTANCE_ID
@@ -87,41 +87,50 @@ init_sentry(server_name="apprunner-backend")
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     db = SessionLocal()
     try:
-        init_crawler_service_account(db)
-    except Exception:
-        logger.exception("Failed to initialize service accounts on startup")
-    try:
-        init_crawler_adapter_configs(db)
-    except Exception:
-        logger.exception("Failed to initialize crawler adapter configs on startup")
-    try:
-        init_car_generations(db)
-    except Exception:
-        logger.exception("Failed to initialize car generations on startup")
-    try:
-        # Best-effort: delete EventBridge schedules under our prefix that no
-        # longer correspond to a live crawler_schedules row. Also cleans up
-        # legacy per-adapter schedules from the previous implementation.
-        swept = crawler_schedule_service.sweep_orphan_schedules(db)
-        if swept:
-            logger.info("Swept %d orphan EventBridge schedule(s) on startup", len(swept))
-    except Exception:
-        logger.exception("Orphan EventBridge schedule sweep failed on startup")
-    try:
-        # Any background_jobs row still in "running" but owned by a previous
-        # worker_instance_id (or lacking one) can only exist because the prior
-        # process was killed mid-job — uvicorn --reload, SIGKILL, crash,
-        # redeploy. Mark those failed so the admin UI doesn't show phantom
-        # running jobs forever. ECS-backed jobs are skipped.
-        orphans = job_service.sweep_orphan_jobs(db, current_worker_instance_id=WORKER_INSTANCE_ID)
-        if orphans:
-            logger.warning(
-                "Marked %d stale background job(s) as failed on startup (ids=%s)",
-                len(orphans),
-                [str(o.id) for o in orphans],
-            )
-    except Exception:
-        logger.exception("Orphan background-job sweep failed on startup")
+        try:
+            init_crawler_service_account(db)
+        except Exception:
+            logger.exception("Failed to initialize service accounts on startup")
+        try:
+            init_crawler_adapter_configs(db)
+        except Exception:
+            logger.exception("Failed to initialize crawler adapter configs on startup")
+        try:
+            init_car_generations(db)
+        except Exception:
+            logger.exception("Failed to initialize car generations on startup")
+        # A-01: wrap in bg_log_context so any log/exception emitted by
+        # crawler_schedule_service.sweep_orphan_schedules is tagged with
+        # request_id="bg:orphan-schedule-sweep:-" for CloudWatch grep.
+        with bg_log_context("orphan-schedule-sweep"):
+            try:
+                # Best-effort: delete EventBridge schedules under our prefix that no
+                # longer correspond to a live crawler_schedules row. Also cleans up
+                # legacy per-adapter schedules from the previous implementation.
+                swept = crawler_schedule_service.sweep_orphan_schedules(db)
+                if swept:
+                    logger.info("Swept %d orphan EventBridge schedule(s) on startup", len(swept))
+            except Exception:
+                logger.exception("Orphan EventBridge schedule sweep failed on startup")
+        # A-01: wrap in bg_log_context so any log/exception emitted by
+        # job_service.sweep_orphan_jobs is tagged with
+        # request_id="bg:orphan-jobs-sweep:-" for CloudWatch grep.
+        with bg_log_context("orphan-jobs-sweep"):
+            try:
+                # Any background_jobs row still in "running" but owned by a previous
+                # worker_instance_id (or lacking one) can only exist because the prior
+                # process was killed mid-job — uvicorn --reload, SIGKILL, crash,
+                # redeploy. Mark those failed so the admin UI doesn't show phantom
+                # running jobs forever. ECS-backed jobs are skipped.
+                orphans = job_service.sweep_orphan_jobs(db, current_worker_instance_id=WORKER_INSTANCE_ID)
+                if orphans:
+                    logger.warning(
+                        "Marked %d stale background job(s) as failed on startup (ids=%s)",
+                        len(orphans),
+                        [str(o.id) for o in orphans],
+                    )
+            except Exception:
+                logger.exception("Orphan background-job sweep failed on startup")
     finally:
         db.close()
     yield
