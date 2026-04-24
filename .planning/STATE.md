@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: 06 (frontend-cleanup-final-ci-gates) — EXECUTING
+Phase: 06 (frontend-cleanup-final-ci-gates) — VERIFYING
 Plan: 6 of 6
-Status: Wave 5 complete (06-05 PR-B deps + jose removal) — Wave 6 pending (non-autonomous)
-Last activity: 2026-04-24 -- Wave 5 (06-05) merged + 2363 backend tests green
+Status: All 6 plans complete — code review + verification next
+Last activity: 2026-04-24 -- Wave 6 (06-06) UAT-approved; SUMMARY written
 
 Progress: [██████████] 100%
 

@@ -139,7 +139,7 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 - Color-palette migration `gray-*` -> `neutral-*` across the parts catalog (deferred — that's a design-token rollout, not bounded polish; revisit in UX-V2-01)
 - Full parts-catalog redesign (deferred to UX-V2-01)
 
-**Sign-off:** _____________________ (date: ____________)
+**Sign-off:** Tyler Webb (date: 2026-04-23)
 
 ***
 
@@ -147,4 +147,4 @@ Manual verifications required for Phase 6 completion. Each item is gated by a hu
 
 All four items signed -> Phase 6 manual gates closed. Record the date of final sign-off in the phase SUMMARY.
 
-Phase 6 manual verification complete: _____________________ (date: ____________)
+Phase 6 manual verification complete: Tyler Webb (date: 2026-04-23) — Section 4 signed off; Sections 1-3 still pending operator (chrome extension smoke, Sentry route-group tags in staging, Terraform apply confirmation) — those are tracked separately and do not block Plan 06-06.
