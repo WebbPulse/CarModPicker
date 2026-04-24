@@ -12,6 +12,7 @@ interfere. Do NOT scan ``DBPart`` without the gtin filter.
 from __future__ import annotations
 
 import os
+import random
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -23,7 +24,11 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
-from app.api.services.part_linker_service import link_new_part, unlink_part
+from app.api.services.part_linker_service import (
+    link_new_part,
+    reelect_canonical,
+    unlink_part,
+)
 
 pytestmark = pytest.mark.postgres
 
@@ -199,3 +204,122 @@ def test_unlink_and_relink_under_load(postgres_engine) -> None:
         }
         orphans = sibling_refs - canonical_ids
         assert not orphans, f"Found orphaned canonical refs: {orphans}"
+
+
+def test_reelect_and_link_and_unlink_concurrency(postgres_engine) -> None:
+    """WR-02 regression — deterministic row-lock ordering (``sorted(lock_ids)``
+    before ``WHERE id IN (...)``) must prevent deadlock across all three ops
+    on an overlapping row set.
+
+    Before the WR-02 fix, ``reelect_canonical`` and ``link_new_part`` acquired
+    their row locks in an unspecified (index-dependent) order. Under Postgres,
+    two concurrent transactions locking the same set of rows in different
+    orders deadlock: T1 holds row A and waits on row B; T2 holds row B and
+    waits on row A; Postgres aborts one of them with ``DeadlockDetected``.
+    With ``sorted({ids})`` everywhere before ``IN (...)``, every transaction
+    acquires locks in the same canonical (ascending UUID) order, so no
+    circular-wait cycle can form.
+
+    If lock ordering were missing or inconsistent, this test hangs: the
+    ThreadPoolExecutor waits forever (or until Postgres' deadlock detector
+    fires in one thread; the other threads may still be blocked on locks
+    held by the aborted txn). ``as_completed(futures, timeout=30)`` raises
+    ``concurrent.futures.TimeoutError`` on hang so the test fails rather
+    than stalls CI.
+
+    Phase 07 success criterion 3: no deadlock across
+    ``link_new_part`` / ``reelect_canonical`` / ``unlink_part``.
+    """
+    shared_gtin = f"G3{_worker_suffix()}{uuid.uuid4().hex[:12]}"
+    user_id, category_id, part_ids = _seed(postgres_engine, shared_gtin)
+
+    SessionLocal = sessionmaker(
+        bind=postgres_engine, autocommit=False, autoflush=False
+    )
+
+    # Stage 1: establish an initial canonical by linking part_ids[0]. This
+    # mutates the group into canonical + 9 unlinked siblings — exactly the
+    # state the later ops' lock sets overlap on.
+    with SessionLocal() as s:
+        p0 = s.get(DBPart, part_ids[0])
+        assert p0 is not None
+        link_new_part(s, p0)
+        s.commit()
+
+    # Stage 2: add an 11th part sharing the gtin so link_new_part has a
+    # brand-new sibling to insert against the existing canonical.
+    with SessionLocal() as s:
+        manufacturer_id = s.scalars(
+            select(DBPart.part_manufacturer_id).where(DBPart.id == part_ids[0])
+        ).one()
+        extra = DBPart(
+            name="Extra Part",
+            user_id=user_id,
+            category_id=category_id,
+            part_manufacturer_id=manufacturer_id,
+            gtin=shared_gtin,
+            source="scraped",
+        )
+        s.add(extra)
+        s.commit()
+        extra_part_id = extra.id
+
+    def reelect_op(pid: uuid.UUID) -> None:
+        with SessionLocal() as s:
+            part = s.get(DBPart, pid)
+            if part is None:
+                return
+            reelect_canonical(s, part)
+            s.commit()
+
+    def link_op(pid: uuid.UUID) -> None:
+        with SessionLocal() as s:
+            part = s.get(DBPart, pid)
+            if part is None:
+                return
+            link_new_part(s, part)
+            s.commit()
+
+    def unlink_op(pid: uuid.UUID) -> None:
+        with SessionLocal() as s:
+            part = s.get(DBPart, pid)
+            if part is None or part.canonical_part_id is None:
+                return
+            unlink_part(s, part)
+            s.commit()
+
+    # 10 threads: 4 reelects + 3 links + 3 unlinks, all on overlapping rows
+    # (the whole shared_gtin group). Shuffle so lock-acquisition ordering
+    # is genuinely interleaved — not a single fixed per-run sequence.
+    ops: list[tuple] = (
+        [(reelect_op, pid) for pid in part_ids[1:5]]  # 4 reelects on siblings
+        + [(link_op, pid) for pid in [extra_part_id, part_ids[5], part_ids[6]]]
+        + [(unlink_op, pid) for pid in part_ids[7:10]]
+    )
+    random.shuffle(ops)
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = [ex.submit(fn, pid) for fn, pid in ops]
+        # 30s budget — if lock ordering is broken, the pool deadlocks and
+        # ``as_completed`` raises ``concurrent.futures.TimeoutError``.
+        for f in as_completed(futures, timeout=30):
+            f.result()  # re-raise any thread-level exception
+
+    # Final invariants: every sibling resolves to a live canonical, no cycles.
+    # Filter by shared_gtin per WARN 8 contract.
+    with SessionLocal() as verify:
+        parts = verify.scalars(
+            select(DBPart).where(DBPart.gtin == shared_gtin)
+        ).all()
+        canonical_ids = {p.id for p in parts if p.canonical_part_id is None}
+        assert canonical_ids, "At least one canonical must survive the race"
+
+        sibling_refs = {
+            p.canonical_part_id for p in parts if p.canonical_part_id is not None
+        }
+        orphans = sibling_refs - canonical_ids
+        assert not orphans, f"Found orphaned canonical refs after race: {orphans}"
+
+        # No self-cycles: no part should be its own canonical.
+        for p in parts:
+            assert p.canonical_part_id != p.id, f"Self-cycle on part {p.id}"
