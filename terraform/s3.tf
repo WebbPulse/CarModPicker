@@ -30,6 +30,28 @@ resource "aws_s3_bucket_public_access_block" "crawl_data" {
   restrict_public_buckets = true
 }
 
+# QUAL-08 (Phase 6): transition crawl-data HTML snapshots to Glacier Deep Archive
+# after 90 days. D-19 restricts this rule to crawl-data ONLY; user-images stays
+# hot (latency-sensitive serve path).
+# NOTE: empty filter block applies the rule to all objects. Do NOT use an
+# explicit empty-string prefix inside the filter (per RESEARCH §Pitfall 4 —
+# AWS XML serialization differs and transition fails to fire).
+resource "aws_s3_bucket_lifecycle_configuration" "crawl_data" {
+  bucket = aws_s3_bucket.crawl_data.id
+
+  rule {
+    id     = "archive-old-snapshots"
+    status = "Enabled"
+
+    filter {}
+
+    transition {
+      days          = 90
+      storage_class = "DEEP_ARCHIVE"
+    }
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Frontend SPA — private origin, served exclusively through CloudFront
 # ---------------------------------------------------------------------------

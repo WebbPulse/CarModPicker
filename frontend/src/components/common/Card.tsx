@@ -46,14 +46,14 @@ const Card: React.FC<CardProps> = ({
   return (
     <div className={classes} onClick={onClick} style={style}>
       {/* Animated border effect */}
-      <div className="absolute inset-0 rounded-inherit bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+      <div className="absolute inset-0 rounded-inherit bg-linear-to-r from-transparent via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
 
       {/* Content */}
       <div className={`relative z-10 ${contentClassName}`}>{children}</div>
 
       {/* Hover glow effect */}
       {interactive && (
-        <div className="absolute inset-0 rounded-inherit bg-gradient-to-r from-primary-500/20 via-transparent to-primary-500/20 opacity-0 transition-opacity duration-300 hover:opacity-100 pointer-events-none"></div>
+        <div className="absolute inset-0 rounded-inherit bg-linear-to-r from-primary-500/20 via-transparent to-primary-500/20 opacity-0 transition-opacity duration-300 hover:opacity-100 pointer-events-none"></div>
       )}
     </div>
   );

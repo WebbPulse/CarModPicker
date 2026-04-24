@@ -385,7 +385,7 @@ function SystemAdmin() {
               <ActionButton
                 onClick={() => void handleRunMigrations()}
                 disabled={isRunningMigrations}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
               >
                 {isRunningMigrations ? (
                   <span className="flex items-center">

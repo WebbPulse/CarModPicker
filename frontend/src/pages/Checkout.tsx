@@ -24,7 +24,7 @@ function Checkout() {
 
           <div className="text-center mb-8 animate-fadeInScale">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl">
+              <div className="w-16 h-16 bg-linear-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl">
                 <FaCrown className="text-white text-2xl" />
               </div>
             </div>

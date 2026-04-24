@@ -65,10 +65,10 @@ function Support() {
               {/* Icon */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <FaCoffee className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-gradient-to-br from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-linear-to-br from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -116,7 +116,7 @@ function Support() {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div
-                  className={`w-14 h-14 bg-gradient-to-br ${option.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}
+                  className={`w-14 h-14 bg-linear-to-br ${option.color} rounded-2xl flex items-center justify-center text-white mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}
                 >
                   {option.icon}
                 </div>
@@ -133,13 +133,13 @@ function Support() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <ActionButton className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <ActionButton className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
                       {option.buttonText}
                     </ActionButton>
                   </a>
                 ) : (
                   <Link to={option.link} className="block">
-                    <ActionButton className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <ActionButton className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
                       {option.buttonText}
                     </ActionButton>
                   </Link>

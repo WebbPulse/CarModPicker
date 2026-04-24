@@ -107,7 +107,7 @@ const DangerousActionDialog: React.FC<DangerousActionDialogProps> = ({
             disabled={!isConfirmed || isProcessing}
             className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
               isConfirmed
-                ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white hover:scale-105'
+                ? 'bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white hover:scale-105'
                 : 'bg-neutral-700 text-neutral-400 cursor-not-allowed'
             }`}
           >

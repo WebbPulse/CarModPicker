@@ -157,7 +157,7 @@ function ExtensionAuth() {
         <div className="glass-card rounded-2xl p-8 animate-slideInUp">
           <div className="text-center mb-6">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <FaPuzzlePiece className="text-white text-2xl" />
               </div>
             </div>
