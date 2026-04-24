@@ -838,8 +838,9 @@ class TestBuildLists:
         Before IN-02 landed, ``copy_build_list`` bypassed the cap enforcement
         that ``create`` already applied — a free user could press Copy to grow
         unbounded. The service now raises 402 at the copy path too
-        (build_list_service.py:281-292). This test pins the 402 so a future
-        PR that removes or relaxes the check fails CI.
+        (``build_list_service.copy_build_list`` — see the ``Free accounts are
+        limited`` block). This test pins the 402 so a future PR that removes
+        or relaxes the check fails CI.
         """
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
@@ -867,10 +868,11 @@ class TestBuildLists:
         assert resp.status_code == 402, (
             f"Expected 402 on copy at free-tier cap, got {resp.status_code}: {resp.text}"
         )
-        # The error-handler middleware (app/api/middleware/error_handler.py:105)
-        # maps HTTPException.detail → response body's "message" key. Accept
-        # either shape for forward-compatibility — same pattern used by the
-        # sibling `test_free_user_cannot_create_second_build_list` test above.
+        # The error-handler middleware (``app/api/middleware/error_handler.py``
+        # — see the ``handle_http_exception`` function) maps
+        # HTTPException.detail → response body's "message" key. Accept either
+        # shape for forward-compatibility — same pattern used by the sibling
+        # `test_free_user_cannot_create_second_build_list` test above.
         data = resp.json()
         msg = data.get("detail") or data.get("message") or ""
         assert "Free accounts are limited to 1 build list" in msg, (
