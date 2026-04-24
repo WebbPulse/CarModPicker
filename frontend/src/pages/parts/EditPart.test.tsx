@@ -151,11 +151,13 @@ describe('EditPart page', () => {
       expect(screen.getByText(/edit test part/i)).toBeInTheDocument();
     });
 
-    // Part name is seeded into the Part Name input — the form's first and
-    // primary field (EditPartForm.tsx:318-327).
-    expect(
-      screen.getByDisplayValue(mockPart.name)
-    ).toBeInTheDocument();
+    // Part name is seeded into the Part Name input by EditPartForm's
+    // useEffect [part] (EditPartForm.tsx:116-134). The form mount + that
+    // effect can resolve one tick AFTER the title renders, so wrap the
+    // assertion in waitFor to absorb the microtask gap.
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(mockPart.name)).toBeInTheDocument();
+    });
 
     // getPart was called with the route's :partId param.
     expect(apiClient.get).toHaveBeenCalledWith(`/parts/${mockPart.id}`);
