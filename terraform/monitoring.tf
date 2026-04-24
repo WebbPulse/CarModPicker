@@ -141,30 +141,46 @@ resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory" {
 }
 
 # ---------------------------------------------------------------------------
-# Crawler parse-failure composite alarm (Phase 2 / OBS-03)
+# Per-adapter parse-failure alarms — fan-out via for_each (Phase 07 TODO-02)
 #
-# Aggregate-across-all-adapters alarm: fires when, in the last hour,
-# ParseFailures / (Ingested + ParseFailures) > 0.5 on RunType=live metrics
-# emitted into the CarModPicker/Crawlers namespace by plan 02-03's EMF helper.
+# Replaces the Phase-2 composite parse-failure alarm with one alarm per
+# adapter so an on-call operator can see exactly which retailer crawler
+# drifted without scanning per-metric dashboards.
+#
+# Source of truth for the adapter set: `terraform/adapter_names.txt`,
+# regenerated from `ADAPTER_REGISTRY.keys()` (see terraform/README.md). Opt
+# specific adapters out of alarming by adding their names to
+# `var.disabled_parse_alarms`. Cost: ~108 alarms * $0.10/mo = ~$10.80/mo.
 #
 # NaN-via-0 small-sample suppression (D-23): when combined samples < 10 the
 # expression returns 0 — idle adapters stay quiet, matches runner.py total>=10
 # drift threshold in plan 03's SAFE-07 characterization window.
 #
-# Landmines pinned:
+# Landmines pinned (carried from the composite alarm):
 #   7  — NO top-level `period` attribute (terraform-provider-aws#29398).
 #        period lives ONLY inside each metric_query.metric {} block.
 #   8  — NaN-via-0 (not NaN) so GreaterThanThreshold comparison is portable.
 #   9  — datapoints_to_alarm (1) <= evaluation_periods (1).
 #   10 — GreaterThanThreshold is strict > (NOT GreaterThanOrEqualToThreshold).
 #
+# Producer parity: `backend/app/core/cloudwatch_emf.py` emits the matching
+# `AdapterName × Environment × RunType` dimension triplet (D-19); the per-
+# adapter `AdapterName = each.value` filter below matches that exactly.
+#
 # SNS deviation (D-24): reuses aws_sns_topic.alarms (email-protocol subs to
 # tyler@webbpulse.com + tylert2610@gmail.com). REQUIREMENTS OBS-03 says
 # "SNS -> SES"; operator experience is identical. Captured in 02-HUMAN-UAT.md.
 # ---------------------------------------------------------------------------
-resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_composite" {
-  alarm_name        = "${local.prefix}-crawler-parse-failure-composite"
-  alarm_description = "Parse-failure rate >50% across all live-mode crawlers. Runbook: .planning/codebase/CONCERNS.md#crawler-drift-runbook"
+locals {
+  _adapter_names_raw   = split("\n", trimspace(file("${path.module}/adapter_names.txt")))
+  parse_alarm_adapters = toset(setsubtract(local._adapter_names_raw, var.disabled_parse_alarms))
+}
+
+resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_per_adapter" {
+  for_each = local.parse_alarm_adapters
+
+  alarm_name        = "${local.prefix}-crawler-parse-failure-${each.value}"
+  alarm_description = "Parse-failure rate >50% for adapter ${each.value} (live runs only). Runbook: .planning/codebase/CONCERNS.md#crawler-drift-runbook"
 
   comparison_operator = "GreaterThanThreshold" # strict > (Landmine 10)
   evaluation_periods  = 1
@@ -183,6 +199,7 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_composite" {
       period      = 3600 # 1 hour — matches hourly crawl cadence
       stat        = "Sum"
       dimensions = {
+        AdapterName = each.value
         Environment = var.environment
         RunType     = "live" # exclude rescrape (D-21)
       }
@@ -197,6 +214,7 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_composite" {
       period      = 3600
       stat        = "Sum"
       dimensions = {
+        AdapterName = each.value
         Environment = var.environment
         RunType     = "live"
       }
@@ -206,15 +224,16 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_composite" {
   metric_query {
     id          = "rate"
     expression  = "IF((ingested + failures) < 10, 0, failures / (ingested + failures))"
-    label       = "Parse failure rate (suppressed below 10 samples)"
+    label       = "Parse failure rate for ${each.value} (suppressed below 10 samples)"
     return_data = true # exactly one query has return_data=true
   }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
 
-  # TODO(phase-3): convert composite alarm to per-adapter via:
-  #   for_each = toset(setsubtract(file("${path.module}/adapter_names.txt"), var.disabled_parse_alarms))
-  # after CRAWL-01/02 adapter auto-discovery lands; add AdapterName dimension
-  # to each metric_query.metric.dimensions map. Cost: 114 alarms x $0.10/mo = $11.40/mo.
+  tags = {
+    AdapterName = each.value
+    ManagedBy   = "Terraform"
+    Phase       = "07"
+  }
 }
