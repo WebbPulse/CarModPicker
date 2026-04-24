@@ -1,5 +1,11 @@
 import { Suspense, useEffect } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
@@ -9,6 +15,7 @@ import ChromeExtensionPromo from './components/common/ChromeExtensionPromo';
 import CookieConsentBanner from './components/common/CookieConsentBanner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import { RouteGroupBoundary } from './components/common/RouteGroupBoundary';
 import SubscriptionPromo from './components/common/SubscriptionPromo';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
@@ -190,117 +197,168 @@ function App() {
               }
             >
               <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
+                {/*
+                  Phase 6 FE-03 / D-07: every <Route> below MUST live inside one of
+                  the four <RouteGroupBoundary> wrappers (admin, authentication,
+                  builder, public). A render-time crash inside one group is
+                  contained by that group's Sentry-backed ErrorBoundary; the other
+                  three groups stay mounted and Header/Footer remain usable.
+                  D-09: the existing app-root <ErrorBoundary> + top-level
+                  <Suspense> are preserved as the last-resort outer catch.
+                  Drift guard: src/App.coverage.test.tsx parametrizes over every
+                  path enumerated here; CI fails if a new <Route> escapes a
+                  RouteGroupBoundary wrapper.
+                */}
 
-                {/* Guest Routes (redirect if logged in) */}
-                <Route element={<GuestRoute />}>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                {/* Public route group — unauthenticated browsing + 404 */}
+                <Route
+                  element={
+                    <RouteGroupBoundary groupName="public">
+                      <Outlet />
+                    </RouteGroupBoundary>
+                  }
+                >
+                  <Route path="/" element={<Home />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route
+                    path="/terms-of-service"
+                    element={<TermsOfService />}
+                  />
+                  <Route path="/contact-us" element={<ContactUs />} />
+                  <Route path="/support" element={<Support />} />
+                  <Route
+                    path="/pricing"
+                    element={
+                      premiumSystemDisabled ? (
+                        <Navigate to="/" replace />
+                      ) : (
+                        <Pricing />
+                      )
+                    }
+                  />
+                  <Route path="/bug-report" element={<BugReport />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/user/:userId" element={<ViewUser />} />
+                  <Route
+                    path="/verify-email/confirm"
+                    element={<VerifyEmailConfirm />}
+                  />
+                  <Route
+                    path="/forgot-password/confirm"
+                    element={<ForgotPasswordConfirm />}
+                  />
+                  <Route path="/extension-auth" element={<ExtensionAuth />} />
+                  <Route path="/car-generations/:carId" element={<ViewCar />} />
+                  <Route
+                    path="/build-lists/:buildListId"
+                    element={<ViewBuildList />}
+                  />
+                  <Route
+                    path="/build-lists/:buildListId/build-log"
+                    element={<ViewBuildLog />}
+                  />
+                  <Route path="/build-lists" element={<BuildListsCatalog />} />
+                  <Route path="/parts/:partId/edit" element={<EditPart />} />
+                  <Route path="/parts/:partId" element={<ViewPart />} />
+                  <Route path="/parts" element={<PartsCatalog />} />
+
+                  {/* 404 Catch-all — MUST be last inside the public group */}
+                  <Route
+                    path="*"
+                    element={
+                      <div className="container mx-auto px-4 py-20 text-center">
+                        <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
+                          <h1 className="text-4xl font-bold text-gradient mb-4">
+                            404
+                          </h1>
+                          <p className="text-neutral-400 mb-6">
+                            Page not found
+                          </p>
+                          <a
+                            href="/"
+                            className="btn-primary inline-flex items-center"
+                          >
+                            Go Home
+                          </a>
+                        </div>
+                      </div>
+                    }
+                  />
                 </Route>
 
-                {/* Public Info Pages */}
-                <Route path="/about" element={<About />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-service" element={<TermsOfService />} />
-                <Route path="/contact-us" element={<ContactUs />} />
-                <Route path="/support" element={<Support />} />
+                {/* Authentication group — login / register / forgot-password (redirect if logged in) */}
                 <Route
-                  path="/pricing"
                   element={
-                    premiumSystemDisabled ? (
-                      <Navigate to="/" replace />
-                    ) : (
-                      <Pricing />
-                    )
+                    <RouteGroupBoundary groupName="authentication">
+                      <Outlet />
+                    </RouteGroupBoundary>
                   }
-                />
-                <Route path="/bug-report" element={<BugReport />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/user/:userId" element={<ViewUser />} />
-                <Route
-                  path="/verify-email/confirm"
-                  element={<VerifyEmailConfirm />}
-                />
-                <Route
-                  path="/forgot-password/confirm"
-                  element={<ForgotPasswordConfirm />}
-                />
-                <Route path="/extension-auth" element={<ExtensionAuth />} />
-                <Route path="/car-generations/:carId" element={<ViewCar />} />
-                <Route
-                  path="/build-lists/:buildListId"
-                  element={<ViewBuildList />}
-                />
-                <Route
-                  path="/build-lists/:buildListId/build-log"
-                  element={<ViewBuildLog />}
-                />
-                <Route path="/build-lists" element={<BuildListsCatalog />} />
-                <Route path="/parts/:partId/edit" element={<EditPart />} />
-                <Route path="/parts/:partId" element={<ViewPart />} />
-                <Route path="/parts" element={<PartsCatalog />} />
-
-                {/* Protected Routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/verify-email" element={<VerifyEmail />} />
-                  <Route element={<EmailVerifiedRoute />}>
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/builder" element={<Builder />} />
-                    <Route path="/my-parts" element={<UserParts />} />
+                >
+                  <Route element={<GuestRoute />}>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
                     <Route
-                      path="/checkout"
-                      element={
-                        premiumSystemDisabled ? (
-                          <Navigate to="/" replace />
-                        ) : (
-                          <Checkout />
-                        )
-                      }
+                      path="/forgot-password"
+                      element={<ForgotPassword />}
                     />
                   </Route>
                 </Route>
 
-                {/* Admin Routes */}
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/reports" element={<ReportReview />} />
+                {/* Builder group — profile / build lists / parts / checkout (auth-gated) */}
                 <Route
-                  path="/admin/bug-reports"
-                  element={<BugReportReview />}
-                />
-                <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/crawler" element={<CrawlerAdmin />} />
-                <Route path="/admin/system" element={<SystemAdmin />} />
-                <Route
-                  path="/admin/statistics"
-                  element={<SystemStatistics />}
-                />
-                <Route
-                  path="/admin/parts-curation"
-                  element={<PartsCuration />}
-                />
-
-                {/* 404 Catch-all - Must be last */}
-                <Route
-                  path="*"
                   element={
-                    <div className="container mx-auto px-4 py-20 text-center">
-                      <div className="glass-card rounded-2xl p-12 max-w-md mx-auto animate-fadeInScale">
-                        <h1 className="text-4xl font-bold text-gradient mb-4">
-                          404
-                        </h1>
-                        <p className="text-neutral-400 mb-6">Page not found</p>
-                        <a
-                          href="/"
-                          className="btn-primary inline-flex items-center"
-                        >
-                          Go Home
-                        </a>
-                      </div>
-                    </div>
+                    <RouteGroupBoundary groupName="builder">
+                      <Outlet />
+                    </RouteGroupBoundary>
                   }
-                />
+                >
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/verify-email" element={<VerifyEmail />} />
+                    <Route element={<EmailVerifiedRoute />}>
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/builder" element={<Builder />} />
+                      <Route path="/my-parts" element={<UserParts />} />
+                      <Route
+                        path="/checkout"
+                        element={
+                          premiumSystemDisabled ? (
+                            <Navigate to="/" replace />
+                          ) : (
+                            <Checkout />
+                          )
+                        }
+                      />
+                    </Route>
+                  </Route>
+                </Route>
+
+                {/* Admin group — admin dashboard + sub-pages */}
+                <Route
+                  element={
+                    <RouteGroupBoundary groupName="admin">
+                      <Outlet />
+                    </RouteGroupBoundary>
+                  }
+                >
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/reports" element={<ReportReview />} />
+                  <Route
+                    path="/admin/bug-reports"
+                    element={<BugReportReview />}
+                  />
+                  <Route path="/admin/users" element={<UserManagement />} />
+                  <Route path="/admin/crawler" element={<CrawlerAdmin />} />
+                  <Route path="/admin/system" element={<SystemAdmin />} />
+                  <Route
+                    path="/admin/statistics"
+                    element={<SystemStatistics />}
+                  />
+                  <Route
+                    path="/admin/parts-curation"
+                    element={<PartsCuration />}
+                  />
+                </Route>
               </Routes>
             </Suspense>
           </div>
