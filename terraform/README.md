@@ -132,6 +132,28 @@ Sentry DSN provisioning is out-of-band per D-55 (Terraform cannot create Sentry 
 
 Until step 3 completes, the Sentry SDK `init_sentry()` helper no-ops gracefully (D-01 env-gate handles empty DSN). No crash, no error — just no Sentry events.
 
+## Generated files
+
+### `adapter_names.txt`
+
+Newline-separated list of crawler adapter names, one per registered `ADAPTER_NAME`. Consumed by `monitoring.tf` to fan out per-adapter CloudWatch parse-failure alarms (`aws_cloudwatch_metric_alarm.crawler_parse_failure_per_adapter`, one alarm per adapter).
+
+**Canonical format** (see the defensive filter in `monitoring.tf` locals block):
+
+- One name per line.
+- Lowercase only; must match `ADAPTER_REGISTRY.keys()` exactly (dimension parity with the CloudWatch EMF producer).
+- Trailing newline at end of file (the regeneration command below produces one).
+- No blank lines and no trailing whitespace — the locals filter trims and drops empty entries, so a malformed file will not produce broken alarm names but will also not match `ADAPTER_REGISTRY` if a name includes stray whitespace.
+- Unix line endings (`\n`) only. Avoid Windows editors that rewrite the file with `\r\n` — the `\r` would survive `split("\n", ...)` as a trailing character on every adapter name.
+
+Regenerate from the repo root whenever adapters are added or removed so the file matches `ADAPTER_REGISTRY.keys()`:
+
+```bash
+PYTHONPATH=backend python -c "from app.crawlers.adapters import ADAPTER_REGISTRY; print('\n'.join(sorted(ADAPTER_REGISTRY.keys())))" > terraform/adapter_names.txt
+```
+
+The file is committed (rather than generated at `terraform plan` time) because `file()` needs it at plan time and committing it makes adapter set changes visible in PR diffs. To silence alarming for a noisy adapter without removing it, add its name to the `disabled_parse_alarms` variable (see `variables.tf`).
+
 ## See also
 
 - `backend/app/crawlers/README.md` — FlareSolverr deployment and FETCHER_TIER details referenced by the scheduler/ECS config.

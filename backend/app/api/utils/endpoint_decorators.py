@@ -222,7 +222,23 @@ def standard_pagination_params(
 
 def validate_pagination_params(skip: int, limit: int) -> tuple[int, int]:
     """
-    Validate and normalize pagination parameters.
+    Validate and normalize pagination parameters (clamping variant).
+
+    Silently clamps out-of-range inputs to the nearest legal value
+    (``skip<0`` → 0, ``limit<1`` → 1, ``limit>1000`` → 1000) and
+    returns the normalized tuple. Used at the API endpoint layer so
+    callers can write ``skip, limit = validate_pagination_params(skip, limit)``
+    and not worry about HTTP 400s on fuzzy client input.
+
+    WR-01 (Phase 7): a second ``validate_pagination_params`` exists in
+    ``app.api.utils.common_operations`` that **raises HTTPException(400)**
+    instead of clamping. The two variants share a name but have
+    incompatible contracts — do NOT "consolidate" them without
+    re-auditing every call site. ``common_operations`` is consumed by
+    service-layer code (``base_crud_service``, ``car_generation_service``)
+    where the caller wants a hard rejection, not a silent normalization.
+    See the review note in ``07-REVIEW.md`` before touching either
+    function.
 
     Args:
         skip: Number of items to skip

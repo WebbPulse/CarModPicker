@@ -148,3 +148,9 @@ variable "disabled_parse_alarms" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_per_adapter_alarms" {
+  description = "Master kill-switch for the per-adapter crawler parse-failure alarm fan-out. When set to false, all per-adapter alarms keep their state in CloudWatch but stop publishing ALARM/OK transitions to SNS (and therefore stop paging email subscribers). Use during retailer-wide outages or noisy incidents to prevent an email storm without tearing down the alarm resources themselves."
+  type        = bool
+  default     = true
+}

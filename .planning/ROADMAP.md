@@ -12,12 +12,12 @@ This milestone pays down eight areas of structural and operational debt across a
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Safety Nets & CI Hardening** - Lock in coverage floors, characterization tests, and migration guards before touching anything structural
-- [ ] **Phase 2: Observability** - Add Sentry, CloudWatch crawler metrics, and alarms — additive-only, zero regression risk
+- [x] **Phase 1: Safety Nets & CI Hardening** - Lock in coverage floors, characterization tests, and migration guards before touching anything structural
+- [x] **Phase 2: Observability** - Add Sentry, CloudWatch crawler metrics, and alarms — additive-only, zero regression risk
 - [x] **Phase 3: Non-Breaking Internal Improvements** - Crawler hardening, adapter auto-discovery, Pydantic v1 sweep, car-data lazy-load
 - [x] **Phase 4: DB & Parts Hardening** - N+1 fix, part-link concurrency, FK index audit, session API migration, build-log eager creation
-- [ ] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
-- [ ] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
+- [x] **Phase 5: Structural Router Splits** - admin.py → admin/ package, then auth.py → auth/ package; PyJWT migration
+- [x] **Phase 6: Frontend Cleanup & Final CI Gates** - ESLint rules, type-safety, Tailwind v4 patterns, error boundaries, bandit/dep upgrades
 - [ ] **Phase 7: v1.0 Residue Cleanup & Audit-Drift Sync** - Operational bugs, code-review residue, dead code, integration advisory A-01, Nyquist Wave 0 close, REQUIREMENTS/ROADMAP doc sync
 - [ ] **Phase 8: Frontend Coverage Expansion (SAFE-03)** - Lift frontend test coverage from 0.43% baseline to D-06 targets (60/50/50/60) and enforce thresholds in CI
 
@@ -75,7 +75,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 03-02-PLAN.md — CRAWL-04/05/06: pybreaker==1.4.1 per-adapter-name registry (fail_max=3, reset_timeout=120) replacing custom counter block; terminal 429/503 pre-trip via breaker.open(); check_health() probe (HEALTH_PROBE_URL=None opt-in default); verify existing ThreadPoolExecutor + CRAWLER_MAX_ADAPTER_WORKERS + per-worker SessionLocal
 - [x] 03-03-PLAN.md — CRAWL-07: extend runner result dict with parse_failures, sample_failure_urls (first-5), elapsed_seconds; extend _render_crawler_result_html in email.py with ParseFailures block; URL truncation for >160-char samples
 - [x] 03-04-PLAN.md — QUAL-01: lazy JSON loader (car_generations.py with @lru_cache(maxsize=1) + importlib.resources.files) + car_generations_data.json asset + thin-shim car_generations_data.py preserving slugify/CarGenerationData/CAR_GENERATIONS/get_all_car_generations + one-shot export script + uvicorn startup latency measurement (D-28)
-- [x] 03-05-PLAN.md — QUAL-02/03/07: three CI regression guards (Pydantic v1 grep + catch_warnings roundtrip; @app.on_event grep; Depends(get_logger) grep) + 68-site logger sweep across 10 files (auth=21, users=11, base_endpoint_router=8, base_report_router=6, reports=5, common_patterns=4, base_vote_router=4, bug_reports=4, admin_endpoint_patterns=3, votes=2)
+- [x] 03-05-PLAN.md — QUAL-02/03/07: three CI regression guards (Pydantic v1 grep + catch_warnings roundtrip; @app.on_event grep; Depends(get_logger) grep) + 68-site logger sweep across 10 files (auth=21, users=11, base_endpoint_router=8, reports=5, common_patterns=4, base_vote_router=4, bug_reports=4, admin_endpoint_patterns=3, votes=2)
 **Note**: Phase 3 may execute concurrently with Phase 2. Internal ordering within this phase: CRAWL-01/02/03 (auto-discovery + validation) must complete and count-assert green before CRAWL-05 (parallelization) lands. Dependency graph: Plans 01, 04, 05 in wave 1 (parallel); Plan 02 in wave 2 (depends on 01); Plan 03 in wave 3 (depends on 02).
 
 ### Phase 4: DB & Parts Hardening
@@ -108,10 +108,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. `chrome-extension/API_CONTRACT.md` documents every endpoint the extension calls with request/response shapes
   5. `python-jose` is replaced with `PyJWT 2.12.1`; zero `JWTError` references remain; algorithm is explicitly specified on every decode call
 **Plans:** 4 plans
-- [ ] 05-01-admin-split-PLAN.md — ADMIN-01/02/03/04: decompose admin.py into admin/ sub-package (5 sub-routers + _helpers), regenerate OpenAPI snapshot, migrate frontend admin URLs, parametrized 401/403 coverage test
-- [ ] 05-02-pyjwt-migration-PLAN.md — AUTH-04: swap python-jose for PyJWT 2.12.1 with JWT_ALGORITHM config hoist, 7 JWTError → InvalidTokenError rewrites, jose/PyJWT parity test, bare-jwt.decode grep guard
-- [ ] 05-03-api-contract-generator-PLAN.md — AUTH-05/06: OpenAPI-driven chrome-extension/API_CONTRACT.md generator + drift-guard pytest + 05-HUMAN-UAT.md staging checklist
-- [ ] 05-04-auth-split-PLAN.md — AUTH-01/02/03: decompose auth.py into auth/ sub-package (4 sub-routers + _helpers), aggressive /auth/google/* → /auth/oauth/google/* restructure, parametrized 401 coverage test with public-route allow-list
+- [x] 05-01-admin-split-PLAN.md — ADMIN-01/02/03/04: decompose admin.py into admin/ sub-package (5 sub-routers + _helpers), regenerate OpenAPI snapshot, migrate frontend admin URLs, parametrized 401/403 coverage test
+- [x] 05-02-pyjwt-migration-PLAN.md — AUTH-04: swap python-jose for PyJWT 2.12.1 with JWT_ALGORITHM config hoist, 7 JWTError → InvalidTokenError rewrites, jose/PyJWT parity test, bare-jwt.decode grep guard
+- [x] 05-03-api-contract-generator-PLAN.md — AUTH-05/06: OpenAPI-driven chrome-extension/API_CONTRACT.md generator + drift-guard pytest + 05-HUMAN-UAT.md staging checklist
+- [x] 05-04-auth-split-PLAN.md — AUTH-01/02/03: decompose auth.py into auth/ sub-package (4 sub-routers + _helpers), aggressive /auth/google/* → /auth/oauth/google/* restructure, parametrized 401 coverage test with public-route allow-list
 **Note**: Within Phase 5, admin split (ADMIN-01—04) must precede auth split (AUTH-01—06). Admin is not in the Chrome extension critical path; use it as a dry run for the split pattern before the highest-stakes refactor.
 
 ### Phase 6: Frontend Cleanup & Final CI Gates
@@ -148,12 +148,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   8. All 6 phase `VALIDATION.md` files have `wave_0_complete: true` and `nyquist_compliant: true` (via `/gsd-validate-phase 01..06`)
   9. `REQUIREMENTS.md` traceability table: 59 rows flipped `Pending` → `Satisfied`; checkboxes `[ ]` → `[x]` for all 59 satisfied requirements (SAFE-03 remains Pending as it moves to Phase 8). `ROADMAP.md` Progress table: Phase 1/2/5/6 rows updated from "Not started" to "Complete" with actual completion dates
 **Plans:** 6 plans
-- [ ] 07-01-operational-bug-verification-PLAN.md — WR-01/WR-02/WR-03/WR-04/IN-02 regression tests pinning already-landed Phase 4 code-review fixes (init_service_accounts %s, CRAWLER_USER_ID UUID, reelect_canonical concurrency, copy_build_list free-tier cap)
-- [ ] 07-02-code-review-residue-PLAN.md — IN-01 static regression for build_lists.py `_apply_build_list_filters` helper consolidation
-- [ ] 07-03-dead-code-cleanup-PLAN.md — delete test_runner_circuit_breaker.py stub, remove 11 common_patterns.py dead helpers (zero callers), migrate 6 legacy db.query sites in tests/conftest.py to SQLAlchemy 2.0 select()
-- [ ] 07-04-integration-advisory-A01-PLAN.md — wrap main.py lifespan orphan sweeps in bg_log_context + convert terraform composite alarm to per-adapter for_each (adapter_names.txt seed)
-- [ ] 07-05-nyquist-validation-close-PLAN.md — run `/gsd-validate-phase 01..06` and flip wave_0_complete + nyquist_compliant to true across all 6 phase VALIDATION.md files
-- [ ] 07-06-documentation-drift-sync-PLAN.md — flip 59 REQUIREMENTS.md traceability rows (Pending → Satisfied) and checkboxes ([ ] → [x]); update ROADMAP.md Progress table with actual Phase 1/2/4/5/6 completion dates
+- [x] 07-01-operational-bug-verification-PLAN.md — WR-01/WR-02/WR-03/WR-04/IN-02 regression tests pinning already-landed Phase 4 code-review fixes (init_service_accounts %s, CRAWLER_USER_ID UUID, reelect_canonical concurrency, copy_build_list free-tier cap)
+- [x] 07-02-code-review-residue-PLAN.md — IN-01 static regression for build_lists.py `_apply_build_list_filters` helper consolidation
+- [x] 07-03-dead-code-cleanup-PLAN.md — delete test_runner_circuit_breaker.py stub, remove 11 common_patterns.py dead helpers (zero callers), migrate 6 legacy db.query sites in tests/conftest.py to SQLAlchemy 2.0 select()
+- [x] 07-04-integration-advisory-A01-PLAN.md — wrap main.py lifespan orphan sweeps in bg_log_context + convert terraform composite alarm to per-adapter for_each (adapter_names.txt seed)
+- [x] 07-05-nyquist-validation-close-PLAN.md — run `/gsd-validate-phase 01..06` and flip wave_0_complete + nyquist_compliant to true across all 6 phase VALIDATION.md files
+- [x] 07-06-documentation-drift-sync-PLAN.md — flip 59 REQUIREMENTS.md traceability rows (Pending → Satisfied) and checkboxes ([ ] → [x]); update ROADMAP.md Progress table with actual Phase 1/2/4/5/6 completion dates
 **Note**: Force-created by `/gsd-plan-milestone-gaps` from the `tech_debt` block of `.planning/v1.0-MILESTONE-AUDIT.md` despite the audit's empty `gaps[]` array. Scope intentionally excludes documented intentional deviations (DATA-07 pool override, AUTH-02 OAuth restructure, AUTH-03 logout gating), already-signed UAT items, and the Alembic round-trip CI automation deferred per Plan 04 D-31. SAFE-03 split to Phase 8.
 
 ### Phase 8: Frontend Coverage Expansion (SAFE-03)
@@ -166,7 +166,28 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `frontend-ci.yml` fails any PR that drops coverage below the thresholds
   4. Shared test infrastructure exists for the common mock surface (axios client, AuthContext, React Router wrapper) — documented in `frontend/src/test/setup.ts` or a sibling helpers file
   5. Any files excluded from coverage via vitest `exclude` have an inline rationale comment (pure types, third-party shims)
-**Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). Frontend has 170 source files and 9 existing tests — scope is a breadth-focused test-writing pass prioritized by: (a) API client modules in `frontend/src/api/` (17+ files, high-leverage), (b) contexts and custom hooks (small surface, high branch coverage impact), (c) lazy-loaded pages (render smoke + one error path), (d) components as needed to hit thresholds. Plan count TBD during `/gsd-plan-phase 8`.
+**Plans:** 20 plans
+- [x] 08-01-PLAN.md — Wave 0: baseline + shared infra (setup.ts D-18 dual mock, test-mocks.ts admin variants D-05, test-utils.tsx admin scenarios D-05, test/mocks/admin/ 7 factory files D-06, async.ts fake-timer helpers D-07 [no EventSource per research], guard relocation D-17, vitest.config.ts D-13 exclusions, commit 08-COVERAGE-BASELINE.txt D-24)
+- [x] 08-02-PLAN.md — Wave 1 Auth cluster: auth.test.ts (23 methods) + users.test.ts (FormData) + images.test.ts (FormData) + client.test.ts (interceptors + paramsSerializer + env-driven baseURL via vi.stubEnv)
+- [x] 08-03-PLAN.md — Wave 1 Parts cluster: parts.test.ts + car_generations.test.ts + categories.test.ts + part_manufacturers.test.ts + retailers.test.ts (D-15 exclude candidate)
+- [x] 08-04-PLAN.md — Wave 1 Build-list cluster: build_lists.test.ts + build_list_parts.test.ts (nested URLs) + build_list_phases.test.ts + build_logs.test.ts
+- [x] 08-05-PLAN.md — Wave 1 Votes + Reports: votes.test.ts (polymorphic entity_type) + reports.test.ts + bug_reports.test.ts
+- [x] 08-06-PLAN.md — Wave 1 Utility: search.test.ts + app_settings.test.ts + utility.test.ts (D-15 exclude candidate)
+- [x] 08-07-PLAN.md — Wave 1 Admin API (solo): admin.test.ts (~29 methods across 8 describe blocks — system stats, user mgmt, reports, bugs, curation, crawler schedules, adapter configs, jobs, manual run)
+- [x] 08-08-PLAN.md — Wave 2 Hooks: 10 hook tests (useAuth/useAppSettings/useIsPremium context-consumers, useDocumentMeta/useCookieConsent/useContainerWidth/useResponsiveColumns/useGoogleSignIn bare, usePartsFilters MemoryRouter, UseApiRequest apiClient wrapper)
+- [x] 08-09-PLAN.md — Wave 2 Contexts: AuthContext.test.tsx (MemoryRouter + Consumer pattern, checkAuthStatus + logout) + AppSettingsContext.test.tsx
+- [x] 08-10-PLAN.md — Wave 3 authentication/: 7 pages (Login + Register + ExtensionAuth complex; ForgotPassword + ForgotPasswordConfirm + VerifyEmail + VerifyEmailConfirm simpler)
+- [x] 08-11-PLAN.md — Wave 3 builder/: 4 pages (Builder, ViewCar, ViewBuildlist, ViewPart-800-lines with vote widget)
+- [x] 08-12-PLAN.md — Wave 3 parts/: 3 pages (PartsCatalog + filter round-trip, EditPart + submit, UserParts)
+- [x] 08-13-PLAN.md — Wave 3 buildLists/: 2 pages (BuildListsCatalog + ViewBuildLog with compose-post)
+- [x] 08-14-PLAN.md — Wave 3 public top-level: 13 pages (static: About/PrivacyPolicy/TermsOfService/Support/NotFound; interactive: Home/ContactUs/Pricing/Checkout/Search/BugReport; authenticated: Profile/ViewUser)
+- [x] 08-15-PLAN.md — Wave 4 admin: AdminDashboard.test.tsx + SystemStatistics.test.tsx (bundled — AdminDashboard is 131 lines)
+- [x] 08-16-PLAN.md — Wave 4 admin: UserManagement.test.tsx + SystemAdmin.test.tsx
+- [x] 08-17-PLAN.md — Wave 4 admin: ReportReview.test.tsx + BugReportReview.test.tsx
+- [x] 08-18-PLAN.md — Wave 4 admin: PartsCuration.test.tsx (solo — merge-canonical flow)
+- [x] 08-19-PLAN.md — Wave 4 admin: CrawlerAdmin.test.tsx (2,665 lines, 4 Card sections + fake-timers polling path — first vi.useFakeTimers use in repo)
+- [ ] 08-20-PLAN.md — Wave 5: components gap-fill + D-22 uncomment coverage.thresholds in vitest.config.ts + fail-force proof per VALIDATION.md Manual-Only + final phase-gate checks (autonomous: false)
+**Note**: Reopens SAFE-03 from Phase 1 (explicitly deferred at plan 01-04 checkpoint — Option C). 170 source files, 9 existing tests — breadth-focused test-writing pass. Wave structure: Wave 0 (1) → Wave 1 (6) → Wave 2 (2) → Wave 3 (5) → Wave 4 (5) → Wave 5 (1). Every Wave 1-4 plan depends on 08-01 (shared infra). Wave 5 depends on every Wave 1-4 plan. Depth tiers per D-08/D-09/D-10/D-11/D-02: API modules = URL + method + body assertions per method; hooks = renderHook with all branches; contexts = state transitions; customer pages = full happy-path + ≥1 error/empty state; admin pages = full happy-path per tab/section. No MSW, no Playwright, no snapshot testing, no runtime schema validation — all declined per CONTEXT.md.
 
 ## Progress
 
@@ -175,11 +196,11 @@ Phases 1 → (2 and 3 in parallel) → 4 → 5 → 6. Phase 2 and Phase 3 may ru
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Nets & CI Hardening | 0/8 | Not started | - |
-| 2. Observability | 0/TBD | Not started | - |
+| 1. Safety Nets & CI Hardening | 8/8 | Complete | 2026-04-23 |
+| 2. Observability | 5/5 | Complete | 2026-04-23 |
 | 3. Non-Breaking Internal Improvements | 5/5 | Complete | 2026-04-22 |
-| 4. DB & Parts Hardening | 0/6 | Not started | - |
-| 5. Structural Router Splits | 0/TBD | Not started | - |
-| 6. Frontend Cleanup & Final CI Gates | 0/TBD | Not started | - |
-| 7. v1.0 Residue Cleanup & Audit-Drift Sync | 0/TBD | Not started | - |
-| 8. Frontend Coverage Expansion (SAFE-03) | 0/TBD | Not started | - |
+| 4. DB & Parts Hardening | 6/6 | Complete | 2026-04-23 |
+| 5. Structural Router Splits | 4/4 | Complete | 2026-04-23 |
+| 6. Frontend Cleanup & Final CI Gates | 6/6 | Complete | 2026-04-23 |
+| 7. v1.0 Residue Cleanup & Audit-Drift Sync | 6/6 | In progress | - |
+| 8. Frontend Coverage Expansion (SAFE-03) | 19/20 | In progress | - |

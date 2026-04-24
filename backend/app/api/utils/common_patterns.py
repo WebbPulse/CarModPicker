@@ -16,7 +16,6 @@ from typing import (
     List,
     Optional,
     ParamSpec,
-    Tuple,
     Type,
     TypedDict,
     TypeVar,
@@ -24,14 +23,13 @@ from typing import (
 )
 from uuid import UUID
 
-from fastapi import Depends, Query
+from fastapi import Depends
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.user import User as DBUser
-from app.api.protocols import HasId, HasUserId, UserOwnedModel
+from app.api.protocols import HasId, UserOwnedModel
 from app.api.utils.response_patterns import ResponsePatterns
 from app.db.session import get_db
 
@@ -66,48 +64,24 @@ class AdminEndpointDeps(TypedDict):
     current_user: DBUser
 
 
-# Standard pagination parameters
-def get_standard_pagination_params(
-    skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
-) -> Tuple[int, int]:
-    """
-    Standard pagination parameters for endpoints.
-
-    Returns:
-        Tuple of (skip, limit) values
-    """
-    return skip, limit
-
-
 # IN-03: ``validate_pagination_params`` lived in two modules with identical
 # bodies. Kept the canonical definition in ``endpoint_decorators`` (which has
 # the ``standard_pagination_params`` FastAPI dependency alongside it) and
 # re-export from here so existing ``from common_patterns import
 # validate_pagination_params`` call sites keep working without touching every
 # endpoint module.
+#
+# WR-01 (Phase 7): this re-export points at the **clamping** variant in
+# ``endpoint_decorators``. A second, semantically-different
+# ``validate_pagination_params`` still lives in
+# ``app.api.utils.common_operations`` (raises HTTPException on bad input
+# instead of clamping) and is consumed by ``base_crud_service`` and
+# ``car_generation_service``. The two functions share a name but have
+# incompatible contracts — see the docstrings on each definition before
+# attempting any further consolidation.
 from app.api.utils.endpoint_decorators import (  # noqa: E402
     validate_pagination_params as validate_pagination_params,
 )
-
-
-# Standard endpoint dependencies
-def get_standard_endpoint_dependencies() -> Dict[str, Any]:
-    """
-    Standard dependencies for endpoints that need database and current user.
-
-    Per QUAL-07 / 03-CONTEXT §D-34, endpoint modules take the logger via a
-    module-level `logger = logging.getLogger(__name__)` declaration — NOT via
-    FastAPI DI. This helper therefore omits the `logger` key; callers import
-    `logging.getLogger(__name__)` at the top of their own module.
-
-    Returns:
-        Dictionary of Depends objects for FastAPI dependency injection
-    """
-    return {
-        "db": Depends(get_db),
-        "current_user": Depends(get_current_user),
-    }
 
 
 def get_standard_public_endpoint_dependencies(
@@ -149,78 +123,6 @@ def verify_user_access_or_admin(
         ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
 
 
-def verify_entity_ownership_or_admin(
-    entity: HasUserId,
-    current_user: DBUser,
-    entity_name: str = "entity",
-    action_description: str = "access this resource",
-    logger: Optional[logging.Logger] = None,
-) -> None:
-    """
-    Verify that the current user owns an entity or is an admin.
-
-    Args:
-        entity: The entity to check ownership of
-        current_user: The authenticated user making the request
-        entity_name: Name of the entity for error messages
-        action_description: Description of the action for error messages
-        logger: Optional logger for warning messages
-    """
-    if not entity:
-        ResponsePatterns.raise_not_found(entity_name.title())
-
-    if hasattr(entity, "user_id") and entity.user_id != current_user.id:
-        if not current_user.is_admin and not current_user.is_superuser:
-            if logger:
-                logger.warning(
-                    f"Access denied: User {current_user.id} "
-                    f"attempted to {action_description} for {entity_name} "
-                    f"{getattr(entity, 'id', 'unknown')} owned by user {entity.user_id}"
-                )
-            ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
-
-
-# Standard pagination response patterns
-def get_paginated_response(
-    db: Session,
-    stmt: Select[Tuple[ModelT]],
-    skip: int,
-    limit: int,
-    logger: logging.Logger,
-    entity_name: str = "items",
-    user_id: Optional[UUID] = None,
-) -> List[ModelT]:
-    """
-    Get paginated response with consistent logging.
-
-    Args:
-        db: Database session
-        stmt: SQLAlchemy Select statement
-        skip: Number of items to skip
-        limit: Maximum number of items to return
-        logger: Logger instance
-        entity_name: Name of the entity for logging
-        user_id: Optional user ID for user-specific queries
-
-    Returns:
-        List of paginated items
-    """
-    items: List[ModelT] = list(db.scalars(stmt.offset(skip).limit(limit)).all())
-
-    if not items:
-        if user_id:
-            logger.info(f"No {entity_name} found for user {user_id}")
-        else:
-            logger.info(f"No {entity_name} found")
-    else:
-        if user_id:
-            logger.info(f"{entity_name.title()} retrieved for user {user_id}: " f"{len(items)} items")
-        else:
-            logger.info(f"{entity_name.title()} retrieved: {len(items)} items")
-
-    return items
-
-
 # Standard search and filter patterns
 def apply_standard_filters(
     query: Select[Any],
@@ -259,66 +161,6 @@ def apply_standard_filters(
             query = query.where(or_(*search_filters))
 
     return query
-
-
-# Ownership verification decorator
-def verify_ownership(
-    entity_name: str,
-    entity_id_param: str = "entity_id",
-    user_id_field: str = "user_id",
-    not_found_detail: Optional[str] = None,
-    forbidden_detail: Optional[str] = None,
-) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """
-    Decorator for verifying entity ownership.
-
-    Args:
-        entity_name: Name of the entity for error messages
-        entity_id_param: Name of the entity ID parameter
-        user_id_field: Name of the user ID field in the entity model
-        not_found_detail: Custom not found error detail
-        forbidden_detail: Custom forbidden error detail
-
-    Returns:
-        Decorator function
-    """
-
-    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
-        @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            # Extract parameters from kwargs with proper typing
-            entity_id = kwargs.get(entity_id_param)
-            db_value = kwargs.get("db")
-            user_value = kwargs.get("current_user")
-
-            if not all([entity_id, db_value, user_value]):
-                raise ValueError(f"Missing required parameters for ownership verification: " f"{entity_name}")
-
-            db = cast(Session, db_value)
-            current_user = cast(DBUser, user_value)
-
-            model_class = func.__annotations__["return"]
-            entity = db.scalars(
-                select(model_class).where(getattr(model_class, "id") == entity_id)
-            ).first()
-
-            if not entity:
-                # IN-02: ``ResponsePatterns.raise_not_found`` builds its own message
-                # from ``entity_name`` + ``entity_id`` — the ``not_found_detail``
-                # override is intentionally unused here (kept on the decorator
-                # signature for API compatibility with call sites that may pass
-                # it; only ``forbidden_detail`` flows through below).
-                ResponsePatterns.raise_not_found(entity_name, entity_id if isinstance(entity_id, UUID) else None)
-
-            if getattr(entity, user_id_field) != current_user.id:
-                detail = forbidden_detail or f"Not authorized to access this {entity_name}"
-                ResponsePatterns.raise_forbidden(detail)
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 # Admin-only decorator
@@ -457,39 +299,6 @@ def build_filtered_query(
     return query
 
 
-def build_sorted_query(
-    query: Select[Any],
-    sort_by: Optional[str],
-    sort_order: str,
-    allowed_sort_fields: List[str],
-    default_sort: str = "id",
-) -> Select[Any]:
-    """
-    Build a sorted query.
-
-    Args:
-        query: Base SQLAlchemy Select statement
-        sort_by: Field name to sort by
-        sort_order: Sort order (asc/desc)
-        allowed_sort_fields: List of allowed field names for sorting
-        default_sort: Default field to sort by
-
-    Returns:
-        Modified Select with sorting
-    """
-    if sort_by and sort_by in allowed_sort_fields:
-        sort_field = getattr(query.column_descriptions[0]["entity"], sort_by)
-    else:
-        sort_field = getattr(query.column_descriptions[0]["entity"], default_sort)
-
-    if sort_order.lower() == "desc":
-        query = query.order_by(sort_field.desc())
-    else:
-        query = query.order_by(sort_field.asc())
-
-    return query
-
-
 # Common response patterns
 def create_paginated_response(
     data: List[ModelT],
@@ -566,163 +375,7 @@ def handle_integrity_error(
         ResponsePatterns.raise_bad_request(f"Data validation failed for {entity_name}")
 
 
-# Common dependency injection
-def get_common_dependencies() -> Dict[str, Any]:
-    """
-    Common dependencies for endpoints.
-
-    Per QUAL-07 / 03-CONTEXT §D-34, the logger is obtained via a module-level
-    `logger = logging.getLogger(__name__)` at the top of each endpoint module,
-    not via FastAPI DI — so no `logger` key is returned here.
-
-    Returns:
-        Dictionary of Depends objects for FastAPI dependency injection
-    """
-    return {
-        "db": Depends(get_db),
-        "current_user": Depends(get_current_user),
-    }
-
-
-def get_admin_dependencies() -> Dict[str, Any]:
-    """
-    Admin-only dependencies for endpoints.
-
-    Per QUAL-07 / 03-CONTEXT §D-34, the logger is obtained via a module-level
-    `logger = logging.getLogger(__name__)` at the top of each endpoint module,
-    not via FastAPI DI — so no `logger` key is returned here.
-
-    Returns:
-        Dictionary of Depends objects for FastAPI dependency injection
-    """
-    return {
-        "db": Depends(get_db),
-        "current_user": Depends(get_current_admin_user),
-    }
-
-
 # Vote-related patterns
-def handle_vote_operation(
-    db: Session,
-    user_id: UUID,
-    entity_id: UUID,
-    vote_type: str,
-    entity_model: Type[Any],
-    vote_model: Type[Any],
-    entity_name: str,
-    entity_type: str,
-    logger: logging.Logger,
-    existing_vote: Optional[Any] = None,
-) -> Any:
-    """
-    Handle vote operations (create/update) with consistent patterns for
-    unified Vote model.
-
-    Args:
-        db: Database session
-        user_id: ID of the user voting
-        entity_id: ID of the entity being voted on
-        vote_type: Type of vote (upvote/downvote)
-        entity_model: Model class for the entity
-        vote_model: Model class for the vote
-        entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association
-            ('car', 'build_list', 'part')
-        logger: Logger instance
-        existing_vote: Existing vote if updating
-
-    Returns:
-        The vote object (created or updated)
-    """
-    # Verify entity exists
-    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
-    if not entity:
-        # IN-05: ``ResponsePatterns.raise_not_found`` is typed ``-> NoReturn``,
-        # so nothing below executes when the entity is missing.
-        ResponsePatterns.raise_not_found(entity_name, entity_id)
-
-    try:
-        if existing_vote:
-            # Update existing vote
-            existing_vote.vote_type = vote_type
-            db.commit()
-            db.refresh(existing_vote)
-            logger.info(f"Vote updated: {existing_vote.id} by user {user_id} " f"on {entity_name} {entity_id}")
-            return existing_vote
-        else:
-            # Create new vote using polymorphic pattern
-            new_vote = vote_model(
-                user_id=user_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                vote_type=vote_type,
-            )
-            db.add(new_vote)
-            db.commit()
-            db.refresh(new_vote)
-            logger.info(f"Vote created: {new_vote.id} by user {user_id} " f"on {entity_name} {entity_id}")
-            return new_vote
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to handle vote operation: {e}")
-        ResponsePatterns.raise_internal_server_error("Failed to process vote")
-
-
-def remove_vote_operation(
-    db: Session,
-    user_id: UUID,
-    entity_id: UUID,
-    entity_model: Type[Any],
-    vote_model: Type[Any],
-    entity_name: str,
-    entity_type: str,
-    logger: logging.Logger,
-) -> Dict[str, str]:
-    """
-    Handle vote removal with consistent patterns for unified Vote model.
-
-    Args:
-        db: Database session
-        user_id: ID of the user removing vote
-        entity_id: ID of the entity vote is being removed from
-        entity_model: Model class for the entity
-        vote_model: Model class for the vote
-        entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association
-            ('car', 'build_list', 'part')
-        logger: Logger instance
-
-    Returns:
-        Success message
-    """
-    # Verify entity exists
-    entity = db.scalars(select(entity_model).where(entity_model.id == entity_id)).first()
-    if not entity:
-        ResponsePatterns.raise_not_found(entity_name, entity_id)
-
-    # Find and remove vote using polymorphic pattern
-    vote = db.scalars(
-        select(vote_model).where(
-            vote_model.user_id == user_id,
-            vote_model.entity_type == entity_type,
-            vote_model.entity_id == entity_id,
-        )
-    ).first()
-
-    if not vote:
-        ResponsePatterns.raise_not_found(f"Vote on {entity_name}")
-
-    try:
-        db.delete(vote)
-        db.commit()
-        logger.info(f"Vote removed: {vote.id} by user {user_id} on {entity_name} {entity_id}")
-        return {"message": f"Vote on {entity_name} removed successfully"}
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to remove vote: {e}")
-        ResponsePatterns.raise_internal_server_error("Failed to remove vote")
-
-
 def get_vote_summary(
     db: Session,
     entity_id: UUID,
@@ -789,78 +442,6 @@ def get_vote_summary(
 
 
 # Report-related patterns
-def handle_report_creation(
-    db: Session,
-    user_id: UUID,
-    entity_id: UUID,
-    report_data: Dict[str, Any],
-    entity_model: Type[Any],
-    report_model: Type[Any],
-    entity_name: str,
-    entity_type: str,
-    logger: logging.Logger,
-    additional_filters: Optional[Dict[str, Any]] = None,
-) -> Any:
-    """
-    Handle report creation with consistent patterns for unified Report model.
-
-    Args:
-        db: Database session
-        user_id: ID of the user creating the report
-        entity_id: ID of the entity being reported
-        report_data: Report data dictionary
-        entity_model: Model class for the entity
-        report_model: Model class for the report
-        entity_name: Human-readable name of the entity
-        entity_type: Entity type for polymorphic association ('car', 'build_list', 'part')
-        logger: Logger instance
-        additional_filters: Additional filters for entity lookup
-
-    Returns:
-        The created report object
-    """
-    # Verify entity exists
-    entity_stmt = select(entity_model).where(entity_model.id == entity_id)
-    if additional_filters:
-        for key, value in additional_filters.items():
-            entity_stmt = entity_stmt.where(getattr(entity_model, key) == value)
-
-    entity = db.scalars(entity_stmt).first()
-    if not entity:
-        ResponsePatterns.raise_not_found(entity_name, entity_id)
-
-    # Check if user has already reported this entity using polymorphic pattern
-    existing_report = db.scalars(
-        select(report_model).where(
-            report_model.user_id == user_id,
-            report_model.entity_type == entity_type,
-            report_model.entity_id == entity_id,
-        )
-    ).first()
-
-    if existing_report:
-        ResponsePatterns.raise_conflict(f"User has already reported this {entity_name}")
-
-    try:
-        # Create new report using polymorphic pattern
-        new_report = report_model(
-            user_id=user_id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            **report_data,
-        )
-        db.add(new_report)
-        db.commit()
-        db.refresh(new_report)
-
-        logger.info(f"Report created: {new_report.id} by user {user_id} " f"on {entity_name} {entity_id}")
-        return new_report
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to create report: {e}")
-        ResponsePatterns.raise_internal_server_error("Failed to create report")
-
-
 def get_reports_by_entity(
     db: Session,
     entity_id: UUID,

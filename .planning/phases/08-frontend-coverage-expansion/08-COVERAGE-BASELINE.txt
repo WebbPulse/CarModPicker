@@ -1,0 +1,227 @@
+
+> carmodpicker-frontend@0.0.0 test:coverage
+> vitest --coverage --run
+
+
+ RUN  v3.2.4 /home/tyler-webb/Documents/Github/CarModPicker/frontend
+      Coverage enabled with v8
+
+ ✓ src/utils/carUtils.test.ts (6 tests) 3ms
+ ✓ src/utils/externalImageUrls.test.ts (5 tests) 6ms
+ ✓ src/lib/sentry.test.ts (19 tests) 22ms
+ ✓ src/test/extension-content-type.test.ts (1 test) 9ms
+ ✓ src/test/no-legacy-gradient.test.ts (1 test) 17ms
+ ✓ src/test/no-process-env.test.ts (1 test) 18ms
+ ✓ src/components/common/ErrorBoundary.test.tsx (2 tests) 33ms
+ ✓ src/components/common/RouteGroupBoundary.test.tsx (3 tests) 83ms
+ ✓ src/App.coverage.test.tsx (38 tests) 934ms
+
+ Test Files  9 passed (9)
+      Tests  76 passed (76)
+   Start at  10:11:16
+   Duration  2.98s (transform 323ms, setup 557ms, collect 1.01s, tests 1.13s, environment 2.85s, prepare 857ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |    4.72 |    37.11 |   21.36 |    4.72 |                   
+ scripts           |       0 |        0 |       0 |       0 |                   
+  prerender.mjs    |       0 |        0 |       0 |       0 | 1-149             
+ src               |   90.68 |    83.33 |   66.66 |   90.68 |                   
+  App.tsx          |   99.21 |    88.23 |     100 |   99.21 | 235,310           
+  main.tsx         |       0 |        0 |       0 |       0 | 1-27              
+ src/api           |       0 |        0 |       0 |       0 |                   
+  admin.ts         |       0 |        0 |       0 |       0 | 1-421             
+  app_settings.ts  |       0 |        0 |       0 |       0 | 1-25              
+  auth.ts          |       0 |        0 |       0 |       0 | 1-208             
+  bug_reports.ts   |       0 |        0 |       0 |       0 | 1-43              
+  ...list_parts.ts |       0 |        0 |       0 |       0 | 1-96              
+  ...ist_phases.ts |       0 |        0 |       0 |       0 | 1-15              
+  build_lists.ts   |       0 |        0 |       0 |       0 | 1-80              
+  build_logs.ts    |       0 |        0 |       0 |       0 | 1-36              
+  ...enerations.ts |       0 |        0 |       0 |       0 | 1-44              
+  categories.ts    |       0 |        0 |       0 |       0 | 1-23              
+  client.ts        |       0 |        0 |       0 |       0 | 1-140             
+  images.ts        |       0 |        0 |       0 |       0 | 1-107             
+  ...ufacturers.ts |       0 |        0 |       0 |       0 | 1-57              
+  parts.ts         |       0 |        0 |       0 |       0 | 1-123             
+  reports.ts       |       0 |        0 |       0 |       0 | 1-79              
+  retailers.ts     |       0 |        0 |       0 |       0 | 1-8               
+  search.ts        |       0 |        0 |       0 |       0 | 1-27              
+  users.ts         |       0 |        0 |       0 |       0 | 1-48              
+  utility.ts       |       0 |        0 |       0 |       0 | 1-9               
+  votes.ts         |       0 |        0 |       0 |       0 | 1-72              
+ ...mponents/admin |       0 |        0 |       0 |       0 |                   
+  ReportDialog.tsx |       0 |        0 |       0 |       0 | 1-128             
+ ...components/ads |   84.11 |    58.82 |     100 |   84.11 |                   
+  AdBanner.tsx     |   81.11 |       50 |     100 |   81.11 | ...5,59-66,97-103 
+  ...umnSpacer.tsx |     100 |      100 |     100 |     100 |                   
+  adsenseConfig.ts |     100 |      100 |     100 |     100 |                   
+ ...omponents/auth |       0 |        0 |       0 |       0 |                   
+  AuthCard.tsx     |       0 |        0 |       0 |       0 | 1-23              
+  AuthForm.tsx     |       0 |        0 |       0 |       0 | 1-16              
+  ...irectLink.tsx |       0 |        0 |       0 |       0 | 1-28              
+ ...authentication |       0 |        0 |       0 |       0 |                   
+  ...eAuthFlow.tsx |       0 |        0 |       0 |       0 | 1-297             
+ ...buildListParts |       0 |        0 |       0 |       0 |                   
+  ...tPartList.tsx |       0 |        0 |       0 |       0 | 1-787             
+  ...tListItem.tsx |       0 |        0 |       0 |       0 | 1-235             
+  ...ListParts.tsx |       0 |        0 |       0 |       0 | 1-599             
+  ...tPartForm.tsx |       0 |        0 |       0 |       0 | 1-1060            
+  ...tPartForm.tsx |       0 |        0 |       0 |       0 | 1-177             
+ ...nts/buildLists |       0 |        0 |       0 |       0 |                   
+  ...dListCard.tsx |       0 |        0 |       0 |       0 | 1-76              
+  ...talogList.tsx |       0 |        0 |       0 |       0 | 1-260             
+  ...dListItem.tsx |       0 |        0 |       0 |       0 | 1-176             
+  ...dListList.tsx |       0 |        0 |       0 |       0 | 1-152             
+  ...dListForm.tsx |       0 |        0 |       0 |       0 | 1-390             
+  ...dListForm.tsx |       0 |        0 |       0 |       0 | 1-468             
+ ...onents/buttons |       0 |        0 |       0 |       0 |                   
+  ActionButton.tsx |       0 |        0 |       0 |       0 | 1-24              
+  Button.tsx       |       0 |        0 |       0 |       0 | 1-68              
+  LinkButton.tsx   |       0 |        0 |       0 |       0 | 1-44              
+  ...aryButton.tsx |       0 |        0 |       0 |       0 | 1-24              
+  ...tchButton.tsx |       0 |        0 |       0 |       0 | 1-23              
+ ...omponents/cars |       0 |        0 |       0 |       0 |                   
+  CarList.tsx      |       0 |        0 |       0 |       0 | 1-142             
+  CarListItem.tsx  |       0 |        0 |       0 |       0 | 1-42              
+ ...ponents/common |   11.14 |    39.13 |    31.7 |   11.14 |                   
+  AddItemTile.tsx  |       0 |        0 |       0 |       0 | 1-34              
+  Alerts.tsx       |       0 |        0 |       0 |       0 | 1-63              
+  BetaBanner.tsx   |   88.88 |    66.66 |      50 |   88.88 | 14-16             
+  Button.tsx       |       0 |        0 |       0 |       0 | 1-77              
+  ...ltiSelect.tsx |       0 |        0 |       0 |       0 | 1-162             
+  Card.tsx         |       0 |        0 |       0 |       0 | 1-62              
+  CardInfoItem.tsx |       0 |        0 |       0 |       0 | 1-22              
+  ...sionPromo.tsx |   22.98 |       40 |   16.66 |   22.98 | ...2,43-61,66-123 
+  ...entBanner.tsx |    90.9 |       50 |      50 |    90.9 | 10-13             
+  ...ionDialog.tsx |       0 |        0 |       0 |       0 | 1-122             
+  ...ionDialog.tsx |       0 |        0 |       0 |       0 | 1-77              
+  Dialog.tsx       |       0 |        0 |       0 |       0 | 1-61              
+  ...rBoundary.tsx |   95.65 |       75 |      80 |   95.65 | 43-44             
+  ImageUpload.tsx  |       0 |        0 |       0 |       0 | 1-212             
+  ...aceholder.tsx |       0 |        0 |       0 |       0 | 1-61              
+  Input.tsx        |       0 |        0 |       0 |       0 | 1-210             
+  ...ngSpinner.tsx |    3.57 |      100 |       0 |    3.57 | 12-114            
+  Pagination.tsx   |       0 |        0 |       0 |       0 | 1-164             
+  ...ationLink.tsx |       0 |        0 |       0 |       0 | 1-34              
+  ...leWrapper.tsx |       0 |      100 |     100 |       0 | 9-43              
+  ...pBoundary.tsx |   88.46 |       80 |      80 |   88.46 | 44-49             
+  ...bleSelect.tsx |       0 |        0 |       0 |       0 | 1-429             
+  ...tionPromo.tsx |   33.89 |       40 |      50 |   33.89 | 21-24,26-27,32-84 
+  ...lterChips.tsx |       0 |        0 |       0 |       0 | 1-99              
+  ...erSection.tsx |       0 |        0 |       0 |       0 | 1-165             
+ ...ponents/layout |       0 |        0 |       0 |       0 |                   
+  Divider.tsx      |       0 |        0 |       0 |       0 | 1-11              
+  PageHeader.tsx   |       0 |        0 |       0 |       0 | 1-17              
+  ...ionHeader.tsx |       0 |        0 |       0 |       0 | 1-19              
+ ...t/globalFooter |     100 |      100 |     100 |     100 |                   
+  Footer.tsx       |     100 |      100 |     100 |     100 |                   
+ ...t/globalHeader |   74.57 |    55.55 |      15 |   74.57 |                   
+  Header.tsx       |   81.86 |    71.42 |   16.66 |   81.86 | ...90-311,339-362 
+  ...erNavLink.tsx |       0 |        0 |       0 |       0 | 1-26              
+  ...Separator.tsx |       0 |        0 |       0 |       0 | 1-7               
+ ...mponents/parts |       0 |        0 |       0 |       0 |                   
+  ...istDialog.tsx |       0 |        0 |       0 |       0 | 1-360             
+  ...oryFilter.tsx |       0 |        0 |       0 |       0 | 1-38              
+  ...ePartForm.tsx |       0 |        0 |       0 |       0 | 1-628             
+  EditPartForm.tsx |       0 |        0 |       0 |       0 | 1-483             
+  ImageGallery.tsx |       0 |        0 |       0 |       0 | 1-140             
+  ...eryManage.tsx |       0 |        0 |       0 |       0 | 1-319             
+  PartList.tsx     |       0 |        0 |       0 |       0 | 1-998             
+  PartListItem.tsx |       0 |        0 |       0 |       0 | 1-57              
+  ...lterChips.tsx |       0 |        0 |       0 |       0 | 1-133             
+  ...erSidebar.tsx |       0 |        0 |       0 |       0 | 1-281             
+  ...LineChart.tsx |       0 |        0 |       0 |       0 | 1-757             
+  VoteButtons.tsx  |       0 |        0 |       0 |       0 | 1-206             
+ ...onents/profile |       0 |        0 |       0 |       0 |                   
+  ...ordDialog.tsx |       0 |        0 |       0 |       0 | 1-218             
+  ...sSettings.tsx |       0 |        0 |       0 |       0 | 1-169             
+  ...ySettings.tsx |       0 |        0 |       0 |       0 | 1-241             
+  ...ySettings.tsx |       0 |        0 |       0 |       0 | 1-604             
+  ...ngsDialog.tsx |       0 |        0 |       0 |       0 | 1-760             
+  SocialLinks.tsx  |       0 |        0 |       0 |       0 | 1-113             
+  ...uthDialog.tsx |       0 |        0 |       0 |       0 | 1-322             
+ ...ponents/routes |   57.57 |    58.82 |     100 |   57.57 |                   
+  ...fiedRoute.tsx |      50 |    57.14 |     100 |      50 | 11-12,15-16,19-29 
+  GuestRoute.tsx   |   59.09 |       60 |     100 |   59.09 | 12-13,16-22       
+  ...ctedRoute.tsx |   66.66 |       60 |     100 |   66.66 | 11-12,15-18       
+ ...mponents/users |       0 |        0 |       0 |       0 |                   
+  UserCard.tsx     |       0 |        0 |       0 |       0 | 1-40              
+ src/config        |       0 |        0 |       0 |       0 |                   
+  google.ts        |       0 |        0 |       0 |       0 | 1-7               
+ src/constants     |     100 |      100 |     100 |     100 |                   
+  index.ts         |     100 |      100 |     100 |     100 |                   
+ src/contexts      |       0 |       25 |      25 |       0 |                   
+  ...gsContext.tsx |       0 |      100 |     100 |       0 | 2-42              
+  ...Definition.ts |       0 |        0 |       0 |       0 | 1-13              
+  AuthContext.tsx  |       0 |        0 |       0 |       0 | 1-98              
+  ...Definition.ts |       0 |        0 |       0 |       0 | 1-15              
+ src/hooks         |     6.1 |       40 |   26.31 |     6.1 |                   
+  ...piRequest.tsx |       0 |      100 |     100 |       0 | 2-73              
+  ...ppSettings.ts |       0 |        0 |       0 |       0 | 1-15              
+  useAuth.ts       |       0 |        0 |       0 |       0 | 1-11              
+  ...ainerWidth.ts |       0 |        0 |       0 |       0 | 1-40              
+  ...kieConsent.ts |   54.05 |    55.55 |   22.22 |   54.05 | ...57,67-75,78-86 
+  ...cumentMeta.ts |       0 |        0 |       0 |       0 | 1-82              
+  ...ogleSignIn.ts |       0 |        0 |       0 |       0 | 1-98              
+  useIsPremium.ts  |     100 |    66.66 |     100 |     100 | 13                
+  ...rtsFilters.ts |       0 |        0 |       0 |       0 | 1-741             
+  ...iveColumns.ts |       0 |        0 |       0 |       0 | 1-52              
+ src/lib           |     100 |      100 |     100 |     100 |                   
+  sentry.ts        |     100 |      100 |     100 |     100 |                   
+ src/pages         |       0 |     7.69 |    7.69 |       0 |                   
+  About.tsx        |       0 |        0 |       0 |       0 | 1-244             
+  BugReport.tsx    |       0 |        0 |       0 |       0 | 1-368             
+  Checkout.tsx     |       0 |        0 |       0 |       0 | 1-161             
+  ContactUs.tsx    |       0 |        0 |       0 |       0 | 1-114             
+  Home.tsx         |       0 |        0 |       0 |       0 | 1-414             
+  NotFound.tsx     |       0 |      100 |     100 |       0 | 3-27              
+  Pricing.tsx      |       0 |        0 |       0 |       0 | 1-275             
+  ...acyPolicy.tsx |       0 |        0 |       0 |       0 | 1-414             
+  Profile.tsx      |       0 |        0 |       0 |       0 | 1-461             
+  Search.tsx       |       0 |        0 |       0 |       0 | 1-522             
+  Support.tsx      |       0 |        0 |       0 |       0 | 1-237             
+  ...OfService.tsx |       0 |        0 |       0 |       0 | 1-401             
+  ViewUser.tsx     |       0 |        0 |       0 |       0 | 1-149             
+ src/pages/admin   |       0 |       25 |      25 |       0 |                   
+  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 1-131             
+  ...ortReview.tsx |       0 |      100 |     100 |       0 | 2-608             
+  CrawlerAdmin.tsx |       0 |        0 |       0 |       0 | 1-2665            
+  ...sCuration.tsx |       0 |        0 |       0 |       0 | 1-762             
+  ReportReview.tsx |       0 |      100 |     100 |       0 | 2-451             
+  SystemAdmin.tsx  |       0 |        0 |       0 |       0 | 1-828             
+  ...tatistics.tsx |       0 |        0 |       0 |       0 | 1-755             
+  ...anagement.tsx |       0 |        0 |       0 |       0 | 1-721             
+ ...authentication |       0 |        0 |       0 |       0 |                   
+  ...nsionAuth.tsx |       0 |        0 |       0 |       0 | 1-212             
+  ...tPassword.tsx |       0 |        0 |       0 |       0 | 1-82              
+  ...rdConfirm.tsx |       0 |        0 |       0 |       0 | 1-134             
+  Login.tsx        |       0 |        0 |       0 |       0 | 1-360             
+  Register.tsx     |       0 |        0 |       0 |       0 | 1-253             
+  VerifyEmail.tsx  |       0 |        0 |       0 |       0 | 1-90              
+  ...ilConfirm.tsx |       0 |        0 |       0 |       0 | 1-45              
+ ...ges/buildLists |       0 |        0 |       0 |       0 |                   
+  ...tsCatalog.tsx |       0 |        0 |       0 |       0 | 1-660             
+  ViewBuildLog.tsx |       0 |        0 |       0 |       0 | 1-664             
+ src/pages/builder |       0 |        0 |       0 |       0 |                   
+  Builder.tsx      |       0 |        0 |       0 |       0 | 1-176             
+  ...Buildlist.tsx |       0 |        0 |       0 |       0 | 1-463             
+  ViewCar.tsx      |       0 |        0 |       0 |       0 | 1-303             
+  ViewPart.tsx     |       0 |        0 |       0 |       0 | 1-800             
+ src/pages/parts   |       0 |        0 |       0 |       0 |                   
+  EditPart.tsx     |       0 |        0 |       0 |       0 | 1-141             
+  PartsCatalog.tsx |       0 |        0 |       0 |       0 | 1-161             
+  UserParts.tsx    |       0 |        0 |       0 |       0 | 1-211             
+ src/services      |       0 |        0 |       0 |       0 |                   
+  Api.ts           |       0 |        0 |       0 |       0 | 1-27              
+ src/types         |       0 |        0 |       0 |       0 |                   
+  Api.ts           |       0 |        0 |       0 |       0 |                   
+ src/utils         |    54.5 |    64.44 |   58.82 |    54.5 |                   
+  carUtils.ts      |   57.81 |       50 |   57.14 |   57.81 | ...15-30,52,77-83 
+  dailyDismiss.ts  |   17.39 |      100 |       0 |   17.39 | 7-13,16-21,24-29  
+  ...lImageUrls.ts |   86.07 |    74.07 |     100 |   86.07 | ...8-69,86-91,102 
+  ...WithReload.ts |       0 |        0 |       0 |       0 | 1-44              
+  subscription.ts  |      60 |       60 |     100 |      60 | 15-16,18-19       
+-------------------|---------|----------|---------|---------|-------------------

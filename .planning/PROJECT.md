@@ -44,15 +44,15 @@ The platform consists of a FastAPI/PostgreSQL backend, a React frontend, and a C
 
 <!-- Current scope: a systemic tech-debt audit + fix-all milestone across 8 areas. -->
 
-- [ ] Auth / account-flow refactor — break up oversized `auth.py`, resolve debt from 2FA/WebAuthn/OAuth accretion
-- [ ] Crawler system hardening — adapter auto-discovery, parse-failure alerting, parallelization, retry/health-check, archive reuse patterns
+- [x] Auth / account-flow refactor — break up oversized `auth.py`, resolve debt from 2FA/WebAuthn/OAuth accretion (Phase 5: admin.py→admin/ split, auth.py→auth/ split, PyJWT migration, API_CONTRACT.md)
+- [x] Crawler system hardening — adapter auto-discovery, parse-failure alerting, parallelization, retry/health-check, archive reuse patterns (Phase 3: adapter auto-discovery + pybreaker + health-check + parse-failure reporting)
 - [x] Observability & logging audit — structured logs, crawler metrics, request tracing, production monitoring hooks (Phase 2: Sentry backend+frontend, CloudWatch EMF, parse-failure alarm, log-context regression guard)
-- [ ] DB / migrations / perf pass — fix N+1 in build logs, add missing indexes, audit migration hygiene, index join keys, tune connection pool
-- [ ] Parts & canonical dedup consolidation — transactional part linking, inference engine maintainability, finish what the canonical refactor started
-- [ ] Frontend structure cleanup — pages/components organization, API client consistency, context usage, type-safety gaps
-- [ ] Test coverage & CI gates — raise backend + frontend coverage, enforce pyright/eslint/bandit, add concurrency + adapter-integration tests
-- [ ] General code-quality sweep — admin.py split (2,055 lines), car_generations_data.py (8,412 lines) load strategy, dead code, duplication, Base* compliance
-- [ ] Opportunistic UX polish — when a page is refactored, pull its UX up to the quality bar of the home page (parts catalog is the known rough spot)
+- [x] DB / migrations / perf pass — fix N+1 in build logs, add missing indexes, audit migration hygiene, index join keys, tune connection pool (Phase 4: FK index audit, build-log N+1 fix, session→select, build-log eager creation, lazy=raise)
+- [x] Parts & canonical dedup consolidation — transactional part linking, inference engine maintainability, finish what the canonical refactor started (Phase 4: with_for_update row locks, canonical invariants, ambiguity vectors)
+- [x] Frontend structure cleanup — pages/components organization, API client consistency, context usage, type-safety gaps (Phase 6: eslint rules, Api.ts split, route-group error boundaries, Tailwind v4)
+- [ ] Test coverage & CI gates — raise backend + frontend coverage, enforce pyright/eslint/bandit, add concurrency + adapter-integration tests (Phase 1: backend floor + CI guards landed; Phase 8: frontend coverage expansion pending)
+- [x] General code-quality sweep — admin.py split (2,055 lines), car_generations_data.py (8,412 lines) load strategy, dead code, duplication, Base* compliance (Phase 3+5+7: lazy-load loader, admin split, dead helpers removed, db.query→select sweep)
+- [x] Opportunistic UX polish — when a page is refactored, pull its UX up to the quality bar of the home page (Phase 6: parts-catalog polish)
 
 ### Out of Scope
 
