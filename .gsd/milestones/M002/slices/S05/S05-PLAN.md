@@ -100,7 +100,7 @@ NEGATIVE TESTS (Q7):
   - Files: `backend/app/api/services/part_price_aggregation_service.py`, `backend/app/api/schemas/part_price_history.py`, `backend/tests/services/test_part_price_aggregation_service.py`
   - Verify: TESTING=true pytest backend/tests/services/test_part_price_aggregation_service.py -n auto --rootdir=backend -q --no-cov
 
-- [ ] **T02: Enhance `GET /api/parts/{id}/price-history` with `window` param + retailer-breakdown summary response (legacy shim for old callers)** `est:2h`
+- [x] **T02: Enhance `GET /api/parts/{id}/price-history` with `window` param + retailer-breakdown summary response (legacy shim for old callers)** `est:2h`
   Replace the current `get_part_price_history` handler in `backend/app/api/endpoints/parts.py` (currently returns `List[PartPriceHistoryReadWithRetailer]`, see L1134–L1167) with a new handler that returns the richer `PriceHistorySinglePartResponse` shape produced by `aggregate_single_part` from T01. Path stays `/{part_id}/price-history`. Adds optional `window` query param (default `90d`, accepts `30d`/`90d`/`180d`/`1y`/`all`); keeps the existing optional `retailer_id` query param.
 
 Response-shape contract — the response is now an OBJECT, not a LIST. To avoid breaking any out-of-band caller before T04 lands, the new endpoint also accepts an OPTIONAL `legacy=true` query param: when present, the response is the legacy `List[PartPriceHistoryReadWithRetailer]` shape (the current behavior). The `legacy=true` shim is removed in S13 final integration once we've audited all callers.

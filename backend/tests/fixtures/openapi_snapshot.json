@@ -1906,6 +1906,32 @@
         "title": "CategoryResponse",
         "type": "object"
       },
+      "ComplianceBlock": {
+        "properties": {
+          "compliant": {
+            "title": "Compliant",
+            "type": "integer"
+          },
+          "per_tier": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Per Tier",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "compliant",
+          "total",
+          "per_tier"
+        ],
+        "title": "ComplianceBlock",
+        "type": "object"
+      },
       "CopyBuildListRequest": {
         "description": "Request model for copying a build list.",
         "properties": {
@@ -1922,6 +1948,48 @@
           }
         },
         "title": "CopyBuildListRequest",
+        "type": "object"
+      },
+      "CoverageBlock": {
+        "properties": {
+          "per_tier": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CoverageTierBlock"
+            },
+            "title": "Per Tier",
+            "type": "object"
+          }
+        },
+        "required": [
+          "per_tier"
+        ],
+        "title": "CoverageBlock",
+        "type": "object"
+      },
+      "CoverageTierBlock": {
+        "properties": {
+          "parts_total": {
+            "title": "Parts Total",
+            "type": "integer"
+          },
+          "parts_with_specs": {
+            "title": "Parts With Specs",
+            "type": "integer"
+          },
+          "per_field": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Per Field",
+            "type": "object"
+          }
+        },
+        "required": [
+          "parts_with_specs",
+          "parts_total",
+          "per_field"
+        ],
+        "title": "CoverageTierBlock",
         "type": "object"
       },
       "CrawledPageRead": {
@@ -2876,6 +2944,66 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
+      "ExtractionHealthResponse": {
+        "properties": {
+          "compliance": {
+            "$ref": "#/components/schemas/ComplianceBlock"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageBlock"
+          },
+          "failure_rate_7d": {
+            "items": {
+              "$ref": "#/components/schemas/FailureRateRow"
+            },
+            "title": "Failure Rate 7D",
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/WindowMeta"
+          }
+        },
+        "required": [
+          "compliance",
+          "coverage",
+          "window"
+        ],
+        "title": "ExtractionHealthResponse",
+        "type": "object"
+      },
+      "FailureRateRow": {
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "parsed": {
+            "title": "Parsed",
+            "type": "integer"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter",
+          "failed",
+          "parsed",
+          "rate",
+          "tier"
+        ],
+        "title": "FailureRateRow",
+        "type": "object"
+      },
       "FlaggedEntitySummary": {
         "properties": {
           "created_at": {
@@ -3643,55 +3771,6 @@
           }
         },
         "title": "PartManufacturerUpdate",
-        "type": "object"
-      },
-      "PartPriceHistoryReadWithRetailer": {
-        "description": "Price history entry with retailer info for API responses.",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "observed_at": {
-            "description": "When this price was observed",
-            "format": "date-time",
-            "title": "Observed At",
-            "type": "string"
-          },
-          "part_listing_id": {
-            "description": "Part listing ID",
-            "format": "uuid",
-            "title": "Part Listing Id",
-            "type": "string"
-          },
-          "price_cents": {
-            "description": "Price in cents",
-            "minimum": 0.0,
-            "title": "Price Cents",
-            "type": "integer"
-          },
-          "retailer_id": {
-            "description": "Retailer ID",
-            "format": "uuid",
-            "title": "Retailer Id",
-            "type": "string"
-          },
-          "retailer_name": {
-            "description": "Retailer display name",
-            "title": "Retailer Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "part_listing_id",
-          "price_cents",
-          "observed_at",
-          "id",
-          "retailer_id",
-          "retailer_name"
-        ],
-        "title": "PartPriceHistoryReadWithRetailer",
         "type": "object"
       },
       "PartRead": {
@@ -6088,6 +6167,24 @@
         ],
         "title": "WebAuthnRegisterVerifyRequest",
         "type": "object"
+      },
+      "WindowMeta": {
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "since": {
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "since"
+        ],
+        "title": "WindowMeta",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -6893,6 +6990,39 @@
           }
         ],
         "summary": "Delete All Parts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/extraction-health/": {
+      "get": {
+        "description": "Return compliance + coverage + 7-day failure-rate (admin only).\n\nImplementation note: per MEM037, the canonical adapter count is 108\n(T0:83 / T1:15 / T2:10) \u2014 the IS_FALLBACK ``GenericHtmlParser`` instances\nare excluded from ``ADAPTER_REGISTRY`` per D-03 and therefore from the\ncompliance tally. Failure-rate is sourced from ``crawled_pages.parse_status``\nrather than CloudWatch (D008).",
+        "operationId": "get_extraction_health_api_admin_extraction_health__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractionHealthResponse"
+                }
+              }
+            },
+            "description": "Extraction health snapshot (compliance + coverage + failure-rate)"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Extraction Health",
         "tags": [
           "admin"
         ]
@@ -14702,7 +14832,7 @@
     },
     "/api/parts/{part_id}/price-history": {
       "get": {
-        "description": "Get price history for this part (aggregated across its link group).",
+        "description": "Get price history for this part (aggregated across its link group).\n\nDefault response is the S05 object shape (`summary`, `retailers`, `history`,\n`window`). Pass `legacy=true` for the legacy list shape until S13 removes\nthe shim. Optional `retailer_id` narrows both the new and legacy responses\nto one retailer; the new shape's `summary` is recomputed from that filtered\nslice (not the cross-retailer aggregate). Invalid `window` values produce a\n422 with `error_code: INVALID_WINDOW` (see schema response).",
         "operationId": "get_part_price_history_api_parts__part_id__price_history_get",
         "parameters": [
           {
@@ -14712,6 +14842,18 @@
             "schema": {
               "format": "uuid",
               "title": "Part Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "90d",
+              "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+              "title": "Window",
               "type": "string"
             }
           },
@@ -14733,22 +14875,28 @@
               "description": "Filter by retailer ID",
               "title": "Retailer Id"
             }
+          },
+          {
+            "description": "If true, return the pre-S05 list shape for backwards compatibility (removed in S13).",
+            "in": "query",
+            "name": "legacy",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "If true, return the pre-S05 list shape for backwards compatibility (removed in S13).",
+              "title": "Legacy",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
-                  },
-                  "title": "Response Get Part Price History Api Parts  Part Id  Price History Get",
-                  "type": "array"
-                }
+                "schema": {}
               }
             },
-            "description": "Price history retrieved"
+            "description": "Price history retrieved (object shape; or list shape with legacy=true)"
           },
           "404": {
             "description": "Resource not found"

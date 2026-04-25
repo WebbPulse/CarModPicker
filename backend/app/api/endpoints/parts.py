@@ -3,7 +3,8 @@ Parts endpoint using base classes to eliminate redundancy.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, cast
+import time
+from typing import Any, Dict, List, Optional, Union, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -34,9 +35,18 @@ from app.api.schemas.part import (
     SetPrimaryImageRequest,
 )
 from app.api.schemas.part_listing import PartListingCreate, PartListingReadWithRetailer
-from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
+from app.api.schemas.part_price_history import (
+    PartPriceHistoryReadWithRetailer,
+    PriceHistorySinglePartResponse,
+)
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_linker_service import link_group_part_ids, link_new_part
+from app.api.services.part_price_aggregation_service import (
+    ALLOWED_WINDOWS,
+    aggregate_single_part,
+    apply_retailer_filter,
+    parse_window,
+)
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_existing_part_for_ugc_create,
@@ -1131,19 +1141,17 @@ async def get_part_with_listings(
     )
 
 
-@router.get(
-    "/{part_id}/price-history",
-    response_model=List[PartPriceHistoryReadWithRetailer],
-    responses=standard_responses(success_description="Price history retrieved", not_found=True),
-)
-async def get_part_price_history(
+def _legacy_get_part_price_history(
+    db: Session,
     part_id: UUID,
-    retailer_id: Optional[UUID] = Query(None, description="Filter by retailer ID"),
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    retailer_id: Optional[UUID],
 ) -> List[PartPriceHistoryReadWithRetailer]:
-    """Get price history for this part (aggregated across its link group)."""
-    db = deps["db"]
-    _ = get_entity_or_404(db, DBPart, part_id, "part")
+    """Legacy list-shaped price history (pre-S05). Used only by the `legacy=true`
+    shim on `GET /parts/{id}/price-history` until T04 audits all callers and S13
+    removes the shim. The query mirrors the pre-S05 behavior: history rows
+    aggregated across the canonical link group, joined to listing+retailer,
+    optionally narrowed by retailer_id, ordered observed_at DESC.
+    """
     group_ids = link_group_part_ids(db, part_id)
     stmt = (
         select(DBPartPriceHistory, DBPartListing, DBRetailer)
@@ -1165,6 +1173,76 @@ async def get_part_price_history(
         )
         for h, _listing, r in rows
     ]
+
+
+@router.get(
+    "/{part_id}/price-history",
+    response_model=None,
+    responses=standard_responses(
+        success_description="Price history retrieved (object shape; or list shape with legacy=true)",
+        not_found=True,
+    ),
+)
+async def get_part_price_history(
+    part_id: UUID,
+    window: str = Query(
+        "90d",
+        description=f"Time window for aggregation. Allowed: {ALLOWED_WINDOWS}",
+    ),
+    retailer_id: Optional[UUID] = Query(None, description="Filter by retailer ID"),
+    legacy: bool = Query(
+        False,
+        description="If true, return the pre-S05 list shape for backwards compatibility (removed in S13).",
+    ),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Union[PriceHistorySinglePartResponse, List[PartPriceHistoryReadWithRetailer]]:
+    """Get price history for this part (aggregated across its link group).
+
+    Default response is the S05 object shape (`summary`, `retailers`, `history`,
+    `window`). Pass `legacy=true` for the legacy list shape until S13 removes
+    the shim. Optional `retailer_id` narrows both the new and legacy responses
+    to one retailer; the new shape's `summary` is recomputed from that filtered
+    slice (not the cross-retailer aggregate). Invalid `window` values produce a
+    422 with `error_code: INVALID_WINDOW` (see schema response).
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+    _ = get_entity_or_404(db, DBPart, part_id, "part")
+
+    if legacy:
+        # Legacy list shape — no aggregation/log, just the pre-S05 query path.
+        return _legacy_get_part_price_history(db, part_id, retailer_id)
+
+    try:
+        # Probe the window literal up front so a bad value 422s before we open
+        # a DB transaction; aggregate_single_part calls parse_window again, but
+        # the early raise gives us the cleaner HTTP error contract.
+        parse_window(window)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "INVALID_WINDOW",
+                "message": f"Invalid window {window!r}; expected one of {ALLOWED_WINDOWS}",
+                "details": {"allowed": ALLOWED_WINDOWS},
+            },
+        )
+
+    started = time.perf_counter()
+    result = aggregate_single_part(db, part_id, window)
+    if retailer_id is not None:
+        result = apply_retailer_filter(result, retailer_id)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    logger.info(
+        "price_history_aggregation: endpoint=single part_count=1 "
+        "window=%s link_groups_resolved=%d rows_scanned=%d elapsed_ms=%d",
+        window,
+        1,
+        result.summary.observation_count,
+        elapsed_ms,
+    )
+    return result
 
 
 # Create base endpoint router AFTER custom endpoints to avoid route collision

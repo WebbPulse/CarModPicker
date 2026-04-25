@@ -38,6 +38,7 @@ from app.api.services.part_linker_service import link_group_part_ids
 
 
 _VALID_WINDOWS = {"30d", "90d", "180d", "1y", "all"}
+ALLOWED_WINDOWS: list[str] = sorted(_VALID_WINDOWS)
 
 
 def parse_window(window: str) -> Optional[datetime]:
@@ -215,6 +216,49 @@ def aggregate_single_part(
         retailers=retailer_breakdowns,
         history=history,
         window=window,
+    )
+
+
+def apply_retailer_filter(
+    result: PriceHistorySinglePartResponse,
+    retailer_id: UUID,
+) -> PriceHistorySinglePartResponse:
+    """Narrow a single-part aggregation to one retailer slice.
+
+    Filters `history` to entries from the given retailer, keeps at most one
+    matching `RetailerPriceBreakdown` in `retailers`, and recomputes `summary`
+    from the filtered observations so `min/max/last/trend/observation_count`
+    reflect the single-retailer view rather than the cross-retailer aggregate.
+    Returns an empty-summary shape (status 200 from the endpoint) when no
+    observations match.
+    """
+    filtered_history = [h for h in result.history if h.retailer_id == retailer_id]
+    filtered_retailers = [r for r in result.retailers if r.retailer_id == retailer_id]
+
+    if not filtered_history:
+        return PriceHistorySinglePartResponse(
+            summary=_empty_summary(),
+            retailers=filtered_retailers,
+            history=[],
+            window=result.window,
+        )
+
+    prices_desc = [h.price_cents for h in filtered_history]
+    chrono = list(reversed(prices_desc))
+    most_recent = filtered_history[0]
+    summary = PriceHistorySummary(
+        min_cents=min(prices_desc),
+        max_cents=max(prices_desc),
+        last_cents=most_recent.price_cents,
+        last_observed_at=most_recent.observed_at,
+        trend=_compute_trend(chrono),
+        observation_count=len(prices_desc),
+    )
+    return PriceHistorySinglePartResponse(
+        summary=summary,
+        retailers=filtered_retailers,
+        history=filtered_history,
+        window=result.window,
     )
 
 
