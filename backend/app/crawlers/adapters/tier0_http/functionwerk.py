@@ -261,6 +261,7 @@ class FunctionwerkAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "functionwerk"
+    category_targets: ClassVar[list[str]] = ["universal"]
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Uses sitemap.xml (and child sitemaps) to find all

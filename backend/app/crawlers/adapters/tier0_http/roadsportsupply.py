@@ -272,6 +272,7 @@ class RoadSportSupplyAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "roadsportsupply"
+    category_targets: ClassVar[list[str]] = ["universal"]
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs; env override wins when set."""
         env_urls = _resolve_start_urls_env()

@@ -61,7 +61,7 @@ When all compliant, append `OK — every adapter declares at least one category_
   - Files: `backend/app/crawlers/compliance_audit.py`
   - Verify: cd backend && python -m app.crawlers.compliance_audit; test $? -eq 1 && python -m app.crawlers.compliance_audit | grep -q 'Non-compliant adapters:'
 
-- [ ] **T02: Retrofit `category_targets` ClassVar onto all 108 adapter modules (specialists get concrete slug + universal; everyone else gets `["universal"]`)** `est:1h30m`
+- [x] **T02: Retrofit `category_targets` ClassVar onto all 108 adapter modules (specialists get concrete slug + universal; everyone else gets `["universal"]`)** `est:1h30m`
   Apply the canonical mapping to every adapter file under `backend/app/crawlers/adapters/{tier0_http,tier1_tls,tier2_browser}/`. The retrofit is mechanical but must be auditable, so do it via a tracked one-shot helper script under `backend/scripts/m002_s03_apply_category_targets.py` that owns the mapping; run the script, then commit the script *and* the resulting adapter edits in this task. The helper stays in the repo as evidence (and so the mapping is reviewable in one place rather than spread across 108 diffs).
 
 **Canonical category_targets mapping** (every entry must already be a registered slug — `coilover`, `brake`, `turbo`, or `universal`; nothing else exists in `default_registry` today):
