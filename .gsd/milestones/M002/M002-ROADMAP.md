@@ -22,10 +22,10 @@
 - [x] **S02: S02** `risk:high` `depends:[]`
   > After this: Run a CLI one-liner against 5 archived HTML samples drawn from 5 different adapters: each result's specifications dict is populated with universal fields at appropriate confidence levels. Verify suppression: an adapter declares suppress_universal=['weight'] and that field is not auto-extracted for that adapter.
 
-- [ ] **S03: S03** `risk:high` `depends:[]`
+- [x] **S03: S03** `risk:high` `depends:[]`
   > After this: Run python -m app.crawlers.compliance_audit. Output prints 111/111 compliant with per-tier breakdown (T0: 84/84, T1: 16/16, T2: 11/11). Each adapter declares at least one category_target. Spot-check 3 T0, 2 T1, 1 T2 adapter — verify category_targets attribute present and base-class universal extraction inherited.
 
-- [ ] **S04: Re-extraction backfill + admin extraction-health API** `risk:medium` `depends:[S02,S03]`
+- [ ] **S04: S04** `risk:medium` `depends:[]`
   > After this: Kick off the backfill: python -m app.crawlers.backfill --batch-size 100. Job is idempotent (re-running on the same parts produces no duplicates), resumable (Ctrl-C and resume picks up where it left off), and logs progress with per-batch counts. Hit GET /api/admin/extraction-health — JSON returns compliance: 111/111, per-tier coverage gradient, per-adapter failure-rate over 7d window.
 
 - [ ] **S05: Price-history aggregation API + perf gate** `risk:medium` `depends:[]`

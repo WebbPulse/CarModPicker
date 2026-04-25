@@ -83,6 +83,9 @@ htmlcov/
 *.db
 *.sqlite3
 
+# Crawler runtime state (resume cursors, local archives)
+.crawler-state/
+
 # ===========================================
 # Node.js/React Frontend
 # ===========================================
