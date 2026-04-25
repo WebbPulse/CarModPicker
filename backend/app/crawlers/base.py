@@ -371,6 +371,11 @@ class ScrapedPayload:
     part_number: Optional[str] = None
     image_urls: Optional[List[str]] = None
     gtin: Optional[str] = None
+    #: Optional structured spec block (matches Part.specifications JSON shape and
+    #: PartCreate.specifications). Populated by adapters or universal extraction
+    #: when a category schema (per app.crawlers.specs) applies; left None when
+    #: the category has no registered schema or extraction failed validation.
+    specifications: Optional[Dict[str, Any]] = None
 
 
 def _origin_from_url(url: str) -> str:

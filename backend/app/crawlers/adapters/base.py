@@ -54,6 +54,23 @@ class RetailerCrawlerAdapter(ABC):
                 f"{cls.__module__}.{cls.__qualname__} must declare "
                 f"ADAPTER_NAME: ClassVar[str] = '<slug>' (non-empty). See D-02."
             )
+        targets = getattr(cls, "category_targets", [])
+        if targets:
+            # Lazy import: app.crawlers.specs imports CategorySpec subclasses,
+            # not adapter machinery, so the dependency direction stays one-way.
+            from app.crawlers.specs import default_registry
+
+            for entry in targets:
+                if not isinstance(entry, str) or not entry.strip():
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares invalid "
+                        f"category_targets entry {entry!r}; each entry must be a non-empty string."
+                    )
+                if default_registry.resolve(entry) is None:
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares unknown "
+                        f"category_targets entry {entry!r}; not registered in default_registry"
+                    )
 
     #: Globally-unique slug for this adapter. Enforced non-empty by __init_subclass__.
     #: Must equal the existing ADAPTER_REGISTRY key verbatim (no derivation from class name per D-02).
@@ -65,6 +82,11 @@ class RetailerCrawlerAdapter(ABC):
     #: Which fetcher tier to use. Default is plain-HTTP; override on subclasses
     #: that need TLS impersonation or a headless browser.
     FETCHER_TIER: ClassVar[FetcherTier] = "http"
+    #: Category-spec slugs (per app.crawlers.specs.default_registry) this adapter targets.
+    #: Default empty — adapters opt in by overriding. Validated at class-definition time
+    #: by __init_subclass__: each entry must resolve via default_registry.resolve(), so
+    #: typos in the S03 retrofit fail loudly at import rather than silently dropping specs.
+    category_targets: ClassVar[list[str]] = []
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
         # Defer default-fetcher construction until first access. Archive rescrape

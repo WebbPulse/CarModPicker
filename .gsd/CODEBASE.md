@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T03:17:59Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T03:17:59Z","fingerprint":"eddc9753613ed446316226fed8db0be028659de1","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T03:32:13Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T03:32:13Z","fingerprint":"137c27f025c77708a4184e94c0f13ac35e69b199","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -254,6 +254,14 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/crawlers/site_problem_notes/wheelsboutique.md`
 - `backend/app/crawlers/site_problem_notes/z1motorsports.md`
 
+### backend/app/crawlers/specs/
+- `backend/app/crawlers/specs/__init__.py`
+- `backend/app/crawlers/specs/base.py`
+- `backend/app/crawlers/specs/brake.py`
+- `backend/app/crawlers/specs/coilover.py`
+- `backend/app/crawlers/specs/registry.py`
+- `backend/app/crawlers/specs/turbo.py`
+
 ### backend/app/db/
 - `backend/app/db/__init__.py`
 - `backend/app/db/base_class.py`
@@ -304,7 +312,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(78 files: 78 .py)*
+- *(72 files: 72 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`
