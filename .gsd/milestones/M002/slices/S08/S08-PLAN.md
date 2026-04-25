@@ -48,7 +48,7 @@
   - Files: `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/lib/utils.ts`, `frontend/src/components/ui/.gitkeep`, `frontend/src/styles/.gitkeep`
   - Verify: cd frontend && npm install --silent && grep -q 'class-variance-authority' package.json && grep -q '@radix-ui/react-dialog' package.json && grep -q 'export function cn' src/lib/utils.ts && npm run type-check
 
-- [ ] **T02: Define dark-palette token layer in styles/tokens.css and wire into Tailwind v4 @theme** `est:1h`
+- [x] **T02: Define dark-palette token layer in styles/tokens.css and wire into Tailwind v4 @theme** `est:1h`
   Land the CSS-variable token substrate that every primitive and every reskinned page will consume. Per D003 + R011, the dark palette is locked in M002; light mode is deferred unless it falls out free.
 
 **Token categories required:** color (background, foreground, card, popover, primary, secondary, muted, accent, destructive, border, input, ring), spacing scale (radius mainly — `--radius-sm/md/lg/xl`), typography (font-sans + font-mono families, `--font-size-*` scale already provided by Tailwind), shadows (`--shadow-sm/md/lg/xl`), z-index layers (`--z-dropdown/modal/toast`).
