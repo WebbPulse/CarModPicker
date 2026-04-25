@@ -154,3 +154,9 @@ variable "enable_per_adapter_alarms" {
   type        = bool
   default     = true
 }
+
+variable "use_aggregate_crawler_alarm" {
+  description = "When true (default), a single aggregate parse-failure alarm replaces the 107 per-adapter alarms (~$0.10/mo vs ~$10.80/mo). Set to false to restore per-adapter alarming."
+  type        = bool
+  default     = true
+}

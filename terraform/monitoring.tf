@@ -182,7 +182,8 @@ locals {
   _adapter_names_clean = [
     for n in local._adapter_names_raw : trimspace(n) if trimspace(n) != ""
   ]
-  parse_alarm_adapters = toset(setsubtract(local._adapter_names_clean, var.disabled_parse_alarms))
+  # When use_aggregate_crawler_alarm=true the per-adapter set is empty so no individual alarms are created.
+  parse_alarm_adapters = var.use_aggregate_crawler_alarm ? toset([]) : toset(setsubtract(local._adapter_names_clean, var.disabled_parse_alarms))
 }
 
 resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_per_adapter" {
@@ -251,5 +252,57 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_per_adapter" {
     AdapterName = each.value
     ManagedBy   = "Terraform"
     Phase       = "07"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Aggregate crawler parse-failure alarm (cost-saving mode)
+#
+# Active when var.use_aggregate_crawler_alarm=true (default). Replaces the
+# 107 per-adapter alarms (~$10.80/mo) with a single alarm (~$0.10/mo).
+# Uses SEARCH math to sum ParseFailures and Ingested across all adapters so
+# no adapter-list maintenance is required here.
+#
+# To restore per-adapter alarming: set use_aggregate_crawler_alarm=false and
+# re-apply. Terraform will destroy this alarm and recreate the full fan-out.
+# ---------------------------------------------------------------------------
+resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_aggregate" {
+  count = var.use_aggregate_crawler_alarm ? 1 : 0
+
+  alarm_name        = "${local.prefix}-crawler-parse-failure-aggregate"
+  alarm_description = "Aggregate parse-failure rate >50% across all adapters (live runs). Set use_aggregate_crawler_alarm=false to restore per-adapter alarms."
+  actions_enabled   = var.enable_per_adapter_alarms
+
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 0.5
+  treat_missing_data  = "notBreaching"
+
+  metric_query {
+    id         = "ingested_total"
+    expression = "SUM(SEARCH('{CarModPicker/Crawlers,AdapterName,Environment,RunType} MetricName=\"Ingested\" Environment=\"${var.environment}\" RunType=\"live\"', 'Sum', 3600))"
+    label      = "Total Ingested (all adapters)"
+  }
+
+  metric_query {
+    id         = "failures_total"
+    expression = "SUM(SEARCH('{CarModPicker/Crawlers,AdapterName,Environment,RunType} MetricName=\"ParseFailures\" Environment=\"${var.environment}\" RunType=\"live\"', 'Sum', 3600))"
+    label      = "Total Parse Failures (all adapters)"
+  }
+
+  metric_query {
+    id          = "rate"
+    expression  = "IF((ingested_total + failures_total) < 10, 0, failures_total / (ingested_total + failures_total))"
+    label       = "Aggregate parse failure rate (suppressed below 10 samples)"
+    return_data = true
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    ManagedBy = "Terraform"
+    Phase     = "07"
   }
 }
