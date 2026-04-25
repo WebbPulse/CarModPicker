@@ -195,7 +195,7 @@ NEGATIVE TESTS (Q7):
   - Files: `backend/app/api/endpoints/parts.py`, `backend/tests/api/endpoints/test_parts_price_history.py`, `backend/tests/fixtures/openapi_snapshot.json`
   - Verify: TESTING=true pytest backend/tests/api/endpoints/test_parts_price_history.py backend/tests/api/test_openapi_snapshot.py -n auto --rootdir=backend -q --no-cov
 
-- [ ] **T04: Wire frontend client + types for both new endpoints (`getPartPriceHistorySummary`, `getBatchPriceHistorySummary`)** `est:1h`
+- [x] **T04: Wire frontend client + types for both new endpoints (`getPartPriceHistorySummary`, `getBatchPriceHistorySummary`)** `est:1h`
   Add typed API client methods + TypeScript interfaces in `frontend/src/api/parts.ts` and `frontend/src/types/Api.ts` so that S06 (sparkline + detail view) and S07 (alert evaluation) can consume the new endpoints without re-deriving the response shapes.
 
 Update `frontend/src/types/Api.ts` (insert after the existing `PartPriceHistoryReadWithRetailer` at L316):

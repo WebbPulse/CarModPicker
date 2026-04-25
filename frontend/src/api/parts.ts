@@ -11,6 +11,9 @@ import type {
   PartRead,
   PartReadWithVotes,
   PartUpdate,
+  PriceHistoryBatchRequest,
+  PriceHistoryBatchResponse,
+  PriceHistorySinglePartResponse,
 } from '../types/Api';
 
 export const partsApi = {
@@ -83,12 +86,32 @@ export const partsApi = {
   getPartListings: (partId: string) =>
     apiClient.get<PartListingReadWithRetailer[]>(`/parts/${partId}/listings`),
 
-  // Get price history for a part (optional filter by retailer)
+  // Get price history for a part as a flat array (legacy shape).
+  // Forwards `legacy=true` to the backend object-shape endpoint so existing
+  // callers (Chrome extension, downstream pages) keep their array contract.
   getPartPriceHistory: (partId: string, params?: { retailer_id?: string }) =>
     apiClient.get<PartPriceHistoryReadWithRetailer[]>(
       `/parts/${partId}/price-history`,
+      { params: { ...params, legacy: true } }
+    ),
+
+  // Get aggregated price history (summary + per-retailer breakdown + listings)
+  // for a single part. New object-shape endpoint introduced in M002/S05.
+  getPartPriceHistorySummary: (
+    partId: string,
+    params?: {
+      window?: PriceHistoryBatchRequest['window'];
+      retailer_id?: string;
+    }
+  ) =>
+    apiClient.get<PriceHistorySinglePartResponse>(
+      `/parts/${partId}/price-history`,
       { params }
     ),
+
+  // Batch price-history summary for up to 100 part IDs in a single round trip.
+  getBatchPriceHistorySummary: (body: PriceHistoryBatchRequest) =>
+    apiClient.post<PriceHistoryBatchResponse>('/parts/price-history', body),
 
   // Update global part
   updatePart: (partId: string, data: PartUpdate) =>

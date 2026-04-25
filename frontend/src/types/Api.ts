@@ -322,6 +322,48 @@ export interface PartPriceHistoryReadWithRetailer {
   retailer_name: string;
 }
 
+export type PriceTrend = 'up' | 'down' | 'flat';
+
+export interface PriceHistorySummary {
+  min_cents: number | null;
+  max_cents: number | null;
+  last_cents: number | null;
+  last_observed_at: string | null;
+  trend: PriceTrend;
+  observation_count: number;
+}
+
+export interface RetailerPriceBreakdown {
+  retailer_id: string;
+  retailer_name: string;
+  min_cents: number | null;
+  max_cents: number | null;
+  last_cents: number | null;
+  last_observed_at: string | null;
+  observation_count: number;
+}
+
+export interface PriceHistorySinglePartResponse {
+  summary: PriceHistorySummary;
+  retailers: RetailerPriceBreakdown[];
+  history: PartPriceHistoryReadWithRetailer[];
+  window: string;
+}
+
+export type PriceHistoryBatchSummaryItem = PriceHistorySummary;
+
+export interface PriceHistoryBatchRequest {
+  part_ids: string[];
+  window?: '30d' | '90d' | '180d' | '1y' | 'all';
+}
+
+export interface PriceHistoryBatchResponse {
+  summaries: Record<string, PriceHistoryBatchSummaryItem>;
+  window: string;
+  requested_count: number;
+  found_count: number;
+}
+
 export interface PaginationInfo {
   current_page: number;
   total_pages: number;
