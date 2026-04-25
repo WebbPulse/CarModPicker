@@ -17,8 +17,7 @@ import { CACHE_DURATION_MS } from '../../constants';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { carFullDisplayName } from '../../utils/carUtils';
 import { usePartPriceSummaries } from '../../hooks/usePartPriceSummaries';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
+import { Button } from '../ui/button';
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
@@ -845,28 +844,34 @@ function PartList({
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {showAddToBuildListButton && onAddToBuildList && (
-                          <ActionButton
-                            onClick={() => onAddToBuildList(part)}
+                          <Button
+                            size="sm"
+                            data-testid="parts-catalog-add-to-build-list-trigger"
                             className="text-xs px-2 py-1 whitespace-nowrap shrink-0"
+                            onClick={() => onAddToBuildList(part)}
                           >
                             Add to Build List
-                          </ActionButton>
+                          </Button>
                         )}
                         {onEdit && (!canEdit || canEdit(part)) && (
-                          <SecondaryButton
-                            onClick={() => onEdit(part)}
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             className="text-xs px-2 py-1"
+                            onClick={() => onEdit(part)}
                           >
                             Edit
-                          </SecondaryButton>
+                          </Button>
                         )}
                         {onDelete && (!canDelete || canDelete(part)) && (
-                          <ActionButton
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="text-xs px-2 py-1"
                             onClick={() => onDelete(part)}
-                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
                           >
                             Delete
-                          </ActionButton>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -989,28 +994,33 @@ function PartList({
                     </div>
                     <div className="flex items-center gap-2">
                       {showAddToBuildListButton && onAddToBuildList && (
-                        <ActionButton
-                          onClick={() => onAddToBuildList(part)}
+                        <Button
+                          size="sm"
                           className="text-xs px-3 py-1 whitespace-nowrap shrink-0"
+                          onClick={() => onAddToBuildList(part)}
                         >
                           📋 Add to Build List
-                        </ActionButton>
+                        </Button>
                       )}
                       {onEdit && (!canEdit || canEdit(part)) && (
-                        <SecondaryButton
-                          onClick={() => onEdit(part)}
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           className="text-xs px-3 py-1"
+                          onClick={() => onEdit(part)}
                         >
                           Edit
-                        </SecondaryButton>
+                        </Button>
                       )}
                       {onDelete && (!canDelete || canDelete(part)) && (
-                        <ActionButton
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs px-3 py-1"
                           onClick={() => onDelete(part)}
-                          className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700"
                         >
                           Delete
-                        </ActionButton>
+                        </Button>
                       )}
                     </div>
                   </div>

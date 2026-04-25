@@ -53,7 +53,7 @@ Load profile: identical to before; no new fetches or re-renders introduced.
   - Files: `frontend/src/pages/parts/PartsCatalog.tsx`, `frontend/src/components/parts/PartsFilterSidebar.tsx`, `frontend/src/components/parts/PartsActiveFilterChips.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- PartsCatalog && grep -c "from '../../components/common/Input'\|from '../components/common/Input'" src/pages/parts/PartsCatalog.tsx | grep -q '^0$'
 
-- [ ] **T02: Reskin PartList row action buttons (Add to Build List / Edit / Delete) onto ui/Button — table + card layouts** `est:45m`
+- [x] **T02: Reskin PartList row action buttons (Add to Build List / Edit / Delete) onto ui/Button — table + card layouts** `est:45m`
   Migrate the four row-action <ActionButton>/<SecondaryButton> usages in PartList.tsx (two per layout × table + card) to ui/Button while preserving the sparkline + delta-line integration (S06) and the responsive column-priority logic untouched.
 
 In frontend/src/components/parts/PartList.tsx:
