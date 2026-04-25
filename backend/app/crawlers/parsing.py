@@ -9,7 +9,7 @@ Adapters can use these and add retailer-specific selectors.
 import html
 import json
 import re
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -564,3 +564,586 @@ def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[
         if manufacturer_key and normalized == manufacturer_key:
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Universal-field extractors (S02)
+# ---------------------------------------------------------------------------
+#
+# Five pure-function extractors for fields every part can plausibly carry —
+# weight, material, finish, warranty, and fitment notes. Each returns
+# ``(value, confidence)`` (confidence ∈ {'high','medium','low'}) or ``None``
+# when nothing was found. Functions are deterministic, side-effect-free, and
+# import-safe (no DB, no network, no I/O). Confidence levels mirror the
+# CategorySpec convention from ``app/crawlers/specs/base.py``.
+#
+# ReDoS / cost guard: every regex below is linear-time on user-controlled
+# text (no nested quantifiers on user-supplied groups). Input scanning is
+# capped at the first ``_UNIVERSAL_INPUT_CAP`` chars of the html string —
+# well above any real product page — so a 50MB pathological input cannot
+# wedge the regex engine.
+
+_UNIVERSAL_INPUT_CAP = 50_000
+
+_Confidence = Literal["high", "medium", "low"]
+
+
+def _cap_html(html_text: Optional[str]) -> Optional[str]:
+    """Return at most the first ``_UNIVERSAL_INPUT_CAP`` chars of html_text, or None."""
+    if not html_text or not html_text.strip():
+        return None
+    if len(html_text) > _UNIVERSAL_INPUT_CAP:
+        return html_text[:_UNIVERSAL_INPUT_CAP]
+    return html_text
+
+
+# Sentinel weight bounds (grams). Anything outside is treated as scraper noise.
+_WEIGHT_GRAM_MIN = 1.0
+_WEIGHT_GRAM_MAX = 500_000.0
+
+# Unit conversions to grams.
+_WEIGHT_UNIT_TO_GRAMS: Dict[str, float] = {
+    "g": 1.0,
+    "gram": 1.0,
+    "grams": 1.0,
+    "kg": 1000.0,
+    "kgs": 1000.0,
+    "kilogram": 1000.0,
+    "kilograms": 1000.0,
+    "lb": 453.59237,
+    "lbs": 453.59237,
+    "pound": 453.59237,
+    "pounds": 453.59237,
+    "oz": 28.3495231,
+    "ounce": 28.3495231,
+    "ounces": 28.3495231,
+}
+
+
+def _to_grams(value: float, unit: str) -> Optional[float]:
+    """Convert ``value`` in ``unit`` to grams; return None if unit unknown or result out of range."""
+    factor = _WEIGHT_UNIT_TO_GRAMS.get(unit.lower())
+    if factor is None:
+        return None
+    grams = value * factor
+    if grams < _WEIGHT_GRAM_MIN or grams > _WEIGHT_GRAM_MAX:
+        return None
+    return grams
+
+
+# Linear-time regex: bounded numeric runs so a 50K-char digit pile cannot
+# trigger O(N²) backtracking when the trailing unit token is missing.
+# Real weights fit comfortably in {1,8}.{1,4}.
+_WEIGHT_VALUE_UNIT_RE = re.compile(
+    r"(?<!\d)(\d{1,8}(?:\.\d{1,4})?)\s{0,4}(lbs?|pounds?|kgs?|kilograms?|g|grams?|oz|ounces?)\b",
+    re.IGNORECASE,
+)
+_WEIGHT_LABELED_RE = re.compile(
+    r"weight\s{0,4}[:=]?\s{0,4}(\d{1,8}(?:\.\d{1,4})?)\s{0,4}(lbs?|pounds?|kgs?|kilograms?|g|grams?|oz|ounces?)\b",
+    re.IGNORECASE,
+)
+
+
+def _weight_from_json_ld(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+    """Pull a Product weight from JSON-LD if a numeric value + unit can be resolved."""
+    item = extract_json_ld_product(html_text)
+    if not item:
+        return None
+    weight = item.get("weight")
+    if weight is None:
+        return None
+    # Schema.org QuantitativeValue: {"value": "12", "unitCode": "LBR"} or unitText
+    if isinstance(weight, dict):
+        raw_val = weight.get("value")
+        unit = weight.get("unitText") or weight.get("unitCode") or weight.get("unit")
+        if raw_val is None or unit is None:
+            return None
+        try:
+            value = float(str(raw_val).replace(",", "").strip())
+        except (ValueError, TypeError):
+            return None
+        unit_str = str(unit).strip()
+        # Map common UN/CEFACT unit codes that JSON-LD uses to our table.
+        unit_code_map = {
+            "LBR": "lb", "LB": "lb",
+            "KGM": "kg", "KG": "kg",
+            "GRM": "g", "G": "g",
+            "ONZ": "oz", "OZ": "oz",
+        }
+        unit_str = unit_code_map.get(unit_str.upper(), unit_str)
+        grams = _to_grams(value, unit_str)
+        if grams is not None:
+            return (grams, "high")
+        return None
+    if isinstance(weight, str):
+        match = _WEIGHT_VALUE_UNIT_RE.search(weight)
+        if match:
+            try:
+                value = float(match.group(1))
+            except ValueError:
+                return None
+            grams = _to_grams(value, match.group(2))
+            if grams is not None:
+                return (grams, "high")
+    return None
+
+
+# Match shipping-table-ish containers we should *skip* before falling through
+# to body text. Linear scan on lowercased html — cheap and good enough.
+_SHIPPING_BLOCK_HINTS = (
+    'class="shipping',
+    "class='shipping",
+    "shipping-info",
+    "shipping_info",
+    "shipping-weight",
+)
+
+
+def _strip_shipping_blocks(html_text: str) -> str:
+    """
+    Remove obvious shipping-info <table>/<div> blocks before body-text weight
+    fallback so a "Shipping Weight: 30 lb" row doesn't beat the real spec row.
+    Best-effort — uses BeautifulSoup to drop matching elements.
+    """
+    lowered = html_text.lower()
+    if not any(hint in lowered for hint in _SHIPPING_BLOCK_HINTS):
+        return html_text
+    try:
+        soup = BeautifulSoup(html_text, "html.parser")
+    except Exception:  # noqa: BLE001  — defensive: bs4 should never raise here
+        return html_text
+    for tag in soup.find_all(["table", "div", "section"]):
+        if not isinstance(tag, Tag):
+            continue
+        cls_attr = tag.get("class")
+        cls_list: List[str] = []
+        if isinstance(cls_attr, list):
+            cls_list = [str(c).lower() for c in cls_attr]
+        elif isinstance(cls_attr, str):
+            cls_list = [cls_attr.lower()]
+        id_attr = tag.get("id")
+        id_str = str(id_attr).lower() if isinstance(id_attr, str) else ""
+        if any("shipping" in c for c in cls_list) or "shipping" in id_str:
+            tag.decompose()
+    return str(soup)
+
+
+def extract_weight(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+    """
+    Extract a product's weight, normalized to grams.
+
+    Confidence tiering (high → low):
+      * high: JSON-LD Product ``weight`` with a recognizable unit.
+      * medium: labeled spec-row text outside shipping blocks ("Weight: 25 lb").
+      * low: first ``<value> <unit>`` match anywhere in body text.
+
+    Returns None when no plausible weight is found, when the converted value
+    falls outside ``[1 g, 500_000 g]``, or on malformed input.
+    """
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    json_ld_hit = _weight_from_json_ld(capped)
+    if json_ld_hit is not None:
+        return json_ld_hit
+
+    cleaned = _strip_shipping_blocks(capped)
+    try:
+        soup = BeautifulSoup(cleaned, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = cleaned
+
+    labeled = _WEIGHT_LABELED_RE.search(body_text)
+    if labeled:
+        try:
+            value = float(labeled.group(1))
+        except ValueError:
+            value = 0.0
+        grams = _to_grams(value, labeled.group(2))
+        if grams is not None:
+            return (grams, "medium")
+
+    loose = _WEIGHT_VALUE_UNIT_RE.search(body_text)
+    if loose:
+        try:
+            value = float(loose.group(1))
+        except ValueError:
+            value = 0.0
+        grams = _to_grams(value, loose.group(2))
+        if grams is not None:
+            return (grams, "low")
+
+    return None
+
+
+# Material lexicon — order matters for canonicalization (longer/more-specific
+# phrases first) so "billet aluminum" wins over plain "aluminum" when both
+# patterns could match. Maps regex pattern → canonical output form.
+_MATERIAL_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b6061\s+aluminum\b", re.IGNORECASE), "6061 aluminum"),
+    (re.compile(r"\b7075\s+aluminum\b", re.IGNORECASE), "7075 aluminum"),
+    (re.compile(r"\bbillet\s+aluminum\b", re.IGNORECASE), "billet aluminum"),
+    (re.compile(r"\bforged\s+steel\b", re.IGNORECASE), "forged steel"),
+    (re.compile(r"\bcast\s+iron\b", re.IGNORECASE), "cast iron"),
+    (re.compile(r"\bstainless\s+steel\b", re.IGNORECASE), "stainless steel"),
+    (re.compile(r"\bcarbon[\s\-]fiber\b", re.IGNORECASE), "carbon fiber"),
+    (re.compile(r"\baluminum\b", re.IGNORECASE), "aluminum"),
+    (re.compile(r"\baluminium\b", re.IGNORECASE), "aluminum"),
+    (re.compile(r"\btitanium\b", re.IGNORECASE), "titanium"),
+    (re.compile(r"\bsteel\b", re.IGNORECASE), "steel"),
+    (re.compile(r"\bplastic\b", re.IGNORECASE), "plastic"),
+    (re.compile(r"\brubber\b", re.IGNORECASE), "rubber"),
+    (re.compile(r"\bsilicone\b", re.IGNORECASE), "silicone"),
+    (re.compile(r"\bbrass\b", re.IGNORECASE), "brass"),
+    (re.compile(r"\bcopper\b", re.IGNORECASE), "copper"),
+    (re.compile(r"\biron\b", re.IGNORECASE), "iron"),
+]
+
+
+def _match_first_material(text: str) -> Optional[str]:
+    for pattern, canonical in _MATERIAL_PATTERNS:
+        if pattern.search(text):
+            return canonical
+    return None
+
+
+_MATERIAL_LABELED_RE = re.compile(r"material\s*[:=]?\s*([^\n<>]{1,80})", re.IGNORECASE)
+
+
+def extract_material(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+    """
+    Extract a part's material (aluminum/steel/titanium/...) at confidence high → low.
+
+    high: JSON-LD ``material`` value matches the material lexicon.
+    medium: labeled "Material: …" row matches the lexicon.
+    low: first body-text or title hit on the lexicon.
+    """
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    item = extract_json_ld_product(capped)
+    if item is not None:
+        material_field = item.get("material")
+        if isinstance(material_field, str) and material_field.strip():
+            canonical = _match_first_material(material_field)
+            if canonical is not None:
+                return (canonical, "high")
+        elif isinstance(material_field, dict):
+            name = material_field.get("name")
+            if isinstance(name, str) and name.strip():
+                canonical = _match_first_material(name)
+                if canonical is not None:
+                    return (canonical, "high")
+
+    try:
+        soup = BeautifulSoup(capped, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = capped
+
+    labeled = _MATERIAL_LABELED_RE.search(body_text)
+    if labeled:
+        canonical = _match_first_material(labeled.group(1))
+        if canonical is not None:
+            return (canonical, "medium")
+
+    canonical = _match_first_material(body_text)
+    if canonical is not None:
+        return (canonical, "low")
+
+    return None
+
+
+# Finish lexicon — split into "treatment-style" finishes and "color-only" so
+# we can tag colour-only matches as low confidence.
+_FINISH_TREATMENTS: List[Tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bpowder[\s\-]coated\b", re.IGNORECASE), "powder coated"),
+    (re.compile(r"\bclear[\s\-]coat\b", re.IGNORECASE), "clear-coat"),
+    (re.compile(r"\banodized\b", re.IGNORECASE), "anodized"),
+    (re.compile(r"\bpolished\b", re.IGNORECASE), "polished"),
+    (re.compile(r"\bbrushed\b", re.IGNORECASE), "brushed"),
+    (re.compile(r"\bpainted\b", re.IGNORECASE), "painted"),
+    (re.compile(r"\braw\b", re.IGNORECASE), "raw"),
+    (re.compile(r"\bsatin\b", re.IGNORECASE), "satin"),
+    (re.compile(r"\bmatte\b", re.IGNORECASE), "matte"),
+    (re.compile(r"\bgloss\b", re.IGNORECASE), "gloss"),
+    (re.compile(r"\bchrome\b", re.IGNORECASE), "chrome"),
+]
+
+_FINISH_COLORS: List[Tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bblack\b", re.IGNORECASE), "black"),
+    (re.compile(r"\bred\b", re.IGNORECASE), "red"),
+    (re.compile(r"\bblue\b", re.IGNORECASE), "blue"),
+    (re.compile(r"\bsilver\b", re.IGNORECASE), "silver"),
+    (re.compile(r"\bgold\b", re.IGNORECASE), "gold"),
+]
+
+_FINISH_LABELED_RE = re.compile(r"finish\s*[:=]?\s*([^\n<>]{1,80})", re.IGNORECASE)
+
+
+def _match_first_finish(text: str) -> Optional[Tuple[str, bool]]:
+    """Return (canonical, is_treatment) for the first match, treatments preferred over colours."""
+    for pattern, canonical in _FINISH_TREATMENTS:
+        if pattern.search(text):
+            return (canonical, True)
+    for pattern, canonical in _FINISH_COLORS:
+        if pattern.search(text):
+            return (canonical, False)
+    return None
+
+
+def extract_finish(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+    """
+    Extract a part's finish (anodized/polished/black/...).
+
+    Treatment finishes (anodized, polished, etc.) score higher than bare colour
+    mentions: a labeled treatment is medium, an unlabeled treatment is low,
+    and any colour-only match is always low — so a "red anodized" mention
+    beats a stray "red" appearing in the body copy.
+    """
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    item = extract_json_ld_product(capped)
+    if item is not None:
+        for key in ("color", "colour", "additionalProperty"):
+            val = item.get(key)
+            text: Optional[str] = None
+            if isinstance(val, str):
+                text = val
+            elif isinstance(val, dict):
+                name = val.get("value") or val.get("name")
+                if isinstance(name, str):
+                    text = name
+            if text:
+                hit = _match_first_finish(text)
+                if hit is not None:
+                    canonical, is_treatment = hit
+                    return (canonical, "high" if is_treatment else "low")
+
+    try:
+        soup = BeautifulSoup(capped, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = capped
+
+    labeled = _FINISH_LABELED_RE.search(body_text)
+    if labeled:
+        hit = _match_first_finish(labeled.group(1))
+        if hit is not None:
+            canonical, is_treatment = hit
+            return (canonical, "medium" if is_treatment else "low")
+
+    hit = _match_first_finish(body_text)
+    if hit is not None:
+        canonical, _ = hit
+        return (canonical, "low")
+
+    return None
+
+
+# Warranty: convert (n, unit) → number of days for sortable comparison.
+_WARRANTY_UNIT_DAYS: Dict[str, float] = {
+    "year": 365.25,
+    "years": 365.25,
+    "yr": 365.25,
+    "yrs": 365.25,
+    "month": 30.44,
+    "months": 30.44,
+    "day": 1.0,
+    "days": 1.0,
+}
+
+_WARRANTY_RE = re.compile(
+    r"(?<!\d)(\d{1,4})[\s\-]{0,4}(year|years|yr|yrs|month|months|day|days)\s{0,4}(?:limited\s{1,4})?warranty",
+    re.IGNORECASE,
+)
+
+
+def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+    """
+    Extract a warranty as a float number-of-days so values are sortable.
+
+    Captures shapes like ``"2 year limited warranty"``, ``"30-day warranty"``,
+    ``"6 months warranty"``. Returns None when no warranty phrase is found.
+    Confidence tiering: high on JSON-LD ``warranty`` field, medium on body
+    text matches.
+    """
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    item = extract_json_ld_product(capped)
+    if item is not None:
+        warranty = item.get("warranty")
+        text: Optional[str] = None
+        if isinstance(warranty, str):
+            text = warranty
+        elif isinstance(warranty, dict):
+            name = warranty.get("value") or warranty.get("name") or warranty.get("description")
+            if isinstance(name, str):
+                text = name
+        if text:
+            m = _WARRANTY_RE.search(text)
+            if m:
+                try:
+                    qty = float(m.group(1))
+                except ValueError:
+                    qty = 0.0
+                factor = _WARRANTY_UNIT_DAYS.get(m.group(2).lower())
+                if factor is not None and qty > 0:
+                    return (qty * factor, "high")
+
+    try:
+        soup = BeautifulSoup(capped, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = capped
+
+    m = _WARRANTY_RE.search(body_text)
+    if m:
+        try:
+            qty = float(m.group(1))
+        except ValueError:
+            qty = 0.0
+        factor = _WARRANTY_UNIT_DAYS.get(m.group(2).lower())
+        if factor is not None and qty > 0:
+            return (qty * factor, "medium")
+
+    return None
+
+
+# Word-bounded chassis-code matcher — same shape as ``_CHASSIS_LIKE_PATTERN``
+# (E46, E9x, F80, G82) but anchored at word boundaries rather than start/end of
+# string, so we can find chassis mentions inside running prose. Bounded digit
+# runs ({1,4}) keep the search linear-time on adversarial input.
+_CHASSIS_IN_TEXT_RE = re.compile(
+    r"\b([A-Z][0-9]{1,4}x?)\b",
+)
+
+# Year ranges like "2008-2013", "2010 to 2015", "'08-'13".
+_YEAR_RANGE_RE = re.compile(
+    r"'?\d{2,4}\s{0,4}(?:-|–|to)\s{0,4}'?\d{2,4}",
+)
+
+
+def _split_sentences(text: str) -> List[str]:
+    """Cheap sentence splitter — good enough for fitment-notes locality checks."""
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+|[\n\r]+", text) if s.strip()]
+
+
+def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+    """
+    Capture the first prose chunk that mentions a chassis code (E46/F80/G82/...) and,
+    ideally, a year range. Returned string is capped at 300 chars.
+
+    Confidence tiering:
+      * high: chassis + year range in the same sentence.
+      * medium: chassis present *or* year range present (not both in one sentence).
+      * low: only a loose chassis-like token, no year context.
+    """
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    try:
+        soup = BeautifulSoup(capped, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = capped
+    if not body_text:
+        return None
+
+    sentences = _split_sentences(body_text)
+
+    best_low: Optional[str] = None
+    best_medium: Optional[str] = None
+    for sent in sentences:
+        chassis_hit = False
+        for m in _CHASSIS_IN_TEXT_RE.finditer(sent):
+            token = m.group(1)
+            if _looks_like_chassis_code(token):
+                chassis_hit = True
+                break
+        year_hit = bool(_YEAR_RANGE_RE.search(sent))
+        if chassis_hit and year_hit:
+            return (sent[:300], "high")
+        if chassis_hit and best_medium is None:
+            best_medium = sent[:300]
+        elif year_hit and best_medium is None and chassis_hit is False:
+            # year-only sentences are weaker context but still better than nothing
+            best_low = best_low or sent[:300]
+        if not chassis_hit and not year_hit:
+            continue
+        if best_low is None and chassis_hit:
+            best_low = sent[:300]
+
+    if best_medium is not None:
+        return (best_medium, "medium")
+    if best_low is not None:
+        return (best_low, "low")
+
+    # Last-ditch: any standalone chassis-like token anywhere in the text.
+    for m in _CHASSIS_IN_TEXT_RE.finditer(body_text):
+        token = m.group(1)
+        if _looks_like_chassis_code(token):
+            # Grab a 200-char window around the hit for context.
+            start = max(0, m.start() - 80)
+            end = min(len(body_text), m.end() + 120)
+            return (body_text[start:end].strip()[:300], "low")
+
+    return None
+
+
+# Public entry point: run all five extractors and return the non-None hits.
+_UNIVERSAL_FIELD_NAMES: Tuple[str, ...] = (
+    "weight_grams",
+    "material",
+    "finish",
+    "warranty_days",
+    "fitment_notes",
+)
+
+
+def extract_universal_fields(html_text: Optional[str]) -> Dict[str, Tuple[Any, str]]:
+    """
+    Run all five universal-field extractors and return the non-None results.
+
+    Keys mirror the CategorySpec base field names declared in S02 T02:
+    ``weight_grams``, ``material``, ``finish``, ``warranty_days``,
+    ``fitment_notes``. Each value is a ``(value, confidence)`` tuple. Returns
+    an empty dict when ``html_text`` is None/empty or when nothing extracts.
+
+    This is the call-site that ``RetailerCrawlerAdapter.apply_universal_extraction``
+    (T03) consumes — see ``S02-PLAN.md``.
+    """
+    if not html_text or not html_text.strip():
+        return {}
+
+    out: Dict[str, Tuple[Any, str]] = {}
+
+    weight_hit = extract_weight(html_text)
+    if weight_hit is not None:
+        out["weight_grams"] = weight_hit
+
+    material_hit = extract_material(html_text)
+    if material_hit is not None:
+        out["material"] = material_hit
+
+    finish_hit = extract_finish(html_text)
+    if finish_hit is not None:
+        out["finish"] = finish_hit
+
+    warranty_hit = extract_warranty(html_text)
+    if warranty_hit is not None:
+        out["warranty_days"] = warranty_hit
+
+    fitment_hit = extract_fitment_notes(html_text)
+    if fitment_hit is not None:
+        out["fitment_notes"] = fitment_hit
+
+    return out

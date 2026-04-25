@@ -2,32 +2,9 @@
 
 This file is the explicit capability and coverage contract for the project.
 
-Use it to track what is actively in scope, what has been validated by completed work, what is intentionally deferred, and what is explicitly out of scope.
-
-Guidelines:
-- Keep requirements capability-oriented, not a giant feature wishlist.
-- Requirements should be atomic, testable, and stated in plain language.
-- Every **Active** requirement should be mapped to a slice, deferred, blocked with reason, or moved out of scope.
-- Each requirement should have one accountable primary owner and may have supporting slices.
-- Research may suggest requirements, but research does not silently make them binding.
-- Validation means the requirement was actually proven by completed work and verification, not just discussed.
-
 ## Active
 
-### R001 — Per-category Pydantic spec models registered centrally
-
-- Class: core-capability
-- Status: active
-- Description: Define a `SpecRegistry` plus base `CategorySpec(BaseModel)` and 3–5 initial concrete category models (e.g., `CoiloverSpec`, `BrakeSpec`, `TurboSpec`). Adapters declare which categories they target via class attribute; ingest validates `Part.specifications` against the resolved schema.
-- Why it matters: Schema contract that survives the M002→M003 boundary — extractor-agnostic so an LLM extractor can be dropped in later without restructuring. Errors surface at adapter boundary, not silently at ingest.
-- Source: user
-- Primary owning slice: M002/S01
-- Supporting slices: M002/S03
-- Validation: mapped
-- Notes: Pydantic v2 throughout project; `Part.specifications` is JSON-typed so no migration needed for new categories.
-
-### R002 — Universal-field extraction auto-runs in adapter base class
-
+### R002 — Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
 - Class: core-capability
 - Status: active
 - Description: Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
@@ -38,8 +15,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Confidence flags on extracted fields mitigate false-positives (e.g., "weight" extracted from a shipping table).
 
-### R003 — All 111 adapters conform to the new extraction pattern
-
+### R003 — Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
 - Class: core-capability
 - Status: active
 - Description: Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
@@ -50,20 +26,7 @@ Guidelines:
 - Validation: mapped
 - Notes: T2 adapters compliant-but-sparse is the expected state at M002 close, not a regression.
 
-### R004 — Ingest validates and gracefully degrades on malformed specs
-
-- Class: failure-visibility
-- Status: active
-- Description: When an adapter returns specs that fail Pydantic validation, ingest drops the spec block, ingests the part without specs, logs a structured warning, and increments a per-adapter `extraction_failure_rate` metric. Part ingest must never regress because category extraction is new.
-- Why it matters: Extraction is new across all 111 adapters; silent regression of the existing ingest pipeline is the worst-case outcome.
-- Source: inferred
-- Primary owning slice: M002/S01
-- Supporting slices: M002/S04
-- Validation: mapped
-- Notes: Sensible-defaults policy applied (Layer 3 gate).
-
-### R005 — Re-extraction backfill against S3 self-archive
-
+### R005 — Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
 - Class: operability
 - Status: active
 - Description: Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
@@ -74,8 +37,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Backfill *started* (not necessarily complete) is the milestone gate per Layer 4.
 
-### R006 — Admin extraction-health view
-
+### R006 — Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
 - Class: admin/support
 - Status: active
 - Description: Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
@@ -86,8 +48,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Surfaced inside the redesigned admin shell in S11.
 
-### R007 — Price-history aggregation API
-
+### R007 — `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
 - Class: core-capability
 - Status: active
 - Description: `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
@@ -98,8 +59,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Query-time aggregation with explicit perf gate (D-arch-4); materialization is a fix-task only if the gate misses.
 
-### R008 — Sparkline + price-delta line on every part card
-
+### R008 — Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
 - Class: primary-user-loop
 - Status: active
 - Description: Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
@@ -110,8 +70,7 @@ Guidelines:
 - Validation: mapped
 - Notes: 90-day window cap on list views; full history only in detail view.
 
-### R009 — Per-part price-history detail view
-
+### R009 — Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
 - Class: primary-user-loop
 - Status: active
 - Description: Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
@@ -122,8 +81,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Reuses aggregation API from R007.
 
-### R010 — Price-drop alerts (subscription, threshold, email)
-
+### R010 — User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
 - Class: primary-user-loop
 - Status: active
 - Description: User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
@@ -134,8 +92,7 @@ Guidelines:
 - Validation: mapped
 - Notes: New `part_price_alert` table + new email template. Unsubscribe link required for compliance.
 
-### R011 — Tailwind token system with locked dark palette
-
+### R011 — CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
 - Class: core-capability
 - Status: active
 - Description: CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
@@ -146,8 +103,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Mockup spike at top of S08 (2–3 variants) gives user veto on direction before tokens lock.
 
-### R012 — shadcn-style copy-into-repo Radix primitives
-
+### R012 — Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
 - Class: core-capability
 - Status: active
 - Description: Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
@@ -158,8 +114,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Deprecated `components/common/` primitives must be fully removed by S12.
 
-### R013 — Kitchen-sink visual-regression Playwright spec
-
+### R013 — A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
 - Class: quality-attribute
 - Status: active
 - Description: A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
@@ -170,8 +125,7 @@ Guidelines:
 - Validation: mapped
 - Notes: Existing uncommitted `playwright.config.ts` and `smoke.spec.ts` land as part of S08.
 
-### R014 — Build-list view redesigned + Playwright screenshot tests pass
-
+### R014 — `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
 - Class: primary-user-loop
 - Status: active
 - Description: `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
@@ -181,8 +135,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: mapped
 
-### R015 — Parts catalog redesigned + Playwright screenshot tests pass
-
+### R015 — `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
 - Class: primary-user-loop
 - Status: active
 - Description: `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
@@ -192,8 +145,7 @@ Guidelines:
 - Supporting slices: M002/S06
 - Validation: mapped
 
-### R016 — Admin shell redesigned + Playwright screenshot tests pass
-
+### R016 — `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
 - Class: admin/support
 - Status: active
 - Description: `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
@@ -203,8 +155,7 @@ Guidelines:
 - Supporting slices: M002/S04
 - Validation: mapped
 
-### R017 — Repo-wide reskin: every other page on the new system
-
+### R017 — All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
 - Class: quality-attribute
 - Status: active
 - Description: All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
@@ -214,8 +165,7 @@ Guidelines:
 - Supporting slices: M002/S09, M002/S10, M002/S11
 - Validation: mapped
 
-### R018 — Crawler test infrastructure
-
+### R018 — Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
 - Class: quality-attribute
 - Status: active
 - Description: Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
@@ -225,8 +175,7 @@ Guidelines:
 - Supporting slices: M002/S02, M002/S04
 - Validation: mapped
 
-### R019 — Price-history list-endpoint p95 inside budget at 10× current traffic
-
+### R019 — Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
 - Class: quality-attribute
 - Status: active
 - Description: Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
@@ -236,8 +185,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: mapped
 
-### R020 — Keyboard accessibility pass on redesigned pages
-
+### R020 — Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
 - Class: quality-attribute
 - Status: active
 - Description: Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
@@ -249,12 +197,31 @@ Guidelines:
 
 ## Validated
 
-<!-- v1.0 (M001) requirements were tracked in `.planning/milestones/v1.0-REQUIREMENTS.md` (60 validated). They are not migrated here individually — see PROJECT.md "Validated" section for the rollup. -->
+### R001 — Define a `SpecRegistry` plus base `CategorySpec(BaseModel)` and 3–5 initial concrete category models (e.g., `CoiloverSpec`, `BrakeSpec`, `TurboSpec`). Adapters declare which categories they target via class attribute; ingest validates `Part.specifications` against the resolved schema.
+- Class: core-capability
+- Status: validated
+- Description: Define a `SpecRegistry` plus base `CategorySpec(BaseModel)` and 3–5 initial concrete category models (e.g., `CoiloverSpec`, `BrakeSpec`, `TurboSpec`). Adapters declare which categories they target via class attribute; ingest validates `Part.specifications` against the resolved schema.
+- Why it matters: Schema contract that survives the M002→M003 boundary — extractor-agnostic so an LLM extractor can be dropped in later without restructuring. Errors surface at adapter boundary, not silently at ingest.
+- Source: user
+- Primary owning slice: M002/S01
+- Supporting slices: M002/S03
+- Validation: M002/S01 ships SpecRegistry + CategorySpec base + 3 concrete models (CoiloverSpec, BrakeSpec, TurboSpec) under backend/app/crawlers/specs/. Adapters declare targets via category_targets ClassVar on RetailerCrawlerAdapter (validated at import time against default_registry). Ingest in app/crawlers/base.py.ingest_payload validates payload.specifications against the resolved schema. Verified by 23 contract+integration tests in backend/tests/crawlers/test_spec_registry_contract.py and test_ingest_spec_validation.py — all green; full crawler suite 1284 passed, 1 skipped.
+- Notes: Spec module registration lives in __init__.py (keeps spec modules side-effect-free). Slugs (not category UUIDs) are the registry key — stable across envs. Confidence flags use paired X / X_confidence convention. Open question (deferred to S02): infer_category() returns DB category names ('suspension'), not registry slugs ('coilover') — bridge or re-key in S02.
+
+### R004 — When an adapter returns specs that fail Pydantic validation, ingest drops the spec block, ingests the part without specs, logs a structured warning, and increments a per-adapter `extraction_failure_rate` metric. Part ingest must never regress because category extraction is new.
+- Class: failure-visibility
+- Status: validated
+- Description: When an adapter returns specs that fail Pydantic validation, ingest drops the spec block, ingests the part without specs, logs a structured warning, and increments a per-adapter `extraction_failure_rate` metric. Part ingest must never regress because category extraction is new.
+- Why it matters: Extraction is new across all 111 adapters; silent regression of the existing ingest pipeline is the worst-case outcome.
+- Source: inferred
+- Primary owning slice: M002/S01
+- Supporting slices: M002/S04
+- Validation: M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged.
+- Notes: Sensible-defaults policy applied (Layer 3 gate).
 
 ## Deferred
 
-### R030 — LLM-as-fallback / LLM-first structured extraction
-
+### R030 — LLM extractor strategy that plugs into M002's per-category schema contract — adapter parser tries deterministic first; LLM fills missing fields against the schema; deterministic validators reject obviously wrong values.
 - Class: core-capability
 - Status: deferred
 - Description: LLM extractor strategy that plugs into M002's per-category schema contract — adapter parser tries deterministic first; LLM fills missing fields against the schema; deterministic validators reject obviously wrong values.
@@ -265,8 +232,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Cost analysis at 200k catalog × 20% × Haiku-cached ≈ $150–$200 one-time, ~$2k/year recurring. Acceptable; deferred to share LLM infrastructure (provider client, prompt mgmt, evals, cost tracking) with R031–R033 in M003.
 
-### R031 — LLM build helper
-
+### R031 — LLM suggests parts that fit the user's car + compatibility constraints + budget.
 - Class: primary-user-loop
 - Status: deferred
 - Description: LLM suggests parts that fit the user's car + compatibility constraints + budget.
@@ -277,8 +243,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Gates on R001–R009 — helpers without structured data are noise.
 
-### R032 — LLM build planner
-
+### R032 — LLM decomposes a goal (e.g., "daily driver → track car") into a phased parts list across multiple budget tiers.
 - Class: primary-user-loop
 - Status: deferred
 - Description: LLM decomposes a goal (e.g., "daily driver → track car") into a phased parts list across multiple budget tiers.
@@ -288,8 +253,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: unmapped
 
-### R033 — LLM part-page summarization
-
+### R033 — LLM-assisted summarization of a part page — TL;DR of specs, fit notes, and known compatibility callouts.
 - Class: differentiator
 - Status: deferred
 - Description: LLM-assisted summarization of a part page — TL;DR of specs, fit notes, and known compatibility callouts.
@@ -299,8 +263,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: unmapped
 
-### R034 — T2 (browser-tier) Cloudflare reliability
-
+### R034 — Solve the Cloudflare bypass story for the 11 T2 adapters (aemelectronics, americanmuscle, apexwheels, dinan, ecstuning, fcpeuro, jegs, speedindustry, summitracing, tirerack) so they reliably produce extraction-able HTML.
 - Class: operability
 - Status: deferred
 - Description: Solve the Cloudflare bypass story for the 11 T2 adapters (aemelectronics, americanmuscle, apexwheels, dinan, ecstuning, fcpeuro, jegs, speedindustry, summitracing, tirerack) so they reliably produce extraction-able HTML.
@@ -310,8 +273,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: unmapped
 
-### R035 — Light mode
-
+### R035 — Light theme support across the app.
 - Class: differentiator
 - Status: deferred
 - Description: Light theme support across the app.
@@ -322,8 +284,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Token architecture in S08 makes light mode *possible*; whether we *ship* it in M002 is a mid-design-system-slice judgment call. Default: deferred unless it falls out for free.
 
-### R036 — Materialized `part_price_summary` table
-
+### R036 — Denormalized per-part summary table (min/max/current/trend/sparkline points) refreshed on scrape. Replaces query-time aggregation if R019 perf gate misses.
 - Class: quality-attribute
 - Status: deferred
 - Description: Denormalized per-part summary table (min/max/current/trend/sparkline points) refreshed on scrape. Replaces query-time aggregation if R019 perf gate misses.
@@ -336,8 +297,7 @@ Guidelines:
 
 ## Out of Scope
 
-### R040 — Distributed tracing via OpenTelemetry / X-Ray
-
+### R040 — OpenTelemetry instrumentation with X-Ray-compatible export.
 - Class: quality-attribute
 - Status: out-of-scope
 - Description: OpenTelemetry instrumentation with X-Ray-compatible export.
@@ -347,8 +307,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R041 — Async SQLAlchemy migration
-
+### R041 — Migrate from sync SQLAlchemy to async.
 - Class: quality-attribute
 - Status: out-of-scope
 - Description: Migrate from sync SQLAlchemy to async.
@@ -358,8 +317,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R042 — Read replicas for report/stat queries
-
+### R042 — PostgreSQL read replicas behind a routing layer.
 - Class: quality-attribute
 - Status: out-of-scope
 - Description: PostgreSQL read replicas behind a routing layer.
@@ -369,8 +327,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R043 — Redis query-result caching
-
+### R043 — Redis cache for slow-moving reference data (cars, categories, manufacturers).
 - Class: quality-attribute
 - Status: out-of-scope
 - Description: Redis cache for slow-moving reference data (cars, categories, manufacturers).
@@ -380,8 +337,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R044 — ML-assisted `car_inference` disambiguation
-
+### R044 — Replace hand-maintained `AMBIGUOUS_STANDALONE_CODES` with keyword-embedding-based disambiguation.
 - Class: core-capability
 - Status: out-of-scope
 - Description: Replace hand-maintained `AMBIGUOUS_STANDALONE_CODES` with keyword-embedding-based disambiguation.
@@ -391,8 +347,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R045 — Optimistic concurrency (`version_id_col`)
-
+### R045 — SQLAlchemy `version_id_col` optimistic concurrency control.
 - Class: quality-attribute
 - Status: out-of-scope
 - Description: SQLAlchemy `version_id_col` optimistic concurrency control.
@@ -402,8 +357,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R046 — Synthetic monitoring / canary crawler runs
-
+### R046 — Scheduled canary runs of the most-stable adapter for synthetic uptime checks.
 - Class: failure-visibility
 - Status: out-of-scope
 - Description: Scheduled canary runs of the most-stable adapter for synthetic uptime checks.
@@ -413,8 +367,7 @@ Guidelines:
 - Supporting slices: none
 - Validation: n/a
 
-### R047 — Public launch announcement / changelog
-
+### R047 — User-facing announcement of M002 changes.
 - Class: differentiator
 - Status: out-of-scope
 - Description: User-facing announcement of M002 changes.
@@ -428,26 +381,26 @@ Guidelines:
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | core-capability | active | M002/S01 | M002/S03 | mapped |
+| R001 | core-capability | validated | M002/S01 | M002/S03 | M002/S01 ships SpecRegistry + CategorySpec base + 3 concrete models (CoiloverSpec, BrakeSpec, TurboSpec) under backend/app/crawlers/specs/. Adapters declare targets via category_targets ClassVar on RetailerCrawlerAdapter (validated at import time against default_registry). Ingest in app/crawlers/base.py.ingest_payload validates payload.specifications against the resolved schema. Verified by 23 contract+integration tests in backend/tests/crawlers/test_spec_registry_contract.py and test_ingest_spec_validation.py — all green; full crawler suite 1284 passed, 1 skipped. |
 | R002 | core-capability | active | M002/S02 | M002/S03 | mapped |
 | R003 | core-capability | active | M002/S03 | M002/S04 | mapped |
-| R004 | failure-visibility | active | M002/S01 | M002/S04 | mapped |
+| R004 | failure-visibility | validated | M002/S01 | M002/S04 | M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged. |
 | R005 | operability | active | M002/S04 | none | mapped |
 | R006 | admin/support | active | M002/S04 | M002/S11 | mapped |
 | R007 | core-capability | active | M002/S05 | M002/S06 | mapped |
 | R008 | primary-user-loop | active | M002/S06 | M002/S10 | mapped |
 | R009 | primary-user-loop | active | M002/S06 | none | mapped |
 | R010 | primary-user-loop | active | M002/S07 | none | mapped |
-| R011 | core-capability | active | M002/S08 | all UX slices | mapped |
+| R011 | core-capability | active | M002/S08 | all subsequent UX slices | mapped |
 | R012 | core-capability | active | M002/S08 | M002/S09–S12 | mapped |
 | R013 | quality-attribute | active | M002/S08 | none | mapped |
 | R014 | primary-user-loop | active | M002/S09 | none | mapped |
 | R015 | primary-user-loop | active | M002/S10 | M002/S06 | mapped |
 | R016 | admin/support | active | M002/S11 | M002/S04 | mapped |
-| R017 | quality-attribute | active | M002/S12 | M002/S09–S11 | mapped |
+| R017 | quality-attribute | active | M002/S12 | M002/S09, M002/S10, M002/S11 | mapped |
 | R018 | quality-attribute | active | M002/S01 | M002/S02, M002/S04 | mapped |
 | R019 | quality-attribute | active | M002/S05 | none | mapped |
-| R020 | quality-attribute | active | M002/S09–S11 | M002/S12 | mapped |
+| R020 | quality-attribute | active | M002/S09, M002/S10, M002/S11 | M002/S12 | mapped |
 | R030 | core-capability | deferred | M003 | none | unmapped |
 | R031 | primary-user-loop | deferred | M003 | none | unmapped |
 | R032 | primary-user-loop | deferred | M003 | none | unmapped |
@@ -466,7 +419,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 20
-- Mapped to slices: 20
-- Validated: 0 (M001 v1.0 rolled up in PROJECT.md)
+- Active requirements: 18
+- Mapped to slices: 18
+- Validated: 2 (R001, R004)
 - Unmapped active requirements: 0

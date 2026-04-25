@@ -16,10 +16,10 @@
 
 ## Slices
 
-- [ ] **S01: S01** `risk:high` `depends:[]`
+- [x] **S01: S01** `risk:high` `depends:[]`
   > After this: Run pytest backend/app/crawlers/ — universal-extractor fixture stubs and 3 category-schema contract tests pass. SpecRegistry.resolve('coilover') returns the CoiloverSpec model. Ingest accepts a valid spec block, ingests it; ingest rejects a malformed spec block, ingests the part with specifications=null, and increments extraction_failure_rate.
 
-- [ ] **S02: Universal-field extractor + base-class auto-run** `risk:high` `depends:[S01]`
+- [ ] **S02: S02** `risk:high` `depends:[]`
   > After this: Run a CLI one-liner against 5 archived HTML samples drawn from 5 different adapters: each result's specifications dict is populated with universal fields at appropriate confidence levels. Verify suppression: an adapter declares suppress_universal=['weight'] and that field is not auto-extracted for that adapter.
 
 - [ ] **S03: 111-adapter compliance retrofit** `risk:high` `depends:[S01,S02]`

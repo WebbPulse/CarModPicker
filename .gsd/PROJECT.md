@@ -140,6 +140,7 @@ Core Value reaffirmed at v1.0 close — every shipped capability traces back to 
 
 - [x] M001: v1.0 Tech-Debt Audit + Fix-All — Pay down platform debt across 8 phases / 60 plans; ship Sentry + CloudWatch EMF + canonical parts dedup + concurrency hardening; closed 2026-04-24
 - [ ] M002: Data Enrichment + Frontend Design Reset — Structured per-category extraction across all 111 adapters, price-history surfaces (sparkline + detail view + drop alerts), repo-wide reskin on shadcn+Tailwind tokens
+  - [x] S01: Schema contract + crawler test infrastructure — SpecRegistry + CategorySpec base + 3 stub models, category_targets opt-in on adapter base, fail-soft ingest validation hook with WARN+EMF, conftest + tracked HTML sample; 23 tests + full crawler suite green (closed 2026-04-24)
 - [ ] M003: LLM-Assisted Build Tools — Build helper, build planner, part-page summarization, LLM-as-extractor strategy plugged into M002's schema contract; T2 Cloudflare reliability work
 
 ## Evolution
