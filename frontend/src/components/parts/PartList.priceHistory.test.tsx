@@ -1,7 +1,9 @@
-/* eslint-disable @typescript-eslint/unbound-method --
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment --
  * vi.mocked(apiClient.post).mockResolvedValueOnce(...) is the canonical
  * mock pattern; the unbound-method rule flags the reference syntactically
- * but vi.mocked returns a spy wrapper.
+ * but vi.mocked returns a spy wrapper. expect.arrayContaining/objectContaining
+ * are vitest matchers whose return type is `any` by design — the matcher
+ * shape is what makes them composable.
  */
 import type { ReactNode } from 'react';
 import { render, waitFor } from '@testing-library/react';

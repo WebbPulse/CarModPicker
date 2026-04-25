@@ -31,10 +31,10 @@
 - [x] **S05: S05** `risk:medium` `depends:[]`
   > After this: Call GET /api/parts/{id}/price-history?window=90d — returns retailer breakdowns and listing-level history. Call POST /api/parts/price-history with [part_id_1..part_id_50] — returns min/max/last/trend per part. Run load test (k6 or locust) at 10x current traffic on current catalog size — p95 inside budget.
 
-- [ ] **S06: S06** `risk:medium` `depends:[]`
+- [x] **S06: S06** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — every part card with observations shows a sparkline + delta line. Click a card to drill into the per-part detail view — retailer breakdowns and listing-level history visible, with stale-observation 'as of' caveat where relevant. Inspect a part with zero observations: no sparkline rendered, just current price.
 
-- [ ] **S07: Price-drop alerts (subscription, threshold, email)** `risk:medium` `depends:[S05,S06]`
+- [ ] **S07: S07** `risk:medium` `depends:[]`
   > After this: Subscribe to a part with threshold $X on the part detail page. Trigger an observation below threshold (via test endpoint or manual scrape replay). Email arrives with part details, current price, and unsubscribe link. Visit /account/alerts — subscription listed; click unsubscribe; subscription removed and confirmed by reloading.
 
 - [x] **S08: S08** `risk:high` `depends:[]`

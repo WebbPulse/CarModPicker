@@ -117,7 +117,7 @@ describe('SparklineCell', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders a centered dot for a single observation without fetching', async () => {
+  it('renders a centered dot for a single observation without fetching', () => {
     const { container } = render(
       <SparklineCell
         partId="p-1"
@@ -130,7 +130,6 @@ describe('SparklineCell', () => {
     );
     const dot = container.querySelector('[data-testid="sparkline-dot"]');
     expect(dot).not.toBeNull();
-    // No network call for single-observation rendering.
     expect(vi.mocked(apiClient.get)).not.toHaveBeenCalled();
   });
 
@@ -159,6 +158,7 @@ describe('SparklineCell', () => {
     expect(ioInstances).toHaveLength(1);
     await act(async () => {
       ioInstances[0]!.trigger([{ isIntersecting: true }]);
+      await Promise.resolve();
     });
 
     await waitFor(() => {
@@ -185,6 +185,7 @@ describe('SparklineCell', () => {
     );
     await act(async () => {
       ioInstances[0]!.trigger([{ isIntersecting: true }]);
+      await Promise.resolve();
     });
     await waitFor(() => {
       expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(1);
@@ -222,6 +223,7 @@ describe('SparklineCell', () => {
     );
     await act(async () => {
       ioInstances[0]!.trigger([{ isIntersecting: true }]);
+      await Promise.resolve();
     });
 
     await waitFor(() => {
