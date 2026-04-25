@@ -6,8 +6,8 @@ import {
   formatCarYearRange,
 } from '../../utils/carUtils';
 import type { CarGenerationRead } from '../../types/Api';
-import Card from '../common/Card';
-import CardInfoItem from '../common/CardInfoItem';
+import { Card } from '../ui/card';
+import CardInfoItem from '../ui/card-info-item';
 
 interface CarListItemProps {
   car: CarGenerationRead;

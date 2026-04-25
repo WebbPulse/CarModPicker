@@ -341,6 +341,7 @@ class GrimmSpeedAdapter(RetailerCrawlerAdapter):
     # not challenge ``requests``). Left explicit so the choice is documented
     # on the class itself rather than only in the module docstring.
     ADAPTER_NAME: ClassVar[str] = "grimmspeed"
+    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

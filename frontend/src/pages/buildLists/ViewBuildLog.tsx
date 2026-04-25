@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { buildListsApi, buildLogsApi } from '../../services/Api';
@@ -10,17 +10,21 @@ import type {
   BuildLogReadPaginated,
 } from '../../types/Api';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import Dialog from '../../components/common/Dialog';
-import ImageUpload from '../../components/common/ImageUpload';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
+import ImageUpload from '../../components/forms/ImageUpload';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import { BUILD_LOG_POSTS_PER_PAGE } from '../../constants';
 
 const fetchBuildLogRequestFn = (buildListId: string, page: number = 1) => {
@@ -220,7 +224,7 @@ function ViewBuildLog() {
     return (
       <>
         <PageHeader title="Build Log" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -260,10 +264,12 @@ function ViewBuildLog() {
       />
       {buildList && (
         <div className="mb-4">
-          <ParentNavigationLink
-            linkTo={`/build-lists/${buildList.id}`}
-            linkText="← Back to Build List"
-          />
+          <Link
+            to={`/build-lists/${buildList.id}`}
+            className="text-indigo-400 hover:text-indigo-300 underline"
+          >
+            ← Back to Build List
+          </Link>
         </div>
       )}
 
@@ -271,12 +277,13 @@ function ViewBuildLog() {
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Build Log Thread" />
           {currentUser && (
-            <ActionButton
+            <Button
+              type="button"
               onClick={() => setIsCreateDialogOpen(true)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               New Post
-            </ActionButton>
+            </Button>
           )}
         </div>
 
@@ -495,15 +502,17 @@ function ViewBuildLog() {
       {/* Create Post Dialog */}
       {currentUser && (
         <Dialog
-          isOpen={isCreateDialogOpen}
-          onClose={() => {
-            setIsCreateDialogOpen(false);
-            setNewPostContent('');
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+            if (!open) setNewPostContent('');
           }}
-          title="New Post"
-          maxWidth="4xl"
         >
-          <div className="space-y-4">
+          <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>New Post</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
             <div>
               <label
                 htmlFor="post-content"
@@ -550,40 +559,47 @@ Markdown examples:
               </p>
             </div>
             <div className="flex justify-end gap-2">
-              <ActionButton
+              <Button
+                type="button"
+                variant="secondary"
                 onClick={() => {
                   setIsCreateDialogOpen(false);
                   setNewPostContent('');
                 }}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
               >
                 Cancel
-              </ActionButton>
-              <ActionButton
+              </Button>
+              <Button
+                type="button"
                 onClick={() => void handleCreatePost()}
                 disabled={!newPostContent.trim()}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 Post
-              </ActionButton>
+              </Button>
             </div>
-          </div>
+            </div>
+          </DialogContent>
         </Dialog>
       )}
 
       {/* Edit Post Dialog */}
       {postToEdit && (
         <Dialog
-          isOpen={isEditDialogOpen}
-          onClose={() => {
-            setIsEditDialogOpen(false);
-            setPostToEdit(null);
-            setEditContent('');
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open);
+            if (!open) {
+              setPostToEdit(null);
+              setEditContent('');
+            }
           }}
-          title="Edit Post"
-          maxWidth="4xl"
         >
-          <div className="space-y-4">
+          <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Edit Post</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
             <div>
               <label
                 htmlFor="edit-content"
@@ -620,41 +636,50 @@ Markdown examples:
               </p>
             </div>
             <div className="flex justify-end gap-2">
-              <ActionButton
+              <Button
+                type="button"
+                variant="secondary"
                 onClick={() => {
                   setIsEditDialogOpen(false);
                   setPostToEdit(null);
                   setEditContent('');
                 }}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
               >
                 Cancel
-              </ActionButton>
-              <ActionButton
+              </Button>
+              <Button
+                type="button"
                 onClick={() => void handleEditPost()}
                 disabled={!editContent.trim()}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 Save
-              </ActionButton>
+              </Button>
             </div>
-          </div>
+            </div>
+          </DialogContent>
         </Dialog>
       )}
 
       {/* Delete Confirmation Dialog */}
       {postToDelete && (
-        <DeleteConfirmationDialog
-          isOpen={isDeleteConfirmOpen}
-          onClose={() => {
-            setIsDeleteConfirmOpen(false);
-            setPostToDelete(null);
+        <ConfirmDialog
+          open={isDeleteConfirmOpen}
+          onOpenChange={(open) => {
+            setIsDeleteConfirmOpen(open);
+            if (!open) setPostToDelete(null);
           }}
           onConfirm={() => void handleDeletePost()}
-          itemName="this post"
-          itemType="build log post"
-          isProcessing={false}
-          error={null}
+          title="Confirm Deletion"
+          description={
+            <>
+              Are you sure you want to delete this post? This action cannot be
+              undone.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          loadingLabel="Deleting..."
+          variant="destructive"
         />
       )}
     </div>

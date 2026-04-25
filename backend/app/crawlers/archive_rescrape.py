@@ -149,6 +149,8 @@ def rescrape_crawled_page_from_archive(
         db.commit()
         return "parse_failed", None, f"Parser '{adapter_key}' returned no payload"
 
+    payload = adapter.apply_universal_extraction(html, payload)
+
     # Pin url/id to locals before ingest_payload — if it raises mid-flush the
     # session is rolled back and any lazy load on ``page`` would then raise
     # PendingRollbackError, crashing the worker before parse_status is marked.

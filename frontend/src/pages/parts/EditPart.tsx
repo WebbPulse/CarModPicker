@@ -4,12 +4,12 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { partsApi } from '../../services/Api';
 
-import SecondaryButton from '../../components/buttons/SecondaryButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EditPartForm from '../../components/parts/EditPartForm';
 import PageHeader from '../../components/layout/PageHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import Spinner from '../../components/ui/spinner';
 
 const fetchPartRequestFn = (partId: string) => partsApi.getPart(partId);
 
@@ -53,7 +53,7 @@ function EditPart() {
         <PageHeader title="Edit Part" />
         <Card>
           <div className="flex justify-center py-8">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         </Card>
       </div>
@@ -67,7 +67,9 @@ function EditPart() {
         <Card>
           <ErrorAlert message={`Failed to load part: ${partApiError}`} />
           <div className="mt-4">
-            <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
+            <Button type="button" variant="secondary" onClick={handleCancel}>
+              Go Back
+            </Button>
           </div>
         </Card>
       </div>
@@ -81,7 +83,9 @@ function EditPart() {
         <Card>
           <ErrorAlert message="Part not found." />
           <div className="mt-4">
-            <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
+            <Button type="button" variant="secondary" onClick={handleCancel}>
+              Go Back
+            </Button>
           </div>
         </Card>
       </div>
@@ -102,7 +106,9 @@ function EditPart() {
         <Card>
           <ErrorAlert message="You don't have permission to edit this part." />
           <div className="mt-4">
-            <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
+            <Button type="button" variant="secondary" onClick={handleCancel}>
+              Go Back
+            </Button>
           </div>
         </Card>
       </div>
@@ -117,7 +123,9 @@ function EditPart() {
         <Card>
           <ErrorAlert message="Invalid part data received. Please try again." />
           <div className="mt-4">
-            <SecondaryButton onClick={handleCancel}>Go Back</SecondaryButton>
+            <Button type="button" variant="secondary" onClick={handleCancel}>
+              Go Back
+            </Button>
           </div>
         </Card>
       </div>

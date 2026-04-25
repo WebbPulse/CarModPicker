@@ -170,6 +170,7 @@ class JLTPerformanceAdapter(RetailerCrawlerAdapter):
     # impersonation or a headless browser. Left explicit so the choice
     # is documented on the class rather than only in the docstring.
     ADAPTER_NAME: ClassVar[str] = "jltperformance"
+    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

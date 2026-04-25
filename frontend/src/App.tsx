@@ -10,18 +10,18 @@ import {
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
 import { ADSENSE_CLIENT_ID } from './components/ads/adsenseConfig';
-import BetaBanner from './components/common/BetaBanner';
-import ChromeExtensionPromo from './components/common/ChromeExtensionPromo';
-import CookieConsentBanner from './components/common/CookieConsentBanner';
-import ErrorBoundary from './components/common/ErrorBoundary';
-import LoadingSpinner from './components/common/LoadingSpinner';
-import { RouteGroupBoundary } from './components/common/RouteGroupBoundary';
-import SubscriptionPromo from './components/common/SubscriptionPromo';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { RouteGroupBoundary } from './components/routes/RouteGroupBoundary';
+import BetaBanner from './components/shell/BetaBanner';
+import ChromeExtensionPromo from './components/shell/ChromeExtensionPromo';
+import CookieConsentBanner from './components/shell/CookieConsentBanner';
+import ErrorBoundary from './components/shell/ErrorBoundary';
+import SubscriptionPromo from './components/shell/SubscriptionPromo';
+import Spinner from './components/ui/spinner';
 import { useIsPremium, useIsPremiumSystemDisabled } from './hooks/useIsPremium';
 import { lazyWithReload as lazy } from './utils/lazyWithReload';
 
@@ -57,6 +57,9 @@ const VerifyEmailConfirm = lazy(
 const ExtensionAuth = lazy(
   () => import('./pages/authentication/ExtensionAuth.tsx')
 );
+const AccountAlerts = lazy(
+  () => import('./pages/account/AccountAlerts.tsx')
+);
 const Builder = lazy(() => import('./pages/builder/Builder.tsx'));
 const ViewCar = lazy(() => import('./pages/builder/ViewCar.tsx'));
 const ViewUser = lazy(() => import('./pages/ViewUser.tsx'));
@@ -76,6 +79,9 @@ const SystemAdmin = lazy(() => import('./pages/admin/SystemAdmin.tsx'));
 const SystemStatistics = lazy(
   () => import('./pages/admin/SystemStatistics.tsx')
 );
+const ExtractionHealth = lazy(
+  () => import('./pages/admin/ExtractionHealth.tsx')
+);
 const BugReport = lazy(() => import('./pages/BugReport.tsx'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'));
 const PartsCuration = lazy(() => import('./pages/admin/PartsCuration.tsx'));
@@ -89,6 +95,14 @@ const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
 const PartsCatalog = lazy(() => import('./pages/parts/PartsCatalog.tsx'));
 const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
 const NotFound = lazy(() => import('./pages/NotFound.tsx'));
+// Dev-only kitchen-sink route. The `import.meta.env.DEV` guard wraps the
+// dynamic import itself so Vite/Rollup constant-folds the entire branch to
+// `null` in production — the `_KitchenSink.tsx` chunk is never emitted and
+// the page module is dead-code-eliminated. The matching <Route> element below
+// is also guarded so navigating to `/_kitchen-sink` in prod 404s.
+const KitchenSink = import.meta.env.DEV
+  ? lazy(() => import('./pages/_KitchenSink.tsx'))
+  : null;
 
 /** Paths where neither ads nor spacers are shown (landing + auth). */
 const NO_AD_SPACE_PATHS = new Set([
@@ -193,7 +207,7 @@ function App() {
             <Suspense
               fallback={
                 <div className="container mx-auto px-4 py-20">
-                  <LoadingSpinner size="lg" text="Loading page..." />
+                  <Spinner size="lg" text="Loading page..." />
                 </div>
               }
             >
@@ -264,6 +278,14 @@ function App() {
                   <Route path="/parts/:partId" element={<ViewPart />} />
                   <Route path="/parts" element={<PartsCatalog />} />
 
+                  {/* Dev-only kitchen-sink for visual-regression testing.
+                      Guarded by import.meta.env.DEV so the route — and the
+                      lazy-loaded chunk — are excluded from production builds.
+                      Lives inside the public RouteGroupBoundary per FE-03. */}
+                  {import.meta.env.DEV && KitchenSink && (
+                    <Route path="/_kitchen-sink" element={<KitchenSink />} />
+                  )}
+
                   {/* 404 Catch-all — MUST be last inside the public group.
                       Lazy-loaded (Phase 6 FE-03) so the route-coverage test
                       (src/App.coverage.test.tsx) can apply the same
@@ -301,6 +323,10 @@ function App() {
                     <Route path="/verify-email" element={<VerifyEmail />} />
                     <Route element={<EmailVerifiedRoute />}>
                       <Route path="/profile" element={<Profile />} />
+                      <Route
+                        path="/account/alerts"
+                        element={<AccountAlerts />}
+                      />
                       <Route path="/builder" element={<Builder />} />
                       <Route path="/my-parts" element={<UserParts />} />
                       <Route
@@ -341,6 +367,10 @@ function App() {
                   <Route
                     path="/admin/parts-curation"
                     element={<PartsCuration />}
+                  />
+                  <Route
+                    path="/admin/extraction-health"
+                    element={<ExtractionHealth />}
                   />
                 </Route>
               </Routes>

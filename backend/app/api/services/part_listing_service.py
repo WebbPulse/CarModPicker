@@ -381,6 +381,24 @@ def create_or_update_listing_and_price(
         db.add(listing)
         db.flush()
 
+        # S07/T03: evaluate per-user price-drop alerts on this part. Same
+        # gating condition as the price-history append above (price_cents
+        # not None and >= 0). Alert evaluation is exception-safe at the
+        # per-alert level — a bad subscription must not poison the
+        # price-write transaction. Local import avoids a circular service
+        # import at module load.
+        from app.api.services.part_price_alert_service import (
+            evaluate_alerts_for_listing,
+        )
+
+        evaluate_alerts_for_listing(
+            db,
+            part_id=part_id,
+            retailer_id=retailer_id,
+            price_cents=price_cents,
+            observed_at=ts,
+        )
+
     return listing
 
 

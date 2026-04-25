@@ -1,5 +1,6 @@
 import React from 'react';
-import { filterChipClass } from '../common/VehicleFilterChips';
+import { filterChipClass } from '../filters/VehicleFilterChips';
+import { Button } from '../ui/button';
 import type {
   PartManufacturerResponse,
   CarGenerationRead,
@@ -51,7 +52,7 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
   if (!hasActiveFilters) return null;
 
   const removeButtonClass =
-    'p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0';
+    'h-5 w-5 p-0 rounded-full hover:bg-gray-600/80 hover:text-white shrink-0';
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
@@ -61,14 +62,16 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
         return (
           <span key={`cat-${id}`} className={filterChipClass}>
             {cat.display_name || cat.name}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => toggleCategory(id)}
               className={removeButtonClass}
               aria-label="Remove category filter"
             >
               ×
-            </button>
+            </Button>
           </span>
         );
       })}
@@ -80,14 +83,16 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
         return (
           <span key={`part_manufacturer-${id}`} className={filterChipClass}>
             {part_manufacturer.name}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => togglePartManufacturer(id)}
               className={removeButtonClass}
               aria-label="Remove part manufacturer filter"
             >
               ×
-            </button>
+            </Button>
           </span>
         );
       })}
@@ -99,14 +104,16 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
               ? carFullDisplayName(selectedGeneration).trim()
               : `${selectedMake}${selectedModel ? ` ${selectedModel}` : ''}`.trim() ||
                 'Vehicle'}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={clearVehicleFilter}
             className={removeButtonClass}
             aria-label="Remove vehicle filter"
           >
             ×
-          </button>
+          </Button>
         </span>
       )}
       {hasPriceRange && (
@@ -116,14 +123,16 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
             : priceMin.trim()
               ? `Min $${priceMin.trim()}`
               : `Max $${priceMax.trim()}`}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={clearPriceRange}
             className={removeButtonClass}
             aria-label="Remove price range filter"
           >
             ×
-          </button>
+          </Button>
         </span>
       )}
     </div>

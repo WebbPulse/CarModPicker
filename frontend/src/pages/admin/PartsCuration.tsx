@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert, SuccessAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import Dialog from '../../components/common/Dialog';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert, SuccessAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import Spinner from '../../components/ui/spinner';
 import { useAuth } from '../../hooks/useAuth';
 import {
   adminApi,
@@ -384,23 +389,30 @@ function PartsCuration() {
           }}
           className="flex flex-col sm:flex-row gap-2 items-end"
         >
-          <div className="flex-1">
+          <div className="flex-1 space-y-1">
+            <label
+              htmlFor="parts-curation-lookup-id"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Part ID
+            </label>
             <Input
-              label="Part ID"
+              id="parts-curation-lookup-id"
               placeholder="Paste any Part ID (canonical or duplicate)"
               value={lookupId}
               onChange={(e) => setLookupId(e.target.value)}
               autoComplete="off"
             />
           </div>
-          <ActionButton
+          <Button
+            type="submit"
             onClick={() => {
               void handleLookup();
             }}
             disabled={isLoadingGroup || !lookupId.trim()}
           >
             {isLoadingGroup ? 'Loading…' : 'Load group'}
-          </ActionButton>
+          </Button>
         </form>
         {groupError && (
           <div className="mt-3">
@@ -415,23 +427,30 @@ function PartsCuration() {
             }}
             className="flex flex-col sm:flex-row gap-2 items-end"
           >
-            <div className="flex-1">
+            <div className="flex-1 space-y-1">
+              <label
+                htmlFor="parts-curation-lookup-url"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Product URL
+              </label>
               <Input
-                label="Product URL"
+                id="parts-curation-lookup-url"
                 placeholder="Paste a retailer product URL (e.g. https://a90shop.com/products/…)"
                 value={lookupUrl}
                 onChange={(e) => setLookupUrl(e.target.value)}
                 autoComplete="off"
               />
             </div>
-            <ActionButton
+            <Button
+              type="submit"
               onClick={() => {
                 void handleUrlLookup();
               }}
               disabled={isLookingUpUrl || !lookupUrl.trim()}
             >
               {isLookingUpUrl ? 'Searching…' : 'Find by URL'}
-            </ActionButton>
+            </Button>
           </form>
           <p className="mt-2 text-[11px] text-gray-500">
             Matches any Part — catalog canonical, duplicate, or UGC — whose
@@ -541,23 +560,39 @@ function PartsCuration() {
           canonical.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Input
-            label="Duplicate part ID"
-            placeholder="Part to become the duplicate"
-            value={manualDuplicateId}
-            onChange={(e) => setManualDuplicateId(e.target.value)}
-            autoComplete="off"
-          />
-          <Input
-            label="Canonical part ID"
-            placeholder="Target canonical"
-            value={manualCanonicalId}
-            onChange={(e) => setManualCanonicalId(e.target.value)}
-            autoComplete="off"
-          />
+          <div className="space-y-1">
+            <label
+              htmlFor="parts-curation-manual-duplicate"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Duplicate part ID
+            </label>
+            <Input
+              id="parts-curation-manual-duplicate"
+              placeholder="Part to become the duplicate"
+              value={manualDuplicateId}
+              onChange={(e) => setManualDuplicateId(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="parts-curation-manual-canonical"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Canonical part ID
+            </label>
+            <Input
+              id="parts-curation-manual-canonical"
+              placeholder="Target canonical"
+              value={manualCanonicalId}
+              onChange={(e) => setManualCanonicalId(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
         </div>
         <div className="mt-3 flex items-center gap-2">
-          <ActionButton
+          <Button
             onClick={() => {
               void handleManualLink();
             }}
@@ -568,7 +603,7 @@ function PartsCuration() {
             }
           >
             {isManualLinking ? 'Linking…' : 'Link as duplicate'}
-          </ActionButton>
+          </Button>
         </div>
         {manualLinkError && (
           <div className="mt-3">
@@ -590,9 +625,15 @@ function PartsCuration() {
           applies in per-batch commits.
         </p>
         <div className="flex flex-col sm:flex-row gap-2 items-end">
-          <div className="w-40">
+          <div className="w-40 space-y-1">
+            <label
+              htmlFor="parts-curation-rescan-batch-size"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Batch size
+            </label>
             <Input
-              label="Batch size"
+              id="parts-curation-rescan-batch-size"
               type="number"
               value={rescanBatchSize}
               onChange={(e) => setRescanBatchSize(e.target.value)}
@@ -600,22 +641,21 @@ function PartsCuration() {
               max="5000"
             />
           </div>
-          <ActionButton
+          <Button
             onClick={() => {
               void runRescan(true);
             }}
             disabled={isRescanning}
           >
             {isRescanning ? 'Running…' : 'Dry run'}
-          </ActionButton>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="destructive"
             onClick={() => setRescanConfirmOpen(true)}
-            className="px-6 py-3 bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isRescanning}
           >
             Execute
-          </button>
+          </Button>
         </div>
         {rescanError && (
           <div className="mt-3">
@@ -711,48 +751,50 @@ function PartsCuration() {
       </Card>
 
       <Dialog
-        isOpen={rescanConfirmOpen}
-        onClose={() => setRescanConfirmOpen(false)}
-        title="Execute catalog rescan?"
+        open={rescanConfirmOpen}
+        onOpenChange={(next) => setRescanConfirmOpen(next)}
       >
-        <div className="text-neutral-300">
-          <p className="mb-4">
-            This will re-run the canonical linker against every Part row and
-            commit changes in batches of{' '}
-            <span className="font-semibold text-white">
-              {rescanBatchSize || '500'}
-            </span>
-            . Existing canonical links may be re-elected.
-          </p>
-          <p className="text-xs text-amber-400 mb-6">
-            Run a dry-run first if you haven&apos;t — this mutation has no undo.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setRescanConfirmOpen(false)}
-              className="glass-button px-6 py-3 rounded-xl text-neutral-300 hover:text-white transition-all"
-              disabled={isRescanning}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void runRescan(false);
-              }}
-              className="px-6 py-3 bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50"
-              disabled={isRescanning}
-            >
-              {isRescanning ? 'Running…' : 'Confirm execute'}
-            </button>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Execute catalog rescan?</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm">
+            <p className="mb-4">
+              This will re-run the canonical linker against every Part row and
+              commit changes in batches of{' '}
+              <span className="font-semibold text-foreground">
+                {rescanBatchSize || '500'}
+              </span>
+              . Existing canonical links may be re-elected.
+            </p>
+            <p className="text-xs text-amber-400 mb-6">
+              Run a dry-run first if you haven&apos;t — this mutation has no undo.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setRescanConfirmOpen(false)}
+                disabled={isRescanning}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void runRescan(false);
+                }}
+                disabled={isRescanning}
+              >
+                {isRescanning ? 'Running…' : 'Confirm execute'}
+              </Button>
+            </div>
           </div>
-        </div>
+        </DialogContent>
       </Dialog>
 
       {isLoadingGroup && (
         <div className="flex justify-center py-4">
-          <LoadingSpinner />
+          <Spinner />
         </div>
       )}
     </div>

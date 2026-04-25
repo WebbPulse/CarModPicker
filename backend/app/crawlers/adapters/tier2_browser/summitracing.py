@@ -229,6 +229,7 @@ class SummitRacingAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "summitracing"
+    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

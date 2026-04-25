@@ -4,9 +4,9 @@ import { FaGoogle, FaTrash } from 'react-icons/fa';
 import { authApi } from '../../services/Api';
 import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
 import type { OAuthAccountRead } from '../../types/Api';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import Spinner from '../ui/spinner';
 
 const formatDate = (value?: string | null): string => {
   if (!value) return '—';
@@ -93,7 +93,7 @@ function ConnectedAccountsSettings() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
-        <LoadingSpinner />
+        <Spinner />
       </div>
     );
   }
@@ -135,14 +135,16 @@ function ConnectedAccountsSettings() {
                   </div>
                 </div>
               </div>
-              <SecondaryButton
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => void handleDisconnect(acc.id)}
                 disabled={busy}
-                className="!py-1 !px-3 text-sm"
               >
-                <FaTrash className="inline mr-1" />
+                <FaTrash />
                 Disconnect
-              </SecondaryButton>
+              </Button>
             </li>
           ))}
         </ul>

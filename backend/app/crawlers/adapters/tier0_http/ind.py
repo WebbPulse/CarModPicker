@@ -278,6 +278,7 @@ class INDAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "ind"
+    category_targets: ClassVar[list[str]] = ["universal"]
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs from sitemap.xml → sitemap_products_N.xml.

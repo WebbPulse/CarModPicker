@@ -28,7 +28,7 @@ Write the verification tests that prove the slice's success criteria. Create `ba
 
 ## Verification
 
-cd backend && pytest tests/crawlers/test_spec_registry_contract.py tests/crawlers/test_ingest_spec_validation.py -n auto -v
+pytest backend/tests/crawlers/test_spec_registry_contract.py backend/tests/crawlers/test_ingest_spec_validation.py -n auto -v --rootdir=backend
 
 ## Failure Modes
 

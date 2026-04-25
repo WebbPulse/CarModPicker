@@ -732,14 +732,31 @@ def ingest_payload(
         )
 
     # Validate ScrapedPayload.specifications against the SpecRegistry-resolved schema.
-    # Three pass-through cases: no spec block, no inferred slug, or no model registered
-    # for that slug — all proceed with the raw spec block (None or as-extracted dict).
-    # On Pydantic ValidationError: drop to None, WARN with structured context, emit
-    # ExtractionFailureRate metric. The part still ingests — gradual coverage growth
-    # over M002 means most categories won't have a registered schema yet.
+    # Pass-through cases: no spec block, no inferred slug, no bridged sub-slug, or
+    # no model registered for that sub-slug — all proceed with the raw spec block
+    # (None or as-extracted dict). On Pydantic ValidationError: drop to None,
+    # WARN with structured context (both inferred_name and bridged_subslug for
+    # S04's per-sub-category granularity), emit ExtractionFailureRate metric.
+    # The part still ingests — fail-soft is the contract (MEM015).
+    #
+    # The bridge (M002/S02) maps DB category names like "suspension" /
+    # "engine" / "wheels" to SpecRegistry sub-slugs like "coilover" / "turbo"
+    # / "universal", so the validation hook actually fires across the catalog
+    # instead of always hitting the no-model pass-through (MEM010/MEM016/MEM020).
     log_adapter_name = adapter_name or "unknown"
+    bridged_subslug: Optional[str] = None
     if payload.specifications is not None and inferred_name:
-        spec_model = default_registry.resolve(inferred_name)
+        # Lazy import: keep specs.category_bridge out of the import graph at
+        # module load — it pulls re/typing only, but the lazy import mirrors
+        # the convention the rest of this file uses for crawlers.specs lookups.
+        from app.crawlers.specs.category_bridge import category_to_subslug
+
+        bridged_subslug = category_to_subslug(
+            inferred_name,
+            name=payload.name,
+            description=payload.description,
+        )
+        spec_model = default_registry.resolve(bridged_subslug) if bridged_subslug else None
         if spec_model is not None:
             try:
                 validated = spec_model.model_validate(payload.specifications)
@@ -748,9 +765,10 @@ def ingest_payload(
                 )
             except pydantic.ValidationError as e:
                 logger.warning(
-                    "spec validation failed: adapter=%s category=%s url=%s errors=%s",
+                    "spec validation failed: adapter=%s category=%s subslug=%s url=%s errors=%s",
                     log_adapter_name,
                     inferred_name,
+                    bridged_subslug,
                     payload.product_url,
                     e.errors()[:3],
                 )

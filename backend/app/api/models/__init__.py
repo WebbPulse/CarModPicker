@@ -18,6 +18,7 @@ from .oauth_account import OAuthAccount
 from .part import Part
 from .part_listing import PartListing
 from .part_manufacturer import PartManufacturer
+from .part_price_alert import PartPriceAlert
 from .part_price_history import PartPriceHistory
 from .report import Report
 from .retailer import Retailer
@@ -51,6 +52,7 @@ __all__ = [
     "BuildLogPost",
     "Retailer",
     "PartListing",
+    "PartPriceAlert",
     "PartPriceHistory",
     "part_cars",
 ]

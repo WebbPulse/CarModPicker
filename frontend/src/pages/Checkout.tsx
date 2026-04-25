@@ -1,7 +1,7 @@
 import { FaArrowLeft, FaCrown, FaLock } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
-import Card from '../components/common/Card';
+import { Card } from '../components/ui/card';
 import { PREMIUM_MONTHLY_PRICE_USD } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import { isPremium } from '../utils/subscription';

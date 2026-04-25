@@ -1,14 +1,15 @@
 import React, { useCallback, useState } from 'react';
-import LinkButton from '../../components/buttons/LinkButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import Input from '../../components/common/Input';
-import Pagination from '../../components/common/Pagination';
+import { Link } from 'react-router-dom';
 import PartList from '../../components/parts/PartList';
 import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
 import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import { Input } from '../../components/ui/input';
+import Pagination from '../../components/ui/pagination';
 import { useAuth } from '../../hooks/useAuth';
 import { usePartsFilters } from '../../hooks/usePartsFilters';
 import { buildListPartsApi, partsApi } from '../../services/Api';
@@ -140,9 +141,9 @@ const UserParts: React.FC = () => {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="My Parts" />
-        <LinkButton to="/parts" variant="outline" size="md">
-          Browse All Parts
-        </LinkButton>
+        <Button asChild variant="outline">
+          <Link to="/parts">Browse All Parts</Link>
+        </Button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -190,19 +191,46 @@ const UserParts: React.FC = () => {
         </main>
       </div>
 
-      <DeleteConfirmationDialog
-        isOpen={deletingPartId !== null}
-        onClose={() => {
-          setDeletingPartId(null);
-          setDeletingPartName('');
-          setBuildListCount(null);
+      <ConfirmDialog
+        open={deletingPartId !== null}
+        onOpenChange={(open) => {
+          if (!open && isDeleting) return;
+          if (!open) {
+            setDeletingPartId(null);
+            setDeletingPartName('');
+            setBuildListCount(null);
+          }
         }}
         onConfirm={() => void handleDelete()}
-        itemName={deletingPartName}
-        itemType="part"
-        isProcessing={isDeleting}
-        error={null}
-        buildListCount={buildListCount ?? undefined}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the part{' '}
+            <span className="font-semibold text-foreground">
+              &quot;{deletingPartName}&quot;
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        warning={
+          buildListCount !== null && buildListCount > 0 ? (
+            <>
+              <p className="font-semibold mb-1">
+                ⚠️ Warning: This part is currently in {buildListCount} build
+                list{buildListCount !== 1 ? 's' : ''}
+              </p>
+              <p className="text-xs">
+                Deleting this part will remove it from all {buildListCount}{' '}
+                build list{buildListCount !== 1 ? 's' : ''}. This action cannot
+                be undone.
+              </p>
+            </>
+          ) : undefined
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeleting}
       />
     </div>
   );

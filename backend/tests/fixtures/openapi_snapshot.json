@@ -1906,6 +1906,32 @@
         "title": "CategoryResponse",
         "type": "object"
       },
+      "ComplianceBlock": {
+        "properties": {
+          "compliant": {
+            "title": "Compliant",
+            "type": "integer"
+          },
+          "per_tier": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Per Tier",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "compliant",
+          "total",
+          "per_tier"
+        ],
+        "title": "ComplianceBlock",
+        "type": "object"
+      },
       "CopyBuildListRequest": {
         "description": "Request model for copying a build list.",
         "properties": {
@@ -1922,6 +1948,48 @@
           }
         },
         "title": "CopyBuildListRequest",
+        "type": "object"
+      },
+      "CoverageBlock": {
+        "properties": {
+          "per_tier": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CoverageTierBlock"
+            },
+            "title": "Per Tier",
+            "type": "object"
+          }
+        },
+        "required": [
+          "per_tier"
+        ],
+        "title": "CoverageBlock",
+        "type": "object"
+      },
+      "CoverageTierBlock": {
+        "properties": {
+          "parts_total": {
+            "title": "Parts Total",
+            "type": "integer"
+          },
+          "parts_with_specs": {
+            "title": "Parts With Specs",
+            "type": "integer"
+          },
+          "per_field": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Per Field",
+            "type": "object"
+          }
+        },
+        "required": [
+          "parts_with_specs",
+          "parts_total",
+          "per_field"
+        ],
+        "title": "CoverageTierBlock",
         "type": "object"
       },
       "CrawledPageRead": {
@@ -2876,6 +2944,66 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
+      "ExtractionHealthResponse": {
+        "properties": {
+          "compliance": {
+            "$ref": "#/components/schemas/ComplianceBlock"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageBlock"
+          },
+          "failure_rate_7d": {
+            "items": {
+              "$ref": "#/components/schemas/FailureRateRow"
+            },
+            "title": "Failure Rate 7D",
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/WindowMeta"
+          }
+        },
+        "required": [
+          "compliance",
+          "coverage",
+          "window"
+        ],
+        "title": "ExtractionHealthResponse",
+        "type": "object"
+      },
+      "FailureRateRow": {
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "parsed": {
+            "title": "Parsed",
+            "type": "integer"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter",
+          "failed",
+          "parsed",
+          "rate",
+          "tier"
+        ],
+        "title": "FailureRateRow",
+        "type": "object"
+      },
       "FlaggedEntitySummary": {
         "properties": {
           "created_at": {
@@ -3645,6 +3773,124 @@
         "title": "PartManufacturerUpdate",
         "type": "object"
       },
+      "PartPriceAlertCreate": {
+        "description": "Body for POST /api/part-price-alerts/.",
+        "properties": {
+          "part_id": {
+            "description": "ID of the part to subscribe to",
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "threshold_cents": {
+            "description": "Notify when observed price <= this threshold (cents)",
+            "minimum": 0.0,
+            "title": "Threshold Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_id",
+          "threshold_cents"
+        ],
+        "title": "PartPriceAlertCreate",
+        "type": "object"
+      },
+      "PartPriceAlertRead": {
+        "description": "Response shape for a single alert.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_fired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fired At"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "threshold_cents": {
+            "minimum": 0.0,
+            "title": "Threshold Cents",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "part_id",
+          "threshold_cents",
+          "active",
+          "last_fired_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PartPriceAlertRead",
+        "type": "object"
+      },
+      "PartPriceAlertUpdate": {
+        "description": "Body for PATCH /api/part-price-alerts/{id}.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the alert is active",
+            "title": "Active"
+          },
+          "threshold_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "New threshold in cents",
+            "title": "Threshold Cents"
+          }
+        },
+        "title": "PartPriceAlertUpdate",
+        "type": "object"
+      },
       "PartPriceHistoryReadWithRetailer": {
         "description": "Price history entry with retailer info for API responses.",
         "properties": {
@@ -4175,6 +4421,256 @@
           "part_manufacturer_id"
         ],
         "title": "PartUpdate",
+        "type": "object"
+      },
+      "PriceHistoryBatchRequest": {
+        "description": "Body for POST /api/parts/price-history.",
+        "properties": {
+          "part_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Part Ids",
+            "type": "array"
+          },
+          "window": {
+            "default": "90d",
+            "enum": [
+              "30d",
+              "90d",
+              "180d",
+              "1y",
+              "all"
+            ],
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_ids"
+        ],
+        "title": "PriceHistoryBatchRequest",
+        "type": "object"
+      },
+      "PriceHistoryBatchResponse": {
+        "description": "Response for POST /api/parts/price-history.",
+        "properties": {
+          "found_count": {
+            "minimum": 0.0,
+            "title": "Found Count",
+            "type": "integer"
+          },
+          "requested_count": {
+            "minimum": 0.0,
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "summaries": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PriceHistoryBatchSummaryItem"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Summaries",
+            "type": "object"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summaries",
+          "window",
+          "requested_count",
+          "found_count"
+        ],
+        "title": "PriceHistoryBatchResponse",
+        "type": "object"
+      },
+      "PriceHistoryBatchSummaryItem": {
+        "description": "Per-part summary inside a batch response. Same shape as PriceHistorySummary.",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most recent observed price in window",
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the most recent price was observed",
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest observed price in window (None if no observations)",
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lowest observed price in window (None if no observations)",
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "description": "Number of observations contributing to this summary",
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "flat",
+            "description": "Linear-regression slope sign over the window",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "title": "PriceHistoryBatchSummaryItem",
+        "type": "object"
+      },
+      "PriceHistorySinglePartResponse": {
+        "description": "Response for GET /api/parts/{id}/price-history (object shape).",
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "retailers": {
+            "items": {
+              "$ref": "#/components/schemas/RetailerPriceBreakdown"
+            },
+            "title": "Retailers",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PriceHistorySummary"
+          },
+          "window": {
+            "description": "Echoed window literal applied to this response",
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "window"
+        ],
+        "title": "PriceHistorySinglePartResponse",
+        "type": "object"
+      },
+      "PriceHistorySummary": {
+        "description": "Aggregated price stats over a window for one part (or one retailer slice of it).",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most recent observed price in window",
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the most recent price was observed",
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest observed price in window (None if no observations)",
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lowest observed price in window (None if no observations)",
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "description": "Number of observations contributing to this summary",
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "flat",
+            "description": "Linear-regression slope sign over the window",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "title": "PriceHistorySummary",
         "type": "object"
       },
       "PromoteCanonicalRequest": {
@@ -4928,6 +5424,77 @@
           "domain"
         ],
         "title": "RetailerGetOrCreateRequest",
+        "type": "object"
+      },
+      "RetailerPriceBreakdown": {
+        "description": "Per-retailer summary inside a single-part response.",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "retailer_id": {
+            "format": "uuid",
+            "title": "Retailer Id",
+            "type": "string"
+          },
+          "retailer_name": {
+            "title": "Retailer Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "retailer_id",
+          "retailer_name"
+        ],
+        "title": "RetailerPriceBreakdown",
         "type": "object"
       },
       "RetailerRead": {
@@ -6088,6 +6655,24 @@
         ],
         "title": "WebAuthnRegisterVerifyRequest",
         "type": "object"
+      },
+      "WindowMeta": {
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "since": {
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "since"
+        ],
+        "title": "WindowMeta",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -6893,6 +7478,39 @@
           }
         ],
         "summary": "Delete All Parts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/extraction-health/": {
+      "get": {
+        "description": "Return compliance + coverage + 7-day failure-rate (admin only).\n\nImplementation note: per MEM037, the canonical adapter count is 108\n(T0:83 / T1:15 / T2:10) \u2014 the IS_FALLBACK ``GenericHtmlParser`` instances\nare excluded from ``ADAPTER_REGISTRY`` per D-03 and therefore from the\ncompliance tally. Failure-rate is sourced from ``crawled_pages.parse_status``\nrather than CloudWatch (D008).",
+        "operationId": "get_extraction_health_api_admin_extraction_health__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractionHealthResponse"
+                }
+              }
+            },
+            "description": "Extraction health snapshot (compliance + coverage + failure-rate)"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Extraction Health",
         "tags": [
           "admin"
         ]
@@ -13250,6 +13868,240 @@
         ]
       }
     },
+    "/api/part-price-alerts/": {
+      "post": {
+        "description": "Subscribe the current user to a price-drop alert on a part.\n\nIdempotent on (user_id, part_id) \u2014 re-subscribing updates the threshold and\nreactivates a previously-soft-deleted alert instead of creating a duplicate.",
+        "operationId": "subscribe_to_part_price_alert_api_part_price_alerts__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartPriceAlertCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Alert subscription created (or updated if one already existed)"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartPriceAlertRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Subscribe To Part Price Alert",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
+    "/api/part-price-alerts/me": {
+      "get": {
+        "description": "List the current user's active alerts (active=True only).",
+        "operationId": "list_my_active_alerts_api_part_price_alerts_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartPriceAlertRead"
+                  },
+                  "title": "Response List My Active Alerts Api Part Price Alerts Me Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Active price-drop alerts for the current user"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List My Active Alerts",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
+    "/api/part-price-alerts/unsubscribe": {
+      "get": {
+        "description": "One-click unsubscribe via signed JWT (no auth dependency \u2014 token IS the auth).\n\nDecodes the token, requires ``purpose == 'price_alert_unsubscribe'``, looks\nup the alert by id, sets ``active=False``, and redirects the browser to the\nfrontend ``/account/alerts`` page. Invalid/expired tokens redirect to the\nsame page with ``status=error`` so the user gets a coherent UI in either\ncase (we never reveal why decode failed).",
+        "operationId": "unsubscribe_via_token_api_part_price_alerts_unsubscribe_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "302": {
+            "description": "Redirected to /account/alerts with a status flag"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unsubscribe Via Token",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
+    "/api/part-price-alerts/{alert_id}": {
+      "delete": {
+        "description": "Soft-delete the user's own alert by setting active=False.\n\nIdempotent at the user-experience level: a second DELETE on the same id\nreturns 404 because the row is no longer ownable-and-active. (T03 will\ntreat already-deleted rows the same way the unsubscribe-via-token path\ndoes \u2014 currently 404 is the simplest contract for this surface.)",
+        "operationId": "delete_my_alert_api_part_price_alerts__alert_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Alert Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert deactivated"
+          },
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete My Alert",
+        "tags": [
+          "part-price-alerts"
+        ]
+      },
+      "patch": {
+        "description": "Update threshold and/or active flag on the user's own alert.\n\nReturns 404 (not 403) for alerts owned by another user, to avoid leaking\nexistence via endpoint behavior.",
+        "operationId": "update_my_alert_api_part_price_alerts__alert_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Alert Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartPriceAlertUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartPriceAlertRead"
+                }
+              }
+            },
+            "description": "Alert updated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update My Alert",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
     "/api/parts/": {
       "get": {
         "description": "List all entities with pagination and search.",
@@ -13874,6 +14726,48 @@
           }
         ],
         "summary": "Find Part By Part Manufacturer And Part Number Endpoint",
+        "tags": [
+          "parts"
+        ]
+      }
+    },
+    "/api/parts/price-history": {
+      "post": {
+        "description": "Aggregate min/max/last/trend per part for a batch of part IDs (1\u2013100).\n\nPOST (not GET) so the body can carry up to 100 UUIDs without hitting proxy\nURL-length limits. The endpoint never 404s on a per-id basis \u2014 unknown IDs\nreturn well-formed empty-summary entries so the client can iterate without\nholes. Invalid `window` values 422 with `error_code: INVALID_WINDOW`.",
+        "operationId": "post_batch_price_history_api_parts_price_history_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceHistoryBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceHistoryBatchResponse"
+                }
+              }
+            },
+            "description": "Batch price-history summaries (one entry per requested part_id)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Batch Price History",
         "tags": [
           "parts"
         ]
@@ -14702,7 +15596,7 @@
     },
     "/api/parts/{part_id}/price-history": {
       "get": {
-        "description": "Get price history for this part (aggregated across its link group).",
+        "description": "Get price history for this part (aggregated across its link group).\n\nReturns the S05 object shape (`summary`, `retailers`, `history`, `window`).\nOptional `retailer_id` narrows the response to one retailer; `summary` is\nrecomputed from that filtered slice (not the cross-retailer aggregate).\nInvalid `window` values produce a 422 with `error_code: INVALID_WINDOW`\n(see schema response).",
         "operationId": "get_part_price_history_api_parts__part_id__price_history_get",
         "parameters": [
           {
@@ -14712,6 +15606,18 @@
             "schema": {
               "format": "uuid",
               "title": "Part Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "90d",
+              "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+              "title": "Window",
               "type": "string"
             }
           },
@@ -14740,15 +15646,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
-                  },
-                  "title": "Response Get Part Price History Api Parts  Part Id  Price History Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/PriceHistorySinglePartResponse"
                 }
               }
             },
-            "description": "Price history retrieved"
+            "description": "Price history retrieved (object shape with summary, retailers, history, window)"
           },
           "404": {
             "description": "Resource not found"

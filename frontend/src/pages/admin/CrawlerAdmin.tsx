@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import Spinner from '../../components/ui/spinner';
 import type {
   BackgroundJob,
   BackgroundJobList,
@@ -1474,9 +1474,9 @@ function CrawlerAdmin() {
       />
 
       <div className="flex items-center justify-between gap-2 mb-2">
-        <ActionButton onClick={() => void navigate('/admin')}>
+        <Button onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
-        </ActionButton>
+        </Button>
         <div className="flex items-center gap-2 text-[10px] text-neutral-400">
           <span className="text-neutral-500">Fetcher tiers:</span>
           {(['http', 'tls', 'browser'] as const).map((t) => (
@@ -1510,7 +1510,7 @@ function CrawlerAdmin() {
                 in parallel.
               </p>
             </div>
-            <ActionButton
+            <Button
               onClick={() => void handleReconcileAll()}
               disabled={
                 isReconcilingAll || isLoadingSchedules || isSchedulesUnavailable
@@ -1518,7 +1518,7 @@ function CrawlerAdmin() {
               className="bg-gray-700 hover:bg-gray-600 text-white text-[11px] py-0.5 px-2 shrink-0"
             >
               {isReconcilingAll ? 'Syncing…' : 'Force sync with AWS'}
-            </ActionButton>
+            </Button>
           </div>
 
           {isSchedulesUnavailable && (
@@ -1613,7 +1613,7 @@ function CrawlerAdmin() {
                   );
                 })}
               </div>
-              <ActionButton
+              <Button
                 onClick={() => void handleCreateSchedule()}
                 disabled={
                   isCreatingSchedule ||
@@ -1625,13 +1625,13 @@ function CrawlerAdmin() {
                 className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
               >
                 {isCreatingSchedule ? 'Creating…' : 'Create schedule'}
-              </ActionButton>
+              </Button>
             </div>
           </div>
 
           {isLoadingSchedules && schedules.length === 0 ? (
             <div className="flex justify-center py-4">
-              <LoadingSpinner size="sm" />
+              <Spinner size="sm" />
             </div>
           ) : schedules.length === 0 ? (
             <p className="text-xs text-gray-500 py-2">
@@ -1808,7 +1808,7 @@ function CrawlerAdmin() {
                           row.schedule_expression,
                           schedulePresets
                         ) !== draft.preset ? (
-                          <ActionButton
+                          <Button
                             onClick={() =>
                               void handleSaveSchedule(
                                 row.id,
@@ -1833,7 +1833,7 @@ function CrawlerAdmin() {
                             className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
                           >
                             {isSaving ? 'Saving…' : 'Save interval'}
-                          </ActionButton>
+                          </Button>
                         ) : null}
                         <button
                           onClick={() => void handleDeleteSchedule(row)}
@@ -1887,7 +1887,7 @@ function CrawlerAdmin() {
 
           {isLoadingConfigs && adapterConfigs.length === 0 ? (
             <div className="flex justify-center py-4">
-              <LoadingSpinner size="sm" />
+              <Spinner size="sm" />
             </div>
           ) : adapterConfigs.length === 0 ? (
             <p className="text-xs text-gray-500 py-2">
@@ -2051,7 +2051,7 @@ function CrawlerAdmin() {
 
           {!jobsList && isLoadingJobs && (
             <div className="flex justify-center py-4">
-              <LoadingSpinner size="sm" />
+              <Spinner size="sm" />
             </div>
           )}
 
@@ -2297,7 +2297,7 @@ function CrawlerAdmin() {
 
           {isLoadingCrawlers ? (
             <div className="flex justify-center items-center py-6">
-              <LoadingSpinner />
+              <Spinner />
             </div>
           ) : (
             <>
@@ -2565,27 +2565,27 @@ function CrawlerAdmin() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton
+                  <Button
                     onClick={() => void handleRunSelectedCrawlers()}
                     disabled={isRunningCrawlers || selectedCrawlers.size === 0}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
                   >
                     {isRunningCrawlers ? (
                       <span className="flex items-center">
-                        <LoadingSpinner size="sm" inline />
+                        <Spinner size="sm" inline />
                         <span className="ml-1">Running...</span>
                       </span>
                     ) : (
                       `Run selected (${selectedCrawlers.size})`
                     )}
-                  </ActionButton>
-                  <ActionButton
+                  </Button>
+                  <Button
                     onClick={() => void handleRunAllCrawlers()}
                     disabled={isRunningCrawlers}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
                   >
                     Run all
-                  </ActionButton>
+                  </Button>
                 </div>
 
                 {crawlerError && (
@@ -2620,7 +2620,7 @@ function CrawlerAdmin() {
                   pipeline as a live crawl). Background job — watch server logs
                   for per-outcome counts.
                 </p>
-                <ActionButton
+                <Button
                   onClick={() => void handleRescrapeArchives()}
                   disabled={isRescrapingArchives}
                   className="bg-violet-600 hover:bg-violet-700 text-white text-xs py-1 px-2.5"
@@ -2628,14 +2628,14 @@ function CrawlerAdmin() {
                   {isRescrapingArchives ? (
                     <span className="flex items-center">
                       <span className="mr-2">
-                        <LoadingSpinner size="sm" inline />
+                        <Spinner size="sm" inline />
                       </span>
                       Starting…
                     </span>
                   ) : (
                     'Rescrape latest archives'
                   )}
-                </ActionButton>
+                </Button>
                 {rescrapeArchivesError && (
                   <div className="mt-2">
                     <ErrorAlert message={rescrapeArchivesError} />

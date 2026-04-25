@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import AuthCard from '../../components/auth/AuthCard';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { ConfirmationAlert, ErrorAlert } from '../../components/ui/alert';
+import Spinner from '../../components/ui/spinner';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../services/Api';
@@ -40,7 +40,7 @@ function VerifyEmail() {
   if (authIsLoading) {
     return (
       <AuthCard title="Verify Your Email">
-        <LoadingSpinner />
+        <Spinner />
       </AuthCard>
     );
   }
@@ -75,12 +75,14 @@ function VerifyEmail() {
         )}
         <ErrorAlert message={apiError} />
         {!isSubmitted && (
-          <ButtonStretch
+          <Button
+            type="button"
+            className="w-full"
             onClick={() => void handleSubmit()}
             disabled={apiIsLoading}
           >
             {apiIsLoading ? 'Sending...' : 'Send Verification Email'}
-          </ButtonStretch>
+          </Button>
         )}
         <AuthRedirectLink text="Back to" linkText="Home" to="/" />
       </div>

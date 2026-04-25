@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 
 const CAROUSEL_SIZE = 5;

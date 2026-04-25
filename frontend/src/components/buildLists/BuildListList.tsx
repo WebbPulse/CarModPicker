@@ -6,10 +6,10 @@ import {
 } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { buildListsApi } from '../../services/Api';
-import AddItemTile from '../common/AddItemTile';
-import { ErrorAlert } from '../common/Alerts';
-import LoadingSpinner from '../common/LoadingSpinner';
-import Pagination from '../common/Pagination';
+import AddItemTile from './AddItemTile';
+import { ErrorAlert } from '../ui/alert';
+import Pagination from '../ui/pagination';
+import Spinner from '../ui/spinner';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListItem from './BuildListItem';
 
@@ -89,7 +89,7 @@ const BuildListList: React.FC<BuildListListProps> = ({
     return (
       <>
         <SectionHeader title={title} />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }

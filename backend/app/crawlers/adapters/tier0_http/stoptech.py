@@ -215,6 +215,7 @@ class StoptechAdapter(RetailerCrawlerAdapter):
     # solved by upgrading fetcher tier. Left explicit so the choice is
     # documented on the class as well as the module docstring.
     ADAPTER_NAME: ClassVar[str] = "stoptech"
+    category_targets: ClassVar[list[str]] = ["brake", "universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

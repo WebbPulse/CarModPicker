@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import BuildListItem from '../components/buildLists/BuildListItem';
-import { ErrorAlert } from '../components/common/Alerts';
-import Card from '../components/common/Card';
-import CardInfoItem from '../components/common/CardInfoItem';
-import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import SocialLinks from '../components/profile/SocialLinks';
+import { ErrorAlert } from '../components/ui/alert';
+import { Card } from '../components/ui/card';
+import Spinner from '../components/ui/spinner';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import apiClient, { buildListsApi } from '../services/Api';
@@ -62,7 +61,7 @@ function ViewUser() {
     return (
       <>
         <PageHeader title="User Profile" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -97,22 +96,28 @@ function ViewUser() {
       <Card>
         <SectionHeader title="Public Profile Information" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <CardInfoItem label="Profile Picture">
-            {user.image_urls?.[0] ? (
-              <img
-                src={user.image_urls[0]}
-                alt={`${user.username}'s profile`}
-                className="h-48 w-48 rounded-lg object-cover"
-              />
-            ) : (
-              <p className="text-gray-400">No image set.</p>
-            )}
-          </CardInfoItem>
+          <div>
+            <p className="font-medium text-gray-300">Profile Picture</p>
+            <div className="text-gray-300">
+              {user.image_urls?.[0] ? (
+                <img
+                  src={user.image_urls[0]}
+                  alt={`${user.username}'s profile`}
+                  className="h-48 w-48 rounded-lg object-cover"
+                />
+              ) : (
+                <p className="text-gray-400">No image set.</p>
+              )}
+            </div>
+          </div>
           {/* This div creates an empty cell in the top-right on medium screens and up */}
           <div className="hidden md:block"></div>
-          <CardInfoItem label="Username">
-            <p>{user.username}</p>
-          </CardInfoItem>
+          <div>
+            <p className="font-medium text-gray-300">Username</p>
+            <div className="text-gray-300">
+              <p>{user.username}</p>
+            </div>
+          </div>
         </div>
         <SocialLinks
           links={{
@@ -129,7 +134,7 @@ function ViewUser() {
       <div className="mt-8">
         <SectionHeader title={`${user.username}'s Build Lists`} />
         {isLoadingBuildLists ? (
-          <LoadingSpinner />
+          <Spinner />
         ) : buildLists.length > 0 ? (
           <div className="tile-grid-compact mt-4">
             {buildLists.map((buildList) => (

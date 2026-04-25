@@ -8,8 +8,8 @@ import {
   FaUsers,
 } from 'react-icons/fa';
 import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 function About() {
@@ -126,11 +126,11 @@ function About() {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" className="group">
-                  <FaRocket className="mr-3 group-hover:translate-x-1 transition-transform" />
+                  <FaRocket className="group-hover:translate-x-1 transition-transform" />
                   Join Our Community
                 </Button>
                 <Button variant="outline" size="lg" className="group">
-                  <FaUsers className="mr-3 group-hover:scale-110 transition-transform" />
+                  <FaUsers className="group-hover:scale-110 transition-transform" />
                   Get in Touch
                 </Button>
               </div>
@@ -176,8 +176,7 @@ function About() {
               <Card
                 key={feature.id}
                 variant="glass"
-                interactive
-                className="group animate-slideInUp"
+                className="group animate-slideInUp cursor-pointer transition-transform hover:scale-105"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex items-start space-x-4">

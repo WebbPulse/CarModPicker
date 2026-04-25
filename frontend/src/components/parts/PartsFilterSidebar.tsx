@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import Card from '../common/Card';
-import VehicleFilterSection from '../common/VehicleFilterSection';
+import VehicleFilterSection from '../filters/VehicleFilterSection';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Input } from '../ui/input';
 import type {
   PartManufacturerResponse,
   CarGenerationRead,
@@ -85,31 +87,27 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
 
   const sectionTitleClass =
     'text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60';
-  const clearButtonClass =
-    'block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-700/50 hover:text-gray-300 transition-colors';
-  const inputClass =
-    'w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors';
   const checkboxRowClass =
     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer text-gray-300 hover:bg-gray-700/50 hover:text-gray-100 transition-colors';
   const checkboxInputClass =
-    'rounded border-gray-500 bg-gray-800 text-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-gray-900';
+    'accent-primary border-input bg-background focus-visible:ring-2 focus-visible:ring-ring';
 
   return (
     <aside className="lg:w-64 flex-shrink-0 lg:self-stretch lg:min-h-[calc(100vh-2rem)]">
-      <Card
-        className="sticky top-4 overflow-hidden lg:h-full"
-        contentClassName="lg:absolute lg:inset-0 flex flex-col"
-      >
+      <Card className="sticky top-4 overflow-hidden lg:h-full p-0">
+        <div className="lg:absolute lg:inset-0 flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 flex-shrink-0">
           <h2 className="text-base font-semibold text-gray-100">Filters</h2>
           {hasActiveFilters && (
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={clearAllFilters}
-              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="h-auto p-0 text-sm"
             >
               Clear all
-            </button>
+            </Button>
           )}
         </div>
         <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-8rem)] lg:max-h-none lg:flex-1 lg:min-h-0">
@@ -160,7 +158,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                 >
                   Min ($)
                 </label>
-                <input
+                <Input
                   id="price-min"
                   type="number"
                   min={0}
@@ -168,7 +166,6 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                   placeholder="No min"
                   value={priceMin}
                   onChange={(e) => setPriceMin(e.target.value)}
-                  className={inputClass}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -178,7 +175,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                 >
                   Max ($)
                 </label>
-                <input
+                <Input
                   id="price-max"
                   type="number"
                   min={0}
@@ -186,7 +183,6 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                   placeholder="No max"
                   value={priceMax}
                   onChange={(e) => setPriceMax(e.target.value)}
-                  className={inputClass}
                 />
               </div>
             </div>
@@ -197,13 +193,15 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
             <h3 className={sectionTitleClass}>Part Category</h3>
             <div className="space-y-2">
               {selectedCategoryIds.length > 0 && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setSelectedCategoryIds([])}
-                  className={clearButtonClass}
+                  className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
                 >
                   Clear categories
-                </button>
+                </Button>
               )}
               {activeCategories
                 .filter((cat) => availableCategoryIds.includes(cat.id))
@@ -225,21 +223,22 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
           <div>
             <h3 className={sectionTitleClass}>Part Manufacturer</h3>
             <div className="space-y-2">
-              <input
+              <Input
                 type="text"
                 placeholder="Search part manufacturers..."
                 value={part_manufacturerSearchTerm}
                 onChange={(e) => setPartManufacturerSearchTerm(e.target.value)}
-                className={inputClass}
               />
               {selectedPartManufacturerIds.length > 0 && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setSelectedPartManufacturerIds([])}
-                  className={clearButtonClass}
+                  className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
                 >
                   Clear part manufacturers
-                </button>
+                </Button>
               )}
               {availablePartManufacturers
                 .filter((b) => availablePartManufacturerIds.includes(b.id))
@@ -272,6 +271,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                 ))}
             </div>
           </div>
+        </div>
         </div>
       </Card>
     </aside>

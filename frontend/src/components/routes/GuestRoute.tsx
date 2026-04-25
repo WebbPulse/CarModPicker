@@ -2,14 +2,14 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import LoadingSpinner from '../common/LoadingSpinner';
+import Spinner from '../ui/spinner';
 
 const GuestRoute: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <Spinner />;
   }
 
   if (isAuthenticated) {

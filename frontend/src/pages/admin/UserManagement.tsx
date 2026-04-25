@@ -9,16 +9,21 @@ import type {
   UserRead,
 } from '../../types/Api';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import Dialog from '../../components/common/Dialog';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchUsersRequestFn = (params?: {
@@ -291,9 +296,9 @@ function UserManagement() {
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        <ActionButton onClick={() => void navigate('/admin')}>
+        <Button variant="secondary" onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
-        </ActionButton>
+        </Button>
         <div
           className="flex-1"
           onFocus={() => {
@@ -326,14 +331,14 @@ function UserManagement() {
       {isLoadingUsers && !usersData ? (
         <Card>
           <div className="flex justify-center items-center py-16">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         </Card>
       ) : users && users.length > 0 ? (
         <Card className="relative">
           {isLoadingUsers && (
             <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <LoadingSpinner />
+              <Spinner />
             </div>
           )}
           <SectionHeader title="Users" />
@@ -455,20 +460,22 @@ function UserManagement() {
                     </td>
                     <td className="p-2">
                       <div className="flex space-x-2">
-                        <ActionButton
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => openEditDialog(user)}
-                          className="text-sm px-2 py-1"
                           disabled={!canEditUser()}
                         >
                           Edit
-                        </ActionButton>
-                        <ActionButton
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
                           onClick={() => openDeleteDialog(user)}
-                          className="text-sm px-2 py-1 bg-red-600 hover:bg-red-700"
                           disabled={!canDeleteUser(user)}
                         >
                           Delete
-                        </ActionButton>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -501,57 +508,90 @@ function UserManagement() {
 
       {/* Edit User Dialog */}
       <Dialog
-        isOpen={isEditDialogOpen}
-        onClose={closeEditDialog}
-        title={`Edit User: ${selectedUser?.username}`}
+        open={isEditDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) closeEditDialog();
+        }}
       >
-        <div className="space-y-4">
-          <Input
-            id="edit-username"
-            label="Username"
-            value={formData.username || ''}
-            onChange={(e) =>
-              setFormData({ ...formData, username: e.target.value || null })
-            }
-            placeholder="Username"
-            required
-          />
-          <Input
-            id="edit-email"
-            label="Email"
-            type="email"
-            value={formData.email || ''}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value || null })
-            }
-            placeholder="Email address"
-            required
-          />
-          <Input
-            id="edit-password"
-            label="New Password (leave empty to keep current)"
-            type="password"
-            value={formData.password || ''}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                password: e.target.value || null,
-              })
-            }
-            placeholder="New password"
-          />
-          <Input
-            id="edit-image-url"
-            label="Image URL"
-            value={formData.image_urls?.[0] || ''}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                image_urls: e.target.value ? [e.target.value] : null,
-              })
-            }
-            placeholder="https://example.com/image.jpg"
-          />
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{`Edit User: ${selectedUser?.username ?? ''}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+          <div className="space-y-1">
+            <label
+              htmlFor="edit-username"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Username
+            </label>
+            <Input
+              id="edit-username"
+              value={formData.username || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value || null })
+              }
+              placeholder="Username"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="edit-email"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Email
+            </label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={formData.email || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value || null })
+              }
+              placeholder="Email address"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="edit-password"
+              className="block text-sm font-medium text-gray-300"
+            >
+              New Password (leave empty to keep current)
+            </label>
+            <Input
+              id="edit-password"
+              type="password"
+              value={formData.password || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  password: e.target.value || null,
+                })
+              }
+              placeholder="New password"
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="edit-image-url"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Image URL
+            </label>
+            <Input
+              id="edit-image-url"
+              value={formData.image_urls?.[0] || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  image_urls: e.target.value ? [e.target.value] : null,
+                })
+              }
+              placeholder="https://example.com/image.jpg"
+            />
+          </div>
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <input
@@ -670,49 +710,71 @@ function UserManagement() {
               <option value="cancelled">Cancelled</option>
               <option value="expired">Expired</option>
             </select>
-            <Input
-              id="edit-subscription-expires"
-              label="Subscription expires at (leave empty for no expiry)"
-              type="date"
-              value={
-                formData.subscription_expires_at
-                  ? formData.subscription_expires_at.slice(0, 10)
-                  : ''
-              }
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  subscription_expires_at: e.target.value
-                    ? e.target.value
-                    : null,
-                })
-              }
-            />
+            <div className="space-y-1">
+              <label
+                htmlFor="edit-subscription-expires"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Subscription expires at (leave empty for no expiry)
+              </label>
+              <Input
+                id="edit-subscription-expires"
+                type="date"
+                value={
+                  formData.subscription_expires_at
+                    ? formData.subscription_expires_at.slice(0, 10)
+                    : ''
+                }
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    subscription_expires_at: e.target.value
+                      ? e.target.value
+                      : null,
+                  })
+                }
+              />
+            </div>
           </div>
           {updateError && <ErrorAlert message={updateError} />}
           <div className="flex justify-end space-x-2">
-            <ActionButton onClick={closeEditDialog} className="bg-gray-600">
+            <Button variant="secondary" onClick={closeEditDialog}>
               Cancel
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
               onClick={() => void handleUpdateUser()}
               disabled={isUpdating || !formData.username || !formData.email}
             >
               {isUpdating ? 'Updating...' : 'Update User'}
-            </ActionButton>
+            </Button>
           </div>
-        </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmationDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={closeDeleteDialog}
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) closeDeleteDialog();
+        }}
         onConfirm={() => void handleDeleteUser()}
-        itemName={selectedUser?.username || 'user'}
-        itemType="user"
-        isProcessing={isDeleting}
-        error={deleteError}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the user{' '}
+            <span className="font-semibold text-foreground">
+              "{selectedUser?.username || 'user'}"
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        cancelLabel="Cancel"
+        variant="destructive"
+        loading={isDeleting}
+        error={deleteError ? `Failed to delete user: ${deleteError}` : null}
       />
     </div>
   );

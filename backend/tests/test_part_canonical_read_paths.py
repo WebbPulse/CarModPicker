@@ -237,7 +237,9 @@ def test_price_history_aggregates_across_link_group(
 
     response = client.get(f"/api/parts/{canonical.id}/price-history")
     assert response.status_code == 200
-    history = response.json()
+    body = response.json()
+    # S05/T02: response is now an object {summary, retailers, history, window}.
+    history = body["history"]
     retailer_ids = {h["retailer_id"] for h in history}
     assert retailer_ids == {str(retailer_a.id), str(retailer_b.id)}
 

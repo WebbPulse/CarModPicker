@@ -220,26 +220,85 @@ describe('partsApi', () => {
     );
   });
 
-  it('getPartPriceHistory GETs /parts/:id/price-history with undefined params', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [] });
+  it('getPartPriceHistorySummary forwards window to GET /parts/:id/price-history with object response type', async () => {
+    const summary = {
+      summary: {
+        min_cents: 1000,
+        max_cents: 2000,
+        last_cents: 1500,
+        last_observed_at: '2026-04-01T00:00:00Z',
+        trend: 'flat' as const,
+        observation_count: 5,
+      },
+      retailers: [],
+      history: [],
+      window: '90d',
+    };
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: summary });
 
-    await partsApi.getPartPriceHistory(mockPart.id);
+    const result = await partsApi.getPartPriceHistorySummary(mockPart.id, {
+      window: '90d',
+    });
 
     expect(apiClient.get).toHaveBeenCalledWith(
       `/parts/${mockPart.id}/price-history`,
-      { params: undefined }
+      { params: expect.objectContaining({ window: '90d' }) }
+    );
+    expect(result.data).toEqual(summary);
+    // Object response (not an array) — confirms the new shape is wired.
+    expect(Array.isArray(result.data)).toBe(false);
+  });
+
+  it('getPartPriceHistorySummary forwards retailer_id when provided', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: {
+        summary: {
+          min_cents: null,
+          max_cents: null,
+          last_cents: null,
+          last_observed_at: null,
+          trend: 'flat',
+          observation_count: 0,
+        },
+        retailers: [],
+        history: [],
+        window: '30d',
+      },
+    });
+
+    await partsApi.getPartPriceHistorySummary(mockPart.id, {
+      window: '30d',
+      retailer_id: 'r-2',
+    });
+
+    expect(apiClient.get).toHaveBeenCalledWith(
+      `/parts/${mockPart.id}/price-history`,
+      {
+        params: expect.objectContaining({
+          window: '30d',
+          retailer_id: 'r-2',
+        }),
+      }
     );
   });
 
-  it('getPartPriceHistory forwards retailer_id param when provided', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [] });
+  it('getBatchPriceHistorySummary POSTs body to /parts/price-history', async () => {
+    const body = {
+      part_ids: [mockPart.id, 'p-2', 'p-3'],
+      window: '90d' as const,
+    };
+    const responseBody = {
+      summaries: {},
+      window: '90d',
+      requested_count: 3,
+      found_count: 0,
+    };
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: responseBody });
 
-    await partsApi.getPartPriceHistory(mockPart.id, { retailer_id: 'r-1' });
+    const result = await partsApi.getBatchPriceHistorySummary(body);
 
-    expect(apiClient.get).toHaveBeenCalledWith(
-      `/parts/${mockPart.id}/price-history`,
-      { params: expect.objectContaining({ retailer_id: 'r-1' }) }
-    );
+    expect(apiClient.post).toHaveBeenCalledWith('/parts/price-history', body);
+    expect(result.data).toEqual(responseBody);
   });
 
   it('updatePart PUTs body to /parts/:id', async () => {

@@ -771,6 +771,7 @@ class IOPortRacingAdapter(RetailerCrawlerAdapter):
 
     # Plain HTTP is enough; Apache / PHP 5.6 origin, no Cloudflare gate.
     ADAPTER_NAME: ClassVar[str] = "ioportracing"
+    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

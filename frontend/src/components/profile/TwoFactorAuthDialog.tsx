@@ -3,11 +3,15 @@ import { FaLock, FaShieldAlt } from 'react-icons/fa';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { authApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Dialog from '../common/Dialog';
-import Input from '../common/Input';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
 
 interface TwoFactorAuthDialogProps {
   isOpen: boolean;
@@ -137,184 +141,252 @@ function TwoFactorAuthDialog({
 
   return (
     <Dialog
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Two-Factor Authentication"
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
     >
-      <div className="space-y-6">
-        {success && <ConfirmationAlert message={success} />}
-        {(error || setupError) && (
-          <ErrorAlert message={error || setupError || 'An error occurred'} />
-        )}
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Two-Factor Authentication</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6">
+          {success && <ConfirmationAlert message={success} />}
+          {(error || setupError) && (
+            <ErrorAlert message={error || setupError || 'An error occurred'} />
+          )}
 
-        {!isEnabled && !setupData && (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3 text-gray-300">
-              <FaShieldAlt className="text-primary-400 text-2xl" />
-              <div>
-                <h3 className="text-lg font-semibold">
-                  Enable Two-Factor Authentication
-                </h3>
-                <p className="text-sm text-gray-400">
-                  Add an extra layer of security to your account by requiring a
-                  code from your authenticator app when you log in.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm text-gray-300">
-              <p className="font-semibold">How it works:</p>
-              <ol className="list-decimal list-inside space-y-1 ml-2">
-                <li>
-                  Scan the QR code with an authenticator app (Google
-                  Authenticator, Authy, etc.)
-                </li>
-                <li>
-                  Enter the 6-digit code from your app to verify and enable 2FA
-                </li>
-                <li>You'll need this code every time you log in</li>
-              </ol>
-            </div>
-
-            <ActionButton
-              onClick={() => void handleSetup()}
-              disabled={isSettingUp}
-              className="w-full"
-            >
-              {isSettingUp ? 'Setting up...' : 'Set Up 2FA'}
-            </ActionButton>
-          </div>
-        )}
-
-        {!isEnabled && setupData && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-300 mb-2">
-                Scan this QR code
-              </h3>
-              <div className="flex justify-center mb-4">
-                <img
-                  src={setupData.qr_code_data}
-                  alt="2FA QR Code"
-                  className="border-2 border-gray-700 rounded-lg p-2 bg-white"
-                />
-              </div>
-              <p className="text-sm text-gray-400 mb-2">
-                Or enter this code manually:
-              </p>
-              <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
-                {setupData.manual_entry_key}
-              </p>
-            </div>
-
-            <div>
-              <Input
-                label="Enter 6-digit code from your app"
-                name="otp"
-                type="text"
-                value={otp}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                  setOtp(value);
-                }}
-                placeholder="000000"
-                maxLength={6}
-                leftIcon={<FaShieldAlt />}
-              />
-            </div>
-
-            <div className="flex space-x-2">
-              <ActionButton
-                onClick={() => void handleVerify()}
-                disabled={isVerifying || otp.length !== 6}
-                className="flex-1"
-              >
-                {isVerifying ? 'Verifying...' : 'Verify & Enable'}
-              </ActionButton>
-              <SecondaryButton
-                onClick={() => {
-                  setSetupData(null);
-                  setOtp('');
-                  setError(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </SecondaryButton>
-            </div>
-          </div>
-        )}
-
-        {isEnabled && (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3 text-gray-300">
-              <FaShieldAlt className="text-green-400 text-2xl" />
-              <div>
-                <h3 className="text-lg font-semibold">2FA is Enabled</h3>
-                <p className="text-sm text-gray-400">
-                  Your account is protected with two-factor authentication.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
-              <p className="text-sm text-yellow-300">
-                <strong>Warning:</strong> Disabling 2FA will remove this
-                security feature from your account. Make sure you have backup
-                codes or another way to secure your account.
-              </p>
-            </div>
-
+          {!isEnabled && !setupData && (
             <div className="space-y-4">
-              <Input
-                label="Password"
-                name="disablePassword"
-                type="password"
-                value={disablePassword}
-                onChange={(e) => {
-                  setDisablePassword(e.target.value);
-                  setError(null);
-                }}
-                placeholder="Enter your password"
-                disabled={isDisabling}
-                required
-                autoComplete="current-password"
-                leftIcon={<FaLock />}
-              />
+              <div className="flex items-center space-x-3 text-gray-300">
+                <FaShieldAlt className="text-primary-400 text-2xl" />
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    Enable Two-Factor Authentication
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Add an extra layer of security to your account by requiring
+                    a code from your authenticator app when you log in.
+                  </p>
+                </div>
+              </div>
 
-              <Input
-                label="2FA Code"
-                name="disableOtp"
-                type="text"
-                value={disableOtp}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                  setDisableOtp(value);
-                  setError(null);
-                }}
-                placeholder="000000"
-                disabled={isDisabling}
-                required
-                maxLength={6}
-                leftIcon={<FaShieldAlt />}
-                helperText="Enter the 6-digit code from your authenticator app"
-              />
+              <div className="bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm text-gray-300">
+                <p className="font-semibold">How it works:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>
+                    Scan the QR code with an authenticator app (Google
+                    Authenticator, Authy, etc.)
+                  </li>
+                  <li>
+                    Enter the 6-digit code from your app to verify and enable
+                    2FA
+                  </li>
+                  <li>You'll need this code every time you log in</li>
+                </ol>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => void handleSetup()}
+                disabled={isSettingUp}
+                loading={isSettingUp}
+                className="w-full"
+              >
+                {isSettingUp ? 'Setting up...' : 'Set Up 2FA'}
+              </Button>
             </div>
+          )}
 
-            <ActionButton
-              onClick={() => void handleDisable()}
-              disabled={
-                isDisabling ||
-                !disablePassword.trim() ||
-                disableOtp.length !== 6
-              }
-              className="w-full bg-red-600 hover:bg-red-700"
-            >
-              {isDisabling ? 'Disabling...' : 'Disable 2FA'}
-            </ActionButton>
-          </div>
-        )}
-      </div>
+          {!isEnabled && setupData && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">
+                  Scan this QR code
+                </h3>
+                <div className="flex justify-center mb-4">
+                  <img
+                    src={setupData.qr_code_data}
+                    alt="2FA QR Code"
+                    className="border-2 border-gray-700 rounded-lg p-2 bg-white"
+                  />
+                </div>
+                <p className="text-sm text-gray-400 mb-2">
+                  Or enter this code manually:
+                </p>
+                <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
+                  {setupData.manual_entry_key}
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="2fa-setup-otp"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
+                  Enter 6-digit code from your app
+                </label>
+                <div className="relative">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+                  >
+                    <FaShieldAlt />
+                  </span>
+                  <Input
+                    id="2fa-setup-otp"
+                    name="otp"
+                    type="text"
+                    value={otp}
+                    onChange={(e) => {
+                      const value = e.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 6);
+                      setOtp(value);
+                    }}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button
+                  type="button"
+                  onClick={() => void handleVerify()}
+                  disabled={isVerifying || otp.length !== 6}
+                  loading={isVerifying}
+                  className="flex-1"
+                >
+                  {isVerifying ? 'Verifying...' : 'Verify & Enable'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setSetupData(null);
+                    setOtp('');
+                    setError(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {isEnabled && (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 text-gray-300">
+                <FaShieldAlt className="text-green-400 text-2xl" />
+                <div>
+                  <h3 className="text-lg font-semibold">2FA is Enabled</h3>
+                  <p className="text-sm text-gray-400">
+                    Your account is protected with two-factor authentication.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+                <p className="text-sm text-yellow-300">
+                  <strong>Warning:</strong> Disabling 2FA will remove this
+                  security feature from your account. Make sure you have backup
+                  codes or another way to secure your account.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="2fa-disable-password"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+                    >
+                      <FaLock />
+                    </span>
+                    <Input
+                      id="2fa-disable-password"
+                      name="disablePassword"
+                      type="password"
+                      value={disablePassword}
+                      onChange={(e) => {
+                        setDisablePassword(e.target.value);
+                        setError(null);
+                      }}
+                      placeholder="Enter your password"
+                      disabled={isDisabling}
+                      required
+                      autoComplete="current-password"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="2fa-disable-otp"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    2FA Code
+                  </label>
+                  <div className="relative">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+                    >
+                      <FaShieldAlt />
+                    </span>
+                    <Input
+                      id="2fa-disable-otp"
+                      name="disableOtp"
+                      type="text"
+                      value={disableOtp}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 6);
+                        setDisableOtp(value);
+                        setError(null);
+                      }}
+                      placeholder="000000"
+                      disabled={isDisabling}
+                      required
+                      maxLength={6}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="mt-2 text-sm text-neutral-400">
+                    Enter the 6-digit code from your authenticator app
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void handleDisable()}
+                disabled={
+                  isDisabling ||
+                  !disablePassword.trim() ||
+                  disableOtp.length !== 6
+                }
+                loading={isDisabling}
+                className="w-full"
+              >
+                {isDisabling ? 'Disabling...' : 'Disable 2FA'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

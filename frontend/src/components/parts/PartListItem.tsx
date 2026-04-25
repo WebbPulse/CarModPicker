@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import type { PartRead } from '../../types/Api';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { Card } from '../ui/card';
 
 interface PartListItemProps {
   part: PartRead;

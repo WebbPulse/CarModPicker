@@ -69,6 +69,22 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
+      // M002/S12 R017 enforcement gate (redundant safety alongside the
+      // src/__tests__/no-legacy-primitives.test.ts vitest guard). Blocks
+      // any future PR from re-importing the retired legacy primitives at
+      // lint time, before vitest runs.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/components/common/*', '**/components/buttons/*'],
+              message:
+                'Legacy primitives in components/common/ and components/buttons/ were retired in M002/S12. Use components/ui/* (S08 design system) or the relocated homes (forms/, cars/, images/, filters/, tables/, routes/, shell/) instead.',
+            },
+          ],
+        },
+      ],
     },
   },
   eslintConfigPrettier // Add this last

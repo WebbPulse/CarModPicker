@@ -9,12 +9,10 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, usersApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
 import SectionHeader from '../layout/SectionHeader';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 
 interface SecuritySettingsProps {
   onPasswordChanged: () => void;
@@ -23,6 +21,41 @@ interface SecuritySettingsProps {
 }
 
 type TabType = 'password' | '2fa';
+
+interface FieldProps {
+  id: string;
+  label: string;
+  helperText?: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function Field({ id, label, helperText, icon, children }: FieldProps) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-neutral-300 mb-2"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+          >
+            {icon}
+          </span>
+        ) : null}
+        {children}
+      </div>
+      {helperText ? (
+        <div className="mt-2 text-sm text-neutral-400">{helperText}</div>
+      ) : null}
+    </div>
+  );
+}
 
 function SecuritySettings({
   onPasswordChanged,
@@ -303,108 +336,113 @@ function SecuritySettings({
               )}
               {passwordError && <ErrorAlert message={passwordError} />}
 
-              <Input
-                label="Current Password"
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                value={passwordData.currentPassword}
-                onChange={(e) => {
-                  setPasswordData((prev) => ({
-                    ...prev,
-                    currentPassword: e.target.value,
-                  }));
-                  setPasswordError(null);
-                }}
-                disabled={isChangingPassword}
-                required
-                autoComplete="current-password"
-                leftIcon={<FaLock />}
-              />
-
-              <Input
-                label="New Password"
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => {
-                  setPasswordData((prev) => ({
-                    ...prev,
-                    newPassword: e.target.value,
-                  }));
-                  setPasswordError(null);
-                }}
-                disabled={isChangingPassword}
-                required
-                autoComplete="new-password"
-                minLength={8}
-                leftIcon={<FaLock />}
-              />
-
-              <Input
-                label="Confirm New Password"
-                id="confirmNewPassword"
-                name="confirmNewPassword"
-                type="password"
-                value={passwordData.confirmNewPassword}
-                onChange={(e) => {
-                  setPasswordData((prev) => ({
-                    ...prev,
-                    confirmNewPassword: e.target.value,
-                  }));
-                  setPasswordError(null);
-                }}
-                disabled={isChangingPassword}
-                required
-                autoComplete="new-password"
-                leftIcon={<FaLock />}
-              />
-
-              {user?.totp_enabled && (
+              <Field id="currentPassword" label="Current Password" icon={<FaLock />}>
                 <Input
-                  label="2FA Code"
-                  id="otp"
-                  name="otp"
-                  type="text"
-                  value={passwordData.otp}
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={passwordData.currentPassword}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                    setPasswordData((prev) => ({ ...prev, otp: value }));
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      currentPassword: e.target.value,
+                    }));
                     setPasswordError(null);
                   }}
-                  placeholder="000000"
                   disabled={isChangingPassword}
                   required
-                  maxLength={6}
-                  leftIcon={<FaShieldAlt />}
-                  helperText="Enter the 6-digit code from your authenticator app"
+                  autoComplete="current-password"
+                  className="pl-10"
                 />
+              </Field>
+
+              <Field id="newPassword" label="New Password" icon={<FaLock />}>
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => {
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      newPassword: e.target.value,
+                    }));
+                    setPasswordError(null);
+                  }}
+                  disabled={isChangingPassword}
+                  required
+                  autoComplete="new-password"
+                  minLength={8}
+                  className="pl-10"
+                />
+              </Field>
+
+              <Field id="confirmNewPassword" label="Confirm New Password" icon={<FaLock />}>
+                <Input
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  type="password"
+                  value={passwordData.confirmNewPassword}
+                  onChange={(e) => {
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      confirmNewPassword: e.target.value,
+                    }));
+                    setPasswordError(null);
+                  }}
+                  disabled={isChangingPassword}
+                  required
+                  autoComplete="new-password"
+                  className="pl-10"
+                />
+              </Field>
+
+              {user?.totp_enabled && (
+                <Field
+                  id="otp"
+                  label="2FA Code"
+                  icon={<FaShieldAlt />}
+                  helperText="Enter the 6-digit code from your authenticator app"
+                >
+                  <Input
+                    id="otp"
+                    name="otp"
+                    type="text"
+                    value={passwordData.otp}
+                    onChange={(e) => {
+                      const value = e.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 6);
+                      setPasswordData((prev) => ({ ...prev, otp: value }));
+                      setPasswordError(null);
+                    }}
+                    placeholder="000000"
+                    disabled={isChangingPassword}
+                    required
+                    maxLength={6}
+                    className="pl-10"
+                  />
+                </Field>
               )}
 
               <div className="flex space-x-3 pt-4">
-                <ActionButton
+                <Button
                   type="submit"
                   disabled={isChangingPassword}
+                  loading={isChangingPassword}
                   className="flex-1"
                 >
-                  {isChangingPassword ? (
-                    <>
-                      <LoadingSpinner />
-                      <span className="ml-2">Changing Password...</span>
-                    </>
-                  ) : (
-                    'Change Password'
-                  )}
-                </ActionButton>
-                <SecondaryButton
+                  {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={resetForms}
                   disabled={isChangingPassword}
                   className="flex-1"
                 >
                   Cancel
-                </SecondaryButton>
+                </Button>
               </div>
             </form>
           )}
@@ -450,13 +488,14 @@ function SecuritySettings({
                     </ol>
                   </div>
 
-                  <ActionButton
+                  <Button
+                    type="button"
                     onClick={() => void handleSetup()}
                     disabled={isSettingUp}
                     className="w-full"
                   >
                     {isSettingUp ? 'Setting up...' : 'Set Up 2FA'}
-                  </ActionButton>
+                  </Button>
                 </div>
               )}
 
@@ -481,9 +520,13 @@ function SecuritySettings({
                     </p>
                   </div>
 
-                  <div>
+                  <Field
+                    id="setup-otp"
+                    label="Enter 6-digit code from your app"
+                    icon={<FaShieldAlt />}
+                  >
                     <Input
-                      label="Enter 6-digit code from your app"
+                      id="setup-otp"
                       name="otp"
                       type="text"
                       value={otp}
@@ -495,19 +538,22 @@ function SecuritySettings({
                       }}
                       placeholder="000000"
                       maxLength={6}
-                      leftIcon={<FaShieldAlt />}
+                      className="pl-10"
                     />
-                  </div>
+                  </Field>
 
                   <div className="flex space-x-2">
-                    <ActionButton
+                    <Button
+                      type="button"
                       onClick={() => void handleVerify()}
                       disabled={isVerifying || otp.length !== 6}
                       className="flex-1"
                     >
                       {isVerifying ? 'Verifying...' : 'Verify & Enable'}
-                    </ActionButton>
-                    <SecondaryButton
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
                       onClick={() => {
                         setSetupData(null);
                         setOtp('');
@@ -516,7 +562,7 @@ function SecuritySettings({
                       className="flex-1"
                     >
                       Cancel
-                    </SecondaryButton>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -543,54 +589,64 @@ function SecuritySettings({
                   </div>
 
                   <div className="space-y-4">
-                    <Input
-                      label="Password"
-                      name="disablePassword"
-                      type="password"
-                      value={disablePassword}
-                      onChange={(e) => {
-                        setDisablePassword(e.target.value);
-                        setTwoFAError(null);
-                      }}
-                      placeholder="Enter your password"
-                      disabled={isDisabling}
-                      required
-                      autoComplete="current-password"
-                      leftIcon={<FaLock />}
-                    />
+                    <Field id="disablePassword" label="Password" icon={<FaLock />}>
+                      <Input
+                        id="disablePassword"
+                        name="disablePassword"
+                        type="password"
+                        value={disablePassword}
+                        onChange={(e) => {
+                          setDisablePassword(e.target.value);
+                          setTwoFAError(null);
+                        }}
+                        placeholder="Enter your password"
+                        disabled={isDisabling}
+                        required
+                        autoComplete="current-password"
+                        className="pl-10"
+                      />
+                    </Field>
 
-                    <Input
+                    <Field
+                      id="disableOtp"
                       label="2FA Code"
-                      name="disableOtp"
-                      type="text"
-                      value={disableOtp}
-                      onChange={(e) => {
-                        const value = e.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 6);
-                        setDisableOtp(value);
-                        setTwoFAError(null);
-                      }}
-                      placeholder="000000"
-                      disabled={isDisabling}
-                      required
-                      maxLength={6}
-                      leftIcon={<FaShieldAlt />}
+                      icon={<FaShieldAlt />}
                       helperText="Enter the 6-digit code from your authenticator app"
-                    />
+                    >
+                      <Input
+                        id="disableOtp"
+                        name="disableOtp"
+                        type="text"
+                        value={disableOtp}
+                        onChange={(e) => {
+                          const value = e.target.value
+                            .replace(/\D/g, '')
+                            .slice(0, 6);
+                          setDisableOtp(value);
+                          setTwoFAError(null);
+                        }}
+                        placeholder="000000"
+                        disabled={isDisabling}
+                        required
+                        maxLength={6}
+                        className="pl-10"
+                      />
+                    </Field>
                   </div>
 
-                  <ActionButton
+                  <Button
+                    type="button"
+                    variant="destructive"
                     onClick={() => void handleDisable()}
                     disabled={
                       isDisabling ||
                       !disablePassword.trim() ||
                       disableOtp.length !== 6
                     }
-                    className="w-full bg-red-600 hover:bg-red-700"
+                    className="w-full"
                   >
                     {isDisabling ? 'Disabling...' : 'Disable 2FA'}
-                  </ActionButton>
+                  </Button>
                 </div>
               )}
             </div>

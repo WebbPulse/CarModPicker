@@ -11,22 +11,27 @@ import type {
   VoteSummary,
 } from '../../types/Api';
 
+import { Link } from 'react-router-dom';
 import BuildListParts from '../../components/buildListParts/BuildListParts';
 import CreateBuildListPartForm from '../../components/buildListParts/CreateBuildListPartForm';
 import EditBuildListForm from '../../components/buildLists/EditBuildListForm';
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import Dialog from '../../components/common/Dialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import ImageGallery from '../../components/parts/ImageGallery';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import CardInfoItem from '../../components/ui/card-info-item';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Spinner from '../../components/ui/spinner';
 import { carFullDisplayName, formatCarYearRange } from '../../utils/carUtils';
 
 const fetchBuildListRequestFn = (buildListId: string) =>
@@ -180,7 +185,11 @@ function ViewBuildList() {
     setDeleteBuildListError(null);
     setIsDeleteConfirmOpen(true);
   };
-  const closeDeleteConfirmDialog = () => setIsDeleteConfirmOpen(false);
+
+  const handleDeleteOpenChange = (open: boolean) => {
+    if (!open && isDeletingBuildList) return;
+    setIsDeleteConfirmOpen(open);
+  };
 
   const handleConfirmDelete = async () => {
     if (!buildList || !buildListId) return;
@@ -222,7 +231,7 @@ function ViewBuildList() {
     return (
       <>
         <PageHeader title="Build List Details" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -281,12 +290,13 @@ function ViewBuildList() {
                     : ' The owner should assign a car to help organize this build list.'}
                 </p>
                 {canManage && (
-                  <ActionButton
+                  <Button
+                    type="button"
                     onClick={openEditBuildListDialog}
                     className="bg-yellow-600 hover:bg-yellow-700 text-white"
                   >
                     Assign Car Now
-                  </ActionButton>
+                  </Button>
                 )}
               </div>
             </div>
@@ -298,34 +308,43 @@ function ViewBuildList() {
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title="Build List Information" />
           <div className="flex space-x-2">
-            <ActionButton
+            <Button
+              type="button"
               onClick={() =>
                 void navigate(`/build-lists/${buildList.id}/build-log`)
               }
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               View Build Log
-            </ActionButton>
+            </Button>
             {currentUser && (
-              <ActionButton
+              <Button
+                type="button"
                 onClick={() => void handleCopyBuildList()}
-                disabled={isCopyingBuildList}
+                loading={isCopyingBuildList}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {isCopyingBuildList ? 'Copying...' : 'Copy Build List'}
-              </ActionButton>
+              </Button>
             )}
             {canManage && (
               <>
-                <ActionButton onClick={openEditBuildListDialog}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={openEditBuildListDialog}
+                  data-testid="build-list-edit-trigger"
+                >
                   Edit Build List
-                </ActionButton>
-                <ActionButton
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
                   onClick={openDeleteConfirmDialog}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  data-testid="build-list-delete-trigger"
                 >
                   Delete Build List
-                </ActionButton>
+                </Button>
               </>
             )}
           </div>
@@ -345,18 +364,22 @@ function ViewBuildList() {
             </CardInfoItem>
             {associatedCar && (
               <CardInfoItem label="Associated Car:">
-                <ParentNavigationLink
-                  linkTo={`/car-generations/${associatedCar.id}`}
-                  linkText={`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
-                />
+                <Link
+                  to={`/car-generations/${associatedCar.id}`}
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                >
+                  {`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
+                </Link>
               </CardInfoItem>
             )}
             {buildListOwner && (
               <CardInfoItem label="Build List Owner:">
-                <ParentNavigationLink
-                  linkTo={`/user/${buildListOwner.id}`}
-                  linkText={buildListOwner.username}
-                />
+                <Link
+                  to={`/user/${buildListOwner.id}`}
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                >
+                  {buildListOwner.username}
+                </Link>
               </CardInfoItem>
             )}
             {voteSummary && (
@@ -403,44 +426,69 @@ function ViewBuildList() {
       {/* Dialog for Editing Build List */}
       {buildList && canManage && (
         <Dialog
-          isOpen={isEditBuildListFormOpen}
-          onClose={closeEditBuildListDialog}
-          title={`Edit ${buildList.name}`}
+          open={isEditBuildListFormOpen}
+          onOpenChange={setIsEditBuildListFormOpen}
         >
-          <EditBuildListForm
-            buildList={buildList}
-            onBuildListUpdated={handleBuildListUpdated}
-            onCancel={closeEditBuildListDialog}
-          />
+          <DialogContent
+            data-testid="build-list-edit-dialog"
+            className="sm:max-w-2xl"
+          >
+            <DialogHeader>
+              <DialogTitle>{`Edit ${buildList.name}`}</DialogTitle>
+            </DialogHeader>
+            <EditBuildListForm
+              buildList={buildList}
+              onBuildListUpdated={handleBuildListUpdated}
+              onCancel={closeEditBuildListDialog}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
       {/* Dialog for Deleting Build List Confirmation */}
       {buildList && canManage && (
-        <DeleteConfirmationDialog
-          isOpen={isDeleteConfirmOpen}
-          onClose={closeDeleteConfirmDialog}
+        <ConfirmDialog
+          open={isDeleteConfirmOpen}
+          onOpenChange={handleDeleteOpenChange}
           onConfirm={() => void handleConfirmDelete()}
-          itemName={buildList.name}
-          itemType="build list"
-          isProcessing={isDeletingBuildList}
+          title="Confirm Deletion"
+          description={
+            <>
+              Are you sure you want to delete the build list{' '}
+              <span className="font-semibold text-foreground">
+                &quot;{buildList.name}&quot;
+              </span>
+              ? This action cannot be undone.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          loadingLabel="Deleting..."
+          variant="destructive"
+          loading={isDeletingBuildList}
           error={deleteBuildListError}
+          dataTestid="build-list-delete-confirm"
         />
       )}
 
       {/* Dialog for Creating Part */}
       {buildList && canManage && (
         <Dialog
-          isOpen={isCreatePartFormOpen}
-          onClose={closeCreatePartDialog}
-          title="Add Part to Build List"
-          maxWidth="4xl"
+          open={isCreatePartFormOpen}
+          onOpenChange={setIsCreatePartFormOpen}
         >
-          <CreateBuildListPartForm
-            buildListId={buildList.id}
-            onPartAdded={handlePartAdded}
-            onCancel={closeCreatePartDialog}
-          />
+          <DialogContent
+            data-testid="build-list-add-part-dialog"
+            className="sm:max-w-[64rem]"
+          >
+            <DialogHeader>
+              <DialogTitle>Add Part to Build List</DialogTitle>
+            </DialogHeader>
+            <CreateBuildListPartForm
+              buildListId={buildList.id}
+              onPartAdded={handlePartAdded}
+              onCancel={closeCreatePartDialog}
+            />
+          </DialogContent>
         </Dialog>
       )}
 

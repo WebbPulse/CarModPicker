@@ -16,43 +16,43 @@
 
 ## Slices
 
-- [ ] **S01: S01** `risk:high` `depends:[]`
+- [x] **S01: S01** `risk:high` `depends:[]`
   > After this: Run pytest backend/app/crawlers/ — universal-extractor fixture stubs and 3 category-schema contract tests pass. SpecRegistry.resolve('coilover') returns the CoiloverSpec model. Ingest accepts a valid spec block, ingests it; ingest rejects a malformed spec block, ingests the part with specifications=null, and increments extraction_failure_rate.
 
-- [ ] **S02: Universal-field extractor + base-class auto-run** `risk:high` `depends:[S01]`
+- [x] **S02: S02** `risk:high` `depends:[]`
   > After this: Run a CLI one-liner against 5 archived HTML samples drawn from 5 different adapters: each result's specifications dict is populated with universal fields at appropriate confidence levels. Verify suppression: an adapter declares suppress_universal=['weight'] and that field is not auto-extracted for that adapter.
 
-- [ ] **S03: 111-adapter compliance retrofit** `risk:high` `depends:[S01,S02]`
+- [x] **S03: S03** `risk:high` `depends:[]`
   > After this: Run python -m app.crawlers.compliance_audit. Output prints 111/111 compliant with per-tier breakdown (T0: 84/84, T1: 16/16, T2: 11/11). Each adapter declares at least one category_target. Spot-check 3 T0, 2 T1, 1 T2 adapter — verify category_targets attribute present and base-class universal extraction inherited.
 
-- [ ] **S04: Re-extraction backfill + admin extraction-health API** `risk:medium` `depends:[S02,S03]`
+- [x] **S04: S04** `risk:medium` `depends:[]`
   > After this: Kick off the backfill: python -m app.crawlers.backfill --batch-size 100. Job is idempotent (re-running on the same parts produces no duplicates), resumable (Ctrl-C and resume picks up where it left off), and logs progress with per-batch counts. Hit GET /api/admin/extraction-health — JSON returns compliance: 111/111, per-tier coverage gradient, per-adapter failure-rate over 7d window.
 
-- [ ] **S05: Price-history aggregation API + perf gate** `risk:medium` `depends:[]`
+- [x] **S05: S05** `risk:medium` `depends:[]`
   > After this: Call GET /api/parts/{id}/price-history?window=90d — returns retailer breakdowns and listing-level history. Call POST /api/parts/price-history with [part_id_1..part_id_50] — returns min/max/last/trend per part. Run load test (k6 or locust) at 10x current traffic on current catalog size — p95 inside budget.
 
-- [ ] **S06: Price-history frontend surfaces (sparkline + detail view)** `risk:medium` `depends:[S05,S08]`
+- [x] **S06: S06** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — every part card with observations shows a sparkline + delta line. Click a card to drill into the per-part detail view — retailer breakdowns and listing-level history visible, with stale-observation 'as of' caveat where relevant. Inspect a part with zero observations: no sparkline rendered, just current price.
 
-- [ ] **S07: Price-drop alerts (subscription, threshold, email)** `risk:medium` `depends:[S05,S06]`
+- [x] **S07: S07** `risk:medium` `depends:[]`
   > After this: Subscribe to a part with threshold $X on the part detail page. Trigger an observation below threshold (via test endpoint or manual scrape replay). Email arrives with part details, current price, and unsubscribe link. Visit /account/alerts — subscription listed; click unsubscribe; subscription removed and confirmed by reloading.
 
-- [ ] **S08: Design system spike + tokens + shadcn primitives + kitchen sink** `risk:high` `depends:[]`
+- [x] **S08: S08** `risk:high` `depends:[]`
   > After this: Open the kitchen-sink page in dev — every primitive (Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet) renders in every state (default, hover, focus, disabled, loading, error) under the new tokens. Run npm run test:e2e — components.spec.ts kitchen-sink screenshots green at mobile/tablet/desktop. playwright.config.ts and frontend/e2e/smoke.spec.ts committed.
 
-- [ ] **S09: Build-list view redesign** `risk:medium` `depends:[S08]`
+- [x] **S09: S09** `risk:medium` `depends:[]`
   > After this: Visit /build-lists/{id} in dev — page is on the new design system, all interactions use S08 primitives. Run npm run test:e2e -- build-list.spec.ts — green at mobile/tablet/desktop. Tab through the page — focus indicators visible, escape on dialogs works.
 
-- [ ] **S10: Parts catalog redesign** `risk:medium` `depends:[S08,S06]`
+- [x] **S10: S10** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — page on new design system; each part card shows the S06 sparkline + delta where observations exist. Run npm run test:e2e -- parts-catalog.spec.ts — green at mobile/tablet/desktop. Tab through the page; keyboard nav works.
 
-- [ ] **S11: Admin shell redesign + extraction-health UI** `risk:medium` `depends:[S08,S04]`
+- [x] **S11: S11** `risk:medium` `depends:[]`
   > After this: Visit /admin in dev — shell on new design system. Click into Extraction Health — page shows 111/111 compliance, per-tier coverage gradient (T0/T1/T2 with field-presence heatmap), per-adapter failure rates over 7d window. Run npm run test:e2e -- admin.spec.ts — green at three breakpoints.
 
-- [ ] **S12: Repo-wide ripple reskin** `risk:medium` `depends:[S08,S09,S10,S11]`
+- [x] **S12: S12** `risk:medium` `depends:[]`
   > After this: Walk every page in dev — all on the new design system, all interactions use S08 primitives. Run npm run lint — passes. Run grep -r 'from .*components/common' frontend/src/ — returns nothing. components/common/ directory removed.
 
-- [ ] **S13: Final integration + milestone verification** `risk:low` `depends:[S03,S04,S06,S07,S09,S10,S11,S12]`
+- [x] **S13: S13** `risk:low` `depends:[]`
   > After this: Pick a real coilover product URL. Run a live scrape. Observe in logs: universal extraction → category extraction → Pydantic validation → ingest → Part.specifications populated. Visit /parts and find the part — sparkline renders. Click into detail view — retailer breakdowns visible. Subscribe with threshold above current price; trigger observation; email arrives. Confirm backfill job running (admin extraction-health shows progress). Re-run S05 load test — p95 still inside budget.
 
 ## Boundary Map

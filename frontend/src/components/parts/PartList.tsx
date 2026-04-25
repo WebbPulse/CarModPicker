@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
-import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
+import ResponsiveTableWrapper from '../tables/ResponsiveTableWrapper';
 import { carGenerationsApi, partVotesApi, partsApi } from '../../services/Api';
 import type {
   PartManufacturerResponse,
@@ -16,13 +16,15 @@ import type {
 import { CACHE_DURATION_MS } from '../../constants';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { carFullDisplayName } from '../../utils/carUtils';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { usePartPriceSummaries } from '../../hooks/usePartPriceSummaries';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import Spinner from '../ui/spinner';
 import SectionHeader from '../layout/SectionHeader';
+import PriceDeltaLine from './PriceDeltaLine';
+import SparklineCell from './SparklineCell';
 import VoteButtons from './VoteButtons';
 
 // Simple cache for global parts data to improve UX when switching between pages
@@ -500,6 +502,12 @@ function PartList({
   const errorState = providedData ? null : error;
   const parts = providedData ?? displayData;
 
+  // Batch-fetch price-history summaries for the displayed page in a single
+  // POST. The hook handles empty-IDs short-circuit, debounce on stable key,
+  // and silent failure (console.warn + empty summaries map) — see S06/T01.
+  const partIds = useMemo(() => (parts ?? []).map((p) => p.id), [parts]);
+  const { summaries: priceSummaries } = usePartPriceSummaries(partIds, '90d');
+
   // Hooks must be called unconditionally, before any early returns
   const getCategoryName = useCallback(
     (categoryId: string) => {
@@ -628,7 +636,7 @@ function PartList({
     return (
       <Card>
         <div className="flex justify-center py-8">
-          <LoadingSpinner />
+          <Spinner />
         </div>
       </Card>
     );
@@ -812,41 +820,58 @@ function PartList({
                   )}
                   {visibleColumns.includes('price') && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      {part.best_price_cents != null ? (
-                        <span className="font-semibold text-green-400">
-                          ${(part.best_price_cents / 100).toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">—</span>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-col items-end leading-tight">
+                          {part.best_price_cents != null ? (
+                            <span className="font-semibold text-green-400">
+                              ${(part.best_price_cents / 100).toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">—</span>
+                          )}
+                          <PriceDeltaLine summary={priceSummaries[part.id]} />
+                        </div>
+                        <SparklineCell
+                          partId={part.id}
+                          summary={priceSummaries[part.id]}
+                          width={60}
+                          height={16}
+                        />
+                      </div>
                     </td>
                   )}
                   {visibleColumns.includes('actions') && (
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {showAddToBuildListButton && onAddToBuildList && (
-                          <ActionButton
-                            onClick={() => onAddToBuildList(part)}
+                          <Button
+                            size="sm"
+                            data-testid="parts-catalog-add-to-build-list-trigger"
                             className="text-xs px-2 py-1 whitespace-nowrap shrink-0"
+                            onClick={() => onAddToBuildList(part)}
                           >
                             Add to Build List
-                          </ActionButton>
+                          </Button>
                         )}
                         {onEdit && (!canEdit || canEdit(part)) && (
-                          <SecondaryButton
-                            onClick={() => onEdit(part)}
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             className="text-xs px-2 py-1"
+                            onClick={() => onEdit(part)}
                           >
                             Edit
-                          </SecondaryButton>
+                          </Button>
                         )}
                         {onDelete && (!canDelete || canDelete(part)) && (
-                          <ActionButton
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="text-xs px-2 py-1"
                             onClick={() => onDelete(part)}
-                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
                           >
                             Delete
-                          </ActionButton>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -929,6 +954,15 @@ function PartList({
                             {part.description}
                           </p>
                         )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <PriceDeltaLine summary={priceSummaries[part.id]} />
+                          <SparklineCell
+                            partId={part.id}
+                            summary={priceSummaries[part.id]}
+                            width={120}
+                            height={24}
+                          />
+                        </div>
                       </div>
                       {part.best_price_cents != null && (
                         <div className="flex-shrink-0 text-right">
@@ -960,28 +994,33 @@ function PartList({
                     </div>
                     <div className="flex items-center gap-2">
                       {showAddToBuildListButton && onAddToBuildList && (
-                        <ActionButton
-                          onClick={() => onAddToBuildList(part)}
+                        <Button
+                          size="sm"
                           className="text-xs px-3 py-1 whitespace-nowrap shrink-0"
+                          onClick={() => onAddToBuildList(part)}
                         >
                           📋 Add to Build List
-                        </ActionButton>
+                        </Button>
                       )}
                       {onEdit && (!canEdit || canEdit(part)) && (
-                        <SecondaryButton
-                          onClick={() => onEdit(part)}
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           className="text-xs px-3 py-1"
+                          onClick={() => onEdit(part)}
                         >
                           Edit
-                        </SecondaryButton>
+                        </Button>
                       )}
                       {onDelete && (!canDelete || canDelete(part)) && (
-                        <ActionButton
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs px-3 py-1"
                           onClick={() => onDelete(part)}
-                          className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700"
                         >
                           Delete
-                        </ActionButton>
+                        </Button>
                       )}
                     </div>
                   </div>

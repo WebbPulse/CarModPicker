@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { partReportsApi } from '../../services/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import Dialog from '../common/Dialog';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 
 interface ReportDialogProps {
   isOpen: boolean;
@@ -64,8 +68,17 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
   };
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Report Part">
-      <div className="space-y-4">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) handleClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Report Part</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
         <div>
           <p className="text-gray-300 mb-2">
             Report: <span className="font-semibold text-white">{partName}</span>
@@ -110,17 +123,22 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
-          <SecondaryButton onClick={handleClose} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
             Cancel
-          </SecondaryButton>
-          <ActionButton
+          </Button>
+          <Button
             onClick={() => void handleSubmit()}
             disabled={!reason.trim() || isSubmitting}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Report'}
-          </ActionButton>
+          </Button>
         </div>
-      </div>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 };

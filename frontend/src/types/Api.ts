@@ -322,6 +322,71 @@ export interface PartPriceHistoryReadWithRetailer {
   retailer_name: string;
 }
 
+export type PriceTrend = 'up' | 'down' | 'flat';
+
+export interface PriceHistorySummary {
+  min_cents: number | null;
+  max_cents: number | null;
+  last_cents: number | null;
+  last_observed_at: string | null;
+  trend: PriceTrend;
+  observation_count: number;
+}
+
+export interface RetailerPriceBreakdown {
+  retailer_id: string;
+  retailer_name: string;
+  min_cents: number | null;
+  max_cents: number | null;
+  last_cents: number | null;
+  last_observed_at: string | null;
+  observation_count: number;
+}
+
+export interface PriceHistorySinglePartResponse {
+  summary: PriceHistorySummary;
+  retailers: RetailerPriceBreakdown[];
+  history: PartPriceHistoryReadWithRetailer[];
+  window: string;
+}
+
+export type PriceHistoryBatchSummaryItem = PriceHistorySummary;
+
+export interface PriceHistoryBatchRequest {
+  part_ids: string[];
+  window?: '30d' | '90d' | '180d' | '1y' | 'all';
+}
+
+export interface PriceHistoryBatchResponse {
+  summaries: Record<string, PriceHistoryBatchSummaryItem>;
+  window: string;
+  requested_count: number;
+  found_count: number;
+}
+
+// Per-user price-drop alert subscription (M002/S07).
+// Mirrors backend `app/api/schemas/part_price_alert.py`.
+export interface PartPriceAlertCreate {
+  part_id: string;
+  threshold_cents: number;
+}
+
+export interface PartPriceAlertUpdate {
+  threshold_cents?: number;
+  active?: boolean;
+}
+
+export interface PartPriceAlertRead {
+  id: string;
+  user_id: string;
+  part_id: string;
+  threshold_cents: number;
+  active: boolean;
+  last_fired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PaginationInfo {
   current_page: number;
   total_pages: number;

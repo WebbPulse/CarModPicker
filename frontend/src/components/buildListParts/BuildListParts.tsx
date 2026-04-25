@@ -17,12 +17,13 @@ import type {
   CarGenerationRead,
 } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
 import SectionHeader from '../layout/SectionHeader';
+import { ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { ConfirmDialog } from '../ui/confirm-dialog';
+import { Input } from '../ui/input';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import BuildListPartList from './BuildListPartList';
 import EditBuildListPartForm from './EditBuildListPartForm';
 
@@ -231,7 +232,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     }
   };
 
-  const handleCloseDeleteDialog = () => {
+  const handleDeletePartOpenChange = (open: boolean) => {
+    if (open) return;
+    if (isDeleting) return;
     setDeletingPartId(null);
     setDeleteError(null);
   };
@@ -300,7 +303,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     }
   };
 
-  const handleCloseDeletePhaseDialog = () => {
+  const handleDeletePhaseOpenChange = (open: boolean) => {
+    if (open) return;
     setDeletingPhaseId(null);
     setPhaseError(null);
   };
@@ -369,9 +373,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         <div className="flex justify-between items-center mb-4">
           <SectionHeader title={title} />
           {canManageParts && onAddPartClick && (
-            <ActionButton onClick={() => void onAddPartClick()}>
+            <Button type="button" onClick={() => void onAddPartClick()}>
               Add Part
-            </ActionButton>
+            </Button>
           )}
         </div>
         <ErrorAlert message="Failed to load parts. Please try again." />
@@ -380,6 +384,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   }
 
   const phasesList: BuildListPhaseRead[] = phases ?? [];
+  const deletingPartName =
+    buildListParts?.find((p) => p.id === deletingPartId)?.part.name ?? '';
+  const deletingPhaseName =
+    phasesList.find((p) => p.id === deletingPhaseId)?.name ?? 'phase';
 
   return (
     <div className="space-y-4">
@@ -387,35 +395,20 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         <div className="flex items-center gap-4 flex-wrap">
           <SectionHeader title={title} />
           {/* View mode: By category | By phase */}
-          <div className="flex gap-2 pb-2">
-            <button
-              type="button"
-              onClick={() => setViewMode('category')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                viewMode === 'category'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              By category
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('phase')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                viewMode === 'phase'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              By phase
-            </button>
-          </div>
+          <Tabs
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as 'category' | 'phase')}
+          >
+            <TabsList data-testid="build-list-view-mode-tabs">
+              <TabsTrigger value="category">By category</TabsTrigger>
+              <TabsTrigger value="phase">By phase</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
         {canManageParts && onAddPartClick && (
-          <ActionButton onClick={() => void onAddPartClick()}>
+          <Button type="button" onClick={() => void onAddPartClick()}>
             Add Part
-          </ActionButton>
+          </Button>
         )}
       </div>
 
@@ -427,19 +420,23 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
             adding or editing parts.
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
-            <input
+            <Input
               type="text"
               value={newPhaseName}
               onChange={(e) => setNewPhaseName(e.target.value)}
               placeholder="New phase name"
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm w-48 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-48"
+              data-testid="build-list-add-phase-input"
             />
-            <ActionButton
+            <Button
+              type="button"
               onClick={() => void handleAddPhase()}
               disabled={!newPhaseName.trim() || isAddingPhase}
+              loading={isAddingPhase}
+              data-testid="build-list-add-phase-submit"
             >
               {isAddingPhase ? 'Adding...' : 'Add phase'}
-            </ActionButton>
+            </Button>
           </div>
           {phaseError && (
             <div className="text-red-400 text-sm mb-2">{phaseError}</div>
@@ -451,47 +448,51 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
                 .map((phase) => (
                   <li
                     key={phase.id}
+                    data-testid={`build-list-phase-row-${phase.id}`}
                     className="flex items-center gap-2 py-1 border-b border-gray-700 last:border-0"
                   >
                     {editingPhaseId === phase.id ? (
                       <>
-                        <input
+                        <Input
                           type="text"
                           value={editingPhaseName}
                           onChange={(e) => setEditingPhaseName(e.target.value)}
-                          className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                          className="flex-1"
                         />
-                        <SecondaryButton
+                        <Button
                           type="button"
+                          variant="secondary"
                           onClick={handleCancelEditPhase}
                         >
                           Cancel
-                        </SecondaryButton>
-                        <ActionButton
+                        </Button>
+                        <Button
                           type="button"
                           onClick={() => void handleSaveEditPhase()}
                         >
                           Save
-                        </ActionButton>
+                        </Button>
                       </>
                     ) : (
                       <>
                         <span className="text-gray-200 flex-1">
                           {phase.name}
                         </span>
-                        <SecondaryButton
+                        <Button
                           type="button"
+                          variant="secondary"
                           onClick={() => handleStartEditPhase(phase)}
                         >
                           Edit
-                        </SecondaryButton>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
                           onClick={() => setDeletingPhaseId(phase.id)}
-                          className="text-red-400 hover:text-red-300 text-sm"
+                          className="text-red-400 hover:text-red-300"
                         >
                           Delete
-                        </button>
+                        </Button>
                       </>
                     )}
                   </li>
@@ -505,16 +506,24 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         </Card>
       )}
 
-      <DeleteConfirmationDialog
-        isOpen={deletingPhaseId !== null}
-        onClose={handleCloseDeletePhaseDialog}
+      <ConfirmDialog
+        open={deletingPhaseId !== null}
+        onOpenChange={handleDeletePhaseOpenChange}
         onConfirm={() => void handleDeletePhase()}
-        itemName={
-          phasesList.find((p) => p.id === deletingPhaseId)?.name ?? 'phase'
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the phase{' '}
+            <span className="font-semibold text-foreground">
+              &quot;{deletingPhaseName}&quot;
+            </span>
+            ? This action cannot be undone.
+          </>
         }
-        itemType="phase"
-        isProcessing={false}
-        error={null}
+        confirmLabel="Confirm Delete"
+        variant="destructive"
+        error={phaseError}
+        dataTestid="build-list-phase-delete-confirm"
       />
 
       {hasCarMismatchParts && (
@@ -580,17 +589,27 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmationDialog
-        isOpen={deletingPartId !== null}
-        onClose={handleCloseDeleteDialog}
+      {/* Delete Part Confirmation Dialog */}
+      <ConfirmDialog
+        open={deletingPartId !== null}
+        onOpenChange={handleDeletePartOpenChange}
         onConfirm={() => void handleConfirmDelete()}
-        itemName={
-          buildListParts?.find((p) => p.id === deletingPartId)?.part.name || ''
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to remove{' '}
+            <span className="font-semibold text-foreground">
+              &quot;{deletingPartName}&quot;
+            </span>{' '}
+            from this build list? This action cannot be undone.
+          </>
         }
-        itemType="part"
-        isProcessing={isDeleting}
+        confirmLabel="Confirm Delete"
+        loadingLabel="Removing..."
+        variant="destructive"
+        loading={isDeleting}
         error={deleteError}
+        dataTestid="build-list-part-delete-confirm"
       />
     </div>
   );

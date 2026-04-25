@@ -351,6 +351,7 @@ class HondataAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "hondata"
+    category_targets: ClassVar[list[str]] = ["universal"]
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered via the ``/index.php?route=information/sitemap``

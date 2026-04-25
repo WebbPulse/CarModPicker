@@ -8,14 +8,38 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
+  timeout: 30_000,
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.002,
+      animations: 'disabled',
+    },
+  },
   use: {
     baseURL: 'http://localhost:4000',
     trace: 'on-first-retry',
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'mobile',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 667 },
+      },
+    },
+    {
+      name: 'tablet',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 768, height: 1024 },
+      },
+    },
+    {
+      name: 'desktop',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+      },
     },
   ],
   webServer: {

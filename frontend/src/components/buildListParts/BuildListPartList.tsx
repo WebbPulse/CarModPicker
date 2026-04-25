@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
-import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
+import ResponsiveTableWrapper from '../tables/ResponsiveTableWrapper';
 import type {
   PartManufacturerResponse,
   BuildListPartReadWithPart,
@@ -10,11 +10,10 @@ import type {
   CarGenerationRead,
   CategoryResponse,
 } from '../../types/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import LoadingSpinner from '../common/LoadingSpinner';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import Spinner from '../ui/spinner';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { carFullDisplayName } from '../../utils/carUtils';
 
@@ -406,20 +405,26 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {showEdit && (
-                          <SecondaryButton
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => onEdit(buildListPart)}
-                            className="text-xs px-2 py-1"
+                            className="text-xs"
                           >
                             Edit
-                          </SecondaryButton>
+                          </Button>
                         )}
                         {showDelete && (
-                          <ActionButton
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
                             onClick={() => onDelete(buildListPart.id)}
-                            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700"
+                            className="text-xs"
                           >
                             Remove
-                          </ActionButton>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -642,7 +647,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
-        <LoadingSpinner />
+        <Spinner />
       </div>
     );
   }

@@ -10,14 +10,19 @@ import type {
   PaginatedResponse,
 } from '../../types/Api';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import Dialog from '../../components/common/Dialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchBugReportsRequestFn = (params?: {
@@ -251,67 +256,59 @@ function BugReportReview() {
 
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
         <div className="shrink-0">
-          <ActionButton onClick={() => void navigate('/admin')}>
+          <Button variant="secondary" onClick={() => void navigate('/admin')}>
             ← Back to Admin Dashboard
-          </ActionButton>
+          </Button>
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
-            <ActionButton
+            <Button
+              variant={selectedStatus === 'pending' ? 'default' : 'secondary'}
               onClick={() => setSelectedStatus('pending')}
-              className={
-                selectedStatus === 'pending' ? 'bg-blue-600' : 'bg-gray-600'
-              }
             >
               Pending ({pendingCount})
-            </ActionButton>
-            <ActionButton
-              onClick={() => setSelectedStatus('in_progress')}
-              className={
-                selectedStatus === 'in_progress' ? 'bg-blue-600' : 'bg-gray-600'
+            </Button>
+            <Button
+              variant={
+                selectedStatus === 'in_progress' ? 'default' : 'secondary'
               }
+              onClick={() => setSelectedStatus('in_progress')}
             >
               In Progress
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
+              variant={selectedStatus === 'resolved' ? 'default' : 'secondary'}
               onClick={() => setSelectedStatus('resolved')}
-              className={
-                selectedStatus === 'resolved' ? 'bg-blue-600' : 'bg-gray-600'
-              }
             >
               Resolved
-            </ActionButton>
-            <ActionButton
-              onClick={() => setSelectedStatus('dismissed')}
-              className={
-                selectedStatus === 'dismissed' ? 'bg-blue-600' : 'bg-gray-600'
+            </Button>
+            <Button
+              variant={
+                selectedStatus === 'dismissed' ? 'default' : 'secondary'
               }
+              onClick={() => setSelectedStatus('dismissed')}
             >
               Dismissed
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
+              variant={selectedStatus === 'all' ? 'default' : 'secondary'}
               onClick={() => setSelectedStatus('all')}
-              className={
-                selectedStatus === 'all' ? 'bg-blue-600' : 'bg-gray-600'
-              }
             >
               All
-            </ActionButton>
+            </Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-gray-400 shrink-0">
               Priority:
             </span>
             {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
-              <ActionButton
+              <Button
                 key={p}
+                variant={selectedPriority === p ? 'default' : 'secondary'}
                 onClick={() => setSelectedPriority(p)}
-                className={
-                  selectedPriority === p ? 'bg-blue-600' : 'bg-gray-600'
-                }
               >
                 {p.charAt(0).toUpperCase() + p.slice(1)}
-              </ActionButton>
+              </Button>
             ))}
           </div>
         </div>
@@ -328,14 +325,14 @@ function BugReportReview() {
       {isLoadingBugReports && !bugReportsData ? (
         <Card>
           <div className="flex justify-center items-center py-16">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         </Card>
       ) : bugReportsData ? (
         <Card className="relative">
           {isLoadingBugReports && (
             <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <LoadingSpinner />
+              <Spinner />
             </div>
           )}
           <SectionHeader
@@ -374,12 +371,12 @@ function BugReportReview() {
                         {getPriorityBadge(bugReport.priority)}
                         {(bugReport.status === 'pending' ||
                           bugReport.status === 'in_progress') && (
-                          <ActionButton
+                          <Button
+                            size="sm"
                             onClick={() => openReviewDialog(bugReport)}
-                            className="text-sm px-3 py-1"
                           >
                             Review
-                          </ActionButton>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -511,11 +508,16 @@ function BugReportReview() {
 
       {/* Review Dialog */}
       <Dialog
-        isOpen={isReviewDialogOpen}
-        onClose={closeReviewDialog}
-        title={`Review Bug Report #${selectedBugReport?.id}`}
+        open={isReviewDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) closeReviewDialog();
+        }}
       >
-        <div className="space-y-4">
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{`Review Bug Report #${selectedBugReport?.id ?? ''}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
           <div>
             <h4 className="font-medium text-gray-300 mb-2">
               Bug Report Details
@@ -574,32 +576,32 @@ function BugReportReview() {
           {updateError && <ErrorAlert message={updateError} />}
 
           <div className="flex justify-end space-x-2">
-            <ActionButton onClick={closeReviewDialog} className="bg-gray-600">
+            <Button variant="secondary" onClick={closeReviewDialog}>
               Cancel
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
               onClick={() => void handleUpdateBugReport('in_progress')}
-              className="bg-blue-600 hover:bg-blue-700"
               disabled={isUpdating}
             >
               Mark In Progress
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => void handleUpdateBugReport('dismissed')}
-              className="bg-gray-600 hover:bg-gray-700"
               disabled={isUpdating}
             >
               Dismiss
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
               onClick={() => void handleUpdateBugReport('resolved')}
               className="bg-green-600 hover:bg-green-700"
               disabled={isUpdating}
             >
               Resolve
-            </ActionButton>
+            </Button>
           </div>
-        </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

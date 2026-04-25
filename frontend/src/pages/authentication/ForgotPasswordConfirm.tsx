@@ -3,9 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import AuthCard from '../../components/auth/AuthCard';
 import AuthForm from '../../components/auth/AuthForm';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
-import Input from '../../components/common/Input';
+import { Button } from '../../components/ui/button';
+import { ConfirmationAlert, ErrorAlert } from '../../components/ui/alert';
+import { Input } from '../../components/ui/input';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { authApi } from '../../services/Api';
 import type { NewPassword } from '../../types/Api';
@@ -90,35 +90,53 @@ function ForgotPasswordConfirm() {
       ) : (
         <>
           <AuthForm onSubmit={(e) => void handleSubmit(e)}>
-            <Input
-              label="New Password"
-              id="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New Password"
-              type="password"
-              name="new-password"
-              autoComplete="new-password"
-              required
-              disabled={isLoading}
-            />
-            <Input
-              label="Confirm New Password"
-              id="confirm-new-password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              placeholder="Confirm New Password"
-              type="password"
-              name="confirm-new-password"
-              autoComplete="new-password"
-              required
-              disabled={isLoading}
-            />
+            <div>
+              <label
+                htmlFor="new-password"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                New Password
+              </label>
+              <Input
+                id="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New Password"
+                type="password"
+                name="new-password"
+                autoComplete="new-password"
+                required
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="confirm-new-password"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Confirm New Password
+              </label>
+              <Input
+                id="confirm-new-password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Confirm New Password"
+                type="password"
+                name="confirm-new-password"
+                autoComplete="new-password"
+                required
+                disabled={isLoading}
+              />
+            </div>
             <ErrorAlert message={apiError} />
             <div>
-              <ButtonStretch type="submit" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
                 {isLoading ? 'Setting Password...' : 'Set New Password'}
-              </ButtonStretch>
+              </Button>
             </div>
           </AuthForm>
           <AuthRedirectLink

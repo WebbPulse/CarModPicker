@@ -3,6 +3,7 @@ Parts endpoint using base classes to eliminate redundancy.
 """
 
 import logging
+import time
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
@@ -19,7 +20,6 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
@@ -34,9 +34,20 @@ from app.api.schemas.part import (
     SetPrimaryImageRequest,
 )
 from app.api.schemas.part_listing import PartListingCreate, PartListingReadWithRetailer
-from app.api.schemas.part_price_history import PartPriceHistoryReadWithRetailer
+from app.api.schemas.part_price_history import (
+    PriceHistoryBatchRequest,
+    PriceHistoryBatchResponse,
+    PriceHistorySinglePartResponse,
+)
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_linker_service import link_group_part_ids, link_new_part
+from app.api.services.part_price_aggregation_service import (
+    ALLOWED_WINDOWS,
+    aggregate_batch,
+    aggregate_single_part,
+    apply_retailer_filter,
+    parse_window,
+)
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_existing_part_for_ugc_create,
@@ -1133,38 +1144,125 @@ async def get_part_with_listings(
 
 @router.get(
     "/{part_id}/price-history",
-    response_model=List[PartPriceHistoryReadWithRetailer],
-    responses=standard_responses(success_description="Price history retrieved", not_found=True),
+    response_model=PriceHistorySinglePartResponse,
+    responses=standard_responses(
+        success_description="Price history retrieved (object shape with summary, retailers, history, window)",
+        not_found=True,
+    ),
 )
 async def get_part_price_history(
     part_id: UUID,
+    window: str = Query(
+        "90d",
+        description=f"Time window for aggregation. Allowed: {ALLOWED_WINDOWS}",
+    ),
     retailer_id: Optional[UUID] = Query(None, description="Filter by retailer ID"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> List[PartPriceHistoryReadWithRetailer]:
-    """Get price history for this part (aggregated across its link group)."""
+) -> PriceHistorySinglePartResponse:
+    """Get price history for this part (aggregated across its link group).
+
+    Returns the S05 object shape (`summary`, `retailers`, `history`, `window`).
+    Optional `retailer_id` narrows the response to one retailer; `summary` is
+    recomputed from that filtered slice (not the cross-retailer aggregate).
+    Invalid `window` values produce a 422 with `error_code: INVALID_WINDOW`
+    (see schema response).
+    """
     db = deps["db"]
+    logger = deps["logger"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
-    group_ids = link_group_part_ids(db, part_id)
-    stmt = (
-        select(DBPartPriceHistory, DBPartListing, DBRetailer)
-        .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
-        .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
-        .where(DBPartListing.part_id.in_(group_ids))
-    )
-    if retailer_id is not None:
-        stmt = stmt.where(DBPartListing.retailer_id == retailer_id)
-    rows = db.execute(stmt.order_by(DBPartPriceHistory.observed_at.desc())).all()
-    return [
-        PartPriceHistoryReadWithRetailer(
-            id=h.id,
-            part_listing_id=h.part_listing_id,
-            price_cents=h.price_cents,
-            observed_at=h.observed_at,
-            retailer_id=r.id,
-            retailer_name=r.name,
+
+    try:
+        # Probe the window literal up front so a bad value 422s before we open
+        # a DB transaction; aggregate_single_part calls parse_window again, but
+        # the early raise gives us the cleaner HTTP error contract.
+        parse_window(window)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "INVALID_WINDOW",
+                "message": f"Invalid window {window!r}; expected one of {ALLOWED_WINDOWS}",
+                "details": {"allowed": ALLOWED_WINDOWS},
+            },
         )
-        for h, _listing, r in rows
-    ]
+
+    started = time.perf_counter()
+    result = aggregate_single_part(db, part_id, window)
+    if retailer_id is not None:
+        result = apply_retailer_filter(result, retailer_id)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    logger.info(
+        "price_history_aggregation: endpoint=single part_count=1 "
+        "window=%s link_groups_resolved=%d rows_scanned=%d elapsed_ms=%d",
+        window,
+        1,
+        result.summary.observation_count,
+        elapsed_ms,
+    )
+    return result
+
+
+@router.post(
+    "/price-history",
+    response_model=PriceHistoryBatchResponse,
+    responses=standard_responses(
+        success_description="Batch price-history summaries (one entry per requested part_id)",
+    ),
+)
+async def post_batch_price_history(
+    body: PriceHistoryBatchRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> PriceHistoryBatchResponse:
+    """Aggregate min/max/last/trend per part for a batch of part IDs (1–100).
+
+    POST (not GET) so the body can carry up to 100 UUIDs without hitting proxy
+    URL-length limits. The endpoint never 404s on a per-id basis — unknown IDs
+    return well-formed empty-summary entries so the client can iterate without
+    holes. Invalid `window` values 422 with `error_code: INVALID_WINDOW`.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        parse_window(body.window)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "INVALID_WINDOW",
+                "message": f"Invalid window {body.window!r}; expected one of {ALLOWED_WINDOWS}",
+                "details": {"allowed": ALLOWED_WINDOWS},
+            },
+        )
+
+    started = time.perf_counter()
+    summaries = aggregate_batch(db, body.part_ids, body.window)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    found_count = sum(1 for item in summaries.values() if item.observation_count > 0)
+    rows_scanned = sum(item.observation_count for item in summaries.values())
+    # Each unique canonical group resolved is roughly the per-part dedup cardinality;
+    # we approximate via the number of summary entries since the service collapses
+    # link-group siblings under one canonical id internally.
+    link_groups_resolved = len(summaries)
+
+    logger.info(
+        "price_history_aggregation: endpoint=batch part_count=%d "
+        "window=%s link_groups_resolved=%d rows_scanned=%d elapsed_ms=%d",
+        len(body.part_ids),
+        body.window,
+        link_groups_resolved,
+        rows_scanned,
+        elapsed_ms,
+    )
+
+    return PriceHistoryBatchResponse(
+        summaries=summaries,
+        window=body.window,
+        requested_count=len(body.part_ids),
+        found_count=found_count,
+    )
 
 
 # Create base endpoint router AFTER custom endpoints to avoid route collision

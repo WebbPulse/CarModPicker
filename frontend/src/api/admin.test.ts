@@ -20,7 +20,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from './client';
-import { adminApi } from './admin';
+import { adminApi, type ExtractionHealthResponse } from './admin';
 import {
   makeSystemStats,
   makeCrawlBucketSummary,
@@ -670,5 +670,62 @@ describe('adminApi — crawler adapter configs', () => {
       `/admin/crawler-adapter-configs/${adapterName}`,
       expect.objectContaining({ clear_per_run_limit: true })
     );
+  });
+});
+
+describe('adminApi — extraction health', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getExtractionHealth GETs /admin/extraction-health and returns the typed payload', async () => {
+    const payload: ExtractionHealthResponse = {
+      compliance: {
+        compliant: 108,
+        total: 108,
+        per_tier: { http: '83/83', tls: '15/15', browser: '10/10' },
+      },
+      coverage: {
+        per_tier: {
+          http: {
+            parts_with_specs: 200,
+            parts_total: 250,
+            per_field: { brand: 0.95, weight_g: 0.5 },
+          },
+          tls: {
+            parts_with_specs: 30,
+            parts_total: 40,
+            per_field: { brand: 0.8, weight_g: 0.2 },
+          },
+          browser: {
+            parts_with_specs: 5,
+            parts_total: 10,
+            per_field: { brand: 0.6, weight_g: 0.1 },
+          },
+        },
+      },
+      failure_rate_7d: [
+        {
+          adapter: 'test-adapter',
+          failed: 2,
+          parsed: 98,
+          rate: 0.02,
+          tier: 'http',
+        },
+      ],
+      window: { days: 7, since: '2026-04-18T00:00:00+00:00' },
+    };
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: payload });
+
+    const result = await adminApi.getExtractionHealth();
+
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/admin/extraction-health'
+    );
+    expect(result.data).toEqual(payload);
+    expect(result.data.compliance.compliant).toBe(108);
+    expect(result.data.coverage.per_tier.http.per_field['brand']).toBe(0.95);
+    expect(result.data.failure_rate_7d[0]?.rate).toBe(0.02);
+    expect(result.data.window.days).toBe(7);
   });
 });

@@ -12,14 +12,32 @@ rather than the module-level ``fetch_page``. See ``crawlers/fetchers.py`` and
 ``crawlers/README.md`` for the tier model.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar, Iterator, Literal, Optional
+from typing import Any, ClassVar, Dict, Iterator, Literal, Optional
 
 from app.crawlers.base import ScrapedPayload
 from app.crawlers.fetchers import Fetcher, get_fetcher
 
 FetcherTier = Literal["http", "tls", "browser"]
+
+logger = logging.getLogger(__name__)
+
+#: The five universal field names produced by
+#: ``app.crawlers.parsing.extract_universal_fields``. Used to validate
+#: ``suppress_universal`` entries at class-definition time so a typo in an
+#: adapter ("weight" vs "weight_grams") fails loudly rather than silently
+#: failing to suppress at runtime.
+UNIVERSAL_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "weight_grams",
+        "material",
+        "finish",
+        "warranty_days",
+        "fitment_notes",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -72,6 +90,25 @@ class RetailerCrawlerAdapter(ABC):
                         f"category_targets entry {entry!r}; not registered in default_registry"
                     )
 
+        # Validate suppress_universal entries against the known universal
+        # field names. Typos here (e.g. 'weight' instead of 'weight_grams')
+        # would silently fail to suppress at runtime; failing loudly at
+        # class-definition time keeps the per-adapter override honest.
+        suppress = getattr(cls, "suppress_universal", [])
+        if suppress:
+            if not isinstance(suppress, (list, tuple)):
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__qualname__} declares suppress_universal "
+                    f"that is not a list/tuple: {suppress!r}"
+                )
+            for entry in suppress:
+                if not isinstance(entry, str) or entry not in UNIVERSAL_FIELD_NAMES:
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares unknown "
+                        f"suppress_universal entry {entry!r}; must be one of "
+                        f"{sorted(UNIVERSAL_FIELD_NAMES)!r}."
+                    )
+
     #: Globally-unique slug for this adapter. Enforced non-empty by __init_subclass__.
     #: Must equal the existing ADAPTER_REGISTRY key verbatim (no derivation from class name per D-02).
     ADAPTER_NAME: ClassVar[str] = ""
@@ -87,6 +124,15 @@ class RetailerCrawlerAdapter(ABC):
     #: by __init_subclass__: each entry must resolve via default_registry.resolve(), so
     #: typos in the S03 retrofit fail loudly at import rather than silently dropping specs.
     category_targets: ClassVar[list[str]] = []
+    #: Universal-extraction field names this adapter wants to opt out of. Default
+    #: empty — every adapter gets all five universal fields auto-extracted by
+    #: ``apply_universal_extraction``. Override on subclasses that hand-roll a
+    #: more accurate value for one or more universal fields, e.g.
+    #: ``suppress_universal: ClassVar[list[str]] = ['weight_grams']``. Each
+    #: entry must be one of the five names in ``UNIVERSAL_FIELD_NAMES``;
+    #: __init_subclass__ raises TypeError on unknown names so typos are caught
+    #: at import.
+    suppress_universal: ClassVar[list[str]] = []
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
         # Defer default-fetcher construction until first access. Archive rescrape
@@ -115,6 +161,67 @@ class RetailerCrawlerAdapter(ABC):
         Return None if the page is not a product page or parsing fails.
         """
         ...
+
+    def apply_universal_extraction(
+        self, html: str, payload: Optional[ScrapedPayload]
+    ) -> Optional[ScrapedPayload]:
+        """
+        Run the five universal extractors over ``html`` and merge the results
+        into ``payload.specifications``.
+
+        Adapter values win on conflict — for any field key the adapter already
+        set in ``payload.specifications``, this hook leaves the existing entry
+        alone. Fields listed in ``self.suppress_universal`` are skipped
+        entirely. The hook is intended to be invoked by call sites that
+        already received a non-None payload from ``parse_product_page``;
+        ``payload is None`` short-circuits to a no-op so callers can drop the
+        None-check on the failure branch.
+
+        Returns the (possibly mutated) payload. Always returns the same
+        payload instance — never replaces it — so call-site assignment
+        ``payload = adapter.apply_universal_extraction(html, payload)`` is
+        safe to write reflexively.
+        """
+        if payload is None:
+            return payload
+
+        # Lazy import: parsing.py imports ScrapedPayload from crawlers.base, so
+        # importing extract_universal_fields here keeps the import direction
+        # one-way (adapters/base imports parsing only at call time).
+        from app.crawlers.parsing import extract_universal_fields
+
+        extracted = extract_universal_fields(html)
+        if not extracted:
+            return payload
+
+        suppressed = set(type(self).suppress_universal or [])
+        adapter_name = getattr(type(self), "ADAPTER_NAME", "") or "unknown"
+
+        existing: Dict[str, Any] = dict(payload.specifications or {})
+        merged_added = False
+        for field, (value, confidence) in extracted.items():
+            if field in suppressed:
+                continue
+            confidence_field = f"{field}_confidence"
+            # Adapter wins: only fill keys the adapter didn't already set.
+            wrote_value = False
+            if field not in existing:
+                existing[field] = value
+                wrote_value = True
+            if confidence_field not in existing:
+                existing[confidence_field] = confidence
+            if wrote_value:
+                merged_added = True
+                logger.debug(
+                    "universal_extraction: adapter=%s field=%s confidence=%s",
+                    adapter_name,
+                    field,
+                    confidence,
+                )
+
+        if merged_added or (existing and payload.specifications is None):
+            payload.specifications = existing or None
+        return payload
 
     def check_health(self) -> HealthResult:
         """Pre-crawl health probe (CRAWL-06 / D-19).
