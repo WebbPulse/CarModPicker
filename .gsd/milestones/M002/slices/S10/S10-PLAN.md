@@ -71,7 +71,7 @@ Threat surface: row actions are currently gated by canEdit/canDelete predicates 
   - Files: `frontend/src/components/parts/PartList.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- PartList && grep -c "from '../buttons/ActionButton'\|from '../buttons/SecondaryButton'" src/components/parts/PartList.tsx | grep -q '^0$'
 
-- [ ] **T03: Reskin AddToBuildListDialog onto ui/Dialog + ui/Button while preserving form-submit semantics** `est:45m`
+- [x] **T03: Reskin AddToBuildListDialog onto ui/Dialog + ui/Button while preserving form-submit semantics** `est:45m`
   Replace the common/Dialog wrapper, ActionButton, and SecondaryButton in AddToBuildListDialog.tsx with ui/Dialog (+ DialogContent/DialogHeader/DialogTitle/DialogFooter) and ui/Button. Preserve the form contract (handleSubmit, error/loading states, build-list multi-select, car-mismatch warning) — only swap the outer dialog primitive and the two footer buttons.
 
 In frontend/src/components/parts/AddToBuildListDialog.tsx:

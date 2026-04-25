@@ -7,13 +7,17 @@ import type {
   PartReadWithVotes,
 } from '../../types/Api';
 
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
 import { ErrorAlert } from '../common/Alerts';
 import Card from '../common/Card';
-import Dialog from '../common/Dialog';
 import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 
 interface AddToBuildListDialogProps {
   isOpen: boolean;
@@ -135,16 +139,24 @@ function AddToBuildListDialog({
 
   return (
     <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Add ${part.name} to Build List`}
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <form
-        onSubmit={(e) => {
-          void handleSubmit(e);
-        }}
-        className="space-y-6"
+      <DialogContent
+        data-testid="parts-catalog-add-to-build-list-dialog"
+        className="sm:max-w-3xl max-h-[90vh] overflow-y-auto"
       >
+        <DialogHeader>
+          <DialogTitle>{`Add ${part.name} to Build List`}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          className="space-y-6"
+        >
         {error && <ErrorAlert message={error} />}
 
         {/* Part Preview */}
@@ -335,24 +347,28 @@ function AddToBuildListDialog({
           </div>
         )}
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <SecondaryButton type="button" onClick={onClose} disabled={isAdding}>
-            Cancel
-          </SecondaryButton>
-          <ActionButton
-            type="submit"
-            disabled={isAdding || selectedBuildListIds.size === 0}
-          >
-            {isAdding ? (
-              <LoadingSpinner />
-            ) : selectedBuildListIds.size === 1 ? (
-              'Add to Build List'
-            ) : (
-              `Add to ${selectedBuildListIds.size} Build Lists`
-            )}
-          </ActionButton>
-        </div>
-      </form>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isAdding}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              loading={isAdding}
+              disabled={selectedBuildListIds.size === 0}
+              data-testid="parts-catalog-add-to-build-list-submit"
+            >
+              {selectedBuildListIds.size === 1
+                ? 'Add to Build List'
+                : `Add to ${selectedBuildListIds.size} Build Lists`}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
     </Dialog>
   );
 }
