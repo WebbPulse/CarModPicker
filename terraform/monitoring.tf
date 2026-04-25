@@ -279,16 +279,20 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_aggregate" {
   threshold           = 0.5
   treat_missing_data  = "notBreaching"
 
+  # Expression-only metric_query blocks (no metric {} sub-block) require `period`
+  # on the query itself — opposite of Landmine 7 which bans top-level period.
   metric_query {
     id         = "ingested_total"
     expression = "SUM(SEARCH('{CarModPicker/Crawlers,AdapterName,Environment,RunType} MetricName=\"Ingested\" Environment=\"${var.environment}\" RunType=\"live\"', 'Sum', 3600))"
     label      = "Total Ingested (all adapters)"
+    period     = 3600
   }
 
   metric_query {
     id         = "failures_total"
     expression = "SUM(SEARCH('{CarModPicker/Crawlers,AdapterName,Environment,RunType} MetricName=\"ParseFailures\" Environment=\"${var.environment}\" RunType=\"live\"', 'Sum', 3600))"
     label      = "Total Parse Failures (all adapters)"
+    period     = 3600
   }
 
   metric_query {
@@ -296,6 +300,7 @@ resource "aws_cloudwatch_metric_alarm" "crawler_parse_failure_aggregate" {
     expression  = "IF((ingested_total + failures_total) < 10, 0, failures_total / (ingested_total + failures_total))"
     label       = "Aggregate parse failure rate (suppressed below 10 samples)"
     return_data = true
+    period      = 3600
   }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
