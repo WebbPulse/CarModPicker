@@ -19,10 +19,10 @@
 - [x] **S01: S01** `risk:high` `depends:[]`
   > After this: Run pytest backend/app/crawlers/ — universal-extractor fixture stubs and 3 category-schema contract tests pass. SpecRegistry.resolve('coilover') returns the CoiloverSpec model. Ingest accepts a valid spec block, ingests it; ingest rejects a malformed spec block, ingests the part with specifications=null, and increments extraction_failure_rate.
 
-- [ ] **S02: S02** `risk:high` `depends:[]`
+- [x] **S02: S02** `risk:high` `depends:[]`
   > After this: Run a CLI one-liner against 5 archived HTML samples drawn from 5 different adapters: each result's specifications dict is populated with universal fields at appropriate confidence levels. Verify suppression: an adapter declares suppress_universal=['weight'] and that field is not auto-extracted for that adapter.
 
-- [ ] **S03: 111-adapter compliance retrofit** `risk:high` `depends:[S01,S02]`
+- [ ] **S03: S03** `risk:high` `depends:[]`
   > After this: Run python -m app.crawlers.compliance_audit. Output prints 111/111 compliant with per-tier breakdown (T0: 84/84, T1: 16/16, T2: 11/11). Each adapter declares at least one category_target. Spot-check 3 T0, 2 T1, 1 T2 adapter — verify category_targets attribute present and base-class universal extraction inherited.
 
 - [ ] **S04: Re-extraction backfill + admin extraction-health API** `risk:medium` `depends:[S02,S03]`
