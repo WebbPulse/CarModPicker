@@ -134,6 +134,14 @@ Core Value reaffirmed at v1.0 close — every shipped capability traces back to 
 | Backend coverage baseline = 51% (floor of measured run) | `--cov-fail-under=51` in `backend/pytest.ini`. Avoid setting unrealistically high baseline that flake-blocks future work. | ✓ Good — gate held across 60 plans without false-flagging |
 | Frontend coverage thresholds = 60/50/50/60 (D-06 targets) | Reachable via breadth pass on API modules + hooks + contexts + customer pages + admin pages; deferred from Phase 1 to dedicated Phase 8 (20 plans) because 0.43% baseline was far below targets. | ✓ Good — Phase 8 hit thresholds; fail-force proof captured |
 
+## Milestone Sequence
+
+<!-- Check off milestones as they complete. One-liners describe intent, not implementation detail. -->
+
+- [x] M001: v1.0 Tech-Debt Audit + Fix-All — Pay down platform debt across 8 phases / 60 plans; ship Sentry + CloudWatch EMF + canonical parts dedup + concurrency hardening; closed 2026-04-24
+- [ ] M002: Data Enrichment + Frontend Design Reset — Structured per-category extraction across all 111 adapters, price-history surfaces (sparkline + detail view + drop alerts), repo-wide reskin on shadcn+Tailwind tokens
+- [ ] M003: LLM-Assisted Build Tools — Build helper, build planner, part-page summarization, LLM-as-extractor strategy plugged into M002's schema contract; T2 Cloudflare reliability work
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.

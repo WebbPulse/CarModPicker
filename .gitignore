@@ -146,3 +146,7 @@ target/
 vendor/
 .cache/
 tmp/
+
+# Playwright
+playwright-report/
+test-results/
