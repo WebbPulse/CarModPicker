@@ -28,6 +28,7 @@ export interface ConfirmDialogProps {
   warning?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
+  dataTestid?: string;
 }
 
 export function ConfirmDialog({
@@ -45,6 +46,7 @@ export function ConfirmDialog({
   warning,
   children,
   className,
+  dataTestid = 'confirm-dialog',
 }: ConfirmDialogProps) {
   const handleCancel = () => {
     if (loading) return;
@@ -57,7 +59,7 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        data-testid="confirm-dialog"
+        data-testid={dataTestid}
         className={cn('sm:max-w-md', className)}
       >
         <DialogHeader>

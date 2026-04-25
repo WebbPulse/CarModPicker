@@ -41,7 +41,7 @@ No Threat-Surface concern (no user input persisted; dialog is presentational).
   - Files: `frontend/src/components/ui/confirm-dialog.tsx`, `frontend/src/components/ui/confirm-dialog.test.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- confirm-dialog
 
-- [ ] **T02: Reskin ViewBuildlist.tsx page chrome and top-level dialogs onto ui/* primitives** `est:1h`
+- [x] **T02: Reskin ViewBuildlist.tsx page chrome and top-level dialogs onto ui/* primitives** `est:1h`
   Migrate frontend/src/pages/builder/ViewBuildlist.tsx from common/Dialog + DeleteConfirmationDialog + ActionButton to ui/dialog + ui/confirm-dialog (T01) + ui/button. Preserve every existing behavior: build-list info card, no-car-assigned warning, View Build Log button, Copy Build List button (with isCopyingBuildList loading state via Button loading prop), Edit/Delete affordances gated on canManage, EditBuildListForm in a ui/Dialog with title `Edit ${buildList.name}`, ConfirmDialog for delete, ui/Dialog for Create Build List Part with maxWidth equivalent to the existing 4xl (use sm:max-w-[64rem]).
 
 Do NOT modify EditBuildListForm internals — it consumes common/Card and common/Input for the make/model/generation grids; those ride the S12 ripple. Only swap the OUTER dialog wrapper.
