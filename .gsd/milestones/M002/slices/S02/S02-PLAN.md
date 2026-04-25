@@ -59,7 +59,7 @@ Do NOT modify any adapter, ingest path, or spec module in this task — purely a
   - Files: `backend/app/crawlers/parsing.py`
   - Verify: pytest backend/tests/crawlers/test_universal_extractor.py -n auto --rootdir=backend
 
-- [ ] **T02: Add universal fields to CategorySpec base + UniversalSpec catch-all** `est:1h`
+- [x] **T02: Add universal fields to CategorySpec base + UniversalSpec catch-all** `est:1h`
   Make universal-extracted fields validate cleanly against the existing CategorySpec schemas. The existing `CategorySpec(BaseModel)` in `backend/app/crawlers/specs/base.py` uses `ConfigDict(extra='forbid')`, so universal fields must be declared on the schema or validation will reject them.
 
 Approach: define the five universal value-fields plus their paired `_confidence` companions on the `CategorySpec` base itself, so every concrete spec inherits them automatically. Field shapes (matching T01's return contract):
