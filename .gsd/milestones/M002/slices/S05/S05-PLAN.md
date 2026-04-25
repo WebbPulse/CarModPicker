@@ -146,7 +146,7 @@ NEGATIVE TESTS (Q7):
   - Files: `backend/app/api/endpoints/parts.py`, `backend/tests/api/endpoints/test_parts_price_history.py`, `backend/tests/fixtures/openapi_snapshot.json`
   - Verify: TESTING=true pytest backend/tests/api/endpoints/test_parts_price_history.py backend/tests/api/test_openapi_snapshot.py backend/tests/api/endpoints/test_parts.py -n auto --rootdir=backend -q --no-cov
 
-- [ ] **T03: Add `POST /api/parts/price-history` batch summary endpoint (1–100 IDs → min/max/last/trend per part)** `est:2h`
+- [x] **T03: Add `POST /api/parts/price-history` batch summary endpoint (1–100 IDs → min/max/last/trend per part)** `est:2h`
   Add a new POST handler in `backend/app/api/endpoints/parts.py` at path `/parts/price-history` (NOT under `/parts/{id}/...` — this is a list-route POST). Body: `PriceHistoryBatchRequest{ part_ids: list[UUID] (min 1, max 100), window: Optional[str] = '90d' }`. Response: `PriceHistoryBatchResponse{ summaries: dict[UUID, PriceHistoryBatchSummaryItem], window: str, requested_count: int, found_count: int }`.
 
 Why POST and not GET: a 100-ID query string is unwieldy and trips proxy URL-length limits at scale. POST with a JSON body is the standard for batch-fetch operations and matches the REST-ish convention the existing endpoints use (e.g. `POST /parts/{id}/append-images` carries a JSON body for a fundamentally read-shaped op).

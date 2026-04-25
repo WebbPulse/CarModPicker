@@ -22,6 +22,7 @@ from app.api.models.user import User
 from tests.conftest import INVALID_UUID_STR, get_default_category_id
 
 PRICE_HISTORY_PATH = "/api/parts/{part_id}/price-history"
+BATCH_PRICE_HISTORY_PATH = "/api/parts/price-history"
 
 
 # --- helpers (mirror tests/services/test_part_price_aggregation_service.py) --
@@ -271,3 +272,227 @@ def test_get_price_history_aggregates_link_group(
     # Both retailers from the link group surface on the canonical query.
     retailer_ids = {r["retailer_id"] for r in body["retailers"]}
     assert retailer_ids == {str(retailer_a.id), str(retailer_b.id)}
+
+
+# --- POST /api/parts/price-history (T03) -------------------------------------
+
+
+def test_post_batch_price_history_basic(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    retailer = _make_retailer(db_session, "batch-basic")
+    parts = []
+    now = datetime.now(UTC)
+    for idx in range(3):
+        part = _make_part(db_session, test_user, name=f"Batch Basic {idx}")
+        listing = _make_listing(db_session, part, retailer)
+        for j, price in enumerate([1000 + idx * 100, 1100 + idx * 100, 1200 + idx * 100]):
+            _add_history(db_session, listing, price_cents=price, observed_at=now - timedelta(days=5 + j))
+        parts.append(part)
+    db_session.commit()
+
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [str(p.id) for p in parts]},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["window"] == "90d"
+    assert body["requested_count"] == 3
+    assert body["found_count"] == 3
+    assert set(body["summaries"].keys()) == {str(p.id) for p in parts}
+    for p in parts:
+        item = body["summaries"][str(p.id)]
+        assert item["observation_count"] == 3
+        assert item["min_cents"] is not None
+        assert item["max_cents"] is not None
+
+
+def test_post_batch_price_history_includes_empty_entries(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    retailer = _make_retailer(db_session, "batch-empty")
+    now = datetime.now(UTC)
+    part_with = _make_part(db_session, test_user, name="HasHistory")
+    listing = _make_listing(db_session, part_with, retailer)
+    for i, price in enumerate([800, 900]):
+        _add_history(db_session, listing, price_cents=price, observed_at=now - timedelta(days=3 + i))
+    part_other = _make_part(db_session, test_user, name="AlsoHistory")
+    listing_other = _make_listing(db_session, part_other, retailer)
+    _add_history(db_session, listing_other, price_cents=1500, observed_at=now - timedelta(days=2))
+    part_empty = _make_part(db_session, test_user, name="NoHistory")
+    db_session.commit()
+
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [str(part_with.id), str(part_other.id), str(part_empty.id)]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_count"] == 3
+    assert body["found_count"] == 2
+    assert len(body["summaries"]) == 3
+    empty_item = body["summaries"][str(part_empty.id)]
+    assert empty_item["observation_count"] == 0
+    assert empty_item["min_cents"] is None
+    assert empty_item["max_cents"] is None
+    assert empty_item["last_cents"] is None
+    assert empty_item["trend"] == "flat"
+
+
+def test_post_batch_price_history_window_default_90d(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    retailer = _make_retailer(db_session, "batch-default-window")
+    part = _make_part(db_session, test_user, name="Default Window Batch")
+    listing = _make_listing(db_session, part, retailer)
+    _add_history(db_session, listing, price_cents=999, observed_at=datetime.now(UTC) - timedelta(days=1))
+    db_session.commit()
+
+    response = client.post(BATCH_PRICE_HISTORY_PATH, json={"part_ids": [str(part.id)]})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["window"] == "90d"
+
+
+def test_post_batch_price_history_window_custom(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    retailer = _make_retailer(db_session, "batch-custom-window")
+    part = _make_part(db_session, test_user, name="Custom Window Batch")
+    listing = _make_listing(db_session, part, retailer)
+    now = datetime.now(UTC)
+    # 2 inside 30d, 2 older.
+    for days in [5, 20]:
+        _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
+    for days in [40, 60]:
+        _add_history(db_session, listing, price_cents=2000 + days, observed_at=now - timedelta(days=days))
+    db_session.commit()
+
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [str(part.id)], "window": "30d"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["window"] == "30d"
+    assert body["summaries"][str(part.id)]["observation_count"] == 2
+
+
+def test_post_batch_price_history_invalid_window_returns_422(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    part = _make_part(db_session, test_user, name="Bad Window Batch")
+    db_session.commit()
+
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [str(part.id)], "window": "xyz"},
+    )
+    # Pydantic Literal validation rejects "xyz" before the handler runs, producing
+    # the standard VALIDATION_ERROR envelope. The endpoint's INVALID_WINDOW path
+    # is reachable only when the schema is bypassed (e.g. service-layer callers).
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] in {"INVALID_WINDOW", "VALIDATION_ERROR"}
+
+
+def test_post_batch_price_history_empty_part_ids_returns_422(client: TestClient) -> None:
+    response = client.post(BATCH_PRICE_HISTORY_PATH, json={"part_ids": []})
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "VALIDATION_ERROR"
+
+
+def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient) -> None:
+    too_many = [str(uuid.uuid4()) for _ in range(101)]
+    response = client.post(BATCH_PRICE_HISTORY_PATH, json={"part_ids": too_many})
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "VALIDATION_ERROR"
+    # Pydantic surfaces the at_most_100 constraint in the per-field error details.
+    rendered = repr(body)
+    assert "100" in rendered or "at_most" in rendered or "max_length" in rendered
+
+
+def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestClient) -> None:
+    unknown_a = str(uuid.uuid4())
+    unknown_b = str(uuid.uuid4())
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [unknown_a, unknown_b]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_count"] == 2
+    assert body["found_count"] == 0
+    assert set(body["summaries"].keys()) == {unknown_a, unknown_b}
+    for entry in body["summaries"].values():
+        assert entry["observation_count"] == 0
+        assert entry["min_cents"] is None
+        assert entry["trend"] == "flat"
+
+
+def test_post_batch_price_history_aggregates_link_group(
+    client: TestClient, db_session: Session, test_user: User
+) -> None:
+    retailer_a = _make_retailer(db_session, "batch-lg-a")
+    retailer_b = _make_retailer(db_session, "batch-lg-b")
+    canonical = _make_part(db_session, test_user, name="Batch Canon")
+    duplicate = _make_part(
+        db_session, test_user, canonical_part_id=canonical.id, name="Batch Dupe"
+    )
+    listing_canon = _make_listing(db_session, canonical, retailer_a)
+    listing_dupe = _make_listing(db_session, duplicate, retailer_b)
+
+    now = datetime.now(UTC)
+    _add_history(db_session, listing_canon, price_cents=5000, observed_at=now - timedelta(days=10))
+    _add_history(db_session, listing_canon, price_cents=4800, observed_at=now - timedelta(days=5))
+    _add_history(db_session, listing_dupe, price_cents=3000, observed_at=now - timedelta(days=8))
+    _add_history(db_session, listing_dupe, price_cents=3200, observed_at=now - timedelta(days=2))
+    db_session.commit()
+
+    response = client.post(
+        BATCH_PRICE_HISTORY_PATH,
+        json={"part_ids": [str(canonical.id)]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    item = body["summaries"][str(canonical.id)]
+    assert item["observation_count"] == 4
+    assert item["min_cents"] == 3000
+    assert item["max_cents"] == 5000
+
+
+def test_post_batch_price_history_query_count(
+    client: TestClient, db_session: Session, test_user: User, query_counter
+) -> None:
+    retailer = _make_retailer(db_session, "batch-qcount")
+    parts = []
+    now = datetime.now(UTC)
+    for idx in range(50):
+        part = _make_part(db_session, test_user, name=f"QCount {idx}")
+        listing = _make_listing(db_session, part, retailer)
+        _add_history(db_session, listing, price_cents=1000 + idx, observed_at=now - timedelta(days=1))
+        parts.append(part)
+    db_session.commit()
+    # Materialize ids BEFORE entering query_counter — accessing `p.id` after a
+    # commit re-fetches each Part (and lazy-loads relationships) which would
+    # pollute the count with N test-fixture queries unrelated to the endpoint.
+    part_ids = [str(p.id) for p in parts]
+
+    with query_counter() as counter:
+        response = client.post(
+            BATCH_PRICE_HISTORY_PATH,
+            json={"part_ids": part_ids},
+        )
+    assert response.status_code == 200
+    # Service guarantees a fixed number of round-trips regardless of batch size:
+    # 1) self-lookup, 2) sibling-lookup, 3) min/max/count aggregation,
+    # 4) observations pull. The endpoint adds a SAVEPOINT/SELECT or two from the
+    # FastAPI dependency surface; the contract is "no N+1" — anything close to N
+    # would balloon past the budget. ≤ 6 SELECTs per batch is the bar D-04 sets.
+    assert counter.count <= 6, (
+        f"expected ≤ 6 SELECTs for a 50-id batch, got {counter.count}.\n"
+        f"Statements:\n" + "\n".join(counter.statements)
+    )

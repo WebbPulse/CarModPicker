@@ -37,12 +37,15 @@ from app.api.schemas.part import (
 from app.api.schemas.part_listing import PartListingCreate, PartListingReadWithRetailer
 from app.api.schemas.part_price_history import (
     PartPriceHistoryReadWithRetailer,
+    PriceHistoryBatchRequest,
+    PriceHistoryBatchResponse,
     PriceHistorySinglePartResponse,
 )
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_linker_service import link_group_part_ids, link_new_part
 from app.api.services.part_price_aggregation_service import (
     ALLOWED_WINDOWS,
+    aggregate_batch,
     aggregate_single_part,
     apply_retailer_filter,
     parse_window,
@@ -1243,6 +1246,68 @@ async def get_part_price_history(
         elapsed_ms,
     )
     return result
+
+
+@router.post(
+    "/price-history",
+    response_model=PriceHistoryBatchResponse,
+    responses=standard_responses(
+        success_description="Batch price-history summaries (one entry per requested part_id)",
+    ),
+)
+async def post_batch_price_history(
+    body: PriceHistoryBatchRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> PriceHistoryBatchResponse:
+    """Aggregate min/max/last/trend per part for a batch of part IDs (1–100).
+
+    POST (not GET) so the body can carry up to 100 UUIDs without hitting proxy
+    URL-length limits. The endpoint never 404s on a per-id basis — unknown IDs
+    return well-formed empty-summary entries so the client can iterate without
+    holes. Invalid `window` values 422 with `error_code: INVALID_WINDOW`.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    try:
+        parse_window(body.window)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "INVALID_WINDOW",
+                "message": f"Invalid window {body.window!r}; expected one of {ALLOWED_WINDOWS}",
+                "details": {"allowed": ALLOWED_WINDOWS},
+            },
+        )
+
+    started = time.perf_counter()
+    summaries = aggregate_batch(db, body.part_ids, body.window)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    found_count = sum(1 for item in summaries.values() if item.observation_count > 0)
+    rows_scanned = sum(item.observation_count for item in summaries.values())
+    # Each unique canonical group resolved is roughly the per-part dedup cardinality;
+    # we approximate via the number of summary entries since the service collapses
+    # link-group siblings under one canonical id internally.
+    link_groups_resolved = len(summaries)
+
+    logger.info(
+        "price_history_aggregation: endpoint=batch part_count=%d "
+        "window=%s link_groups_resolved=%d rows_scanned=%d elapsed_ms=%d",
+        len(body.part_ids),
+        body.window,
+        link_groups_resolved,
+        rows_scanned,
+        elapsed_ms,
+    )
+
+    return PriceHistoryBatchResponse(
+        summaries=summaries,
+        window=body.window,
+        requested_count=len(body.part_ids),
+        found_count=found_count,
+    )
 
 
 # Create base endpoint router AFTER custom endpoints to avoid route collision

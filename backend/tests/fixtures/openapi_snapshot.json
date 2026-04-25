@@ -4256,6 +4256,149 @@
         "title": "PartUpdate",
         "type": "object"
       },
+      "PriceHistoryBatchRequest": {
+        "description": "Body for POST /api/parts/price-history.",
+        "properties": {
+          "part_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Part Ids",
+            "type": "array"
+          },
+          "window": {
+            "default": "90d",
+            "enum": [
+              "30d",
+              "90d",
+              "180d",
+              "1y",
+              "all"
+            ],
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_ids"
+        ],
+        "title": "PriceHistoryBatchRequest",
+        "type": "object"
+      },
+      "PriceHistoryBatchResponse": {
+        "description": "Response for POST /api/parts/price-history.",
+        "properties": {
+          "found_count": {
+            "minimum": 0.0,
+            "title": "Found Count",
+            "type": "integer"
+          },
+          "requested_count": {
+            "minimum": 0.0,
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "summaries": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PriceHistoryBatchSummaryItem"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Summaries",
+            "type": "object"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summaries",
+          "window",
+          "requested_count",
+          "found_count"
+        ],
+        "title": "PriceHistoryBatchResponse",
+        "type": "object"
+      },
+      "PriceHistoryBatchSummaryItem": {
+        "description": "Per-part summary inside a batch response. Same shape as PriceHistorySummary.",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most recent observed price in window",
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the most recent price was observed",
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest observed price in window (None if no observations)",
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lowest observed price in window (None if no observations)",
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "description": "Number of observations contributing to this summary",
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "flat",
+            "description": "Linear-regression slope sign over the window",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "title": "PriceHistoryBatchSummaryItem",
+        "type": "object"
+      },
       "PromoteCanonicalRequest": {
         "properties": {
           "part_id": {
@@ -14004,6 +14147,48 @@
           }
         ],
         "summary": "Find Part By Part Manufacturer And Part Number Endpoint",
+        "tags": [
+          "parts"
+        ]
+      }
+    },
+    "/api/parts/price-history": {
+      "post": {
+        "description": "Aggregate min/max/last/trend per part for a batch of part IDs (1\u2013100).\n\nPOST (not GET) so the body can carry up to 100 UUIDs without hitting proxy\nURL-length limits. The endpoint never 404s on a per-id basis \u2014 unknown IDs\nreturn well-formed empty-summary entries so the client can iterate without\nholes. Invalid `window` values 422 with `error_code: INVALID_WINDOW`.",
+        "operationId": "post_batch_price_history_api_parts_price_history_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceHistoryBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceHistoryBatchResponse"
+                }
+              }
+            },
+            "description": "Batch price-history summaries (one entry per requested part_id)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Batch Price History",
         "tags": [
           "parts"
         ]
