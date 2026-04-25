@@ -81,7 +81,7 @@ In the same file, extend `@theme` so Tailwind utilities like `bg-background`, `t
   - Files: `frontend/src/components/ui/button.tsx`, `frontend/src/components/ui/input.tsx`, `frontend/src/components/ui/select.tsx`, `frontend/src/components/ui/tabs.tsx`, `frontend/src/components/ui/combobox.tsx`
   - Verify: cd frontend && npm run type-check && for f in button input select tabs combobox; do test -f src/components/ui/$f.tsx || (echo "missing $f.tsx" && exit 1); done && grep -q 'cva' src/components/ui/button.tsx && grep -q '@radix-ui/react-select' src/components/ui/select.tsx && grep -q '@radix-ui/react-tabs' src/components/ui/tabs.tsx && grep -q 'cmdk' src/components/ui/combobox.tsx && npm run lint
 
-- [ ] **T04: Implement overlay primitives: Dialog, DropdownMenu, Sheet, Toast** `est:2h`
+- [x] **T04: Implement overlay primitives: Dialog, DropdownMenu, Sheet, Toast** `est:2h`
   Wave 2 — the overlay/layout surface. All Radix-portal-based, all token-driven.
 
 **Per-primitive spec:**
