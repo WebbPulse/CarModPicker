@@ -42,6 +42,7 @@ import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import EditPartForm from '../../components/parts/EditPartForm';
 import ImageGallery from '../../components/parts/ImageGallery';
 import ImageGalleryManage from '../../components/parts/ImageGalleryManage';
+import PriceAlertSubscribeButton from '../../components/parts/PriceAlertSubscribeButton';
 import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
@@ -753,7 +754,17 @@ function ViewPart() {
         {/* Price summary (90 days) — aggregated min/max/last/trend with
             per-retailer breakdown. Sibling of the price-history grid below. */}
         <div className="mb-6">
-          <SectionHeader title="Price summary (90 days)" />
+          <div className="flex items-center justify-between mb-2">
+            <SectionHeader title="Price summary (90 days)" />
+            {/* Subscribe button is a sibling of the summary block (NEW —
+                does not collapse the existing summary). Anonymous users get
+                routed to /login on click; authenticated users open a Radix
+                dialog to set a threshold. */}
+            <PriceAlertSubscribeButton
+              partId={part.id}
+              currentBestPriceCents={part.best_price_cents ?? null}
+            />
+          </div>
           {priceSummaryApiError && (
             <p className="text-sm text-gray-400">Price summary unavailable</p>
           )}

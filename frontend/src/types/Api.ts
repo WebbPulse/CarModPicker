@@ -364,6 +364,29 @@ export interface PriceHistoryBatchResponse {
   found_count: number;
 }
 
+// Per-user price-drop alert subscription (M002/S07).
+// Mirrors backend `app/api/schemas/part_price_alert.py`.
+export interface PartPriceAlertCreate {
+  part_id: string;
+  threshold_cents: number;
+}
+
+export interface PartPriceAlertUpdate {
+  threshold_cents?: number;
+  active?: boolean;
+}
+
+export interface PartPriceAlertRead {
+  id: string;
+  user_id: string;
+  part_id: string;
+  threshold_cents: number;
+  active: boolean;
+  last_fired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PaginationInfo {
   current_page: number;
   total_pages: number;
