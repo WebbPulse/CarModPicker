@@ -80,7 +80,7 @@ Threat surface: phase mutations gated on canManageParts (existing). Migration pr
   - Files: `frontend/src/components/buildListParts/BuildListParts.tsx`, `frontend/src/components/buildListParts/EditBuildListPartForm.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- BuildListParts ViewBuildlist && grep -c "from '../common/Dialog'\|from '../common/DeleteConfirmationDialog'\|from '../buttons/ActionButton'\|from '../buttons/SecondaryButton'" src/components/buildListParts/BuildListParts.tsx src/components/buildListParts/EditBuildListPartForm.tsx | awk -F: '{ sum += $2 } END { exit (sum > 0) }'
 
-- [ ] **T04: Add frontend/e2e/build-list.spec.ts with mocked fixtures, multi-viewport screenshots, and keyboard assertions** `est:1h`
+- [x] **T04: Add frontend/e2e/build-list.spec.ts with mocked fixtures, multi-viewport screenshots, and keyboard assertions** `est:1h`
   Create a new Playwright spec for /build-lists/{id} that runs at mobile/tablet/desktop (already configured in playwright.config.ts) and asserts the slice's R014 + R020 success criteria.
 
 Follow the conventions established in frontend/e2e/price-alerts.spec.ts (S07/T06):
