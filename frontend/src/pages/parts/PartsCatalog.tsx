@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import LinkButton from '../../components/buttons/LinkButton';
-import Input from '../../components/common/Input';
+import { Input } from '../../components/ui/input';
 import Pagination from '../../components/common/Pagination';
 import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import PartList from '../../components/parts/PartList';
@@ -115,6 +115,7 @@ const PartsCatalog: React.FC = () => {
               value={filters.searchTerm}
               onChange={(e) => filters.setSearchTerm(e.target.value)}
               className="w-full max-w-md"
+              data-testid="parts-catalog-search"
             />
           </div>
 

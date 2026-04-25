@@ -40,10 +40,10 @@
 - [x] **S08: S08** `risk:high` `depends:[]`
   > After this: Open the kitchen-sink page in dev — every primitive (Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet) renders in every state (default, hover, focus, disabled, loading, error) under the new tokens. Run npm run test:e2e — components.spec.ts kitchen-sink screenshots green at mobile/tablet/desktop. playwright.config.ts and frontend/e2e/smoke.spec.ts committed.
 
-- [ ] **S09: S09** `risk:medium` `depends:[]`
+- [x] **S09: S09** `risk:medium` `depends:[]`
   > After this: Visit /build-lists/{id} in dev — page is on the new design system, all interactions use S08 primitives. Run npm run test:e2e -- build-list.spec.ts — green at mobile/tablet/desktop. Tab through the page — focus indicators visible, escape on dialogs works.
 
-- [ ] **S10: Parts catalog redesign** `risk:medium` `depends:[S08,S06]`
+- [ ] **S10: S10** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — page on new design system; each part card shows the S06 sparkline + delta where observations exist. Run npm run test:e2e -- parts-catalog.spec.ts — green at mobile/tablet/desktop. Tab through the page; keyboard nav works.
 
 - [ ] **S11: Admin shell redesign + extraction-health UI** `risk:medium` `depends:[S08,S04]`
