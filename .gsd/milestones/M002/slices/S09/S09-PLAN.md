@@ -56,7 +56,7 @@ Threat surface: existing build-list ownership check (canManage = currentUser?.id
   - Files: `frontend/src/pages/builder/ViewBuildlist.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- ViewBuildlist && grep -c "from '../../components/common/Dialog'\|from '../../components/common/DeleteConfirmationDialog'\|from '../../components/buttons/ActionButton'" src/pages/builder/ViewBuildlist.tsx | grep -q '^0$'
 
-- [ ] **T03: Reskin BuildListParts.tsx child + EditBuildListPartForm dialog onto ui/* primitives** `est:1.5h`
+- [x] **T03: Reskin BuildListParts.tsx child + EditBuildListPartForm dialog onto ui/* primitives** `est:1.5h`
   Migrate the BuildListParts component and its EditBuildListPartForm modal off common/Dialog + ActionButton + raw bare buttons + raw inputs onto ui/* primitives.
 
 In BuildListParts.tsx:
