@@ -608,6 +608,7 @@ def run_crawler(
                     default_category_id=cat_id,
                     logger=logger,
                     source="scraped",
+                    adapter_name=adapter_name,
                 )
                 _upsert_crawled_page(
                     db,
