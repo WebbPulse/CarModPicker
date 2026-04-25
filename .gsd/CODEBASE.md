@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T05:31:23Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T05:31:23Z","fingerprint":"29200cd26c8816450338bfaa566d7fbb5b71c969","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T05:55:26Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T05:55:26Z","fingerprint":"c8c64d0d9abe7ee63303a63d973c8c6cfdd488e2","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -88,6 +88,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/api/endpoints/admin/_helpers.py`
 - `backend/app/api/endpoints/admin/crawlers.py`
 - `backend/app/api/endpoints/admin/db_ops.py`
+- `backend/app/api/endpoints/admin/extraction_health.py`
 - `backend/app/api/endpoints/admin/jobs.py`
 - `backend/app/api/endpoints/admin/parts.py`
 - `backend/app/api/endpoints/admin/stats.py`
@@ -302,7 +303,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/conftest.py`
 
 ### backend/tests/api/endpoints/
-- *(23 files: 23 .py)*
+- *(24 files: 24 .py)*
 
 ### backend/tests/auth/
 - `backend/tests/auth/__init__.py`
@@ -318,7 +319,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(65 files: 65 .py)*
+- *(63 files: 63 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`
