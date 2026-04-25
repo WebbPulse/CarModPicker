@@ -81,39 +81,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: mapped
 - Notes: New `part_price_alert` table + new email template. Unsubscribe link required for compliance.
 
-### R011 — CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
-- Class: core-capability
-- Status: active
-- Description: CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
-- Why it matters: Substrate for the repo-wide reskin. Tokens-first means future palette adjustments don't require a code sweep.
-- Source: user
-- Primary owning slice: M002/S08
-- Supporting slices: all subsequent UX slices
-- Validation: mapped
-- Notes: Mockup spike at top of S08 (2–3 variants) gives user veto on direction before tokens lock.
-
-### R012 — Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
-- Class: core-capability
-- Status: active
-- Description: Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
-- Why it matters: Accessibility, keyboard nav, focus management for free; replaces accumulated hand-rolled drift in `components/common/`.
-- Source: user
-- Primary owning slice: M002/S08
-- Supporting slices: M002/S09–S12
-- Validation: mapped
-- Notes: Deprecated `components/common/` primitives must be fully removed by S12.
-
-### R013 — A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
-- Class: quality-attribute
-- Status: active
-- Description: A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
-- Why it matters: Single spec file protects all 20+ pages from primitive-level visual drift during the ripple reskin.
-- Source: user
-- Primary owning slice: M002/S08
-- Supporting slices: none
-- Validation: mapped
-- Notes: Existing uncommitted `playwright.config.ts` and `smoke.spec.ts` land as part of S08.
-
 ### R014 — `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
 - Class: primary-user-loop
 - Status: active
@@ -218,6 +185,39 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M002/S06
 - Validation: M002/S05 shipped both endpoints. GET /api/parts/{id}/price-history returns PriceHistorySinglePartResponse (summary + retailers + history) with window param (30d/90d/180d/1y/all default 90d), retailer_id filter, and legacy=true list-shape shim for backward compatibility. POST /api/parts/price-history accepts 1-100 part_ids → batch min/max/last/trend with link-group dedup. Aggregation lives in app/api/services/part_price_aggregation_service.py (pure read service, canonical-coalesce expression). 18 endpoint tests + 11 service tests + OpenAPI snapshot test green. Frontend client (getPartPriceHistorySummary + getBatchPriceHistorySummary) wired with TS types; 26 vitest cases green. Verified 2026-04-25.
 - Notes: Query-time aggregation per D004; perf-gate infra + gate-on-the-gate tests landed in T05; live 10× load run is R019's concern and remains active until run against a live uvicorn server with sample data. R036 (materialized part_price_summary) stays unopened unless that gate misses.
+
+### R011 — CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
+- Class: core-capability
+- Status: validated
+- Description: CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
+- Why it matters: Substrate for the repo-wide reskin. Tokens-first means future palette adjustments don't require a code sweep.
+- Source: user
+- Primary owning slice: M002/S08
+- Supporting slices: all subsequent UX slices
+- Validation: S08/T02 — frontend/src/styles/tokens.css declares the full shadcn-standard token vocabulary on :root with HSL channels (background/foreground, card, popover, primary/secondary/accent, muted, destructive, border, input, ring + radius scale + shadow scale + z-index layers), bridges into Tailwind v4 via @theme so utilities like bg-background and border-border resolve, and is imported once from frontend/src/index.css. Production build (vite build) confirms .bg-background / --background present in dist/assets/*.css. Legacy --primary-*/--neutral-*/--accent-* blocks left intact for additive coexistence until S12 retires components/common/.
+- Notes: Mockup spike at top of S08 (2–3 variants) gives user veto on direction before tokens lock.
+
+### R012 — Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
+- Class: core-capability
+- Status: validated
+- Description: Restyled Radix primitives committed under `frontend/src/components/ui/`: Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet at minimum. Each primitive supports all relevant states (default, hover, focus, disabled, loading, error). Replaces hand-rolled `components/common/` over the course of M002.
+- Why it matters: Accessibility, keyboard nav, focus management for free; replaces accumulated hand-rolled drift in `components/common/`.
+- Source: user
+- Primary owning slice: M002/S08
+- Supporting slices: M002/S09–S12
+- Validation: S08/T03+T04 — all 9 primitives committed under frontend/src/components/ui/: button.tsx, input.tsx, select.tsx, tabs.tsx, combobox.tsx (Wave 1, T03) and dialog.tsx, dropdown-menu.tsx, sheet.tsx, toast.tsx (Wave 2, T04). Each uses cn() + cva() where applicable, consumes T02 tokens via Tailwind utilities (bg-primary, text-primary-foreground, focus-visible:ring-ring), and exposes the full state surface (default/hover/focus/disabled/loading/error). Sheet wraps Radix Dialog with a side cva variant; Toast wraps sonner. Animations land via inline @keyframes + @utility declarations in tokens.css instead of installing tailwindcss-animate (per slice plan preference).
+- Notes: Deprecated `components/common/` primitives must be fully removed by S12.
+
+### R013 — A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
+- Class: quality-attribute
+- Status: validated
+- Description: A single `e2e/components.spec.ts` mounts a kitchen-sink page rendering every primitive in every state and runs `toHaveScreenshot()` at three breakpoints (mobile/tablet/desktop). Snapshots committed; CI fails on diff with a generous-but-not-loose threshold (~0.2% pixel diff).
+- Why it matters: Single spec file protects all 20+ pages from primitive-level visual drift during the ripple reskin.
+- Source: user
+- Primary owning slice: M002/S08
+- Supporting slices: none
+- Validation: S08/T05+T06 — frontend/e2e/components.spec.ts mounts /_kitchen-sink (renders all 9 primitives in every state via data-testid sections) and runs toHaveScreenshot({ fullPage: true }) at three viewport projects (mobile 375x667 / tablet 768x1024 / desktop 1280x800). playwright.config.ts sets expect.toHaveScreenshot.maxDiffPixelRatio = 0.002 (R013's 0.2% bar) and animations='disabled'. Three baseline PNGs committed under e2e/components.spec.ts-snapshots/. Fresh evidence: `npm run test:e2e` exits 0 with 6 passed (4.1s) — 3 components.spec runs + 3 smoke.spec runs across the three projects.
+- Notes: Existing uncommitted `playwright.config.ts` and `smoke.spec.ts` land as part of S08.
 
 ## Deferred
 
@@ -391,9 +391,9 @@ This file is the explicit capability and coverage contract for the project.
 | R008 | primary-user-loop | active | M002/S06 | M002/S10 | mapped |
 | R009 | primary-user-loop | active | M002/S06 | none | mapped |
 | R010 | primary-user-loop | active | M002/S07 | none | mapped |
-| R011 | core-capability | active | M002/S08 | all subsequent UX slices | mapped |
-| R012 | core-capability | active | M002/S08 | M002/S09–S12 | mapped |
-| R013 | quality-attribute | active | M002/S08 | none | mapped |
+| R011 | core-capability | validated | M002/S08 | all subsequent UX slices | S08/T02 — frontend/src/styles/tokens.css declares the full shadcn-standard token vocabulary on :root with HSL channels (background/foreground, card, popover, primary/secondary/accent, muted, destructive, border, input, ring + radius scale + shadow scale + z-index layers), bridges into Tailwind v4 via @theme so utilities like bg-background and border-border resolve, and is imported once from frontend/src/index.css. Production build (vite build) confirms .bg-background / --background present in dist/assets/*.css. Legacy --primary-*/--neutral-*/--accent-* blocks left intact for additive coexistence until S12 retires components/common/. |
+| R012 | core-capability | validated | M002/S08 | M002/S09–S12 | S08/T03+T04 — all 9 primitives committed under frontend/src/components/ui/: button.tsx, input.tsx, select.tsx, tabs.tsx, combobox.tsx (Wave 1, T03) and dialog.tsx, dropdown-menu.tsx, sheet.tsx, toast.tsx (Wave 2, T04). Each uses cn() + cva() where applicable, consumes T02 tokens via Tailwind utilities (bg-primary, text-primary-foreground, focus-visible:ring-ring), and exposes the full state surface (default/hover/focus/disabled/loading/error). Sheet wraps Radix Dialog with a side cva variant; Toast wraps sonner. Animations land via inline @keyframes + @utility declarations in tokens.css instead of installing tailwindcss-animate (per slice plan preference). |
+| R013 | quality-attribute | validated | M002/S08 | none | S08/T05+T06 — frontend/e2e/components.spec.ts mounts /_kitchen-sink (renders all 9 primitives in every state via data-testid sections) and runs toHaveScreenshot({ fullPage: true }) at three viewport projects (mobile 375x667 / tablet 768x1024 / desktop 1280x800). playwright.config.ts sets expect.toHaveScreenshot.maxDiffPixelRatio = 0.002 (R013's 0.2% bar) and animations='disabled'. Three baseline PNGs committed under e2e/components.spec.ts-snapshots/. Fresh evidence: `npm run test:e2e` exits 0 with 6 passed (4.1s) — 3 components.spec runs + 3 smoke.spec runs across the three projects. |
 | R014 | primary-user-loop | active | M002/S09 | none | mapped |
 | R015 | primary-user-loop | active | M002/S10 | M002/S06 | mapped |
 | R016 | admin/support | active | M002/S11 | M002/S04 | mapped |
@@ -419,7 +419,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 17
-- Mapped to slices: 17
-- Validated: 3 (R001, R004, R007)
+- Active requirements: 14
+- Mapped to slices: 14
+- Validated: 6 (R001, R004, R007, R011, R012, R013)
 - Unmapped active requirements: 0
