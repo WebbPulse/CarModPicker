@@ -2,19 +2,27 @@
 Per-user price-drop alert endpoints.
 
 Hand-rolled router (NOT BaseEndpointRouter) because the surface is intentionally
-narrower than CRUD: scoped to current_user, no admin or list-all paths. The
-separate evaluator + signed-JWT unsubscribe endpoint land in T03.
+narrower than CRUD: scoped to current_user, no admin or list-all paths.
+
+T03 also lands the public, unauth `GET /unsubscribe?token=...` route — the JWT
+*is* the auth (purpose='price_alert_unsubscribe'), mirroring the verify-email
+confirm idiom. Both DEBUG and prod redirect to the frontend /account/alerts
+page with a status query string.
 """
 
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse
+import jwt
+from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.auth import ALGORITHM, get_current_user
 from app.api.models.part import Part as DBPart
+from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.user import User as DBUser
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
@@ -24,6 +32,7 @@ from app.api.schemas.part_price_alert import (
 from app.api.services import part_price_alert_service
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
+from app.core.config import settings
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -153,3 +162,95 @@ async def delete_my_alert(
         ResponsePatterns.raise_not_found("Price alert", alert_id)
     db.commit()
     return None
+
+
+def _unsubscribe_redirect_url(success: bool, message: str) -> str:
+    """Build the redirect target for the unsubscribe-via-token flow.
+
+    Mirrors the DEBUG/prod branch in verify_email_confirm: localhost frontend
+    in dev, www.carmodpicker.com in prod. ``status`` is `success` or `error`.
+    """
+    base = (
+        "http://localhost:4000/account/alerts"
+        if settings.DEBUG
+        else "https://www.carmodpicker.com/account/alerts"
+    )
+    status_word = "success" if success else "error"
+    # Treat the message as already-form-friendly (caller passes a `+`-joined
+    # string) — we never put user-controlled text here, only fixed phrases.
+    return f"{base}?status={status_word}&message={message}"
+
+
+@router.get(
+    "/unsubscribe",
+    include_in_schema=True,
+    responses={
+        302: {"description": "Redirected to /account/alerts with a status flag"},
+    },
+)
+async def unsubscribe_via_token(
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """One-click unsubscribe via signed JWT (no auth dependency — token IS the auth).
+
+    Decodes the token, requires ``purpose == 'price_alert_unsubscribe'``, looks
+    up the alert by id, sets ``active=False``, and redirects the browser to the
+    frontend ``/account/alerts`` page. Invalid/expired tokens redirect to the
+    same page with ``status=error`` so the user gets a coherent UI in either
+    case (we never reveal why decode failed).
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        purpose = payload.get("purpose")
+        sub = payload.get("sub")
+
+        if purpose != "price_alert_unsubscribe" or not sub:
+            logger.warning("price_alert_unsubscribe_invalid_purpose")
+            return RedirectResponse(
+                url=_unsubscribe_redirect_url(False, "Invalid+or+expired+link"),
+                status_code=302,
+            )
+
+        try:
+            alert_id = UUID(sub)
+        except ValueError:
+            logger.warning("price_alert_unsubscribe_invalid_sub")
+            return RedirectResponse(
+                url=_unsubscribe_redirect_url(False, "Invalid+or+expired+link"),
+                status_code=302,
+            )
+
+        alert = db.scalars(
+            select(DBPartPriceAlert).where(DBPartPriceAlert.id == alert_id)
+        ).first()
+        if alert is None:
+            logger.warning(
+                "price_alert_unsubscribe_alert_missing: alert_id=%s", alert_id
+            )
+            return RedirectResponse(
+                url=_unsubscribe_redirect_url(False, "Invalid+or+expired+link"),
+                status_code=302,
+            )
+
+        # Idempotent — flipping an already-inactive alert to inactive is fine
+        # and still reports success to the user (link clicked twice in inbox).
+        alert.active = False
+        db.add(alert)
+        db.commit()
+        logger.info(
+            "price_alert_unsubscribe_success: alert_id=%s user_id=%s",
+            alert.id,
+            alert.user_id,
+        )
+        return RedirectResponse(
+            url=_unsubscribe_redirect_url(True, "Unsubscribed"),
+            status_code=302,
+        )
+
+    except InvalidTokenError as e:
+        logger.warning("price_alert_unsubscribe_jwt_error: %s", e)
+        return RedirectResponse(
+            url=_unsubscribe_redirect_url(False, "Invalid+or+expired+link"),
+            status_code=302,
+        )

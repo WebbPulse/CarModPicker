@@ -9,11 +9,14 @@ unknown part → 404, non-owner delete → 404, threshold_cents < 0 → 422.
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any, Dict, Tuple
 
 from fastapi.testclient import TestClient
+import jwt
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import ALGORITHM, create_access_token
 from app.api.models.part import Part as DBPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.user import User as DBUser
@@ -397,3 +400,165 @@ def test_delete_unknown_alert_returns_404(client: TestClient, db_session: Sessio
     headers = get_auth_headers(token)
     response = client.delete(f"{ALERTS_PATH}/{INVALID_UUID_STR}", headers=headers)
     assert response.status_code == 404
+
+
+# --- unsubscribe-via-token (T03) -------------------------------------------
+
+
+def _build_unsubscribe_token(alert_id: str, *, purpose: str = "price_alert_unsubscribe") -> str:
+    """Mint the same JWT shape the email path uses, parameterizing the purpose
+    so we can test bad-purpose rejection without mocking the email sender."""
+    return create_access_token(
+        data={"sub": str(alert_id), "purpose": purpose},
+        expires_delta=timedelta(days=30),
+    )
+
+
+def test_unsubscribe_with_valid_token_redirects_and_deactivates(
+    client: TestClient, db_session: Session
+) -> None:
+    """Valid token → 302 to /account/alerts?status=success and alert.active=False."""
+    _, token, part = _create_user_part_pair(client, db_session, "unsub_valid")
+    headers = get_auth_headers(token)
+
+    create_resp = client.post(
+        f"{ALERTS_PATH}/",
+        json={"part_id": str(part.id), "threshold_cents": 1000},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+    alert_id = create_resp.json()["id"]
+
+    unsubscribe_token = _build_unsubscribe_token(alert_id)
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": unsubscribe_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302, response.text
+    location = response.headers.get("location", "")
+    assert "/account/alerts" in location
+    assert "status=success" in location
+    assert "Unsubscribed" in location
+
+    row = (
+        db_session.query(DBPartPriceAlert)
+        .filter(DBPartPriceAlert.id == uuid.UUID(alert_id))
+        .first()
+    )
+    assert row is not None
+    assert row.active is False
+
+
+def test_unsubscribe_with_wrong_purpose_redirects_to_error(
+    client: TestClient, db_session: Session
+) -> None:
+    """Token with purpose != 'price_alert_unsubscribe' must not unsubscribe."""
+    _, token, part = _create_user_part_pair(client, db_session, "unsub_bad_purpose")
+    headers = get_auth_headers(token)
+
+    create_resp = client.post(
+        f"{ALERTS_PATH}/",
+        json={"part_id": str(part.id), "threshold_cents": 1000},
+        headers=headers,
+    )
+    alert_id = create_resp.json()["id"]
+
+    bogus_token = _build_unsubscribe_token(alert_id, purpose="verify_email")
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": bogus_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    location = response.headers.get("location", "")
+    assert "status=error" in location
+
+    # Alert must still be active.
+    row = (
+        db_session.query(DBPartPriceAlert)
+        .filter(DBPartPriceAlert.id == uuid.UUID(alert_id))
+        .first()
+    )
+    assert row is not None
+    assert row.active is True
+
+
+def test_unsubscribe_with_expired_token_redirects_to_error(
+    client: TestClient, db_session: Session
+) -> None:
+    """Expired token → 302 to error redirect; alert untouched."""
+    _, token, part = _create_user_part_pair(client, db_session, "unsub_expired")
+    headers = get_auth_headers(token)
+
+    create_resp = client.post(
+        f"{ALERTS_PATH}/",
+        json={"part_id": str(part.id), "threshold_cents": 1000},
+        headers=headers,
+    )
+    alert_id = create_resp.json()["id"]
+
+    expired_token = create_access_token(
+        data={"sub": str(alert_id), "purpose": "price_alert_unsubscribe"},
+        expires_delta=timedelta(seconds=-10),  # already expired
+    )
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": expired_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    location = response.headers.get("location", "")
+    assert "status=error" in location
+
+    row = (
+        db_session.query(DBPartPriceAlert)
+        .filter(DBPartPriceAlert.id == uuid.UUID(alert_id))
+        .first()
+    )
+    assert row is not None
+    assert row.active is True
+
+
+def test_unsubscribe_with_garbage_token_redirects_to_error(
+    client: TestClient, db_session: Session
+) -> None:
+    """Random non-JWT garbage → 302 to error redirect (does not 500)."""
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": "not-a-jwt"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert "status=error" in response.headers.get("location", "")
+
+
+def test_unsubscribe_with_non_uuid_sub_redirects_to_error(
+    client: TestClient, db_session: Session
+) -> None:
+    """JWT with a `sub` that isn't a UUID → error redirect, no 500."""
+    bad_token = create_access_token(
+        data={"sub": "not-a-uuid", "purpose": "price_alert_unsubscribe"},
+        expires_delta=timedelta(days=1),
+    )
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": bad_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert "status=error" in response.headers.get("location", "")
+
+
+def test_unsubscribe_unknown_alert_id_redirects_to_error(
+    client: TestClient, db_session: Session
+) -> None:
+    """Well-formed token referencing a nonexistent alert → error redirect."""
+    fake_token = _build_unsubscribe_token(INVALID_UUID_STR)
+    response = client.get(
+        f"{ALERTS_PATH}/unsubscribe",
+        params={"token": fake_token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert "status=error" in response.headers.get("location", "")

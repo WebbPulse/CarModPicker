@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T21:56:21Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T21:56:21Z","fingerprint":"80930f2d1fcfbb6223b2bf452aed1e103f7dbdcd","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T22:26:39Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T22:26:39Z","fingerprint":"b0a77e745012bf2381e79c57d93a3577292f9710","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -47,7 +47,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/alembic/script.py.mako`
 
 ### backend/alembic/versions/
-- *(36 files: 36 .py)*
+- *(37 files: 37 .py)*
 
 ### backend/app/
 - `backend/app/__init__.py`
@@ -62,26 +62,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/api/dependencies/auth.py`
 
 ### backend/app/api/endpoints/
-- `backend/app/api/endpoints/__init__.py`
-- `backend/app/api/endpoints/app_settings.py`
-- `backend/app/api/endpoints/bug_reports.py`
-- `backend/app/api/endpoints/build_list_parts.py`
-- `backend/app/api/endpoints/build_list_phases.py`
-- `backend/app/api/endpoints/build_lists.py`
-- `backend/app/api/endpoints/build_logs.py`
-- `backend/app/api/endpoints/car_generations.py`
-- `backend/app/api/endpoints/categories.py`
-- `backend/app/api/endpoints/crawled_pages.py`
-- `backend/app/api/endpoints/crawler_adapter_configs.py`
-- `backend/app/api/endpoints/crawler_schedules.py`
-- `backend/app/api/endpoints/images.py`
-- `backend/app/api/endpoints/part_manufacturers.py`
-- `backend/app/api/endpoints/parts.py`
-- `backend/app/api/endpoints/reports.py`
-- `backend/app/api/endpoints/retailers.py`
-- `backend/app/api/endpoints/search.py`
-- `backend/app/api/endpoints/users.py`
-- `backend/app/api/endpoints/votes.py`
+- *(21 files: 21 .py)*
 
 ### backend/app/api/endpoints/admin/
 - `backend/app/api/endpoints/admin/__init__.py`
@@ -109,7 +90,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/api/middleware/request_context.py`
 
 ### backend/app/api/models/
-- *(26 files: 26 .py)*
+- *(27 files: 27 .py)*
 
 ### backend/app/api/models/associations/
 - `backend/app/api/models/associations/__init__.py`
@@ -117,7 +98,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/api/models/associations/part_car.py`
 
 ### backend/app/api/schemas/
-- *(23 files: 23 .py)*
+- *(24 files: 24 .py)*
 
 ### backend/app/api/services/
 - `backend/app/api/services/__init__.py`
@@ -131,6 +112,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/api/services/part_linker_service.py`
 - `backend/app/api/services/part_listing_service.py`
 - `backend/app/api/services/part_price_aggregation_service.py`
+- `backend/app/api/services/part_price_alert_service.py`
 - `backend/app/api/services/report_service.py`
 - `backend/app/api/services/storage_service.py`
 - `backend/app/api/services/user_service.py`
@@ -310,7 +292,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/conftest.py`
 
 ### backend/tests/api/endpoints/
-- *(25 files: 25 .py)*
+- *(26 files: 26 .py)*
 
 ### backend/tests/auth/
 - `backend/tests/auth/__init__.py`
@@ -326,7 +308,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(57 files: 57 .py)*
+- *(51 files: 51 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`

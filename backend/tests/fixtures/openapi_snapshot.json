@@ -13724,6 +13724,50 @@
         ]
       }
     },
+    "/api/part-price-alerts/unsubscribe": {
+      "get": {
+        "description": "One-click unsubscribe via signed JWT (no auth dependency \u2014 token IS the auth).\n\nDecodes the token, requires ``purpose == 'price_alert_unsubscribe'``, looks\nup the alert by id, sets ``active=False``, and redirects the browser to the\nfrontend ``/account/alerts`` page. Invalid/expired tokens redirect to the\nsame page with ``status=error`` so the user gets a coherent UI in either\ncase (we never reveal why decode failed).",
+        "operationId": "unsubscribe_via_token_api_part_price_alerts_unsubscribe_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "302": {
+            "description": "Redirected to /account/alerts with a status flag"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unsubscribe Via Token",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
     "/api/part-price-alerts/{alert_id}": {
       "delete": {
         "description": "Soft-delete the user's own alert by setting active=False.\n\nIdempotent at the user-experience level: a second DELETE on the same id\nreturns 404 because the row is no longer ownable-and-active. (T03 will\ntreat already-deleted rows the same way the unsubscribe-via-token path\ndoes \u2014 currently 404 is the simplest contract for this surface.)",
