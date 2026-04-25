@@ -26,6 +26,7 @@ import type {
   CarGenerationRead,
   PartReadWithVotes,
   PartListingReadWithRetailer,
+  RetailerPriceBreakdown,
 } from '../../types/Api';
 
 import ReportDialog from '../../components/admin/ReportDialog';
@@ -46,6 +47,14 @@ import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/ui/tabs';
+
+const STALE_LISTING_THRESHOLD_DAYS = 60;
 
 const fetchPartRequestFn = (partId: string) => partsApi.getPart(partId);
 
@@ -66,6 +75,127 @@ const fetchListingsRequestFn = (partId: string) =>
 
 const fetchPriceHistoryRequestFn = (partId: string) =>
   partsApi.getPartPriceHistory(partId);
+
+const fetchPriceSummaryRequestFn = (partId: string) =>
+  partsApi.getPartPriceHistorySummary(partId, { window: '90d' });
+
+function formatCents(cents: number | null): string {
+  if (cents == null) return '—';
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function trendArrow(trend: 'up' | 'down' | 'flat'): string {
+  if (trend === 'up') return '↑';
+  if (trend === 'down') return '↓';
+  return '·';
+}
+
+function RetailerBreakdownRow({
+  retailer,
+}: {
+  retailer: RetailerPriceBreakdown;
+}) {
+  return (
+    <li
+      data-testid="retailer-breakdown-row"
+      className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
+    >
+      <div className="flex-1 min-w-0">
+        <span className="font-medium text-white">{retailer.retailer_name}</span>
+        <span className="text-gray-400 text-sm ml-2">
+          ({retailer.observation_count} obs)
+        </span>
+      </div>
+      <div className="flex items-center gap-3 text-sm text-gray-200">
+        <span>min {formatCents(retailer.min_cents)}</span>
+        <span>max {formatCents(retailer.max_cents)}</span>
+        <span className="text-emerald-400 font-semibold">
+          last {formatCents(retailer.last_cents)}
+        </span>
+        {retailer.last_observed_at && (
+          <span className="text-gray-400">
+            {new Date(retailer.last_observed_at).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function PriceSummaryBlock({
+  summary,
+  retailers,
+}: {
+  summary: import('../../types/Api').PriceHistorySummary;
+  retailers: RetailerPriceBreakdown[];
+}) {
+  const useTabs = retailers.length > 3;
+  return (
+    <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4 space-y-4">
+      <div
+        data-testid="price-summary-stat-strip"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"
+      >
+        <div>
+          <div className="text-gray-400 text-xs uppercase">Min</div>
+          <div className="text-white font-semibold">
+            {formatCents(summary.min_cents)}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 text-xs uppercase">Max</div>
+          <div className="text-white font-semibold">
+            {formatCents(summary.max_cents)}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 text-xs uppercase">Last</div>
+          <div className="text-emerald-400 font-semibold">
+            {formatCents(summary.last_cents)}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 text-xs uppercase">Trend</div>
+          <div className="text-white font-semibold">
+            {trendArrow(summary.trend)} {summary.trend}
+          </div>
+        </div>
+      </div>
+      {useTabs ? (
+        <Tabs defaultValue="all">
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            {retailers.map((r) => (
+              <TabsTrigger key={r.retailer_id} value={r.retailer_id}>
+                {r.retailer_name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="all">
+            <ul className="space-y-3">
+              {retailers.map((r) => (
+                <RetailerBreakdownRow key={r.retailer_id} retailer={r} />
+              ))}
+            </ul>
+          </TabsContent>
+          {retailers.map((r) => (
+            <TabsContent key={r.retailer_id} value={r.retailer_id}>
+              <ul className="space-y-3">
+                <RetailerBreakdownRow retailer={r} />
+              </ul>
+            </TabsContent>
+          ))}
+        </Tabs>
+      ) : (
+        <ul data-testid="retailer-breakdown-flat" className="space-y-3">
+          {retailers.map((r) => (
+            <RetailerBreakdownRow key={r.retailer_id} retailer={r} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function ViewPart() {
   const { partId } = useParams<{ partId: string }>();
@@ -159,6 +289,12 @@ function ViewPart() {
     executeRequest: fetchPriceHistory,
   } = useApiRequest(fetchPriceHistoryRequestFn);
 
+  const {
+    data: priceSummary,
+    error: priceSummaryApiError,
+    executeRequest: fetchPriceSummary,
+  } = useApiRequest(fetchPriceSummaryRequestFn);
+
   // Fetch all primary data when partId changes
   useEffect(() => {
     if (!partId) return;
@@ -167,6 +303,7 @@ function ViewPart() {
     void fetchCategories(undefined);
     void fetchListings(partId);
     void fetchPriceHistory(partId);
+    void fetchPriceSummary(partId);
   }, [
     partId,
     fetchPart,
@@ -174,6 +311,7 @@ function ViewPart() {
     fetchCategories,
     fetchListings,
     fetchPriceHistory,
+    fetchPriceSummary,
   ]);
 
   // If the loaded part is a duplicate (canonical_part_id is set), redirect to
@@ -612,6 +750,24 @@ function ViewPart() {
           </CardInfoItem>
         </div>
 
+        {/* Price summary (90 days) — aggregated min/max/last/trend with
+            per-retailer breakdown. Sibling of the price-history grid below. */}
+        <div className="mb-6">
+          <SectionHeader title="Price summary (90 days)" />
+          {priceSummaryApiError && (
+            <p className="text-sm text-gray-400">Price summary unavailable</p>
+          )}
+          {!priceSummaryApiError &&
+            priceSummary &&
+            priceSummary.summary &&
+            priceSummary.summary.observation_count > 0 && (
+              <PriceSummaryBlock
+                summary={priceSummary.summary}
+                retailers={priceSummary.retailers ?? []}
+              />
+            )}
+        </div>
+
         {/* Price history (left) + Price by retailer (right) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
           {/* Price history - left */}
@@ -674,7 +830,16 @@ function ViewPart() {
                           (a.last_known_price_cents ?? 0) -
                           (b.last_known_price_cents ?? 0)
                       )
-                      .map((listing: PartListingReadWithRetailer) => (
+                      .map((listing: PartListingReadWithRetailer) => {
+                        const updatedAt = listing.last_price_updated_at
+                          ? new Date(listing.last_price_updated_at)
+                          : null;
+                        const isStale =
+                          updatedAt !== null &&
+                          (Date.now() - updatedAt.getTime()) /
+                            (1000 * 60 * 60 * 24) >
+                            STALE_LISTING_THRESHOLD_DAYS;
+                        return (
                         <li
                           key={listing.id}
                           className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
@@ -683,13 +848,14 @@ function ViewPart() {
                             <span className="font-medium text-white">
                               {listing.retailer.name}
                             </span>
-                            {listing.last_price_updated_at && (
+                            {updatedAt && (
                               <span className="text-gray-400 text-sm ml-2">
-                                (updated{' '}
-                                {new Date(
-                                  listing.last_price_updated_at
-                                ).toLocaleDateString()}
-                                )
+                                (updated {updatedAt.toLocaleDateString()})
+                              </span>
+                            )}
+                            {isStale && updatedAt && (
+                              <span className="text-xs text-amber-400 ml-2">
+                                (as of {updatedAt.toLocaleDateString()})
                               </span>
                             )}
                           </div>
@@ -715,7 +881,8 @@ function ViewPart() {
                             )}
                           </div>
                         </li>
-                      ))}
+                        );
+                      })}
                   </ul>
                 )}
               </>
