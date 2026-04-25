@@ -76,3 +76,9 @@ black==26.3.1
 isort==6.0.1
 mypy==1.17.1
 watchdog==6.0.0
+
+# Perf-gate load testing (M002/S05/T05). Pure-Python load runner; the gate
+# script under backend/scripts/perf/ wraps it and parses the CSV output.
+# Dev-only — never imported by app code or run in production. See
+# backend/scripts/perf/README.md and D004 / R019 for the gate context.
+locust>=2.20

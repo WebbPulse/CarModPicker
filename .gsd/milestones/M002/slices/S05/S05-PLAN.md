@@ -269,7 +269,7 @@ Check: run `npm run type-check` (in `frontend/`) — must exit 0. Run `npm run l
   - Files: `frontend/src/api/parts.ts`, `frontend/src/api/parts.test.ts`, `frontend/src/types/Api.ts`
   - Verify: cd frontend && npm run type-check && npm run lint && npm test -- --run src/api/parts.test.ts
 
-- [ ] **T05: Add Locust load test + perf-gate script (10× baseline RPS, GET p95 < 200 ms, POST p95 < 500 ms, error rate 0%)** `est:3h`
+- [x] **T05: Add Locust load test + perf-gate script (10× baseline RPS, GET p95 < 200 ms, POST p95 < 500 ms, error rate 0%)** `est:3h`
   Stand up the perf gate that R019 / D004 require. The gate is the falsifiable check that says 'query-time aggregation is fast enough — DON'T open R036 materialization' (or, if it fires, 'open R036 now'). Use Locust (pure-Python, integrates with the existing pytest+uvicorn stack) — NOT k6 (extra binary, JS scenario file, drifts from the Python codebase). The roadmap mentions k6 OR locust; we choose locust to minimize new dependencies.
 
 New files:

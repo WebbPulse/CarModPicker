@@ -86,6 +86,9 @@ htmlcov/
 # Crawler runtime state (resume cursors, local archives)
 .crawler-state/
 
+# Perf-gate run evidence (locust CSVs + verdict JSONs); transient, regenerated per run
+backend/.perf-runs/
+
 # ===========================================
 # Node.js/React Frontend
 # ===========================================
