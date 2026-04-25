@@ -130,3 +130,59 @@ def _emit_scoped(
     metrics.put_metric("Ingested", ingested, "Count")
     metrics.put_metric("ParseFailures", parse_failures, "Count")
     metrics.put_metric("ElapsedSeconds", elapsed_seconds, "Seconds")
+
+
+def emit_extraction_failure(*, adapter_name: str) -> None:
+    """Emit one ``ExtractionFailureRate`` EMF record per spec-validation failure.
+
+    Called from ``ingest_payload`` (backend/app/crawlers/base.py) when a non-None
+    ``ScrapedPayload.specifications`` block fails Pydantic validation against the
+    SpecRegistry-resolved schema. Same env-gate, namespace, and failure-isolation
+    semantics as ``emit_crawler_run_metrics`` — a future agent inspects via
+    CloudWatch Metrics in ``CarModPicker/Crawlers`` under ``ExtractionFailureRate``,
+    or via Logs Insights filtering on the ``"spec validation failed"`` WARN line
+    that paired with this metric in the failure path.
+
+    Args:
+        adapter_name: ``AdapterName`` dimension value. Code-controlled — never
+            user input. Defaults to ``"unknown"`` upstream so log lines are never
+            bare for legacy callers that omit the kwarg.
+
+    Env gates (mirrors emit_crawler_run_metrics):
+        - ``TESTING == "true"`` → return (test pollution guard)
+        - ``settings.APP_ENVIRONMENT.lower() not in {"staging", "production"}`` → return
+    """
+    if os.environ.get("TESTING") == "true":
+        return
+    env = (settings.APP_ENVIRONMENT or "").lower()
+    if env not in {"staging", "production"}:
+        return
+
+    try:
+        _emit_extraction_failure_scoped(adapter_name=adapter_name, env=env)
+    except Exception as exc:  # email.py analog: log + continue, never crash ingest_payload
+        logger.error(
+            "emit_extraction_failure failed for adapter=%s: %s",
+            adapter_name,
+            exc,
+            exc_info=True,
+        )
+
+
+@metric_scope
+def _emit_extraction_failure_scoped(
+    metrics: MetricsLogger,
+    *,
+    adapter_name: str,
+    env: str,
+) -> None:
+    """Internal helper: set namespace + dimensions + single Count metric, then
+    let ``@metric_scope`` flush on return. Raises caught by the public wrapper."""
+    metrics.set_namespace("CarModPicker/Crawlers")
+    metrics.set_dimensions(
+        {
+            "AdapterName": adapter_name,
+            "Environment": env,
+        }
+    )
+    metrics.put_metric("ExtractionFailureRate", 1, "Count")

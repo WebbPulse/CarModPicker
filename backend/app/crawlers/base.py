@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 from uuid import UUID
 
+import pydantic
 import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -41,6 +42,8 @@ from app.api.services.part_listing_service import (
 )
 from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
+from app.core.cloudwatch_emf import emit_extraction_failure
+from app.crawlers.specs import default_registry
 
 logger = logging.getLogger(__name__)
 
@@ -371,6 +374,11 @@ class ScrapedPayload:
     part_number: Optional[str] = None
     image_urls: Optional[List[str]] = None
     gtin: Optional[str] = None
+    #: Optional structured spec block (matches Part.specifications JSON shape and
+    #: PartCreate.specifications). Populated by adapters or universal extraction
+    #: when a category schema (per app.crawlers.specs) applies; left None when
+    #: the category has no registered schema or extraction failed validation.
+    specifications: Optional[Dict[str, Any]] = None
 
 
 def _origin_from_url(url: str) -> str:
@@ -644,10 +652,16 @@ def ingest_payload(
     default_category_id: UUID,
     logger: logging.Logger,
     source: str = "scraped",
+    adapter_name: Optional[str] = None,
 ) -> DBPart:
     """
     Resolve retailer and part_manufacturer, then create or update global part + PartListing/PartPriceHistory
     using the same dedup logic as the API (URL, part_manufacturer+part_number, GTIN).
+
+    ``adapter_name`` is used purely for observability: it labels the WARN log and
+    the ``ExtractionFailureRate`` EMF metric emitted when ``payload.specifications``
+    fails Pydantic validation against the SpecRegistry-resolved schema. Defaults
+    to ``"unknown"`` so log lines are never bare for legacy callers.
     """
     domain = domain_from_url(payload.product_url)
     if not domain:
@@ -717,6 +731,36 @@ def ingest_payload(
             (payload.name or "")[:50],
         )
 
+    # Validate ScrapedPayload.specifications against the SpecRegistry-resolved schema.
+    # Three pass-through cases: no spec block, no inferred slug, or no model registered
+    # for that slug — all proceed with the raw spec block (None or as-extracted dict).
+    # On Pydantic ValidationError: drop to None, WARN with structured context, emit
+    # ExtractionFailureRate metric. The part still ingests — gradual coverage growth
+    # over M002 means most categories won't have a registered schema yet.
+    log_adapter_name = adapter_name or "unknown"
+    if payload.specifications is not None and inferred_name:
+        spec_model = default_registry.resolve(inferred_name)
+        if spec_model is not None:
+            try:
+                validated = spec_model.model_validate(payload.specifications)
+                validated_specifications: Optional[Dict[str, Any]] = validated.model_dump(
+                    exclude_none=True
+                )
+            except pydantic.ValidationError as e:
+                logger.warning(
+                    "spec validation failed: adapter=%s category=%s url=%s errors=%s",
+                    log_adapter_name,
+                    inferred_name,
+                    payload.product_url,
+                    e.errors()[:3],
+                )
+                emit_extraction_failure(adapter_name=log_adapter_name)
+                validated_specifications = None
+        else:
+            validated_specifications = payload.specifications
+    else:
+        validated_specifications = payload.specifications
+
     create_data = PartCreate(
         name=payload.name,
         description=payload.description,
@@ -730,6 +774,7 @@ def ingest_payload(
         gtin=payload.gtin,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
+        specifications=validated_specifications,
     )
 
     # Every ingest produces its own Part row. PartService.create runs the canonical

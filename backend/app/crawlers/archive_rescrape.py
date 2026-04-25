@@ -162,6 +162,7 @@ def rescrape_crawled_page_from_archive(
             default_category_id=default_category_id,
             logger=log,
             source="archive_rescrape",
+            adapter_name=adapter_key,
         )
     except Exception as e:
         db.rollback()
