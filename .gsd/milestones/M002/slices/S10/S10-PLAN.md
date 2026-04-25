@@ -127,7 +127,7 @@ Threat surface: spec consumes mocked fixtures only; no real DB or network. The M
   - Files: `frontend/e2e/parts-catalog.spec.ts`, `frontend/e2e/parts-catalog.spec.ts-snapshots/parts-catalog-visual-regression-1-mobile-linux.png`, `frontend/e2e/parts-catalog.spec.ts-snapshots/parts-catalog-visual-regression-1-tablet-linux.png`, `frontend/e2e/parts-catalog.spec.ts-snapshots/parts-catalog-visual-regression-1-desktop-linux.png`
   - Verify: cd frontend && npm run test:e2e -- parts-catalog
 
-- [ ] **T05: Slice-level verification sweep and evidence capture** `est:30m`
+- [x] **T05: Slice-level verification sweep and evidence capture** `est:30m`
   Final cross-task verification that the slice goal is met. Run the full local test gauntlet from frontend/, capture exit codes, spot-check the page in dev, and make sure no regressions slipped into adjacent areas.
 
 Steps:
