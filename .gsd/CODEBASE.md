@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T03:32:13Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T03:32:13Z","fingerprint":"137c27f025c77708a4184e94c0f13ac35e69b199","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T03:45:43Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T03:45:43Z","fingerprint":"91112ad435db670d7a0eb8cb3bc9a9a7d2152323","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -312,7 +312,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(72 files: 72 .py)*
+- *(71 files: 71 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`
@@ -325,6 +325,9 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 ### backend/tests/crawlers/fixtures/cobbtuning/
 - `backend/tests/crawlers/fixtures/cobbtuning/expected.json`
 - `backend/tests/crawlers/fixtures/cobbtuning/product.html`
+
+### backend/tests/crawlers/fixtures/spec_contract_samples/
+- `backend/tests/crawlers/fixtures/spec_contract_samples/coilover_sample.html`
 
 ### backend/tests/crawlers/fixtures/subispeed/
 - `backend/tests/crawlers/fixtures/subispeed/expected.json`
