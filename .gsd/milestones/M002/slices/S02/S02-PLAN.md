@@ -79,7 +79,7 @@ Update `backend/tests/crawlers/test_spec_registry_contract.py` *only* if any exi
   - Files: `backend/app/crawlers/specs/base.py`, `backend/app/crawlers/specs/universal.py`, `backend/app/crawlers/specs/__init__.py`, `backend/tests/crawlers/test_spec_registry_contract.py`
   - Verify: pytest backend/tests/crawlers/test_spec_registry_contract.py backend/tests/crawlers/test_ingest_spec_validation.py -n auto --rootdir=backend
 
-- [ ] **T03: Add category-name → sub-slug bridge + base-class apply_universal_extraction hook + suppress_universal ClassVar + ingest update** `est:2h`
+- [x] **T03: Add category-name → sub-slug bridge + base-class apply_universal_extraction hook + suppress_universal ClassVar + ingest update** `est:2h`
   Three connected pieces that together form the auto-run mechanism. Build them in this order so each piece can be unit-tested as you go.
 
 **(a) Sub-slug bridge (`backend/app/crawlers/specs/category_bridge.py`).**

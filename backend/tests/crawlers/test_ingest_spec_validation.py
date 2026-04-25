@@ -13,15 +13,17 @@ Three scenarios cover the spec-validation contract end-to-end:
 Plus a structured WARN log assertion (caplog) that locks in the
 failure-visibility contract for downstream slices (S04 admin endpoint).
 
-Why a custom ``suspension``-keyed registry binding for these tests:
-the production ingest path resolves a registry slug from
-``infer_category(name, description)``, which returns ``"suspension"`` (the
-DB-backed category name) for coilover-keyword text — not the registry-native
-``"coilover"`` slug. M002/S01/T03 wires inferred-name → ``default_registry``;
-S02 narrows that to a category-aware extractor. Until then, registering
-``CoiloverSpec`` under ``"suspension"`` for the duration of these tests is
-the supported path that exercises the real validation branch (rather than
-mocking ``default_registry.resolve`` and skipping the actual ingest pipeline).
+Bridge wiring (M002/S02/T03)
+---------------------------
+The production ingest path resolves a registry slug by feeding
+``infer_category(name, description)`` (which returns DB category names like
+``"suspension"``/``"engine"``/``"wheels"``) into
+``app.crawlers.specs.category_bridge.category_to_subslug`` first, and only
+then calls ``default_registry.resolve()`` with the bridged sub-slug. The
+``coilover_under_suspension`` fixture is retained as a no-op safety net for
+older tests that pre-date the bridge; the fixture is harmless because the
+registry already knows ``CoiloverSpec`` under the native ``"coilover"`` slug
+(populated in ``app.crawlers.specs.__init__``).
 """
 
 from __future__ import annotations
@@ -205,7 +207,9 @@ class TestIngestDropsInvalidSpecifications:
         assert part.specifications is None
 
         # Locks in the failure-visibility contract for downstream slices:
-        # the WARN must mention the adapter name and the inferred category slug.
+        # the WARN must mention the adapter name, the inferred DB category,
+        # and the bridged sub-slug (coilover) so S04's admin endpoint can
+        # show per-sub-category failure rates.
         warn_records = [
             r for r in caplog_with_context.records if r.levelno == logging.WARNING
         ]
@@ -213,8 +217,9 @@ class TestIngestDropsInvalidSpecifications:
             "spec validation failed" in r.getMessage()
             and "bad_adapter" in r.getMessage()
             and "suspension" in r.getMessage()
+            and "coilover" in r.getMessage()
             for r in warn_records
-        ), f"Expected WARN with adapter+slug, got: {[r.getMessage() for r in warn_records]}"
+        ), f"Expected WARN with adapter+category+subslug, got: {[r.getMessage() for r in warn_records]}"
 
     def test_type_coercion_failure_drops_to_none(
         self,
@@ -326,7 +331,7 @@ class TestIngestPassThroughCases:
         assert part.specifications is None
         mock_emitter.assert_not_called()
 
-    def test_unregistered_slug_passes_through_unchanged(
+    def test_unmapped_category_validates_against_universal_spec(
         self,
         db_session: Session,
         test_user: User,
@@ -335,16 +340,27 @@ class TestIngestPassThroughCases:
         make_scraped_payload,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """When the inferred category has no spec model, the dict is kept as-is."""
-        # No coilover_under_suspension fixture here → registry has nothing
-        # for the inferred slug, so the dict passes straight through.
+        """
+        After the M002/S02/T03 bridge, every non-None inferred category falls
+        through to the ``"universal"`` sub-slug when no concrete sub-slug
+        applies. UniversalSpec uses ``extra='forbid'`` and only declares the
+        five universal fields, so an adapter-supplied free-form dict on a
+        wheels-categorized part now triggers fail-soft drop + metric emission
+        — that's the change that makes the validation hook fire across the
+        catalog.
+
+        Replaces the old "unregistered slug pass-through" contract: with the
+        bridge in place, true pass-through only happens when category_name is
+        None (i.e. infer_category itself returned None).
+        """
         mock_emitter = MagicMock()
         monkeypatch.setattr(
             "app.crawlers.base.emit_extraction_failure", mock_emitter
         )
 
         # Seed a "wheels" category — infer_category returns "wheels" for the
-        # text below, and the registry has no spec for "wheels".
+        # text below, the bridge maps it to "universal", and UniversalSpec
+        # rejects unknown keys.
         wheels_cat = Category(
             name="wheels",
             display_name="Wheels",
@@ -371,6 +387,159 @@ class TestIngestPassThroughCases:
                 current_user=test_user, default_category_id=default_category_id
             ),
         )
-        # Pass-through: unchanged dict, no emitter, no validation.
-        assert part.specifications == free_form_specs
-        mock_emitter.assert_not_called()
+        # Bridge → universal → UniversalSpec rejects unknown fields → drop.
+        assert part is not None
+        assert part.specifications is None
+        mock_emitter.assert_called_once_with(adapter_name="legacy_adapter")
+
+    def test_universal_spec_accepts_universal_field_payload(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_part_manufacturer: PartManufacturer,
+        default_category_id: UUID,
+        make_scraped_payload,
+    ) -> None:
+        """
+        A wheels-categorized part with a payload composed of only the five
+        universal fields must validate against UniversalSpec — proving the
+        bridge → universal → validate path is the supported way for the long
+        tail of categories without a dedicated spec to still flow validated
+        specs through.
+        """
+        existing = (
+            db_session.query(Category).filter(Category.name == "wheels").first()
+        )
+        if existing is None:
+            db_session.add(
+                Category(
+                    name="wheels",
+                    display_name="Wheels",
+                    description="Wheels.",
+                    is_active=True,
+                    sort_order=4,
+                )
+            )
+            db_session.commit()
+
+        universal_specs: dict[str, Any] = {
+            "weight_grams": 8500.0,
+            "weight_grams_confidence": "medium",
+            "material": "aluminum",
+            "material_confidence": "high",
+        }
+        payload = make_scraped_payload(
+            name="Forged Wheel Set",
+            description="Lightweight forged wheels.",
+            product_url=f"https://example.com/p/wheel-univ-{os.getpid()}",
+            part_manufacturer=test_part_manufacturer.name,
+            specifications=universal_specs,
+        )
+        part = crawler_base.ingest_payload(
+            db_session,
+            payload,
+            adapter_name="universal_adapter",
+            **_ingest_kwargs(
+                current_user=test_user, default_category_id=default_category_id
+            ),
+        )
+        assert part.specifications == universal_specs
+
+
+class TestIngestUsesBridgeToResolveSubslug:
+    """
+    Lock in the production wiring: the validation hook must use the
+    ``category_to_subslug`` bridge to translate ``"suspension"`` →
+    ``"coilover"`` before calling ``default_registry.resolve``. Without the
+    bridge, no production payload would ever resolve a concrete sub-spec
+    (MEM010/MEM016/MEM020).
+    """
+
+    def test_coilover_payload_validates_against_coilover_spec(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_part_manufacturer: PartManufacturer,
+        suspension_category: Category,
+        default_category_id: UUID,
+        make_scraped_payload,
+    ) -> None:
+        # Coilover-specific fields that UniversalSpec would reject (extra='forbid').
+        # If validation succeeds, we know CoiloverSpec — not UniversalSpec —
+        # was selected.
+        coilover_specs = {
+            "spring_rate_front": 800.0,
+            "spring_rate_front_confidence": "high",
+            "damper_adjustability": "rebound-only",
+        }
+        payload = make_scraped_payload(
+            name="Premium Coilover Suspension Kit",
+            description="Adjustable coilover suspension with rebound damping.",
+            product_url=f"https://example.com/p/bridge-coilover-{os.getpid()}",
+            part_manufacturer=test_part_manufacturer.name,
+            specifications=coilover_specs,
+        )
+        part = crawler_base.ingest_payload(
+            db_session,
+            payload,
+            adapter_name="bridge_test_adapter",
+            **_ingest_kwargs(
+                current_user=test_user, default_category_id=default_category_id
+            ),
+        )
+        assert part.category_id == suspension_category.id
+        # Validation accepted CoiloverSpec-specific fields → bridge fired.
+        assert part.specifications == coilover_specs
+
+    def test_coilover_field_on_wheels_payload_drops_to_none_via_universal(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_part_manufacturer: PartManufacturer,
+        default_category_id: UUID,
+        make_scraped_payload,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A coilover-shaped payload on a wheels-categorized part lands on
+        UniversalSpec via the bridge and gets rejected — proving the bridge
+        sends non-suspension/engine/brakes parents to universal, where
+        CoiloverSpec-specific keys aren't accepted."""
+        wheels = (
+            db_session.query(Category).filter(Category.name == "wheels").first()
+        )
+        if wheels is None:
+            db_session.add(
+                Category(
+                    name="wheels",
+                    display_name="Wheels",
+                    description="Wheels.",
+                    is_active=True,
+                    sort_order=4,
+                )
+            )
+            db_session.commit()
+
+        mock_emitter = MagicMock()
+        monkeypatch.setattr(
+            "app.crawlers.base.emit_extraction_failure", mock_emitter
+        )
+
+        # spring_rate_front is a CoiloverSpec field; UniversalSpec rejects it.
+        # Name + description hit only wheels keywords — bridge → universal.
+        payload = make_scraped_payload(
+            name="Forged Wheel Set",
+            description="Lightweight forged wheels for the track.",
+            product_url=f"https://example.com/p/bridge-univ-reject-{os.getpid()}",
+            part_manufacturer=test_part_manufacturer.name,
+            specifications={"spring_rate_front": 800.0},
+        )
+        part = crawler_base.ingest_payload(
+            db_session,
+            payload,
+            adapter_name="bridge_reject_adapter",
+            **_ingest_kwargs(
+                current_user=test_user, default_category_id=default_category_id
+            ),
+        )
+        assert part.specifications is None
+        mock_emitter.assert_called_once_with(adapter_name="bridge_reject_adapter")
