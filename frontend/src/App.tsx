@@ -89,6 +89,14 @@ const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
 const PartsCatalog = lazy(() => import('./pages/parts/PartsCatalog.tsx'));
 const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
 const NotFound = lazy(() => import('./pages/NotFound.tsx'));
+// Dev-only kitchen-sink route. The `import.meta.env.DEV` guard wraps the
+// dynamic import itself so Vite/Rollup constant-folds the entire branch to
+// `null` in production — the `_KitchenSink.tsx` chunk is never emitted and
+// the page module is dead-code-eliminated. The matching <Route> element below
+// is also guarded so navigating to `/_kitchen-sink` in prod 404s.
+const KitchenSink = import.meta.env.DEV
+  ? lazy(() => import('./pages/_KitchenSink.tsx'))
+  : null;
 
 /** Paths where neither ads nor spacers are shown (landing + auth). */
 const NO_AD_SPACE_PATHS = new Set([
@@ -263,6 +271,14 @@ function App() {
                   <Route path="/parts/:partId/edit" element={<EditPart />} />
                   <Route path="/parts/:partId" element={<ViewPart />} />
                   <Route path="/parts" element={<PartsCatalog />} />
+
+                  {/* Dev-only kitchen-sink for visual-regression testing.
+                      Guarded by import.meta.env.DEV so the route — and the
+                      lazy-loaded chunk — are excluded from production builds.
+                      Lives inside the public RouteGroupBoundary per FE-03. */}
+                  {import.meta.env.DEV && KitchenSink && (
+                    <Route path="/_kitchen-sink" element={<KitchenSink />} />
+                  )}
 
                   {/* 404 Catch-all — MUST be last inside the public group.
                       Lazy-loaded (Phase 6 FE-03) so the route-coverage test

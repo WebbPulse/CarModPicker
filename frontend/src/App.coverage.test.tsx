@@ -160,6 +160,10 @@ const ALL_ROUTES: ReadonlyArray<{ path: string; group: RouteGroup }> = [
   { path: '/parts/some-part/edit', group: 'public' },
   { path: '/parts/some-part', group: 'public' },
   { path: '/parts', group: 'public' },
+  // Dev-only kitchen-sink route (S08/T05). Mounted only when
+  // import.meta.env.DEV is true; vitest sets DEV=true so the route exists
+  // during this test and the public boundary must catch its forced throw.
+  { path: '/_kitchen-sink', group: 'public' },
   { path: '/nonexistent-route-for-404-test', group: 'public' },
 
   // ── authentication ── 3 entries (GuestRoute — only reachable when NOT authenticated)

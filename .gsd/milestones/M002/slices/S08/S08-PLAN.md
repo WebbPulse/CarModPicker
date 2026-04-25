@@ -98,7 +98,7 @@ In the same file, extend `@theme` so Tailwind utilities like `bg-background`, `t
   - Files: `frontend/src/components/ui/dialog.tsx`, `frontend/src/components/ui/dropdown-menu.tsx`, `frontend/src/components/ui/sheet.tsx`, `frontend/src/components/ui/toast.tsx`, `frontend/src/styles/tokens.css`
   - Verify: cd frontend && npm run type-check && for f in dialog dropdown-menu sheet toast; do test -f src/components/ui/$f.tsx || (echo "missing $f.tsx" && exit 1); done && grep -q '@radix-ui/react-dialog' src/components/ui/dialog.tsx && grep -q '@radix-ui/react-dropdown-menu' src/components/ui/dropdown-menu.tsx && grep -q '@radix-ui/react-dialog' src/components/ui/sheet.tsx && grep -q 'sonner' src/components/ui/toast.tsx && grep -q 'animate-in\|@keyframes' src/styles/tokens.css && npm run lint
 
-- [ ] **T05: Build _KitchenSink page rendering every primitive in every state and wire dev-only route** `est:1.5h`
+- [x] **T05: Build _KitchenSink page rendering every primitive in every state and wire dev-only route** `est:1.5h`
   The kitchen-sink is the canvas the visual-regression spec photographs. Every primitive from T03+T04 must be present in every meaningful state.
 
 **Page structure (`frontend/src/pages/_KitchenSink.tsx`):**
