@@ -124,7 +124,7 @@ Add the import and route guarded by `import.meta.env.DEV` so the route — and t
   - Files: `frontend/src/pages/_KitchenSink.tsx`, `frontend/src/App.tsx`
   - Verify: cd frontend && npm run type-check && grep -q 'data-testid="section-button"' src/pages/_KitchenSink.tsx && grep -qE 'data-testid="section-(input|select|combobox|tabs|dialog|dropdown-menu|sheet|toast)"' src/pages/_KitchenSink.tsx && grep -q '_kitchen-sink' src/App.tsx && grep -q 'import.meta.env.DEV' src/App.tsx && npm run lint
 
-- [ ] **T06: Configure Playwright multi-viewport projects and ship components.spec.ts visual-regression suite** `est:1h`
+- [x] **T06: Configure Playwright multi-viewport projects and ship components.spec.ts visual-regression suite** `est:1h`
   Slice's objective stopping condition (R013, D006). Updates `playwright.config.ts` to declare three viewport projects, then writes `e2e/components.spec.ts` that visits the kitchen sink at each breakpoint, settles state, and runs `toHaveScreenshot()`.
 
 **playwright.config.ts changes:**
