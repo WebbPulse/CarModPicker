@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T18:58:22Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T18:58:22Z","fingerprint":"ec5c08ca8ac0c8e1dfd3c7fa9bd58c192229d468","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T19:06:36Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T19:06:36Z","fingerprint":"80930f2d1fcfbb6223b2bf452aed1e103f7dbdcd","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -290,6 +290,12 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/scripts/sync_crawl_archive_to_prod.py`
 - `backend/scripts/test_migration_round_trip.sh`
 
+### backend/scripts/perf/
+- `backend/scripts/perf/_parse_locust_csv.py`
+- `backend/scripts/perf/locustfile_price_history.py`
+- `backend/scripts/perf/README.md`
+- `backend/scripts/perf/run_price_history_loadtest.sh`
+
 ### backend/static_assets/
 - `backend/static_assets/README.md`
 
@@ -320,7 +326,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(61 files: 61 .py)*
+- *(57 files: 57 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`

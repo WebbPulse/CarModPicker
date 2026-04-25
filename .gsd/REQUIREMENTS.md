@@ -48,17 +48,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: mapped
 - Notes: Surfaced inside the redesigned admin shell in S11.
 
-### R007 — `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
-- Class: core-capability
-- Status: active
-- Description: `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
-- Why it matters: The write path already exists (`part_listing_service.py`) but no read path consumes it. Surfacing it is what turns price-history from a table into a feature.
-- Source: user
-- Primary owning slice: M002/S05
-- Supporting slices: M002/S06
-- Validation: mapped
-- Notes: Query-time aggregation with explicit perf gate (D-arch-4); materialization is a fix-task only if the gate misses.
-
 ### R008 — Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
 - Class: primary-user-loop
 - Status: active
@@ -218,6 +207,17 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M002/S04
 - Validation: M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged.
 - Notes: Sensible-defaults policy applied (Layer 3 gate).
+
+### R007 — `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
+- Class: core-capability
+- Status: validated
+- Description: `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
+- Why it matters: The write path already exists (`part_listing_service.py`) but no read path consumes it. Surfacing it is what turns price-history from a table into a feature.
+- Source: user
+- Primary owning slice: M002/S05
+- Supporting slices: M002/S06
+- Validation: M002/S05 shipped both endpoints. GET /api/parts/{id}/price-history returns PriceHistorySinglePartResponse (summary + retailers + history) with window param (30d/90d/180d/1y/all default 90d), retailer_id filter, and legacy=true list-shape shim for backward compatibility. POST /api/parts/price-history accepts 1-100 part_ids → batch min/max/last/trend with link-group dedup. Aggregation lives in app/api/services/part_price_aggregation_service.py (pure read service, canonical-coalesce expression). 18 endpoint tests + 11 service tests + OpenAPI snapshot test green. Frontend client (getPartPriceHistorySummary + getBatchPriceHistorySummary) wired with TS types; 26 vitest cases green. Verified 2026-04-25.
+- Notes: Query-time aggregation per D004; perf-gate infra + gate-on-the-gate tests landed in T05; live 10× load run is R019's concern and remains active until run against a live uvicorn server with sample data. R036 (materialized part_price_summary) stays unopened unless that gate misses.
 
 ## Deferred
 
@@ -387,7 +387,7 @@ This file is the explicit capability and coverage contract for the project.
 | R004 | failure-visibility | validated | M002/S01 | M002/S04 | M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged. |
 | R005 | operability | active | M002/S04 | none | mapped |
 | R006 | admin/support | active | M002/S04 | M002/S11 | mapped |
-| R007 | core-capability | active | M002/S05 | M002/S06 | mapped |
+| R007 | core-capability | validated | M002/S05 | M002/S06 | M002/S05 shipped both endpoints. GET /api/parts/{id}/price-history returns PriceHistorySinglePartResponse (summary + retailers + history) with window param (30d/90d/180d/1y/all default 90d), retailer_id filter, and legacy=true list-shape shim for backward compatibility. POST /api/parts/price-history accepts 1-100 part_ids → batch min/max/last/trend with link-group dedup. Aggregation lives in app/api/services/part_price_aggregation_service.py (pure read service, canonical-coalesce expression). 18 endpoint tests + 11 service tests + OpenAPI snapshot test green. Frontend client (getPartPriceHistorySummary + getBatchPriceHistorySummary) wired with TS types; 26 vitest cases green. Verified 2026-04-25. |
 | R008 | primary-user-loop | active | M002/S06 | M002/S10 | mapped |
 | R009 | primary-user-loop | active | M002/S06 | none | mapped |
 | R010 | primary-user-loop | active | M002/S07 | none | mapped |
@@ -419,7 +419,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 18
-- Mapped to slices: 18
-- Validated: 2 (R001, R004)
+- Active requirements: 17
+- Mapped to slices: 17
+- Validated: 3 (R001, R004, R007)
 - Unmapped active requirements: 0

@@ -28,7 +28,7 @@
 - [x] **S04: S04** `risk:medium` `depends:[]`
   > After this: Kick off the backfill: python -m app.crawlers.backfill --batch-size 100. Job is idempotent (re-running on the same parts produces no duplicates), resumable (Ctrl-C and resume picks up where it left off), and logs progress with per-batch counts. Hit GET /api/admin/extraction-health — JSON returns compliance: 111/111, per-tier coverage gradient, per-adapter failure-rate over 7d window.
 
-- [ ] **S05: S05** `risk:medium` `depends:[]`
+- [x] **S05: S05** `risk:medium` `depends:[]`
   > After this: Call GET /api/parts/{id}/price-history?window=90d — returns retailer breakdowns and listing-level history. Call POST /api/parts/price-history with [part_id_1..part_id_50] — returns min/max/last/trend per part. Run load test (k6 or locust) at 10x current traffic on current catalog size — p95 inside budget.
 
 - [ ] **S06: Price-history frontend surfaces (sparkline + detail view)** `risk:medium` `depends:[S05,S08]`
@@ -37,7 +37,7 @@
 - [ ] **S07: Price-drop alerts (subscription, threshold, email)** `risk:medium` `depends:[S05,S06]`
   > After this: Subscribe to a part with threshold $X on the part detail page. Trigger an observation below threshold (via test endpoint or manual scrape replay). Email arrives with part details, current price, and unsubscribe link. Visit /account/alerts — subscription listed; click unsubscribe; subscription removed and confirmed by reloading.
 
-- [ ] **S08: Design system spike + tokens + shadcn primitives + kitchen sink** `risk:high` `depends:[]`
+- [ ] **S08: S08** `risk:high` `depends:[]`
   > After this: Open the kitchen-sink page in dev — every primitive (Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet) renders in every state (default, hover, focus, disabled, loading, error) under the new tokens. Run npm run test:e2e — components.spec.ts kitchen-sink screenshots green at mobile/tablet/desktop. playwright.config.ts and frontend/e2e/smoke.spec.ts committed.
 
 - [ ] **S09: Build-list view redesign** `risk:medium` `depends:[S08]`
