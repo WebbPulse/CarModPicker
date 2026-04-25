@@ -34,13 +34,13 @@
 - [x] **S06: S06** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — every part card with observations shows a sparkline + delta line. Click a card to drill into the per-part detail view — retailer breakdowns and listing-level history visible, with stale-observation 'as of' caveat where relevant. Inspect a part with zero observations: no sparkline rendered, just current price.
 
-- [ ] **S07: S07** `risk:medium` `depends:[]`
+- [x] **S07: S07** `risk:medium` `depends:[]`
   > After this: Subscribe to a part with threshold $X on the part detail page. Trigger an observation below threshold (via test endpoint or manual scrape replay). Email arrives with part details, current price, and unsubscribe link. Visit /account/alerts — subscription listed; click unsubscribe; subscription removed and confirmed by reloading.
 
 - [x] **S08: S08** `risk:high` `depends:[]`
   > After this: Open the kitchen-sink page in dev — every primitive (Button, Dialog, DropdownMenu, Combobox, Toast, Tabs, Input, Select, Sheet) renders in every state (default, hover, focus, disabled, loading, error) under the new tokens. Run npm run test:e2e — components.spec.ts kitchen-sink screenshots green at mobile/tablet/desktop. playwright.config.ts and frontend/e2e/smoke.spec.ts committed.
 
-- [ ] **S09: Build-list view redesign** `risk:medium` `depends:[S08]`
+- [ ] **S09: S09** `risk:medium` `depends:[]`
   > After this: Visit /build-lists/{id} in dev — page is on the new design system, all interactions use S08 primitives. Run npm run test:e2e -- build-list.spec.ts — green at mobile/tablet/desktop. Tab through the page — focus indicators visible, escape on dialogs works.
 
 - [ ] **S10: Parts catalog redesign** `risk:medium` `depends:[S08,S06]`
