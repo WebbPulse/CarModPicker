@@ -85,7 +85,7 @@ The `.gsd/` directory is in `.gitignore` (per the cleanup-prompt context), but `
   - Files: `backend/app/crawlers/backfill.py`, `backend/tests/crawlers/test_backfill.py`
   - Verify: TESTING=true pytest backend/tests/crawlers/test_backfill.py -n auto --rootdir=backend -q --no-cov
 
-- [ ] **T02: Add `GET /api/admin/extraction-health` endpoint backed by compliance + DB-derived coverage and failure-rate** `est:3h`
+- [x] **T02: Add `GET /api/admin/extraction-health` endpoint backed by compliance + DB-derived coverage and failure-rate** `est:3h`
   Stand up `backend/app/api/endpoints/admin/extraction_health.py` as a new admin sub-router registered under `/admin/extraction-health` in `backend/app/main.py`. The endpoint returns a JSON document with three sections — compliance, coverage, failure-rate — all derivable from authoritative DB state (NOT CloudWatch).
 
 Response shape (Pydantic schema lives in this file as `ExtractionHealthResponse`):

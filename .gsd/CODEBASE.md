@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-25T05:10:22Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T05:10:22Z","fingerprint":"97c2d2ac455f8e3ffbe7a7739d8edda879587756","fileCount":500,"truncated":true} -->
+Generated: 2026-04-25T05:31:23Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-25T05:31:23Z","fingerprint":"29200cd26c8816450338bfaa566d7fbb5b71c969","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -182,6 +182,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/app/crawlers/__init__.py`
 - `backend/app/crawlers/__main__.py`
 - `backend/app/crawlers/archive_rescrape.py`
+- `backend/app/crawlers/backfill.py`
 - `backend/app/crawlers/base.py`
 - `backend/app/crawlers/compliance_audit.py`
 - `backend/app/crawlers/ecs_rescrape_runner.py`
@@ -317,7 +318,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `backend/tests/cassettes/auth/.gitkeep`
 
 ### backend/tests/crawlers/
-- *(66 files: 66 .py)*
+- *(65 files: 65 .py)*
 
 ### backend/tests/crawlers/fixtures/amsperformance/
 - `backend/tests/crawlers/fixtures/amsperformance/expected.json`
