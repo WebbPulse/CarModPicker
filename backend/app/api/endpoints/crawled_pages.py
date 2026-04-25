@@ -281,6 +281,8 @@ async def scrape_page_from_extension(
             archive_skipped_duplicate=skipped_dup,
         )
 
+    payload = adapter.apply_universal_extraction(sanitized_html, payload)
+
     inferred = infer_category(payload.name, payload.description)
 
     return ScrapeResponse(

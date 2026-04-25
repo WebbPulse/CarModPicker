@@ -113,7 +113,7 @@ No call-site changes in this task — that's T04. This task only adds the bridge
   - Files: `backend/app/crawlers/specs/category_bridge.py`, `backend/app/crawlers/adapters/base.py`, `backend/app/crawlers/base.py`
   - Verify: pytest backend/tests/crawlers/test_category_slug_bridge.py backend/tests/crawlers/test_ingest_spec_validation.py backend/tests/crawlers/test_adapter_discovery.py -n auto --rootdir=backend
 
-- [ ] **T04: Wire apply_universal_extraction into runner / archive_rescrape / crawled_pages call sites + refresh fixture snapshots** `est:1h`
+- [x] **T04: Wire apply_universal_extraction into runner / archive_rescrape / crawled_pages call sites + refresh fixture snapshots** `est:1h`
   Insert the universal-extraction hook between `parse_product_page` and `ingest_payload` at the three call sites. Single-line insertion per file plus a sanity check that the existing flow is unchanged for None-payload returns.
 
 **Call site 1: `backend/app/crawlers/runner.py` (around line 574).**
