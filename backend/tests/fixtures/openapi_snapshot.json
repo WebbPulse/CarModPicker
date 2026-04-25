@@ -3773,6 +3773,124 @@
         "title": "PartManufacturerUpdate",
         "type": "object"
       },
+      "PartPriceAlertCreate": {
+        "description": "Body for POST /api/part-price-alerts/.",
+        "properties": {
+          "part_id": {
+            "description": "ID of the part to subscribe to",
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "threshold_cents": {
+            "description": "Notify when observed price <= this threshold (cents)",
+            "minimum": 0.0,
+            "title": "Threshold Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_id",
+          "threshold_cents"
+        ],
+        "title": "PartPriceAlertCreate",
+        "type": "object"
+      },
+      "PartPriceAlertRead": {
+        "description": "Response shape for a single alert.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_fired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fired At"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "threshold_cents": {
+            "minimum": 0.0,
+            "title": "Threshold Cents",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "part_id",
+          "threshold_cents",
+          "active",
+          "last_fired_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PartPriceAlertRead",
+        "type": "object"
+      },
+      "PartPriceAlertUpdate": {
+        "description": "Body for PATCH /api/part-price-alerts/{id}.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the alert is active",
+            "title": "Active"
+          },
+          "threshold_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "New threshold in cents",
+            "title": "Threshold Cents"
+          }
+        },
+        "title": "PartPriceAlertUpdate",
+        "type": "object"
+      },
       "PartRead": {
         "properties": {
           "best_price_cents": {
@@ -13520,6 +13638,196 @@
         "summary": "Get Part Manufacturer Parts Count",
         "tags": [
           "part_manufacturers"
+        ]
+      }
+    },
+    "/api/part-price-alerts/": {
+      "post": {
+        "description": "Subscribe the current user to a price-drop alert on a part.\n\nIdempotent on (user_id, part_id) \u2014 re-subscribing updates the threshold and\nreactivates a previously-soft-deleted alert instead of creating a duplicate.",
+        "operationId": "subscribe_to_part_price_alert_api_part_price_alerts__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartPriceAlertCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Alert subscription created (or updated if one already existed)"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartPriceAlertRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Subscribe To Part Price Alert",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
+    "/api/part-price-alerts/me": {
+      "get": {
+        "description": "List the current user's active alerts (active=True only).",
+        "operationId": "list_my_active_alerts_api_part_price_alerts_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartPriceAlertRead"
+                  },
+                  "title": "Response List My Active Alerts Api Part Price Alerts Me Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Active price-drop alerts for the current user"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List My Active Alerts",
+        "tags": [
+          "part-price-alerts"
+        ]
+      }
+    },
+    "/api/part-price-alerts/{alert_id}": {
+      "delete": {
+        "description": "Soft-delete the user's own alert by setting active=False.\n\nIdempotent at the user-experience level: a second DELETE on the same id\nreturns 404 because the row is no longer ownable-and-active. (T03 will\ntreat already-deleted rows the same way the unsubscribe-via-token path\ndoes \u2014 currently 404 is the simplest contract for this surface.)",
+        "operationId": "delete_my_alert_api_part_price_alerts__alert_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Alert Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert deactivated"
+          },
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete My Alert",
+        "tags": [
+          "part-price-alerts"
+        ]
+      },
+      "patch": {
+        "description": "Update threshold and/or active flag on the user's own alert.\n\nReturns 404 (not 403) for alerts owned by another user, to avoid leaking\nexistence via endpoint behavior.",
+        "operationId": "update_my_alert_api_part_price_alerts__alert_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Alert Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartPriceAlertUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartPriceAlertRead"
+                }
+              }
+            },
+            "description": "Alert updated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update My Alert",
+        "tags": [
+          "part-price-alerts"
         ]
       }
     },

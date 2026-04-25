@@ -20,6 +20,7 @@ from .api.endpoints import (
     crawler_schedules,
     images,
     part_manufacturers,
+    part_price_alerts,
     parts,
     reports,
     retailers,
@@ -289,6 +290,14 @@ endpoint_registry.register_endpoint(
     prefix="/bug-reports",
     tags=["bug-reports"],
     description="Bug report operations for users to report application issues",
+)
+
+# Per-user price-drop alerts (subscribe / list-mine / patch / soft-delete)
+endpoint_registry.register_endpoint(
+    part_price_alerts.router,
+    prefix="/part-price-alerts",
+    tags=["part-price-alerts"],
+    description="Per-user price-drop alerts",
 )
 
 # Image upload endpoint
