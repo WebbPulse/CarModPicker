@@ -90,7 +90,7 @@ Load profile: dialog opens on demand; no autoload. The build-list fetch fires on
   - Files: `frontend/src/components/parts/AddToBuildListDialog.tsx`
   - Verify: cd frontend && npm run type-check && npm test -- PartsCatalog && grep -c "from '../common/Dialog'\|from '../buttons/ActionButton'\|from '../buttons/SecondaryButton'" src/components/parts/AddToBuildListDialog.tsx | grep -q '^0$'
 
-- [ ] **T04: Add frontend/e2e/parts-catalog.spec.ts with mocked fixtures, multi-viewport screenshots, sparkline assertion, dialog focus + Escape, and Tab keyboard test** `est:1.5h`
+- [x] **T04: Add frontend/e2e/parts-catalog.spec.ts with mocked fixtures, multi-viewport screenshots, sparkline assertion, dialog focus + Escape, and Tab keyboard test** `est:1.5h`
   Create a new Playwright spec for /parts that runs at mobile/tablet/desktop (already configured in playwright.config.ts) and asserts the slice's R015 + R020 success criteria plus the S06 sparkline integration invariant.
 
 Follow the conventions established in frontend/e2e/price-history.spec.ts (S06/T04) and frontend/e2e/build-list.spec.ts (S09/T04):
