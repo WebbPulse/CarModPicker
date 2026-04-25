@@ -108,7 +108,7 @@ When all compliant, append `OK — every adapter declares at least one category_
   - Files: `backend/scripts/m002_s03_apply_category_targets.py`, `backend/app/crawlers/adapters/tier0_http/*.py`, `backend/app/crawlers/adapters/tier1_tls/*.py`, `backend/app/crawlers/adapters/tier2_browser/*.py`
   - Verify: cd backend && python scripts/m002_s03_apply_category_targets.py && python -m app.crawlers.compliance_audit && python -c "from app.crawlers.adapters import ADAPTER_REGISTRY; assert len(ADAPTER_REGISTRY) == 108, len(ADAPTER_REGISTRY); assert all(getattr(c, 'category_targets', []) for c in ADAPTER_REGISTRY.values())"
 
-- [ ] **T03: Add `tests/crawlers/test_adapter_category_targets.py` parametrized over `ADAPTER_REGISTRY` + `tests/crawlers/test_compliance_audit.py` (PR-time gate)** `est:1h`
+- [x] **T03: Add `tests/crawlers/test_adapter_category_targets.py` parametrized over `ADAPTER_REGISTRY` + `tests/crawlers/test_compliance_audit.py` (PR-time gate)** `est:1h`
   Pin the contract so any future adapter PR that forgets `category_targets` fails CI by adapter slug. Two test modules:
 
 **1. `backend/tests/crawlers/test_adapter_category_targets.py`** — parametrized over the live registry, runs in milliseconds:
