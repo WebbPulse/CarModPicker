@@ -63,7 +63,7 @@ In the same file, extend `@theme` so Tailwind utilities like `bg-background`, `t
   - Files: `frontend/src/styles/tokens.css`, `frontend/src/index.css`
   - Verify: cd frontend && grep -q '@import .\./styles/tokens.css' src/index.css && grep -q -- '--background:' src/styles/tokens.css && grep -q -- '--ring:' src/styles/tokens.css && grep -q -- '--radius:' src/styles/tokens.css && grep -q '@theme' src/styles/tokens.css && npm run build > /tmp/s08-t02-build.log 2>&1 && grep -q '\.bg-background\|--background' dist/assets/*.css
 
-- [ ] **T03: Implement form primitives: Button, Input, Select, Combobox, Tabs** `est:2h`
+- [x] **T03: Implement form primitives: Button, Input, Select, Combobox, Tabs** `est:2h`
   Wave 1 of the primitive set — the form/control surface. Each primitive lives in its own file under `frontend/src/components/ui/`, follows shadcn conventions, and consumes tokens from T02 + `cn()` from T01.
 
 **Per-primitive spec:**
