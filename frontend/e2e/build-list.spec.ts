@@ -191,6 +191,17 @@ async function setupPage(
   await page.addInitScript(() => {
     try {
       localStorage.setItem('cookie_consent_v1', 'accepted');
+      // Pre-dismiss the chrome-extension promo for today so its 2s
+      // detect-then-show timer does not race the snapshot — flaked the
+      // mobile baseline once already (S09/T05).
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      localStorage.setItem(
+        'chrome_extension_promo_last_dismissed',
+        `${y}-${m}-${d}`,
+      );
     } catch {
       // localStorage may be unavailable (private mode); banner stays.
     }
