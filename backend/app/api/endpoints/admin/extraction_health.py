@@ -28,7 +28,7 @@ from app.api.models.user import User as DBUser
 from app.api.utils.endpoint_decorators import standard_responses
 from app.crawlers.adapters import ADAPTER_REGISTRY
 from app.crawlers.adapters.base import UNIVERSAL_FIELD_NAMES
-from app.crawlers.compliance_audit import _classify_tier, _is_compliant
+from app.crawlers.compliance_audit import classify_tier, is_compliant
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -151,13 +151,13 @@ def _compute_compliance() -> ComplianceBlock:
     total_count = 0
 
     for _slug, cls in ADAPTER_REGISTRY.items():
-        tier = _classify_tier(cls)
+        tier = classify_tier(cls)
         if tier not in per_tier_counts:
             # Defensive: a future fetcher tier shouldn't crash the endpoint.
             per_tier_counts[tier] = (0, 0)
         compliant, total = per_tier_counts[tier]
         total += 1
-        if _is_compliant(cls):
+        if is_compliant(cls):
             compliant += 1
             total_compliant += 1
         total_count += 1
@@ -179,7 +179,7 @@ def _adapter_slugs_by_tier() -> Dict[str, list[str]]:
     """Group ``ADAPTER_REGISTRY`` slugs by their fetcher tier."""
     by_tier: Dict[str, list[str]] = {k: [] for k in _TIER_KEYS}
     for slug, cls in ADAPTER_REGISTRY.items():
-        tier = _classify_tier(cls)
+        tier = classify_tier(cls)
         by_tier.setdefault(tier, []).append(slug)
     return by_tier
 
@@ -263,7 +263,7 @@ def _compute_failure_rate_7d(db: Session, since: datetime) -> List[FailureRateRo
         parsed = bucket.get("parsed", 0)
         denom = failed + parsed
         rate = (failed / denom) if denom > 0 else 0.0
-        tier = _classify_tier(ADAPTER_REGISTRY[source])
+        tier = classify_tier(ADAPTER_REGISTRY[source])
         rows.append(
             FailureRateRow(
                 adapter=source,

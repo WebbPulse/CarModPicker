@@ -248,28 +248,28 @@ class RetailerCrawlerAdapter(ABC):
         # lazily to avoid a circular import (runner imports ADAPTER_REGISTRY
         # from this package).
         from app.crawlers.fetchers import FetcherError
-        from app.crawlers.runner import _classify_fetch_error, _http_status_from_exception
+        from app.crawlers.runner import classify_fetch_error, http_status_from_exception
 
         try:
             # D-18: 5s timeout — robots.txt is expected to return fast.
             self.fetcher.fetch(probe_url, timeout=5)
         except FetcherError as e:
-            status = _http_status_from_exception(e)
+            status = http_status_from_exception(e)
             if status is not None and 400 <= status < 500:
                 return HealthResult(healthy=False, reason="http_4xx", status_code=status)
             if status is not None and 500 <= status < 600:
                 return HealthResult(healthy=False, reason="http_5xx", status_code=status)
-            bucket = _classify_fetch_error(e, status)
+            bucket = classify_fetch_error(e, status)
             return HealthResult(healthy=False, reason=bucket or "connection", status_code=status)
         except Exception as e:
             # Non-FetcherError (e.g. requests.exceptions.Timeout raised directly
             # by an HttpFetcher that didn't wrap, or a connection reset).
-            status = _http_status_from_exception(e)
+            status = http_status_from_exception(e)
             if status is not None and 400 <= status < 500:
                 return HealthResult(healthy=False, reason="http_4xx", status_code=status)
             if status is not None and 500 <= status < 600:
                 return HealthResult(healthy=False, reason="http_5xx", status_code=status)
-            bucket = _classify_fetch_error(e, status)
+            bucket = classify_fetch_error(e, status)
             return HealthResult(healthy=False, reason=bucket or "connection", status_code=status)
 
         # Fetch returned without raising → response was 2xx.

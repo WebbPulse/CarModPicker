@@ -45,7 +45,7 @@ _TIER_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
-def _classify_tier(cls: Type[RetailerCrawlerAdapter]) -> str:
+def classify_tier(cls: Type[RetailerCrawlerAdapter]) -> str:
     """Return the canonical ``FETCHER_TIER`` string for ``cls``.
 
     Defaults to ``"http"`` to match ``RetailerCrawlerAdapter.FETCHER_TIER``;
@@ -55,7 +55,7 @@ def _classify_tier(cls: Type[RetailerCrawlerAdapter]) -> str:
     return getattr(cls, "FETCHER_TIER", "http")
 
 
-def _is_compliant(cls: Type[RetailerCrawlerAdapter]) -> bool:
+def is_compliant(cls: Type[RetailerCrawlerAdapter]) -> bool:
     """``True`` iff ``cls.category_targets`` is a non-empty list/tuple of strings.
 
     Mirrors the validation already enforced in
@@ -80,13 +80,13 @@ def audit() -> int:
     }
 
     for slug, cls in ADAPTER_REGISTRY.items():
-        tier = _classify_tier(cls)
+        tier = classify_tier(cls)
         by_tier.setdefault(tier, []).append((slug, cls))
 
     offenders: list[tuple[str, str]] = []  # (slug, tier)
     for tier, items in by_tier.items():
         for slug, cls in items:
-            if not _is_compliant(cls):
+            if not is_compliant(cls):
                 offenders.append((slug, tier))
 
     output_lines: list[str] = []
@@ -104,7 +104,7 @@ def audit() -> int:
     # Print T0/T1/T2 in canonical order with stable column widths.
     for tier_key in ("http", "tls", "browser"):
         items = by_tier.get(tier_key, [])
-        n_compliant = sum(1 for _, cls in items if _is_compliant(cls))
+        n_compliant = sum(1 for _, cls in items if is_compliant(cls))
         n_total = len(items)
         total_compliant += n_compliant
         total_count += n_total
@@ -115,7 +115,7 @@ def audit() -> int:
     # future fetcher tier lands before this script is updated).
     for tier_key in sorted(k for k in by_tier.keys() if k not in _TIER_LABELS):
         items = by_tier[tier_key]
-        n_compliant = sum(1 for _, cls in items if _is_compliant(cls))
+        n_compliant = sum(1 for _, cls in items if is_compliant(cls))
         n_total = len(items)
         total_compliant += n_compliant
         total_count += n_total

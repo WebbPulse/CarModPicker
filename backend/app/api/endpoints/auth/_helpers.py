@@ -29,7 +29,7 @@ OAUTH_2FA_PURPOSE = "oauth_2fa"
 GOOGLE_PROVIDER = "google"
 
 
-def _issue_login_response(user: DBUser) -> dict[str, str | UserRead]:
+def issue_login_response(user: DBUser) -> dict[str, str | UserRead]:
     """Build the login response payload (access_token + user metadata).
 
     Source: auth.py:814-821 — copied verbatim (D-18).
@@ -43,7 +43,7 @@ def _issue_login_response(user: DBUser) -> dict[str, str | UserRead]:
     }
 
 
-def _maybe_2fa_challenge(user: DBUser) -> Optional[dict[str, str | bool]]:
+def maybe_2fa_challenge(user: DBUser) -> Optional[dict[str, str | bool]]:
     """If user has TOTP enabled, mint an otp_token bound to them and return the challenge payload.
 
     Source: auth.py:824-832 — copied verbatim (D-18).

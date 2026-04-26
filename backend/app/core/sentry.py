@@ -61,6 +61,7 @@ import logging
 import os
 
 import sentry_sdk
+from sentry_sdk.types import Event, Hint
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
@@ -87,7 +88,7 @@ def _traces_sampler(sampling_context: dict) -> float:
     return 0.05
 
 
-def _before_send(event: dict, hint: dict) -> dict:
+def _before_send(event: Event, hint: Hint) -> Event | None:
     """Attach request_id + user_id from ContextVars to every Sentry event.
 
     Reads from plan 02-01's `request_id_var` + `user_id_var` (populated by

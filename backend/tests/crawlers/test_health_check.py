@@ -69,7 +69,7 @@ def test_timeout_marks_unhealthy() -> None:
 
     adapter = _ProbeAdapter()
     fake_fetcher = MagicMock()
-    # A timeout raised by the fetcher tier; _classify_fetch_error returns "timeout"
+    # A timeout raised by the fetcher tier; classify_fetch_error returns "timeout"
     # for requests.exceptions.Timeout. FetcherError wrapping a timeout reports
     # status_code=None and classification=fetcher; we key on None-status bucketing.
     # Simulate a requests.Timeout leaking through fetcher as-is (HttpFetcher path):

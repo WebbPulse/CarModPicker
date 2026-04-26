@@ -19,9 +19,9 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.endpoints.admin._helpers import (
-    _heartbeat_loop,
-    _notify_job_completion,
-    _stamp_heartbeat,
+    heartbeat_loop,
+    notify_job_completion,
+    stamp_heartbeat,
 )
 from app.api.models.category import Category as DBCategory
 from app.api.models.crawler_adapter_config import CrawlerAdapterConfig as DBCrawlerAdapterConfig
@@ -47,8 +47,8 @@ _background_tasks: set[asyncio.Task[None]] = set()
 # Per-job asyncio tasks and stop events for cooperative cancellation.
 # Entries are cleaned up when the job task finishes. jobs.py reads these to
 # service the cancel endpoint.
-_job_tasks: dict[UUID, asyncio.Task[None]] = {}
-_job_stop_events: dict[UUID, threading.Event] = {}
+job_tasks: dict[UUID, asyncio.Task[None]] = {}
+job_stop_events: dict[UUID, threading.Event] = {}
 
 
 def _verify_cron_key(x_admin_cron_key: Optional[str]) -> bool:
@@ -284,8 +284,8 @@ async def _run_crawlers_in_process(
     """
     # Stamp ownership immediately so a crash before the first heartbeat interval
     # still leaves the row correctly tagged with this process's worker ID.
-    await asyncio.to_thread(_stamp_heartbeat, job_id)
-    heartbeat_task = asyncio.create_task(_heartbeat_loop(job_id))
+    await asyncio.to_thread(stamp_heartbeat, job_id)
+    heartbeat_task = asyncio.create_task(heartbeat_loop(job_id))
     try:
         result = await asyncio.to_thread(
             run_crawlers,
@@ -306,7 +306,7 @@ async def _run_crawlers_in_process(
         try:
             result_dict = result if isinstance(result, dict) else {"raw": str(result)}
             job_service.complete_job(db, job_id, result_summary=result_dict)
-            await asyncio.to_thread(_notify_job_completion, job_id)
+            await asyncio.to_thread(notify_job_completion, job_id)
         finally:
             db.close()
     except Exception as e:
@@ -314,7 +314,7 @@ async def _run_crawlers_in_process(
         db = SessionLocal()
         try:
             job_service.fail_job(db, job_id, error_message=traceback.format_exc())
-            await asyncio.to_thread(_notify_job_completion, job_id)
+            await asyncio.to_thread(notify_job_completion, job_id)
         finally:
             db.close()
     finally:
@@ -323,8 +323,8 @@ async def _run_crawlers_in_process(
             await heartbeat_task
         except (asyncio.CancelledError, Exception):
             pass
-        _job_tasks.pop(job_id, None)
-        _job_stop_events.pop(job_id, None)
+        job_tasks.pop(job_id, None)
+        job_stop_events.pop(job_id, None)
 
 
 @router.post(
@@ -552,8 +552,8 @@ async def run_crawlers_endpoint(
                 default_category_ids=default_category_ids,
             )
         )
-        _job_tasks[job.id] = task
-        _job_stop_events[job.id] = stop_event
+        job_tasks[job.id] = task
+        job_stop_events[job.id] = stop_event
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
     else:
@@ -687,16 +687,16 @@ async def _run_rescrape_in_process(
                 progress_callback=_progress,
             )
             job_service.complete_job(db, job_id, result_summary=counts)
-            _notify_job_completion(job_id)
+            notify_job_completion(job_id)
         except Exception as e:
             logger.exception("In-process archive rescrape job #%s failed: %s", job_id, e)
             job_service.fail_job(db, job_id, error_message=traceback.format_exc())
-            _notify_job_completion(job_id)
+            notify_job_completion(job_id)
         finally:
             db.close()
 
-    await asyncio.to_thread(_stamp_heartbeat, job_id)
-    heartbeat_task = asyncio.create_task(_heartbeat_loop(job_id))
+    await asyncio.to_thread(stamp_heartbeat, job_id)
+    heartbeat_task = asyncio.create_task(heartbeat_loop(job_id))
     try:
         await asyncio.to_thread(_blocking)
     finally:
@@ -705,8 +705,8 @@ async def _run_rescrape_in_process(
             await heartbeat_task
         except (asyncio.CancelledError, Exception):
             pass
-        _job_tasks.pop(job_id, None)
-        _job_stop_events.pop(job_id, None)
+        job_tasks.pop(job_id, None)
+        job_stop_events.pop(job_id, None)
 
 
 @router.post(
@@ -818,8 +818,8 @@ async def rescrape_all_archived_crawled_pages(
                 stop_event=stop_event,
             )
         )
-        _job_tasks[job.id] = task
-        _job_stop_events[job.id] = stop_event
+        job_tasks[job.id] = task
+        job_stop_events[job.id] = stop_event
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
     else:

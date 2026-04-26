@@ -351,7 +351,8 @@ def run_backfill(args: argparse.Namespace) -> int:
 
             # Persist cursor after each successful batch. Failure here is
             # non-fatal (logged WARN); resume just becomes manual next run.
-            _write_cursor(cursor_path, after_part_id)
+            if after_part_id is not None:
+                _write_cursor(cursor_path, after_part_id)
         finally:
             batch_db.close()
 
