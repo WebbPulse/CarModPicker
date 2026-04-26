@@ -1,12 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import LinkButton from '../../components/buttons/LinkButton';
-import { Input } from '../../components/ui/input';
-import Pagination from '../../components/common/Pagination';
+import { Link } from 'react-router-dom';
 import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import PartList from '../../components/parts/PartList';
 import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
 import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import Pagination from '../../components/ui/pagination';
 import { useAuth } from '../../hooks/useAuth';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { usePartsFilters } from '../../hooks/usePartsFilters';
@@ -98,9 +99,9 @@ const PartsCatalog: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="Parts Catalog" />
         {isAuthenticated && (
-          <LinkButton to="/my-parts" variant="outline" size="md">
-            My Parts
-          </LinkButton>
+          <Button asChild variant="outline">
+            <Link to="/my-parts">My Parts</Link>
+          </Button>
         )}
       </div>
 

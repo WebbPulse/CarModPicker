@@ -13,12 +13,12 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { partPriceAlertsApi } from '../../api/part_price_alerts';
 import { partsApi } from '../../api/parts';
-import { ErrorAlert, SuccessAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert, SuccessAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import Spinner from '../../components/ui/spinner';
 import type { PartPriceAlertRead, PartRead } from '../../types/Api';
 
 const fetchMineRequestFn = () => partPriceAlertsApi.listMine();
@@ -246,7 +246,7 @@ function AccountAlerts() {
 
         {isLoading && !alerts && (
           <div data-testid="alerts-loading">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         )}
 

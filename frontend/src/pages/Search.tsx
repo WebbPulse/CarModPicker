@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BuildListItem from '../components/buildLists/BuildListItem';
-import ActionButton from '../components/buttons/ActionButton';
-import { ErrorAlert } from '../components/common/Alerts';
-import Card from '../components/common/Card';
-import LoadingSpinner from '../components/common/LoadingSpinner';
 import PartList from '../components/parts/PartList';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
+import { ErrorAlert } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import Spinner from '../components/ui/spinner';
 import UserCard from '../components/users/UserCard';
 import {
   SEARCH_INITIAL_LIMITS,
@@ -352,7 +352,7 @@ function Search() {
       {isLoading && (
         <Card>
           <div className="flex justify-center py-8">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         </Card>
       )}
@@ -400,12 +400,13 @@ function Search() {
                       {(pagination?.build_lists.has_next ||
                         displayedCounts.build_lists < buildLists.length) && (
                         <div className="mt-6 flex justify-center">
-                          <ActionButton
+                          <Button
+                            type="button"
                             onClick={() => loadMore('build_lists')}
                             disabled={isLoading}
                           >
                             {isLoading ? 'Loading...' : 'Load More Build Lists'}
-                          </ActionButton>
+                          </Button>
                         </div>
                       )}
                     </>
@@ -443,12 +444,13 @@ function Search() {
                       {(pagination?.users.has_next ||
                         displayedCounts.users < users.length) && (
                         <div className="mt-6 flex justify-center">
-                          <ActionButton
+                          <Button
+                            type="button"
                             onClick={() => loadMore('users')}
                             disabled={isLoading}
                           >
                             {isLoading ? 'Loading...' : 'Load More Users'}
-                          </ActionButton>
+                          </Button>
                         </div>
                       )}
                     </>
@@ -471,12 +473,13 @@ function Search() {
                 {(pagination?.parts.has_next ||
                   displayedCounts.parts < parts.length) && (
                   <div className="mt-6 flex justify-center">
-                    <ActionButton
+                    <Button
+                      type="button"
                       onClick={() => loadMore('parts')}
                       disabled={isLoading}
                     >
                       {isLoading ? 'Loading...' : 'Load More Parts'}
-                    </ActionButton>
+                    </Button>
                   </div>
                 )}
               </div>

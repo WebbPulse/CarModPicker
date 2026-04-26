@@ -10,18 +10,18 @@ import {
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
 import { ADSENSE_CLIENT_ID } from './components/ads/adsenseConfig';
-import BetaBanner from './components/common/BetaBanner';
-import ChromeExtensionPromo from './components/common/ChromeExtensionPromo';
-import CookieConsentBanner from './components/common/CookieConsentBanner';
-import ErrorBoundary from './components/common/ErrorBoundary';
-import LoadingSpinner from './components/common/LoadingSpinner';
-import { RouteGroupBoundary } from './components/common/RouteGroupBoundary';
-import SubscriptionPromo from './components/common/SubscriptionPromo';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { RouteGroupBoundary } from './components/routes/RouteGroupBoundary';
+import BetaBanner from './components/shell/BetaBanner';
+import ChromeExtensionPromo from './components/shell/ChromeExtensionPromo';
+import CookieConsentBanner from './components/shell/CookieConsentBanner';
+import ErrorBoundary from './components/shell/ErrorBoundary';
+import SubscriptionPromo from './components/shell/SubscriptionPromo';
+import Spinner from './components/ui/spinner';
 import { useIsPremium, useIsPremiumSystemDisabled } from './hooks/useIsPremium';
 import { lazyWithReload as lazy } from './utils/lazyWithReload';
 
@@ -207,7 +207,7 @@ function App() {
             <Suspense
               fallback={
                 <div className="container mx-auto px-4 py-20">
-                  <LoadingSpinner size="lg" text="Loading page..." />
+                  <Spinner size="lg" text="Loading page..." />
                 </div>
               }
             >

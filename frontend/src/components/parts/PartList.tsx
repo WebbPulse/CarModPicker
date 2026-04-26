@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
-import ResponsiveTableWrapper from '../common/ResponsiveTableWrapper';
+import ResponsiveTableWrapper from '../tables/ResponsiveTableWrapper';
 import { carGenerationsApi, partVotesApi, partsApi } from '../../services/Api';
 import type {
   PartManufacturerResponse,
@@ -17,11 +17,11 @@ import { CACHE_DURATION_MS } from '../../constants';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { carFullDisplayName } from '../../utils/carUtils';
 import { usePartPriceSummaries } from '../../hooks/usePartPriceSummaries';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { Card } from '../ui/card';
+import Spinner from '../ui/spinner';
 import SectionHeader from '../layout/SectionHeader';
 import PriceDeltaLine from './PriceDeltaLine';
 import SparklineCell from './SparklineCell';
@@ -636,7 +636,7 @@ function PartList({
     return (
       <Card>
         <div className="flex justify-center py-8">
-          <LoadingSpinner />
+          <Spinner />
         </div>
       </Card>
     );

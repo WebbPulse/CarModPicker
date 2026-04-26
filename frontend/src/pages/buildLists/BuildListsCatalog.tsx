@@ -8,16 +8,16 @@ import React, {
 import { useSearchParams } from 'react-router-dom';
 import BuildListCard from '../../components/buildLists/BuildListCard';
 import BuildListCatalogList from '../../components/buildLists/BuildListCatalogList';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
 import VehicleFilterChips, {
   filterChipClass,
-} from '../../components/common/VehicleFilterChips';
-import VehicleFilterSection from '../../components/common/VehicleFilterSection';
+} from '../../components/filters/VehicleFilterChips';
+import VehicleFilterSection from '../../components/filters/VehicleFilterSection';
 import PageHeader from '../../components/layout/PageHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import {
   BUILD_LISTS_ALL_PAGE_SIZE,
   BUILD_LISTS_CATALOG_ITEMS_PER_PAGE,
@@ -614,7 +614,7 @@ const BuildListsCatalog: React.FC = () => {
               </div>
               {isLoadingAllBuildLists ? (
                 <div className="flex justify-center py-12">
-                  <LoadingSpinner />
+                  <Spinner />
                 </div>
               ) : allBuildListsError ? (
                 <ErrorAlert

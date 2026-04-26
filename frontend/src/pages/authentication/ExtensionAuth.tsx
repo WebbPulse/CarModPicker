@@ -5,7 +5,7 @@ import {
   FaPuzzlePiece,
 } from 'react-icons/fa';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Spinner from '../../components/ui/spinner';
 import { useAuth } from '../../hooks/useAuth';
 import { getStoredToken } from '../../services/Api';
 
@@ -139,7 +139,7 @@ function ExtensionAuth() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Checking your session…" />
+        <Spinner size="lg" text="Checking your session…" />
       </div>
     );
   }
@@ -168,7 +168,7 @@ function ExtensionAuth() {
 
           {handoff.kind === 'sending' && (
             <div className="text-center">
-              <LoadingSpinner size="md" text="Handing off your session…" />
+              <Spinner size="md" text="Handing off your session…" />
             </div>
           )}
 

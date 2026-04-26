@@ -5,11 +5,11 @@ import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
 import { HiSparkles } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import BuildListCard from '../components/buildLists/BuildListCard';
-import LinkButton from '../components/buttons/LinkButton';
-import { ErrorAlert } from '../components/common/Alerts';
-import Card from '../components/common/Card';
-import ImageWithPlaceholder from '../components/common/ImageWithPlaceholder';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import ImageWithPlaceholder from '../components/images/ImageWithPlaceholder';
+import { ErrorAlert } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import Spinner from '../components/ui/spinner';
 import { HOME_FEATURED_ITEMS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
@@ -164,24 +164,30 @@ export default function HomePage() {
 
             {isAuthenticated && user ? (
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <LinkButton to="/builder" size="lg">
-                  <BsTools className="mr-2" />
-                  Create Build
-                </LinkButton>
-                <LinkButton to="/parts" variant="secondary" size="lg">
-                  <FaCogs className="mr-2" />
-                  Browse Parts
-                </LinkButton>
+                <Button asChild size="lg">
+                  <Link to="/builder">
+                    <BsTools />
+                    Create Build
+                  </Link>
+                </Button>
+                <Button asChild variant="secondary" size="lg">
+                  <Link to="/parts">
+                    <FaCogs />
+                    Browse Parts
+                  </Link>
+                </Button>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <LinkButton to="/register" size="lg">
-                  <GiRaceCar className="mr-2" />
-                  Get Started
-                </LinkButton>
-                <LinkButton to="/login" variant="secondary" size="lg">
-                  Sign In
-                </LinkButton>
+                <Button asChild size="lg">
+                  <Link to="/register">
+                    <GiRaceCar />
+                    Get Started
+                  </Link>
+                </Button>
+                <Button asChild variant="secondary" size="lg">
+                  <Link to="/login">Sign In</Link>
+                </Button>
               </div>
             )}
           </div>
@@ -212,7 +218,7 @@ export default function HomePage() {
 
             {isLoadingBuildLists ? (
               <div className="flex justify-center py-12">
-                <LoadingSpinner />
+                <Spinner />
               </div>
             ) : featuredBuildListsError ? (
               <Card>
@@ -248,7 +254,7 @@ export default function HomePage() {
 
               {isLoadingParts ? (
                 <div className="flex justify-center py-8">
-                  <LoadingSpinner size="sm" />
+                  <Spinner size="sm" />
                 </div>
               ) : popularPartsError ? (
                 <Card>
@@ -317,48 +323,56 @@ export default function HomePage() {
               <div className="space-y-3">
                 {isAuthenticated ? (
                   <>
-                    <LinkButton
-                      to="/builder"
+                    <Button
+                      asChild
                       variant="secondary"
                       className="w-full justify-start"
                     >
-                      <BsTools className="mr-2" />
-                      Create Build List
-                    </LinkButton>
-                    <LinkButton
-                      to="/parts"
+                      <Link to="/builder">
+                        <BsTools />
+                        Create Build List
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
                       variant="secondary"
                       className="w-full justify-start"
                     >
-                      <FaCogs className="mr-2" />
-                      Add New Part
-                    </LinkButton>
-                    <LinkButton
-                      to="/build-lists"
+                      <Link to="/parts">
+                        <FaCogs />
+                        Add New Part
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
                       variant="outline"
                       className="w-full justify-start"
                     >
-                      <FaUsers className="mr-2" />
-                      Browse Builds
-                    </LinkButton>
+                      <Link to="/build-lists">
+                        <FaUsers />
+                        Browse Builds
+                      </Link>
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <LinkButton
-                      to="/register"
+                    <Button
+                      asChild
                       variant="secondary"
                       className="w-full justify-start"
                     >
-                      <GiRaceCar className="mr-2" />
-                      Join Free
-                    </LinkButton>
-                    <LinkButton
-                      to="/about"
+                      <Link to="/register">
+                        <GiRaceCar />
+                        Join Free
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
                       variant="outline"
                       className="w-full justify-start"
                     >
-                      Learn More
-                    </LinkButton>
+                      <Link to="/about">Learn More</Link>
+                    </Button>
                   </>
                 )}
               </div>

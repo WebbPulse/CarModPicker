@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T00:12:34Z","fingerprint":"36f9fe71c4eec9f581be5a0b11e33954ec46947e","fileCount":1008,"truncated":false} -->
+Generated: 2026-04-26T06:02:34Z | Files: 998 | Described: 0/998
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T06:02:34Z","fingerprint":"9f6a8bf1126c9b0a7313dae184fb6996aa8136ca","fileCount":998,"truncated":false} -->
 
 ### (root)/
 - `.gitignore`
@@ -467,6 +467,7 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/vitest.config.ts`
 
 ### frontend/e2e/
+- `frontend/e2e/admin.spec.ts`
 - `frontend/e2e/build-list.spec.ts`
 - `frontend/e2e/components.spec.ts`
 - `frontend/e2e/parts-catalog.spec.ts`
@@ -488,6 +489,9 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/src/index.css`
 - `frontend/src/main.tsx`
 - `frontend/src/vite-env.d.ts`
+
+### frontend/src/__tests__/
+- `frontend/src/__tests__/no-legacy-primitives.test.ts`
 
 ### frontend/src/api/
 - *(42 files: 42 .ts)*
@@ -517,6 +521,7 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/src/components/buildListParts/EditBuildListPartForm.tsx`
 
 ### frontend/src/components/buildLists/
+- `frontend/src/components/buildLists/AddItemTile.tsx`
 - `frontend/src/components/buildLists/BuildListCard.tsx`
 - `frontend/src/components/buildLists/BuildListCatalogList.tsx`
 - `frontend/src/components/buildLists/BuildListItem.tsx`
@@ -524,23 +529,25 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/src/components/buildLists/CreateBuildListForm.tsx`
 - `frontend/src/components/buildLists/EditBuildListForm.tsx`
 
-### frontend/src/components/buttons/
-- `frontend/src/components/buttons/ActionButton.tsx`
-- `frontend/src/components/buttons/Button.tsx`
-- `frontend/src/components/buttons/LinkButton.tsx`
-- `frontend/src/components/buttons/SecondaryButton.tsx`
-- `frontend/src/components/buttons/StretchButton.tsx`
-
 ### frontend/src/components/cars/
 - `frontend/src/components/cars/CarList.tsx`
 - `frontend/src/components/cars/CarListItem.tsx`
+- `frontend/src/components/cars/CarModelMultiSelect.tsx`
 
 ### frontend/src/components/charts/
 - `frontend/src/components/charts/Sparkline.test.tsx`
 - `frontend/src/components/charts/Sparkline.tsx`
 
-### frontend/src/components/common/
-- *(27 files: 27 .tsx)*
+### frontend/src/components/filters/
+- `frontend/src/components/filters/VehicleFilterChips.tsx`
+- `frontend/src/components/filters/VehicleFilterSection.tsx`
+
+### frontend/src/components/forms/
+- `frontend/src/components/forms/ImageUpload.tsx`
+- `frontend/src/components/forms/SearchableSelect.tsx`
+
+### frontend/src/components/images/
+- `frontend/src/components/images/ImageWithPlaceholder.tsx`
 
 ### frontend/src/components/layout/
 - `frontend/src/components/layout/Divider.tsx`
@@ -571,7 +578,6 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/src/components/parts/PriceAlertSubscribeButton.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.test.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.tsx`
-- `frontend/src/components/parts/PriceHistoryLineChart.tsx`
 - `frontend/src/components/parts/SparklineCell.test.tsx`
 - `frontend/src/components/parts/SparklineCell.tsx`
 - `frontend/src/components/parts/VoteButtons.tsx`
@@ -589,18 +595,36 @@ Generated: 2026-04-26T00:12:34Z | Files: 1008 | Described: 0/1008
 - `frontend/src/components/routes/EmailVerifiedRoute.tsx`
 - `frontend/src/components/routes/GuestRoute.tsx`
 - `frontend/src/components/routes/ProtectedRoute.tsx`
+- `frontend/src/components/routes/RouteGroupBoundary.test.tsx`
+- `frontend/src/components/routes/RouteGroupBoundary.tsx`
+
+### frontend/src/components/shell/
+- `frontend/src/components/shell/BetaBanner.tsx`
+- `frontend/src/components/shell/ChromeExtensionPromo.tsx`
+- `frontend/src/components/shell/CookieConsentBanner.tsx`
+- `frontend/src/components/shell/ErrorBoundary.test.tsx`
+- `frontend/src/components/shell/ErrorBoundary.tsx`
+- `frontend/src/components/shell/SubscriptionPromo.tsx`
+
+### frontend/src/components/tables/
+- `frontend/src/components/tables/ResponsiveTableWrapper.tsx`
 
 ### frontend/src/components/ui/
 - `frontend/src/components/ui/.gitkeep`
+- `frontend/src/components/ui/alert.tsx`
 - `frontend/src/components/ui/button.tsx`
+- `frontend/src/components/ui/card-info-item.tsx`
+- `frontend/src/components/ui/card.tsx`
 - `frontend/src/components/ui/combobox.tsx`
 - `frontend/src/components/ui/confirm-dialog.test.tsx`
 - `frontend/src/components/ui/confirm-dialog.tsx`
 - `frontend/src/components/ui/dialog.tsx`
 - `frontend/src/components/ui/dropdown-menu.tsx`
 - `frontend/src/components/ui/input.tsx`
+- `frontend/src/components/ui/pagination.tsx`
 - `frontend/src/components/ui/select.tsx`
 - `frontend/src/components/ui/sheet.tsx`
+- `frontend/src/components/ui/spinner.tsx`
 - `frontend/src/components/ui/tabs.tsx`
 - `frontend/src/components/ui/toast.tsx`
 

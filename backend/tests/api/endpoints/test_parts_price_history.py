@@ -1,7 +1,7 @@
 """Endpoint coverage for `GET /api/parts/{id}/price-history` (S05/T02).
 
-Exercises the new aggregated object response + the `legacy=true` shim that
-keeps the pre-S05 list shape until S13 audits all callers. Seeding mirrors
+Exercises the aggregated object response. The pre-S05 `legacy=true` shim was
+removed in S13/T03 — only the object shape remains. Seeding mirrors
 `tests/services/test_part_price_aggregation_service.py` so the per-row schema
 matches what the aggregation service produces.
 """
@@ -206,36 +206,6 @@ def test_get_price_history_retailer_filter_narrows_summary(
     assert body["summary"]["max_cents"] == 700
     assert body["summary"]["observation_count"] == 3
     assert all(h["retailer_id"] == str(retailer_a.id) for h in body["history"])
-
-
-def test_get_price_history_legacy_param_returns_list_shape(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
-    retailer = _make_retailer(db_session, "legacy")
-    part = _make_part(db_session, test_user, name="Legacy Shape Part")
-    listing = _make_listing(db_session, part, retailer)
-
-    now = datetime.now(UTC)
-    for i, price in enumerate([1000, 1100, 1200]):
-        _add_history(db_session, listing, price_cents=price, observed_at=now - timedelta(days=5 + i))
-    db_session.commit()
-
-    response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"legacy": "true"})
-    assert response.status_code == 200
-    body = response.json()
-    assert isinstance(body, list), f"expected list, got {type(body).__name__}"
-    assert len(body) == 3
-    # Legacy entry shape mirrors PartPriceHistoryReadWithRetailer exactly.
-    sample = body[0]
-    assert set(sample.keys()) >= {
-        "id",
-        "part_listing_id",
-        "price_cents",
-        "observed_at",
-        "retailer_id",
-        "retailer_name",
-    }
-    assert sample["retailer_id"] == str(retailer.id)
 
 
 def test_get_price_history_part_not_found_returns_404(client: TestClient) -> None:

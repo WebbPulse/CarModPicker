@@ -113,38 +113,27 @@ interface InstallOpts {
 }
 
 function installGetRouting({ summary, listings = [] }: InstallOpts): void {
-  // The /parts/{id}/price-history URL is shared between two callers:
-  //  - getPartPriceHistory(id)        -> { params: { legacy: true } }
-  //  - getPartPriceHistorySummary(id, { window: '90d' })
-  //                                   -> { params: { window: '90d' } }
-  // We discriminate by inspecting the params arg (second argument).
-  vi.mocked(apiClient.get).mockImplementation(
-    (url: string, config?: { params?: Record<string, unknown> }) => {
-      if (url === `/parts/${mockPart.id}`) {
-        return Promise.resolve({ data: mockPart });
-      }
-      if (url === `/votes/part/${mockPart.id}/summary`) {
-        return Promise.resolve({ data: mockVoteSummary });
-      }
-      if (url === '/categories/') {
-        return Promise.resolve({ data: [mockCategory] });
-      }
-      if (url === `/users/${mockUser.id}`) {
-        return Promise.resolve({ data: mockUser });
-      }
-      if (url === `/parts/${mockPart.id}/listings`) {
-        return Promise.resolve({ data: listings });
-      }
-      if (url === `/parts/${mockPart.id}/price-history`) {
-        // Legacy call -> array shape; summary call -> object shape.
-        if (config?.params?.['legacy'] === true) {
-          return Promise.resolve({ data: [] });
-        }
-        return Promise.resolve({ data: summary });
-      }
-      return Promise.resolve({ data: null });
-    },
-  );
+  vi.mocked(apiClient.get).mockImplementation((url: string) => {
+    if (url === `/parts/${mockPart.id}`) {
+      return Promise.resolve({ data: mockPart });
+    }
+    if (url === `/votes/part/${mockPart.id}/summary`) {
+      return Promise.resolve({ data: mockVoteSummary });
+    }
+    if (url === '/categories/') {
+      return Promise.resolve({ data: [mockCategory] });
+    }
+    if (url === `/users/${mockUser.id}`) {
+      return Promise.resolve({ data: mockUser });
+    }
+    if (url === `/parts/${mockPart.id}/listings`) {
+      return Promise.resolve({ data: listings });
+    }
+    if (url === `/parts/${mockPart.id}/price-history`) {
+      return Promise.resolve({ data: summary });
+    }
+    return Promise.resolve({ data: null });
+  });
 }
 
 function renderViewPart() {

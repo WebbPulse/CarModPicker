@@ -2,23 +2,34 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthCard from '../components/auth/AuthCard';
 import AuthRedirectLink from '../components/auth/AuthRedirectLink';
-import ActionButton from '../components/buttons/ActionButton';
-import SecondaryButton from '../components/buttons/SecondaryButton';
-import ButtonStretch from '../components/buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../components/common/Alerts';
-import Card from '../components/common/Card';
-import CardInfoItem from '../components/common/CardInfoItem';
-import ImageUpload from '../components/common/ImageUpload';
-import Input from '../components/common/Input';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import ImageUpload from '../components/forms/ImageUpload';
 import Divider from '../components/layout/Divider';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import SecuritySettingsDialog from '../components/profile/SecuritySettingsDialog';
+import { ConfirmationAlert, ErrorAlert } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import Spinner from '../components/ui/spinner';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../services/Api';
 import type { UserRead, UserUpdate } from '../types/Api';
+
+interface InfoItemProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function InfoItem({ label, children }: InfoItemProps) {
+  return (
+    <div>
+      <p className="font-medium text-gray-300">{label}</p>
+      <div className="text-gray-300">{children}</div>
+    </div>
+  );
+}
 
 function Profile() {
   const {
@@ -150,7 +161,7 @@ function Profile() {
   };
 
   if (authIsLoading) {
-    return <LoadingSpinner />;
+    return <Spinner />;
   }
 
   if (!user) {
@@ -161,6 +172,14 @@ function Profile() {
       </AuthCard>
     );
   }
+
+  const socialFields: { id: string; label: string; placeholder: string; key: keyof typeof socialLinks }[] = [
+    { id: 'instagram_url', label: 'Instagram', placeholder: 'https://instagram.com/yourusername', key: 'instagram_url' },
+    { id: 'facebook_url', label: 'Facebook', placeholder: 'https://facebook.com/yourpage', key: 'facebook_url' },
+    { id: 'reddit_url', label: 'Reddit', placeholder: 'https://reddit.com/user/yourusername', key: 'reddit_url' },
+    { id: 'youtube_url', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel', key: 'youtube_url' },
+    { id: 'tiktok_url', label: 'TikTok', placeholder: 'https://tiktok.com/@yourusername', key: 'tiktok_url' },
+  ];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -193,7 +212,7 @@ function Profile() {
         {!isEditing ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-              <CardInfoItem label="Profile Picture">
+              <InfoItem label="Profile Picture">
                 {user.image_urls?.[0] ? (
                   <img
                     src={user.image_urls[0]}
@@ -203,16 +222,16 @@ function Profile() {
                 ) : (
                   <p className="text-gray-400">No image set.</p>
                 )}
-              </CardInfoItem>
+              </InfoItem>
 
               <div className="hidden md:block"></div>
-              <CardInfoItem label="Username:">
+              <InfoItem label="Username:">
                 <p>{user.username}</p>
-              </CardInfoItem>
-              <CardInfoItem label="Email:">
+              </InfoItem>
+              <InfoItem label="Email:">
                 <p>{user.email}</p>
-              </CardInfoItem>
-              <CardInfoItem label="Email Verified">
+              </InfoItem>
+              <InfoItem label="Email Verified">
                 {user.email_verified ? (
                   <ConfirmationAlert message="Yes" />
                 ) : (
@@ -226,28 +245,28 @@ function Profile() {
                     </Link>
                   </div>
                 )}
-              </CardInfoItem>
-              <CardInfoItem label="Account Status">
+              </InfoItem>
+              <InfoItem label="Account Status">
                 <p>{user.disabled ? 'Disabled' : 'Active'}</p>
-              </CardInfoItem>
-              <CardInfoItem label="Two-Factor Authentication">
+              </InfoItem>
+              <InfoItem label="Two-Factor Authentication">
                 {user.totp_enabled ? (
                   <ConfirmationAlert message="Enabled" />
                 ) : (
                   <ErrorAlert message="Disabled" />
                 )}
-              </CardInfoItem>
+              </InfoItem>
             </div>
             <div className="flex space-x-2">
-              <ActionButton onClick={handleEditToggle} className="mr-2">
+              <Button onClick={handleEditToggle} className="mr-2">
                 Edit Profile
-              </ActionButton>
-              <ActionButton
+              </Button>
+              <Button
                 onClick={() => setIsSecurityDialogOpen(true)}
                 className="bg-indigo-600 hover:bg-indigo-700"
               >
                 Manage Security Settings
-              </ActionButton>
+              </Button>
             </div>
           </>
         ) : (
@@ -256,18 +275,18 @@ function Profile() {
             className="space-y-6 mb-6"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-              <CardInfoItem label="Username:">
+              <InfoItem label="Username:">
                 <p className="text-gray-400">{user.username}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Username cannot be changed
                 </p>
-              </CardInfoItem>
-              <CardInfoItem label="Email:">
+              </InfoItem>
+              <InfoItem label="Email:">
                 <p className="text-gray-400">{user.email}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Email cannot be changed
                 </p>
-              </CardInfoItem>
+              </InfoItem>
             </div>
             <ImageUpload
               currentImageUrl={user.image_urls?.[0] ?? null}
@@ -285,23 +304,29 @@ function Profile() {
               maxSizeMB={10}
             />
             <div className="flex space-x-2 pt-2">
-              <ButtonStretch type="submit" disabled={isUpdating}>
+              <Button
+                type="submit"
+                disabled={isUpdating}
+                loading={isUpdating}
+                className="w-full"
+              >
                 {isUpdating ? 'Saving...' : 'Save Changes'}
-              </ButtonStretch>
-              <SecondaryButton
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleEditToggle}
                 disabled={isUpdating}
                 className="w-full"
               >
                 Cancel
-              </SecondaryButton>
+              </Button>
             </div>
           </form>
         )}
 
         <Divider />
-        <ActionButton
+        <Button
           onClick={() =>
             void (async () => {
               setStatusMessage(null);
@@ -318,15 +343,15 @@ function Profile() {
           {authIsLoading || isUpdating
             ? 'Refreshing...'
             : 'Refresh Profile Data'}
-        </ActionButton>
+        </Button>
 
         <div className="mt-4 space-y-2">
-          <ActionButton
+          <Button
             onClick={() => (window.location.href = '/my-parts')}
             className="bg-blue-600 hover:bg-blue-700 w-full"
           >
             Manage My Parts
-          </ActionButton>
+          </Button>
         </div>
       </Card>
 
@@ -341,81 +366,39 @@ function Profile() {
           className="space-y-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Instagram"
-              type="url"
-              placeholder="https://instagram.com/yourusername"
-              value={socialLinks.instagram_url}
-              onChange={(e) =>
-                setSocialLinks((prev) => ({
-                  ...prev,
-                  instagram_url: e.target.value,
-                }))
-              }
-              id="instagram_url"
-              name="instagram_url"
-            />
-            <Input
-              label="Facebook"
-              type="url"
-              placeholder="https://facebook.com/yourpage"
-              value={socialLinks.facebook_url}
-              onChange={(e) =>
-                setSocialLinks((prev) => ({
-                  ...prev,
-                  facebook_url: e.target.value,
-                }))
-              }
-              id="facebook_url"
-              name="facebook_url"
-            />
-            <Input
-              label="Reddit"
-              type="url"
-              placeholder="https://reddit.com/user/yourusername"
-              value={socialLinks.reddit_url}
-              onChange={(e) =>
-                setSocialLinks((prev) => ({
-                  ...prev,
-                  reddit_url: e.target.value,
-                }))
-              }
-              id="reddit_url"
-              name="reddit_url"
-            />
-            <Input
-              label="YouTube"
-              type="url"
-              placeholder="https://youtube.com/@yourchannel"
-              value={socialLinks.youtube_url}
-              onChange={(e) =>
-                setSocialLinks((prev) => ({
-                  ...prev,
-                  youtube_url: e.target.value,
-                }))
-              }
-              id="youtube_url"
-              name="youtube_url"
-            />
-            <Input
-              label="TikTok"
-              type="url"
-              placeholder="https://tiktok.com/@yourusername"
-              value={socialLinks.tiktok_url}
-              onChange={(e) =>
-                setSocialLinks((prev) => ({
-                  ...prev,
-                  tiktok_url: e.target.value,
-                }))
-              }
-              id="tiktok_url"
-              name="tiktok_url"
-            />
+            {socialFields.map((field) => (
+              <div key={field.id}>
+                <label
+                  htmlFor={field.id}
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
+                  {field.label}
+                </label>
+                <Input
+                  type="url"
+                  placeholder={field.placeholder}
+                  value={socialLinks[field.key]}
+                  onChange={(e) =>
+                    setSocialLinks((prev) => ({
+                      ...prev,
+                      [field.key]: e.target.value,
+                    }))
+                  }
+                  id={field.id}
+                  name={field.id}
+                />
+              </div>
+            ))}
           </div>
           <div className="pt-2">
-            <ButtonStretch type="submit" disabled={isUpdating}>
+            <Button
+              type="submit"
+              disabled={isUpdating}
+              loading={isUpdating}
+              className="w-full"
+            >
               {isUpdating ? 'Saving...' : 'Save Social Links'}
-            </ButtonStretch>
+            </Button>
           </div>
         </form>
       </Card>

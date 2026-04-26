@@ -2,155 +2,6 @@
 
 This file is the explicit capability and coverage contract for the project.
 
-## Active
-
-### R002 — Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
-- Class: core-capability
-- Status: active
-- Description: Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
-- Why it matters: Universal coverage across all 111 adapters without per-adapter retrofit. Iteration is cheap because the S3 self-archive lets us re-extract against stored HTML.
-- Source: user
-- Primary owning slice: M002/S02
-- Supporting slices: M002/S03
-- Validation: mapped
-- Notes: Confidence flags on extracted fields mitigate false-positives (e.g., "weight" extracted from a shipping table).
-
-### R003 — Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
-- Class: core-capability
-- Status: active
-- Description: Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
-- Why it matters: Pattern compliance is uniform; coverage gradient is per-tier (T2 sparse until Cloudflare reliability lands in M003-adjacent work). Avoids two-tier code paths.
-- Source: user
-- Primary owning slice: M002/S03
-- Supporting slices: M002/S04
-- Validation: mapped
-- Notes: T2 adapters compliant-but-sparse is the expected state at M002 close, not a regression.
-
-### R005 — Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
-- Class: operability
-- Status: active
-- Description: Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
-- Why it matters: The 25k+ parts already scraped pre-M002 don't have structured fields. Backfill is what makes price-history + comparative-display UX feel alive on launch.
-- Source: user
-- Primary owning slice: M002/S04
-- Supporting slices: none
-- Validation: mapped
-- Notes: Backfill *started* (not necessarily complete) is the milestone gate per Layer 4.
-
-### R006 — Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
-- Class: admin/support
-- Status: active
-- Description: Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
-- Why it matters: Operational visibility for the admin operator; "adapter X is silently failing" is detectable without log diving.
-- Source: inferred
-- Primary owning slice: M002/S04
-- Supporting slices: M002/S11
-- Validation: mapped
-- Notes: Surfaced inside the redesigned admin shell in S11.
-
-### R008 — Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
-- Class: primary-user-loop
-- Status: active
-- Description: Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
-- Why it matters: First user-visible payoff of the price-history work — turns dormant data into a comparative signal at-a-glance.
-- Source: user
-- Primary owning slice: M002/S06
-- Supporting slices: M002/S10
-- Validation: mapped
-- Notes: 90-day window cap on list views; full history only in detail view.
-
-### R009 — Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
-- Class: primary-user-loop
-- Status: active
-- Description: Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
-- Why it matters: Drill-down for the comparative-shopping use case — "where was this cheapest, when?"
-- Source: user
-- Primary owning slice: M002/S06
-- Supporting slices: none
-- Validation: mapped
-- Notes: Reuses aggregation API from R007.
-
-### R010 — User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
-- Class: primary-user-loop
-- Status: active
-- Description: User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
-- Why it matters: Converts price-history from passive display into an active engagement loop — gives users a reason to come back.
-- Source: user
-- Primary owning slice: M002/S07
-- Supporting slices: none
-- Validation: mapped
-- Notes: New `part_price_alert` table + new email template. Unsubscribe link required for compliance.
-
-### R014 — `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
-- Class: primary-user-loop
-- Status: active
-- Description: `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
-- Why it matters: One of three explicitly user-flagged "needs love" surfaces; the canonical build-planning surface.
-- Source: user
-- Primary owning slice: M002/S09
-- Supporting slices: none
-- Validation: mapped
-
-### R015 — `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
-- Class: primary-user-loop
-- Status: active
-- Description: `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
-- Why it matters: One of three priority surfaces; the discovery entry point for the entire catalog.
-- Source: user
-- Primary owning slice: M002/S10
-- Supporting slices: M002/S06
-- Validation: mapped
-
-### R016 — `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
-- Class: admin/support
-- Status: active
-- Description: `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
-- Why it matters: One of three priority surfaces; admin-as-operator efficiency surface.
-- Source: user
-- Primary owning slice: M002/S11
-- Supporting slices: M002/S04
-- Validation: mapped
-
-### R017 — All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
-- Class: quality-attribute
-- Status: active
-- Description: All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
-- Why it matters: The cohesion goal — new visual language is the entire app, not three islands.
-- Source: user
-- Primary owning slice: M002/S12
-- Supporting slices: M002/S09, M002/S10, M002/S11
-- Validation: mapped
-
-### R018 — Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
-- Class: quality-attribute
-- Status: active
-- Description: Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
-- Why it matters: Crawler subsystem currently has no tests. Building a quality bar for a new extraction layer with zero existing tests is core to making M002 verifiable.
-- Source: inferred
-- Primary owning slice: M002/S01
-- Supporting slices: M002/S02, M002/S04
-- Validation: mapped
-
-### R019 — Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
-- Class: quality-attribute
-- Status: active
-- Description: Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
-- Why it matters: The user is scaling toward real users; perf gate is phrased against forward traffic, not localhost feel.
-- Source: user
-- Primary owning slice: M002/S05
-- Supporting slices: none
-- Validation: mapped
-
-### R020 — Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
-- Class: quality-attribute
-- Status: active
-- Description: Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
-- Why it matters: Scaling to real users includes users with assistive tech. Radix primitives cover the heavy lifting — this requirement is to not regress that for free coverage.
-- Source: inferred
-- Primary owning slice: M002/S09, M002/S10, M002/S11
-- Supporting slices: M002/S12
-- Validation: mapped
-
 ## Validated
 
 ### R001 — Define a `SpecRegistry` plus base `CategorySpec(BaseModel)` and 3–5 initial concrete category models (e.g., `CoiloverSpec`, `BrakeSpec`, `TurboSpec`). Adapters declare which categories they target via class attribute; ingest validates `Part.specifications` against the resolved schema.
@@ -164,6 +15,28 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: M002/S01 ships SpecRegistry + CategorySpec base + 3 concrete models (CoiloverSpec, BrakeSpec, TurboSpec) under backend/app/crawlers/specs/. Adapters declare targets via category_targets ClassVar on RetailerCrawlerAdapter (validated at import time against default_registry). Ingest in app/crawlers/base.py.ingest_payload validates payload.specifications against the resolved schema. Verified by 23 contract+integration tests in backend/tests/crawlers/test_spec_registry_contract.py and test_ingest_spec_validation.py — all green; full crawler suite 1284 passed, 1 skipped.
 - Notes: Spec module registration lives in __init__.py (keeps spec modules side-effect-free). Slugs (not category UUIDs) are the registry key — stable across envs. Confidence flags use paired X / X_confidence convention. Open question (deferred to S02): infer_category() returns DB category names ('suspension'), not registry slugs ('coilover') — bridge or re-key in S02.
 
+### R002 — Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
+- Class: core-capability
+- Status: validated
+- Description: Shared utilities in `crawlers/parsing.py` extract universal fields (weight, material, finish, warranty, fitment notes) from product HTML. `RetailerCrawlerAdapter.parse_product_page` post-hook merges these into the `ScrapedPayload.specifications` dict for every adapter. Adapters can override or suppress per field.
+- Why it matters: Universal coverage across all 111 adapters without per-adapter retrofit. Iteration is cheap because the S3 self-archive lets us re-extract against stored HTML.
+- Source: user
+- Primary owning slice: M002/S02
+- Supporting slices: M002/S03
+- Validation: M002/S02 shipped backend/app/crawlers/parsing.py extensions (extract_weight, extract_material, extract_finish, extract_warranty, extract_fitment_notes) plus the RetailerCrawlerAdapter post-hook that auto-merges universal-field extraction into ScrapedPayload.specifications; per-field suppression supported via class attribute. Verified live in M002/S13/T01 UAT walkthrough — backend logs surface `universal_extraction_extracted` lines during the live scrape, and M002/S13/T04's compliance audit (108/108) confirms every adapter inherits the base-class universal extractor. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/compliance-audit-stdout.txt (108/108 compliance proves universal-extractor inheritance) plus existing S02 contract tests.
+- Notes: Promoted at M002 close (2026-04-25). Live extraction-loop logs surfaced during T01 UAT operator walkthrough; backend compliance audit confirms every adapter inherits universal extraction.
+
+### R003 — Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
+- Class: core-capability
+- Status: validated
+- Description: Every adapter in T0 (84), T1 (16), and T2 (11) declares its category-schema targets and inherits universal-field extraction via the base class. Compliance is binary and audited by `compliance_audit` script: 111/111.
+- Why it matters: Pattern compliance is uniform; coverage gradient is per-tier (T2 sparse until Cloudflare reliability lands in M003-adjacent work). Avoids two-tier code paths.
+- Source: user
+- Primary owning slice: M002/S03
+- Supporting slices: M002/S04
+- Validation: M002/S03 shipped backend/app/crawlers/compliance_audit.py and the category_targets contract on RetailerCrawlerAdapter. Re-verified live at M002 close: `cd backend && python -m app.crawlers.compliance_audit` exits 0 with `Total: 108/108 compliant — T0 (http) 83/83, T1 (tls) 15/15, T2 (browser) 10/10` (canonical 108 figure per MEM037/MEM122; the M002 vision text's '111 adapters' refers to 3 IS_FALLBACK GenericHtmlParser instances per tier excluded from the registry per D-03). Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/compliance-audit-stdout.txt.
+- Notes: Promoted at M002 close (2026-04-25). Vision text '111' reconciled to canonical 108/108 contract per MEM037/MEM122. Compliance binary; live audit green.
+
 ### R004 — When an adapter returns specs that fail Pydantic validation, ingest drops the spec block, ingests the part without specs, logs a structured warning, and increments a per-adapter `extraction_failure_rate` metric. Part ingest must never regress because category extraction is new.
 - Class: failure-visibility
 - Status: validated
@@ -175,6 +48,28 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged.
 - Notes: Sensible-defaults policy applied (Layer 3 gate).
 
+### R005 — Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
+- Class: operability
+- Status: validated
+- Description: Chunked, idempotent, resumable backfill job iterates the S3 `crawl_html/by_url/` self-archive and repopulates `Part.specifications` for existing parts using the new extraction layer. Started by milestone end; can finish post-merge.
+- Why it matters: The 25k+ parts already scraped pre-M002 don't have structured fields. Backfill is what makes price-history + comparative-display UX feel alive on launch.
+- Source: user
+- Primary owning slice: M002/S04
+- Supporting slices: none
+- Validation: M002/S04 shipped backend/app/crawlers/backfill.py — chunked, idempotent, resumable backfill CLI iterating S3 crawl_html/by_url/. Started against the live local stack at M002 close (M002/S13/T05): dry-run + 100-part real run both green (97/100 specs repopulated, 0 failures), per-batch `backfill: batch=N start_id=<uuid> processed=N updated=N skipped=N elapsed=Ns` log lines emitted, backend/.crawler-state/backfill_cursor.json checkpoint written for operator resume. The R005 contract is 'started, not complete' — long-tail completion is post-merge. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/backfill-run.log + backfill-cursor-snapshot.json + admin-extraction-health-post-backfill.json.
+- Notes: Promoted at M002 close (2026-04-25). 'Started, not complete' contract met. Long-tail finish post-merge using committed cursor snapshot for --resume.
+
+### R006 — Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
+- Class: admin/support
+- Status: validated
+- Description: Admin page distinguishes compliance (binary, 111/111 expected) from coverage (per-tier gradient — T0/T1/T2 with field-presence heatmap). Includes per-adapter `extraction_failure_rate` over a rolling window.
+- Why it matters: Operational visibility for the admin operator; "adapter X is silently failing" is detectable without log diving.
+- Source: inferred
+- Primary owning slice: M002/S04
+- Supporting slices: M002/S11
+- Validation: M002/S04 shipped backend/app/api/endpoints/admin/extraction_health.py exposing GET /api/admin/extraction-health. Live-hit at M002 close (M002/S13/T04) returned the canonical contract: compliance.compliant=108, compliance.total=108, per_tier {http:'83/83', tls:'15/15', browser:'10/10'}, coverage.per_tier with field-presence keys, failure_rate_7d list, window.days=7. M002/S11 reskinned the /admin/extraction-health UI onto the new design system; admin shell ui surface renders matching the JSON contract. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/admin-extraction-health.json (canonical 108/108 contract dump from live uvicorn) + admin-extraction-health-post-backfill.json (post-T05 delta dump).
+- Notes: Promoted at M002 close (2026-04-25). UI screenshot pending operator review (admin-extraction-health-ui.png.OPERATOR-PENDING.md) — backend JSON contract verified.
+
 ### R007 — `GET /api/parts/{id}/price-history` returns retailer-level and listing-level history for a part with windowing. Batch endpoint `POST /api/parts/price-history` returns min/max/last/trend for N parts (used by list views).
 - Class: core-capability
 - Status: validated
@@ -185,6 +80,39 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M002/S06
 - Validation: M002/S05 shipped both endpoints. GET /api/parts/{id}/price-history returns PriceHistorySinglePartResponse (summary + retailers + history) with window param (30d/90d/180d/1y/all default 90d), retailer_id filter, and legacy=true list-shape shim for backward compatibility. POST /api/parts/price-history accepts 1-100 part_ids → batch min/max/last/trend with link-group dedup. Aggregation lives in app/api/services/part_price_aggregation_service.py (pure read service, canonical-coalesce expression). 18 endpoint tests + 11 service tests + OpenAPI snapshot test green. Frontend client (getPartPriceHistorySummary + getBatchPriceHistorySummary) wired with TS types; 26 vitest cases green. Verified 2026-04-25.
 - Notes: Query-time aggregation per D004; perf-gate infra + gate-on-the-gate tests landed in T05; live 10× load run is R019's concern and remains active until run against a live uvicorn server with sample data. R036 (materialized part_price_summary) stays unopened unless that gate misses.
+
+### R008 — Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
+- Class: primary-user-loop
+- Status: validated
+- Description: Every part-card surface (parts catalog, build-list view, search results) shows a sparkline of recent price observations plus a "$X → $Y over N days" delta line where observations exist. No sparkline is rendered when zero observations exist; a single observation renders a dot.
+- Why it matters: First user-visible payoff of the price-history work — turns dormant data into a comparative signal at-a-glance.
+- Source: user
+- Primary owning slice: M002/S06
+- Supporting slices: M002/S10
+- Validation: M002/S06 shipped frontend/src/components/charts/Sparkline.tsx + frontend/src/components/parts/PriceDeltaLine.tsx and integrated them into PartsCatalog rows; M002/S10 reskinned PartsCatalog onto the new design system preserving sparkline+delta surface. Verified at M002 close: M002/S13/T01 live UAT walkthrough confirms /parts catalog renders sparklines + delta lines for parts with observations (zero observations renders no sparkline; single observation renders a dot). Playwright e2e price-history.spec.ts:480 ('/parts catalog renders sparklines + delta lines') and parts-catalog visual-regression baselines green at mobile/tablet/desktop. Evidence: refreshed price-history.spec.ts-snapshots/-parts-catalog-renders-sparklines-delta-lines-1-{mobile,tablet,desktop}-linux.png + parts-catalog.spec.ts-snapshots/.
+- Notes: Promoted at M002 close (2026-04-25). Sparkline rendering, delta line, and zero/single/multi-observation cases all covered by Playwright spec at 3 viewports.
+
+### R009 — Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
+- Class: primary-user-loop
+- Status: validated
+- Description: Clickable sparkline opens a per-part price-history detail view with retailer breakdowns, listing-level history, "best price seen at retailer X," and stale-observation caveats ("as of $date") for listings 60+ days old.
+- Why it matters: Drill-down for the comparative-shopping use case — "where was this cheapest, when?"
+- Source: user
+- Primary owning slice: M002/S06
+- Supporting slices: none
+- Validation: M002/S06 shipped per-part price-history detail surface on /parts/:id with retailer breakdowns (flat list when ≤3 retailers, Tabs when >3), listing-level history rows, 'best price seen at retailer X' callout, and stale-observation 'as of $date' caveats for listings 60+ days old. Verified at M002 close: Playwright e2e price-history.spec.ts:533 ('/parts/:id detail renders retailer breakdown + stale caveat') green at mobile/tablet/desktop. M002/S13/T01 live UAT walkthrough exercised the click-through from /parts → /parts/:id and confirmed retailer breakdowns + stale caveats render. M002/S13/T03 removed the legacy=true query-param and PriceHistoryLineChart leaving the S06 'Price summary (90 days)' block as the canonical surface. Evidence: refreshed price-history.spec.ts-snapshots/-parts-id-detail-renders-retailer-breakdown-stale-caveat-1-{mobile,tablet,desktop}-linux.png.
+- Notes: Promoted at M002 close (2026-04-25). Detail view, retailer breakdown (≤3 list / >3 Tabs), and 60d stale caveat all visible in committed Playwright baselines.
+
+### R010 — User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
+- Class: primary-user-loop
+- Status: validated
+- Description: User opts in on the part detail page with a threshold price; when any listing observation falls below threshold, an email fires via the existing SES path. Subscription-management page lists all active alerts and supports unsubscribe. Threshold evaluation is unit-tested; an integration test fires a real email to a fixture address.
+- Why it matters: Converts price-history from passive display into an active engagement loop — gives users a reason to come back.
+- Source: user
+- Primary owning slice: M002/S07
+- Supporting slices: none
+- Validation: M002/S07 shipped backend/app/api/models/part_price_alert.py + Alembic migration + part_price_alerts CRUD endpoints + price-drop alert evaluator hooked into the observation write path + SES email path + /account/alerts subscription-management page + unsubscribe-token redirect flow. Verified at M002 close (M002/S13/T01 live UAT walkthrough): subscribe → trigger observation below threshold → SES email arrives at fixture inbox `tylert2610+m002-uat@gmail.com` → click unsubscribe link → 302 redirect → /account/alerts?status=success → row removed. Backend logs surface `price_alert_evaluated: alert_id=... verdict=fired` and `price_alert_email_sent: alert_id=... success=true`. Playwright e2e price-alerts.spec.ts subscribe→manage→unsubscribe demo flow green at mobile/tablet/desktop. Evidence: T01 extraction-and-alert.log excerpts + refreshed price-alerts.spec.ts-snapshots/.
+- Notes: Promoted at M002 close (2026-04-25). Live SES send + unsubscribe round-trip verified by operator. Recipient redacted from committed evidence per slice redaction constraints.
 
 ### R011 — CSS-variable-based token layer for color, spacing, type scale, radii, and shadows. Dark palette locked during the design-system slice; light mode deferred unless it falls out of token architecture naturally.
 - Class: core-capability
@@ -218,6 +146,83 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: none
 - Validation: S08/T05+T06 — frontend/e2e/components.spec.ts mounts /_kitchen-sink (renders all 9 primitives in every state via data-testid sections) and runs toHaveScreenshot({ fullPage: true }) at three viewport projects (mobile 375x667 / tablet 768x1024 / desktop 1280x800). playwright.config.ts sets expect.toHaveScreenshot.maxDiffPixelRatio = 0.002 (R013's 0.2% bar) and animations='disabled'. Three baseline PNGs committed under e2e/components.spec.ts-snapshots/. Fresh evidence: `npm run test:e2e` exits 0 with 6 passed (4.1s) — 3 components.spec runs + 3 smoke.spec runs across the three projects.
 - Notes: Existing uncommitted `playwright.config.ts` and `smoke.spec.ts` land as part of S08.
+
+### R014 — `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
+- Class: primary-user-loop
+- Status: validated
+- Description: `/build-lists/{id}` rebuilt against new component library + tokens. Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works (tab order, focus indicators, escape on dialogs). Manual UAT checklist documented.
+- Why it matters: One of three explicitly user-flagged "needs love" surfaces; the canonical build-planning surface.
+- Source: user
+- Primary owning slice: M002/S09
+- Supporting slices: none
+- Validation: M002/S09 rebuilt /build-lists/{id} on the new component library + tokens. Playwright e2e build-list.spec.ts:232 (build-list detail visual regression), build-list.spec.ts:245 (edit dialog opens, focuses, and Escape closes), and build-list.spec.ts:278 (tab order surfaces visible focus on first interactive control) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. S09-UAT.md documented manual UAT checklist. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports. Evidence: refreshed build-list.spec.ts-snapshots/build-list-detail-visual-regression-1-{mobile,tablet,desktop}-linux.png + gauntlet-evidence.json item #4.
+- Notes: Promoted at M002 close (2026-04-25). Confirmed still-active per T06 plan's REQUIREMENTS.md cross-check; direct M002/S13/T06 evidence supports promotion alongside R016/R020.
+
+### R015 — `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
+- Class: primary-user-loop
+- Status: validated
+- Description: `/parts` rebuilt against new component library + tokens, with sparklines integrated into part cards (R008). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
+- Why it matters: One of three priority surfaces; the discovery entry point for the entire catalog.
+- Source: user
+- Primary owning slice: M002/S10
+- Supporting slices: M002/S06
+- Validation: M002/S10 rebuilt /parts on the new component library + tokens with S06 sparklines integrated into part cards. Playwright e2e parts-catalog.spec.ts:445 (parts catalog visual regression), parts-catalog.spec.ts:481 (add-to-build-list dialog opens, focus moves into it, Escape closes it), and parts-catalog.spec.ts:528 (tab traversal lands visible focus on search input) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. S10-UAT.md documented manual UAT checklist. price-history.spec.ts:480 (sparklines + delta lines) also green. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports. Evidence: refreshed parts-catalog.spec.ts-snapshots/ + price-history.spec.ts-snapshots/-parts-catalog-renders-sparklines-delta-lines-* + gauntlet-evidence.json item #4.
+- Notes: Promoted at M002 close (2026-04-25). Confirmed still-active per T06 plan's REQUIREMENTS.md cross-check; direct M002/S13/T06 evidence supports promotion alongside R008/R016/R020.
+
+### R016 — `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
+- Class: admin/support
+- Status: validated
+- Description: `/admin` rebuilt against new component library + tokens, including the extraction-health view (R006). Playwright `toHaveScreenshot()` tests pass at mobile/tablet/desktop. Keyboard nav works. Manual UAT checklist documented.
+- Why it matters: One of three priority surfaces; admin-as-operator efficiency surface.
+- Source: user
+- Primary owning slice: M002/S11
+- Supporting slices: M002/S04
+- Validation: M002/S11 shipped /admin shell + ExtractionHealth view rebuilt on the new component library + tokens. Playwright e2e admin.spec.ts:251 (admin dashboard visual regression) and admin.spec.ts:269 (admin extraction-health visual regression) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. Keyboard navigation, focus indicators, and Escape on dialogs validated by S09/S10/S11 desktop keyboard specs. Verified at M002 close: M002/S13/T04 live admin extraction-health JSON dump confirms backend contract still serves the canonical 108/108 shape consumed by the reskinned UI. Evidence: refreshed admin.spec.ts-snapshots/admin-{dashboard,extraction-health}-1-{mobile,tablet,desktop}-linux.png + admin-extraction-health.json.
+- Notes: Promoted at M002 close (2026-04-25). Admin shell + extraction-health view both on new design system with refreshed baselines green at 3 viewports.
+
+### R017 — All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
+- Class: quality-attribute
+- Status: validated
+- Description: All ~17 remaining pages migrated onto the new component library and tokens. Manual UAT smoke pass documented per page. No page imports from deprecated `components/common/`; enforcement via lint rule or grep check.
+- Why it matters: The cohesion goal — new visual language is the entire app, not three islands.
+- Source: user
+- Primary owning slice: M002/S12
+- Supporting slices: M002/S09, M002/S10, M002/S11
+- Validation: M002/S12 retired components/common/ + components/buttons/ across all ~17 remaining pages. Enforcement locked at M002/S12/T06 via (a) frontend/src/__tests__/no-legacy-primitives.test.ts vitest grep-guard, (b) frontend/eslint.config.js no-restricted-imports rule on **/components/common/* + **/components/buttons/*, (c) physical deletion of both directories (test ! -d frontend/src/components/buttons && test ! -d frontend/src/components/common returns 0). Verified at M002 close: gauntlet `npm test -- --run` returns 594 pass including the no-legacy-primitives.test.ts guard; `npm run lint` returns 108 errors at the MEM062 baseline with zero no-restricted-imports violations; `grep -rln 'components/common\\|components/buttons' frontend/src/` returns one self-referential match in the guard test only. Evidence: gauntlet-evidence.json items #3, #5 + frontend/src/__tests__/no-legacy-primitives.test.ts.
+- Notes: Promoted at M002 close (2026-04-25). Three-layer enforcement (deleted directories + grep guard + ESLint rule) ensures the migration cannot regress.
+
+### R018 — Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
+- Class: quality-attribute
+- Status: validated
+- Description: Build out `tests/` for the crawler subsystem: fixture-based unit tests for the universal extractor, contract tests for each Pydantic category model with 3–5 spot fixtures drawn from S3-archived HTML, smoke test on the backfill job sampling 100 parts and asserting `extraction_failure_rate` below threshold.
+- Why it matters: Crawler subsystem currently has no tests. Building a quality bar for a new extraction layer with zero existing tests is core to making M002 verifiable.
+- Source: inferred
+- Primary owning slice: M002/S01
+- Supporting slices: M002/S02, M002/S04
+- Validation: Crawler test suite green at M002 close: `TESTING=true pytest -n auto --rootdir=backend -q --no-cov backend/tests` exits 0 with 2800 passed / 15 skipped / 0 failed in 36.34s (1075 warnings, all pre-existing). Suite includes M002/S01 SpecRegistry contract tests + ingest validation hook tests (23 in test_spec_registry_contract.py + test_ingest_spec_validation.py), M002/S02 universal-extractor fixture tests (extract_weight/material/finish/warranty/fitment_notes), M002/S03 compliance audit tests, M002/S04 backfill smoke tests sampling 100 parts and asserting extraction_failure_rate below threshold, plus per-adapter contract tests with 3-5 spot fixtures from S3-archived HTML for each Pydantic category model (CoiloverSpec, BrakeSpec, TurboSpec, UniversalSpec). Evidence: gauntlet-evidence.json item #1.
+- Notes: Promoted at M002 close (2026-04-25). Universal extractor + per-category Pydantic models + backfill smoke + compliance audit all under test.
+
+### R019 — Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
+- Class: quality-attribute
+- Status: validated
+- Description: Load test against the batch `POST /api/parts/price-history` endpoint at 10× current traffic on current catalog size. p95 latency budget enforced. If missed, the materialization fix-task (R036) opens.
+- Why it matters: The user is scaling toward real users; perf gate is phrased against forward traffic, not localhost feel.
+- Source: user
+- Primary owning slice: M002/S05
+- Supporting slices: none
+- Validation: M002/S13/T02 re-ran the S05 perf gate against the live stack at the 10× config (50 users, 10 spawn-rate, 60s) on 2026-04-26 UTC. PASSED with GET p95=95ms (budget <200ms), POST p95=130ms (budget <500ms), 0 failures across 1893 requests. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/perf-gate-PASSED.json (mirrored from backend/.perf-runs/price-history-PASSED-20260426T051456Z.json). R036 (materialized part_price_summary) precondition not met — stays deferred per D004.
+- Notes: Perf gate PASSED on first re-run. R036 remains deferred. See .gsd/milestones/M002/slices/S13/uat-evidence/perf-gate-PASSED.json for the percentile dump.
+
+### R020 — Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
+- Class: quality-attribute
+- Status: validated
+- Description: Tab order, focus indicators, escape handling on dialogs, and screen-reader-friendly labels validated on each redesigned page. Light pass — not a full WCAG audit; baseline that Radix primitives unlock for free is preserved.
+- Why it matters: Scaling to real users includes users with assistive tech. Radix primitives cover the heavy lifting — this requirement is to not regress that for free coverage.
+- Source: inferred
+- Primary owning slice: M002/S09, M002/S10, M002/S11
+- Supporting slices: M002/S12
+- Validation: Tab order, focus indicators, Escape handling on dialogs, and screen-reader-friendly labels validated across each redesigned page during M002/S09 (build-list), M002/S10 (parts catalog), and M002/S11 (admin). Playwright e2e tests at desktop viewport assert keyboard behavior: build-list.spec.ts:245 ('edit dialog opens, focuses, and Escape closes'), build-list.spec.ts:278 ('tab order surfaces visible focus on first interactive control'), parts-catalog.spec.ts:481 ('add-to-build-list dialog opens, focus moves into it, Escape closes it'), parts-catalog.spec.ts:528 ('tab traversal lands visible focus on search input'). Radix primitives in frontend/src/components/ui/ provide built-in focus-trap behavior on Dialog/Sheet/DropdownMenu. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports including these keyboard specs. Evidence: gauntlet-evidence.json item #4.
+- Notes: Promoted at M002 close (2026-04-25). Light pass — not a full WCAG audit; Radix primitive baseline preserved.
 
 ## Deferred
 
@@ -382,25 +387,25 @@ This file is the explicit capability and coverage contract for the project.
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
 | R001 | core-capability | validated | M002/S01 | M002/S03 | M002/S01 ships SpecRegistry + CategorySpec base + 3 concrete models (CoiloverSpec, BrakeSpec, TurboSpec) under backend/app/crawlers/specs/. Adapters declare targets via category_targets ClassVar on RetailerCrawlerAdapter (validated at import time against default_registry). Ingest in app/crawlers/base.py.ingest_payload validates payload.specifications against the resolved schema. Verified by 23 contract+integration tests in backend/tests/crawlers/test_spec_registry_contract.py and test_ingest_spec_validation.py — all green; full crawler suite 1284 passed, 1 skipped. |
-| R002 | core-capability | active | M002/S02 | M002/S03 | mapped |
-| R003 | core-capability | active | M002/S03 | M002/S04 | mapped |
+| R002 | core-capability | validated | M002/S02 | M002/S03 | M002/S02 shipped backend/app/crawlers/parsing.py extensions (extract_weight, extract_material, extract_finish, extract_warranty, extract_fitment_notes) plus the RetailerCrawlerAdapter post-hook that auto-merges universal-field extraction into ScrapedPayload.specifications; per-field suppression supported via class attribute. Verified live in M002/S13/T01 UAT walkthrough — backend logs surface `universal_extraction_extracted` lines during the live scrape, and M002/S13/T04's compliance audit (108/108) confirms every adapter inherits the base-class universal extractor. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/compliance-audit-stdout.txt (108/108 compliance proves universal-extractor inheritance) plus existing S02 contract tests. |
+| R003 | core-capability | validated | M002/S03 | M002/S04 | M002/S03 shipped backend/app/crawlers/compliance_audit.py and the category_targets contract on RetailerCrawlerAdapter. Re-verified live at M002 close: `cd backend && python -m app.crawlers.compliance_audit` exits 0 with `Total: 108/108 compliant — T0 (http) 83/83, T1 (tls) 15/15, T2 (browser) 10/10` (canonical 108 figure per MEM037/MEM122; the M002 vision text's '111 adapters' refers to 3 IS_FALLBACK GenericHtmlParser instances per tier excluded from the registry per D-03). Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/compliance-audit-stdout.txt. |
 | R004 | failure-visibility | validated | M002/S01 | M002/S04 | M002/S01 wired ingest_payload to fail-soft on Pydantic ValidationError: drops the spec block (specifications=None), logs a structured WARN with adapter_name + inferred slug + e.errors()[:3], emits ExtractionFailureRate EMF metric (env-gated, same isolation pattern as emit_crawler_run_metrics — catch and log; never raise), and the Part still persists. Verified by 3 integration tests: test_invalid_specs_drop_to_none_and_part_persists, test_type_coercion_failure_drops_to_none, test_emit_extraction_failure_called_once_on_invalid_specs (caplog assertions lock in adapter_name + slug visibility). Pass-through cases (no spec block, no inferred slug, no model registered) keep all 108 legacy adapters working unchanged. |
-| R005 | operability | active | M002/S04 | none | mapped |
-| R006 | admin/support | active | M002/S04 | M002/S11 | mapped |
+| R005 | operability | validated | M002/S04 | none | M002/S04 shipped backend/app/crawlers/backfill.py — chunked, idempotent, resumable backfill CLI iterating S3 crawl_html/by_url/. Started against the live local stack at M002 close (M002/S13/T05): dry-run + 100-part real run both green (97/100 specs repopulated, 0 failures), per-batch `backfill: batch=N start_id=<uuid> processed=N updated=N skipped=N elapsed=Ns` log lines emitted, backend/.crawler-state/backfill_cursor.json checkpoint written for operator resume. The R005 contract is 'started, not complete' — long-tail completion is post-merge. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/backfill-run.log + backfill-cursor-snapshot.json + admin-extraction-health-post-backfill.json. |
+| R006 | admin/support | validated | M002/S04 | M002/S11 | M002/S04 shipped backend/app/api/endpoints/admin/extraction_health.py exposing GET /api/admin/extraction-health. Live-hit at M002 close (M002/S13/T04) returned the canonical contract: compliance.compliant=108, compliance.total=108, per_tier {http:'83/83', tls:'15/15', browser:'10/10'}, coverage.per_tier with field-presence keys, failure_rate_7d list, window.days=7. M002/S11 reskinned the /admin/extraction-health UI onto the new design system; admin shell ui surface renders matching the JSON contract. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/admin-extraction-health.json (canonical 108/108 contract dump from live uvicorn) + admin-extraction-health-post-backfill.json (post-T05 delta dump). |
 | R007 | core-capability | validated | M002/S05 | M002/S06 | M002/S05 shipped both endpoints. GET /api/parts/{id}/price-history returns PriceHistorySinglePartResponse (summary + retailers + history) with window param (30d/90d/180d/1y/all default 90d), retailer_id filter, and legacy=true list-shape shim for backward compatibility. POST /api/parts/price-history accepts 1-100 part_ids → batch min/max/last/trend with link-group dedup. Aggregation lives in app/api/services/part_price_aggregation_service.py (pure read service, canonical-coalesce expression). 18 endpoint tests + 11 service tests + OpenAPI snapshot test green. Frontend client (getPartPriceHistorySummary + getBatchPriceHistorySummary) wired with TS types; 26 vitest cases green. Verified 2026-04-25. |
-| R008 | primary-user-loop | active | M002/S06 | M002/S10 | mapped |
-| R009 | primary-user-loop | active | M002/S06 | none | mapped |
-| R010 | primary-user-loop | active | M002/S07 | none | mapped |
+| R008 | primary-user-loop | validated | M002/S06 | M002/S10 | M002/S06 shipped frontend/src/components/charts/Sparkline.tsx + frontend/src/components/parts/PriceDeltaLine.tsx and integrated them into PartsCatalog rows; M002/S10 reskinned PartsCatalog onto the new design system preserving sparkline+delta surface. Verified at M002 close: M002/S13/T01 live UAT walkthrough confirms /parts catalog renders sparklines + delta lines for parts with observations (zero observations renders no sparkline; single observation renders a dot). Playwright e2e price-history.spec.ts:480 ('/parts catalog renders sparklines + delta lines') and parts-catalog visual-regression baselines green at mobile/tablet/desktop. Evidence: refreshed price-history.spec.ts-snapshots/-parts-catalog-renders-sparklines-delta-lines-1-{mobile,tablet,desktop}-linux.png + parts-catalog.spec.ts-snapshots/. |
+| R009 | primary-user-loop | validated | M002/S06 | none | M002/S06 shipped per-part price-history detail surface on /parts/:id with retailer breakdowns (flat list when ≤3 retailers, Tabs when >3), listing-level history rows, 'best price seen at retailer X' callout, and stale-observation 'as of $date' caveats for listings 60+ days old. Verified at M002 close: Playwright e2e price-history.spec.ts:533 ('/parts/:id detail renders retailer breakdown + stale caveat') green at mobile/tablet/desktop. M002/S13/T01 live UAT walkthrough exercised the click-through from /parts → /parts/:id and confirmed retailer breakdowns + stale caveats render. M002/S13/T03 removed the legacy=true query-param and PriceHistoryLineChart leaving the S06 'Price summary (90 days)' block as the canonical surface. Evidence: refreshed price-history.spec.ts-snapshots/-parts-id-detail-renders-retailer-breakdown-stale-caveat-1-{mobile,tablet,desktop}-linux.png. |
+| R010 | primary-user-loop | validated | M002/S07 | none | M002/S07 shipped backend/app/api/models/part_price_alert.py + Alembic migration + part_price_alerts CRUD endpoints + price-drop alert evaluator hooked into the observation write path + SES email path + /account/alerts subscription-management page + unsubscribe-token redirect flow. Verified at M002 close (M002/S13/T01 live UAT walkthrough): subscribe → trigger observation below threshold → SES email arrives at fixture inbox `tylert2610+m002-uat@gmail.com` → click unsubscribe link → 302 redirect → /account/alerts?status=success → row removed. Backend logs surface `price_alert_evaluated: alert_id=... verdict=fired` and `price_alert_email_sent: alert_id=... success=true`. Playwright e2e price-alerts.spec.ts subscribe→manage→unsubscribe demo flow green at mobile/tablet/desktop. Evidence: T01 extraction-and-alert.log excerpts + refreshed price-alerts.spec.ts-snapshots/. |
 | R011 | core-capability | validated | M002/S08 | all subsequent UX slices | S08/T02 — frontend/src/styles/tokens.css declares the full shadcn-standard token vocabulary on :root with HSL channels (background/foreground, card, popover, primary/secondary/accent, muted, destructive, border, input, ring + radius scale + shadow scale + z-index layers), bridges into Tailwind v4 via @theme so utilities like bg-background and border-border resolve, and is imported once from frontend/src/index.css. Production build (vite build) confirms .bg-background / --background present in dist/assets/*.css. Legacy --primary-*/--neutral-*/--accent-* blocks left intact for additive coexistence until S12 retires components/common/. |
 | R012 | core-capability | validated | M002/S08 | M002/S09–S12 | S08/T03+T04 — all 9 primitives committed under frontend/src/components/ui/: button.tsx, input.tsx, select.tsx, tabs.tsx, combobox.tsx (Wave 1, T03) and dialog.tsx, dropdown-menu.tsx, sheet.tsx, toast.tsx (Wave 2, T04). Each uses cn() + cva() where applicable, consumes T02 tokens via Tailwind utilities (bg-primary, text-primary-foreground, focus-visible:ring-ring), and exposes the full state surface (default/hover/focus/disabled/loading/error). Sheet wraps Radix Dialog with a side cva variant; Toast wraps sonner. Animations land via inline @keyframes + @utility declarations in tokens.css instead of installing tailwindcss-animate (per slice plan preference). |
 | R013 | quality-attribute | validated | M002/S08 | none | S08/T05+T06 — frontend/e2e/components.spec.ts mounts /_kitchen-sink (renders all 9 primitives in every state via data-testid sections) and runs toHaveScreenshot({ fullPage: true }) at three viewport projects (mobile 375x667 / tablet 768x1024 / desktop 1280x800). playwright.config.ts sets expect.toHaveScreenshot.maxDiffPixelRatio = 0.002 (R013's 0.2% bar) and animations='disabled'. Three baseline PNGs committed under e2e/components.spec.ts-snapshots/. Fresh evidence: `npm run test:e2e` exits 0 with 6 passed (4.1s) — 3 components.spec runs + 3 smoke.spec runs across the three projects. |
-| R014 | primary-user-loop | active | M002/S09 | none | mapped |
-| R015 | primary-user-loop | active | M002/S10 | M002/S06 | mapped |
-| R016 | admin/support | active | M002/S11 | M002/S04 | mapped |
-| R017 | quality-attribute | active | M002/S12 | M002/S09, M002/S10, M002/S11 | mapped |
-| R018 | quality-attribute | active | M002/S01 | M002/S02, M002/S04 | mapped |
-| R019 | quality-attribute | active | M002/S05 | none | mapped |
-| R020 | quality-attribute | active | M002/S09, M002/S10, M002/S11 | M002/S12 | mapped |
+| R014 | primary-user-loop | validated | M002/S09 | none | M002/S09 rebuilt /build-lists/{id} on the new component library + tokens. Playwright e2e build-list.spec.ts:232 (build-list detail visual regression), build-list.spec.ts:245 (edit dialog opens, focuses, and Escape closes), and build-list.spec.ts:278 (tab order surfaces visible focus on first interactive control) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. S09-UAT.md documented manual UAT checklist. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports. Evidence: refreshed build-list.spec.ts-snapshots/build-list-detail-visual-regression-1-{mobile,tablet,desktop}-linux.png + gauntlet-evidence.json item #4. |
+| R015 | primary-user-loop | validated | M002/S10 | M002/S06 | M002/S10 rebuilt /parts on the new component library + tokens with S06 sparklines integrated into part cards. Playwright e2e parts-catalog.spec.ts:445 (parts catalog visual regression), parts-catalog.spec.ts:481 (add-to-build-list dialog opens, focus moves into it, Escape closes it), and parts-catalog.spec.ts:528 (tab traversal lands visible focus on search input) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. S10-UAT.md documented manual UAT checklist. price-history.spec.ts:480 (sparklines + delta lines) also green. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports. Evidence: refreshed parts-catalog.spec.ts-snapshots/ + price-history.spec.ts-snapshots/-parts-catalog-renders-sparklines-delta-lines-* + gauntlet-evidence.json item #4. |
+| R016 | admin/support | validated | M002/S11 | M002/S04 | M002/S11 shipped /admin shell + ExtractionHealth view rebuilt on the new component library + tokens. Playwright e2e admin.spec.ts:251 (admin dashboard visual regression) and admin.spec.ts:269 (admin extraction-health visual regression) green at mobile/tablet/desktop after M002/S13/T06 baseline refresh. Keyboard navigation, focus indicators, and Escape on dialogs validated by S09/S10/S11 desktop keyboard specs. Verified at M002 close: M002/S13/T04 live admin extraction-health JSON dump confirms backend contract still serves the canonical 108/108 shape consumed by the reskinned UI. Evidence: refreshed admin.spec.ts-snapshots/admin-{dashboard,extraction-health}-1-{mobile,tablet,desktop}-linux.png + admin-extraction-health.json. |
+| R017 | quality-attribute | validated | M002/S12 | M002/S09, M002/S10, M002/S11 | M002/S12 retired components/common/ + components/buttons/ across all ~17 remaining pages. Enforcement locked at M002/S12/T06 via (a) frontend/src/__tests__/no-legacy-primitives.test.ts vitest grep-guard, (b) frontend/eslint.config.js no-restricted-imports rule on **/components/common/* + **/components/buttons/*, (c) physical deletion of both directories (test ! -d frontend/src/components/buttons && test ! -d frontend/src/components/common returns 0). Verified at M002 close: gauntlet `npm test -- --run` returns 594 pass including the no-legacy-primitives.test.ts guard; `npm run lint` returns 108 errors at the MEM062 baseline with zero no-restricted-imports violations; `grep -rln 'components/common\\|components/buttons' frontend/src/` returns one self-referential match in the guard test only. Evidence: gauntlet-evidence.json items #3, #5 + frontend/src/__tests__/no-legacy-primitives.test.ts. |
+| R018 | quality-attribute | validated | M002/S01 | M002/S02, M002/S04 | Crawler test suite green at M002 close: `TESTING=true pytest -n auto --rootdir=backend -q --no-cov backend/tests` exits 0 with 2800 passed / 15 skipped / 0 failed in 36.34s (1075 warnings, all pre-existing). Suite includes M002/S01 SpecRegistry contract tests + ingest validation hook tests (23 in test_spec_registry_contract.py + test_ingest_spec_validation.py), M002/S02 universal-extractor fixture tests (extract_weight/material/finish/warranty/fitment_notes), M002/S03 compliance audit tests, M002/S04 backfill smoke tests sampling 100 parts and asserting extraction_failure_rate below threshold, plus per-adapter contract tests with 3-5 spot fixtures from S3-archived HTML for each Pydantic category model (CoiloverSpec, BrakeSpec, TurboSpec, UniversalSpec). Evidence: gauntlet-evidence.json item #1. |
+| R019 | quality-attribute | validated | M002/S05 | none | M002/S13/T02 re-ran the S05 perf gate against the live stack at the 10× config (50 users, 10 spawn-rate, 60s) on 2026-04-26 UTC. PASSED with GET p95=95ms (budget <200ms), POST p95=130ms (budget <500ms), 0 failures across 1893 requests. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/perf-gate-PASSED.json (mirrored from backend/.perf-runs/price-history-PASSED-20260426T051456Z.json). R036 (materialized part_price_summary) precondition not met — stays deferred per D004. |
+| R020 | quality-attribute | validated | M002/S09, M002/S10, M002/S11 | M002/S12 | Tab order, focus indicators, Escape handling on dialogs, and screen-reader-friendly labels validated across each redesigned page during M002/S09 (build-list), M002/S10 (parts catalog), and M002/S11 (admin). Playwright e2e tests at desktop viewport assert keyboard behavior: build-list.spec.ts:245 ('edit dialog opens, focuses, and Escape closes'), build-list.spec.ts:278 ('tab order surfaces visible focus on first interactive control'), parts-catalog.spec.ts:481 ('add-to-build-list dialog opens, focus moves into it, Escape closes it'), parts-catalog.spec.ts:528 ('tab traversal lands visible focus on search input'). Radix primitives in frontend/src/components/ui/ provide built-in focus-trap behavior on Dialog/Sheet/DropdownMenu. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports including these keyboard specs. Evidence: gauntlet-evidence.json item #4. |
 | R030 | core-capability | deferred | M003 | none | unmapped |
 | R031 | primary-user-loop | deferred | M003 | none | unmapped |
 | R032 | primary-user-loop | deferred | M003 | none | unmapped |
@@ -419,7 +424,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 14
-- Mapped to slices: 14
-- Validated: 6 (R001, R004, R007, R011, R012, R013)
+- Active requirements: 0
+- Mapped to slices: 0
+- Validated: 20 (R001, R002, R003, R004, R005, R006, R007, R008, R009, R010, R011, R012, R013, R014, R015, R016, R017, R018, R019, R020)
 - Unmapped active requirements: 0

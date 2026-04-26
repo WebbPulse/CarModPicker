@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import Spinner from '../../components/ui/spinner';
 import type {
   AdminTableCountsResponse,
   BucketEntityTypeCountResponse,
@@ -461,16 +461,17 @@ function SystemStatistics() {
                 className="flex items-center gap-2 text-xs text-gray-400"
                 aria-live="polite"
               >
-                <LoadingSpinner />
+                <Spinner inline />
                 <span>Loading…</span>
               </div>
             )}
             {!isLoadingCounts && (
               <>
-                <ActionButton
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => void fetchBucketSummaries()}
                   disabled={isLoadingBuckets}
-                  className="text-sm"
                   title="Lists every object in the user-images + crawl HTML buckets. Slow on large archives."
                 >
                   {isLoadingBuckets
@@ -478,13 +479,14 @@ function SystemStatistics() {
                     : bucketEntitySummary || crawlBucketSummary
                       ? 'Refresh S3 counts'
                       : 'Load S3 counts'}
-                </ActionButton>
-                <ActionButton
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => void fetchCounts()}
-                  className="text-sm"
                 >
                   Refresh
-                </ActionButton>
+                </Button>
               </>
             )}
           </div>

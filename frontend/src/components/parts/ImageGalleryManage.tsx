@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { partsApi } from '../../services/Api';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
-import { ErrorAlert } from '../common/Alerts';
-import DeleteConfirmationDialog from '../common/DeleteConfirmationDialog';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { ErrorAlert } from '../ui/alert';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 
 const CAROUSEL_SIZE = 5;
 
@@ -210,13 +210,19 @@ export default function ImageGalleryManage({
             })}
           </div>
         )}
-        <DeleteConfirmationDialog
-          isOpen={removeDialogOpen}
-          onClose={closeRemoveDialog}
+        <ConfirmDialog
+          open={removeDialogOpen}
+          onOpenChange={(open) => {
+            if (!open && isRemoving) return;
+            if (!open) closeRemoveDialog();
+          }}
           onConfirm={() => void handleConfirmRemove()}
-          itemName="this image"
-          itemType="image"
-          isProcessing={isRemoving}
+          title="Confirm Deletion"
+          description="Are you sure you want to delete this image? This action cannot be undone."
+          confirmLabel="Confirm Delete"
+          loadingLabel="Deleting..."
+          variant="destructive"
+          loading={isRemoving}
           error={removeError}
         />
       </div>
@@ -305,13 +311,19 @@ export default function ImageGalleryManage({
         </button>
       )}
 
-      <DeleteConfirmationDialog
-        isOpen={removeDialogOpen}
-        onClose={closeRemoveDialog}
+      <ConfirmDialog
+        open={removeDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && isRemoving) return;
+          if (!open) closeRemoveDialog();
+        }}
         onConfirm={() => void handleConfirmRemove()}
-        itemName="this image"
-        itemType="image"
-        isProcessing={isRemoving}
+        title="Confirm Deletion"
+        description="Are you sure you want to delete this image? This action cannot be undone."
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isRemoving}
         error={removeError}
       />
     </div>

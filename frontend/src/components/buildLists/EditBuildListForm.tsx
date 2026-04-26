@@ -14,13 +14,12 @@ import type {
   BuildListUpdate,
   CarGenerationRead,
 } from '../../types/Api';
-import SecondaryButton from '../buttons/SecondaryButton';
-import ButtonStretch from '../buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import ImageUpload from '../common/ImageUpload';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import ImageUpload from '../forms/ImageUpload';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Input } from '../ui/input';
+import Spinner from '../ui/spinner';
 
 interface EditBuildListFormProps {
   buildList: BuildListRead;
@@ -271,7 +270,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                 {isLoadingMakes ? (
                   <Card>
                     <div className="flex items-center justify-center py-4">
-                      <LoadingSpinner />
+                      <Spinner />
                     </div>
                   </Card>
                 ) : (
@@ -280,8 +279,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                       <Card
                         key={make}
                         onClick={() => setSelectedMake(make)}
-                        interactive
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {make}
@@ -302,7 +300,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                 {isLoadingCars ? (
                   <Card>
                     <div className="flex items-center justify-center py-4">
-                      <LoadingSpinner />
+                      <Spinner />
                     </div>
                   </Card>
                 ) : (
@@ -311,8 +309,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                       <Card
                         key={model}
                         onClick={() => setSelectedModel(model)}
-                        interactive
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {model}
@@ -335,8 +332,7 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
                     <Card
                       key={car.id}
                       onClick={() => setSelectedGeneration(car)}
-                      interactive
-                      className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors p-5"
+                      className="cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors p-5"
                     >
                       <h4 className="text-base font-semibold text-indigo-400 mb-1 break-words px-1">
                         {carGenerationDisplayName(car)}
@@ -448,17 +444,18 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
           <ErrorAlert message={apiError || formMessage?.text || null} />
         )}
         <div className="flex space-x-2 pt-2">
-          <ButtonStretch type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? 'Saving...' : 'Save Changes'}
-          </ButtonStretch>
-          <SecondaryButton
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={onCancel}
             disabled={isLoading}
             className="w-full"
           >
             Cancel
-          </SecondaryButton>
+          </Button>
         </div>
       </form>
     </div>

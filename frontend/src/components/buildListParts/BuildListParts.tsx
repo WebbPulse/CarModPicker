@@ -17,10 +17,10 @@ import type {
   CarGenerationRead,
 } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
 import SectionHeader from '../layout/SectionHeader';
+import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { Input } from '../ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';

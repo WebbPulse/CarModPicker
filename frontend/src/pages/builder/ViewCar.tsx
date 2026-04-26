@@ -9,22 +9,27 @@ import type { CategoryResponse } from '../../types/Api';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
-import { ErrorAlert } from '../../components/common/Alerts';
 import {
   carFullDisplayName,
   carGenerationDisplayName,
   carModelDisplayName,
   formatCarYearRange,
 } from '../../utils/carUtils';
-import Card from '../../components/common/Card';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import Dialog from '../../components/common/Dialog';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PartList from '../../components/parts/PartList';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Card } from '../../components/ui/card';
+import CardInfoItem from '../../components/ui/card-info-item';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import Spinner from '../../components/ui/spinner';
 
 const fetchCarRequestFn = (carId: string) => carGenerationsApi.getCar(carId);
 
@@ -110,15 +115,11 @@ function ViewCar(): React.JSX.Element {
     setIsCreateBuildListFormOpen(true);
   };
 
-  const closeCreateBuildListDialog = () => {
-    setIsCreateBuildListFormOpen(false);
-  };
-
   if (isLoadingCar) {
     return (
       <>
         <PageHeader title="Car Details" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -182,11 +183,15 @@ function ViewCar(): React.JSX.Element {
 
       {/* Dialog for Creating Build List */}
       <Dialog
-        isOpen={isCreateBuildListFormOpen}
-        onClose={closeCreateBuildListDialog}
-        title={`Create Build List for ${car.car_make_name ?? ''} ${carModelDisplayName(car)}`}
+        open={isCreateBuildListFormOpen}
+        onOpenChange={setIsCreateBuildListFormOpen}
       >
-        <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{`Create Build List for ${car.car_make_name ?? ''} ${carModelDisplayName(car)}`}</DialogTitle>
+          </DialogHeader>
+          <CreateBuildListForm onBuildListCreated={handleBuildListCreated} />
+        </DialogContent>
       </Dialog>
 
       {/* Build Lists Section */}

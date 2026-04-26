@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { bugReportsApi } from '../services/Api';
 import type { BugReportCreate } from '../types/Api';
 
-import { ErrorAlert, SuccessAlert } from '../components/common/Alerts';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
-import Input from '../components/common/Input';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import { ErrorAlert, SuccessAlert } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import { Input } from '../components/ui/input';
 import PageHeader from '../components/layout/PageHeader';
 
 // Utility functions to detect browser and device info
@@ -213,17 +212,24 @@ function BugReport() {
         {error && <ErrorAlert message={error} />}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
-          <Input
-            label="Title *"
-            id="title"
-            name="title"
-            type="text"
-            value={formData.title}
-            onChange={handleInputChange}
-            placeholder="Brief description of the bug"
-            required
-            disabled={isSubmitting}
-          />
+          <div>
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Title *
+            </label>
+            <Input
+              id="title"
+              name="title"
+              type="text"
+              value={formData.title}
+              onChange={handleInputChange}
+              placeholder="Brief description of the bug"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
 
           <div>
             <label
@@ -303,41 +309,66 @@ function BugReport() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Browser Info (Auto-detected)"
-              id="browser_info"
-              name="browser_info"
-              type="text"
-              value={formData.browser_info || ''}
-              onChange={handleInputChange}
-              placeholder="Auto-detected"
-              disabled={true}
-              helperText="Automatically detected from your browser"
-            />
+            <div>
+              <label
+                htmlFor="browser_info"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Browser Info (Auto-detected)
+              </label>
+              <Input
+                id="browser_info"
+                name="browser_info"
+                type="text"
+                value={formData.browser_info || ''}
+                onChange={handleInputChange}
+                placeholder="Auto-detected"
+                disabled={true}
+              />
+              <div className="mt-2 text-sm text-neutral-400">
+                Automatically detected from your browser
+              </div>
+            </div>
 
-            <Input
-              label="Device Info (Auto-detected)"
-              id="device_info"
-              name="device_info"
-              type="text"
-              value={formData.device_info || ''}
-              onChange={handleInputChange}
-              placeholder="Auto-detected"
-              disabled={true}
-              helperText="Automatically detected from your device"
-            />
+            <div>
+              <label
+                htmlFor="device_info"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Device Info (Auto-detected)
+              </label>
+              <Input
+                id="device_info"
+                name="device_info"
+                type="text"
+                value={formData.device_info || ''}
+                onChange={handleInputChange}
+                placeholder="Auto-detected"
+                disabled={true}
+              />
+              <div className="mt-2 text-sm text-neutral-400">
+                Automatically detected from your device
+              </div>
+            </div>
           </div>
 
-          <Input
-            label="Screenshot URL (Optional)"
-            id="screenshot_url"
-            name="screenshot_url"
-            type="url"
-            value={formData.screenshot_url || ''}
-            onChange={handleInputChange}
-            placeholder="https://example.com/screenshot.png"
-            disabled={isSubmitting}
-          />
+          <div>
+            <label
+              htmlFor="screenshot_url"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Screenshot URL (Optional)
+            </label>
+            <Input
+              id="screenshot_url"
+              name="screenshot_url"
+              type="url"
+              value={formData.screenshot_url || ''}
+              onChange={handleInputChange}
+              placeholder="https://example.com/screenshot.png"
+              disabled={isSubmitting}
+            />
+          </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button
@@ -348,15 +379,8 @@ function BugReport() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <LoadingSpinner size="sm" className="mr-2" />
-                  Submitting...
-                </>
-              ) : (
-                'Submit Bug Report'
-              )}
+            <Button type="submit" loading={isSubmitting} disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting...' : 'Submit Bug Report'}
             </Button>
           </div>
         </form>

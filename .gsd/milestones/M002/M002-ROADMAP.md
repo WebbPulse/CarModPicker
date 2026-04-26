@@ -46,13 +46,13 @@
 - [x] **S10: S10** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — page on new design system; each part card shows the S06 sparkline + delta where observations exist. Run npm run test:e2e -- parts-catalog.spec.ts — green at mobile/tablet/desktop. Tab through the page; keyboard nav works.
 
-- [ ] **S11: S11** `risk:medium` `depends:[]`
+- [x] **S11: S11** `risk:medium` `depends:[]`
   > After this: Visit /admin in dev — shell on new design system. Click into Extraction Health — page shows 111/111 compliance, per-tier coverage gradient (T0/T1/T2 with field-presence heatmap), per-adapter failure rates over 7d window. Run npm run test:e2e -- admin.spec.ts — green at three breakpoints.
 
-- [ ] **S12: Repo-wide ripple reskin** `risk:medium` `depends:[S08,S09,S10,S11]`
+- [x] **S12: S12** `risk:medium` `depends:[]`
   > After this: Walk every page in dev — all on the new design system, all interactions use S08 primitives. Run npm run lint — passes. Run grep -r 'from .*components/common' frontend/src/ — returns nothing. components/common/ directory removed.
 
-- [ ] **S13: Final integration + milestone verification** `risk:low` `depends:[S03,S04,S06,S07,S09,S10,S11,S12]`
+- [x] **S13: S13** `risk:low` `depends:[]`
   > After this: Pick a real coilover product URL. Run a live scrape. Observe in logs: universal extraction → category extraction → Pydantic validation → ingest → Part.specifications populated. Visit /parts and find the part — sparkline renders. Click into detail view — retailer breakdowns visible. Subscribe with threshold above current price; trigger observation; email arrives. Confirm backfill job running (admin extraction-health shows progress). Re-run S05 load test — p95 still inside budget.
 
 ## Boundary Map

@@ -220,56 +220,6 @@ describe('partsApi', () => {
     );
   });
 
-  it('getPartPriceHistory GETs /parts/:id/price-history with legacy=true and no other params', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [] });
-
-    await partsApi.getPartPriceHistory(mockPart.id);
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      `/parts/${mockPart.id}/price-history`,
-      { params: expect.objectContaining({ legacy: true }) }
-    );
-  });
-
-  it('getPartPriceHistory forwards retailer_id alongside legacy=true', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [] });
-
-    await partsApi.getPartPriceHistory(mockPart.id, { retailer_id: 'r-1' });
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      `/parts/${mockPart.id}/price-history`,
-      {
-        params: expect.objectContaining({
-          retailer_id: 'r-1',
-          legacy: true,
-        }),
-      }
-    );
-  });
-
-  it('getPartPriceHistory still uses legacy=true shim and returns array shape', async () => {
-    const rows = [
-      {
-        id: 'pph-1',
-        part_listing_id: 'pl-1',
-        price_cents: 12345,
-        observed_at: '2026-04-01T00:00:00Z',
-        retailer_id: 'r-1',
-        retailer_name: 'TestRetailer',
-      },
-    ];
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: rows });
-
-    const result = await partsApi.getPartPriceHistory(mockPart.id);
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      `/parts/${mockPart.id}/price-history`,
-      { params: expect.objectContaining({ legacy: true }) }
-    );
-    expect(Array.isArray(result.data)).toBe(true);
-    expect(result.data).toEqual(rows);
-  });
-
   it('getPartPriceHistorySummary forwards window to GET /parts/:id/price-history with object response type', async () => {
     const summary = {
       summary: {

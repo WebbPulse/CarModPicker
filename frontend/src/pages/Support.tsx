@@ -1,8 +1,8 @@
 import { FaCoffee, FaCrown, FaHeart } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
-import ActionButton from '../components/buttons/ActionButton';
-import Card from '../components/common/Card';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { useIsPremiumSystemDisabled } from '../hooks/useIsPremium';
 
@@ -111,8 +111,7 @@ function Support() {
               <Card
                 key={option.id}
                 variant="glass"
-                interactive
-                className="group animate-slideInUp text-center flex flex-col"
+                className="group animate-slideInUp text-center flex flex-col cursor-pointer transition-transform hover:scale-105"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div
@@ -133,15 +132,15 @@ function Support() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <ActionButton className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <Button className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
                       {option.buttonText}
-                    </ActionButton>
+                    </Button>
                   </a>
                 ) : (
                   <Link to={option.link} className="block">
-                    <ActionButton className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <Button className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
                       {option.buttonText}
-                    </ActionButton>
+                    </Button>
                   </Link>
                 )}
               </Card>

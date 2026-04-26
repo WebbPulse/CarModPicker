@@ -6,11 +6,10 @@ import {
 } from '@simplewebauthn/browser';
 import { authApi } from '../../services/Api';
 import type { WebAuthnCredentialSummary } from '../../services/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import Spinner from '../ui/spinner';
 
 function formatDate(value?: string | null): string {
   if (!value) return '—';
@@ -144,47 +143,63 @@ function PasskeySettings() {
           </div>
         </div>
         {!showAddForm && (
-          <ActionButton
+          <Button
+            type="button"
             onClick={() => {
               setShowAddForm(true);
               setError(null);
               setSuccess(null);
             }}
           >
-            <FaPlus className="mr-2" /> Add passkey
-          </ActionButton>
+            <FaPlus /> Add passkey
+          </Button>
         )}
       </div>
 
       {showAddForm && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <Input
-            label="Passkey name"
-            name="nickname"
-            type="text"
-            value={newNickname}
-            onChange={(e) => setNewNickname(e.target.value)}
-            placeholder="e.g. Work laptop, YubiKey 5C"
-            disabled={isRegistering}
-            leftIcon={<FaKey />}
-            helperText="This helps you identify it later when you have multiple."
-          />
+          <div>
+            <label
+              htmlFor="passkey-nickname"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Passkey name
+            </label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+              >
+                <FaKey />
+              </span>
+              <Input
+                id="passkey-nickname"
+                name="nickname"
+                type="text"
+                value={newNickname}
+                onChange={(e) => setNewNickname(e.target.value)}
+                placeholder="e.g. Work laptop, YubiKey 5C"
+                disabled={isRegistering}
+                className="pl-10"
+              />
+            </div>
+            <div className="mt-2 text-sm text-neutral-400">
+              This helps you identify it later when you have multiple.
+            </div>
+          </div>
           <div className="flex space-x-2">
-            <ActionButton
+            <Button
+              type="button"
               onClick={() => void handleAdd()}
               disabled={isRegistering || !newNickname.trim()}
+              loading={isRegistering}
               className="flex-1"
             >
-              {isRegistering ? (
-                <>
-                  <LoadingSpinner />
-                  <span className="ml-2">Waiting for your device…</span>
-                </>
-              ) : (
-                'Create passkey'
-              )}
-            </ActionButton>
-            <SecondaryButton
+              {isRegistering ? 'Waiting for your device…' : 'Create passkey'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => {
                 setShowAddForm(false);
                 setNewNickname('');
@@ -193,14 +208,14 @@ function PasskeySettings() {
               className="flex-1"
             >
               Cancel
-            </SecondaryButton>
+            </Button>
           </div>
         </div>
       )}
 
       {isLoading ? (
         <div className="flex items-center space-x-2 text-gray-400">
-          <LoadingSpinner />
+          <Spinner inline />
           <span>Loading passkeys…</span>
         </div>
       ) : credentials.length === 0 ? (

@@ -3,9 +3,9 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { carGenerationsApi } from '../../services/Api';
 import type { CarGenerationRead } from '../../types/Api';
 import { normalizeCarReadList } from '../../utils/carUtils';
-import AddItemTile from '../common/AddItemTile';
-import { ErrorAlert } from '../common/Alerts';
-import LoadingSpinner from '../common/LoadingSpinner';
+import AddItemTile from '../buildLists/AddItemTile';
+import { ErrorAlert } from '../ui/alert';
+import Spinner from '../ui/spinner';
 import SectionHeader from '../layout/SectionHeader';
 import CarListItem from './CarListItem';
 
@@ -97,7 +97,7 @@ const CarList: React.FC<CarListProps> = ({
     return (
       <>
         <SectionHeader title={title} />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }

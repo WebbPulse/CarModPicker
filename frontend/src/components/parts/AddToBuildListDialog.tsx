@@ -7,17 +7,17 @@ import type {
   PartReadWithVotes,
 } from '../../types/Api';
 
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import LoadingSpinner from '../common/LoadingSpinner';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import Spinner from '../ui/spinner';
 
 interface AddToBuildListDialogProps {
   isOpen: boolean;
@@ -235,7 +235,7 @@ function AddToBuildListDialog({
           </p>
 
           {isLoadingBuildLists ? (
-            <LoadingSpinner />
+            <Spinner />
           ) : buildListsError ? (
             <ErrorAlert message="Failed to load build lists" />
           ) : buildLists && buildLists.length > 0 ? (

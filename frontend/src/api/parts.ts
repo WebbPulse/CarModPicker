@@ -7,7 +7,6 @@ import type {
   PaginatedResponse,
   PartCreate,
   PartListingReadWithRetailer,
-  PartPriceHistoryReadWithRetailer,
   PartRead,
   PartReadWithVotes,
   PartUpdate,
@@ -85,15 +84,6 @@ export const partsApi = {
   // Get retailer listings for a part (price by retailer)
   getPartListings: (partId: string) =>
     apiClient.get<PartListingReadWithRetailer[]>(`/parts/${partId}/listings`),
-
-  // Get price history for a part as a flat array (legacy shape).
-  // Forwards `legacy=true` to the backend object-shape endpoint so existing
-  // callers (Chrome extension, downstream pages) keep their array contract.
-  getPartPriceHistory: (partId: string, params?: { retailer_id?: string }) =>
-    apiClient.get<PartPriceHistoryReadWithRetailer[]>(
-      `/parts/${partId}/price-history`,
-      { params: { ...params, legacy: true } }
-    ),
 
   // Get aggregated price history (summary + per-retailer breakdown + listings)
   // for a single part. New object-shape endpoint introduced in M002/S05.

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { FaShieldAlt } from 'react-icons/fa';
 import { useAuth } from '../../hooks/useAuth';
-import SecondaryButton from '../buttons/SecondaryButton';
-import ButtonStretch from '../buttons/StretchButton';
-import { ErrorAlert } from '../common/Alerts';
-import Dialog from '../common/Dialog';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;
@@ -124,93 +127,137 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
 
   return (
     <Dialog
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Change Password"
-      maxWidth="md"
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
     >
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
-        {error && <ErrorAlert message={error} />}
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+          {error && <ErrorAlert message={error} />}
 
-        <Input
-          label="Current Password"
-          id="currentPassword"
-          name="currentPassword"
-          type="password"
-          value={formData.currentPassword}
-          onChange={handleInputChange}
-          disabled={isSubmitting}
-          required
-          autoComplete="current-password"
-        />
+          <div>
+            <label
+              htmlFor="currentPassword"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Current Password
+            </label>
+            <Input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              value={formData.currentPassword}
+              onChange={handleInputChange}
+              disabled={isSubmitting}
+              required
+              autoComplete="current-password"
+            />
+          </div>
 
-        <Input
-          label="New Password"
-          id="newPassword"
-          name="newPassword"
-          type="password"
-          value={formData.newPassword}
-          onChange={handleInputChange}
-          disabled={isSubmitting}
-          required
-          autoComplete="new-password"
-          minLength={8}
-        />
+          <div>
+            <label
+              htmlFor="newPassword"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              New Password
+            </label>
+            <Input
+              id="newPassword"
+              name="newPassword"
+              type="password"
+              value={formData.newPassword}
+              onChange={handleInputChange}
+              disabled={isSubmitting}
+              required
+              autoComplete="new-password"
+              minLength={8}
+            />
+          </div>
 
-        <Input
-          label="Confirm New Password"
-          id="confirmNewPassword"
-          name="confirmNewPassword"
-          type="password"
-          value={formData.confirmNewPassword}
-          onChange={handleInputChange}
-          disabled={isSubmitting}
-          required
-          autoComplete="new-password"
-        />
+          <div>
+            <label
+              htmlFor="confirmNewPassword"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Confirm New Password
+            </label>
+            <Input
+              id="confirmNewPassword"
+              name="confirmNewPassword"
+              type="password"
+              value={formData.confirmNewPassword}
+              onChange={handleInputChange}
+              disabled={isSubmitting}
+              required
+              autoComplete="new-password"
+            />
+          </div>
 
-        {user?.totp_enabled && (
-          <Input
-            label="2FA Code"
-            id="otp"
-            name="otp"
-            type="text"
-            value={formData.otp}
-            onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-              setFormData((prev) => ({ ...prev, otp: value }));
-              setError(null);
-            }}
-            placeholder="000000"
-            disabled={isSubmitting}
-            required
-            maxLength={6}
-            leftIcon={<FaShieldAlt />}
-            helperText="Enter the 6-digit code from your authenticator app"
-          />
-        )}
+          {user?.totp_enabled && (
+            <div>
+              <label
+                htmlFor="otp"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                2FA Code
+              </label>
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+                >
+                  <FaShieldAlt />
+                </span>
+                <Input
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  value={formData.otp}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .replace(/\D/g, '')
+                      .slice(0, 6);
+                    setFormData((prev) => ({ ...prev, otp: value }));
+                    setError(null);
+                  }}
+                  placeholder="000000"
+                  disabled={isSubmitting}
+                  required
+                  maxLength={6}
+                  className="pl-10"
+                />
+              </div>
+              <div className="mt-2 text-sm text-neutral-400">
+                Enter the 6-digit code from your authenticator app
+              </div>
+            </div>
+          )}
 
-        <div className="flex space-x-3 pt-4">
-          <ButtonStretch type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <LoadingSpinner />
-                <span className="ml-2">Changing Password...</span>
-              </>
-            ) : (
-              'Change Password'
-            )}
-          </ButtonStretch>
-          <SecondaryButton
-            type="button"
-            onClick={handleClose}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            Cancel
-          </SecondaryButton>
-        </div>
-      </form>
+          <div className="flex space-x-3 pt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? 'Changing Password...' : 'Change Password'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
     </Dialog>
   );
 };

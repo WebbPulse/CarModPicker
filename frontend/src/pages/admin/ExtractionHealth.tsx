@@ -6,12 +6,12 @@ import {
   type ExtractionHealthResponse,
   type FailureRateRow,
 } from '../../api/admin';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import Spinner from '../../components/ui/spinner';
 import { useAuth } from '../../hooks/useAuth';
 
 type TierKey = 'http' | 'tls' | 'browser';
@@ -120,7 +120,7 @@ function ExtractionHealth() {
 
       {loading && !data && (
         <Card>
-          <LoadingSpinner text="Loading extraction health…" />
+          <Spinner text="Loading extraction health…" />
         </Card>
       )}
 

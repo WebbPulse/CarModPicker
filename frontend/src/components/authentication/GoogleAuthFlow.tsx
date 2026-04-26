@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { FaEye, FaEyeSlash, FaLock, FaShieldAlt, FaUser } from 'react-icons/fa';
-import Button from '../buttons/Button';
-import Dialog from '../common/Dialog';
-import Input from '../common/Input';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
 import {
   isGoogleConfigured,
   useGoogleSignIn,
@@ -144,151 +149,215 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
       </div>
 
       <Dialog
-        isOpen={openLink}
-        onClose={closeDialog}
-        title="Link Google to your account"
-        maxWidth="md"
+        open={openLink}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
       >
-        {state.kind === 'link' && (
-          <form
-            onSubmit={(e) => void handleLinkSubmit(e)}
-            className="space-y-5"
-          >
-            <p className="text-neutral-300 text-sm">
-              An account already exists for{' '}
-              <span className="text-white font-medium">
-                {state.payload.email}
-              </span>
-              . Enter your password to merge Google sign-in into it.
-            </p>
-            <Input
-              label="Password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              leftIcon={<FaLock />}
-              rightIcon={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-neutral-400 hover:text-white transition-colors"
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Google to your account</DialogTitle>
+          </DialogHeader>
+          {state.kind === 'link' && (
+            <form
+              onSubmit={(e) => void handleLinkSubmit(e)}
+              className="space-y-5"
+            >
+              <p className="text-neutral-300 text-sm">
+                An account already exists for{' '}
+                <span className="text-white font-medium">
+                  {state.payload.email}
+                </span>
+                . Enter your password to merge Google sign-in into it.
+              </p>
+              <div>
+                <label
+                  htmlFor="google-link-password"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
                 >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-              }
-              variant="glass"
-            />
-            {state.payload.has_totp && (
-              <Input
-                label="Authentication code"
-                name="otp"
-                type="text"
-                required
-                value={otp}
-                onChange={(e) =>
-                  setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                placeholder="000000"
-                leftIcon={<FaShieldAlt />}
-                variant="glass"
-                maxLength={6}
-              />
-            )}
-            <Button
-              type="submit"
-              loading={submitting}
-              disabled={submitting || !password}
-              className="w-full"
-              size="lg"
-            >
-              Link &amp; sign in
-            </Button>
-          </form>
-        )}
+                  Password
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <FaLock />
+                  </span>
+                  <Input
+                    id="google-link-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+              {state.payload.has_totp && (
+                <div>
+                  <label
+                    htmlFor="google-link-otp"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    Authentication code
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                      <FaShieldAlt />
+                    </span>
+                    <Input
+                      id="google-link-otp"
+                      name="otp"
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) =>
+                        setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                      }
+                      placeholder="000000"
+                      maxLength={6}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+              <Button
+                type="submit"
+                loading={submitting}
+                disabled={submitting || !password}
+                className="w-full"
+                size="lg"
+              >
+                Link &amp; sign in
+              </Button>
+            </form>
+          )}
+        </DialogContent>
       </Dialog>
 
       <Dialog
-        isOpen={openSignup}
-        onClose={closeDialog}
-        title="Choose your username"
-        maxWidth="md"
+        open={openSignup}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
       >
-        {state.kind === 'signup' && (
-          <form
-            onSubmit={(e) => void handleSignupSubmit(e)}
-            className="space-y-5"
-          >
-            <p className="text-neutral-300 text-sm">
-              Welcome! Pick a username to finish creating your account for{' '}
-              <span className="text-white font-medium">
-                {state.payload.email}
-              </span>
-              .
-            </p>
-            <Input
-              label="Username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              leftIcon={<FaUser />}
-              variant="glass"
-            />
-            <Button
-              type="submit"
-              loading={submitting}
-              disabled={submitting || !username.trim()}
-              className="w-full"
-              size="lg"
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose your username</DialogTitle>
+          </DialogHeader>
+          {state.kind === 'signup' && (
+            <form
+              onSubmit={(e) => void handleSignupSubmit(e)}
+              className="space-y-5"
             >
-              Create account
-            </Button>
-          </form>
-        )}
+              <p className="text-neutral-300 text-sm">
+                Welcome! Pick a username to finish creating your account for{' '}
+                <span className="text-white font-medium">
+                  {state.payload.email}
+                </span>
+                .
+              </p>
+              <div>
+                <label
+                  htmlFor="google-signup-username"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
+                  Username
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <FaUser />
+                  </span>
+                  <Input
+                    id="google-signup-username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                loading={submitting}
+                disabled={submitting || !username.trim()}
+                className="w-full"
+                size="lg"
+              >
+                Create account
+              </Button>
+            </form>
+          )}
+        </DialogContent>
       </Dialog>
 
       <Dialog
-        isOpen={open2FA}
-        onClose={closeDialog}
-        title="Two-factor authentication"
-        maxWidth="md"
+        open={open2FA}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
       >
-        {state.kind === 'twoFactor' && (
-          <form onSubmit={(e) => void handle2FASubmit(e)} className="space-y-5">
-            <p className="text-neutral-300 text-sm">
-              Enter the 6-digit code from your authenticator app to complete
-              sign-in.
-            </p>
-            <Input
-              label="Authentication code"
-              name="otp"
-              type="text"
-              required
-              value={otp}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-              }
-              placeholder="000000"
-              leftIcon={<FaShieldAlt />}
-              variant="glass"
-              maxLength={6}
-            />
-            <Button
-              type="submit"
-              loading={submitting}
-              disabled={submitting || otp.length !== 6}
-              className="w-full"
-              size="lg"
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Two-factor authentication</DialogTitle>
+          </DialogHeader>
+          {state.kind === 'twoFactor' && (
+            <form
+              onSubmit={(e) => void handle2FASubmit(e)}
+              className="space-y-5"
             >
-              Verify
-            </Button>
-          </form>
-        )}
+              <p className="text-neutral-300 text-sm">
+                Enter the 6-digit code from your authenticator app to complete
+                sign-in.
+              </p>
+              <div>
+                <label
+                  htmlFor="google-2fa-otp"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
+                  Authentication code
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <FaShieldAlt />
+                  </span>
+                  <Input
+                    id="google-2fa-otp"
+                    name="otp"
+                    type="text"
+                    required
+                    value={otp}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    placeholder="000000"
+                    maxLength={6}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                loading={submitting}
+                disabled={submitting || otp.length !== 6}
+                className="w-full"
+                size="lg"
+              >
+                Verify
+              </Button>
+            </form>
+          )}
+        </DialogContent>
       </Dialog>
     </>
   );

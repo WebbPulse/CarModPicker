@@ -4,9 +4,8 @@ import type {
   BuildListPartReadWithPart,
   CategoryResponse,
 } from '../../types/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import Card from '../common/Card';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 
 interface BuildListPartListItemProps {
   buildListPart: BuildListPartReadWithPart;
@@ -155,26 +154,32 @@ const BuildListPartListItem: React.FC<BuildListPartListItemProps> = React.memo(
             {/* Actions column: Fixed width, always rendered for alignment */}
             <div className="flex items-center gap-1.5 flex-shrink-0 w-32 justify-end">
               {canEdit && onEdit && (
-                <SecondaryButton
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(buildListPart);
                   }}
-                  className="text-xs px-1.5 py-0.5"
+                  className="text-xs h-auto px-1.5 py-0.5"
                 >
                   Edit
-                </SecondaryButton>
+                </Button>
               )}
               {canDelete && onDelete && (
-                <ActionButton
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(buildListPart.id);
                   }}
-                  className="text-xs px-1.5 py-0.5 bg-red-600 hover:bg-red-700"
+                  className="text-xs h-auto px-1.5 py-0.5"
                 >
                   Remove
-                </ActionButton>
+                </Button>
               )}
             </div>
 

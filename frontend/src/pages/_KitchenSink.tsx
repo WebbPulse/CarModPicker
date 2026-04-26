@@ -1,6 +1,22 @@
 import * as React from 'react';
 
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  ConfirmationAlert,
+  ErrorAlert,
+  SuccessAlert,
+} from '../components/ui/alert';
 import { Button } from '../components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
 import { Combobox, type ComboboxOption } from '../components/ui/combobox';
 import {
   Dialog,
@@ -23,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { Input } from '../components/ui/input';
+import Pagination from '../components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -37,6 +54,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../components/ui/sheet';
+import Spinner, { type SpinnerSize } from '../components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Toaster, toast } from '../components/ui/toast';
 
@@ -64,9 +82,12 @@ const BUTTON_SIZES = ['sm', 'default', 'lg', 'icon'] as const;
 const SECTION_CLASS =
   'space-y-4 rounded-lg border border-border bg-card p-6 text-card-foreground';
 
+const SPINNER_SIZES: SpinnerSize[] = ['xs', 'sm', 'base', 'md', 'lg', 'xl'];
+
 export default function KitchenSink() {
   const [comboboxValue, setComboboxValue] = React.useState<string>('rx7');
   const [emptyComboboxValue, setEmptyComboboxValue] = React.useState<string>('');
+  const [paginationPage, setPaginationPage] = React.useState<number>(7);
 
   React.useEffect(() => {
     // Sonner dedupes by id, so strict-mode double invocation is safe.
@@ -367,6 +388,93 @@ export default function KitchenSink() {
           </Button>
         </div>
         <Toaster />
+      </section>
+
+      <section data-testid="section-card" className={SECTION_CLASS}>
+        <h2 className="text-xl font-semibold tracking-tight">Card</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card padding="none">
+            <CardHeader>
+              <CardTitle>Build summary</CardTitle>
+              <CardDescription>R34 Skyline — street build</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                12 parts across 3 phases. Engine, suspension, and aero in
+                progress.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" size="sm">
+                View build
+              </Button>
+            </CardFooter>
+          </Card>
+          <Card>
+            <p className="text-sm">
+              Default card with <code>padding="md"</code>. Inline content lives
+              directly inside, no header/footer slots required.
+            </p>
+          </Card>
+        </div>
+      </section>
+
+      <section data-testid="section-alert" className={SECTION_CLASS}>
+        <h2 className="text-xl font-semibold tracking-tight">Alert</h2>
+        <div className="space-y-3">
+          <Alert>
+            <AlertTitle>Heads up</AlertTitle>
+            <AlertDescription>
+              Default alert variant — neutral information.
+            </AlertDescription>
+          </Alert>
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              Destructive alert variant — irreversible failures.
+            </AlertDescription>
+          </Alert>
+          <Alert variant="success">
+            <AlertTitle>Saved</AlertTitle>
+            <AlertDescription>
+              Success alert variant — positive outcomes.
+            </AlertDescription>
+          </Alert>
+          <ErrorAlert message="ErrorAlert wrapper — single message prop." />
+          <ConfirmationAlert message="ConfirmationAlert wrapper — single message prop." />
+          <SuccessAlert message="SuccessAlert wrapper — single message prop." />
+        </div>
+      </section>
+
+      <section data-testid="section-spinner" className={SECTION_CLASS}>
+        <h2 className="text-xl font-semibold tracking-tight">Spinner</h2>
+        <div className="flex flex-wrap items-end gap-6">
+          {SPINNER_SIZES.map((size) => (
+            <div key={size} className="flex flex-col items-center gap-2">
+              <Spinner size={size} />
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {size}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-6 pt-2">
+          <Spinner size="md" text="Loading parts…" />
+          <div className="flex items-center gap-2 text-sm">
+            <Spinner size="sm" inline /> inline next to text
+          </div>
+        </div>
+      </section>
+
+      <section data-testid="section-pagination" className={SECTION_CLASS}>
+        <h2 className="text-xl font-semibold tracking-tight">Pagination</h2>
+        <Pagination
+          currentPage={paginationPage}
+          totalPages={20}
+          itemsPerPage={20}
+          totalItems={400}
+          onPageChange={setPaginationPage}
+        />
       </section>
     </main>
   );

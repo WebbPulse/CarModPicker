@@ -8,8 +8,8 @@ import type {
   VoteSummary,
 } from '../../types/Api';
 import { carFullDisplayName, normalizeCarRead } from '../../utils/carUtils';
-import Card from '../common/Card';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { Card } from '../ui/card';
 import VoteButtons from '../parts/VoteButtons';
 
 interface BuildListItemProps {

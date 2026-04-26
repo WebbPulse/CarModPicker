@@ -30,24 +30,27 @@ import type {
 } from '../../types/Api';
 
 import ReportDialog from '../../components/admin/ReportDialog';
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import Dialog from '../../components/common/Dialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import EditPartForm from '../../components/parts/EditPartForm';
 import ImageGallery from '../../components/parts/ImageGallery';
 import ImageGalleryManage from '../../components/parts/ImageGalleryManage';
 import PriceAlertSubscribeButton from '../../components/parts/PriceAlertSubscribeButton';
-import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import CardInfoItem from '../../components/ui/card-info-item';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Spinner from '../../components/ui/spinner';
 import {
   Tabs,
   TabsContent,
@@ -73,9 +76,6 @@ const deletePartRequestFn = (partId: string) => partsApi.deletePart(partId);
 
 const fetchListingsRequestFn = (partId: string) =>
   partsApi.getPartListings(partId);
-
-const fetchPriceHistoryRequestFn = (partId: string) =>
-  partsApi.getPartPriceHistory(partId);
 
 const fetchPriceSummaryRequestFn = (partId: string) =>
   partsApi.getPartPriceHistorySummary(partId, { window: '90d' });
@@ -284,13 +284,6 @@ function ViewPart() {
   } = useApiRequest(fetchListingsRequestFn);
 
   const {
-    data: priceHistoryData,
-    isLoading: isLoadingPriceHistory,
-    error: priceHistoryApiError,
-    executeRequest: fetchPriceHistory,
-  } = useApiRequest(fetchPriceHistoryRequestFn);
-
-  const {
     data: priceSummary,
     error: priceSummaryApiError,
     executeRequest: fetchPriceSummary,
@@ -303,7 +296,6 @@ function ViewPart() {
     void fetchVoteSummary(partId);
     void fetchCategories(undefined);
     void fetchListings(partId);
-    void fetchPriceHistory(partId);
     void fetchPriceSummary(partId);
   }, [
     partId,
@@ -311,7 +303,6 @@ function ViewPart() {
     fetchVoteSummary,
     fetchCategories,
     fetchListings,
-    fetchPriceHistory,
     fetchPriceSummary,
   ]);
 
@@ -433,8 +424,6 @@ function ViewPart() {
       }
     }
   };
-  const closeDeleteConfirmDialog = () => setIsDeleteConfirmOpen(false);
-
   const openReportDialog = () => setIsReportDialogOpen(true);
   const closeReportDialog = () => setIsReportDialogOpen(false);
 
@@ -467,7 +456,7 @@ function ViewPart() {
     return (
       <>
         <PageHeader title="Part Details" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -554,35 +543,42 @@ function ViewPart() {
           <SectionHeader title="Part Information" />
           <div className="flex space-x-2">
             {currentUser && (
-              <ActionButton
+              <Button
+                type="button"
                 onClick={openAddToBuildListDialog}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 📋 Add to Build List
-              </ActionButton>
+              </Button>
             )}
             {currentUser && (
-              <ActionButton
+              <Button
+                type="button"
                 onClick={openReportDialog}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 Report
-              </ActionButton>
+              </Button>
             )}
             {canEdit && (
-              <ActionButton onClick={openEditPartDialog}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={openEditPartDialog}
+              >
                 Edit Part
-              </ActionButton>
+              </Button>
             )}
             {canDelete && (
-              <ActionButton
+              <Button
+                type="button"
+                variant="destructive"
                 onClick={() => {
                   void openDeleteConfirmDialog();
                 }}
-                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Delete Part
-              </ActionButton>
+              </Button>
             )}
           </div>
         </div>
@@ -702,10 +698,12 @@ function ViewPart() {
             )}
           {itemOwner && !itemOwner.is_service_account && (
             <CardInfoItem label="Created by:">
-              <ParentNavigationLink
-                linkTo={`/user/${itemOwner.id}`}
-                linkText={itemOwner.username}
-              />
+              <Link
+                to={`/user/${itemOwner.id}`}
+                className="text-indigo-400 hover:text-indigo-300 underline"
+              >
+                {itemOwner.username}
+              </Link>
             </CardInfoItem>
           )}
           <CardInfoItem
@@ -779,37 +777,8 @@ function ViewPart() {
             )}
         </div>
 
-        {/* Price history (left) + Price by retailer (right) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
-          {/* Price history - left */}
-          <div className="min-w-0">
-            <SectionHeader title="Price history" />
-            {isLoadingPriceHistory && (
-              <p className="text-gray-400 text-sm">Loading price history…</p>
-            )}
-            {priceHistoryApiError && (
-              <ErrorAlert
-                message={`Could not load price history: ${priceHistoryApiError}`}
-              />
-            )}
-            {!isLoadingPriceHistory &&
-              !priceHistoryApiError &&
-              priceHistoryData && (
-                <>
-                  {priceHistoryData.length === 0 ? (
-                    <p className="text-gray-400 text-sm">
-                      No price history recorded for this part yet.
-                    </p>
-                  ) : (
-                    <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4">
-                      <PriceHistoryLineChart data={priceHistoryData} />
-                    </div>
-                  )}
-                </>
-              )}
-          </div>
-
-          {/* Price by retailer - right */}
+        {/* Price by retailer */}
+        <div className="mb-6">
           <div className="min-w-0">
             <SectionHeader title="Price by retailer" />
             {isLoadingListings && (
@@ -926,29 +895,61 @@ function ViewPart() {
       {/* Dialog for Editing Part */}
       {part && canEdit && (
         <Dialog
-          isOpen={isEditPartFormOpen}
-          onClose={closeEditPartDialog}
-          title={`Edit ${part.name}`}
+          open={isEditPartFormOpen}
+          onOpenChange={setIsEditPartFormOpen}
         >
-          <EditPartForm
-            part={part}
-            onPartUpdated={handlePartUpdated}
-            onCancel={closeEditPartDialog}
-          />
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{`Edit ${part.name}`}</DialogTitle>
+            </DialogHeader>
+            <EditPartForm
+              part={part}
+              onPartUpdated={handlePartUpdated}
+              onCancel={closeEditPartDialog}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
       {/* Dialog for Deleting Part Confirmation */}
       {part && canDelete && (
-        <DeleteConfirmationDialog
-          isOpen={isDeleteConfirmOpen}
-          onClose={closeDeleteConfirmDialog}
+        <ConfirmDialog
+          open={isDeleteConfirmOpen}
+          onOpenChange={(open) => {
+            if (!open && isDeletingPart) return;
+            setIsDeleteConfirmOpen(open);
+          }}
           onConfirm={() => void handleConfirmDelete()}
-          itemName={part.name}
-          itemType="part"
-          isProcessing={isDeletingPart}
+          title="Confirm Deletion"
+          description={
+            <>
+              Are you sure you want to delete the part{' '}
+              <span className="font-semibold text-foreground">
+                &quot;{part.name}&quot;
+              </span>
+              ? This action cannot be undone.
+            </>
+          }
+          warning={
+            buildListCount !== null && buildListCount > 0 ? (
+              <>
+                <p className="font-semibold mb-1">
+                  ⚠️ Warning: This part is currently in {buildListCount} build
+                  list{buildListCount !== 1 ? 's' : ''}
+                </p>
+                <p className="text-xs">
+                  Deleting this part will remove it from all {buildListCount}{' '}
+                  build list{buildListCount !== 1 ? 's' : ''}. This action
+                  cannot be undone.
+                </p>
+              </>
+            ) : undefined
+          }
+          confirmLabel="Confirm Delete"
+          loadingLabel="Deleting..."
+          variant="destructive"
+          loading={isDeletingPart}
           error={deletePartError}
-          buildListCount={buildListCount !== null ? buildListCount : undefined}
         />
       )}
 

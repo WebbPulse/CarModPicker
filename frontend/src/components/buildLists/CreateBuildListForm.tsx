@@ -13,12 +13,12 @@ import type {
   BuildListRead,
   CarGenerationRead,
 } from '../../types/Api';
-import ButtonStretch from '../buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import ImageUpload from '../common/ImageUpload';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import ImageUpload from '../forms/ImageUpload';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Input } from '../ui/input';
+import Spinner from '../ui/spinner';
 
 interface CreateBuildListFormProps {
   onBuildListCreated: (newBuildList: BuildListRead) => void;
@@ -220,7 +220,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 {isLoadingMakes ? (
                   <Card>
                     <div className="flex items-center justify-center py-4">
-                      <LoadingSpinner />
+                      <Spinner />
                     </div>
                   </Card>
                 ) : (
@@ -229,8 +229,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       <Card
                         key={make}
                         onClick={() => setSelectedMake(make)}
-                        interactive
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {make}
@@ -251,7 +250,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 {isLoadingCars ? (
                   <Card>
                     <div className="flex items-center justify-center py-4">
-                      <LoadingSpinner />
+                      <Spinner />
                     </div>
                   </Card>
                 ) : (
@@ -260,8 +259,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       <Card
                         key={model}
                         onClick={() => setSelectedModel(model)}
-                        interactive
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {model}
@@ -284,8 +282,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                     <Card
                       key={car.id}
                       onClick={() => setSelectedGeneration(car)}
-                      interactive
-                      className="cursor-pointer hover:border-indigo-500 border-2 border-transparent transition-colors p-5"
+                      className="cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors p-5"
                     >
                       <h4 className="text-base font-semibold text-indigo-400 mb-1 break-words px-1">
                         {carGenerationDisplayName(car)}
@@ -337,25 +334,39 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
             <h3 className="text-lg font-semibold text-gray-200">
               Build List Details
             </h3>
-            <Input
-              label="Build List Name"
-              id="buildlist-name"
-              name="buildlist-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-            <Input
-              label="Description (Optional)"
-              id="buildlist-description"
-              name="buildlist-description"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isLoading}
-            />
+            <div>
+              <label
+                htmlFor="buildlist-name"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Build List Name
+              </label>
+              <Input
+                id="buildlist-name"
+                name="buildlist-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="buildlist-description"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Description (Optional)
+              </label>
+              <Input
+                id="buildlist-description"
+                name="buildlist-description"
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
             <ImageUpload
               currentImageUrl={imageFileKey}
               entityType="build_list"
@@ -378,9 +389,9 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
           <ErrorAlert message={apiError || formMessage?.text || null} />
         )}
         {selectedGeneration && (
-          <ButtonStretch type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? 'Creating Build List...' : 'Create Build List'}
-          </ButtonStretch>
+          </Button>
         )}
       </form>
     </div>

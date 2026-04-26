@@ -15,7 +15,7 @@ import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
 import { CHROME_EXTENSION_STORE_URL } from '../../../constants';
 import { useAuth } from '../../../hooks/useAuth';
-import LoadingSpinner from '../../common/LoadingSpinner';
+import Spinner from '../../ui/spinner';
 
 function Header() {
   const { isAuthenticated, logout, isLoading, user } = useAuth();
@@ -57,7 +57,7 @@ function Header() {
             <div className="hidden md:flex items-center space-x-4">
               {isLoading ? (
                 <div className="flex items-center space-x-2">
-                  <LoadingSpinner />
+                  <Spinner inline />
                   <span className="text-sm text-neutral-400">Loading...</span>
                 </div>
               ) : isAuthenticated ? (

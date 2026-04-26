@@ -3891,6 +3891,55 @@
         "title": "PartPriceAlertUpdate",
         "type": "object"
       },
+      "PartPriceHistoryReadWithRetailer": {
+        "description": "Price history entry with retailer info for API responses.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "description": "When this price was observed",
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "part_listing_id": {
+            "description": "Part listing ID",
+            "format": "uuid",
+            "title": "Part Listing Id",
+            "type": "string"
+          },
+          "price_cents": {
+            "description": "Price in cents",
+            "minimum": 0.0,
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "retailer_id": {
+            "description": "Retailer ID",
+            "format": "uuid",
+            "title": "Retailer Id",
+            "type": "string"
+          },
+          "retailer_name": {
+            "description": "Retailer display name",
+            "title": "Retailer Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_listing_id",
+          "price_cents",
+          "observed_at",
+          "id",
+          "retailer_id",
+          "retailer_name"
+        ],
+        "title": "PartPriceHistoryReadWithRetailer",
+        "type": "object"
+      },
       "PartRead": {
         "properties": {
           "best_price_cents": {
@@ -4515,6 +4564,113 @@
           }
         },
         "title": "PriceHistoryBatchSummaryItem",
+        "type": "object"
+      },
+      "PriceHistorySinglePartResponse": {
+        "description": "Response for GET /api/parts/{id}/price-history (object shape).",
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "retailers": {
+            "items": {
+              "$ref": "#/components/schemas/RetailerPriceBreakdown"
+            },
+            "title": "Retailers",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PriceHistorySummary"
+          },
+          "window": {
+            "description": "Echoed window literal applied to this response",
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "window"
+        ],
+        "title": "PriceHistorySinglePartResponse",
+        "type": "object"
+      },
+      "PriceHistorySummary": {
+        "description": "Aggregated price stats over a window for one part (or one retailer slice of it).",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most recent observed price in window",
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the most recent price was observed",
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest observed price in window (None if no observations)",
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lowest observed price in window (None if no observations)",
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "description": "Number of observations contributing to this summary",
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "flat",
+            "description": "Linear-regression slope sign over the window",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "title": "PriceHistorySummary",
         "type": "object"
       },
       "PromoteCanonicalRequest": {
@@ -5268,6 +5424,77 @@
           "domain"
         ],
         "title": "RetailerGetOrCreateRequest",
+        "type": "object"
+      },
+      "RetailerPriceBreakdown": {
+        "description": "Per-retailer summary inside a single-part response.",
+        "properties": {
+          "last_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Cents"
+          },
+          "last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Observed At"
+          },
+          "max_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cents"
+          },
+          "min_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Cents"
+          },
+          "observation_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "retailer_id": {
+            "format": "uuid",
+            "title": "Retailer Id",
+            "type": "string"
+          },
+          "retailer_name": {
+            "title": "Retailer Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "retailer_id",
+          "retailer_name"
+        ],
+        "title": "RetailerPriceBreakdown",
         "type": "object"
       },
       "RetailerRead": {
@@ -15369,7 +15596,7 @@
     },
     "/api/parts/{part_id}/price-history": {
       "get": {
-        "description": "Get price history for this part (aggregated across its link group).\n\nDefault response is the S05 object shape (`summary`, `retailers`, `history`,\n`window`). Pass `legacy=true` for the legacy list shape until S13 removes\nthe shim. Optional `retailer_id` narrows both the new and legacy responses\nto one retailer; the new shape's `summary` is recomputed from that filtered\nslice (not the cross-retailer aggregate). Invalid `window` values produce a\n422 with `error_code: INVALID_WINDOW` (see schema response).",
+        "description": "Get price history for this part (aggregated across its link group).\n\nReturns the S05 object shape (`summary`, `retailers`, `history`, `window`).\nOptional `retailer_id` narrows the response to one retailer; `summary` is\nrecomputed from that filtered slice (not the cross-retailer aggregate).\nInvalid `window` values produce a 422 with `error_code: INVALID_WINDOW`\n(see schema response).",
         "operationId": "get_part_price_history_api_parts__part_id__price_history_get",
         "parameters": [
           {
@@ -15412,28 +15639,18 @@
               "description": "Filter by retailer ID",
               "title": "Retailer Id"
             }
-          },
-          {
-            "description": "If true, return the pre-S05 list shape for backwards compatibility (removed in S13).",
-            "in": "query",
-            "name": "legacy",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "If true, return the pre-S05 list shape for backwards compatibility (removed in S13).",
-              "title": "Legacy",
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PriceHistorySinglePartResponse"
+                }
               }
             },
-            "description": "Price history retrieved (object shape; or list shape with legacy=true)"
+            "description": "Price history retrieved (object shape with summary, retailers, history, window)"
           },
           "404": {
             "description": "Resource not found"

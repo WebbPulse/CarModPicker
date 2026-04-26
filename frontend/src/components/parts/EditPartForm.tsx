@@ -16,16 +16,15 @@ import type {
 } from '../../types/Api';
 
 import { LARGE_FETCH_LIMIT } from '../../constants';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ErrorAlert } from '../common/Alerts';
-import ImageUpload from '../common/ImageUpload';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
-import CarModelMultiSelect from '../common/CarModelMultiSelect';
+import CarModelMultiSelect from '../cars/CarModelMultiSelect';
+import ImageUpload from '../forms/ImageUpload';
 import SearchableSelect, {
   type SearchableSelectOption,
-} from '../common/SearchableSelect';
+} from '../forms/SearchableSelect';
+import { ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import Spinner from '../ui/spinner';
 
 interface EditPartFormProps {
   part: PartRead;
@@ -315,16 +314,23 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
         <ErrorAlert message={error || validationError || ''} />
       )}
 
-      <Input
-        label="Part Name *"
-        id="global-part-name"
-        name="name"
-        type="text"
-        value={formData.name}
-        onChange={handleInputChange}
-        placeholder="Enter part name"
-        required
-      />
+      <div>
+        <label
+          htmlFor="global-part-name"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
+          Part Name *
+        </label>
+        <Input
+          id="global-part-name"
+          name="name"
+          type="text"
+          value={formData.name}
+          onChange={handleInputChange}
+          placeholder="Enter part name"
+          required
+        />
+      </div>
 
       <div className="relative">
         <label
@@ -357,15 +363,22 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
         </select>
       </div>
 
-      <Input
-        label="Part Number"
-        id="global-part-number"
-        name="part_number"
-        type="text"
-        value={formData.part_number}
-        onChange={handleInputChange}
-        placeholder="Enter part number"
-      />
+      <div>
+        <label
+          htmlFor="global-part-number"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
+          Part Number
+        </label>
+        <Input
+          id="global-part-number"
+          name="part_number"
+          type="text"
+          value={formData.part_number}
+          onChange={handleInputChange}
+          placeholder="Enter part number"
+        />
+      </div>
 
       <div>
         <SearchableSelect
@@ -411,15 +424,22 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
         )}
       </div>
 
-      <Input
-        label="Description"
-        id="global-part-description"
-        name="description"
-        type="text"
-        value={formData.description}
-        onChange={handleInputChange}
-        placeholder="Enter part description"
-      />
+      <div>
+        <label
+          htmlFor="global-part-description"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
+          Description
+        </label>
+        <Input
+          id="global-part-description"
+          name="description"
+          type="text"
+          value={formData.description}
+          onChange={handleInputChange}
+          placeholder="Enter part description"
+        />
+      </div>
 
       <div className="flex items-center gap-2">
         <input
@@ -465,16 +485,17 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
       />
 
       <div className="flex justify-end space-x-3 pt-4">
-        <SecondaryButton
+        <Button
           type="button"
+          variant="secondary"
           onClick={() => void onCancel()}
           disabled={isLoading}
         >
           Cancel
-        </SecondaryButton>
-        <ActionButton type="submit" disabled={isLoading}>
-          {isLoading ? <LoadingSpinner /> : 'Update Part'}
-        </ActionButton>
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? <Spinner inline size="xs" /> : 'Update Part'}
+        </Button>
       </div>
     </form>
   );

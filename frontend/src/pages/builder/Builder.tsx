@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
+import AddItemTile from '../../components/buildLists/AddItemTile';
 import BuildListCard from '../../components/buildLists/BuildListCard';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
-import AddItemTile from '../../components/common/AddItemTile';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Dialog from '../../components/common/Dialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import {
   BUILDER_FIRST_PAGE_BUILD_LISTS,
   BUILDER_ITEMS_PER_PAGE,
@@ -88,10 +93,6 @@ function Builder() {
     setIsCreateBuildListFormOpen(true);
   };
 
-  const closeCreateBuildListDialog = () => {
-    setIsCreateBuildListFormOpen(false);
-  };
-
   if (!user) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -111,20 +112,23 @@ function Builder() {
       />
 
       <Dialog
-        isOpen={isCreateBuildListFormOpen}
-        onClose={closeCreateBuildListDialog}
-        title="Create New Build List"
-        maxWidth="4xl"
+        open={isCreateBuildListFormOpen}
+        onOpenChange={setIsCreateBuildListFormOpen}
       >
-        <CreateBuildListForm
-          key={formKey}
-          onBuildListCreated={handleBuildListCreated}
-        />
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Create New Build List</DialogTitle>
+          </DialogHeader>
+          <CreateBuildListForm
+            key={formKey}
+            onBuildListCreated={handleBuildListCreated}
+          />
+        </DialogContent>
       </Dialog>
 
       {isLoading ? (
         <div className="mt-8">
-          <LoadingSpinner />
+          <Spinner />
         </div>
       ) : error ? (
         <div className="mt-8">

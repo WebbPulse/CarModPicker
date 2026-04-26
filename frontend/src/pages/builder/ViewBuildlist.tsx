@@ -11,20 +11,19 @@ import type {
   VoteSummary,
 } from '../../types/Api';
 
+import { Link } from 'react-router-dom';
 import BuildListParts from '../../components/buildListParts/BuildListParts';
 import CreateBuildListPartForm from '../../components/buildListParts/CreateBuildListPartForm';
 import EditBuildListForm from '../../components/buildLists/EditBuildListForm';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import CardInfoItem from '../../components/common/CardInfoItem';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import ParentNavigationLink from '../../components/common/ParentNavigationLink';
 import ImageGallery from '../../components/parts/ImageGallery';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import CardInfoItem from '../../components/ui/card-info-item';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import {
   Dialog,
@@ -32,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
+import Spinner from '../../components/ui/spinner';
 import { carFullDisplayName, formatCarYearRange } from '../../utils/carUtils';
 
 const fetchBuildListRequestFn = (buildListId: string) =>
@@ -231,7 +231,7 @@ function ViewBuildList() {
     return (
       <>
         <PageHeader title="Build List Details" />
-        <LoadingSpinner />
+        <Spinner />
       </>
     );
   }
@@ -364,18 +364,22 @@ function ViewBuildList() {
             </CardInfoItem>
             {associatedCar && (
               <CardInfoItem label="Associated Car:">
-                <ParentNavigationLink
-                  linkTo={`/car-generations/${associatedCar.id}`}
-                  linkText={`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
-                />
+                <Link
+                  to={`/car-generations/${associatedCar.id}`}
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                >
+                  {`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
+                </Link>
               </CardInfoItem>
             )}
             {buildListOwner && (
               <CardInfoItem label="Build List Owner:">
-                <ParentNavigationLink
-                  linkTo={`/user/${buildListOwner.id}`}
-                  linkText={buildListOwner.username}
-                />
+                <Link
+                  to={`/user/${buildListOwner.id}`}
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                >
+                  {buildListOwner.username}
+                </Link>
               </CardInfoItem>
             )}
             {voteSummary && (

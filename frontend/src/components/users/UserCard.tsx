@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { UserRead } from '../../types/Api';
-import Card from '../common/Card';
+import { Card } from '../ui/card';
 
 interface UserCardProps {
   user: UserRead;

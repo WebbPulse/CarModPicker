@@ -1,5 +1,5 @@
 import React from 'react';
-import { filterChipClass } from '../common/VehicleFilterChips';
+import { filterChipClass } from '../filters/VehicleFilterChips';
 import { Button } from '../ui/button';
 import type {
   PartManufacturerResponse,

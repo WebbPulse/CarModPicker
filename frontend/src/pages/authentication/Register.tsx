@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
-import Button from '../../components/buttons/Button';
+import { Button } from '../../components/ui/button';
 import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
-import Input from '../../components/common/Input';
+import { Input } from '../../components/ui/input';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
@@ -96,82 +96,134 @@ function Register() {
 
           {/* Form */}
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
-            <Input
-              label="Username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Choose a username"
-              disabled={isLoading}
-              leftIcon={<FaUser />}
-              variant="glass"
-            />
+            <div>
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Username
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <FaUser />
+                </span>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Choose a username"
+                  disabled={isLoading}
+                  className="pl-10"
+                />
+              </div>
+            </div>
 
-            <Input
-              label="Email address"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={isLoading}
-              leftIcon={<FaEnvelope />}
-              variant="glass"
-            />
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Email address
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <FaEnvelope />
+                </span>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  className="pl-10"
+                />
+              </div>
+            </div>
 
-            <Input
-              label="Password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              disabled={isLoading}
-              leftIcon={<FaLock />}
-              rightIcon={
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Password
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <FaLock />
+                </span>
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
+                  disabled={isLoading}
+                  className="pl-10 pr-10"
+                />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
-              }
-              variant="glass"
-              helperText="Must be at least 8 characters"
-            />
+              </div>
+              <div className="mt-2 text-sm text-neutral-400">
+                Must be at least 8 characters
+              </div>
+            </div>
 
-            <Input
-              label="Confirm Password"
-              name="confirm-password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              disabled={isLoading}
-              leftIcon={<FaLock />}
-              rightIcon={
+            <div>
+              <label
+                htmlFor="confirm-password"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Confirm Password
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <FaLock />
+                </span>
+                <Input
+                  id="confirm-password"
+                  name="confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm your password"
+                  disabled={isLoading}
+                  aria-invalid={
+                    password !== confirmPassword && !!confirmPassword
+                  }
+                  className="pl-10 pr-10"
+                />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
-              }
-              variant="glass"
-              {...(password !== confirmPassword &&
-                confirmPassword && { error: "Passwords don't match" })}
-            />
+              </div>
+              {password !== confirmPassword && confirmPassword && (
+                <div className="mt-2 text-sm text-destructive">
+                  Passwords don't match
+                </div>
+              )}
+            </div>
 
             {apiError && (
               <div className="animate-slideInUp">

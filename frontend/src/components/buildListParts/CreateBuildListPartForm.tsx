@@ -20,17 +20,16 @@ import type {
 } from '../../types/Api';
 
 import { LARGE_FETCH_LIMIT } from '../../constants';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ErrorAlert } from '../common/Alerts';
-import CarModelMultiSelect from '../common/CarModelMultiSelect';
-import ImageUpload from '../common/ImageUpload';
-import ImageWithPlaceholder from '../common/ImageWithPlaceholder';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import CarModelMultiSelect from '../cars/CarModelMultiSelect';
+import ImageUpload from '../forms/ImageUpload';
 import SearchableSelect, {
   type SearchableSelectOption,
-} from '../common/SearchableSelect';
+} from '../forms/SearchableSelect';
+import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import { ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import Spinner from '../ui/spinner';
 
 interface CreateBuildListPartFormProps {
   buildListId: string;
@@ -630,26 +629,40 @@ function CreateBuildListPartForm({
             </p>
           </div>
 
-          <Input
-            label="Part Name *"
-            id="global-part-name"
-            name="name"
-            type="text"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Enter part name"
-            required
-          />
+          <div>
+            <label
+              htmlFor="global-part-name"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Part Name *
+            </label>
+            <Input
+              id="global-part-name"
+              name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder="Enter part name"
+              required
+            />
+          </div>
 
-          <Input
-            label="Part Number"
-            id="global-part-number"
-            name="part_number"
-            type="text"
-            value={formData.part_number}
-            onChange={handleInputChange}
-            placeholder="Enter part number"
-          />
+          <div>
+            <label
+              htmlFor="global-part-number"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Part Number
+            </label>
+            <Input
+              id="global-part-number"
+              name="part_number"
+              type="text"
+              value={formData.part_number}
+              onChange={handleInputChange}
+              placeholder="Enter part number"
+            />
+          </div>
 
           <div>
             <SearchableSelect
@@ -695,19 +708,31 @@ function CreateBuildListPartForm({
             )}
           </div>
 
-          <Input
-            label="Description"
-            id="global-part-description"
-            name="description"
-            type="text"
-            value={formData.description}
-            onChange={handleInputChange}
-            placeholder="Enter part description"
-          />
+          <div>
+            <label
+              htmlFor="global-part-description"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Description
+            </label>
+            <Input
+              id="global-part-description"
+              name="description"
+              type="text"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter part description"
+            />
+          </div>
 
           <div>
+            <label
+              htmlFor="global-part-product-url"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
+              Product URL
+            </label>
             <Input
-              label="Product URL"
               id="global-part-product-url"
               name="product_url"
               type="url"
@@ -717,7 +742,7 @@ function CreateBuildListPartForm({
             />
             {isCheckingUrl && formData.product_url.trim() && (
               <p className="mt-1 text-xs text-gray-400 flex items-center gap-1">
-                <LoadingSpinner />
+                <Spinner inline size="xs" />
                 <span>Checking if URL already exists...</span>
               </p>
             )}
@@ -840,7 +865,7 @@ function CreateBuildListPartForm({
 
           {isLoadingParts ? (
             <div className="flex justify-center py-8">
-              <LoadingSpinner />
+              <Spinner />
             </div>
           ) : partsError ? (
             <ErrorAlert message="Failed to load parts" />
@@ -1028,30 +1053,42 @@ function CreateBuildListPartForm({
             </select>
           </div>
         )}
-        <Input
-          label="Notes (Optional)"
-          id="build-list-part-notes"
-          name="notes"
-          type="text"
-          value={formData.notes}
-          onChange={handleInputChange}
-          placeholder="Add notes about this part in your build list"
-        />
+        <div>
+          <label
+            htmlFor="build-list-part-notes"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
+            Notes (Optional)
+          </label>
+          <Input
+            id="build-list-part-notes"
+            name="notes"
+            type="text"
+            value={formData.notes}
+            onChange={handleInputChange}
+            placeholder="Add notes about this part in your build list"
+          />
+        </div>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
-        <SecondaryButton type="button" onClick={onCancel} disabled={isLoading}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={isLoading}
+        >
           Cancel
-        </SecondaryButton>
-        <ActionButton type="submit" disabled={isLoading}>
+        </Button>
+        <Button type="submit" disabled={isLoading}>
           {isLoading ? (
-            <LoadingSpinner />
+            <Spinner inline size="xs" />
           ) : mode === 'create' ? (
             'Create & Add to Build List'
           ) : (
             'Add to Build List'
           )}
-        </ActionButton>
+        </Button>
       </div>
     </form>
   );

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.tsx';
-import ErrorBoundary from './components/common/ErrorBoundary';
+import ErrorBoundary from './components/shell/ErrorBoundary';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { GOOGLE_CLIENT_ID } from './config/google';

@@ -84,6 +84,7 @@ from pathlib import Path
 
 # Local import — runs only when the user invokes the live load test.
 from app.api.models.part_price_history import PartPriceHistory
+from app.api.models.part_listing import PartListing
 from app.api.models.part import Part
 from app.db.session import SessionLocal  # type: ignore[import-not-found]
 from sqlalchemy import func, select
@@ -99,9 +100,12 @@ try:
             file=sys.stderr,
         )
         sys.exit(1)
+    # Part → PartListing → PartPriceHistory (price history hangs off listings,
+    # not parts directly — see app/api/models/part_listing.py).
     rows = db.execute(
         select(Part.id, func.count(PartPriceHistory.id).label("obs"))
-        .join(PartPriceHistory, PartPriceHistory.part_id == Part.id)
+        .join(PartListing, PartListing.part_id == Part.id)
+        .join(PartPriceHistory, PartPriceHistory.part_listing_id == PartListing.id)
         .group_by(Part.id)
         .order_by(func.count(PartPriceHistory.id).desc())
         .limit(500)

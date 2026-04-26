@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useAuth } from '../../hooks/useAuth';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import DeleteConfirmationDialog from '../../components/common/DeleteConfirmationDialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
+import Spinner from '../../components/ui/spinner';
 import { adminApi, appSettingsApi, imageApi } from '../../services/Api';
 
 function SystemAdmin() {
@@ -308,9 +308,9 @@ function SystemAdmin() {
       />
 
       <div className="flex justify-between items-center mb-4">
-        <ActionButton onClick={() => void navigate('/admin')}>
+        <Button variant="secondary" onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
-        </ActionButton>
+        </Button>
       </div>
 
       {/* Global app settings */}
@@ -339,7 +339,7 @@ function SystemAdmin() {
                   <span className="text-sm font-medium text-white">
                     Disconnect premium system
                   </span>
-                  {isSavingAppSettings && <LoadingSpinner size="sm" inline />}
+                  {isSavingAppSettings && <Spinner size="sm" inline />}
                 </div>
                 <p className="text-xs text-neutral-400 mt-0.5">
                   Hard kill switch for everything paid. When on: ads are
@@ -382,38 +382,23 @@ function SystemAdmin() {
           </div>
           <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <ActionButton
+              <Button
                 onClick={() => void handleRunMigrations()}
                 disabled={isRunningMigrations}
-                className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                loading={isRunningMigrations}
               >
-                {isRunningMigrations ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Running Migrations...
-                  </span>
-                ) : (
-                  '🔄 Run Migrations'
-                )}
-              </ActionButton>
-              <ActionButton
+                {isRunningMigrations
+                  ? 'Running Migrations...'
+                  : '🔄 Run Migrations'}
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => void fetchCurrentRevision()}
                 disabled={isLoadingRevision}
-                className="text-sm"
+                loading={isLoadingRevision}
               >
-                {isLoadingRevision ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Loading...
-                  </span>
-                ) : (
-                  '🔄 Refresh Revision'
-                )}
-              </ActionButton>
+                {isLoadingRevision ? 'Loading...' : '🔄 Refresh Revision'}
+              </Button>
             </div>
             {migrationResult && (
               <div
@@ -479,38 +464,26 @@ function SystemAdmin() {
           </p>
           <div className="p-3 bg-amber-900/20 border border-amber-700 rounded-lg">
             <div className="flex flex-wrap gap-3 mb-2">
-              <ActionButton
+              <Button
                 onClick={() => void handleInitCarGenerations()}
                 disabled={isInitCarGenerations}
+                loading={isInitCarGenerations}
                 className="bg-amber-600 hover:bg-amber-700 text-white"
               >
-                {isInitCarGenerations ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Initializing...
-                  </span>
-                ) : (
-                  '🚗 Init Car Generations'
-                )}
-              </ActionButton>
-              <ActionButton
+                {isInitCarGenerations
+                  ? 'Initializing...'
+                  : '🚗 Init Car Generations'}
+              </Button>
+              <Button
                 onClick={() => void handleInitPartCategories()}
                 disabled={isInitPartCategories}
+                loading={isInitPartCategories}
                 className="bg-amber-600 hover:bg-amber-700 text-white"
               >
-                {isInitPartCategories ? (
-                  <span className="flex items-center">
-                    <span className="mr-2">
-                      <LoadingSpinner size="sm" inline />
-                    </span>
-                    Initializing...
-                  </span>
-                ) : (
-                  '📦 Init Part Categories'
-                )}
-              </ActionButton>
+                {isInitPartCategories
+                  ? 'Initializing...'
+                  : '📦 Init Part Categories'}
+              </Button>
             </div>
             {(initCarGenerationsResult || initPartCategoriesResult) && (
               <div className="space-y-2 mt-2">
@@ -569,26 +542,19 @@ function SystemAdmin() {
                   repopulate from a clean slate. This action cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  <ActionButton
+                  <Button
+                    size="sm"
                     onClick={() => {
                       setDeleteAllCarsError(null);
                       setDeleteAllCarsResult(null);
                       setIsDeleteAllCarsConfirmOpen(true);
                     }}
                     disabled={isDeletingAllCars}
-                    className="bg-orange-600 hover:bg-orange-700 text-white text-sm py-1.5 px-3"
+                    loading={isDeletingAllCars}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
-                    {isDeletingAllCars ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Deleting...
-                      </span>
-                    ) : (
-                      'Delete all cars'
-                    )}
-                  </ActionButton>
+                    {isDeletingAllCars ? 'Deleting...' : 'Delete all cars'}
+                  </Button>
                 </div>
                 {deleteAllCarsResult && (
                   <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
@@ -618,46 +584,36 @@ function SystemAdmin() {
                   These actions cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  <ActionButton
+                  <Button
+                    size="sm"
+                    variant="destructive"
                     onClick={() => {
                       setDeleteAllPartsError(null);
                       setDeleteAllPartsResult(null);
                       setIsDeleteAllPartsConfirmOpen(true);
                     }}
                     disabled={isDeletingAllParts}
-                    className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
+                    loading={isDeletingAllParts}
                   >
-                    {isDeletingAllParts ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Deleting...
-                      </span>
-                    ) : (
-                      'Delete all global parts'
-                    )}
-                  </ActionButton>
-                  <ActionButton
+                    {isDeletingAllParts
+                      ? 'Deleting...'
+                      : 'Delete all global parts'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
                     onClick={() => {
                       setDeleteAllPartManufacturersError(null);
                       setDeleteAllPartManufacturersResult(null);
                       setIsDeleteAllPartManufacturersConfirmOpen(true);
                     }}
                     disabled={isDeletingAllPartManufacturers}
-                    className="bg-red-600 hover:bg-red-700 text-white text-sm py-1.5 px-3"
+                    loading={isDeletingAllPartManufacturers}
                   >
-                    {isDeletingAllPartManufacturers ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Deleting...
-                      </span>
-                    ) : (
-                      'Delete all part manufacturers'
-                    )}
-                  </ActionButton>
+                    {isDeletingAllPartManufacturers
+                      ? 'Deleting...'
+                      : 'Delete all part manufacturers'}
+                  </Button>
                 </div>
                 {(deleteAllPartsResult || deleteAllPartManufacturersResult) && (
                   <div className="space-y-1 mt-2">
@@ -702,41 +658,29 @@ function SystemAdmin() {
                   entity loses its images.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  <ActionButton
+                  <Button
+                    size="sm"
                     onClick={() => void handleListOrphaned()}
                     disabled={isListingOrphaned}
-                    className="bg-cyan-600 hover:bg-cyan-700 text-white text-sm py-1.5 px-3"
+                    loading={isListingOrphaned}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white"
                   >
-                    {isListingOrphaned ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Listing...
-                      </span>
-                    ) : (
-                      'List orphaned (dry run)'
-                    )}
-                  </ActionButton>
-                  <ActionButton
+                    {isListingOrphaned
+                      ? 'Listing...'
+                      : 'List orphaned (dry run)'}
+                  </Button>
+                  <Button
+                    size="sm"
                     onClick={() => {
                       setPurgeOrphanError(null);
                       setIsPurgeOrphanConfirmOpen(true);
                     }}
                     disabled={isPurgingOrphaned}
-                    className="bg-amber-600 hover:bg-amber-700 text-white text-sm py-1.5 px-3"
+                    loading={isPurgingOrphaned}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
                   >
-                    {isPurgingOrphaned ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">
-                          <LoadingSpinner size="sm" inline />
-                        </span>
-                        Purging...
-                      </span>
-                    ) : (
-                      'Purge orphaned objects'
-                    )}
-                  </ActionButton>
+                    {isPurgingOrphaned ? 'Purging...' : 'Purge orphaned objects'}
+                  </Button>
                 </div>
                 {orphanedResult && (
                   <div className="p-2 rounded border border-cyan-700 bg-gray-900/50 text-sm text-neutral-300">
@@ -773,53 +717,109 @@ function SystemAdmin() {
       </div>
 
       {/* Confirmation dialogs */}
-      <DeleteConfirmationDialog
-        isOpen={isPurgeOrphanConfirmOpen}
-        onClose={() => {
-          setIsPurgeOrphanConfirmOpen(false);
-          setPurgeOrphanError(null);
+      <ConfirmDialog
+        open={isPurgeOrphanConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsPurgeOrphanConfirmOpen(false);
+            setPurgeOrphanError(null);
+          }
         }}
         onConfirm={() => void handleConfirmPurgeOrphaned()}
-        itemName="orphaned bucket objects (only unreferenced images)"
-        itemType="storage"
-        isProcessing={isPurgingOrphaned}
-        error={purgeOrphanError}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the storage{' '}
+            <span className="font-semibold text-foreground">
+              "orphaned bucket objects (only unreferenced images)"
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isPurgingOrphaned}
+        error={purgeOrphanError ? `Failed to delete storage: ${purgeOrphanError}` : null}
       />
-      <DeleteConfirmationDialog
-        isOpen={isDeleteAllPartsConfirmOpen}
-        onClose={() => {
-          setIsDeleteAllPartsConfirmOpen(false);
-          setDeleteAllPartsError(null);
+      <ConfirmDialog
+        open={isDeleteAllPartsConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsDeleteAllPartsConfirmOpen(false);
+            setDeleteAllPartsError(null);
+          }
         }}
         onConfirm={() => void handleConfirmDeleteAllParts()}
-        itemName="all global parts"
-        itemType="catalog"
-        isProcessing={isDeletingAllParts}
-        error={deleteAllPartsError}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the catalog{' '}
+            <span className="font-semibold text-foreground">"all global parts"</span>?
+            This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeletingAllParts}
+        error={deleteAllPartsError ? `Failed to delete catalog: ${deleteAllPartsError}` : null}
       />
-      <DeleteConfirmationDialog
-        isOpen={isDeleteAllPartManufacturersConfirmOpen}
-        onClose={() => {
-          setIsDeleteAllPartManufacturersConfirmOpen(false);
-          setDeleteAllPartManufacturersError(null);
+      <ConfirmDialog
+        open={isDeleteAllPartManufacturersConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsDeleteAllPartManufacturersConfirmOpen(false);
+            setDeleteAllPartManufacturersError(null);
+          }
         }}
         onConfirm={() => void handleConfirmDeleteAllPartManufacturers()}
-        itemName="all part manufacturers"
-        itemType="catalog"
-        isProcessing={isDeletingAllPartManufacturers}
-        error={deleteAllPartManufacturersError}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the catalog{' '}
+            <span className="font-semibold text-foreground">
+              "all part manufacturers"
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeletingAllPartManufacturers}
+        error={
+          deleteAllPartManufacturersError
+            ? `Failed to delete catalog: ${deleteAllPartManufacturersError}`
+            : null
+        }
       />
-      <DeleteConfirmationDialog
-        isOpen={isDeleteAllCarsConfirmOpen}
-        onClose={() => {
-          setIsDeleteAllCarsConfirmOpen(false);
-          setDeleteAllCarsError(null);
+      <ConfirmDialog
+        open={isDeleteAllCarsConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsDeleteAllCarsConfirmOpen(false);
+            setDeleteAllCarsError(null);
+          }
         }}
         onConfirm={() => void handleConfirmDeleteAllCars()}
-        itemName="all cars (generations)"
-        itemType="catalog"
-        isProcessing={isDeletingAllCars}
-        error={deleteAllCarsError}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete the catalog{' '}
+            <span className="font-semibold text-foreground">
+              "all cars (generations)"
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeletingAllCars}
+        error={
+          deleteAllCarsError ? `Failed to delete catalog: ${deleteAllCarsError}` : null
+        }
       />
     </div>
   );

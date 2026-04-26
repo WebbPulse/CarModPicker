@@ -13,9 +13,9 @@ import {
   browserSupportsWebAuthn,
   startAuthentication,
 } from '@simplewebauthn/browser';
-import Button from '../../components/buttons/Button';
+import { Button } from '../../components/ui/button';
 import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
-import Input from '../../components/common/Input';
+import { Input } from '../../components/ui/input';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
@@ -188,42 +188,64 @@ function Login() {
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
             {!requires2FA ? (
               <>
-                <Input
-                  label="Username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  disabled={isLoading}
-                  leftIcon={<FaUser />}
-                  variant="glass"
-                />
+                <div>
+                  <label
+                    htmlFor="username"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                      <FaUser />
+                    </span>
+                    <Input
+                      id="username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter your username"
+                      disabled={isLoading}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
 
-                <Input
-                  label="Password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  disabled={isLoading}
-                  leftIcon={<FaLock />}
-                  rightIcon={
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                      <FaLock />
+                    </span>
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      disabled={isLoading}
+                      className="pl-10 pr-10"
+                    />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="text-neutral-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
                     >
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </button>
-                  }
-                  variant="glass"
-                />
+                  </div>
+                </div>
               </>
             ) : (
               <>
@@ -232,23 +254,37 @@ function Login() {
                     <FaShieldAlt className="text-primary-400 text-3xl" />
                   </div>
                 </div>
-                <Input
-                  label="Authentication Code"
-                  name="otp"
-                  type="text"
-                  autoComplete="one-time-code"
-                  required
-                  value={otp}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                    setOtp(value);
-                  }}
-                  placeholder="000000"
-                  disabled={isLoading}
-                  leftIcon={<FaShieldAlt />}
-                  variant="glass"
-                  maxLength={6}
-                />
+                <div>
+                  <label
+                    htmlFor="otp"
+                    className="block text-sm font-medium text-neutral-300 mb-2"
+                  >
+                    Authentication Code
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                      <FaShieldAlt />
+                    </span>
+                    <Input
+                      id="otp"
+                      name="otp"
+                      type="text"
+                      autoComplete="one-time-code"
+                      required
+                      value={otp}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 6);
+                        setOtp(value);
+                      }}
+                      placeholder="000000"
+                      disabled={isLoading}
+                      maxLength={6}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => {

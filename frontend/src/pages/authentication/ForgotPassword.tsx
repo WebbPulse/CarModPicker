@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import AuthCard from '../../components/auth/AuthCard';
 import AuthForm from '../../components/auth/AuthForm';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
-import ButtonStretch from '../../components/buttons/StretchButton';
-import { ConfirmationAlert, ErrorAlert } from '../../components/common/Alerts';
-import Input from '../../components/common/Input';
+import { Button } from '../../components/ui/button';
+import { ConfirmationAlert, ErrorAlert } from '../../components/ui/alert';
+import { Input } from '../../components/ui/input';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { authApi } from '../../services/Api';
 
@@ -52,21 +52,32 @@ function ForgotPassword() {
       ) : (
         <>
           <AuthForm onSubmit={(e) => void handleSubmit(e)}>
-            <Input
-              label="Email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              type="email"
-              name="email"
-              disabled={isLoading}
-            />
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-neutral-300 mb-2"
+              >
+                Email
+              </label>
+              <Input
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                type="email"
+                name="email"
+                disabled={isLoading}
+              />
+            </div>
             <ErrorAlert message={apiError} />
             <div>
-              <ButtonStretch type="submit" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
                 {isLoading ? 'Sending...' : 'Send Password Reset Link'}
-              </ButtonStretch>
+              </Button>
             </div>
           </AuthForm>
           <AuthRedirectLink

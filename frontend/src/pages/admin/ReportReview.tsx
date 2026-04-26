@@ -10,14 +10,19 @@ import type {
   ReportWithDetails,
 } from '../../types/Api';
 
-import ActionButton from '../../components/buttons/ActionButton';
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
-import Dialog from '../../components/common/Dialog';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import Pagination from '../../components/common/Pagination';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import Pagination from '../../components/ui/pagination';
+import Spinner from '../../components/ui/spinner';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchReportsRequestFn = (params?: {
@@ -208,34 +213,28 @@ function ReportReview() {
       />
 
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-        <ActionButton onClick={() => void navigate('/admin')}>
+        <Button variant="secondary" onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
-        </ActionButton>
+        </Button>
         <div className="flex flex-wrap gap-2">
-          <ActionButton
+          <Button
+            variant={selectedStatus === 'pending' ? 'default' : 'secondary'}
             onClick={() => setSelectedStatus('pending')}
-            className={
-              selectedStatus === 'pending' ? 'bg-blue-600' : 'bg-gray-600'
-            }
           >
             Pending ({pendingCount})
-          </ActionButton>
-          <ActionButton
+          </Button>
+          <Button
+            variant={selectedStatus === 'resolved' ? 'default' : 'secondary'}
             onClick={() => setSelectedStatus('resolved')}
-            className={
-              selectedStatus === 'resolved' ? 'bg-blue-600' : 'bg-gray-600'
-            }
           >
             Resolved
-          </ActionButton>
-          <ActionButton
+          </Button>
+          <Button
+            variant={selectedStatus === 'dismissed' ? 'default' : 'secondary'}
             onClick={() => setSelectedStatus('dismissed')}
-            className={
-              selectedStatus === 'dismissed' ? 'bg-blue-600' : 'bg-gray-600'
-            }
           >
             Dismissed
-          </ActionButton>
+          </Button>
         </div>
       </div>
 
@@ -248,14 +247,14 @@ function ReportReview() {
       {isLoadingReports && !reportsData ? (
         <Card>
           <div className="flex justify-center items-center py-16">
-            <LoadingSpinner />
+            <Spinner />
           </div>
         </Card>
       ) : reportsData ? (
         <Card className="relative">
           {isLoadingReports && (
             <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <LoadingSpinner />
+              <Spinner />
             </div>
           )}
           <SectionHeader
@@ -286,12 +285,12 @@ function ReportReview() {
                       <div className="flex items-center space-x-2">
                         {getStatusBadge(report.status)}
                         {report.status === 'pending' && (
-                          <ActionButton
+                          <Button
+                            size="sm"
                             onClick={() => openReviewDialog(report)}
-                            className="text-sm px-3 py-1"
                           >
                             Review
-                          </ActionButton>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -378,11 +377,16 @@ function ReportReview() {
 
       {/* Review Dialog */}
       <Dialog
-        isOpen={isReviewDialogOpen}
-        onClose={closeReviewDialog}
-        title={`Review Report #${selectedReport?.id}`}
+        open={isReviewDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) closeReviewDialog();
+        }}
       >
-        <div className="space-y-4">
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{`Review Report #${selectedReport?.id ?? ''}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
           <div>
             <h4 className="font-medium text-gray-300 mb-2">Report Details</h4>
             <div className="bg-gray-800 p-3 rounded">
@@ -424,25 +428,26 @@ function ReportReview() {
           {updateError && <ErrorAlert message={updateError} />}
 
           <div className="flex justify-end space-x-2">
-            <ActionButton onClick={closeReviewDialog} className="bg-gray-600">
+            <Button variant="secondary" onClick={closeReviewDialog}>
               Cancel
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => void handleUpdateReport('dismissed')}
-              className="bg-gray-600 hover:bg-gray-700"
               disabled={isUpdating}
             >
               Dismiss Report
-            </ActionButton>
-            <ActionButton
+            </Button>
+            <Button
               onClick={() => void handleUpdateReport('resolved')}
               className="bg-green-600 hover:bg-green-700"
               disabled={isUpdating}
             >
               Resolve Report
-            </ActionButton>
+            </Button>
           </div>
-        </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

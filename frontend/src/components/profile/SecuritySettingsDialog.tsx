@@ -4,12 +4,15 @@ import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, usersApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
-import ActionButton from '../buttons/ActionButton';
-import SecondaryButton from '../buttons/SecondaryButton';
-import { ConfirmationAlert, ErrorAlert } from '../common/Alerts';
-import Dialog from '../common/Dialog';
-import Input from '../common/Input';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
 import ConnectedAccountsSettings from './ConnectedAccountsSettings';
 import PasskeySettings from './PasskeySettings';
 
@@ -34,6 +37,39 @@ interface SecuritySettingsDialogProps {
 }
 
 type TabType = 'password' | '2fa' | 'passkeys' | 'connected' | 'session';
+
+interface IconFieldProps {
+  id: string;
+  label: string;
+  helperText?: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function IconField({ id, label, helperText, icon, children }: IconFieldProps) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-neutral-300 mb-2"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+        >
+          {icon}
+        </span>
+        {children}
+      </div>
+      {helperText ? (
+        <div className="mt-2 text-sm text-neutral-400">{helperText}</div>
+      ) : null}
+    </div>
+  );
+}
 
 function SecuritySettingsDialog({
   isOpen,
@@ -309,450 +345,492 @@ function SecuritySettingsDialog({
 
   return (
     <Dialog
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Manage Security Settings"
-      maxWidth="lg"
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
     >
-      <div className="space-y-6">
-        {/* Tabs */}
-        <div className="flex border-b border-gray-700">
-          <button
-            type="button"
-            onClick={() => setActiveTab('password')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'password'
-                ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <FaLock />
-              <span>Change Password</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('2fa')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === '2fa'
-                ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <FaShieldAlt />
-              <span>Two-Factor Authentication</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('passkeys')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'passkeys'
-                ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <FaKey />
-              <span>Passkeys</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('connected')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'connected'
-                ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <FaLink />
-              <span>Connected</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('session')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'session'
-                ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <FaClock />
-              <span>Session</span>
-            </div>
-          </button>
-        </div>
-
-        {/* Password Change Tab */}
-        {activeTab === 'password' && (
-          <form
-            onSubmit={(e) => void handlePasswordChange(e)}
-            className="space-y-6"
-          >
-            {passwordSuccess && <ConfirmationAlert message={passwordSuccess} />}
-            {passwordError && <ErrorAlert message={passwordError} />}
-
-            <Input
-              label="Current Password"
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              value={passwordData.currentPassword}
-              onChange={(e) => {
-                setPasswordData((prev) => ({
-                  ...prev,
-                  currentPassword: e.target.value,
-                }));
-                setPasswordError(null);
-              }}
-              disabled={isChangingPassword}
-              required
-              autoComplete="current-password"
-              leftIcon={<FaLock />}
-            />
-
-            <Input
-              label="New Password"
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              value={passwordData.newPassword}
-              onChange={(e) => {
-                setPasswordData((prev) => ({
-                  ...prev,
-                  newPassword: e.target.value,
-                }));
-                setPasswordError(null);
-              }}
-              disabled={isChangingPassword}
-              required
-              autoComplete="new-password"
-              minLength={8}
-              leftIcon={<FaLock />}
-            />
-
-            <Input
-              label="Confirm New Password"
-              id="confirmNewPassword"
-              name="confirmNewPassword"
-              type="password"
-              value={passwordData.confirmNewPassword}
-              onChange={(e) => {
-                setPasswordData((prev) => ({
-                  ...prev,
-                  confirmNewPassword: e.target.value,
-                }));
-                setPasswordError(null);
-              }}
-              disabled={isChangingPassword}
-              required
-              autoComplete="new-password"
-              leftIcon={<FaLock />}
-            />
-
-            {user?.totp_enabled && (
-              <Input
-                label="2FA Code"
-                id="otp"
-                name="otp"
-                type="text"
-                value={passwordData.otp}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                  setPasswordData((prev) => ({ ...prev, otp: value }));
-                  setPasswordError(null);
-                }}
-                placeholder="000000"
-                disabled={isChangingPassword}
-                required
-                maxLength={6}
-                leftIcon={<FaShieldAlt />}
-                helperText="Enter the 6-digit code from your authenticator app"
-              />
-            )}
-
-            <div className="flex space-x-3 pt-4">
-              <ActionButton
-                type="submit"
-                disabled={isChangingPassword}
-                className="flex-1"
-              >
-                {isChangingPassword ? (
-                  <>
-                    <LoadingSpinner />
-                    <span className="ml-2">Changing Password...</span>
-                  </>
-                ) : (
-                  'Change Password'
-                )}
-              </ActionButton>
-              <SecondaryButton
-                type="button"
-                onClick={handleClose}
-                disabled={isChangingPassword}
-                className="flex-1"
-              >
-                Cancel
-              </SecondaryButton>
-            </div>
-          </form>
-        )}
-
-        {/* 2FA Tab */}
-        {activeTab === '2fa' && (
-          <div className="space-y-6">
-            {twoFASuccess && <ConfirmationAlert message={twoFASuccess} />}
-            {(twoFAError || setupError) && (
-              <ErrorAlert
-                message={twoFAError || setupError || 'An error occurred'}
-              />
-            )}
-
-            {!user?.totp_enabled && !setupData && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 text-gray-300">
-                  <FaShieldAlt className="text-primary-400 text-2xl" />
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      Enable Two-Factor Authentication
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Add an extra layer of security to your account by
-                      requiring a code from your authenticator app when you log
-                      in.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm text-gray-300">
-                  <p className="font-semibold">How it works:</p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>
-                      Scan the QR code with an authenticator app (Google
-                      Authenticator, Authy, etc.)
-                    </li>
-                    <li>
-                      Enter the 6-digit code from your app to verify and enable
-                      2FA
-                    </li>
-                    <li>You'll need this code every time you log in</li>
-                  </ol>
-                </div>
-
-                <ActionButton
-                  onClick={() => void handleSetup()}
-                  disabled={isSettingUp}
-                  className="w-full"
-                >
-                  {isSettingUp ? 'Setting up...' : 'Set Up 2FA'}
-                </ActionButton>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage Security Settings</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6">
+          {/* Tabs */}
+          <div className="flex border-b border-gray-700">
+            <button
+              type="button"
+              onClick={() => setActiveTab('password')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'password'
+                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaLock />
+                <span>Change Password</span>
               </div>
-            )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('2fa')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === '2fa'
+                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaShieldAlt />
+                <span>Two-Factor Authentication</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('passkeys')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'passkeys'
+                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaKey />
+                <span>Passkeys</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('connected')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'connected'
+                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaLink />
+                <span>Connected</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('session')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'session'
+                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaClock />
+                <span>Session</span>
+              </div>
+            </button>
+          </div>
 
-            {!user?.totp_enabled && setupData && (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-gray-300 mb-2">
-                    Scan this QR code
-                  </h3>
-                  <div className="flex justify-center mb-4">
-                    <img
-                      src={setupData.qr_code_data}
-                      alt="2FA QR Code"
-                      className="border-2 border-gray-700 rounded-lg p-2 bg-white"
-                    />
-                  </div>
-                  <p className="text-sm text-gray-400 mb-2">
-                    Or enter this code manually:
-                  </p>
-                  <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
-                    {setupData.manual_entry_key}
-                  </p>
-                </div>
+          {/* Password Change Tab */}
+          {activeTab === 'password' && (
+            <form
+              onSubmit={(e) => void handlePasswordChange(e)}
+              className="space-y-6"
+            >
+              {passwordSuccess && <ConfirmationAlert message={passwordSuccess} />}
+              {passwordError && <ErrorAlert message={passwordError} />}
 
-                <div>
+              <IconField
+                id="currentPassword"
+                label="Current Password"
+                icon={<FaLock />}
+              >
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => {
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      currentPassword: e.target.value,
+                    }));
+                    setPasswordError(null);
+                  }}
+                  disabled={isChangingPassword}
+                  required
+                  autoComplete="current-password"
+                  className="pl-10"
+                />
+              </IconField>
+
+              <IconField
+                id="newPassword"
+                label="New Password"
+                icon={<FaLock />}
+              >
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => {
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      newPassword: e.target.value,
+                    }));
+                    setPasswordError(null);
+                  }}
+                  disabled={isChangingPassword}
+                  required
+                  autoComplete="new-password"
+                  minLength={8}
+                  className="pl-10"
+                />
+              </IconField>
+
+              <IconField
+                id="confirmNewPassword"
+                label="Confirm New Password"
+                icon={<FaLock />}
+              >
+                <Input
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  type="password"
+                  value={passwordData.confirmNewPassword}
+                  onChange={(e) => {
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      confirmNewPassword: e.target.value,
+                    }));
+                    setPasswordError(null);
+                  }}
+                  disabled={isChangingPassword}
+                  required
+                  autoComplete="new-password"
+                  className="pl-10"
+                />
+              </IconField>
+
+              {user?.totp_enabled && (
+                <IconField
+                  id="otp"
+                  label="2FA Code"
+                  icon={<FaShieldAlt />}
+                  helperText="Enter the 6-digit code from your authenticator app"
+                >
                   <Input
-                    label="Enter 6-digit code from your app"
+                    id="otp"
                     name="otp"
                     type="text"
-                    value={otp}
+                    value={passwordData.otp}
                     onChange={(e) => {
                       const value = e.target.value
                         .replace(/\D/g, '')
                         .slice(0, 6);
-                      setOtp(value);
+                      setPasswordData((prev) => ({ ...prev, otp: value }));
+                      setPasswordError(null);
                     }}
                     placeholder="000000"
+                    disabled={isChangingPassword}
+                    required
                     maxLength={6}
-                    leftIcon={<FaShieldAlt />}
+                    className="pl-10"
                   />
-                </div>
+                </IconField>
+              )}
 
-                <div className="flex space-x-2">
-                  <ActionButton
-                    onClick={() => void handleVerify()}
-                    disabled={isVerifying || otp.length !== 6}
-                    className="flex-1"
-                  >
-                    {isVerifying ? 'Verifying...' : 'Verify & Enable'}
-                  </ActionButton>
-                  <SecondaryButton
-                    onClick={() => {
-                      setSetupData(null);
-                      setOtp('');
-                      setTwoFAError(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </SecondaryButton>
-                </div>
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  loading={isChangingPassword}
+                  className="flex-1"
+                >
+                  {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleClose}
+                  disabled={isChangingPassword}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-            )}
+            </form>
+          )}
 
-            {user?.totp_enabled && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 text-gray-300">
-                  <FaShieldAlt className="text-green-400 text-2xl" />
-                  <div>
-                    <h3 className="text-lg font-semibold">2FA is Enabled</h3>
-                    <p className="text-sm text-gray-400">
-                      Your account is protected with two-factor authentication.
+          {/* 2FA Tab */}
+          {activeTab === '2fa' && (
+            <div className="space-y-6">
+              {twoFASuccess && <ConfirmationAlert message={twoFASuccess} />}
+              {(twoFAError || setupError) && (
+                <ErrorAlert
+                  message={twoFAError || setupError || 'An error occurred'}
+                />
+              )}
+
+              {!user?.totp_enabled && !setupData && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 text-gray-300">
+                    <FaShieldAlt className="text-primary-400 text-2xl" />
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        Enable Two-Factor Authentication
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        Add an extra layer of security to your account by
+                        requiring a code from your authenticator app when you log
+                        in.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800/50 rounded-lg p-4 space-y-2 text-sm text-gray-300">
+                    <p className="font-semibold">How it works:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>
+                        Scan the QR code with an authenticator app (Google
+                        Authenticator, Authy, etc.)
+                      </li>
+                      <li>
+                        Enter the 6-digit code from your app to verify and enable
+                        2FA
+                      </li>
+                      <li>You'll need this code every time you log in</li>
+                    </ol>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => void handleSetup()}
+                    disabled={isSettingUp}
+                    loading={isSettingUp}
+                    className="w-full"
+                  >
+                    {isSettingUp ? 'Setting up...' : 'Set Up 2FA'}
+                  </Button>
+                </div>
+              )}
+
+              {!user?.totp_enabled && setupData && (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-300 mb-2">
+                      Scan this QR code
+                    </h3>
+                    <div className="flex justify-center mb-4">
+                      <img
+                        src={setupData.qr_code_data}
+                        alt="2FA QR Code"
+                        className="border-2 border-gray-700 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">
+                      Or enter this code manually:
+                    </p>
+                    <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
+                      {setupData.manual_entry_key}
                     </p>
                   </div>
-                </div>
 
-                <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
-                  <p className="text-sm text-yellow-300">
-                    <strong>Warning:</strong> Disabling 2FA will remove this
-                    security feature from your account. Make sure you have
-                    backup codes or another way to secure your account.
+                  <IconField
+                    id="setup-otp"
+                    label="Enter 6-digit code from your app"
+                    icon={<FaShieldAlt />}
+                  >
+                    <Input
+                      id="setup-otp"
+                      name="otp"
+                      type="text"
+                      value={otp}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 6);
+                        setOtp(value);
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="pl-10"
+                    />
+                  </IconField>
+
+                  <div className="flex space-x-2">
+                    <Button
+                      type="button"
+                      onClick={() => void handleVerify()}
+                      disabled={isVerifying || otp.length !== 6}
+                      loading={isVerifying}
+                      className="flex-1"
+                    >
+                      {isVerifying ? 'Verifying...' : 'Verify & Enable'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setSetupData(null);
+                        setOtp('');
+                        setTwoFAError(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {user?.totp_enabled && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 text-gray-300">
+                    <FaShieldAlt className="text-green-400 text-2xl" />
+                    <div>
+                      <h3 className="text-lg font-semibold">2FA is Enabled</h3>
+                      <p className="text-sm text-gray-400">
+                        Your account is protected with two-factor authentication.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+                    <p className="text-sm text-yellow-300">
+                      <strong>Warning:</strong> Disabling 2FA will remove this
+                      security feature from your account. Make sure you have
+                      backup codes or another way to secure your account.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <IconField
+                      id="disablePassword"
+                      label="Password"
+                      icon={<FaLock />}
+                    >
+                      <Input
+                        id="disablePassword"
+                        name="disablePassword"
+                        type="password"
+                        value={disablePassword}
+                        onChange={(e) => {
+                          setDisablePassword(e.target.value);
+                          setTwoFAError(null);
+                        }}
+                        placeholder="Enter your password"
+                        disabled={isDisabling}
+                        required
+                        autoComplete="current-password"
+                        className="pl-10"
+                      />
+                    </IconField>
+
+                    <IconField
+                      id="disableOtp"
+                      label="2FA Code"
+                      icon={<FaShieldAlt />}
+                      helperText="Enter the 6-digit code from your authenticator app"
+                    >
+                      <Input
+                        id="disableOtp"
+                        name="disableOtp"
+                        type="text"
+                        value={disableOtp}
+                        onChange={(e) => {
+                          const value = e.target.value
+                            .replace(/\D/g, '')
+                            .slice(0, 6);
+                          setDisableOtp(value);
+                          setTwoFAError(null);
+                        }}
+                        placeholder="000000"
+                        disabled={isDisabling}
+                        required
+                        maxLength={6}
+                        className="pl-10"
+                      />
+                    </IconField>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => void handleDisable()}
+                    disabled={
+                      isDisabling ||
+                      !disablePassword.trim() ||
+                      disableOtp.length !== 6
+                    }
+                    loading={isDisabling}
+                    className="w-full"
+                  >
+                    {isDisabling ? 'Disabling...' : 'Disable 2FA'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Session Tab */}
+          {activeTab === 'session' && (
+            <div className="space-y-6">
+              {sessionSuccess && <ConfirmationAlert message={sessionSuccess} />}
+              {sessionError && <ErrorAlert message={sessionError} />}
+
+              <div className="flex items-center space-x-3 text-gray-300">
+                <FaClock className="text-primary-400 text-2xl" />
+                <div>
+                  <h3 className="text-lg font-semibold">Session length</h3>
+                  <p className="text-sm text-gray-400">
+                    Choose how long you stay signed in. Shorter sessions are more
+                    secure. A new token with the selected expiry is issued when
+                    you save.
                   </p>
                 </div>
-
-                <div className="space-y-4">
-                  <Input
-                    label="Password"
-                    name="disablePassword"
-                    type="password"
-                    value={disablePassword}
-                    onChange={(e) => {
-                      setDisablePassword(e.target.value);
-                      setTwoFAError(null);
-                    }}
-                    placeholder="Enter your password"
-                    disabled={isDisabling}
-                    required
-                    autoComplete="current-password"
-                    leftIcon={<FaLock />}
-                  />
-
-                  <Input
-                    label="2FA Code"
-                    name="disableOtp"
-                    type="text"
-                    value={disableOtp}
-                    onChange={(e) => {
-                      const value = e.target.value
-                        .replace(/\D/g, '')
-                        .slice(0, 6);
-                      setDisableOtp(value);
-                      setTwoFAError(null);
-                    }}
-                    placeholder="000000"
-                    disabled={isDisabling}
-                    required
-                    maxLength={6}
-                    leftIcon={<FaShieldAlt />}
-                    helperText="Enter the 6-digit code from your authenticator app"
-                  />
-                </div>
-
-                <ActionButton
-                  onClick={() => void handleDisable()}
-                  disabled={
-                    isDisabling ||
-                    !disablePassword.trim() ||
-                    disableOtp.length !== 6
-                  }
-                  className="w-full bg-red-600 hover:bg-red-700"
-                >
-                  {isDisabling ? 'Disabling...' : 'Disable 2FA'}
-                </ActionButton>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Session Tab */}
-        {activeTab === 'session' && (
-          <div className="space-y-6">
-            {sessionSuccess && <ConfirmationAlert message={sessionSuccess} />}
-            {sessionError && <ErrorAlert message={sessionError} />}
-
-            <div className="flex items-center space-x-3 text-gray-300">
-              <FaClock className="text-primary-400 text-2xl" />
               <div>
-                <h3 className="text-lg font-semibold">Session length</h3>
-                <p className="text-sm text-gray-400">
-                  Choose how long you stay signed in. Shorter sessions are more
-                  secure. A new token with the selected expiry is issued when
-                  you save.
-                </p>
+                <label
+                  htmlFor="session-expire"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Stay signed in for
+                </label>
+                <select
+                  id="session-expire"
+                  value={sessionExpireMinutes ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSessionExpireMinutes(v === '' ? null : Number(v));
+                    setSessionError(null);
+                  }}
+                  disabled={isSavingSession}
+                  className="block w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-gray-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                >
+                  {SESSION_EXPIRE_OPTIONS.map((opt) => (
+                    <option key={opt.value ?? 'default'} value={opt.value ?? ''}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            <div>
-              <label
-                htmlFor="session-expire"
-                className="block text-sm font-medium text-gray-300 mb-2"
-              >
-                Stay signed in for
-              </label>
-              <select
-                id="session-expire"
-                value={sessionExpireMinutes ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSessionExpireMinutes(v === '' ? null : Number(v));
-                  setSessionError(null);
-                }}
+              <Button
+                type="button"
+                onClick={() => void handleSaveSession()}
                 disabled={isSavingSession}
-                className="block w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-gray-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                loading={isSavingSession}
+                className="w-full"
               >
-                {SESSION_EXPIRE_OPTIONS.map((opt) => (
-                  <option key={opt.value ?? 'default'} value={opt.value ?? ''}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                {isSavingSession ? 'Saving...' : 'Save session length'}
+              </Button>
             </div>
-
-            <ActionButton
-              onClick={() => void handleSaveSession()}
-              disabled={isSavingSession}
-              className="w-full"
-            >
-              {isSavingSession ? (
-                <>
-                  <LoadingSpinner />
-                  <span className="ml-2">Saving...</span>
-                </>
-              ) : (
-                'Save session length'
-              )}
-            </ActionButton>
-          </div>
-        )}
-        {activeTab === 'passkeys' && <PasskeySettings />}
-        {activeTab === 'connected' && <ConnectedAccountsSettings />}
-      </div>
+          )}
+          {activeTab === 'passkeys' && <PasskeySettings />}
+          {activeTab === 'connected' && <ConnectedAccountsSettings />}
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

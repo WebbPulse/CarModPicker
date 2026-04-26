@@ -2,11 +2,11 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-import { ErrorAlert } from '../../components/common/Alerts';
-import Card from '../../components/common/Card';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { ErrorAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
 
 function AdminDashboard() {
   const { user } = useAuth();

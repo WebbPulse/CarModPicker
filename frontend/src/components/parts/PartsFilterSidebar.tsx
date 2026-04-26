@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import Card from '../common/Card';
-import VehicleFilterSection from '../common/VehicleFilterSection';
+import VehicleFilterSection from '../filters/VehicleFilterSection';
 import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import type {
   PartManufacturerResponse,
@@ -94,10 +94,8 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
 
   return (
     <aside className="lg:w-64 flex-shrink-0 lg:self-stretch lg:min-h-[calc(100vh-2rem)]">
-      <Card
-        className="sticky top-4 overflow-hidden lg:h-full"
-        contentClassName="lg:absolute lg:inset-0 flex flex-col"
-      >
+      <Card className="sticky top-4 overflow-hidden lg:h-full p-0">
+        <div className="lg:absolute lg:inset-0 flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 flex-shrink-0">
           <h2 className="text-base font-semibold text-gray-100">Filters</h2>
           {hasActiveFilters && (
@@ -273,6 +271,7 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
                 ))}
             </div>
           </div>
+        </div>
         </div>
       </Card>
     </aside>

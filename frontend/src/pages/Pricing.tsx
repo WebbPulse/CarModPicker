@@ -1,7 +1,7 @@
 import { FaCheck, FaCrown, FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
-import Card from '../components/common/Card';
+import { Card } from '../components/ui/card';
 import {
   FREE_TIER_BUILD_LIST_LIMIT,
   PREMIUM_MONTHLY_PRICE_USD,
@@ -121,12 +121,11 @@ function Pricing() {
               <Card
                 key={tier.id}
                 variant="glass"
-                className={`group animate-slideInUp ${
+                className={`group animate-slideInUp h-full flex flex-col ${
                   tier.highlight
                     ? 'ring-2 ring-amber-400/50 shadow-[0_0_40px_rgba(251,191,36,0.15)]'
                     : ''
                 }`}
-                contentClassName="h-full flex flex-col"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 {tier.highlight && (

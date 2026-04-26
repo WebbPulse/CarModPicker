@@ -7,9 +7,9 @@ import type {
   PaginatedResponse,
 } from '../../types/Api';
 
-import { ErrorAlert } from '../common/Alerts';
-import Card from '../common/Card';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { ErrorAlert } from '../ui/alert';
+import { Card } from '../ui/card';
+import Spinner from '../ui/spinner';
 import SectionHeader from '../layout/SectionHeader';
 import BuildListCard from './BuildListCard';
 import BuildListItem from './BuildListItem';
@@ -187,7 +187,7 @@ function BuildListCatalogList({
     return (
       <Card>
         <div className="flex justify-center py-8">
-          <LoadingSpinner />
+          <Spinner />
         </div>
       </Card>
     );
