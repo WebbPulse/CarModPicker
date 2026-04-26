@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -7,6 +7,7 @@ import { ErrorAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { inputVariants } from '../../components/ui/input-variants';
 import Spinner from '../../components/ui/spinner';
 import type {
   BackgroundJob,
@@ -176,6 +177,27 @@ function fmtElapsed(startedAt: Date, endedAt?: Date | null): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}m ${s}s`;
+}
+
+// Self-ticking elapsed-time display. Owns its own 1 s setInterval so the
+// surrounding page does NOT re-render every second — only this leaf node
+// updates. When `endedAt` is provided, the timer doesn't tick.
+function ElapsedTimer({
+  startedAt,
+  endedAt,
+  className,
+}: {
+  startedAt: Date;
+  endedAt?: Date | null | undefined;
+  className?: string | undefined;
+}) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (endedAt) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [endedAt]);
+  return <span className={className}>{fmtElapsed(startedAt, endedAt)}</span>;
 }
 
 type UrlSample = {
@@ -424,10 +446,12 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
 
 function ArchiveRescrapeProgress({
   summary,
-  elapsed,
+  startedAt,
+  endedAt,
 }: {
   summary: Record<string, unknown> | null | undefined;
-  elapsed: string;
+  startedAt: Date;
+  endedAt?: Date | null | undefined;
 }) {
   const processed = Number(summary?.['processed'] ?? 0);
   const total = Number(summary?.['total'] ?? 0);
@@ -458,7 +482,11 @@ function ArchiveRescrapeProgress({
             <span>Queuing pages…</span>
           )}
         </div>
-        <span className="text-gray-500">{elapsed}</span>
+        <ElapsedTimer
+          startedAt={startedAt}
+          endedAt={endedAt}
+          className="text-gray-500"
+        />
       </div>
       <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">
         <div
@@ -723,13 +751,24 @@ function RunningCrawlerProgress({
   job,
   progress,
   statusCounts,
-  elapsedSec,
+  startedAt,
 }: {
   job: BackgroundJob;
   progress: CrawlerJobProgress | undefined;
   statusCounts: Record<string, Record<string, number>>;
-  elapsedSec: number;
+  startedAt: Date;
 }) {
+  // Self-tick once per second so the rate display stays current. Scoped to
+  // this subtree — the parent page does not re-render every second.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((Date.now() - startedAt.getTime()) / 1000)
+  );
   const selected = ((job.params?.['adapters'] ?? []) as string[]) ?? [];
   const adaptersData = progress?.adapters ?? {};
   const serverNow = progress?.now ?? new Date().toISOString();
@@ -891,6 +930,1442 @@ function RunningCrawlerProgress({
   );
 }
 
+// Self-buffered text input. Owns its own local state so keystrokes do NOT
+// re-render the (very heavy) parent on each character. Commits the value to
+// the parent only on blur or Enter. Used for inputs whose value isn't read
+// reactively elsewhere on the page (e.g. the create-schedule name + the
+// global crawler limit).
+const LocalTextInput = memo(function LocalTextInput({
+  initialValue,
+  onCommit,
+  className,
+  type = 'text',
+  placeholder,
+  inputMode,
+  min,
+  id,
+  inputKey,
+}: {
+  initialValue: string;
+  onCommit: (value: string) => void;
+  className?: string | undefined;
+  type?: 'text' | 'number' | undefined;
+  placeholder?: string | undefined;
+  inputMode?: 'numeric' | 'text' | undefined;
+  min?: string | undefined;
+  id?: string | undefined;
+  // Allow callers to force the input to re-sync with `initialValue` (e.g.
+  // when a preset button writes a new value into parent state).
+  inputKey?: string | number | undefined;
+}) {
+  const [value, setValue] = useState(initialValue);
+  // Re-sync if the parent forces a new initialValue via inputKey change.
+  const lastKeyRef = useRef(inputKey);
+  if (lastKeyRef.current !== inputKey) {
+    lastKeyRef.current = inputKey;
+    if (value !== initialValue) setValue(initialValue);
+  }
+  return (
+    <input
+      id={id}
+      type={type}
+      inputMode={inputMode}
+      min={min}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => {
+        if (value !== initialValue) onCommit(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && value !== initialValue) {
+          onCommit(value);
+        }
+      }}
+      className={className}
+    />
+  );
+});
+
+const BackgroundJobItem = memo(function BackgroundJobItem({
+  job,
+  isExpanded,
+  jobProgress,
+  adapterStatusCounts,
+  onToggleExpanded,
+  onCancel,
+}: {
+  job: BackgroundJob;
+  isExpanded: boolean;
+  jobProgress: CrawlerJobProgress | undefined;
+  adapterStatusCounts: Record<string, Record<string, number>>;
+  onToggleExpanded: (id: string) => void;
+  onCancel: (id: string) => void;
+}) {
+  const isRunning = job.status === 'running';
+  const statusColor =
+    job.status === 'completed'
+      ? 'text-emerald-400'
+      : job.status === 'failed'
+        ? 'text-red-400'
+        : isRunning
+          ? 'text-yellow-400'
+          : 'text-gray-400';
+  const statusBg =
+    job.status === 'completed'
+      ? 'border-emerald-800/60 bg-emerald-950/30'
+      : job.status === 'failed'
+        ? 'border-red-800/60 bg-red-950/30'
+        : isRunning
+          ? 'border-yellow-800/60 bg-yellow-950/30'
+          : 'border-gray-700 bg-gray-900/30';
+  const typeLabel =
+    job.job_type === 'crawler_run'
+      ? 'Crawler Run'
+      : job.job_type === 'archive_rescrape'
+        ? 'Archive Rescrape'
+        : job.job_type;
+  const startedAt = parseServerDate(job.started_at);
+  const completedAt = job.completed_at
+    ? parseServerDate(job.completed_at)
+    : null;
+  const inlineSummary = jobInlineSummary(job);
+  return (
+    <div className={`rounded-lg border text-sm ${statusBg}`}>
+      {isRunning && (
+        <div className="h-0.5 w-full rounded-t-lg overflow-hidden bg-yellow-950/50">
+          <div className="h-full bg-yellow-400/70 animate-[progress-indeterminate_1.8s_ease-in-out_infinite] w-1/3" />
+        </div>
+      )}
+      <div className="px-2 py-1">
+        <button
+          className="w-full flex items-center justify-between gap-2 text-left"
+          onClick={() => onToggleExpanded(job.id)}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            {isRunning ? (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+              </span>
+            ) : null}
+            <span
+              className={`font-semibold text-[10px] uppercase tracking-wide shrink-0 ${statusColor}`}
+            >
+              {job.status}
+            </span>
+            <span className="text-xs text-gray-300 font-medium truncate">
+              #{job.id} — {typeLabel}
+            </span>
+            <span className="text-gray-500 text-[10px] shrink-0">
+              {job.triggered_by}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 text-[11px] text-gray-400">
+            {inlineSummary && (
+              <span
+                className={`tabular-nums ${job.status === 'failed' ? 'text-red-400/70' : 'text-gray-400'}`}
+              >
+                {inlineSummary}
+              </span>
+            )}
+            <ElapsedTimer
+              startedAt={startedAt}
+              endedAt={completedAt}
+              className={`tabular-nums ${isRunning ? 'text-yellow-400/80' : ''}`}
+            />
+            <span className="text-gray-600">{isExpanded ? '▲' : '▼'}</span>
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-3">
+            <p className="text-xs text-gray-500">
+              Started {startedAt.toLocaleString()}
+              {completedAt && (
+                <> · Finished {completedAt.toLocaleString()}</>
+              )}
+            </p>
+
+            {job.params && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Parameters
+                </p>
+                <JobParams job={job} />
+              </div>
+            )}
+
+            {isRunning && job.job_type === 'crawler_run' && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Live progress
+                </p>
+                <RunningCrawlerProgress
+                  job={job}
+                  progress={jobProgress}
+                  statusCounts={adapterStatusCounts}
+                  startedAt={startedAt}
+                />
+              </div>
+            )}
+            {isRunning && job.job_type === 'archive_rescrape' && (
+              <ArchiveRescrapeProgress
+                summary={job.result_summary}
+                startedAt={startedAt}
+                endedAt={completedAt}
+              />
+            )}
+            {isRunning &&
+              job.job_type !== 'crawler_run' &&
+              job.job_type !== 'archive_rescrape' && (
+                <div className="flex items-center gap-2 text-xs text-yellow-400/80">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+                  </span>
+                  Running for{' '}
+                  <ElapsedTimer
+                    startedAt={startedAt}
+                    endedAt={completedAt}
+                  />{' '}
+                  — results will appear when the job completes
+                </div>
+              )}
+
+            {job.result_summary &&
+              !(isRunning && job.job_type === 'archive_rescrape') && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                    Result
+                  </p>
+                  {job.job_type === 'crawler_run' ? (
+                    <CrawlerRunResult summary={job.result_summary} />
+                  ) : job.job_type === 'archive_rescrape' ? (
+                    <ArchiveRescrapeResult summary={job.result_summary} />
+                  ) : (
+                    <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                      {JSON.stringify(job.result_summary, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+            {job.error_message && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1">
+                  Error
+                </p>
+                <pre className="text-xs text-red-300 bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                  {job.error_message}
+                </pre>
+              </div>
+            )}
+
+            {isRunning && (
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => onCancel(job.id)}
+                  className="text-xs text-red-400 hover:text-red-300 underline"
+                >
+                  Cancel job
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const BackgroundJobsCard = memo(function BackgroundJobsCard({
+  jobsList,
+  isLoadingJobs,
+  expandedJobId,
+  jobProgress,
+  adapterStatusCounts,
+  onToggleExpanded,
+  onCancel,
+}: {
+  jobsList: BackgroundJobList | null;
+  isLoadingJobs: boolean;
+  expandedJobId: string | null;
+  jobProgress: Record<string, CrawlerJobProgress>;
+  adapterStatusCounts: Record<string, Record<string, number>>;
+  onToggleExpanded: (id: string) => void;
+  onCancel: (id: string) => void;
+}) {
+  return (
+    <Card padding="sm">
+      <div className="mb-2">
+        <h2 className="text-base font-semibold text-white leading-tight">
+          Background Jobs
+        </h2>
+        <p className="text-[11px] text-gray-400">
+          Polls every 5 s while a job is running.
+          {jobsList ? ` · ${jobsList.total} total` : ''}
+        </p>
+      </div>
+
+      {!jobsList && isLoadingJobs && (
+        <div className="flex justify-center py-4">
+          <Spinner size="sm" />
+        </div>
+      )}
+
+      {jobsList && jobsList.items.length === 0 && (
+        <p className="text-xs text-gray-500 text-center py-4">No jobs yet.</p>
+      )}
+
+      {jobsList && jobsList.items.length > 0 && (
+        <div className="space-y-1.5">
+          {jobsList.items.map((job: BackgroundJob) => (
+            <BackgroundJobItem
+              key={job.id}
+              job={job}
+              isExpanded={expandedJobId === job.id}
+              jobProgress={jobProgress[job.id]}
+              adapterStatusCounts={adapterStatusCounts}
+              onToggleExpanded={onToggleExpanded}
+              onCancel={onCancel}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+});
+
+// Wrapper around the Live Crawlers per-adapter row list. Memoized so that
+// re-renders of CrawlerAdmin caused by unrelated state (e.g. typing into a
+// schedule name) do NOT re-execute the 100-row map + 100 createElement
+// calls. Each LiveCrawlerRow inside is also memoized; together they collapse
+// the cost of unrelated re-renders to ~zero for this list.
+const LiveCrawlerRowList = memo(function LiveCrawlerRowList({
+  sortedAdapters,
+  adapterTiers,
+  selectedCrawlers,
+  crawlerLimits,
+  adapterStatusCounts,
+  onToggleSelected,
+  onLimitChange,
+}: {
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+  selectedCrawlers: Set<string>;
+  crawlerLimits: Record<string, string>;
+  adapterStatusCounts: Record<string, Record<string, number>>;
+  onToggleSelected: (adapter: string) => void;
+  onLimitChange: (adapter: string, value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mb-2">
+      {sortedAdapters.map((adapter) => (
+        <LiveCrawlerRow
+          key={adapter}
+          adapter={adapter}
+          tier={adapterTiers[adapter]}
+          selected={selectedCrawlers.has(adapter)}
+          limitValue={crawlerLimits[adapter] ?? ''}
+          statusCounts={adapterStatusCounts[adapter]}
+          onToggleSelected={onToggleSelected}
+          onLimitChange={onLimitChange}
+        />
+      ))}
+    </div>
+  );
+});
+
+// ── Memoized whole-section components ────────────────────────────────────
+// Extracted so unrelated parent state changes (e.g. typing into the New
+// Schedule name input) don't re-execute these sections' JSX. Each takes a
+// stable set of props; React.memo skips re-render when none change.
+
+const AdapterTuningCard = memo(function AdapterTuningCard({
+  isLoadingConfigs,
+  adapterConfigs,
+  sortedAdapterConfigs,
+  adapterTiers,
+  savingConfigName,
+  adapterStatusCounts,
+  crawlerCategories,
+  configSaveError,
+  onSave,
+}: {
+  isLoadingConfigs: boolean;
+  adapterConfigs: CrawlerAdapterConfig[];
+  sortedAdapterConfigs: CrawlerAdapterConfig[];
+  adapterTiers: Record<string, FetcherTier>;
+  savingConfigName: string | null;
+  adapterStatusCounts: Record<string, Record<string, number>>;
+  crawlerCategories: CategoryResponse[];
+  configSaveError: string | null;
+  onSave: (
+    adapterName: string,
+    patch: CrawlerAdapterConfigUpdate
+  ) => void | Promise<void>;
+}) {
+  return (
+    <Card padding="sm">
+      <h2 className="text-base font-semibold text-white leading-tight">
+        Adapter Tuning
+      </h2>
+      <p className="text-xs text-neutral-400 mb-2">
+        Per-retailer delay, run limit, and default category. Applies on the
+        next scheduled run — no AWS sync needed.
+      </p>
+
+      {configSaveError && (
+        <div className="mb-2">
+          <ErrorAlert message={configSaveError} />
+        </div>
+      )}
+
+      {isLoadingConfigs && adapterConfigs.length === 0 ? (
+        <div className="flex justify-center py-4">
+          <Spinner size="sm" />
+        </div>
+      ) : adapterConfigs.length === 0 ? (
+        <p className="text-xs text-gray-500 py-2">
+          No adapters registered yet.
+        </p>
+      ) : (
+        <div className="p-2 bg-blue-900/10 border border-blue-700/60 rounded-lg">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-200 mb-2">
+            Per-retailer settings
+          </h3>
+          <div className="grid grid-cols-1 gap-1">
+            {sortedAdapterConfigs.map((row) => (
+              <AdapterTuningRow
+                key={row.id}
+                row={row}
+                tier={adapterTiers[row.adapter_name]}
+                isSaving={savingConfigName === row.adapter_name}
+                statusCounts={adapterStatusCounts[row.adapter_name]}
+                categories={crawlerCategories}
+                onSave={onSave}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+});
+
+// ── Memoized per-adapter row components ──────────────────────────────────
+// These lists render ~100 rows each in three+ sections. Without memoization,
+// a single keystroke into ANY controlled input on the page (e.g. a schedule
+// name, a global limit, or one adapter's per-run limit) re-renders the entire
+// CrawlerAdmin tree, which is hundreds of inputs and buttons. Memoizing each
+// row + stabilising the per-row callbacks keeps keystroke cost O(1).
+
+const TIER_SORT_ORDER: Record<FetcherTier, number> = {
+  http: 0,
+  tls: 1,
+  browser: 2,
+  unverified: 4,
+};
+
+function sortAdaptersByTier(
+  names: readonly string[],
+  tiers: Record<string, FetcherTier>
+): string[] {
+  return [...names].sort((a, b) => {
+    const ta = tiers[a];
+    const tb = tiers[b];
+    const da = ta ? TIER_SORT_ORDER[ta] : 3;
+    const db = tb ? TIER_SORT_ORDER[tb] : 3;
+    if (da !== db) return da - db;
+    return a.localeCompare(b);
+  });
+}
+
+const LiveCrawlerRow = memo(function LiveCrawlerRow({
+  adapter,
+  tier,
+  selected,
+  limitValue,
+  statusCounts,
+  onToggleSelected,
+  onLimitChange,
+}: {
+  adapter: string;
+  tier: FetcherTier | undefined;
+  selected: boolean;
+  limitValue: string;
+  statusCounts: Record<string, number> | undefined;
+  onToggleSelected: (adapter: string) => void;
+  onLimitChange: (adapter: string, value: string) => void;
+}) {
+  const tierRow = tier ? TIER_META[tier].row : '';
+  const progress = adapterProgressLabel(statusCounts);
+  return (
+    <div
+      className={`flex items-center gap-1.5 py-0.5 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
+    >
+      <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelected(adapter)}
+          className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+        />
+        <TierBadge tier={tier} />
+        <span className="font-mono text-xs text-neutral-200 truncate">
+          {adapter}
+        </span>
+      </label>
+      {progress ? (
+        <span
+          title={progress.tooltip}
+          className="shrink-0 tabular-nums text-[10px] px-1 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
+        >
+          {progress.parsed.toLocaleString()}
+          <span className="text-gray-500">{' / '}</span>
+          {progress.total.toLocaleString()}
+        </span>
+      ) : null}
+      <input
+        type="number"
+        min="1"
+        placeholder="—"
+        defaultValue={limitValue}
+        onBlur={(e) => onLimitChange(adapter, e.target.value)}
+        className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+    </div>
+  );
+});
+
+const AdapterTuningRow = memo(function AdapterTuningRow({
+  row,
+  tier,
+  isSaving,
+  statusCounts,
+  categories,
+  onSave,
+}: {
+  row: CrawlerAdapterConfig;
+  tier: FetcherTier | undefined;
+  isSaving: boolean;
+  statusCounts: Record<string, number> | undefined;
+  categories: CategoryResponse[];
+  onSave: (
+    adapterName: string,
+    patch: CrawlerAdapterConfigUpdate
+  ) => void | Promise<void>;
+}) {
+  const tierRow = tier ? TIER_META[tier].row : '';
+  const progress = adapterProgressLabel(statusCounts);
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-1.5 py-1 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
+    >
+      <TierBadge tier={tier} />
+      <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
+        {row.adapter_name}
+      </span>
+      {progress ? (
+        <span
+          title={progress.tooltip}
+          className="shrink-0 tabular-nums text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
+        >
+          {progress.parsed.toLocaleString()}
+          <span className="text-gray-500">{' / '}</span>
+          {progress.total.toLocaleString()}
+        </span>
+      ) : null}
+      <select
+        id={`tune-delay-${row.adapter_name}`}
+        title="Delay"
+        value={String(row.delay_sec)}
+        onChange={(e) =>
+          void onSave(row.adapter_name, {
+            delay_sec: Number(e.target.value),
+          })
+        }
+        disabled={isSaving}
+        className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+      >
+        {[2.5, 5, 10, 15, 30].map((v) => (
+          <option key={v} value={String(v)}>
+            {v}s
+          </option>
+        ))}
+      </select>
+      <Input
+        id={`tune-limit-${row.adapter_name}`}
+        key={`tune-limit-${row.adapter_name}-${row.per_run_limit ?? 'none'}`}
+        type="number"
+        min="1"
+        defaultValue={
+          row.per_run_limit == null ? '' : String(row.per_run_limit)
+        }
+        placeholder="∞"
+        onBlur={(e) => {
+          const raw = e.target.value.trim();
+          if (raw === '') {
+            if (row.per_run_limit != null) {
+              void onSave(row.adapter_name, {
+                clear_per_run_limit: true,
+              });
+            }
+          } else {
+            const n = Number(raw);
+            if (
+              Number.isFinite(n) &&
+              n >= 1 &&
+              n !== row.per_run_limit
+            ) {
+              void onSave(row.adapter_name, { per_run_limit: n });
+            }
+          }
+        }}
+        disabled={isSaving}
+        className="w-14 min-h-0 py-0.5 text-xs"
+      />
+      <label
+        title="Skip URLs already archived as parsed"
+        className="inline-flex items-center gap-1 text-[11px] text-gray-300"
+      >
+        <input
+          type="checkbox"
+          checked={row.skip_known_urls}
+          onChange={(e) =>
+            void onSave(row.adapter_name, {
+              skip_known_urls: e.target.checked,
+            })
+          }
+          disabled={isSaving}
+          className="h-3 w-3 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+        />
+        skip
+      </label>
+      <select
+        id={`tune-cat-${row.adapter_name}`}
+        title="Default category for new parts"
+        value={row.default_category_id}
+        onChange={(e) =>
+          void onSave(row.adapter_name, {
+            default_category_id: e.target.value,
+          })
+        }
+        disabled={isSaving || categories.length === 0}
+        className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 max-w-[8rem]"
+      >
+        {categories.map((c) => (
+          <option key={c.id} value={String(c.id)}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+
+// Compact selected-only adapter picker for a schedule. Renders ONLY the
+// adapters this schedule already includes (typically <20) as removable
+// chips, plus a native <select> to add unselected adapters. Replaces the
+// previous "render all 100 adapters as chips" UI which was the page's
+// dominant render cost.
+const ScheduleAdapterPicker = memo(function ScheduleAdapterPicker({
+  row,
+  sortedAdapters,
+  adapterTiers,
+  isSaving,
+  onToggle,
+}: {
+  row: CrawlerSchedule;
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+  isSaving: boolean;
+  onToggle: (row: CrawlerSchedule, name: string) => void | Promise<void>;
+}) {
+  const memberNames = useMemo(
+    () => new Set(row.adapters.map((a) => a.adapter_name)),
+    [row.adapters]
+  );
+  // Adapters the user can add — sorted by tier already, just filter.
+  const unselectedSorted = useMemo(
+    () => sortedAdapters.filter((name) => !memberNames.has(name)),
+    [sortedAdapters, memberNames]
+  );
+  // Selected chips, also kept in tier order for visual consistency.
+  const selectedSorted = useMemo(
+    () => sortedAdapters.filter((name) => memberNames.has(name)),
+    [sortedAdapters, memberNames]
+  );
+  const handleRemove = useCallback(
+    (name: string) => void onToggle(row, name),
+    [onToggle, row]
+  );
+  const handleAdd = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const name = e.target.value;
+      if (!name) return;
+      void onToggle(row, name);
+      // Reset select so the same option can be added again immediately
+      // after another remove + re-add cycle.
+      e.target.value = '';
+    },
+    [onToggle, row]
+  );
+  return (
+    <div className="space-y-1.5">
+      {selectedSorted.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedSorted.map((name) => {
+            const tier = adapterTiers[name];
+            const cls = tier
+              ? TIER_META[tier].chipSelected
+              : 'border-emerald-500 bg-emerald-900/40 text-emerald-300';
+            return (
+              <span
+                key={name}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border font-mono ${cls}`}
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => handleRemove(name)}
+                  disabled={isSaving}
+                  title="Remove"
+                  className="text-current/70 hover:text-current disabled:opacity-50"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {unselectedSorted.length > 0 && (
+        <select
+          value=""
+          onChange={handleAdd}
+          disabled={isSaving}
+          className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono focus:outline-none focus:border-blue-500 disabled:opacity-50"
+        >
+          <option value="">+ Add adapter…</option>
+          {unselectedSorted.map((name) => {
+            const tier = adapterTiers[name];
+            const tierLabel = tier ? TIER_META[tier].label : '?';
+            return (
+              <option key={name} value={name}>
+                {tierLabel} · {name}
+              </option>
+            );
+          })}
+        </select>
+      )}
+    </div>
+  );
+});
+
+// Compact selected-only adapter picker for the New Schedule form. Same
+// pattern as ScheduleAdapterPicker but operates on the local selection
+// array rather than a saved schedule.
+const NewScheduleAdapterPicker = memo(function NewScheduleAdapterPicker({
+  selected,
+  sortedAdapters,
+  adapterTiers,
+  onToggle,
+}: {
+  selected: readonly string[];
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+  onToggle: (name: string) => void;
+}) {
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const unselectedSorted = useMemo(
+    () => sortedAdapters.filter((n) => !selectedSet.has(n)),
+    [sortedAdapters, selectedSet]
+  );
+  const selectedSorted = useMemo(
+    () => sortedAdapters.filter((n) => selectedSet.has(n)),
+    [sortedAdapters, selectedSet]
+  );
+  const handleAdd = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const name = e.target.value;
+      if (!name) return;
+      onToggle(name);
+      e.target.value = '';
+    },
+    [onToggle]
+  );
+  return (
+    <div className="space-y-1.5">
+      {selectedSorted.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedSorted.map((name) => {
+            const tier = adapterTiers[name];
+            const cls = tier
+              ? TIER_META[tier].chipSelected
+              : 'border-emerald-500 bg-emerald-900/40 text-emerald-300';
+            return (
+              <span
+                key={name}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border font-mono ${cls}`}
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => onToggle(name)}
+                  title="Remove"
+                  className="text-current/70 hover:text-current"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {unselectedSorted.length > 0 && (
+        <select
+          value=""
+          onChange={handleAdd}
+          className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+        >
+          <option value="">+ Add adapter…</option>
+          {unselectedSorted.map((name) => {
+            const tier = adapterTiers[name];
+            const tierLabel = tier ? TIER_META[tier].label : '?';
+            return (
+              <option key={name} value={name}>
+                {tierLabel} · {name}
+              </option>
+            );
+          })}
+        </select>
+      )}
+    </div>
+  );
+});
+
+// Module-level pure lookup so it's not re-created per render and can be
+// shared by ScheduleRow + SchedulesCard without prop-drilling a callback.
+function presetForExpression(
+  expression: string,
+  presets: Record<string, string>
+): string {
+  for (const [name, expr] of Object.entries(presets)) {
+    if (expr === expression) return name;
+  }
+  return 'custom';
+}
+
+// ── New schedule form ────────────────────────────────────────────────────
+// State lives here so typing into the name input only re-renders this small
+// form, NOT the surrounding SchedulesCard (which would in turn reconcile
+// every existing schedule row).
+const NewScheduleForm = memo(function NewScheduleForm({
+  sortedAdapters,
+  adapterTiers,
+  onCreate,
+}: {
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+  onCreate: (body: CrawlerScheduleCreate) => Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [preset, setPreset] = useState<
+    'monthly' | 'weekly' | 'daily' | 'custom'
+  >('monthly');
+  const [customExpression, setCustomExpression] = useState('');
+  const [adapters, setAdapters] = useState<string[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleAdapter = useCallback((n: string) => {
+    setAdapters((prev) =>
+      prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]
+    );
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    setIsCreating(true);
+    setError(null);
+    const body: CrawlerScheduleCreate = {
+      name: trimmedName,
+      enabled: false,
+      adapters,
+      ...(preset === 'custom'
+        ? { schedule_expression: customExpression.trim() }
+        : { preset }),
+    };
+    try {
+      await onCreate(body);
+      setName('');
+      setPreset('monthly');
+      setCustomExpression('');
+      setAdapters([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create schedule.');
+    } finally {
+      setIsCreating(false);
+    }
+  }, [name, preset, customExpression, adapters, onCreate]);
+
+  return (
+    <div className="mb-2 p-2 rounded border border-dashed border-gray-700 bg-gray-900/30">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1.5">
+        New schedule
+      </p>
+      {error && (
+        <div className="mb-1.5">
+          <ErrorAlert message={error} />
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Input
+          id="new-schedule-name"
+          placeholder="e.g. retailers-daily"
+          value={name}
+          onChange={(e) =>
+            setName(
+              e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9-]+/g, '-')
+                .replace(/^-+/, '')
+                .slice(0, 26)
+            )
+          }
+        />
+        <div className="flex flex-wrap gap-1">
+          {(['monthly', 'weekly', 'daily', 'custom'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPreset(p)}
+              className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                preset === p
+                  ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                  : 'border-gray-600 text-gray-400 hover:border-gray-400'
+              }`}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+        {preset === 'custom' && (
+          <LocalTextInput
+            type="text"
+            initialValue={customExpression}
+            onCommit={setCustomExpression}
+            placeholder="cron(0 2 1 * ? *)"
+            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+          />
+        )}
+        <NewScheduleAdapterPicker
+          selected={adapters}
+          sortedAdapters={sortedAdapters}
+          adapterTiers={adapterTiers}
+          onToggle={toggleAdapter}
+        />
+        <Button
+          onClick={() => void handleSubmit()}
+          disabled={
+            isCreating ||
+            !name.trim() ||
+            adapters.length === 0 ||
+            (preset === 'custom' && !customExpression.trim())
+          }
+          className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
+        >
+          {isCreating ? 'Creating…' : 'Create schedule'}
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+// ── Schedule row ─────────────────────────────────────────────────────────
+// Memoized per-row so a state change in one row (e.g. typing into row A's
+// custom-cron field) doesn't reconcile rows B, C, D… With ~10+ schedules
+// this is the difference between snappy and laggy interactions.
+type ScheduleDraft = { preset: string; customExpression: string };
+
+const ScheduleRow = memo(function ScheduleRow({
+  row,
+  draftPreset,
+  draftCustomExpression,
+  originalPreset,
+  presetExpressions,
+  sortedAdapters,
+  adapterTiers,
+  isExpanded,
+  isSaving,
+  onToggleExpanded,
+  onSetDraft,
+  onSave,
+  onDelete,
+  onToggleAdapter,
+}: {
+  row: CrawlerSchedule;
+  draftPreset: string;
+  draftCustomExpression: string;
+  originalPreset: string;
+  presetExpressions: Record<string, string>;
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+  isExpanded: boolean;
+  isSaving: boolean;
+  onToggleExpanded: (id: string) => void;
+  onSetDraft: (id: string, draft: ScheduleDraft) => void;
+  onSave: (id: string, patch: CrawlerScheduleUpdate) => Promise<void> | void;
+  onDelete: (row: CrawlerSchedule) => Promise<void> | void;
+  onToggleAdapter: (
+    row: CrawlerSchedule,
+    name: string
+  ) => Promise<void> | void;
+}) {
+  const reconcileFailed = !!row.last_reconcile_error;
+  const handleCustomCommit = useCallback(
+    (v: string) => {
+      onSetDraft(row.id, { preset: 'custom', customExpression: v });
+    },
+    [row.id, onSetDraft]
+  );
+  return (
+    <div className="p-2 rounded border border-gray-700 bg-gray-900/40">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => onToggleExpanded(row.id)}
+          className="flex-1 min-w-0 text-left flex items-center gap-2"
+        >
+          <span className="text-gray-500 text-[10px] shrink-0">
+            {isExpanded ? '▲' : '▼'}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-100 font-mono truncate">
+              {row.name}
+            </p>
+            <p className="text-[10px] text-gray-500 truncate">
+              {row.enabled ? (
+                <span className="text-emerald-400">Enabled</span>
+              ) : (
+                <span>Disabled</span>
+              )}
+              {' · '}
+              <span className="font-mono">{row.schedule_expression}</span>
+              {' · '}
+              <span>{row.adapters.length} adapter(s)</span>
+            </p>
+          </div>
+        </button>
+        <button
+          onClick={() => void onSave(row.id, { enabled: !row.enabled })}
+          disabled={isSaving}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+            row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
+          }`}
+          title={row.enabled ? 'Disable' : 'Enable'}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+              row.enabled ? 'translate-x-4' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-2 mt-2">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
+              Adapters ({row.adapters.length})
+            </p>
+            <ScheduleAdapterPicker
+              row={row}
+              sortedAdapters={sortedAdapters}
+              adapterTiers={adapterTiers}
+              isSaving={isSaving}
+              onToggle={onToggleAdapter}
+            />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
+              Interval
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {(['monthly', 'weekly', 'daily'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() =>
+                    onSetDraft(row.id, { preset: p, customExpression: '' })
+                  }
+                  className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                    draftPreset === p
+                      ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                      : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                  }`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
+              <button
+                onClick={() =>
+                  onSetDraft(row.id, {
+                    preset: 'custom',
+                    customExpression:
+                      draftCustomExpression || row.schedule_expression,
+                  })
+                }
+                className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+                  draftPreset === 'custom'
+                    ? 'border-blue-500 bg-blue-900/40 text-blue-300'
+                    : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {draftPreset === 'custom' && (
+              <LocalTextInput
+                type="text"
+                initialValue={draftCustomExpression}
+                inputKey={row.id}
+                onCommit={handleCustomCommit}
+                placeholder="cron(0 2 1 * ? *)"
+                className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            )}
+            {draftPreset !== 'custom' && presetExpressions[draftPreset] && (
+              <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                {presetExpressions[draftPreset]}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {draftPreset === 'custom' || originalPreset !== draftPreset ? (
+              <Button
+                onClick={() =>
+                  void onSave(
+                    row.id,
+                    draftPreset === 'custom'
+                      ? { schedule_expression: draftCustomExpression }
+                      : {
+                          preset: draftPreset as 'monthly' | 'weekly' | 'daily',
+                        }
+                  )
+                }
+                disabled={
+                  isSaving ||
+                  (draftPreset === 'custom' && !draftCustomExpression.trim())
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
+              >
+                {isSaving ? 'Saving…' : 'Save interval'}
+              </Button>
+            ) : null}
+            <button
+              onClick={() => void onDelete(row)}
+              disabled={isSaving}
+              className="ml-auto text-[11px] text-red-400 hover:text-red-300 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+
+          <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-700/50">
+            {reconcileFailed ? (
+              <span className="text-red-400">
+                Last AWS sync failed: {row.last_reconcile_error}
+              </span>
+            ) : row.last_reconciled_at ? (
+              <span>
+                Last synced with AWS{' '}
+                {parseServerDate(row.last_reconciled_at).toLocaleString()}
+              </span>
+            ) : (
+              <span>Not yet synced to AWS.</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── Schedules card ───────────────────────────────────────────────────────
+// Owns ALL schedule-related state + API calls so unrelated parent re-renders
+// (Manual Run inputs, jobs polling every 5 s) don't reconcile this section,
+// AND interactions inside this card (typing the new-schedule name, editing a
+// cron, toggling an enable switch) don't bubble up and reconcile the rest of
+// the page. Memoized on the small set of stable props it needs from parent.
+const SchedulesCard = memo(function SchedulesCard({
+  userIsAdmin,
+  sortedAdapters,
+  adapterTiers,
+}: {
+  userIsAdmin: boolean;
+  sortedAdapters: readonly string[];
+  adapterTiers: Record<string, FetcherTier>;
+}) {
+  const [schedules, setSchedules] = useState<CrawlerSchedule[]>([]);
+  const [schedulePresets, setSchedulePresets] = useState<
+    Record<string, string>
+  >({});
+  const [scheduleDrafts, setScheduleDrafts] = useState<
+    Record<string, ScheduleDraft>
+  >({});
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
+  const [isSchedulesUnavailable, setIsSchedulesUnavailable] = useState(false);
+  const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
+  const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(
+    null
+  );
+  const [isReconcilingAll, setIsReconcilingAll] = useState(false);
+  const [expandedScheduleIds, setExpandedScheduleIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const fetchSchedules = useCallback(async () => {
+    if (!userIsAdmin) return;
+    setIsLoadingSchedules(true);
+    try {
+      const res = await adminApi.listCrawlerSchedules();
+      setSchedules(res.data.items);
+      setSchedulePresets(res.data.presets);
+      setScheduleDrafts(
+        Object.fromEntries(
+          res.data.items.map((row) => {
+            const preset = presetForExpression(
+              row.schedule_expression,
+              res.data.presets
+            );
+            return [
+              row.id,
+              {
+                preset,
+                customExpression:
+                  preset === 'custom' ? row.schedule_expression : '',
+              },
+            ];
+          })
+        )
+      );
+      setIsSchedulesUnavailable(false);
+    } catch {
+      setIsSchedulesUnavailable(true);
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  }, [userIsAdmin]);
+
+  // Read live presets through a ref so mergeScheduleRow stays referentially
+  // stable for memoized children downstream.
+  const schedulePresetsRef = useRef(schedulePresets);
+  useEffect(() => {
+    schedulePresetsRef.current = schedulePresets;
+  }, [schedulePresets]);
+
+  const mergeScheduleRow = useCallback((row: CrawlerSchedule) => {
+    setSchedules((prev) => prev.map((r) => (r.id === row.id ? row : r)));
+    setScheduleDrafts((prev) => {
+      const preset = presetForExpression(
+        row.schedule_expression,
+        schedulePresetsRef.current
+      );
+      return {
+        ...prev,
+        [row.id]: {
+          preset,
+          customExpression:
+            preset === 'custom' ? row.schedule_expression : '',
+        },
+      };
+    });
+  }, []);
+
+  const handleSaveSchedule = useCallback(
+    async (scheduleId: string, patch: CrawlerScheduleUpdate) => {
+      setSavingScheduleId(scheduleId);
+      setScheduleSaveError(null);
+      try {
+        const res = await adminApi.updateCrawlerSchedule(scheduleId, patch);
+        mergeScheduleRow(res.data);
+      } catch (e) {
+        setScheduleSaveError(
+          e instanceof Error ? e.message : 'Failed to update schedule.'
+        );
+      } finally {
+        setSavingScheduleId(null);
+      }
+    },
+    [mergeScheduleRow]
+  );
+
+  const handleToggleAdapterInSchedule = useCallback(
+    async (row: CrawlerSchedule, adapterName: string) => {
+      const current = row.adapters.map((a) => a.adapter_name);
+      const next = current.includes(adapterName)
+        ? current.filter((n) => n !== adapterName)
+        : [...current, adapterName];
+      await handleSaveSchedule(row.id, { adapters: next });
+    },
+    [handleSaveSchedule]
+  );
+
+  const handleCreateSchedule = useCallback(
+    async (body: CrawlerScheduleCreate) => {
+      setScheduleSaveError(null);
+      await adminApi.createCrawlerSchedule(body);
+      await fetchSchedules();
+    },
+    [fetchSchedules]
+  );
+
+  const handleDeleteSchedule = useCallback(async (row: CrawlerSchedule) => {
+    if (
+      !window.confirm(`Delete schedule '${row.name}'? This cannot be undone.`)
+    )
+      return;
+    setSavingScheduleId(row.id);
+    setScheduleSaveError(null);
+    try {
+      await adminApi.deleteCrawlerSchedule(row.id);
+      setSchedules((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e) {
+      setScheduleSaveError(
+        e instanceof Error ? e.message : 'Failed to delete schedule.'
+      );
+    } finally {
+      setSavingScheduleId(null);
+    }
+  }, []);
+
+  const handleReconcileAll = useCallback(async () => {
+    setIsReconcilingAll(true);
+    setScheduleSaveError(null);
+    try {
+      await adminApi.reconcileCrawlerSchedules();
+      await fetchSchedules();
+    } catch (e) {
+      setScheduleSaveError(
+        e instanceof Error ? e.message : 'Failed to sync schedules with AWS.'
+      );
+    } finally {
+      setIsReconcilingAll(false);
+    }
+  }, [fetchSchedules]);
+
+  const toggleScheduleExpanded = useCallback((id: string) => {
+    setExpandedScheduleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const setRowDraft = useCallback((id: string, draft: ScheduleDraft) => {
+    setScheduleDrafts((prev) => ({ ...prev, [id]: draft }));
+  }, []);
+
+  useEffect(() => {
+    void fetchSchedules();
+  }, [fetchSchedules]);
+
+  return (
+    <Card padding="sm">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-white leading-tight">
+            Crawler Schedules
+          </h2>
+          <p className="text-[11px] text-gray-400">
+            Each schedule fires one EventBridge trigger and runs its members
+            in parallel.
+          </p>
+        </div>
+        <Button
+          onClick={() => void handleReconcileAll()}
+          disabled={
+            isReconcilingAll || isLoadingSchedules || isSchedulesUnavailable
+          }
+          className="bg-gray-700 hover:bg-gray-600 text-white text-[11px] py-0.5 px-2 shrink-0"
+        >
+          {isReconcilingAll ? 'Syncing…' : 'Force sync with AWS'}
+        </Button>
+      </div>
+
+      {isSchedulesUnavailable && (
+        <div className="flex items-start gap-2 p-2 mb-2 rounded border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-xs">
+          <span className="mt-0.5 shrink-0">⚠</span>
+          <span>
+            Schedules unavailable — backend did not respond. Requires AWS
+            EventBridge plumbing.
+          </span>
+        </div>
+      )}
+
+      {scheduleSaveError && (
+        <div className="mb-2">
+          <ErrorAlert message={scheduleSaveError} />
+        </div>
+      )}
+
+      <NewScheduleForm
+        sortedAdapters={sortedAdapters}
+        adapterTiers={adapterTiers}
+        onCreate={handleCreateSchedule}
+      />
+
+      {isLoadingSchedules && schedules.length === 0 ? (
+        <div className="flex justify-center py-4">
+          <Spinner size="sm" />
+        </div>
+      ) : schedules.length === 0 ? (
+        <p className="text-xs text-gray-500 py-2">
+          No schedules yet — create one above.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {schedules.map((row) => {
+            const draft = scheduleDrafts[row.id];
+            const draftPreset =
+              draft?.preset ??
+              presetForExpression(row.schedule_expression, schedulePresets);
+            const draftCustomExpression = draft?.customExpression ?? '';
+            const originalPreset = presetForExpression(
+              row.schedule_expression,
+              schedulePresets
+            );
+            return (
+              <ScheduleRow
+                key={row.id}
+                row={row}
+                draftPreset={draftPreset}
+                draftCustomExpression={draftCustomExpression}
+                originalPreset={originalPreset}
+                presetExpressions={schedulePresets}
+                sortedAdapters={sortedAdapters}
+                adapterTiers={adapterTiers}
+                isExpanded={expandedScheduleIds.has(row.id)}
+                isSaving={savingScheduleId === row.id}
+                onToggleExpanded={toggleScheduleExpanded}
+                onSetDraft={setRowDraft}
+                onSave={handleSaveSchedule}
+                onDelete={handleDeleteSchedule}
+                onToggleAdapter={handleToggleAdapterInSchedule}
+              />
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+});
+
 function CrawlerAdmin() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
@@ -907,6 +2382,11 @@ function CrawlerAdmin() {
     {}
   );
   const [globalCrawlerLimit, setGlobalCrawlerLimit] = useState<string>('');
+  // Bumped whenever an external write (preset button click) needs to push a
+  // new value into the LocalTextInput. The text input ignores parent value
+  // changes until this counter ticks — keeping typing snappy without losing
+  // the click-to-set behaviour.
+  const [globalLimitSyncKey, setGlobalLimitSyncKey] = useState(0);
   const [crawlerServiceAccount, setCrawlerServiceAccount] =
     useState<CrawlerServiceAccount | null>(null);
   const [crawlerDefaultCategoryId, setCrawlerDefaultCategoryId] =
@@ -937,32 +2417,9 @@ function CrawlerAdmin() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-  // User-defined crawler schedules (N schedules ↔ M adapters; reconciled on
-  // enabled/expression change, not on membership change).
-  const [schedules, setSchedules] = useState<CrawlerSchedule[]>([]);
-  const [schedulePresets, setSchedulePresets] = useState<
-    Record<string, string>
-  >({});
-  const [scheduleDrafts, setScheduleDrafts] = useState<
-    Record<string, { preset: string; customExpression: string }>
-  >({});
-  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
-  const [isSchedulesUnavailable, setIsSchedulesUnavailable] = useState(false);
-  const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
-  const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(
-    null
-  );
-  const [isReconcilingAll, setIsReconcilingAll] = useState(false);
-
-  // Create-schedule form state
-  const [isCreatingSchedule, setIsCreatingSchedule] = useState(false);
-  const [newScheduleName, setNewScheduleName] = useState('');
-  const [newSchedulePreset, setNewSchedulePreset] = useState<
-    'monthly' | 'weekly' | 'daily' | 'custom'
-  >('monthly');
-  const [newScheduleCustomExpression, setNewScheduleCustomExpression] =
-    useState('');
-  const [newScheduleAdapters, setNewScheduleAdapters] = useState<string[]>([]);
+  // Schedules state lives entirely inside SchedulesCard so unrelated parent
+  // state churn (jobs poll, manual-run inputs) doesn't reconcile schedules,
+  // and schedule-side interactions don't reconcile the rest of the page.
 
   // Per-adapter retailer tuning (separate from schedule membership).
   const [adapterConfigs, setAdapterConfigs] = useState<CrawlerAdapterConfig[]>(
@@ -978,6 +2435,12 @@ function CrawlerAdmin() {
   const [adapterStatusCounts, setAdapterStatusCounts] = useState<
     Record<string, Record<string, number>>
   >({});
+
+  // Stable handlers for the BackgroundJobsCard so its memo can skip on
+  // unrelated parent re-renders.
+  const handleToggleJobExpanded = useCallback((id: string) => {
+    setExpandedJobId((prev) => (prev === id ? null : id));
+  }, []);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -1042,49 +2505,6 @@ function CrawlerAdmin() {
     }
   }, [user?.is_admin]);
 
-  const presetForExpression = useCallback(
-    (expression: string, presets: Record<string, string>): string => {
-      for (const [name, expr] of Object.entries(presets)) {
-        if (expr === expression) return name;
-      }
-      return 'custom';
-    },
-    []
-  );
-
-  const fetchSchedules = useCallback(async () => {
-    if (!user?.is_admin) return;
-    setIsLoadingSchedules(true);
-    try {
-      const res = await adminApi.listCrawlerSchedules();
-      setSchedules(res.data.items);
-      setSchedulePresets(res.data.presets);
-      setScheduleDrafts(
-        Object.fromEntries(
-          res.data.items.map((row) => {
-            const preset = presetForExpression(
-              row.schedule_expression,
-              res.data.presets
-            );
-            return [
-              row.id,
-              {
-                preset,
-                customExpression:
-                  preset === 'custom' ? row.schedule_expression : '',
-              },
-            ];
-          })
-        )
-      );
-      setIsSchedulesUnavailable(false);
-    } catch {
-      setIsSchedulesUnavailable(true);
-    } finally {
-      setIsLoadingSchedules(false);
-    }
-  }, [user?.is_admin, presetForExpression]);
-
   const fetchAdapterConfigs = useCallback(async () => {
     if (!user?.is_admin) return;
     setIsLoadingConfigs(true);
@@ -1098,143 +2518,36 @@ function CrawlerAdmin() {
     }
   }, [user?.is_admin]);
 
-  const mergeScheduleRow = (row: CrawlerSchedule) => {
-    setSchedules((prev) => prev.map((r) => (r.id === row.id ? row : r)));
-    setScheduleDrafts((prev) => {
-      const preset = presetForExpression(
-        row.schedule_expression,
-        schedulePresets
-      );
-      return {
-        ...prev,
-        [row.id]: {
-          preset,
-          customExpression: preset === 'custom' ? row.schedule_expression : '',
-        },
-      };
-    });
-  };
-
-  const handleSaveSchedule = async (
-    scheduleId: string,
-    patch: CrawlerScheduleUpdate
-  ) => {
-    setSavingScheduleId(scheduleId);
-    setScheduleSaveError(null);
-    try {
-      const res = await adminApi.updateCrawlerSchedule(scheduleId, patch);
-      mergeScheduleRow(res.data);
-    } catch (e) {
-      setScheduleSaveError(
-        e instanceof Error ? e.message : 'Failed to update schedule.'
-      );
-    } finally {
-      setSavingScheduleId(null);
-    }
-  };
-
-  const handleToggleAdapterInSchedule = async (
-    row: CrawlerSchedule,
-    adapterName: string
-  ) => {
-    const current = row.adapters.map((a) => a.adapter_name);
-    const next = current.includes(adapterName)
-      ? current.filter((n) => n !== adapterName)
-      : [...current, adapterName];
-    await handleSaveSchedule(row.id, { adapters: next });
-  };
-
-  const handleCreateSchedule = async () => {
-    const name = newScheduleName.trim();
-    if (!name) return;
-    setIsCreatingSchedule(true);
-    setScheduleSaveError(null);
-    const body: CrawlerScheduleCreate = {
-      name,
-      enabled: false,
-      adapters: newScheduleAdapters,
-      ...(newSchedulePreset === 'custom'
-        ? { schedule_expression: newScheduleCustomExpression.trim() }
-        : { preset: newSchedulePreset }),
-    };
-    try {
-      await adminApi.createCrawlerSchedule(body);
-      setNewScheduleName('');
-      setNewSchedulePreset('monthly');
-      setNewScheduleCustomExpression('');
-      setNewScheduleAdapters([]);
-      await fetchSchedules();
-    } catch (e) {
-      setScheduleSaveError(
-        e instanceof Error ? e.message : 'Failed to create schedule.'
-      );
-    } finally {
-      setIsCreatingSchedule(false);
-    }
-  };
-
-  const handleDeleteSchedule = async (row: CrawlerSchedule) => {
-    if (
-      !window.confirm(`Delete schedule '${row.name}'? This cannot be undone.`)
-    )
-      return;
-    setSavingScheduleId(row.id);
-    setScheduleSaveError(null);
-    try {
-      await adminApi.deleteCrawlerSchedule(row.id);
-      setSchedules((prev) => prev.filter((r) => r.id !== row.id));
-    } catch (e) {
-      setScheduleSaveError(
-        e instanceof Error ? e.message : 'Failed to delete schedule.'
-      );
-    } finally {
-      setSavingScheduleId(null);
-    }
-  };
-
-  const handleReconcileAll = async () => {
-    setIsReconcilingAll(true);
-    setScheduleSaveError(null);
-    try {
-      await adminApi.reconcileCrawlerSchedules();
-      await fetchSchedules();
-    } catch (e) {
-      setScheduleSaveError(
-        e instanceof Error ? e.message : 'Failed to sync schedules with AWS.'
-      );
-    } finally {
-      setIsReconcilingAll(false);
-    }
-  };
-
-  const handleSaveAdapterConfig = async (
-    adapterName: string,
-    patch: CrawlerAdapterConfigUpdate
-  ) => {
-    setSavingConfigName(adapterName);
-    setConfigSaveError(null);
-    try {
-      const res = await adminApi.updateCrawlerAdapterConfig(adapterName, patch);
-      setAdapterConfigs((prev) =>
-        prev.map((r) => (r.adapter_name === adapterName ? res.data : r))
-      );
-    } catch (e) {
-      setConfigSaveError(
-        e instanceof Error
-          ? `${adapterName}: ${e.message}`
-          : `${adapterName}: failed to update tuning.`
-      );
-    } finally {
-      setSavingConfigName(null);
-    }
-  };
+  const handleSaveAdapterConfig = useCallback(
+    async (adapterName: string, patch: CrawlerAdapterConfigUpdate) => {
+      setSavingConfigName(adapterName);
+      setConfigSaveError(null);
+      try {
+        const res = await adminApi.updateCrawlerAdapterConfig(
+          adapterName,
+          patch
+        );
+        setAdapterConfigs((prev) =>
+          prev.map((r) => (r.adapter_name === adapterName ? res.data : r))
+        );
+      } catch (e) {
+        setConfigSaveError(
+          e instanceof Error
+            ? `${adapterName}: ${e.message}`
+            : `${adapterName}: failed to update tuning.`
+        );
+      } finally {
+        setSavingConfigName(null);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     void fetchCrawlers();
     void fetchJobs();
-    void fetchSchedules();
     void fetchAdapterConfigs();
-  }, [fetchCrawlers, fetchJobs, fetchSchedules, fetchAdapterConfigs]);
+  }, [fetchCrawlers, fetchJobs, fetchAdapterConfigs]);
 
   // Per-running-crawler-job live progress keyed by job id. Populated by the
   // 5 s poll below and consumed by the in-progress card.
@@ -1242,8 +2555,17 @@ function CrawlerAdmin() {
     Record<string, CrawlerJobProgress>
   >({});
 
+  // Read jobsList through a ref inside the polling callback so the function
+  // identity stays stable. If we put jobsList in the dep array, the 5 s poll
+  // interval below would tear down and recreate every time jobs update —
+  // which is every poll cycle, defeating the throttle.
+  const jobsListRef = useRef(jobsList);
+  useEffect(() => {
+    jobsListRef.current = jobsList;
+  }, [jobsList]);
+
   const fetchProgressForRunning = useCallback(async () => {
-    const running = (jobsList?.items ?? []).filter(
+    const running = (jobsListRef.current?.items ?? []).filter(
       (j) => j.status === 'running' && j.job_type === 'crawler_run'
     );
     if (running.length === 0) {
@@ -1276,35 +2598,36 @@ function CrawlerAdmin() {
       }
       return next;
     });
-  }, [jobsList]);
+  }, []);
 
-  // Poll jobs every 5 s while any job is running
+  // Poll jobs every 5 s while any job is running. Keyed on the running-state
+  // transition rather than jobsList so the interval isn't recreated on every
+  // poll's setState.
+  const hasRunningJob = !!jobsList?.items.some((j) => j.status === 'running');
   useEffect(() => {
-    const hasRunning = jobsList?.items.some((j) => j.status === 'running');
-    if (!hasRunning) return;
+    if (!hasRunningJob) return;
+    // Fetch progress immediately on transition into running so the panel
+    // doesn't look empty for up to 5 s.
+    void fetchProgressForRunning();
     const id = setInterval(() => {
       void fetchJobs();
       void fetchProgressForRunning();
     }, 5000);
     return () => clearInterval(id);
-  }, [jobsList, fetchJobs, fetchProgressForRunning]);
+  }, [hasRunningJob, fetchJobs, fetchProgressForRunning]);
 
-  // Fetch progress immediately when a job transitions into running (so the
-  // panel doesn't look empty for up to 5 s).
-  useEffect(() => {
-    void fetchProgressForRunning();
-  }, [jobsList, fetchProgressForRunning]);
+  // Stable handler for the BackgroundJobsCard cancel button.
+  const handleCancelJob = useCallback(
+    (id: string) => {
+      void adminApi
+        .cancelJob(id)
+        .then(() => fetchJobs())
+        .catch(() => undefined);
+    },
+    [fetchJobs]
+  );
 
-  // Tick every second to keep elapsed-time display fresh for running jobs
-  const [, setElapsedTick] = useState(0);
-  useEffect(() => {
-    const hasRunning = jobsList?.items.some((j) => j.status === 'running');
-    if (!hasRunning) return;
-    const id = setInterval(() => setElapsedTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [jobsList]);
-
-  const toggleCrawlerSelection = (adapter: string) => {
+  const toggleCrawlerSelection = useCallback((adapter: string) => {
     setSelectedCrawlers((prev) => {
       const next = new Set(prev);
       if (next.has(adapter)) {
@@ -1314,7 +2637,20 @@ function CrawlerAdmin() {
       }
       return next;
     });
-  };
+  }, []);
+
+  // Stable per-adapter limit setter so memoized rows don't re-render when the
+  // parent re-renders for unrelated reasons.
+  const setCrawlerLimitForAdapter = useCallback(
+    (adapter: string, value: string) => {
+      setCrawlerLimits((prev) =>
+        (prev[adapter] ?? '') === value
+          ? prev
+          : { ...prev, [adapter]: value }
+      );
+    },
+    []
+  );
 
   const selectAllCrawlers = () => {
     setSelectedCrawlers(new Set(crawlerAdapters));
@@ -1346,6 +2682,50 @@ function CrawlerAdmin() {
       return next;
     });
   };
+
+  // Sorted adapter list — only recomputes when adapters or tier metadata
+  // changes. Used by Live Crawlers, New Schedule chips, and any other
+  // tier-grouped renderer. Sorting ~100 items per render is cheap on its
+  // own but compounds with the rest of the page; memoizing also hands a
+  // stable reference to memoized children.
+  const sortedAdapters = useMemo(
+    () => sortAdaptersByTier(crawlerAdapters, adapterTiers),
+    [crawlerAdapters, adapterTiers]
+  );
+  const sortedAdapterConfigs = useMemo(
+    () =>
+      [...adapterConfigs].sort((a, b) => {
+        const ta = adapterTiers[a.adapter_name];
+        const tb = adapterTiers[b.adapter_name];
+        const da = ta ? TIER_SORT_ORDER[ta] : 3;
+        const db = tb ? TIER_SORT_ORDER[tb] : 3;
+        if (da !== db) return da - db;
+        return a.adapter_name.localeCompare(b.adapter_name);
+      }),
+    [adapterConfigs, adapterTiers]
+  );
+
+  // Tier toggle stats for the Live Crawlers selector. Recomputes only when
+  // the adapter set, their tiers, or the selection actually change — not on
+  // unrelated keystrokes (e.g. typing into the new-schedule name input).
+  const tierToggleStats = useMemo(() => {
+    return (['http', 'tls', 'browser', 'unverified'] as const)
+      .map((tier) => {
+        const members = crawlerAdapters.filter(
+          (name) => adapterTiers[name] === tier
+        );
+        if (members.length === 0) return null;
+        const selectedCount = members.reduce(
+          (n, name) => (selectedCrawlers.has(name) ? n + 1 : n),
+          0
+        );
+        return { tier, total: members.length, selectedCount };
+      })
+      .filter(
+        (x): x is { tier: FetcherTier; total: number; selectedCount: number } =>
+          x !== null
+      );
+  }, [crawlerAdapters, adapterTiers, selectedCrawlers]);
 
   const handleRunSelectedCrawlers = async () => {
     const adapters = Array.from(selectedCrawlers);
@@ -1503,793 +2883,47 @@ function CrawlerAdmin() {
         </div>
       </div>
 
-      <div className="columns-1 xl:columns-2 [column-gap:0.75rem] [&>*]:break-inside-avoid [&>*]:mb-3">
+      {/* Two manual columns instead of CSS multi-column. CSS columns with
+          form controls inside trigger expensive repaints/relayouts on scroll
+          in Chromium; manual two-column distribution gives the same
+          masonry-style visual without that cost. Card distribution pairs
+          one short + one tall card per column to balance heights. */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+        {/* Column 1: Schedules (small) + Adapter Tuning (tall) */}
+        <div className="space-y-3 min-w-0">
         {/* Crawler Schedules */}
-        <Card padding="sm">
-          <div className="mb-2 flex items-start justify-between gap-2">
-            <div>
-              <h2 className="text-base font-semibold text-white leading-tight">
-                Crawler Schedules
-              </h2>
-              <p className="text-[11px] text-gray-400">
-                Each schedule fires one EventBridge trigger and runs its members
-                in parallel.
-              </p>
-            </div>
-            <Button
-              onClick={() => void handleReconcileAll()}
-              disabled={
-                isReconcilingAll || isLoadingSchedules || isSchedulesUnavailable
-              }
-              className="bg-gray-700 hover:bg-gray-600 text-white text-[11px] py-0.5 px-2 shrink-0"
-            >
-              {isReconcilingAll ? 'Syncing…' : 'Force sync with AWS'}
-            </Button>
-          </div>
-
-          {isSchedulesUnavailable && (
-            <div className="flex items-start gap-2 p-2 mb-2 rounded border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-xs">
-              <span className="mt-0.5 shrink-0">⚠</span>
-              <span>
-                Schedules unavailable — backend did not respond. Requires AWS
-                EventBridge plumbing.
-              </span>
-            </div>
-          )}
-
-          {scheduleSaveError && (
-            <div className="mb-2">
-              <ErrorAlert message={scheduleSaveError} />
-            </div>
-          )}
-
-          {/* Create new schedule */}
-          <div className="mb-2 p-2 rounded border border-dashed border-gray-700 bg-gray-900/30">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1.5">
-              New schedule
-            </p>
-            <div className="space-y-1.5">
-              <Input
-                id="new-schedule-name"
-                placeholder="e.g. retailers-daily"
-                value={newScheduleName}
-                onChange={(e) =>
-                  setNewScheduleName(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]+/g, '-')
-                      .replace(/^-+/, '')
-                      .slice(0, 26)
-                  )
-                }
-              />
-              <div className="flex flex-wrap gap-1">
-                {(['monthly', 'weekly', 'daily', 'custom'] as const).map(
-                  (p) => (
-                    <button
-                      key={p}
-                      onClick={() => setNewSchedulePreset(p)}
-                      className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
-                        newSchedulePreset === p
-                          ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                          : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                      }`}
-                    >
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
-                    </button>
-                  )
-                )}
-              </div>
-              {newSchedulePreset === 'custom' && (
-                <input
-                  type="text"
-                  value={newScheduleCustomExpression}
-                  onChange={(e) =>
-                    setNewScheduleCustomExpression(e.target.value)
-                  }
-                  placeholder="cron(0 2 1 * ? *)"
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                />
-              )}
-              <div className="flex flex-wrap gap-1">
-                {crawlerAdapters.map((name) => {
-                  const checked = newScheduleAdapters.includes(name);
-                  const tier = adapterTiers[name];
-                  const cls = tier
-                    ? checked
-                      ? TIER_META[tier].chipSelected
-                      : TIER_META[tier].chipUnselected
-                    : checked
-                      ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-400';
-                  return (
-                    <button
-                      key={name}
-                      onClick={() =>
-                        setNewScheduleAdapters((prev) =>
-                          checked
-                            ? prev.filter((n) => n !== name)
-                            : [...prev, name]
-                        )
-                      }
-                      className={`px-2 py-0.5 text-[11px] rounded-full border font-mono transition-colors ${cls}`}
-                    >
-                      {name}
-                    </button>
-                  );
-                })}
-              </div>
-              <Button
-                onClick={() => void handleCreateSchedule()}
-                disabled={
-                  isCreatingSchedule ||
-                  !newScheduleName.trim() ||
-                  newScheduleAdapters.length === 0 ||
-                  (newSchedulePreset === 'custom' &&
-                    !newScheduleCustomExpression.trim())
-                }
-                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
-              >
-                {isCreatingSchedule ? 'Creating…' : 'Create schedule'}
-              </Button>
-            </div>
-          </div>
-
-          {isLoadingSchedules && schedules.length === 0 ? (
-            <div className="flex justify-center py-4">
-              <Spinner size="sm" />
-            </div>
-          ) : schedules.length === 0 ? (
-            <p className="text-xs text-gray-500 py-2">
-              No schedules yet — create one above.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {schedules.map((row) => {
-                const draft = scheduleDrafts[row.id] ?? {
-                  preset: presetForExpression(
-                    row.schedule_expression,
-                    schedulePresets
-                  ),
-                  customExpression: '',
-                };
-                const isSaving = savingScheduleId === row.id;
-                const reconcileFailed = !!row.last_reconcile_error;
-                const memberNames = new Set(
-                  row.adapters.map((a) => a.adapter_name)
-                );
-                return (
-                  <div
-                    key={row.id}
-                    className="p-2 rounded border border-gray-700 bg-gray-900/40"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-100 font-mono truncate">
-                          {row.name}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {row.enabled ? (
-                            <span className="text-emerald-400">Enabled</span>
-                          ) : (
-                            <span>Disabled</span>
-                          )}
-                          {' · '}
-                          <span className="font-mono">
-                            {row.schedule_expression}
-                          </span>
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          void handleSaveSchedule(row.id, {
-                            enabled: !row.enabled,
-                          })
-                        }
-                        disabled={isSaving}
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                          row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                            row.enabled ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {/* Adapter membership chips */}
-                      <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
-                          Adapters ({row.adapters.length})
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {crawlerAdapters.map((name) => {
-                            const selected = memberNames.has(name);
-                            const tier = adapterTiers[name];
-                            const cls = tier
-                              ? selected
-                                ? TIER_META[tier].chipSelected
-                                : TIER_META[tier].chipUnselected
-                              : selected
-                                ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
-                                : 'border-gray-600 text-gray-500 hover:border-gray-400';
-                            return (
-                              <button
-                                key={name}
-                                onClick={() =>
-                                  void handleToggleAdapterInSchedule(row, name)
-                                }
-                                disabled={isSaving}
-                                className={`px-2 py-0.5 text-[11px] rounded-full border font-mono transition-colors disabled:opacity-50 ${cls}`}
-                              >
-                                {name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Interval pills */}
-                      <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">
-                          Interval
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {(['monthly', 'weekly', 'daily'] as const).map(
-                            (p) => (
-                              <button
-                                key={p}
-                                onClick={() =>
-                                  setScheduleDrafts((prev) => ({
-                                    ...prev,
-                                    [row.id]: {
-                                      preset: p,
-                                      customExpression: '',
-                                    },
-                                  }))
-                                }
-                                className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
-                                  draft.preset === p
-                                    ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                                    : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                                }`}
-                              >
-                                {p.charAt(0).toUpperCase() + p.slice(1)}
-                              </button>
-                            )
-                          )}
-                          <button
-                            onClick={() =>
-                              setScheduleDrafts((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  preset: 'custom',
-                                  customExpression:
-                                    draft.customExpression ||
-                                    row.schedule_expression,
-                                },
-                              }))
-                            }
-                            className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
-                              draft.preset === 'custom'
-                                ? 'border-blue-500 bg-blue-900/40 text-blue-300'
-                                : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                            }`}
-                          >
-                            Custom
-                          </button>
-                        </div>
-                        {draft.preset === 'custom' && (
-                          <input
-                            type="text"
-                            value={draft.customExpression}
-                            onChange={(e) =>
-                              setScheduleDrafts((prev) => ({
-                                ...prev,
-                                [row.id]: {
-                                  ...draft,
-                                  customExpression: e.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="cron(0 2 1 * ? *)"
-                            className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                          />
-                        )}
-                        {draft.preset !== 'custom' &&
-                          schedulePresets[draft.preset] && (
-                            <p className="text-[10px] text-gray-500 font-mono mt-0.5">
-                              {schedulePresets[draft.preset]}
-                            </p>
-                          )}
-                      </div>
-
-                      {/* Save interval / delete row */}
-                      <div className="flex items-center gap-2">
-                        {draft.preset === 'custom' ||
-                        presetForExpression(
-                          row.schedule_expression,
-                          schedulePresets
-                        ) !== draft.preset ? (
-                          <Button
-                            onClick={() =>
-                              void handleSaveSchedule(
-                                row.id,
-                                draft.preset === 'custom'
-                                  ? {
-                                      schedule_expression:
-                                        draft.customExpression,
-                                    }
-                                  : {
-                                      preset: draft.preset as
-                                        | 'monthly'
-                                        | 'weekly'
-                                        | 'daily',
-                                    }
-                              )
-                            }
-                            disabled={
-                              isSaving ||
-                              (draft.preset === 'custom' &&
-                                !draft.customExpression.trim())
-                            }
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] py-0.5 px-2.5"
-                          >
-                            {isSaving ? 'Saving…' : 'Save interval'}
-                          </Button>
-                        ) : null}
-                        <button
-                          onClick={() => void handleDeleteSchedule(row)}
-                          disabled={isSaving}
-                          className="ml-auto text-[11px] text-red-400 hover:text-red-300 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-
-                      {/* AWS sync status */}
-                      <div className="text-[10px] text-gray-500 pt-1 border-t border-gray-700/50">
-                        {reconcileFailed ? (
-                          <span className="text-red-400">
-                            Last AWS sync failed: {row.last_reconcile_error}
-                          </span>
-                        ) : row.last_reconciled_at ? (
-                          <span>
-                            Last synced with AWS{' '}
-                            {parseServerDate(
-                              row.last_reconciled_at
-                            ).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span>Not yet synced to AWS.</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+        <SchedulesCard
+          userIsAdmin={!!user?.is_admin}
+          sortedAdapters={sortedAdapters}
+          adapterTiers={adapterTiers}
+        />
 
         {/* Adapter Tuning */}
-        <Card padding="sm">
-          <h2 className="text-base font-semibold text-white leading-tight">
-            Adapter Tuning
-          </h2>
-          <p className="text-xs text-neutral-400 mb-2">
-            Per-retailer delay, run limit, and default category. Applies on the
-            next scheduled run — no AWS sync needed.
-          </p>
+        <AdapterTuningCard
+          isLoadingConfigs={isLoadingConfigs}
+          adapterConfigs={adapterConfigs}
+          sortedAdapterConfigs={sortedAdapterConfigs}
+          adapterTiers={adapterTiers}
+          savingConfigName={savingConfigName}
+          adapterStatusCounts={adapterStatusCounts}
+          crawlerCategories={crawlerCategories}
+          configSaveError={configSaveError}
+          onSave={handleSaveAdapterConfig}
+        />
+        </div>
 
-          {configSaveError && (
-            <div className="mb-2">
-              <ErrorAlert message={configSaveError} />
-            </div>
-          )}
-
-          {isLoadingConfigs && adapterConfigs.length === 0 ? (
-            <div className="flex justify-center py-4">
-              <Spinner size="sm" />
-            </div>
-          ) : adapterConfigs.length === 0 ? (
-            <p className="text-xs text-gray-500 py-2">
-              No adapters registered yet.
-            </p>
-          ) : (
-            <div className="p-2 bg-blue-900/10 border border-blue-700/60 rounded-lg">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-200 mb-2">
-                Per-retailer settings
-              </h3>
-              <div className="grid grid-cols-1 gap-1">
-                {[...adapterConfigs]
-                  .sort((a, b) => {
-                    const order: Record<FetcherTier, number> = {
-                      http: 0,
-                      tls: 1,
-                      browser: 2,
-                      unverified: 4,
-                    };
-                    const ta = adapterTiers[a.adapter_name];
-                    const tb = adapterTiers[b.adapter_name];
-                    const da = ta ? order[ta] : 3;
-                    const db = tb ? order[tb] : 3;
-                    if (da !== db) return da - db;
-                    return a.adapter_name.localeCompare(b.adapter_name);
-                  })
-                  .map((row) => {
-                    const isSaving = savingConfigName === row.adapter_name;
-                    const tier = adapterTiers[row.adapter_name];
-                    const tierRow = tier ? TIER_META[tier].row : '';
-                    return (
-                      <div
-                        key={row.id}
-                        className={`flex flex-wrap items-center gap-1.5 py-1 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
-                      >
-                        <TierBadge tier={tier} />
-                        <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
-                          {row.adapter_name}
-                        </span>
-                        {(() => {
-                          const progress = adapterProgressLabel(
-                            adapterStatusCounts[row.adapter_name]
-                          );
-                          return progress ? (
-                            <span
-                              title={progress.tooltip}
-                              className="shrink-0 tabular-nums text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
-                            >
-                              {progress.parsed.toLocaleString()}
-                              <span className="text-gray-500">{' / '}</span>
-                              {progress.total.toLocaleString()}
-                            </span>
-                          ) : null;
-                        })()}
-                        <select
-                          id={`tune-delay-${row.adapter_name}`}
-                          title="Delay"
-                          value={String(row.delay_sec)}
-                          onChange={(e) =>
-                            void handleSaveAdapterConfig(row.adapter_name, {
-                              delay_sec: Number(e.target.value),
-                            })
-                          }
-                          disabled={isSaving}
-                          className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                        >
-                          {[2.5, 5, 10, 15, 30].map((v) => (
-                            <option key={v} value={String(v)}>
-                              {v}s
-                            </option>
-                          ))}
-                        </select>
-                        <Input
-                          id={`tune-limit-${row.adapter_name}`}
-                          type="number"
-                          min="1"
-                          value={
-                            row.per_run_limit == null
-                              ? ''
-                              : String(row.per_run_limit)
-                          }
-                          placeholder="∞"
-                          onBlur={(e) => {
-                            const raw = e.target.value.trim();
-                            if (raw === '') {
-                              if (row.per_run_limit != null) {
-                                void handleSaveAdapterConfig(row.adapter_name, {
-                                  clear_per_run_limit: true,
-                                });
-                              }
-                            } else {
-                              const n = Number(raw);
-                              if (
-                                Number.isFinite(n) &&
-                                n >= 1 &&
-                                n !== row.per_run_limit
-                              ) {
-                                void handleSaveAdapterConfig(row.adapter_name, {
-                                  per_run_limit: n,
-                                });
-                              }
-                            }
-                          }}
-                          disabled={isSaving}
-                          className="w-14 min-h-0 py-0.5 text-xs"
-                        />
-                        <label
-                          title="Skip URLs already archived as parsed"
-                          className="inline-flex items-center gap-1 text-[11px] text-gray-300"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={row.skip_known_urls}
-                            onChange={(e) =>
-                              void handleSaveAdapterConfig(row.adapter_name, {
-                                skip_known_urls: e.target.checked,
-                              })
-                            }
-                            disabled={isSaving}
-                            className="h-3 w-3 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                          />
-                          skip
-                        </label>
-                        <select
-                          id={`tune-cat-${row.adapter_name}`}
-                          title="Default category for new parts"
-                          value={row.default_category_id}
-                          onChange={(e) =>
-                            void handleSaveAdapterConfig(row.adapter_name, {
-                              default_category_id: e.target.value,
-                            })
-                          }
-                          disabled={isSaving || crawlerCategories.length === 0}
-                          className="bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 max-w-[8rem]"
-                        >
-                          {crawlerCategories.map((c) => (
-                            <option key={c.id} value={String(c.id)}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-        </Card>
-
+        {/* Column 2: Background Jobs (small) + Manual Run (tall) */}
+        <div className="space-y-3 min-w-0">
         {/* Background Jobs */}
-        <Card padding="sm">
-          <div className="mb-2">
-            <h2 className="text-base font-semibold text-white leading-tight">
-              Background Jobs
-            </h2>
-            <p className="text-[11px] text-gray-400">
-              Polls every 5 s while a job is running.
-              {jobsList ? ` · ${jobsList.total} total` : ''}
-            </p>
-          </div>
-
-          {!jobsList && isLoadingJobs && (
-            <div className="flex justify-center py-4">
-              <Spinner size="sm" />
-            </div>
-          )}
-
-          {jobsList && jobsList.items.length === 0 && (
-            <p className="text-xs text-gray-500 text-center py-4">
-              No jobs yet.
-            </p>
-          )}
-
-          {jobsList && jobsList.items.length > 0 && (
-            <div className="space-y-1.5">
-              {jobsList.items.map((job: BackgroundJob) => {
-                const isExpanded = expandedJobId === job.id;
-                const isRunning = job.status === 'running';
-                const statusColor =
-                  job.status === 'completed'
-                    ? 'text-emerald-400'
-                    : job.status === 'failed'
-                      ? 'text-red-400'
-                      : isRunning
-                        ? 'text-yellow-400'
-                        : 'text-gray-400';
-                const statusBg =
-                  job.status === 'completed'
-                    ? 'border-emerald-800/60 bg-emerald-950/30'
-                    : job.status === 'failed'
-                      ? 'border-red-800/60 bg-red-950/30'
-                      : isRunning
-                        ? 'border-yellow-800/60 bg-yellow-950/30'
-                        : 'border-gray-700 bg-gray-900/30';
-
-                const typeLabel =
-                  job.job_type === 'crawler_run'
-                    ? 'Crawler Run'
-                    : job.job_type === 'archive_rescrape'
-                      ? 'Archive Rescrape'
-                      : job.job_type;
-
-                const startedAt = parseServerDate(job.started_at);
-                const completedAt = job.completed_at
-                  ? parseServerDate(job.completed_at)
-                  : null;
-                const elapsed = fmtElapsed(startedAt, completedAt);
-                const inlineSummary = jobInlineSummary(job);
-
-                return (
-                  <div
-                    key={job.id}
-                    className={`rounded-lg border text-sm ${statusBg}`}
-                  >
-                    {/* Indeterminate progress bar for running jobs */}
-                    {isRunning && (
-                      <div className="h-0.5 w-full rounded-t-lg overflow-hidden bg-yellow-950/50">
-                        <div className="h-full bg-yellow-400/70 animate-[progress-indeterminate_1.8s_ease-in-out_infinite] w-1/3" />
-                      </div>
-                    )}
-                    <div className="px-2 py-1">
-                      <button
-                        className="w-full flex items-center justify-between gap-2 text-left"
-                        onClick={() =>
-                          setExpandedJobId(isExpanded ? null : job.id)
-                        }
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {/* Status indicator */}
-                          {isRunning ? (
-                            <span className="relative flex h-2 w-2 shrink-0">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
-                            </span>
-                          ) : null}
-                          <span
-                            className={`font-semibold text-[10px] uppercase tracking-wide shrink-0 ${statusColor}`}
-                          >
-                            {job.status}
-                          </span>
-                          <span className="text-xs text-gray-300 font-medium truncate">
-                            #{job.id} — {typeLabel}
-                          </span>
-                          <span className="text-gray-500 text-[10px] shrink-0">
-                            {job.triggered_by}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 text-[11px] text-gray-400">
-                          {inlineSummary && (
-                            <span
-                              className={`tabular-nums ${job.status === 'failed' ? 'text-red-400/70' : 'text-gray-400'}`}
-                            >
-                              {inlineSummary}
-                            </span>
-                          )}
-                          <span className="tabular-nums">
-                            {isRunning ? (
-                              <span className="text-yellow-400/80">
-                                {elapsed}
-                              </span>
-                            ) : (
-                              elapsed
-                            )}
-                          </span>
-                          <span className="text-gray-600">
-                            {isExpanded ? '▲' : '▼'}
-                          </span>
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-3">
-                          {/* Started at */}
-                          <p className="text-xs text-gray-500">
-                            Started {startedAt.toLocaleString()}
-                            {completedAt && (
-                              <> · Finished {completedAt.toLocaleString()}</>
-                            )}
-                          </p>
-
-                          {/* Params */}
-                          {job.params && (
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                Parameters
-                              </p>
-                              <JobParams job={job} />
-                            </div>
-                          )}
-
-                          {/* Running: live per-adapter progress */}
-                          {isRunning && job.job_type === 'crawler_run' && (
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                Live progress
-                              </p>
-                              <RunningCrawlerProgress
-                                job={job}
-                                progress={jobProgress[job.id]}
-                                statusCounts={adapterStatusCounts}
-                                elapsedSec={Math.max(
-                                  0,
-                                  Math.floor(
-                                    (Date.now() - startedAt.getTime()) / 1000
-                                  )
-                                )}
-                              />
-                            </div>
-                          )}
-                          {isRunning && job.job_type === 'archive_rescrape' && (
-                            <ArchiveRescrapeProgress
-                              summary={job.result_summary}
-                              elapsed={elapsed}
-                            />
-                          )}
-                          {isRunning &&
-                            job.job_type !== 'crawler_run' &&
-                            job.job_type !== 'archive_rescrape' && (
-                              <div className="flex items-center gap-2 text-xs text-yellow-400/80">
-                                <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
-                                </span>
-                                Running for {elapsed} — results will appear when
-                                the job completes
-                              </div>
-                            )}
-
-                          {/* Result summary — hidden while an archive rescrape
-                              is running because ArchiveRescrapeProgress above
-                              already visualises the live snapshot. */}
-                          {job.result_summary &&
-                            !(
-                              isRunning && job.job_type === 'archive_rescrape'
-                            ) && (
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                                  Result
-                                </p>
-                                {job.job_type === 'crawler_run' ? (
-                                  <CrawlerRunResult
-                                    summary={job.result_summary}
-                                  />
-                                ) : job.job_type === 'archive_rescrape' ? (
-                                  <ArchiveRescrapeResult
-                                    summary={job.result_summary}
-                                  />
-                                ) : (
-                                  <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                                    {JSON.stringify(
-                                      job.result_summary,
-                                      null,
-                                      2
-                                    )}
-                                  </pre>
-                                )}
-                              </div>
-                            )}
-
-                          {/* Error */}
-                          {job.error_message && (
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1">
-                                Error
-                              </p>
-                              <pre className="text-xs text-red-300 bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                                {job.error_message}
-                              </pre>
-                            </div>
-                          )}
-
-                          {/* Cancel */}
-                          {isRunning && (
-                            <div className="flex gap-2 pt-1">
-                              <button
-                                onClick={() => {
-                                  void adminApi
-                                    .cancelJob(job.id)
-                                    .then(() => fetchJobs())
-                                    .catch(() => undefined);
-                                }}
-                                className="text-xs text-red-400 hover:text-red-300 underline"
-                              >
-                                Cancel job
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+        <BackgroundJobsCard
+          jobsList={jobsList}
+          isLoadingJobs={isLoadingJobs}
+          expandedJobId={expandedJobId}
+          jobProgress={jobProgress}
+          adapterStatusCounts={adapterStatusCounts}
+          onToggleExpanded={handleToggleJobExpanded}
+          onCancel={handleCancelJob}
+        />
 
         {/* Manual Run — one-off live crawl or archive rescrape */}
         <Card padding="sm">
@@ -2376,39 +3010,30 @@ function CrawlerAdmin() {
                       None
                     </button>
                     <span className="text-neutral-600">·</span>
-                    {(['http', 'tls', 'browser', 'unverified'] as const).map(
-                      (tier) => {
-                        const members = crawlerAdapters.filter(
-                          (name) => adapterTiers[name] === tier
-                        );
-                        if (members.length === 0) return null;
-                        const selectedCount = members.filter((name) =>
-                          selectedCrawlers.has(name)
-                        ).length;
-                        const allSelected = selectedCount === members.length;
-                        const someSelected = selectedCount > 0 && !allSelected;
-                        const meta = TIER_META[tier];
-                        const cls = allSelected
-                          ? meta.chipSelected
-                          : someSelected
-                            ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
-                            : meta.chipUnselected;
-                        return (
-                          <button
-                            key={tier}
-                            type="button"
-                            onClick={() => toggleTierSelection(tier)}
-                            title={`${meta.full} — ${selectedCount}/${members.length} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
-                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
-                          >
-                            {meta.label}
-                            <span className="ml-1 opacity-70">
-                              {selectedCount}/{members.length}
-                            </span>
-                          </button>
-                        );
-                      }
-                    )}
+                    {tierToggleStats.map(({ tier, total, selectedCount }) => {
+                      const allSelected = selectedCount === total;
+                      const someSelected = selectedCount > 0 && !allSelected;
+                      const meta = TIER_META[tier];
+                      const cls = allSelected
+                        ? meta.chipSelected
+                        : someSelected
+                          ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
+                          : meta.chipUnselected;
+                      return (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => toggleTierSelection(tier)}
+                          title={`${meta.full} — ${selectedCount}/${total} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
+                        >
+                          {meta.label}
+                          <span className="ml-1 opacity-70">
+                            {selectedCount}/{total}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <p className="text-[10px] text-neutral-500 mb-2">
@@ -2441,13 +3066,14 @@ function CrawlerAdmin() {
                       Global limit
                     </label>
                     <div className="flex items-center gap-1">
-                      <Input
+                      <LocalTextInput
                         type="number"
                         min="1"
                         placeholder="—"
-                        value={globalCrawlerLimit}
-                        onChange={(e) => setGlobalCrawlerLimit(e.target.value)}
-                        className="w-full min-h-0 py-1 text-xs"
+                        initialValue={globalCrawlerLimit}
+                        inputKey={globalLimitSyncKey}
+                        onCommit={setGlobalCrawlerLimit}
+                        className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
                       />
                       {[25, 50, 100, 250].map((n) => {
                         const active = globalCrawlerLimit === String(n);
@@ -2455,9 +3081,10 @@ function CrawlerAdmin() {
                           <button
                             key={n}
                             type="button"
-                            onClick={() =>
-                              setGlobalCrawlerLimit(active ? '' : String(n))
-                            }
+                            onClick={() => {
+                              setGlobalCrawlerLimit(active ? '' : String(n));
+                              setGlobalLimitSyncKey((k) => k + 1);
+                            }}
                             className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none ${
                               active
                                 ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
@@ -2475,12 +3102,12 @@ function CrawlerAdmin() {
                     <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
                       HTML save dir
                     </label>
-                    <Input
+                    <LocalTextInput
                       type="text"
                       placeholder="Optional"
-                      value={crawlerHtmlSaveDir}
-                      onChange={(e) => setCrawlerHtmlSaveDir(e.target.value)}
-                      className="w-full min-h-0 py-1 text-xs"
+                      initialValue={crawlerHtmlSaveDir}
+                      onCommit={setCrawlerHtmlSaveDir}
+                      className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
                     />
                   </div>
                 </div>
@@ -2501,74 +3128,15 @@ function CrawlerAdmin() {
                   </span>
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mb-2">
-                  {[...crawlerAdapters]
-                    .sort((a, b) => {
-                      const order: Record<FetcherTier, number> = {
-                        http: 0,
-                        tls: 1,
-                        browser: 2,
-                        unverified: 4,
-                      };
-                      const ta = adapterTiers[a];
-                      const tb = adapterTiers[b];
-                      const da = ta ? order[ta] : 3;
-                      const db = tb ? order[tb] : 3;
-                      if (da !== db) return da - db;
-                      return a.localeCompare(b);
-                    })
-                    .map((adapter) => {
-                      const tier = adapterTiers[adapter];
-                      const tierRow = tier ? TIER_META[tier].row : '';
-                      return (
-                        <div
-                          key={adapter}
-                          className={`flex items-center gap-1.5 py-0.5 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
-                        >
-                          <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={selectedCrawlers.has(adapter)}
-                              onChange={() => toggleCrawlerSelection(adapter)}
-                              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
-                            />
-                            <TierBadge tier={tier} />
-                            <span className="font-mono text-xs text-neutral-200 truncate">
-                              {adapter}
-                            </span>
-                          </label>
-                          {(() => {
-                            const progress = adapterProgressLabel(
-                              adapterStatusCounts[adapter]
-                            );
-                            return progress ? (
-                              <span
-                                title={progress.tooltip}
-                                className="shrink-0 tabular-nums text-[10px] px-1 py-0.5 rounded bg-gray-700/60 border border-gray-600/50 text-gray-400 font-mono"
-                              >
-                                {progress.parsed.toLocaleString()}
-                                <span className="text-gray-500">{' / '}</span>
-                                {progress.total.toLocaleString()}
-                              </span>
-                            ) : null;
-                          })()}
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="—"
-                            value={crawlerLimits[adapter] ?? ''}
-                            onChange={(e) =>
-                              setCrawlerLimits((prev) => ({
-                                ...prev,
-                                [adapter]: e.target.value,
-                              }))
-                            }
-                            className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                      );
-                    })}
-                </div>
+                <LiveCrawlerRowList
+                  sortedAdapters={sortedAdapters}
+                  adapterTiers={adapterTiers}
+                  selectedCrawlers={selectedCrawlers}
+                  crawlerLimits={crawlerLimits}
+                  adapterStatusCounts={adapterStatusCounts}
+                  onToggleSelected={toggleCrawlerSelection}
+                  onLimitChange={setCrawlerLimitForAdapter}
+                />
 
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -2663,6 +3231,7 @@ function CrawlerAdmin() {
             </>
           )}
         </Card>
+        </div>
       </div>
     </div>
   );

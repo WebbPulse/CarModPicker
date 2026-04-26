@@ -7,7 +7,8 @@ import { act, render, waitFor } from '@testing-library/react';
 import { AxiosHeaders, type AxiosResponse } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../api/client';
-import SparklineCell, { __resetSparklineCellCache } from './SparklineCell';
+import SparklineCell from './SparklineCell';
+import { __resetSparklineCellCache } from './sparkline-cache';
 import type {
   PartPriceHistoryReadWithRetailer,
   PriceHistorySinglePartResponse,

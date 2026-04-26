@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../api/client';
 import PartList from './PartList';
-import { __resetSparklineCellCache } from './SparklineCell';
+import { __resetSparklineCellCache } from './sparkline-cache';
 import type {
   PartReadWithVotes,
   PriceHistoryBatchResponse,
