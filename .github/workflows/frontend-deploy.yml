@@ -15,6 +15,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-deploy.yml"
+  workflow_dispatch:
 
 permissions:
   id-token: write
