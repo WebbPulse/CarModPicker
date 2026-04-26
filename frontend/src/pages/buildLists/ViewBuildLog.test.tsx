@@ -29,9 +29,11 @@
 // `testScenarios.authenticated` is kept below for conceptual alignment and
 // to keep this file discoverable by the phase-wide grep for that token.
 
-/* eslint-disable @typescript-eslint/unbound-method --
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment --
  * vi.mocked(apiClient.post) is the canonical Vitest pattern for typed mock
  * introspection; ESLint's unbound-method rule is a false positive here.
+ * `expect.objectContaining(...)` returns `any` and trips no-unsafe-assignment
+ * when nested as a property value — false positive in this matcher pattern.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -247,9 +249,9 @@ describe('ViewBuildLog page', () => {
     // ImageUpload renders a visible "Upload Image" button that clicks a
     // hidden <input type="file">. Locate the hidden input directly since it
     // has no label and click-through is an implementation detail.
-    const fileInput = document.querySelector(
+    const fileInput = document.querySelector<HTMLInputElement>(
       'input[type="file"]'
-    ) as HTMLInputElement | null;
+    );
     if (!fileInput) throw new Error('File input not found');
 
     const file = new File(['x'], 'progress.jpg', { type: 'image/jpeg' });

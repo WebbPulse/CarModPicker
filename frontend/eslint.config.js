@@ -9,7 +9,7 @@ import eslintConfigPrettier from 'eslint-config-prettier'; // Import eslint-conf
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'node_modules/', '*.config.js'],
+    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js'],
   },
   // Base config for non-type-checked files
   {

@@ -172,7 +172,7 @@ function AccountAlerts() {
     });
 
     let cancelled = false;
-    Promise.allSettled(idsToFetch.map((id) => partsApi.getPart(id))).then(
+    void Promise.allSettled(idsToFetch.map((id) => partsApi.getPart(id))).then(
       (results) => {
         if (cancelled) return;
         const updates: Record<string, PartRead | null> = {};

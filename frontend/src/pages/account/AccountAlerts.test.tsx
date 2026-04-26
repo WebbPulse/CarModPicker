@@ -5,7 +5,11 @@
 // this page, a stale-token 401 surfaces as an inline error, not a redirect).
 // Also covers the ?status=success / ?status=error banners landed on by the
 // token-as-auth public unsubscribe redirect.
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/prefer-promise-reject-errors --
+ * Mocked rejections mimic axios' AxiosError shape (`{ isAxiosError, response: { status, data } }`)
+ * since that is what the real client produces; constructing actual Error subclasses here would not
+ * exercise the production error-handling paths.
+ */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../api/client';

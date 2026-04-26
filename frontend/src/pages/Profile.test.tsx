@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/unbound-method --
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment --
  * vi.mocked(apiClient.post/put) is the canonical Phase 8 mocking pattern.
+ * `expect.objectContaining(...)` returns `any` and trips no-unsafe-assignment
+ * when nested as a property value — false positive in this matcher pattern.
  */
 
 // Phase 8 plan 08-14 (D-11) — Profile page: authenticated render + image
@@ -31,13 +33,17 @@ vi.mock('../services/Api', async () => {
     default: client,
     apiClient: client,
     imageApi: {
-      uploadImage: async (file: File, entityType: string, entityId?: string) => {
+      uploadImage: async (
+        file: File,
+        entityType: string,
+        entityId?: string
+      ): Promise<unknown> => {
         const formData = new FormData();
         formData.append('file', file);
         const params = new URLSearchParams();
         params.append('entity_type', entityType);
         if (entityId !== undefined) params.append('entity_id', entityId);
-        const response = await client.post(
+        const response = await client.post<unknown>(
           `/images/upload?${params.toString()}`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
@@ -106,9 +112,9 @@ describe('Profile page', () => {
     // ImageUpload exposes a hidden <input type="file"> and a "Choose Image"
     // button that triggers the input. userEvent.upload targets the input
     // directly.
-    const fileInput = document.querySelector(
+    const fileInput = document.querySelector<HTMLInputElement>(
       'input[type="file"]'
-    ) as HTMLInputElement | null;
+    );
     if (!fileInput) throw new Error('Could not find hidden file input');
 
     const file = new File(['hello'], 'avatar.jpg', { type: 'image/jpeg' });
@@ -131,7 +137,7 @@ describe('Profile page', () => {
       ([url]) => typeof url === 'string' && url.includes('/images/upload')
     );
     expect(call).toBeDefined();
-    const fd = call?.[1] as FormData;
+    const fd: FormData = call?.[1] as FormData;
     expect(fd.get('file')).toBe(file);
   });
 
@@ -149,9 +155,9 @@ describe('Profile page', () => {
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
 
-    const fileInput = document.querySelector(
+    const fileInput = document.querySelector<HTMLInputElement>(
       'input[type="file"]'
-    ) as HTMLInputElement | null;
+    );
     if (!fileInput) throw new Error('Could not find hidden file input');
 
     const file = new File(['hello'], 'avatar.jpg', { type: 'image/jpeg' });
