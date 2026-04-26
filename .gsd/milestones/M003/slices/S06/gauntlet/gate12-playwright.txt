@@ -1,0 +1,171 @@
+
+Running 165 tests using 16 workers
+
+[1A[2K[1/165] [mobile] › e2e/admin.spec.ts:251:1 › admin dashboard visual regression
+[1A[2K[2/165] [mobile] › e2e/admin.spec.ts:289:1 › extraction-health: keyboard Tab lands visible focus on a control
+[1A[2K[3/165] [mobile] › e2e/parts-catalog.spec.ts:528:1 › tab traversal lands visible focus on search input
+[1A[2K[4/165] [mobile] › e2e/build-list.spec.ts:278:1 › tab order surfaces visible focus on first interactive control
+[1A[2K[5/165] [mobile] › e2e/build-list.spec.ts:245:1 › edit dialog opens, focuses, and Escape closes
+[1A[2K[6/165] [mobile] › e2e/admin.spec.ts:269:1 › admin extraction-health visual regression
+[1A[2K[7/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /
+[1A[2K[8/165] [mobile] › e2e/parts-catalog.spec.ts:481:1 › add-to-build-list dialog opens, focus moves into it, Escape closes it
+[1A[2K[9/165] [mobile] › e2e/build-list.spec.ts:232:1 › build-list detail visual regression
+[1A[2K[10/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /contact-us
+[1A[2K[11/165] [mobile] › e2e/components.spec.ts:3:1 › kitchen-sink visual regression
+[1A[2K[12/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /terms-of-service
+[1A[2K[13/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /privacy-policy
+[1A[2K[14/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /about
+[1A[2K[15/165] [mobile] › e2e/parts-catalog.spec.ts:445:1 › parts catalog visual regression
+[1A[2K[16/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /support
+[1A[2K[17/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /pricing
+[1A[2K[18/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /bug-report
+[1A[2K[19/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /search
+[1A[2K[20/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email/confirm
+[1A[2K[21/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /user/00000000-0000-0000-0000-000000000000
+[1A[2K[22/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password/confirm
+[1A[2K[23/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /extension-auth
+[1A[2K[24/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /car-generations/some-car
+[1A[2K[25/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000
+[1A[2K[26/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000/build-log
+[1A[2K[27/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists
+[1A[2K[28/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part/edit
+[1A[2K[29/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part
+[1A[2K[30/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts
+[1A[2K[31/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /_kitchen-sink
+[1A[2K[32/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /nonexistent-route-for-404-test
+[1A[2K[33/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /login
+[1A[2K[34/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /register
+[1A[2K[35/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password
+[1A[2K[36/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /profile
+[1A[2K[37/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /account/alerts
+[1A[2K[38/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /builder
+[1A[2K[39/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /my-parts
+[1A[2K[40/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /checkout
+[1A[2K[41/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email
+[1A[2K[42/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin
+[1A[2K[43/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/bug-reports
+[1A[2K[44/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/reports
+[1A[2K[45/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/users
+[1A[2K[46/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/crawler
+[1A[2K[47/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/system
+[1A[2K[48/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/statistics
+[1A[2K[49/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/parts-curation
+[1A[2K[50/165] [mobile] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/extraction-health
+[1A[2K[51/165] [mobile] › e2e/price-alerts.spec.ts:438:1 › subscribe → manage → unsubscribe demo flow
+[1A[2K[52/165] [mobile] › e2e/price-history.spec.ts:480:1 › /parts catalog renders sparklines + delta lines
+[1A[2K[53/165] [mobile] › e2e/price-history.spec.ts:533:1 › /parts/:id detail renders retailer breakdown + stale caveat
+[1A[2K[54/165] [mobile] › e2e/price-history.spec.ts:560:1 › /parts/:id with zero observations hides Price summary block
+[1A[2K[55/165] [mobile] › e2e/smoke.spec.ts:3:1 › homepage loads
+[1A[2K[56/165] [tablet] › e2e/admin.spec.ts:251:1 › admin dashboard visual regression
+[1A[2K[57/165] [tablet] › e2e/admin.spec.ts:269:1 › admin extraction-health visual regression
+[1A[2K[58/165] [tablet] › e2e/admin.spec.ts:289:1 › extraction-health: keyboard Tab lands visible focus on a control
+[1A[2K[59/165] [tablet] › e2e/build-list.spec.ts:232:1 › build-list detail visual regression
+[1A[2K[60/165] [tablet] › e2e/parts-catalog.spec.ts:481:1 › add-to-build-list dialog opens, focus moves into it, Escape closes it
+[1A[2K[61/165] [tablet] › e2e/build-list.spec.ts:245:1 › edit dialog opens, focuses, and Escape closes
+[1A[2K[62/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /about
+[1A[2K[63/165] [tablet] › e2e/build-list.spec.ts:278:1 › tab order surfaces visible focus on first interactive control
+[1A[2K[64/165] [tablet] › e2e/components.spec.ts:3:1 › kitchen-sink visual regression
+[1A[2K[65/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /privacy-policy
+[1A[2K[66/165] [tablet] › e2e/parts-catalog.spec.ts:445:1 › parts catalog visual regression
+[1A[2K[67/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /contact-us
+[1A[2K[68/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /
+[1A[2K[69/165] [tablet] › e2e/parts-catalog.spec.ts:528:1 › tab traversal lands visible focus on search input
+[1A[2K[70/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /bug-report
+[1A[2K[71/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /terms-of-service
+[1A[2K[72/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /support
+[1A[2K[73/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /pricing
+[1A[2K[74/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /search
+[1A[2K[75/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /user/00000000-0000-0000-0000-000000000000
+[1A[2K[76/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email/confirm
+[1A[2K[77/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password/confirm
+[1A[2K[78/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /extension-auth
+[1A[2K[79/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /car-generations/some-car
+[1A[2K[80/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000
+[1A[2K[81/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000/build-log
+[1A[2K[82/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part/edit
+[1A[2K[83/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part
+[1A[2K[84/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts
+[1A[2K[85/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /_kitchen-sink
+[1A[2K[86/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists
+[1A[2K[87/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /nonexistent-route-for-404-test
+[1A[2K[88/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /login
+[1A[2K[89/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password
+[1A[2K[90/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /register
+[1A[2K[91/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /profile
+[1A[2K[92/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /account/alerts
+[1A[2K[93/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /builder
+[1A[2K[94/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /my-parts
+[1A[2K[95/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /checkout
+[1A[2K[96/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email
+[1A[2K[97/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin
+[1A[2K[98/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/reports
+[1A[2K[99/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/bug-reports
+[1A[2K[100/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/users
+[1A[2K[101/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/crawler
+[1A[2K[102/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/system
+[1A[2K[103/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/statistics
+[1A[2K[104/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/parts-curation
+[1A[2K[105/165] [tablet] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/extraction-health
+[1A[2K[106/165] [tablet] › e2e/price-alerts.spec.ts:438:1 › subscribe → manage → unsubscribe demo flow
+[1A[2K[107/165] [tablet] › e2e/price-history.spec.ts:480:1 › /parts catalog renders sparklines + delta lines
+[1A[2K[108/165] [tablet] › e2e/price-history.spec.ts:533:1 › /parts/:id detail renders retailer breakdown + stale caveat
+[1A[2K[109/165] [tablet] › e2e/smoke.spec.ts:3:1 › homepage loads
+[1A[2K[110/165] [tablet] › e2e/price-history.spec.ts:560:1 › /parts/:id with zero observations hides Price summary block
+[1A[2K[111/165] [desktop] › e2e/admin.spec.ts:251:1 › admin dashboard visual regression
+[1A[2K[112/165] [desktop] › e2e/admin.spec.ts:269:1 › admin extraction-health visual regression
+[1A[2K[113/165] [desktop] › e2e/admin.spec.ts:289:1 › extraction-health: keyboard Tab lands visible focus on a control
+[1A[2K[114/165] [desktop] › e2e/build-list.spec.ts:232:1 › build-list detail visual regression
+[1A[2K[115/165] [desktop] › e2e/build-list.spec.ts:245:1 › edit dialog opens, focuses, and Escape closes
+[1A[2K[116/165] [desktop] › e2e/build-list.spec.ts:278:1 › tab order surfaces visible focus on first interactive control
+[1A[2K[117/165] [desktop] › e2e/components.spec.ts:3:1 › kitchen-sink visual regression
+[1A[2K[118/165] [desktop] › e2e/parts-catalog.spec.ts:445:1 › parts catalog visual regression
+[1A[2K[119/165] [desktop] › e2e/parts-catalog.spec.ts:481:1 › add-to-build-list dialog opens, focus moves into it, Escape closes it
+[1A[2K[120/165] [desktop] › e2e/parts-catalog.spec.ts:528:1 › tab traversal lands visible focus on search input
+[1A[2K[121/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /
+[1A[2K[122/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /about
+[1A[2K[123/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /privacy-policy
+[1A[2K[124/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /support
+[1A[2K[125/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /terms-of-service
+[1A[2K[126/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /pricing
+[1A[2K[127/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /contact-us
+[1A[2K[128/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /bug-report
+[1A[2K[129/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /search
+[1A[2K[130/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /user/00000000-0000-0000-0000-000000000000
+[1A[2K[131/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email/confirm
+[1A[2K[132/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password/confirm
+[1A[2K[133/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /extension-auth
+[1A[2K[134/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /car-generations/some-car
+[1A[2K[135/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000/build-log
+[1A[2K[136/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists
+[1A[2K[137/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part/edit
+[1A[2K[138/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts/some-part
+[1A[2K[139/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /build-lists/00000000-0000-0000-0000-000000000000
+[1A[2K[140/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /parts
+[1A[2K[141/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /_kitchen-sink
+[1A[2K[142/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /nonexistent-route-for-404-test
+[1A[2K[143/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /login
+[1A[2K[144/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /register
+[1A[2K[145/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /forgot-password
+[1A[2K[146/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /profile
+[1A[2K[147/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /account/alerts
+[1A[2K[148/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /builder
+[1A[2K[149/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /my-parts
+[1A[2K[150/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /checkout
+[1A[2K[151/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /verify-email
+[1A[2K[152/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin
+[1A[2K[153/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/reports
+[1A[2K[154/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/bug-reports
+[1A[2K[155/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/users
+[1A[2K[156/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/crawler
+[1A[2K[157/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/system
+[1A[2K[158/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/statistics
+[1A[2K[159/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/parts-curation
+[1A[2K[160/165] [desktop] › e2e/polish-coverage.spec.ts:118:3 › polish-coverage: /admin/extraction-health
+[1A[2K[161/165] [desktop] › e2e/price-alerts.spec.ts:438:1 › subscribe → manage → unsubscribe demo flow
+[1A[2K[162/165] [desktop] › e2e/price-history.spec.ts:480:1 › /parts catalog renders sparklines + delta lines
+[1A[2K[163/165] [desktop] › e2e/price-history.spec.ts:533:1 › /parts/:id detail renders retailer breakdown + stale caveat
+[1A[2K[164/165] [desktop] › e2e/price-history.spec.ts:560:1 › /parts/:id with zero observations hides Price summary block
+[1A[2K[165/165] [desktop] › e2e/smoke.spec.ts:3:1 › homepage loads
+[1A[2K  10 skipped
+  155 passed (48.5s)
+EXIT=0

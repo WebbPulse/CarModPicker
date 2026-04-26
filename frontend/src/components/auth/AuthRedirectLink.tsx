@@ -17,7 +17,7 @@ const AuthRedirectLink: React.FC<AuthRedirectLinkProps> = ({
       {text}{' '}
       <Link
         to={to}
-        className="font-medium text-indigo-400 hover:text-indigo-300"
+        className="font-medium text-info hover:text-info/90"
       >
         {linkText}
       </Link>

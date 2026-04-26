@@ -36,7 +36,7 @@ function Support() {
             description:
               'Go ad-free, unlock unlimited build lists, and support ongoing development with a monthly subscription.',
             icon: <FaCrown className="text-3xl" />,
-            color: 'from-amber-400 to-orange-500',
+            color: 'from-warning to-warning',
             link: '/pricing',
             buttonText: 'See Pricing',
             external: false,
@@ -48,7 +48,7 @@ function Support() {
       description:
         'Prefer a one-time donation? Every contribution helps keep CarModPicker running!',
       icon: <FaCoffee className="text-3xl" />,
-      color: 'from-amber-500 to-orange-500',
+      color: 'from-warning to-warning',
       link: 'https://buymeacoffee.com/webbpulse', // Replace with actual link
       buttonText: 'Buy Me a Coffee',
       external: true,
@@ -65,10 +65,10 @@ function Support() {
               {/* Icon */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-linear-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-warning to-warning rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <FaCoffee className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-linear-to-br from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-warning/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -78,11 +78,11 @@ function Support() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-xl md:text-2xl text-neutral-300 mb-3 leading-relaxed">
+              <p className="text-xl md:text-2xl text-foreground mb-3 leading-relaxed">
                 Help us keep the platform running and improving
               </p>
 
-              <p className="text-lg text-neutral-400 mb-6 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-lg text-muted-foreground mb-6 max-w-4xl mx-auto leading-relaxed">
                 CarModPicker is built with passion and dedication to serve the
                 car enthusiast community. Your support helps us maintain
                 servers, develop new features, and keep the platform free for
@@ -101,7 +101,7 @@ function Support() {
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-gradient">Ways to Support</span>
             </h2>
-            <p className="text-xl text-neutral-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Choose the method that works best for you
             </p>
           </div>
@@ -122,7 +122,7 @@ function Support() {
                 <h3 className="text-2xl font-semibold text-white mb-3 group-hover:text-gradient transition-colors">
                   {option.title}
                 </h3>
-                <p className="text-neutral-400 mb-4 leading-relaxed flex-grow">
+                <p className="text-muted-foreground mb-4 leading-relaxed flex-grow">
                   {option.description}
                 </p>
                 {option.external ? (
@@ -132,13 +132,13 @@ function Support() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <Button className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-white">
                       {option.buttonText}
                     </Button>
                   </a>
                 ) : (
                   <Link to={option.link} className="block">
-                    <Button className="w-full bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white">
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-white">
                       {option.buttonText}
                     </Button>
                   </Link>
@@ -163,10 +163,10 @@ function Support() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 text-left">
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
-                    <GiRaceCar className="mr-3 text-primary-400" />
+                    <GiRaceCar className="mr-3 text-primary" />
                     Keep It Free
                   </h3>
-                  <p className="text-neutral-400 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     Your donations help us keep CarModPicker free and accessible
                     to all car enthusiasts, without requiring subscriptions or
                     paywalls for core features.
@@ -174,10 +174,10 @@ function Support() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
-                    <GiRaceCar className="mr-3 text-primary-400" />
+                    <GiRaceCar className="mr-3 text-primary" />
                     Better Features
                   </h3>
-                  <p className="text-neutral-400 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     Support enables us to develop new features, improve
                     performance, and enhance the overall user experience for the
                     entire community.
@@ -185,10 +185,10 @@ function Support() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
-                    <GiRaceCar className="mr-3 text-primary-400" />
+                    <GiRaceCar className="mr-3 text-primary" />
                     Reliable Service
                   </h3>
-                  <p className="text-neutral-400 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     Contributions help maintain servers, ensure uptime, and
                     provide reliable access to your build lists and parts
                     catalog.
@@ -196,10 +196,10 @@ function Support() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
-                    <GiRaceCar className="mr-3 text-primary-400" />
+                    <GiRaceCar className="mr-3 text-primary" />
                     Community Growth
                   </h3>
-                  <p className="text-neutral-400 leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed">
                     Your support helps us grow the community, add more cars and
                     parts, and create a better platform for car enthusiasts
                     worldwide.
@@ -219,7 +219,7 @@ function Support() {
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 <span className="text-gradient">Thank You!</span>
               </h2>
-              <p className="text-xl text-neutral-300 leading-relaxed">
+              <p className="text-xl text-foreground leading-relaxed">
                 Whether you choose to support us financially or by being an
                 active member of our community, we appreciate you being part of
                 CarModPicker. Together, we're building something amazing for car

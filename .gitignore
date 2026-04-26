@@ -175,10 +175,13 @@ test-results/
 .gsd/journal/
 .gsd/parallel/
 .gsd/runtime/
+**/.gsd/runtime/
 .gsd/safety/
 .gsd/worktrees/
 .gsd/graphs/
+.gsd/auto.lock
 .gsd/auto-*.lock
+.gsd/milestones/**/*-META.json
 # Per-task verification evidence — runtime artifacts, not authoritative state
 .gsd/milestones/**/*-VERIFY.json
 .gsd/milestones/**/*-PRE-EXEC-VERIFY.json

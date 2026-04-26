@@ -2,6 +2,8 @@ import * as Sentry from '@sentry/react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { Button } from '../ui/button';
+
 /**
  * Phase 6 FE-03 — per-route-group ErrorBoundary (D-07).
  *
@@ -52,31 +54,27 @@ export function RouteGroupBoundary({
             data-route-group={groupName}
             className="container mx-auto px-4 py-16"
           >
-            <div className="mx-auto max-w-lg p-8 bg-neutral-800/50 rounded-xl text-neutral-200">
-              <h2 className="text-2xl font-semibold text-neutral-100 mb-3">
+            <div className="mx-auto max-w-lg p-8 bg-card/50 rounded-xl text-foreground">
+              <h2 className="text-2xl font-semibold text-foreground mb-3">
                 Something went wrong in the {groupName} section
               </h2>
-              <p className="text-sm text-neutral-400 mb-2">
+              <p className="text-sm text-muted-foreground mb-2">
                 {error instanceof Error ? error.message : 'Unknown error'}
               </p>
-              <p className="text-xs text-neutral-500 mb-6">
+              <p className="text-xs text-muted-foreground mb-6">
                 Event ID: <code className="font-mono">{eventId}</code>
               </p>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="btn-primary"
-                >
+                <Button type="button" onClick={handleRetry}>
                   Retry
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={handleGoHome}
-                  className="btn-secondary"
                 >
                   Go Home
-                </button>
+                </Button>
               </div>
             </div>
           </section>

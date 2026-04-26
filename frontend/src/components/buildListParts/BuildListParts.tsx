@@ -527,10 +527,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       />
 
       {hasCarMismatchParts && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+        <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
           <div className="flex gap-3">
             <svg
-              className="flex-shrink-0 w-5 h-5 text-amber-400 mt-0.5"
+              className="flex-shrink-0 w-5 h-5 text-warning mt-0.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -543,10 +543,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
               />
             </svg>
             <div>
-              <p className="text-sm font-medium text-amber-200">
+              <p className="text-sm font-medium text-warning">
                 Possible car compatibility warning
               </p>
-              <p className="text-sm text-amber-200/90 mt-1">
+              <p className="text-sm text-warning/90 mt-1">
                 One or more parts in this build list may be associated with a
                 different car model. Parts may not be compatible across
                 vehicles. Please verify fitment and do your own due diligence.

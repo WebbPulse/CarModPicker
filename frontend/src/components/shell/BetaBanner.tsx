@@ -16,10 +16,10 @@ function BetaBanner() {
   };
 
   return (
-    <div className="relative z-40 w-full bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-sm">
+    <div className="relative z-40 w-full bg-warning/15 border-b border-warning/30 backdrop-blur-sm">
       <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5 text-amber-300 text-sm">
-          <FaWrench className="shrink-0 text-amber-400" />
+        <div className="flex items-center gap-2.5 text-warning text-sm">
+          <FaWrench className="shrink-0 text-warning" />
           <span>
             <span className="font-semibold">
               CarModPicker is under active development.
@@ -31,7 +31,7 @@ function BetaBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss banner"
-          className="shrink-0 text-amber-400 hover:text-amber-200 transition-colors duration-200"
+          className="shrink-0 text-warning hover:text-warning/90 transition-colors duration-200"
         >
           <FaTimes />
         </button>

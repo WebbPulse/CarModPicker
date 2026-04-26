@@ -66,7 +66,7 @@ function VerifyEmail() {
   return (
     <AuthCard title="Verify Your Email">
       <div>
-        <p className="mb-4 text-center text-gray-300">
+        <p className="mb-4 text-center text-muted-foreground">
           Click the button below to send a verification link to your email
           address: <strong>{user.email}</strong>.
         </p>

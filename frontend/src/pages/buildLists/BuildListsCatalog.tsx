@@ -440,15 +440,15 @@ const BuildListsCatalog: React.FC = () => {
         <aside className="lg:w-64 flex-shrink-0">
           <Card className="sticky top-4 overflow-hidden">
             <div className="p-4 space-y-6">
-              <div className="flex items-center justify-between pb-2 border-b border-gray-700/60">
-                <h2 className="text-base font-semibold text-gray-100">
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">
                   Filters
                 </h2>
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                    className="text-sm text-info hover:text-info/90 transition-colors"
                   >
                     Clear all
                   </button>
@@ -473,18 +473,18 @@ const BuildListsCatalog: React.FC = () => {
 
               {/* Total cost range filter */}
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider pb-2 mb-3 border-b border-border">
                   Total Cost ($)
                 </h3>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <label
                       htmlFor="cost-min"
-                      className="text-sm text-gray-500 shrink-0 w-12"
+                      className="text-sm text-muted-foreground shrink-0 w-12"
                     >
                       Min ($)
                     </label>
-                    <input
+                    <Input
                       id="cost-min"
                       type="number"
                       min={0}
@@ -492,17 +492,17 @@ const BuildListsCatalog: React.FC = () => {
                       placeholder="No min"
                       value={costMin}
                       onChange={(e) => setCostMin(e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
+                      className="w-full"
                     />
                   </div>
                   <div className="flex items-center gap-2">
                     <label
                       htmlFor="cost-max"
-                      className="text-sm text-gray-500 shrink-0 w-12"
+                      className="text-sm text-muted-foreground shrink-0 w-12"
                     >
                       Max ($)
                     </label>
-                    <input
+                    <Input
                       id="cost-max"
                       type="number"
                       min={0}
@@ -510,7 +510,7 @@ const BuildListsCatalog: React.FC = () => {
                       placeholder="No max"
                       value={costMax}
                       onChange={(e) => setCostMax(e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -518,7 +518,7 @@ const BuildListsCatalog: React.FC = () => {
 
               {/* Sort by */}
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider pb-2 mb-3 border-b border-border">
                   Sort by
                 </h3>
                 <select
@@ -533,7 +533,7 @@ const BuildListsCatalog: React.FC = () => {
                         | 'price_desc'
                     )
                   }
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground text-sm focus:ring-2 focus:ring-info focus:border-info/50 transition-colors"
                 >
                   <option value="votes">Most votes</option>
                   <option value="votes_asc">Least votes</option>
@@ -577,7 +577,7 @@ const BuildListsCatalog: React.FC = () => {
                 <button
                   type="button"
                   onClick={clearCostRange}
-                  className="p-0.5 rounded-full hover:bg-gray-600/80 hover:text-white transition-colors shrink-0"
+                  className="p-0.5 rounded-full hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
                   aria-label="Clear cost range"
                 >
                   ×
@@ -604,10 +604,10 @@ const BuildListsCatalog: React.FC = () => {
           ) : (
             <>
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   All Build Lists
                 </h3>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Select a vehicle in the sidebar to filter by car, or browse
                   all build lists below. Search and cost filters apply.
                 </p>
@@ -628,7 +628,7 @@ const BuildListsCatalog: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-400 text-center py-8">
+                <p className="text-muted-foreground text-center py-8">
                   No build lists found. Try adjusting your search or cost
                   filters.
                 </p>

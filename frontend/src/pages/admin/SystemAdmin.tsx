@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useAuth } from '../../hooks/useAuth';
 
+import { DangerActionPanel } from '../../components/admin/DangerActionPanel';
 import PageHeader from '../../components/layout/PageHeader';
 import { ErrorAlert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
@@ -316,18 +317,18 @@ function SystemAdmin() {
       {/* Global app settings */}
       <div className="mb-4">
         <Card padding="sm">
-          <h2 className="text-lg font-semibold text-white mb-1">
+          <h2 className="text-lg font-semibold text-foreground mb-1">
             Global App Settings
           </h2>
-          <p className="text-sm text-neutral-400 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Site-wide toggles that apply to every user regardless of
             subscription tier.
           </p>
-          <div className="p-3 bg-neutral-900/40 border border-neutral-700 rounded-lg">
+          <div className="p-3 bg-card/40 border border-border rounded-lg">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                className="mt-1 h-4 w-4 rounded border-border bg-card text-info focus:ring-info cursor-pointer"
                 checked={appSettings?.premium_disabled ?? false}
                 disabled={isSavingAppSettings || appSettings == null}
                 onChange={(e) =>
@@ -336,12 +337,12 @@ function SystemAdmin() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-foreground">
                     Disconnect premium system
                   </span>
                   {isSavingAppSettings && <Spinner size="sm" inline />}
                 </div>
-                <p className="text-xs text-neutral-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Hard kill switch for everything paid. When on: ads are
                   suppressed for every visitor, all subscription-tier gates are
                   bypassed (everyone gets the premium experience), and all
@@ -364,23 +365,23 @@ function SystemAdmin() {
         {/* Database Migrations */}
         <Card padding="sm">
           <div className="mb-2">
-            <h2 className="text-lg font-semibold text-white mb-1">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
               Database Migrations
             </h2>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-muted-foreground">
               Run migrations to update the database schema on-demand.
               {currentRevision && (
                 <>
                   {' '}
                   Current:{' '}
-                  <span className="font-mono text-white">
+                  <span className="font-mono text-foreground">
                     {currentRevision}
                   </span>
                 </>
               )}
             </p>
           </div>
-          <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+          <div className="p-3 bg-info/20 border border-info rounded-lg">
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <Button
                 onClick={() => void handleRunMigrations()}
@@ -404,16 +405,16 @@ function SystemAdmin() {
               <div
                 className={`p-3 rounded-lg border text-sm ${
                   migrationResult.success
-                    ? 'bg-green-900/20 border-green-700'
-                    : 'bg-red-900/20 border-red-700'
+                    ? 'bg-success/20 border-success'
+                    : 'bg-destructive/20 border-destructive'
                 }`}
               >
                 <div className="mb-1">
                   <span
                     className={`font-semibold ${
                       migrationResult.success
-                        ? 'text-green-400'
-                        : 'text-red-400'
+                        ? 'text-success'
+                        : 'text-destructive'
                     }`}
                   >
                     {migrationResult.success
@@ -422,7 +423,7 @@ function SystemAdmin() {
                   </span>
                 </div>
                 {migrationResult.current_revision && (
-                  <div className="text-neutral-300 mb-1">
+                  <div className="text-foreground mb-1">
                     <span className="font-semibold">New revision:</span>{' '}
                     <span className="font-mono">
                       {migrationResult.current_revision}
@@ -431,20 +432,20 @@ function SystemAdmin() {
                 )}
                 {migrationResult.output && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">
+                    <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                       View output
                     </summary>
-                    <pre className="mt-2 p-2 bg-gray-900 rounded text-xs text-neutral-300 overflow-x-auto max-h-60 overflow-y-auto">
+                    <pre className="mt-2 p-2 bg-muted rounded text-xs text-foreground overflow-x-auto max-h-60 overflow-y-auto">
                       {migrationResult.output}
                     </pre>
                   </details>
                 )}
                 {migrationResult.error && (
                   <div className="mt-2">
-                    <p className="text-sm font-semibold text-red-400 mb-1">
+                    <p className="text-sm font-semibold text-destructive mb-1">
                       Error:
                     </p>
-                    <pre className="p-2 bg-gray-900 rounded text-xs text-red-300 overflow-x-auto max-h-60 overflow-y-auto">
+                    <pre className="p-2 bg-muted rounded text-xs text-destructive overflow-x-auto max-h-60 overflow-y-auto">
                       {migrationResult.error}
                     </pre>
                   </div>
@@ -456,19 +457,19 @@ function SystemAdmin() {
 
         {/* Data Initialization */}
         <Card padding="sm">
-          <h2 className="text-lg font-semibold text-white mb-1">
+          <h2 className="text-lg font-semibold text-foreground mb-1">
             Data Initialization
           </h2>
-          <p className="text-sm text-neutral-400 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Sync car generations and part categories from source of truth.
           </p>
-          <div className="p-3 bg-amber-900/20 border border-amber-700 rounded-lg">
+          <div className="p-3 bg-warning/20 border border-warning rounded-lg">
             <div className="flex flex-wrap gap-3 mb-2">
               <Button
                 onClick={() => void handleInitCarGenerations()}
                 disabled={isInitCarGenerations}
                 loading={isInitCarGenerations}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
+                className="bg-warning hover:bg-warning/90 text-warning-foreground"
               >
                 {isInitCarGenerations
                   ? 'Initializing...'
@@ -478,7 +479,7 @@ function SystemAdmin() {
                 onClick={() => void handleInitPartCategories()}
                 disabled={isInitPartCategories}
                 loading={isInitPartCategories}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
+                className="bg-warning hover:bg-warning/90 text-warning-foreground"
               >
                 {isInitPartCategories
                   ? 'Initializing...'
@@ -491,8 +492,8 @@ function SystemAdmin() {
                   <div
                     className={`p-2 rounded border text-sm ${
                       initCarGenerationsResult.success
-                        ? 'bg-green-900/20 border-green-700 text-green-400'
-                        : 'bg-red-900/20 border-red-700 text-red-400'
+                        ? 'bg-success/20 border-success text-success'
+                        : 'bg-destructive/20 border-destructive text-destructive'
                     }`}
                   >
                     Car generations: {initCarGenerationsResult.message}
@@ -502,8 +503,8 @@ function SystemAdmin() {
                   <div
                     className={`p-2 rounded border text-sm ${
                       initPartCategoriesResult.success
-                        ? 'bg-green-900/20 border-green-700 text-green-400'
-                        : 'bg-red-900/20 border-red-700 text-red-400'
+                        ? 'bg-success/20 border-success text-success'
+                        : 'bg-destructive/20 border-destructive text-destructive'
                     }`}
                   >
                     Part categories: {initPartCategoriesResult.message}
@@ -519,28 +520,31 @@ function SystemAdmin() {
       {/* Destructive operations */}
       <div className="mt-4">
         <Card padding="sm">
-          <details className="group border border-red-800/50 rounded-lg overflow-hidden">
-            <summary className="cursor-pointer list-none px-3 py-2 bg-red-900/20 hover:bg-red-900/30 transition-colors flex items-center justify-between text-sm">
-              <span className="font-semibold text-red-400">
+          <details className="group border border-destructive/50 rounded-lg overflow-hidden">
+            <summary className="cursor-pointer list-none px-3 py-2 bg-destructive/20 hover:bg-destructive/30 transition-colors flex items-center justify-between text-sm">
+              <span className="font-semibold text-destructive">
                 Deletion options (cars, global parts, part manufacturers,
                 bucket)
               </span>
-              <span className="text-red-400/80 group-open:rotate-180 transition-transform inline-block">
+              <span className="text-destructive/80 group-open:rotate-180 transition-transform inline-block">
                 ▼
               </span>
             </summary>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-border">
               {/* Delete all cars */}
-              <div className="p-3 bg-orange-900/20 border-t border-orange-700/50">
-                <h3 className="text-base font-semibold text-orange-400 mb-1">
-                  Delete all cars (generations)
-                </h3>
-                <p className="text-neutral-400 mb-2 text-xs">
-                  Permanently remove every car generation, car model, and make
-                  from the catalog. Build lists are unlinked from cars (not
-                  deleted). Run &quot;Init Car Generations&quot; afterward to
-                  repopulate from a clean slate. This action cannot be undone.
-                </p>
+              <DangerActionPanel
+                title="Delete all cars (generations)"
+                dangerColor="warning"
+                description={
+                  <>
+                    Permanently remove every car generation, car model, and
+                    make from the catalog. Build lists are unlinked from cars
+                    (not deleted). Run &quot;Init Car Generations&quot;
+                    afterward to repopulate from a clean slate. This action
+                    cannot be undone.
+                  </>
+                }
+              >
                 <div className="flex flex-wrap gap-2 mb-2">
                   <Button
                     size="sm"
@@ -551,13 +555,13 @@ function SystemAdmin() {
                     }}
                     disabled={isDeletingAllCars}
                     loading={isDeletingAllCars}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   >
                     {isDeletingAllCars ? 'Deleting...' : 'Delete all cars'}
                   </Button>
                 </div>
                 {deleteAllCarsResult && (
-                  <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                  <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
                     <p className="font-semibold">
                       Deleted{' '}
                       {deleteAllCarsResult.deleted_count.toLocaleString()}{' '}
@@ -569,20 +573,22 @@ function SystemAdmin() {
                     </p>
                   </div>
                 )}
-              </div>
+              </DangerActionPanel>
 
               {/* Delete all global parts / part manufacturers */}
-              <div className="p-3 bg-red-900/20 border-t border-red-700/50">
-                <h3 className="text-base font-semibold text-red-400 mb-1">
-                  Delete all global parts / part manufacturers
-                </h3>
-                <p className="text-neutral-400 mb-2 text-xs">
-                  Permanently remove every global part from the catalog (also
-                  removes their part listings, votes, reports, and build list
-                  part associations). Or remove only part manufacturers (parts
-                  keep their data; part manufacturer references are cleared).
-                  These actions cannot be undone.
-                </p>
+              <DangerActionPanel
+                title="Delete all global parts / part manufacturers"
+                dangerColor="destructive"
+                description={
+                  <>
+                    Permanently remove every global part from the catalog
+                    (also removes their part listings, votes, reports, and
+                    build list part associations). Or remove only part
+                    manufacturers (parts keep their data; part manufacturer
+                    references are cleared). These actions cannot be undone.
+                  </>
+                }
+              >
                 <div className="flex flex-wrap gap-2 mb-2">
                   <Button
                     size="sm"
@@ -618,7 +624,7 @@ function SystemAdmin() {
                 {(deleteAllPartsResult || deleteAllPartManufacturersResult) && (
                   <div className="space-y-1 mt-2">
                     {deleteAllPartsResult && (
-                      <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                      <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
                         <p className="font-semibold">
                           Deleted{' '}
                           {deleteAllPartsResult.deleted_count.toLocaleString()}{' '}
@@ -627,7 +633,7 @@ function SystemAdmin() {
                       </div>
                     )}
                     {deleteAllPartManufacturersResult && (
-                      <div className="p-2 rounded border border-green-700 bg-green-900/20 text-sm text-green-400">
+                      <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
                         <p className="font-semibold">
                           Deleted{' '}
                           {deleteAllPartManufacturersResult.deleted_count.toLocaleString()}{' '}
@@ -644,26 +650,28 @@ function SystemAdmin() {
                     )}
                   </div>
                 )}
-              </div>
+              </DangerActionPanel>
 
               {/* Bucket orphan cleanup */}
-              <div className="p-3 bg-cyan-900/20 border-t border-cyan-700/50">
-                <h3 className="text-base font-semibold text-cyan-400 mb-1">
-                  Bucket orphan cleanup
-                </h3>
-                <p className="text-neutral-400 mb-2 text-xs">
-                  Bucket objects that are not referenced by any entity (global
-                  parts, users, cars, build lists, image cache) can be safely
-                  removed to free space. Only orphaned objects are deleted; no
-                  entity loses its images.
-                </p>
+              <DangerActionPanel
+                title="Bucket orphan cleanup"
+                dangerColor="info"
+                description={
+                  <>
+                    Bucket objects that are not referenced by any entity
+                    (global parts, users, cars, build lists, image cache) can
+                    be safely removed to free space. Only orphaned objects are
+                    deleted; no entity loses its images.
+                  </>
+                }
+              >
                 <div className="flex flex-wrap gap-2 mb-2">
                   <Button
                     size="sm"
                     onClick={() => void handleListOrphaned()}
                     disabled={isListingOrphaned}
                     loading={isListingOrphaned}
-                    className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                    className="bg-info hover:bg-info/90 text-info-foreground"
                   >
                     {isListingOrphaned
                       ? 'Listing...'
@@ -677,15 +685,15 @@ function SystemAdmin() {
                     }}
                     disabled={isPurgingOrphaned}
                     loading={isPurgingOrphaned}
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   >
                     {isPurgingOrphaned ? 'Purging...' : 'Purge orphaned objects'}
                   </Button>
                 </div>
                 {orphanedResult && (
-                  <div className="p-2 rounded border border-cyan-700 bg-gray-900/50 text-sm text-neutral-300">
+                  <div className="p-2 rounded border border-info bg-card/50 text-sm text-foreground">
                     <p className="mb-1">
-                      <span className="font-semibold text-cyan-400">
+                      <span className="font-semibold text-info">
                         {orphanedResult.count.toLocaleString()}
                       </span>{' '}
                       orphaned object(s) of{' '}
@@ -698,10 +706,10 @@ function SystemAdmin() {
                     </p>
                     {orphanedResult.orphaned_keys.length > 0 && (
                       <details className="mt-1">
-                        <summary className="cursor-pointer text-xs text-neutral-400 hover:text-neutral-300">
+                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
                           Show key list (first 50)
                         </summary>
-                        <pre className="mt-2 p-2 bg-gray-800 rounded text-xs text-neutral-300 overflow-x-auto max-h-48 overflow-y-auto">
+                        <pre className="mt-2 p-2 bg-muted rounded text-xs text-foreground overflow-x-auto max-h-48 overflow-y-auto">
                           {orphanedResult.orphaned_keys.slice(0, 50).join('\n')}
                           {orphanedResult.orphaned_keys.length > 50 &&
                             `\n... and ${orphanedResult.orphaned_keys.length - 50} more`}
@@ -710,7 +718,7 @@ function SystemAdmin() {
                     )}
                   </div>
                 )}
-              </div>
+              </DangerActionPanel>
             </div>
           </details>
         </Card>

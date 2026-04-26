@@ -122,9 +122,9 @@ function ConnectedAccountsSettings() {
             >
               <div className="flex items-center gap-3">
                 {acc.provider === 'google' ? (
-                  <FaGoogle className="text-primary-400 text-xl" />
+                  <FaGoogle className="text-primary text-xl" />
                 ) : (
-                  <span className="text-primary-400 text-xl">●</span>
+                  <span className="text-primary text-xl">●</span>
                 )}
                 <div>
                   <div className="font-medium text-gray-200 capitalize">

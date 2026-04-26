@@ -21,8 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
+import { LoadingOverlay } from '../../components/ui/loading-overlay';
 import Pagination from '../../components/ui/pagination';
 import Spinner from '../../components/ui/spinner';
+import {
+  PriorityBadge,
+  StatusBadge,
+} from '../../components/ui/status-badge';
+import { Textarea } from '../../components/ui/textarea';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchBugReportsRequestFn = (params?: {
@@ -196,39 +202,24 @@ function BugReportReview() {
     setAdminNotes('');
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-600 text-yellow-100', text: 'Pending' },
-      in_progress: { color: 'bg-blue-600 text-blue-100', text: 'In Progress' },
-      resolved: { color: 'bg-green-600 text-green-100', text: 'Resolved' },
-      dismissed: { color: 'bg-gray-600 text-gray-100', text: 'Dismissed' },
-    };
-
-    const config =
-      statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return (
-      <span className={`px-2 py-1 rounded text-xs ${config.color}`}>
-        {config.text}
-      </span>
-    );
+  const renderStatusBadge = (status: string) => {
+    const variant: 'pending' | 'in_progress' | 'resolved' | 'dismissed' =
+      status === 'in_progress' ||
+      status === 'resolved' ||
+      status === 'dismissed'
+        ? status
+        : 'pending';
+    return <StatusBadge variant={variant} />;
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig = {
-      low: { color: 'bg-gray-600 text-gray-100', text: 'Low' },
-      medium: { color: 'bg-yellow-600 text-yellow-100', text: 'Medium' },
-      high: { color: 'bg-orange-600 text-orange-100', text: 'High' },
-      critical: { color: 'bg-red-600 text-red-100', text: 'Critical' },
-    };
-
-    const config =
-      priorityConfig[priority as keyof typeof priorityConfig] ||
-      priorityConfig.medium;
-    return (
-      <span className={`px-2 py-1 rounded text-xs ${config.color}`}>
-        {config.text}
-      </span>
-    );
+  const renderPriorityBadge = (priority: string) => {
+    const value: 'low' | 'medium' | 'high' | 'critical' =
+      priority === 'low' ||
+      priority === 'high' ||
+      priority === 'critical'
+        ? priority
+        : 'medium';
+    return <PriorityBadge priority={value} />;
   };
 
   // Extract bug reports and pagination info from the response
@@ -298,7 +289,7 @@ function BugReportReview() {
             </Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-400 shrink-0">
+            <span className="text-sm font-medium text-muted-foreground shrink-0">
               Priority:
             </span>
             {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
@@ -330,11 +321,7 @@ function BugReportReview() {
         </Card>
       ) : bugReportsData ? (
         <Card className="relative">
-          {isLoadingBugReports && (
-            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <Spinner />
-            </div>
-          )}
+          <LoadingOverlay visible={isLoadingBugReports} />
           <SectionHeader
             title={`${
               selectedStatus === 'all'
@@ -344,7 +331,7 @@ function BugReportReview() {
             } Bug Reports`}
           />
           {bugReports.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">
+            <p className="text-muted-foreground text-center py-8">
               No bug reports found.
             </p>
           ) : (
@@ -353,22 +340,22 @@ function BugReportReview() {
                 {bugReports.map((bugReport) => (
                   <div
                     key={bugReport.id}
-                    className="border border-gray-700 rounded-lg p-4"
+                    className="border border-border rounded-lg p-4"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-200">
+                        <h3 className="text-lg font-semibold text-foreground">
                           #{bugReport.id} - {bugReport.title}
                         </h3>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           Reported by{' '}
                           {bugReport.reporter_username || 'Anonymous'} on{' '}
                           {new Date(bugReport.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {getStatusBadge(bugReport.status)}
-                        {getPriorityBadge(bugReport.priority)}
+                        {renderStatusBadge(bugReport.status)}
+                        {renderPriorityBadge(bugReport.priority)}
                         {(bugReport.status === 'pending' ||
                           bugReport.status === 'in_progress') && (
                           <Button
@@ -382,18 +369,18 @@ function BugReportReview() {
                     </div>
 
                     <div className="mb-3">
-                      <h4 className="font-medium text-gray-300 mb-1">
+                      <h4 className="font-medium text-foreground mb-1">
                         Description
                       </h4>
-                      <p className="text-gray-400">{bugReport.description}</p>
+                      <p className="text-muted-foreground">{bugReport.description}</p>
                     </div>
 
                     {bugReport.steps_to_reproduce && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Steps to Reproduce
                         </h4>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           {bugReport.steps_to_reproduce}
                         </p>
                       </div>
@@ -401,10 +388,10 @@ function BugReportReview() {
 
                     {bugReport.expected_behavior && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Expected Behavior
                         </h4>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           {bugReport.expected_behavior}
                         </p>
                       </div>
@@ -412,10 +399,10 @@ function BugReportReview() {
 
                     {bugReport.actual_behavior && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Actual Behavior
                         </h4>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           {bugReport.actual_behavior}
                         </p>
                       </div>
@@ -425,20 +412,20 @@ function BugReportReview() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         {bugReport.browser_info && (
                           <div>
-                            <h4 className="font-medium text-gray-300 mb-1">
+                            <h4 className="font-medium text-foreground mb-1">
                               Browser Info
                             </h4>
-                            <p className="text-gray-400">
+                            <p className="text-muted-foreground">
                               {bugReport.browser_info}
                             </p>
                           </div>
                         )}
                         {bugReport.device_info && (
                           <div>
-                            <h4 className="font-medium text-gray-300 mb-1">
+                            <h4 className="font-medium text-foreground mb-1">
                               Device Info
                             </h4>
-                            <p className="text-gray-400">
+                            <p className="text-muted-foreground">
                               {bugReport.device_info}
                             </p>
                           </div>
@@ -448,28 +435,28 @@ function BugReportReview() {
 
                     {bugReport.screenshot_url && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Screenshot
                         </h4>
                         <img
                           src={bugReport.screenshot_url}
                           alt="Bug screenshot"
-                          className="max-w-full h-auto rounded border border-gray-700"
+                          className="max-w-full h-auto rounded border border-border"
                         />
                       </div>
                     )}
 
                     {bugReport.admin_notes && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Admin Notes
                         </h4>
-                        <p className="text-gray-400">{bugReport.admin_notes}</p>
+                        <p className="text-muted-foreground">{bugReport.admin_notes}</p>
                       </div>
                     )}
 
                     {bugReport.assignee_username && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         Assigned to {bugReport.assignee_username}
                       </div>
                     )}
@@ -519,10 +506,10 @@ function BugReportReview() {
           </DialogHeader>
           <div className="space-y-4">
           <div>
-            <h4 className="font-medium text-gray-300 mb-2">
+            <h4 className="font-medium text-foreground mb-2">
               Bug Report Details
             </h4>
-            <div className="bg-gray-800 p-3 rounded">
+            <div className="bg-muted p-3 rounded text-foreground">
               <p>
                 <strong>Title:</strong> {selectedBugReport?.title}
               </p>
@@ -539,7 +526,7 @@ function BugReportReview() {
           <div>
             <label
               htmlFor="priority"
-              className="block text-sm font-medium text-gray-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Priority
             </label>
@@ -547,7 +534,7 @@ function BugReportReview() {
               id="priority"
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-gray-200"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -559,15 +546,14 @@ function BugReportReview() {
           <div>
             <label
               htmlFor="admin_notes"
-              className="block text-sm font-medium text-gray-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Admin Notes
             </label>
-            <textarea
+            <Textarea
               id="admin_notes"
               value={adminNotes}
               onChange={(e) => setAdminNotes(e.target.value)}
-              className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-gray-200"
               rows={4}
               placeholder="Add notes about your decision..."
             />
@@ -594,7 +580,7 @@ function BugReportReview() {
             </Button>
             <Button
               onClick={() => void handleUpdateBugReport('resolved')}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success/90 text-success-foreground"
               disabled={isUpdating}
             >
               Resolve

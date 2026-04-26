@@ -7,7 +7,7 @@ import { useResponsiveColumns } from './useResponsiveColumns';
 // then drops columns highest-priority-first until the set fits. containerWidth
 // is the driver — the hook itself does not read matchMedia, but consumers
 // commonly feed it a matchMedia-derived width. We still install a matchMedia
-// stub for completeness / defensive coverage (Gotcha skeleton).
+// stub for completeness / defensive coverage (Gotcha scaffold).
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {

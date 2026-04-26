@@ -13,8 +13,8 @@ const CardInfoItem: React.FC<CardInfoItemProps> = ({
 }) => {
   return (
     <div className={className}>
-      <p className="font-medium text-gray-300">{label}</p>
-      <div className="text-gray-300">{children}</div>
+      <p className="font-medium text-muted-foreground">{label}</p>
+      <div className="text-foreground">{children}</div>
     </div>
   );
 };

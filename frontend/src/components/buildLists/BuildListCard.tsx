@@ -35,7 +35,7 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
       to={`/build-lists/${buildList.id}`}
       className="block hover:no-underline"
     >
-      <Card className="h-full hover:border-primary-500 border-2 border-transparent transition-all duration-300 group">
+      <Card className="h-full hover:border-primary border-2 border-transparent transition-all duration-300 group">
         <div className="relative mb-4">
           <ImageWithPlaceholder
             srcUrl={buildList.image_urls?.[0] ?? null}
@@ -46,7 +46,7 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
           />
           {showVoteBadge && (
             <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-lg">
-              <FaArrowUp className="text-primary-400 text-xs" />
+              <FaArrowUp className="text-primary text-xs" />
               <span className="text-xs font-semibold text-white">
                 {totalVotes} votes
               </span>
@@ -60,11 +60,11 @@ const BuildListCard: React.FC<BuildListCardProps> = ({ buildList }) => {
             </div>
           )}
         </div>
-        <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-primary-400 transition-colors">
+        <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-primary transition-colors">
           {buildList.name}
         </h3>
         {buildList.description && (
-          <p className="text-sm text-neutral-400 line-clamp-2">
+          <p className="text-sm text-muted-foreground line-clamp-2">
             {buildList.description}
           </p>
         )}

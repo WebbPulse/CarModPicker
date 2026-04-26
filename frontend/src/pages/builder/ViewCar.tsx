@@ -157,8 +157,7 @@ function ViewCar(): React.JSX.Element {
         <div className="mb-4">
           <SectionHeader title="Car Information" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <div className="hidden md:block"></div> {/* Spacer */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-foreground mb-6">
           <CardInfoItem label="Make:">
             <p>{car.car_make_name ?? ''}</p>
           </CardInfoItem>
@@ -248,8 +247,8 @@ function ViewCar(): React.JSX.Element {
               onClick={() => handleCategoryChange(null)}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
                 selectedCategory === null
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-info text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
               All
@@ -264,8 +263,8 @@ function ViewCar(): React.JSX.Element {
                   onClick={() => handleCategoryChange(category.id)}
                   className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
                     selectedCategory === category.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-info text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   }`}
                 >
                   {category.icon && <span>{category.icon}</span>}
@@ -294,7 +293,7 @@ function ViewCar(): React.JSX.Element {
           <div className="text-center">
             <Link
               to={`/parts?car_id=${car.id}`}
-              className="text-blue-400 hover:text-blue-300 underline font-medium"
+              className="text-info hover:text-info/90 underline font-medium"
             >
               See more parts →
             </Link>

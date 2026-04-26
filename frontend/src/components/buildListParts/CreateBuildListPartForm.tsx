@@ -632,7 +632,7 @@ function CreateBuildListPartForm({
           <div>
             <label
               htmlFor="global-part-name"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Part Name *
             </label>
@@ -650,7 +650,7 @@ function CreateBuildListPartForm({
           <div>
             <label
               htmlFor="global-part-number"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Part Number
             </label>
@@ -711,7 +711,7 @@ function CreateBuildListPartForm({
           <div>
             <label
               htmlFor="global-part-description"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Description
             </label>
@@ -728,7 +728,7 @@ function CreateBuildListPartForm({
           <div>
             <label
               htmlFor="global-part-product-url"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Product URL
             </label>
@@ -828,7 +828,7 @@ function CreateBuildListPartForm({
               id="create-part-universal"
               checked={formData.is_universal}
               onChange={handleUniversalChange}
-              className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+              className="rounded border-gray-500 bg-gray-700 text-info focus:ring-info"
             />
             <label
               htmlFor="create-part-universal"
@@ -1022,7 +1022,7 @@ function CreateBuildListPartForm({
               if (!Number.isNaN(v) && v >= 1)
                 setFormData((prev) => ({ ...prev, quantity: v }));
             }}
-            className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-info focus:border-info sm:text-sm"
           />
         </div>
         {(phasesData?.length ?? 0) > 0 && (
@@ -1040,7 +1040,7 @@ function CreateBuildListPartForm({
                 const v = e.target.value;
                 setSelectedPhaseId(v === '' ? null : v);
               }}
-              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-info focus:border-info sm:text-sm"
             >
               <option value="">None</option>
               {(phasesData ?? [])
@@ -1056,7 +1056,7 @@ function CreateBuildListPartForm({
         <div>
           <label
             htmlFor="build-list-part-notes"
-            className="block text-sm font-medium text-neutral-300 mb-2"
+            className="block text-sm font-medium text-foreground mb-2"
           >
             Notes (Optional)
           </label>

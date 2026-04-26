@@ -18,10 +18,10 @@ function ContactUs() {
               <h1 className="text-6xl md:text-7xl font-bold mb-4">
                 <span className="text-gradient">Contact Us</span>
               </h1>
-              <p className="text-xl md:text-2xl text-neutral-300 mb-4 leading-relaxed">
+              <p className="text-xl md:text-2xl text-foreground mb-4 leading-relaxed">
                 We'd love to hear from you
               </p>
-              <p className="text-lg text-neutral-400 mb-6 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-lg text-muted-foreground mb-6 max-w-4xl mx-auto leading-relaxed">
                 Have questions, feedback, or want to get in touch? We're here to
                 help and always happy to connect with our community.
               </p>
@@ -38,11 +38,11 @@ function ContactUs() {
               <h2 className="text-5xl md:text-6xl font-bold mb-4">
                 <span className="text-gradient">Business Inquiries</span>
               </h2>
-              <p className="text-xl text-neutral-400 mb-4 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-xl text-muted-foreground mb-4 max-w-2xl mx-auto leading-relaxed">
                 Interested in partnering with us or have a business proposal?
                 We'd love to hear from you.
               </p>
-              <p className="text-lg text-neutral-300 mb-3">
+              <p className="text-lg text-foreground mb-3">
                 Please send all business inquiries to:
               </p>
               <a
@@ -64,11 +64,11 @@ function ContactUs() {
               <h2 className="text-5xl md:text-6xl font-bold mb-4">
                 <span className="text-gradient">Tech Support</span>
               </h2>
-              <p className="text-xl text-neutral-400 mb-4 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-xl text-muted-foreground mb-4 max-w-2xl mx-auto leading-relaxed">
                 Running into a bug or need help with the site? Reach out and
                 we'll get you sorted.
               </p>
-              <p className="text-lg text-neutral-300 mb-3">
+              <p className="text-lg text-foreground mb-3">
                 For tech support, email:
               </p>
               <a
@@ -90,13 +90,13 @@ function ContactUs() {
               <h2 className="text-5xl md:text-6xl font-bold mb-4">
                 <span className="text-gradient">DMCA & Copyright</span>
               </h2>
-              <p className="text-xl text-neutral-400 mb-4 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-xl text-muted-foreground mb-4 max-w-2xl mx-auto leading-relaxed">
                 If you believe that material on CarModPicker violates your
                 copyright, please notify us in accordance with our DMCA policy.
                 We will respond to valid notices and address infringing content
                 as required by law.
               </p>
-              <p className="text-lg text-neutral-300 mb-3">DMCA complaints:</p>
+              <p className="text-lg text-foreground mb-3">DMCA complaints:</p>
               <a
                 href="mailto:tyler@webbpulse.com"
                 className="text-2xl font-semibold text-gradient hover:underline inline-block"

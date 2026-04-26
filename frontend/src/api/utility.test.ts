@@ -4,7 +4,7 @@
 // `/health`), which IS the behavior worth asserting. Testing also preserves
 // 9 lines of coverage that an exclusion would drop.
 //
-// Canonical skeleton: PATTERNS.md §7. apiClient is auto-mocked by
+// Canonical scaffold: PATTERNS.md §7. apiClient is auto-mocked by
 // frontend/src/test/setup.ts (D-18), so no per-file vi.mock is required.
 import {
   beforeEach,

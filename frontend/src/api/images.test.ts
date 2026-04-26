@@ -3,7 +3,7 @@
 // Covers every method on `imageApi` (7 total) including the FormData-based
 // `uploadImage` path (POST /images/upload?entity_type=X&entity_id=Y with
 // a multipart/form-data header). See PATTERNS.md §7 for the canonical Wave 1
-// skeleton.
+// scaffold.
 //
 // apiClient is auto-mocked by setup.ts (Phase 8 D-18). Narrow the HTTP verbs
 // at module scope via MockedFunction cast.

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import { Input } from '../../components/ui/input';
@@ -70,7 +71,7 @@ function Register() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
         <div
           className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float"
           style={{ animationDelay: '1s' }}
@@ -78,18 +79,18 @@ function Register() {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="glass-card rounded-2xl p-8 animate-slideInUp">
+        <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 animate-slideInUp">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <GiRaceCar className="text-white text-2xl" />
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                <GiRaceCar className="text-primary-foreground text-2xl" />
               </div>
             </div>
             <h2 className="text-3xl font-bold text-white mb-2">
               Join CarModPicker
             </h2>
-            <p className="text-neutral-400">
+            <p className="text-muted-foreground">
               Create your account and start building
             </p>
           </div>
@@ -99,12 +100,12 @@ function Register() {
             <div>
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Username
               </label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   <FaUser />
                 </span>
                 <Input
@@ -125,12 +126,12 @@ function Register() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Email address
               </label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   <FaEnvelope />
                 </span>
                 <Input
@@ -151,12 +152,12 @@ function Register() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Password
               </label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   <FaLock />
                 </span>
                 <Input
@@ -174,12 +175,12 @@ function Register() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
-              <div className="mt-2 text-sm text-neutral-400">
+              <div className="mt-2 text-sm text-muted-foreground">
                 Must be at least 8 characters
               </div>
             </div>
@@ -187,12 +188,12 @@ function Register() {
             <div>
               <label
                 htmlFor="confirm-password"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Confirm Password
               </label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   <FaLock />
                 </span>
                 <Input
@@ -213,7 +214,7 @@ function Register() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
@@ -227,9 +228,9 @@ function Register() {
 
             {apiError && (
               <div className="animate-slideInUp">
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                  <p className="text-red-400 text-sm">{apiError}</p>
-                </div>
+                <Alert variant="destructive">
+                  <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
               </div>
             )}
 
@@ -246,11 +247,11 @@ function Register() {
             {isGoogleConfigured() && (
               <>
                 <div className="flex items-center gap-3 my-2">
-                  <div className="h-px flex-1 bg-neutral-700"></div>
-                  <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                  <div className="h-px flex-1 bg-muted"></div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
                     or
                   </span>
-                  <div className="h-px flex-1 bg-neutral-700"></div>
+                  <div className="h-px flex-1 bg-muted"></div>
                 </div>
                 <GoogleAuthFlow
                   onLoggedIn={(user) => {
@@ -266,11 +267,11 @@ function Register() {
 
           {/* Footer */}
           <div className="mt-8 text-center">
-            <p className="text-neutral-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="text-primary-400 hover:text-primary-300 font-semibold transition-colors duration-300"
+                className="text-primary hover:text-primary/90 font-semibold transition-colors duration-300"
               >
                 Sign in
               </Link>
@@ -280,18 +281,18 @@ function Register() {
 
         {/* Additional Info */}
         <div className="mt-8 text-center">
-          <p className="text-neutral-500 text-xs">
+          <p className="text-muted-foreground text-xs">
             By creating an account, you agree to our{' '}
             <Link
               to="/terms-of-service"
-              className="text-neutral-400 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-white transition-colors"
             >
               Terms of Service
             </Link>{' '}
             and{' '}
             <Link
               to="/privacy-policy"
-              className="text-neutral-400 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-white transition-colors"
             >
               Privacy Policy
             </Link>

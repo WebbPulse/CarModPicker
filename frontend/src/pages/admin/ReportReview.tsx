@@ -21,8 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
+import { LoadingOverlay } from '../../components/ui/loading-overlay';
 import Pagination from '../../components/ui/pagination';
 import Spinner from '../../components/ui/spinner';
+import { StatusBadge } from '../../components/ui/status-badge';
+import { Textarea } from '../../components/ui/textarea';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
 const fetchReportsRequestFn = (params?: {
@@ -175,20 +178,10 @@ function ReportReview() {
     setAdminNotes('');
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-600 text-yellow-100', text: 'Pending' },
-      resolved: { color: 'bg-green-600 text-green-100', text: 'Resolved' },
-      dismissed: { color: 'bg-gray-600 text-gray-100', text: 'Dismissed' },
-    };
-
-    const config =
-      statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return (
-      <span className={`px-2 py-1 rounded text-xs ${config.color}`}>
-        {config.text}
-      </span>
-    );
+  const renderStatusBadge = (status: string) => {
+    const variant =
+      status === 'resolved' || status === 'dismissed' ? status : 'pending';
+    return <StatusBadge variant={variant} />;
   };
 
   // Extract reports and pagination info from the response
@@ -252,16 +245,12 @@ function ReportReview() {
         </Card>
       ) : reportsData ? (
         <Card className="relative">
-          {isLoadingReports && (
-            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <Spinner />
-            </div>
-          )}
+          <LoadingOverlay visible={isLoadingReports} />
           <SectionHeader
             title={`${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Reports`}
           />
           {reports.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">
+            <p className="text-muted-foreground text-center py-8">
               No {selectedStatus} reports found.
             </p>
           ) : (
@@ -270,20 +259,20 @@ function ReportReview() {
                 {reports.map((report) => (
                   <div
                     key={report.id}
-                    className="border border-gray-700 rounded-lg p-4"
+                    className="border border-border rounded-lg p-4"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-200">
+                        <h3 className="text-lg font-semibold text-foreground">
                           Report #{report.id} - {report.entity_name}
                         </h3>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           Reported by {report.reporter_username} on{' '}
                           {new Date(report.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {getStatusBadge(report.status)}
+                        {renderStatusBadge(report.status)}
                         {report.status === 'pending' && (
                           <Button
                             size="sm"
@@ -297,21 +286,21 @@ function ReportReview() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                       <div>
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Reason
                         </h4>
-                        <p className="text-gray-400">{report.reason}</p>
+                        <p className="text-muted-foreground">{report.reason}</p>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Entity Details
                         </h4>
-                        <p className="text-gray-400">
+                        <p className="text-muted-foreground">
                           {report.entity_name}
                           {report.entity_description &&
                             ` - ${report.entity_description}`}
                         </p>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-muted-foreground text-sm">
                           Type: {report.entity_type}
                         </p>
                       </div>
@@ -319,24 +308,24 @@ function ReportReview() {
 
                     {report.description && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Description
                         </h4>
-                        <p className="text-gray-400">{report.description}</p>
+                        <p className="text-muted-foreground">{report.description}</p>
                       </div>
                     )}
 
                     {report.admin_notes && (
                       <div className="mb-3">
-                        <h4 className="font-medium text-gray-300 mb-1">
+                        <h4 className="font-medium text-foreground mb-1">
                           Admin Notes
                         </h4>
-                        <p className="text-gray-400">{report.admin_notes}</p>
+                        <p className="text-muted-foreground">{report.admin_notes}</p>
                       </div>
                     )}
 
                     {report.reviewer_username && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         Reviewed by {report.reviewer_username} on{' '}
                         {report.reviewed_at &&
                           new Date(report.reviewed_at).toLocaleDateString()}
@@ -388,8 +377,8 @@ function ReportReview() {
           </DialogHeader>
           <div className="space-y-4">
           <div>
-            <h4 className="font-medium text-gray-300 mb-2">Report Details</h4>
-            <div className="bg-gray-800 p-3 rounded">
+            <h4 className="font-medium text-foreground mb-2">Report Details</h4>
+            <div className="bg-muted p-3 rounded text-foreground">
               <p>
                 <strong>Entity:</strong> {selectedReport?.entity_name} (
                 {selectedReport?.entity_type})
@@ -411,15 +400,14 @@ function ReportReview() {
           <div>
             <label
               htmlFor="admin_notes"
-              className="block text-sm font-medium text-gray-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Admin Notes
             </label>
-            <textarea
+            <Textarea
               id="admin_notes"
               value={adminNotes}
               onChange={(e) => setAdminNotes(e.target.value)}
-              className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-gray-200"
               rows={4}
               placeholder="Add notes about your decision..."
             />
@@ -440,7 +428,7 @@ function ReportReview() {
             </Button>
             <Button
               onClick={() => void handleUpdateReport('resolved')}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success/90 text-success-foreground"
               disabled={isUpdating}
             >
               Resolve Report

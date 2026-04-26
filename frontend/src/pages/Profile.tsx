@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthCard from '../components/auth/AuthCard';
 import AuthRedirectLink from '../components/auth/AuthRedirectLink';
 import ImageUpload from '../components/forms/ImageUpload';
@@ -10,6 +10,7 @@ import SecuritySettingsDialog from '../components/profile/SecuritySettingsDialog
 import { ConfirmationAlert, ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import CardInfoItem from '../components/ui/card-info-item';
 import { Input } from '../components/ui/input';
 import Spinner from '../components/ui/spinner';
 import useApiRequest from '../hooks/UseApiRequest';
@@ -17,21 +18,8 @@ import { useAuth } from '../hooks/useAuth';
 import apiClient from '../services/Api';
 import type { UserRead, UserUpdate } from '../types/Api';
 
-interface InfoItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function InfoItem({ label, children }: InfoItemProps) {
-  return (
-    <div>
-      <p className="font-medium text-gray-300">{label}</p>
-      <div className="text-gray-300">{children}</div>
-    </div>
-  );
-}
-
 function Profile() {
+  const navigate = useNavigate();
   const {
     user,
     isLoading: authIsLoading,
@@ -211,8 +199,8 @@ function Profile() {
 
         {!isEditing ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-              <InfoItem label="Profile Picture">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <CardInfoItem label="Profile Picture">
                 {user.image_urls?.[0] ? (
                   <img
                     src={user.image_urls[0]}
@@ -220,18 +208,17 @@ function Profile() {
                     className="h-48 w-48 rounded-lg object-cover"
                   />
                 ) : (
-                  <p className="text-gray-400">No image set.</p>
+                  <p className="text-muted-foreground">No image set.</p>
                 )}
-              </InfoItem>
+              </CardInfoItem>
 
-              <div className="hidden md:block"></div>
-              <InfoItem label="Username:">
+              <CardInfoItem label="Username:">
                 <p>{user.username}</p>
-              </InfoItem>
-              <InfoItem label="Email:">
+              </CardInfoItem>
+              <CardInfoItem label="Email:">
                 <p>{user.email}</p>
-              </InfoItem>
-              <InfoItem label="Email Verified">
+              </CardInfoItem>
+              <CardInfoItem label="Email Verified">
                 {user.email_verified ? (
                   <ConfirmationAlert message="Yes" />
                 ) : (
@@ -239,23 +226,23 @@ function Profile() {
                     <ErrorAlert message="No" />
                     <Link
                       to="/verify-email"
-                      className="ml-2 text-sm text-indigo-400 hover:text-indigo-300"
+                      className="ml-2 text-sm text-info hover:text-info/90"
                     >
                       Verify Email
                     </Link>
                   </div>
                 )}
-              </InfoItem>
-              <InfoItem label="Account Status">
+              </CardInfoItem>
+              <CardInfoItem label="Account Status">
                 <p>{user.disabled ? 'Disabled' : 'Active'}</p>
-              </InfoItem>
-              <InfoItem label="Two-Factor Authentication">
+              </CardInfoItem>
+              <CardInfoItem label="Two-Factor Authentication">
                 {user.totp_enabled ? (
                   <ConfirmationAlert message="Enabled" />
                 ) : (
                   <ErrorAlert message="Disabled" />
                 )}
-              </InfoItem>
+              </CardInfoItem>
             </div>
             <div className="flex space-x-2">
               <Button onClick={handleEditToggle} className="mr-2">
@@ -263,7 +250,7 @@ function Profile() {
               </Button>
               <Button
                 onClick={() => setIsSecurityDialogOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-info hover:bg-info/90"
               >
                 Manage Security Settings
               </Button>
@@ -274,19 +261,19 @@ function Profile() {
             onSubmit={(e) => void handleSubmit(e)}
             className="space-y-6 mb-6"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-              <InfoItem label="Username:">
-                <p className="text-gray-400">{user.username}</p>
-                <p className="text-xs text-gray-500 mt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <CardInfoItem label="Username:">
+                <p className="text-muted-foreground">{user.username}</p>
+                <p className="text-xs text-muted-foreground/80 mt-1">
                   Username cannot be changed
                 </p>
-              </InfoItem>
-              <InfoItem label="Email:">
-                <p className="text-gray-400">{user.email}</p>
-                <p className="text-xs text-gray-500 mt-1">
+              </CardInfoItem>
+              <CardInfoItem label="Email:">
+                <p className="text-muted-foreground">{user.email}</p>
+                <p className="text-xs text-muted-foreground/80 mt-1">
                   Email cannot be changed
                 </p>
-              </InfoItem>
+              </CardInfoItem>
             </div>
             <ImageUpload
               currentImageUrl={user.image_urls?.[0] ?? null}
@@ -347,8 +334,8 @@ function Profile() {
 
         <div className="mt-4 space-y-2">
           <Button
-            onClick={() => (window.location.href = '/my-parts')}
-            className="bg-blue-600 hover:bg-blue-700 w-full"
+            onClick={() => void navigate('/my-parts')}
+            className="w-full"
           >
             Manage My Parts
           </Button>
@@ -357,7 +344,7 @@ function Profile() {
 
       <Card className="mt-8">
         <SectionHeader title="Social Links" />
-        <p className="text-gray-400 text-sm mb-4">
+        <p className="text-muted-foreground text-sm mb-4">
           Add links to your social profiles. They will be shown on your public
           profile. Leave blank to hide.
         </p>
@@ -370,7 +357,7 @@ function Profile() {
               <div key={field.id}>
                 <label
                   htmlFor={field.id}
-                  className="block text-sm font-medium text-neutral-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   {field.label}
                 </label>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -60,52 +61,53 @@ function MemberRow({
   isBusy: boolean;
 }) {
   const badge = member.is_canonical ? (
-    <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-800/40 border border-emerald-600/60 text-emerald-300 text-[10px] font-semibold uppercase tracking-wide">
+    <span className="inline-flex items-center px-2 py-0.5 rounded bg-success/40 border border-success/60 text-success text-xs font-semibold uppercase tracking-wide">
       Canonical
     </span>
   ) : (
-    <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-800/60 border border-gray-700 text-gray-400 text-[10px] font-semibold uppercase tracking-wide">
+    <span className="inline-flex items-center px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground text-xs font-semibold uppercase tracking-wide">
       Duplicate
     </span>
   );
 
   return (
-    <div className="flex items-start gap-3 p-3 border border-gray-800 rounded-lg bg-gray-950/40">
+    <div className="flex items-start gap-3 p-3 border border-border rounded-lg bg-card/40">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           {badge}
-          <span className="text-sm font-semibold text-gray-100 truncate">
+          <span className="text-sm font-semibold text-foreground truncate">
             {member.name}
           </span>
           <span
-            className="text-[10px] font-mono text-gray-500"
+            className="text-xs font-mono text-muted-foreground"
             title="Linker richness score"
           >
             score {member.richness_score}
           </span>
-          <span className="text-[10px] text-gray-500">
+          <span className="text-xs text-muted-foreground">
             src: {member.source}
           </span>
         </div>
-        <div className="mt-1 text-[11px] text-gray-500 truncate font-mono">
+        <div className="mt-1 text-xs text-muted-foreground truncate font-mono">
           {member.id}
         </div>
         {member.product_url ? (
           <a
             href={member.product_url}
             target="_blank"
-            rel="noreferrer"
-            className="block mt-1 text-[11px] text-sky-400 hover:text-sky-300 truncate"
+            rel="noopener noreferrer"
+            className="block mt-1 text-xs text-info hover:text-info/80 truncate"
             title={member.product_url}
           >
             {truncate(member.product_url, 80)}
+            <ExternalLink className="h-3 w-3 inline ml-1" />
           </a>
         ) : (
-          <div className="mt-1 text-[11px] text-gray-600 italic">
+          <div className="mt-1 text-xs text-muted-foreground italic">
             No product URL
           </div>
         )}
-        <div className="mt-1 text-[10px] text-gray-600">
+        <div className="mt-1 text-xs text-muted-foreground">
           Created {formatDate(member.created_at)}
         </div>
       </div>
@@ -113,7 +115,7 @@ function MemberRow({
         <button
           type="button"
           onClick={() => onView(member.id)}
-          className="px-2.5 py-1 rounded border border-gray-700 text-gray-300 text-xs hover:bg-gray-800 transition-colors"
+          className="px-2.5 py-1 rounded border border-border text-foreground text-xs hover:bg-muted transition-colors"
           disabled={isBusy}
         >
           View
@@ -123,7 +125,7 @@ function MemberRow({
             <button
               type="button"
               onClick={() => onPromote(member.id)}
-              className="px-2.5 py-1 rounded bg-emerald-700/40 border border-emerald-600 text-emerald-200 text-xs hover:bg-emerald-700/60 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded bg-success/40 border border-success text-success text-xs hover:bg-success/60 transition-colors disabled:opacity-50"
               disabled={isBusy}
               title="Make this part the canonical of its link group"
             >
@@ -132,7 +134,7 @@ function MemberRow({
             <button
               type="button"
               onClick={() => onUnlink(member.id)}
-              className="px-2.5 py-1 rounded bg-amber-700/40 border border-amber-600 text-amber-200 text-xs hover:bg-amber-700/60 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded bg-warning/40 border border-warning text-warning text-xs hover:bg-warning/60 transition-colors disabled:opacity-50"
               disabled={isBusy}
               title="Detach this part so it becomes its own canonical"
             >
@@ -392,7 +394,7 @@ function PartsCuration() {
           <div className="flex-1 space-y-1">
             <label
               htmlFor="parts-curation-lookup-id"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Part ID
             </label>
@@ -420,7 +422,7 @@ function PartsCuration() {
           </div>
         )}
 
-        <div className="mt-5 pt-4 border-t border-gray-800">
+        <div className="mt-5 pt-4 border-t border-border">
           <form
             onSubmit={(e) => {
               void handleUrlLookup(e);
@@ -430,7 +432,7 @@ function PartsCuration() {
             <div className="flex-1 space-y-1">
               <label
                 htmlFor="parts-curation-lookup-url"
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium text-foreground"
               >
                 Product URL
               </label>
@@ -452,7 +454,7 @@ function PartsCuration() {
               {isLookingUpUrl ? 'Searching…' : 'Find by URL'}
             </Button>
           </form>
-          <p className="mt-2 text-[11px] text-gray-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             Matches any Part — catalog canonical, duplicate, or UGC — whose
             PartListing has this exact URL. UGC rows intentionally allow URL
             collisions, so you may see multiple matches.
@@ -464,41 +466,41 @@ function PartsCuration() {
           )}
           {urlMatches && urlMatches.length > 1 && (
             <div className="mt-3 space-y-2">
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-muted-foreground">
                 {urlMatches.length} parts match this URL. Pick one to load its
                 link group:
               </div>
               {urlMatches.map((m) => (
                 <div
                   key={m.part_id}
-                  className="flex items-start gap-3 p-2.5 border border-gray-800 rounded-lg bg-gray-950/40"
+                  className="flex items-start gap-3 p-2.5 border border-border rounded-lg bg-card/40"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {m.is_canonical ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-800/40 border border-emerald-600/60 text-emerald-300 text-[10px] font-semibold uppercase tracking-wide">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-success/40 border border-success/60 text-success text-xs font-semibold uppercase tracking-wide">
                           Canonical
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-800/60 border border-gray-700 text-gray-400 text-[10px] font-semibold uppercase tracking-wide">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground text-xs font-semibold uppercase tracking-wide">
                           Duplicate
                         </span>
                       )}
-                      <span className="text-sm font-semibold text-gray-100 truncate">
+                      <span className="text-sm font-semibold text-foreground truncate">
                         {m.name}
                       </span>
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         src: {m.source}
                       </span>
                     </div>
-                    <div className="mt-1 text-[11px] text-gray-500 truncate font-mono">
+                    <div className="mt-1 text-xs text-muted-foreground truncate font-mono">
                       {m.part_id}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => void loadGroupForMatch(m)}
-                    className="px-2.5 py-1 rounded border border-gray-700 text-gray-300 text-xs hover:bg-gray-800 transition-colors shrink-0"
+                    className="px-2.5 py-1 rounded border border-border text-foreground text-xs hover:bg-muted transition-colors shrink-0"
                     disabled={isLoadingGroup}
                   >
                     Load group
@@ -521,13 +523,13 @@ function PartsCuration() {
             <button
               type="button"
               onClick={() => void loadGroup(linkGroup.canonical_id)}
-              className="text-xs text-gray-400 hover:text-white underline"
+              className="text-xs text-muted-foreground hover:text-foreground underline"
               disabled={isLoadingGroup || isActionBusy}
             >
               Refresh
             </button>
           </div>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-muted-foreground mb-3">
             Canonical is shown first and drives the public surface record.
             Promote a duplicate to swap roles; unlink to detach a member into
             its own canonical.
@@ -554,7 +556,7 @@ function PartsCuration() {
 
       <Card>
         <SectionHeader title="Manual link" />
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           Force a cross-group link when the automatic dedup keys don&apos;t
           agree (no shared GTIN or part number). The target must already be a
           canonical.
@@ -563,7 +565,7 @@ function PartsCuration() {
           <div className="space-y-1">
             <label
               htmlFor="parts-curation-manual-duplicate"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Duplicate part ID
             </label>
@@ -578,7 +580,7 @@ function PartsCuration() {
           <div className="space-y-1">
             <label
               htmlFor="parts-curation-manual-canonical"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Canonical part ID
             </label>
@@ -619,7 +621,7 @@ function PartsCuration() {
 
       <Card>
         <SectionHeader title="Catalog rescan" />
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           Re-runs the canonical linker over every part in the catalog under the
           current dedup rules. Use dry-run first to preview changes. Execute
           applies in per-batch commits.
@@ -628,7 +630,7 @@ function PartsCuration() {
           <div className="w-40 space-y-1">
             <label
               htmlFor="parts-curation-rescan-batch-size"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Batch size
             </label>
@@ -663,31 +665,31 @@ function PartsCuration() {
           </div>
         )}
         {rescanResult && (
-          <div className="mt-4 rounded-lg border border-gray-800 bg-gray-950/60 p-3 text-xs text-gray-300 space-y-2">
+          <div className="mt-4 rounded-lg border border-border bg-card/60 p-3 text-xs text-foreground space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${
                   rescanResult.dry_run
-                    ? 'bg-sky-800/40 border border-sky-600 text-sky-200'
-                    : 'bg-emerald-800/40 border border-emerald-600 text-emerald-200'
+                    ? 'bg-info/20 border border-info text-info'
+                    : 'bg-success/40 border border-success text-success'
                 }`}
               >
                 {rescanResult.dry_run ? 'Dry run' : 'Executed'}
               </span>
               <span>
                 Scanned{' '}
-                <span className="font-semibold text-gray-100">
+                <span className="font-semibold text-foreground">
                   {rescanResult.scanned.toLocaleString()}
                 </span>
               </span>
               <span>
                 Changes{' '}
-                <span className="font-semibold text-gray-100">
+                <span className="font-semibold text-foreground">
                   {rescanResult.changes.toLocaleString()}
                 </span>
               </span>
               {rescanResult.diff_truncated && (
-                <span className="text-amber-400">
+                <span className="text-warning">
                   Sample truncated (showing first{' '}
                   {rescanResult.diff_sample.length})
                 </span>
@@ -695,9 +697,9 @@ function PartsCuration() {
             </div>
             {rescanResult.diff_sample.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px] font-mono">
+                <table className="w-full text-xs font-mono">
                   <thead>
-                    <tr className="text-gray-500 text-left">
+                    <tr className="text-muted-foreground text-left">
                       <th className="py-1 pr-3">Part</th>
                       <th className="py-1 pr-3">Action</th>
                       <th className="py-1 pr-3">Before canonical</th>
@@ -708,9 +710,9 @@ function PartsCuration() {
                     {rescanResult.diff_sample.map((entry) => (
                       <tr
                         key={entry.part_id}
-                        className="border-t border-gray-800"
+                        className="border-t border-border"
                       >
-                        <td className="py-1 pr-3 text-gray-300">
+                        <td className="py-1 pr-3 text-foreground">
                           <button
                             type="button"
                             onClick={() => {
@@ -721,21 +723,21 @@ function PartsCuration() {
                               );
                               void loadGroup(entry.part_id);
                             }}
-                            className="hover:text-white hover:underline text-left"
+                            className="hover:text-foreground hover:underline text-left"
                             title={entry.part_id}
                           >
                             {truncate(entry.part_id, 13)}
                           </button>
                         </td>
-                        <td className="py-1 pr-3 text-gray-400">
+                        <td className="py-1 pr-3 text-muted-foreground">
                           {entry.action}
                         </td>
-                        <td className="py-1 pr-3 text-gray-500">
+                        <td className="py-1 pr-3 text-muted-foreground">
                           {entry.before_canonical_id
                             ? truncate(entry.before_canonical_id, 13)
                             : '—'}
                         </td>
-                        <td className="py-1 text-gray-500">
+                        <td className="py-1 text-muted-foreground">
                           {entry.after_canonical_id
                             ? truncate(entry.after_canonical_id, 13)
                             : '—'}
@@ -767,7 +769,7 @@ function PartsCuration() {
               </span>
               . Existing canonical links may be re-elected.
             </p>
-            <p className="text-xs text-amber-400 mb-6">
+            <p className="text-xs text-warning mb-6">
               Run a dry-run first if you haven&apos;t — this mutation has no undo.
             </p>
             <div className="flex justify-end gap-3">

@@ -113,7 +113,7 @@ function PasskeySettings() {
     return (
       <div className="space-y-4">
         <div className="flex items-center space-x-3 text-gray-300">
-          <FaKey className="text-primary-400 text-2xl" />
+          <FaKey className="text-primary text-2xl" />
           <div>
             <h3 className="text-lg font-semibold">Passkeys</h3>
             <p className="text-sm text-gray-400">
@@ -133,7 +133,7 @@ function PasskeySettings() {
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start space-x-3 text-gray-300">
-          <FaKey className="text-primary-400 text-2xl mt-1" />
+          <FaKey className="text-primary text-2xl mt-1" />
           <div>
             <h3 className="text-lg font-semibold">Passkeys</h3>
             <p className="text-sm text-gray-400">
@@ -161,7 +161,7 @@ function PasskeySettings() {
           <div>
             <label
               htmlFor="passkey-nickname"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Passkey name
             </label>
@@ -183,7 +183,7 @@ function PasskeySettings() {
                 className="pl-10"
               />
             </div>
-            <div className="mt-2 text-sm text-neutral-400">
+            <div className="mt-2 text-sm text-muted-foreground">
               This helps you identify it later when you have multiple.
             </div>
           </div>

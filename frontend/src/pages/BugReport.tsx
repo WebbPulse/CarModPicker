@@ -7,6 +7,7 @@ import { ErrorAlert, SuccessAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import PageHeader from '../components/layout/PageHeader';
 
 // Utility functions to detect browser and device info
@@ -215,7 +216,7 @@ function BugReport() {
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Title *
             </label>
@@ -234,11 +235,11 @@ function BugReport() {
           <div>
             <label
               htmlFor="description"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Description *
             </label>
-            <textarea
+            <Textarea
               id="description"
               name="description"
               value={formData.description}
@@ -247,18 +248,18 @@ function BugReport() {
               required
               disabled={isSubmitting}
               rows={6}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="resize-none"
             />
           </div>
 
           <div>
             <label
               htmlFor="steps_to_reproduce"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Steps to Reproduce (Optional)
             </label>
-            <textarea
+            <Textarea
               id="steps_to_reproduce"
               name="steps_to_reproduce"
               value={formData.steps_to_reproduce || ''}
@@ -266,18 +267,18 @@ function BugReport() {
               placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
               disabled={isSubmitting}
               rows={4}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="resize-none"
             />
           </div>
 
           <div>
             <label
               htmlFor="expected_behavior"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Expected Behavior (Optional)
             </label>
-            <textarea
+            <Textarea
               id="expected_behavior"
               name="expected_behavior"
               value={formData.expected_behavior || ''}
@@ -285,18 +286,18 @@ function BugReport() {
               placeholder="What should have happened?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="resize-none"
             />
           </div>
 
           <div>
             <label
               htmlFor="actual_behavior"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Actual Behavior (Optional)
             </label>
-            <textarea
+            <Textarea
               id="actual_behavior"
               name="actual_behavior"
               value={formData.actual_behavior || ''}
@@ -304,7 +305,7 @@ function BugReport() {
               placeholder="What actually happened?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="resize-none"
             />
           </div>
 
@@ -312,7 +313,7 @@ function BugReport() {
             <div>
               <label
                 htmlFor="browser_info"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Browser Info (Auto-detected)
               </label>
@@ -325,7 +326,7 @@ function BugReport() {
                 placeholder="Auto-detected"
                 disabled={true}
               />
-              <div className="mt-2 text-sm text-neutral-400">
+              <div className="mt-2 text-sm text-muted-foreground">
                 Automatically detected from your browser
               </div>
             </div>
@@ -333,7 +334,7 @@ function BugReport() {
             <div>
               <label
                 htmlFor="device_info"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Device Info (Auto-detected)
               </label>
@@ -346,7 +347,7 @@ function BugReport() {
                 placeholder="Auto-detected"
                 disabled={true}
               />
-              <div className="mt-2 text-sm text-neutral-400">
+              <div className="mt-2 text-sm text-muted-foreground">
                 Automatically detected from your device
               </div>
             </div>
@@ -355,7 +356,7 @@ function BugReport() {
           <div>
             <label
               htmlFor="screenshot_url"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Screenshot URL (Optional)
             </label>

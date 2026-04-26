@@ -93,7 +93,7 @@ function ForgotPasswordConfirm() {
             <div>
               <label
                 htmlFor="new-password"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 New Password
               </label>
@@ -112,7 +112,7 @@ function ForgotPasswordConfirm() {
             <div>
               <label
                 htmlFor="confirm-new-password"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Confirm New Password
               </label>

@@ -15,20 +15,20 @@ function TermsOfService() {
   });
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="glass-card rounded-2xl p-8 md:p-12">
+      <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 md:p-12">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">
           <span className="text-gradient">Terms of Service</span>
         </h1>
-        <p className="text-neutral-500 text-sm mb-8">
+        <p className="text-muted-foreground text-sm mb-8">
           Last updated: {LAST_UPDATED}
         </p>
 
-        <div className="prose prose-invert max-w-none text-neutral-300 space-y-6 leading-relaxed">
+        <div className="prose prose-invert max-w-none text-foreground space-y-6 leading-relaxed">
           <p>
             Please read these Terms of Service ("Terms") carefully before using
             CarModPicker (the "Service"). By creating an account or otherwise
             using the Service, you agree to be bound by these Terms and by our{' '}
-            <Link to="/privacy-policy" className="text-primary-400 underline">
+            <Link to="/privacy-policy" className="text-primary underline">
               Privacy Policy
             </Link>
             . If you do not agree, do not use the Service.
@@ -266,7 +266,7 @@ function TermsOfService() {
               send a DMCA notice to{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -297,7 +297,7 @@ function TermsOfService() {
               Before filing any formal claim, you agree to contact us at{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>{' '}
@@ -358,7 +358,7 @@ function TermsOfService() {
                 should be sent to{' '}
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className="text-primary-400 underline"
+                  className="text-primary underline"
                 >
                   {CONTACT_EMAIL}
                 </a>
@@ -385,7 +385,7 @@ function TermsOfService() {
               Questions about these Terms? Email{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>

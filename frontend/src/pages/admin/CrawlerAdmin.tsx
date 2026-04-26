@@ -107,41 +107,41 @@ const TIER_META: Record<
   http: {
     label: 'T0',
     full: 'Tier 0 — plain HTTP',
-    badge: 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300',
-    row: 'border-l-2 border-l-emerald-600/70',
-    chipSelected: 'border-emerald-500 bg-emerald-900/40 text-emerald-300',
+    badge: 'bg-success/40 border-success/60 text-success',
+    row: 'border-l-2 border-l-success/70',
+    chipSelected: 'border-success bg-success/40 text-success',
     chipUnselected:
-      'border-emerald-700/40 text-emerald-400/70 hover:border-emerald-500',
-    dot: 'bg-emerald-500',
+      'border-success/40 text-success/70 hover:border-success',
+    dot: 'bg-success',
   },
   tls: {
     label: 'T1',
     full: 'Tier 1 — TLS impersonation (curl_cffi)',
-    badge: 'bg-amber-900/40 border-amber-700/60 text-amber-300',
-    row: 'border-l-2 border-l-amber-500/70',
-    chipSelected: 'border-amber-500 bg-amber-900/40 text-amber-300',
+    badge: 'bg-warning/40 border-warning/60 text-warning',
+    row: 'border-l-2 border-l-warning/70',
+    chipSelected: 'border-warning bg-warning/40 text-warning',
     chipUnselected:
-      'border-amber-700/40 text-amber-400/70 hover:border-amber-500',
-    dot: 'bg-amber-500',
+      'border-warning/40 text-warning/70 hover:border-warning',
+    dot: 'bg-warning',
   },
   browser: {
     label: 'T2',
     full: 'Tier 2 — headless browser (FlareSolverr)',
-    badge: 'bg-rose-900/40 border-rose-700/60 text-rose-300',
-    row: 'border-l-2 border-l-rose-500/70',
-    chipSelected: 'border-rose-500 bg-rose-900/40 text-rose-300',
-    chipUnselected: 'border-rose-700/40 text-rose-400/70 hover:border-rose-500',
-    dot: 'bg-rose-500',
+    badge: 'bg-destructive/40 border-destructive/60 text-destructive',
+    row: 'border-l-2 border-l-destructive/70',
+    chipSelected: 'border-destructive bg-destructive/40 text-destructive',
+    chipUnselected: 'border-destructive/40 text-destructive/70 hover:border-destructive',
+    dot: 'bg-destructive',
   },
   unverified: {
     label: 'T4',
     full: 'T4 — unverified: new adapter awaiting smoke test',
-    badge: 'bg-indigo-900/40 border-indigo-700/60 text-indigo-300',
-    row: 'border-l-2 border-l-indigo-500/70',
-    chipSelected: 'border-indigo-500 bg-indigo-900/40 text-indigo-300',
+    badge: 'bg-info/40 border-info/60 text-info',
+    row: 'border-l-2 border-l-info/70',
+    chipSelected: 'border-info bg-info/40 text-info',
     chipUnselected:
-      'border-indigo-700/40 text-indigo-400/70 hover:border-indigo-500',
-    dot: 'bg-indigo-500',
+      'border-info/40 text-info/70 hover:border-info',
+    dot: 'bg-info',
   },
 };
 
@@ -302,7 +302,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
     <div className="space-y-2">
       {totals && (
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-900/50 border border-emerald-700/60 text-xs text-emerald-300">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/50 border border-success/60 text-xs text-success">
             <span className="font-semibold">{totals.total_ingested ?? 0}</span>{' '}
             ingested
           </span>
@@ -319,7 +319,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
         </div>
       )}
       {results.length > 0 && (
-        <div className="rounded border border-gray-700/60 overflow-hidden">
+        <div className="rounded border border-gray-700/60 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-gray-700/60 bg-gray-900/50">
@@ -329,7 +329,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                 <th className="text-right px-2 py-1 text-gray-500 font-medium">
                   Total
                 </th>
-                <th className="text-right px-2 py-1 text-emerald-500/80 font-medium">
+                <th className="text-right px-2 py-1 text-success/80 font-medium">
                   Ingested
                 </th>
                 <th className="text-right px-2 py-1 text-gray-500 font-medium">
@@ -351,7 +351,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                     {r.rate_limit_bailout && (
                       <span
                         title="Rate-limit circuit breaker tripped"
-                        className="ml-2 inline-block rounded bg-amber-900/60 border border-amber-700/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                        className="ml-2 inline-block rounded bg-warning/60 border border-warning/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warning"
                       >
                         Rate-limited @ {r.rate_limit_bailout_after ?? 0}/
                         {r.total}
@@ -361,7 +361,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                   <td className="px-2 py-1 text-right text-gray-400 tabular-nums">
                     {r.total}
                   </td>
-                  <td className="px-2 py-1 text-right text-emerald-400 tabular-nums font-medium">
+                  <td className="px-2 py-1 text-right text-success tabular-nums font-medium">
                     {r.ingested}
                   </td>
                   <td className="px-2 py-1 text-right text-gray-400 tabular-nums">
@@ -380,7 +380,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
       )}
       {resultsWithFailures.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">
             Failure samples
           </p>
           {resultsWithFailures.map((r) => {
@@ -411,7 +411,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                   )}
                   {missSamples.length > 0 && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-amber-400 mb-1">
+                      <p className="text-[10px] uppercase tracking-wider text-warning mb-1">
                         Parse misses ({missTotal}
                         {r.parse_miss_urls_truncated ? '+' : ''})
                       </p>
@@ -490,14 +490,14 @@ function ArchiveRescrapeProgress({
       </div>
       <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">
         <div
-          className="h-full bg-emerald-500/80 transition-[width] duration-500 ease-out"
+          className="h-full bg-success/80 transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>
       {hasTotal && (ok > 0 || failed > 0) && (
         <div className="flex gap-3 mt-1.5 text-[10px] text-gray-400">
           <span>
-            <span className="text-emerald-400">{ok.toLocaleString()}</span> ok
+            <span className="text-success">{ok.toLocaleString()}</span> ok
           </span>
           {failed > 0 && (
             <span>
@@ -556,7 +556,7 @@ function ArchiveRescrapeResult({
             key={r.label}
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${
               r.value > 0 && r.variant === 'ok'
-                ? 'bg-emerald-900/50 border-emerald-700/60 text-emerald-300'
+                ? 'bg-success/50 border-success/60 text-success'
                 : r.value > 0 && r.variant === 'err'
                   ? 'bg-red-900/50 border-red-700/60 text-red-300'
                   : 'bg-gray-800/60 border-gray-600/60 text-gray-500'
@@ -737,14 +737,14 @@ const ACTIVITY_STYLES: Record<
   { dot: string; label: string; text: string }
 > = {
   active: {
-    dot: 'bg-emerald-400 animate-pulse',
+    dot: 'bg-success animate-pulse',
     label: 'active',
-    text: 'text-emerald-400',
+    text: 'text-success',
   },
   idle: { dot: 'bg-yellow-400', label: 'idle', text: 'text-yellow-400' },
   stalled: { dot: 'bg-orange-400', label: 'stalled', text: 'text-orange-400' },
   queued: { dot: 'bg-gray-500', label: 'queued', text: 'text-gray-400' },
-  done: { dot: 'bg-emerald-500', label: 'done', text: 'text-emerald-400' },
+  done: { dot: 'bg-success', label: 'done', text: 'text-success' },
 };
 
 function RunningCrawlerProgress({
@@ -824,11 +824,11 @@ function RunningCrawlerProgress({
         </span>
         <span>
           <span className="text-gray-500">active</span>{' '}
-          <span className="tabular-nums text-emerald-400 font-semibold">
+          <span className="tabular-nums text-success font-semibold">
             {activeCount}
           </span>
           <span className="text-gray-500"> / done </span>
-          <span className="tabular-nums text-emerald-400 font-semibold">
+          <span className="tabular-nums text-success font-semibold">
             {doneCount}
           </span>
           <span className="text-gray-500"> / total </span>
@@ -866,7 +866,7 @@ function RunningCrawlerProgress({
             // yellow/orange when falling behind, flat gray for queued.
             const barColor =
               activity === 'active' || activity === 'done'
-                ? 'bg-emerald-500/70'
+                ? 'bg-success/70'
                 : activity === 'idle'
                   ? 'bg-yellow-500/70'
                   : activity === 'stalled'
@@ -879,7 +879,7 @@ function RunningCrawlerProgress({
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-                  <span className="font-mono text-xs text-neutral-200 truncate">
+                  <span className="font-mono text-xs text-foreground truncate">
                     {adapter}
                   </span>
                 </div>
@@ -1005,7 +1005,7 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
   const isRunning = job.status === 'running';
   const statusColor =
     job.status === 'completed'
-      ? 'text-emerald-400'
+      ? 'text-success'
       : job.status === 'failed'
         ? 'text-red-400'
         : isRunning
@@ -1013,7 +1013,7 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
           : 'text-gray-400';
   const statusBg =
     job.status === 'completed'
-      ? 'border-emerald-800/60 bg-emerald-950/30'
+      ? 'border-success/60 bg-success/30'
       : job.status === 'failed'
         ? 'border-red-800/60 bg-red-950/30'
         : isRunning
@@ -1311,7 +1311,7 @@ const AdapterTuningCard = memo(function AdapterTuningCard({
       <h2 className="text-base font-semibold text-white leading-tight">
         Adapter Tuning
       </h2>
-      <p className="text-xs text-neutral-400 mb-2">
+      <p className="text-xs text-muted-foreground mb-2">
         Per-retailer delay, run limit, and default category. Applies on the
         next scheduled run — no AWS sync needed.
       </p>
@@ -1410,10 +1410,10 @@ const LiveCrawlerRow = memo(function LiveCrawlerRow({
           type="checkbox"
           checked={selected}
           onChange={() => onToggleSelected(adapter)}
-          className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+          className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-success focus:ring-success"
         />
         <TierBadge tier={tier} />
-        <span className="font-mono text-xs text-neutral-200 truncate">
+        <span className="font-mono text-xs text-foreground truncate">
           {adapter}
         </span>
       </label>
@@ -1433,7 +1433,7 @@ const LiveCrawlerRow = memo(function LiveCrawlerRow({
         placeholder="—"
         defaultValue={limitValue}
         onBlur={(e) => onLimitChange(adapter, e.target.value)}
-        className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
     </div>
   );
@@ -1464,7 +1464,7 @@ const AdapterTuningRow = memo(function AdapterTuningRow({
       className={`flex flex-wrap items-center gap-1.5 py-1 pl-2 pr-1 bg-gray-800/50 rounded border border-gray-700 ${tierRow}`}
     >
       <TierBadge tier={tier} />
-      <span className="font-mono text-xs text-neutral-200 truncate min-w-[5rem] flex-1">
+      <span className="font-mono text-xs text-foreground truncate min-w-[5rem] flex-1">
         {row.adapter_name}
       </span>
       {progress ? (
@@ -1620,7 +1620,7 @@ const ScheduleAdapterPicker = memo(function ScheduleAdapterPicker({
             const tier = adapterTiers[name];
             const cls = tier
               ? TIER_META[tier].chipSelected
-              : 'border-emerald-500 bg-emerald-900/40 text-emerald-300';
+              : 'border-success bg-success/40 text-success';
             return (
               <span
                 key={name}
@@ -1704,7 +1704,7 @@ const NewScheduleAdapterPicker = memo(function NewScheduleAdapterPicker({
             const tier = adapterTiers[name];
             const cls = tier
               ? TIER_META[tier].chipSelected
-              : 'border-emerald-500 bg-emerald-900/40 text-emerald-300';
+              : 'border-success bg-success/40 text-success';
             return (
               <span
                 key={name}
@@ -1948,7 +1948,7 @@ const ScheduleRow = memo(function ScheduleRow({
             </p>
             <p className="text-[10px] text-gray-500 truncate">
               {row.enabled ? (
-                <span className="text-emerald-400">Enabled</span>
+                <span className="text-success">Enabled</span>
               ) : (
                 <span>Disabled</span>
               )}
@@ -1963,7 +1963,7 @@ const ScheduleRow = memo(function ScheduleRow({
           onClick={() => void onSave(row.id, { enabled: !row.enabled })}
           disabled={isSaving}
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-            row.enabled ? 'bg-emerald-600' : 'bg-gray-600'
+            row.enabled ? 'bg-success' : 'bg-gray-600'
           }`}
           title={row.enabled ? 'Disable' : 'Enable'}
         >
@@ -2863,8 +2863,8 @@ function CrawlerAdmin() {
         <Button onClick={() => void navigate('/admin')}>
           ← Back to Admin Dashboard
         </Button>
-        <div className="flex items-center gap-2 text-[10px] text-neutral-400">
-          <span className="text-neutral-500">Fetcher tiers:</span>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="text-muted-foreground">Fetcher tiers:</span>
           {(['http', 'tls', 'browser'] as const).map((t) => (
             <span
               key={t}
@@ -2875,7 +2875,7 @@ function CrawlerAdmin() {
                 className={`h-1.5 w-1.5 rounded-full ${TIER_META[t].dot}`}
               />
               {TIER_META[t].label}{' '}
-              <span className="text-neutral-400/80">
+              <span className="text-muted-foreground/80">
                 {t === 'http' ? 'plain' : t === 'tls' ? 'TLS' : 'browser'}
               </span>
             </span>
@@ -2930,7 +2930,7 @@ function CrawlerAdmin() {
           <h2 className="text-base font-semibold text-white leading-tight">
             Manual Run
           </h2>
-          <p className="text-xs text-neutral-400 mb-2">
+          <p className="text-xs text-muted-foreground mb-2">
             Trigger a one-off live crawl or archive rescrape now, outside the
             scheduled cadence.
           </p>
@@ -2944,15 +2944,15 @@ function CrawlerAdmin() {
               <div className="mb-2 p-2 rounded-lg border border-white/15 bg-gray-900/40">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase tracking-wide">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
                       Crawler service account
                     </label>
                     {crawlerServiceAccount ? (
                       <div className="flex items-center gap-2 px-2 py-1 rounded border border-white/10 bg-gray-800/60 text-xs">
-                        <span className="font-mono text-neutral-200">
+                        <span className="font-mono text-foreground">
                           {crawlerServiceAccount.username}
                         </span>
-                        <span className="text-[10px] text-neutral-500">
+                        <span className="text-[10px] text-muted-foreground">
                           #{crawlerServiceAccount.id}
                         </span>
                       </div>
@@ -2963,7 +2963,7 @@ function CrawlerAdmin() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase tracking-wide">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
                       Default category
                     </label>
                     <select
@@ -2971,7 +2971,7 @@ function CrawlerAdmin() {
                       onChange={(e) =>
                         setCrawlerDefaultCategoryId(e.target.value)
                       }
-                      className="w-full px-2 py-1 text-xs rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none"
+                      className="w-full px-2 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:ring-1 focus:ring-success/20 focus:outline-none"
                     >
                       <option value="">Select category...</option>
                       {crawlerCategories.map((c) => (
@@ -2984,32 +2984,32 @@ function CrawlerAdmin() {
                 </div>
               </div>
 
-              <div className="p-2 bg-emerald-900/10 border border-emerald-700/60 rounded-lg mb-2">
+              <div className="p-2 bg-success/10 border border-success/60 rounded-lg mb-2">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-success">
                     Live crawlers
                   </h3>
                   <div className="flex items-center gap-2 text-[10px]">
-                    <span className="text-neutral-500">
+                    <span className="text-muted-foreground">
                       {selectedCrawlers.size}/{crawlerAdapters.length} selected
                     </span>
-                    <span className="text-neutral-600">·</span>
+                    <span className="text-muted-foreground">·</span>
                     <button
                       type="button"
                       onClick={selectAllCrawlers}
-                      className="text-emerald-400 hover:text-emerald-300"
+                      className="text-success hover:text-success/90"
                     >
                       All
                     </button>
-                    <span className="text-neutral-600">|</span>
+                    <span className="text-muted-foreground">|</span>
                     <button
                       type="button"
                       onClick={deselectAllCrawlers}
-                      className="text-emerald-400 hover:text-emerald-300"
+                      className="text-success hover:text-success/90"
                     >
                       None
                     </button>
-                    <span className="text-neutral-600">·</span>
+                    <span className="text-muted-foreground">·</span>
                     {tierToggleStats.map(({ tier, total, selectedCount }) => {
                       const allSelected = selectedCount === total;
                       const someSelected = selectedCount > 0 && !allSelected;
@@ -3036,15 +3036,15 @@ function CrawlerAdmin() {
                     })}
                   </div>
                 </div>
-                <p className="text-[10px] text-neutral-500 mb-2">
-                  Tip: <span className="text-neutral-300">global limit</span>{' '}
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  Tip: <span className="text-foreground">global limit</span>{' '}
                   applies per adapter (e.g. 50 = up to 50 pages each, not
                   shared). Uncheck any to skip, then click{' '}
-                  <span className="text-neutral-300">Run selected</span>.
+                  <span className="text-foreground">Run selected</span>.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                   <div>
-                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
                       Delay
                     </label>
                     <select
@@ -3052,7 +3052,7 @@ function CrawlerAdmin() {
                       onChange={(e) =>
                         setCrawlerDelaySec(Number(e.target.value))
                       }
-                      className="w-full px-1.5 py-1 text-xs rounded border border-white/20 bg-gray-800 text-neutral-200 focus:border-emerald-500 focus:outline-none"
+                      className="w-full px-1.5 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:outline-none"
                     >
                       <option value={2.5}>2.5 s</option>
                       <option value={5}>5 s</option>
@@ -3062,7 +3062,7 @@ function CrawlerAdmin() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
                       Global limit
                     </label>
                     <div className="flex items-center gap-1">
@@ -3087,8 +3087,8 @@ function CrawlerAdmin() {
                             }}
                             className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none ${
                               active
-                                ? 'border-emerald-500 bg-emerald-900/40 text-emerald-300'
-                                : 'border-gray-600 text-neutral-400 hover:border-emerald-500 hover:text-emerald-300'
+                                ? 'border-success bg-success/40 text-success'
+                                : 'border-gray-600 text-muted-foreground hover:border-success hover:text-success'
                             }`}
                             title={`Set global limit to ${n}`}
                           >
@@ -3099,7 +3099,7 @@ function CrawlerAdmin() {
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-medium text-neutral-400 mb-0.5 uppercase">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
                       HTML save dir
                     </label>
                     <LocalTextInput
@@ -3113,17 +3113,17 @@ function CrawlerAdmin() {
                 </div>
                 <label
                   htmlFor="skip-known-urls"
-                  className="flex items-center gap-2 mb-2 text-xs text-neutral-300 select-none cursor-pointer"
+                  className="flex items-center gap-2 mb-2 text-xs text-foreground select-none cursor-pointer"
                 >
                   <input
                     id="skip-known-urls"
                     type="checkbox"
                     checked={skipKnownUrls}
                     onChange={(e) => setSkipKnownUrls(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-emerald-500"
+                    className="h-3.5 w-3.5 rounded border-border bg-card text-success focus:ring-success"
                   />
                   Skip already-archived URLs
-                  <span className="text-[10px] text-neutral-500">
+                  <span className="text-[10px] text-muted-foreground">
                     (omit parse_status=parsed)
                   </span>
                 </label>
@@ -3142,7 +3142,7 @@ function CrawlerAdmin() {
                   <Button
                     onClick={() => void handleRunSelectedCrawlers()}
                     disabled={isRunningCrawlers || selectedCrawlers.size === 0}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
+                    className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
                   >
                     {isRunningCrawlers ? (
                       <span className="flex items-center">
@@ -3156,7 +3156,7 @@ function CrawlerAdmin() {
                   <Button
                     onClick={() => void handleRunAllCrawlers()}
                     disabled={isRunningCrawlers}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 px-2.5"
+                    className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
                   >
                     Run all
                   </Button>
@@ -3169,15 +3169,15 @@ function CrawlerAdmin() {
                 )}
 
                 {crawlerResult && (
-                  <div className="mt-2 p-1.5 rounded border border-emerald-700 bg-gray-900/50 text-xs">
-                    <div className="font-semibold text-emerald-400">
+                  <div className="mt-2 p-1.5 rounded border border-success bg-gray-900/50 text-xs">
+                    <div className="font-semibold text-success">
                       {crawlerResult.status === 'started'
                         ? 'Crawler job started'
                         : 'Crawler'}
                     </div>
-                    <p className="text-neutral-300">{crawlerResult.message}</p>
+                    <p className="text-foreground">{crawlerResult.message}</p>
                     {crawlerResult.adapters.length > 0 && (
-                      <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                         {crawlerResult.adapters.join(', ')}
                       </p>
                     )}
@@ -3189,7 +3189,7 @@ function CrawlerAdmin() {
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-200 mb-1">
                   Archive rescrape
                 </h3>
-                <p className="text-[11px] text-neutral-400 mb-2">
+                <p className="text-[11px] text-muted-foreground mb-2">
                   Re-run parse → ingest on every URL with archived HTML (same
                   pipeline as a live crawl). Background job — watch server logs
                   for per-outcome counts.
@@ -3222,7 +3222,7 @@ function CrawlerAdmin() {
                         ? 'Job queued.'
                         : rescrapeArchivesResult.status}
                     </p>
-                    <p className="text-neutral-300 text-[11px] mt-0.5">
+                    <p className="text-foreground text-[11px] mt-0.5">
                       {rescrapeArchivesResult.message}
                     </p>
                   </div>

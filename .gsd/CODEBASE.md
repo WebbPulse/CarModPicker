@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T08:18:51Z","fingerprint":"50ccd996b63d5cdc93fac654ed2ae0779126bb1f","fileCount":1013,"truncated":false} -->
+Generated: 2026-04-27T02:12:13Z | Files: 1025 | Described: 0/1025
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-27T02:12:13Z","fingerprint":"465b6ce936e43f438227513a721cf8ca4e3e98b8","fileCount":1025,"truncated":false} -->
 
 ### (root)/
 - `.gitignore`
@@ -488,6 +488,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/e2e/build-list.spec.ts`
 - `frontend/e2e/components.spec.ts`
 - `frontend/e2e/parts-catalog.spec.ts`
+- `frontend/e2e/polish-coverage.spec.ts`
 - `frontend/e2e/price-alerts.spec.ts`
 - `frontend/e2e/price-history.spec.ts`
 - `frontend/e2e/smoke.spec.ts`
@@ -498,6 +499,10 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/public/sitemap.xml`
 
 ### frontend/scripts/
+- `frontend/scripts/m003_s01_t03_fix_hover.py`
+- `frontend/scripts/m003_s01_t03_swap_primary.py`
+- `frontend/scripts/m003_s01_t04_fix_hover.py`
+- `frontend/scripts/m003_s01_t04_swap_status.py`
 - `frontend/scripts/prerender.mjs`
 
 ### frontend/src/
@@ -514,6 +519,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - *(42 files: 42 .ts)*
 
 ### frontend/src/components/admin/
+- `frontend/src/components/admin/DangerActionPanel.tsx`
 - `frontend/src/components/admin/ReportDialog.tsx`
 
 ### frontend/src/components/ads/
@@ -595,6 +601,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/src/components/parts/PriceAlertSubscribeButton.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.test.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.tsx`
+- `frontend/src/components/parts/sparkline-cache.ts`
 - `frontend/src/components/parts/SparklineCell.test.tsx`
 - `frontend/src/components/parts/SparklineCell.tsx`
 - `frontend/src/components/parts/VoteButtons.tsx`
@@ -627,23 +634,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/src/components/tables/ResponsiveTableWrapper.tsx`
 
 ### frontend/src/components/ui/
-- `frontend/src/components/ui/.gitkeep`
-- `frontend/src/components/ui/alert.tsx`
-- `frontend/src/components/ui/button.tsx`
-- `frontend/src/components/ui/card-info-item.tsx`
-- `frontend/src/components/ui/card.tsx`
-- `frontend/src/components/ui/combobox.tsx`
-- `frontend/src/components/ui/confirm-dialog.test.tsx`
-- `frontend/src/components/ui/confirm-dialog.tsx`
-- `frontend/src/components/ui/dialog.tsx`
-- `frontend/src/components/ui/dropdown-menu.tsx`
-- `frontend/src/components/ui/input.tsx`
-- `frontend/src/components/ui/pagination.tsx`
-- `frontend/src/components/ui/select.tsx`
-- `frontend/src/components/ui/sheet.tsx`
-- `frontend/src/components/ui/spinner.tsx`
-- `frontend/src/components/ui/tabs.tsx`
-- `frontend/src/components/ui/toast.tsx`
+- *(21 files: 19 .tsx, 1 (no ext), 1 .ts)*
 
 ### frontend/src/components/users/
 - `frontend/src/components/users/UserCard.tsx`
@@ -746,6 +737,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/src/styles/tokens.css`
 
 ### frontend/src/test/
+- `frontend/src/test/route-coverage-list.ts`
 - `frontend/src/test/setup.ts`
 
 ### frontend/src/test/guards/

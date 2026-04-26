@@ -142,7 +142,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
           <div>
             <label
               htmlFor="currentPassword"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Current Password
             </label>
@@ -161,7 +161,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
           <div>
             <label
               htmlFor="newPassword"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               New Password
             </label>
@@ -181,7 +181,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
           <div>
             <label
               htmlFor="confirmNewPassword"
-              className="block text-sm font-medium text-neutral-300 mb-2"
+              className="block text-sm font-medium text-foreground mb-2"
             >
               Confirm New Password
             </label>
@@ -201,7 +201,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
             <div>
               <label
                 htmlFor="otp"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 2FA Code
               </label>
@@ -231,7 +231,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
                   className="pl-10"
                 />
               </div>
-              <div className="mt-2 text-sm text-neutral-400">
+              <div className="mt-2 text-sm text-muted-foreground">
                 Enter the 6-digit code from your authenticator app
               </div>
             </div>

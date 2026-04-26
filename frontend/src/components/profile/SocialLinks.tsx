@@ -96,7 +96,7 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-300 hover:bg-indigo-600/30 hover:text-indigo-300 transition-colors text-sm"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-300 hover:bg-info/30 hover:text-info transition-colors text-sm"
                 aria-label={ariaLabel}
               >
                 <Icon size={iconSize} className="shrink-0" aria-hidden />

@@ -86,7 +86,7 @@ function AlertRow({
               : (partName ?? 'Part unavailable')}
           </Link>
         </div>
-        <div className="mt-1 text-sm text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+        <div className="mt-1 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
           <span data-testid="alert-row-threshold">
             Threshold: {formatCents(alert.threshold_cents)}
           </span>
@@ -224,7 +224,7 @@ function AccountAlerts() {
           <button
             type="button"
             onClick={dismissStatusBanner}
-            className="mt-2 text-xs text-gray-400 hover:text-gray-200 underline"
+            className="mt-2 text-xs text-muted-foreground hover:text-foreground underline"
           >
             Dismiss
           </button>
@@ -236,7 +236,7 @@ function AccountAlerts() {
           <button
             type="button"
             onClick={dismissStatusBanner}
-            className="mt-2 text-xs text-gray-400 hover:text-gray-200 underline"
+            className="mt-2 text-xs text-muted-foreground hover:text-foreground underline"
           >
             Dismiss
           </button>
@@ -258,7 +258,7 @@ function AccountAlerts() {
 
         {!isLoading && !error && alerts && visibleAlerts.length === 0 && (
           <div
-            className="py-6 text-center text-gray-300"
+            className="py-6 text-center text-muted-foreground"
             data-testid="alerts-empty"
           >
             <p className="mb-2">
