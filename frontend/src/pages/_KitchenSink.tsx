@@ -56,7 +56,8 @@ import {
 } from '../components/ui/sheet';
 import Spinner, { type SpinnerSize } from '../components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Toaster, toast } from '../components/ui/toast';
+import { toast } from 'sonner';
+import { Toaster } from '../components/ui/toast';
 
 const COMBOBOX_OPTIONS: ComboboxOption[] = [
   { value: 'r34', label: 'Nissan Skyline R34' },
