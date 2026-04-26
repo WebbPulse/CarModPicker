@@ -145,8 +145,10 @@ function AccountAlerts() {
   const [partsById, setPartsById] = useState<Record<string, PartRead | null>>(
     {}
   );
-  const [loadingPartIds, setLoadingPartIds] = useState<Set<string>>(new Set());
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [loadingPartIds, setLoadingPartIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
 
   // Initial load.
   useEffect(() => {

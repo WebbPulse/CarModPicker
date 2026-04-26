@@ -51,7 +51,7 @@ export default function PriceAlertSubscribeButton({
   const [existingAlert, setExistingAlert] = useState<PartPriceAlertRead | null>(
     null
   );
-  const [thresholdInput, setThresholdInput] = useState<string>(
+  const [thresholdInput, setThresholdInput] = useState<string>(() =>
     centsToDollarString(currentBestPriceCents)
   );
   const [submitting, setSubmitting] = useState(false);
