@@ -73,7 +73,7 @@ Add `frontend/src/pages/admin/ExtractionHealth.test.tsx` covering: (a) renders c
   - Files: `frontend/src/pages/admin/ExtractionHealth.tsx`, `frontend/src/pages/admin/ExtractionHealth.test.tsx`
   - Verify: cd frontend && npm test -- --run ExtractionHealth.test.tsx && npm run type-check
 
-- [ ] **T04: Playwright admin.spec.ts — multi-viewport visual regression + keyboard focus** `est:1h30m`
+- [x] **T04: Playwright admin.spec.ts — multi-viewport visual regression + keyboard focus** `est:1h30m`
   Create `frontend/e2e/admin.spec.ts` modelled on `frontend/e2e/parts-catalog.spec.ts`:
 
 1. **Mock fixtures** — define `MOCK_ADMIN_USER` (same shape as MOCK_USER in parts-catalog.spec.ts but `is_admin: true, email_verified: true, subscription_tier: 'free'`), `MOCK_EXTRACTION_HEALTH` matching the backend `ExtractionHealthResponse` exactly: `compliance: { compliant: 108, total: 108, per_tier: { http: '83/83', tls: '15/15', browser: '10/10' } }`, `coverage.per_tier.{http,tls,browser}` with 2-3 sample fields each (e.g. `weight_grams: 0.42, material: 0.18`), `failure_rate_7d` with 3 sample rows across tiers, `window: { days: 7, since: FIXED_NOW_ISO_MINUS_7D }`. Pin `Date.now()` to `FIXED_NOW_ISO`.
