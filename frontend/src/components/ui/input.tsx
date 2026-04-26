@@ -9,18 +9,17 @@ export const inputVariants = cva(
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement>,
-    VariantProps<typeof inputVariants> {}
+    VariantProps<typeof inputVariants> {
+  ref?: React.Ref<HTMLInputElement>;
+}
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
-    return (
-      <input
-        type={type}
-        className={cn(inputVariants(), className)}
-        ref={ref}
-        {...props}
-      />
-    );
-  },
-);
-Input.displayName = 'Input';
+export function Input({ className, type, ref, ...props }: InputProps) {
+  return (
+    <input
+      type={type}
+      className={cn(inputVariants(), className)}
+      ref={ref}
+      {...props}
+    />
+  );
+}

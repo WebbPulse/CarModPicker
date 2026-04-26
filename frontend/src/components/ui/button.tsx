@@ -39,55 +39,51 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
+  ref?: React.Ref<HTMLButtonElement> | undefined;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      className,
-      variant,
-      size,
-      asChild = false,
-      loading = false,
-      disabled,
-      children,
-      ...props
-    },
-    ref,
-  ) => {
-    const Comp = asChild ? Slot : 'button';
-    const isDisabled = disabled || loading;
+export function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  loading = false,
+  disabled,
+  children,
+  ref,
+  ...props
+}: ButtonProps) {
+  const Comp = asChild ? Slot : 'button';
+  const isDisabled = disabled || loading;
 
-    if (asChild) {
-      return (
-        <Comp
-          className={cn(buttonVariants({ variant, size, className }))}
-          ref={ref}
-          {...props}
-        >
-          {children}
-        </Comp>
-      );
-    }
-
+  if (asChild) {
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={isDisabled}
-        aria-busy={loading || undefined}
         {...props}
       >
-        {loading ? (
-          <>
-            <Loader2 className="animate-spin" aria-hidden="true" />
-            {children}
-          </>
-        ) : (
-          children
-        )}
+        {children}
       </Comp>
     );
-  },
-);
-Button.displayName = 'Button';
+  }
+
+  return (
+    <Comp
+      className={cn(buttonVariants({ variant, size, className }))}
+      ref={ref}
+      disabled={isDisabled}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden="true" />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
+  );
+}
