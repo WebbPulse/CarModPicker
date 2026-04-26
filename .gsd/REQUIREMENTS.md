@@ -224,6 +224,162 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: Tab order, focus indicators, Escape handling on dialogs, and screen-reader-friendly labels validated across each redesigned page during M002/S09 (build-list), M002/S10 (parts catalog), and M002/S11 (admin). Playwright e2e tests at desktop viewport assert keyboard behavior: build-list.spec.ts:245 ('edit dialog opens, focuses, and Escape closes'), build-list.spec.ts:278 ('tab order surfaces visible focus on first interactive control'), parts-catalog.spec.ts:481 ('add-to-build-list dialog opens, focus moves into it, Escape closes it'), parts-catalog.spec.ts:528 ('tab traversal lands visible focus on search input'). Radix primitives in frontend/src/components/ui/ provide built-in focus-trap behavior on Dialog/Sheet/DropdownMenu. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports including these keyboard specs. Evidence: gauntlet-evidence.json item #4.
 - Notes: Promoted at M002 close (2026-04-25). Light pass — not a full WCAG audit; Radix primitive baseline preserved.
 
+## Active
+
+### R048 — Zero raw legacy palette utilities in `frontend/src/`.
+- Class: core-capability
+- Status: active
+- Description: Zero raw legacy palette utilities (`bg-primary-[0-9]`, `text-primary-[0-9]`, `bg-neutral-[0-9]`, `text-neutral-[0-9]`, `bg-emerald-[0-9]`, `text-emerald-[0-9]`, `bg-indigo-[0-9]`, `text-indigo-[0-9]`, `text-accent-emerald`, `text-accent-amber`, `text-accent-rose`, `text-accent-purple`, etc.) anywhere in `frontend/src/`. Every consumer migrated to semantic tokens (`text-foreground`, `text-muted-foreground`, `bg-card`, `text-primary`, etc.) from `tokens.css`.
+- Why it matters: The substrate exists but ~94 files still consume raw palette utilities. Until the consumers migrate, the legacy `@theme` palette can't be deleted and drift recurs.
+- Source: user
+- Primary owning slice: M003/S01
+- Supporting slices: M003/S05
+- Validation: unmapped
+- Notes: Verified by grep at slice close. Mechanical migration — global by-token sweeps per atomic commit.
+
+### R049 — Zero `glass-card` / `glass-button` / `glass` references in `frontend/src/`.
+- Class: core-capability
+- Status: active
+- Description: Zero references to legacy glassmorphism utility classes (`glass-card`, `glass-button`, `glass`) anywhere in `frontend/src/` consumer code. Survives only inside `index.css` until pass 1 deletion at S04.
+- Why it matters: Glass-* survives on 8 high-traffic pages including Home, Login, Register, Header. Migrating consumers is the precondition for deleting the utilities from `index.css`.
+- Source: user
+- Primary owning slice: M003/S02
+- Supporting slices: M003/S05
+- Validation: unmapped
+- Notes: Each page's reskin replaces glass-* with `bg-card` / `border-border` + appropriate shadow / backdrop-blur tokens.
+
+### R050 — Zero `var(--primary-*)` / `var(--neutral-*)` / `var(--accent-*)` legacy `:root` consumers.
+- Class: core-capability
+- Status: active
+- Description: Zero consumers (in any `frontend/src/` file, including inline styles, CSS modules, and styled blocks) of the legacy `:root` palette variables (`--primary-50` through `--primary-950`, `--neutral-50` through `--neutral-950`, `--accent-emerald` / `--accent-amber` / `--accent-rose` / `--accent-purple`) or the legacy gradient vars (`--gradient-primary`, `--gradient-secondary`, `--gradient-dark`, `--gradient-glass`, `--gradient-hero`).
+- Why it matters: The `:root` palette block in `index.css` can't be deleted until consumers migrate. Inline-style and css-var consumers are the second-class citizens that the global token sweep (R048) doesn't catch.
+- Source: user
+- Primary owning slice: M003/S02
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Includes `body { background: var(--gradient-dark) }` and similar — body styles migrate to semantic-token equivalents in `tokens.css`.
+
+### R051 — `@theme` palette removed from `index.css`; build fails on any surviving raw-palette utility.
+- Class: quality-attribute
+- Status: active
+- Description: The Tailwind v4 `@theme` palette block in `index.css` (lines 7-36 — `--color-primary-50` through `--color-accent-purple`) is deleted. After deletion, `vite build` succeeds; any surviving `bg-primary-500` / `text-neutral-300` / `text-accent-emerald` / etc. is a build error.
+- Why it matters: This is the load-bearing decision. Removing the palette from `@theme` makes the contract enforceable by tooling — drift can't recur because the legacy classes literally don't compile. The build is the milestone close gate.
+- Source: user
+- Primary owning slice: M003/S04
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Depends on R048 + R049 + R050 landing first.
+
+### R052 — Pass-2 decorative + animation utilities removed from `index.css`.
+- Class: quality-attribute
+- Status: active
+- Description: After consumers migrate, `index.css` has the following deleted: `:root` palette block (lines 38-98), `.glass*` utilities (lines 295-381), `.btn-primary/secondary/outline` (lines 383-482), `.card` / `.card-interactive` / `.card-table-container` (lines 484-582), `.input-modern` (lines 584-616), `.skeleton` (line 647), `.hero-gradient` (line 660), `.text-gradient` (line 736), `.shadow-glow` (line 750), `.border-gradient` (line 745), and all 11 keyframes (`fadeInScale`, `slideInUp`, `slideInLeft`, `slideInRight`, `pulse`, `shimmer`, `float`, `glow`, `gradientShift`, `borderGlow`, `progress-indeterminate`) plus their `.animate-*` consumer classes.
+- Why it matters: Two-pass deletion — pass 1 (palette + glass + legacy component classes) is the high-traffic surface; pass 2 (decorative + animation) is where targeted gap-fill additions are most likely. Doing them as one slice (S04) keeps the deletion cliff bounded.
+- Source: user
+- Primary owning slice: M003/S04
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Targeted token / keyframe additions land as atomic commits before the deletion (e.g. tokenized Home entrance animation, if it survives the polish pass).
+
+### R053 — Targeted token / primitive / keyframe additions are atomic commits with rationale; bias toward consumption.
+- Class: convention
+- Status: active
+- Description: When the migration surfaces a real gap (a missing semantic token, a missing primitive, a needed tokenized keyframe replacement), stop, add, commit with rationale, resume. Each addition is a standalone atomic commit. The bias is consumption of the existing system — gap-fills require concrete justification ("X pages need this and there's no clean way to express it with what we have"), not "this would be nice."
+- Why it matters: Friction enforces the consumption bias. If additions land inline in migration commits, it's easy to keep adding "just one more"; atomic commits with rationale force the question "is this gap real?" and keep the audit trail clean for future devs.
+- Source: user
+- Primary owning slice: M003/S01
+- Supporting slices: M003/S02, M003/S04, M003/S05
+- Validation: unmapped
+- Notes: Subject to R017 — additions land in `tokens.css` or `components/ui/`, never in `components/common/` or `components/buttons/`.
+
+### R054 — Every dense `<table>` view audited at 360 / 768 / 1280 with documented per-viewport verdict.
+- Class: primary-user-loop
+- Status: active
+- Description: The four admin `<table>` surfaces (admin extraction-health, admin parts, admin jobs, admin crawlers) plus `frontend/src/components/tables/ResponsiveTableWrapper.tsx` audited at 360 / 768 / 1280 with realistic densest data. Per-viewport verdict (`pass` / `fixed` / `acceptable-as-scroll`) documented in S03 slice summary.
+- Why it matters: Real `<table>` surfaces have different overflow behavior than card-grids; admin tables in particular are wide and the responsive strategy is "table-internal horizontal scroll" which is acceptable but must be intentional.
+- Source: user
+- Primary owning slice: M003/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: "Acceptable-as-scroll" is a valid verdict for admin tables where horizontal scroll inside the table wrapper is the deliberate fallback. Page-level horizontal scroll is never acceptable.
+
+### R055 — Every dense card-grid view audited at 360 / 768 / 1280; no column shoves into adjacent columns; root-cause fixes.
+- Class: primary-user-loop
+- Status: active
+- Description: PartsCatalog (`/parts`), BuildListsCatalog (`/build-lists`), BuildListPart list (inside ViewBuildList), and Search results audited at 360 / 768 / 1280 with realistic densest data (longest part name, longest retailer chain, all optional columns populated). No column shoves into adjacent columns. Fixes are root-cause: min-width matches actual rendered content, OR cell content reflows / wraps cleanly, OR the column drops out of the layout via the existing responsive-priority logic.
+- Why it matters: The `/parts` price-column overflow is the reported instance; the audit ensures the same class of bug isn't lurking on the other dense views. Root-cause fixes prevent regression.
+- Source: user
+- Primary owning slice: M003/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: PartsCatalog renders via card components (`PartList` / `PartListItem`), not `<table>`. Fix lives in those components or in the layout primitives they consume. Per-viewport verdict list in S03 slice summary.
+
+### R056 — No unintended page-level horizontal scroll on any audited page at 360 / 768 / 1280.
+- Class: quality-attribute
+- Status: active
+- Description: After S03 fixes land, no audited page produces unintended horizontal scroll at 360 / 768 / 1280. Intentional table-internal horizontal scroll (admin tables) is allowed; page-level scroll is not.
+- Why it matters: Page-level horizontal scroll is the symptom users actually experience as "the layout is broken" on mobile.
+- Source: inferred
+- Primary owning slice: M003/S03
+- Supporting slices: M003/S05
+- Validation: unmapped
+- Notes: Verified via Playwright at the three viewports + manual UAT. Visible to the user as the absence of a horizontal scrollbar.
+
+### R057 — ViewPart shows ONE "Price by retailer" block; summary stats either drop or compress to a one-line header.
+- Class: primary-user-loop
+- Status: active
+- Description: ViewPart (`/parts/:id`) shows a single "Price by retailer" block — a table with columns for retailer name, last observed price, sparkline, observation timing, and outbound `View at retailer` link. The standalone "Price summary (90 days)" stats card is either dropped or compressed to a one-line header above the table (e.g. `$X–$Y across N retailers, last observed Z`).
+- Why it matters: Today the page renders two redundant blocks — both show retailer name + last price + observation timing. The unique signal in the second block is the outbound link, which is the business value. Collapsing to one block + preserving outbound links resolves the redundancy without losing information.
+- Source: user
+- Primary owning slice: M003/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Aggressive collapse per locked decision (Layer 1). Both blocks are inline in `ViewPart.tsx` today — this is an in-place refactor, not a component swap.
+
+### R058 — All outbound retailer links use `target="_blank" rel="noopener noreferrer"` with external-link affordance.
+- Class: primary-user-loop
+- Status: active
+- Description: Every outbound `View at retailer` link in the collapsed ViewPart price block (and any other outbound retailer links surfaced during the polish pass) uses `target="_blank" rel="noopener noreferrer"` and renders a small external-link icon affordance to signal that clicking leaves carmodpicker.com.
+- Why it matters: Outlinking is the business value of the price-by-retailer block. Standard link-safety attributes prevent reverse-tabnabbing and the affordance signals navigation intent.
+- Source: user
+- Primary owning slice: M003/S03
+- Supporting slices: M003/S05
+- Validation: unmapped
+- Notes: External-link icon — use a Lucide icon (project already consumes lucide-react).
+
+### R059 — Polish pass at 360 / 768 / 1280 across every page (~40 routes); IA judgment up to medium-impact.
+- Class: primary-user-loop
+- Status: active
+- Description: Every route in the app visited at 360 / 768 / 1280 (~40 routes total). Structural cleanup applied where needed (layout fixes, redundant block collapses on judgment up to medium-impact, animation replacements, off-palette stat panels reskinned). High-impact IA changes (removing a feature, restructuring primary layout, navigation changes) surfaced and resolved with user approval. Per-page verdict list in S05 slice summary.
+- Why it matters: This is the systematic visit that catches what global token sweeps + targeted slices miss. Without it, drift is invisible until users see it.
+- Source: user
+- Primary owning slice: M003/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Medium-impact = combining adjacent cards, removing a redundant header, deduping a stats strip. ViewPart price collapse is the locked exemplar.
+
+### R060 — Visual-regression baselines refreshed per slice for every page touched, reviewed before commit.
+- Class: quality-attribute
+- Status: active
+- Description: Every page touched by a slice has Playwright `toHaveScreenshot()` baselines refreshed at 360 / 768 / 1280 (mobile / tablet / desktop projects). Diffs reviewed before commit — real regressions stand out against expected token-swap diffs.
+- Why it matters: M002 burned on this (MEM066, MEM140) — batch baseline refresh hides regressions. Per-slice keeps reviews bounded and honest.
+- Source: user
+- Primary owning slice: M003/S01
+- Supporting slices: M003/S02, M003/S03, M003/S04, M003/S05
+- Validation: unmapped
+- Notes: Maximum coverage — every page touched, no carve-out for secondary pages. Continues D006 (three-breakpoint Playwright strategy).
+
+### R061 — Migration completion gauntlet at milestone close.
+- Class: quality-attribute
+- Status: active
+- Description: At milestone close: zero raw palette utility hits, zero `glass-*` hits, zero legacy `:root` consumer hits in `frontend/src/` (greps from R048–R050); `vite build` succeeds with `@theme` palette removed; `npm run lint` baseline preserved (108 errors at MEM062); `npm run type-check` clean; `npm test -- --run` passes (594+ vitest); `npm run test:e2e` passes at all 3 viewports; manual UAT walkthrough at three viewports across priority pages documented.
+- Why it matters: This is the close gate that proves the milestone actually shipped what it promised.
+- Source: user
+- Primary owning slice: M003/S06
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Optional extension — vitest grep-guard extended to also block `glass-*` / raw palette utilities re-entering, mirroring the R017 pattern.
+
 ## Deferred
 
 ### R030 — LLM extractor strategy that plugs into M002's per-category schema contract — adapter parser tries deterministic first; LLM fills missing fields against the schema; deterministic validators reject obviously wrong values.
@@ -406,6 +562,20 @@ This file is the explicit capability and coverage contract for the project.
 | R018 | quality-attribute | validated | M002/S01 | M002/S02, M002/S04 | Crawler test suite green at M002 close: `TESTING=true pytest -n auto --rootdir=backend -q --no-cov backend/tests` exits 0 with 2800 passed / 15 skipped / 0 failed in 36.34s (1075 warnings, all pre-existing). Suite includes M002/S01 SpecRegistry contract tests + ingest validation hook tests (23 in test_spec_registry_contract.py + test_ingest_spec_validation.py), M002/S02 universal-extractor fixture tests (extract_weight/material/finish/warranty/fitment_notes), M002/S03 compliance audit tests, M002/S04 backfill smoke tests sampling 100 parts and asserting extraction_failure_rate below threshold, plus per-adapter contract tests with 3-5 spot fixtures from S3-archived HTML for each Pydantic category model (CoiloverSpec, BrakeSpec, TurboSpec, UniversalSpec). Evidence: gauntlet-evidence.json item #1. |
 | R019 | quality-attribute | validated | M002/S05 | none | M002/S13/T02 re-ran the S05 perf gate against the live stack at the 10× config (50 users, 10 spawn-rate, 60s) on 2026-04-26 UTC. PASSED with GET p95=95ms (budget <200ms), POST p95=130ms (budget <500ms), 0 failures across 1893 requests. Evidence: .gsd/milestones/M002/slices/S13/uat-evidence/perf-gate-PASSED.json (mirrored from backend/.perf-runs/price-history-PASSED-20260426T051456Z.json). R036 (materialized part_price_summary) precondition not met — stays deferred per D004. |
 | R020 | quality-attribute | validated | M002/S09, M002/S10, M002/S11 | M002/S12 | Tab order, focus indicators, Escape handling on dialogs, and screen-reader-friendly labels validated across each redesigned page during M002/S09 (build-list), M002/S10 (parts catalog), and M002/S11 (admin). Playwright e2e tests at desktop viewport assert keyboard behavior: build-list.spec.ts:245 ('edit dialog opens, focuses, and Escape closes'), build-list.spec.ts:278 ('tab order surfaces visible focus on first interactive control'), parts-catalog.spec.ts:481 ('add-to-build-list dialog opens, focus moves into it, Escape closes it'), parts-catalog.spec.ts:528 ('tab traversal lands visible focus on search input'). Radix primitives in frontend/src/components/ui/ provide built-in focus-trap behavior on Dialog/Sheet/DropdownMenu. Verified at M002 close: gauntlet `npm run test:e2e` returns 35 passed / 10 skipped at all 3 viewports including these keyboard specs. Evidence: gauntlet-evidence.json item #4. |
+| R048 | core-capability | active | M003/S01 | M003/S05 | mapped |
+| R049 | core-capability | active | M003/S02 | M003/S05 | mapped |
+| R050 | core-capability | active | M003/S02 | none | mapped |
+| R051 | quality-attribute | active | M003/S04 | none | mapped |
+| R052 | quality-attribute | active | M003/S04 | none | mapped |
+| R053 | convention | active | M003/S01 | M003/S02, M003/S04, M003/S05 | mapped |
+| R054 | primary-user-loop | active | M003/S03 | none | mapped |
+| R055 | primary-user-loop | active | M003/S03 | none | mapped |
+| R056 | quality-attribute | active | M003/S03 | M003/S05 | mapped |
+| R057 | primary-user-loop | active | M003/S03 | none | mapped |
+| R058 | primary-user-loop | active | M003/S03 | M003/S05 | mapped |
+| R059 | primary-user-loop | active | M003/S05 | none | mapped |
+| R060 | quality-attribute | active | M003/S01 | M003/S02, M003/S03, M003/S04, M003/S05 | mapped |
+| R061 | quality-attribute | active | M003/S06 | none | mapped |
 | R030 | core-capability | deferred | M003 | none | unmapped |
 | R031 | primary-user-loop | deferred | M003 | none | unmapped |
 | R032 | primary-user-loop | deferred | M003 | none | unmapped |
@@ -424,7 +594,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 0
-- Mapped to slices: 0
+- Active requirements: 14 (R048, R049, R050, R051, R052, R053, R054, R055, R056, R057, R058, R059, R060, R061)
+- Mapped to slices: 14
 - Validated: 20 (R001, R002, R003, R004, R005, R006, R007, R008, R009, R010, R011, R012, R013, R014, R015, R016, R017, R018, R019, R020)
 - Unmapped active requirements: 0

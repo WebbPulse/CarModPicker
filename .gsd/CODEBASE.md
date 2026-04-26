@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T08:18:51Z","fingerprint":"50ccd996b63d5cdc93fac654ed2ae0779126bb1f","fileCount":1013,"truncated":false} -->
+Generated: 2026-04-26T20:16:44Z | Files: 1015 | Described: 0/1015
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T20:16:44Z","fingerprint":"518cb7a738bb69df5ffee5ffc035ec1358bc2850","fileCount":1015,"truncated":false} -->
 
 ### (root)/
 - `.gitignore`
@@ -595,6 +595,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/src/components/parts/PriceAlertSubscribeButton.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.test.tsx`
 - `frontend/src/components/parts/PriceDeltaLine.tsx`
+- `frontend/src/components/parts/sparkline-cache.ts`
 - `frontend/src/components/parts/SparklineCell.test.tsx`
 - `frontend/src/components/parts/SparklineCell.tsx`
 - `frontend/src/components/parts/VoteButtons.tsx`
@@ -637,6 +638,7 @@ Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
 - `frontend/src/components/ui/confirm-dialog.tsx`
 - `frontend/src/components/ui/dialog.tsx`
 - `frontend/src/components/ui/dropdown-menu.tsx`
+- `frontend/src/components/ui/input-variants.ts`
 - `frontend/src/components/ui/input.tsx`
 - `frontend/src/components/ui/pagination.tsx`
 - `frontend/src/components/ui/select.tsx`
