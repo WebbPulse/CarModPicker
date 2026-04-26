@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-04-26T07:30:59Z | Files: 998 | Described: 0/998
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T07:30:59Z","fingerprint":"9f6a8bf1126c9b0a7313dae184fb6996aa8136ca","fileCount":998,"truncated":false} -->
+Generated: 2026-04-26T08:18:51Z | Files: 1013 | Described: 0/1013
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-26T08:18:51Z","fingerprint":"50ccd996b63d5cdc93fac654ed2ae0779126bb1f","fileCount":1013,"truncated":false} -->
 
 ### (root)/
 - `.gitignore`
@@ -32,6 +32,23 @@ Generated: 2026-04-26T07:30:59Z | Files: 998 | Described: 0/998
 - `.github/workflows/chrome-extension-deploy.yml`
 - `.github/workflows/frontend-ci.yml`
 - `.github/workflows/frontend-deploy.yml`
+
+### .playwright-mcp/
+- `.playwright-mcp/page-2026-04-26T08-04-40-725Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-06-14-024Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-06-22-518Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-06-27-451Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-06-59-116Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-08-55-153Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-09-19-361Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-09-37-919Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-09-53-733Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-10-26-230Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-12-45-801Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-13-36-163Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-16-36-923Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-16-57-069Z.yml`
+- `.playwright-mcp/page-2026-04-26T08-17-22-315Z.yml`
 
 ### backend/
 - `backend/.bandit`

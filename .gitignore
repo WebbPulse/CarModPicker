@@ -156,6 +156,7 @@ tmp/
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # ===========================================
 # GSD runtime state (local only — not tracked)
