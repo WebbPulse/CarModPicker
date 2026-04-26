@@ -156,3 +156,23 @@ tmp/
 # Playwright
 playwright-report/
 test-results/
+
+# ===========================================
+# GSD runtime state (local only — not tracked)
+# ===========================================
+.gsd/STATE.md
+.gsd/last-snapshot.md
+.gsd/state-manifest.json
+.gsd/metrics.json
+.gsd/event-log.jsonl
+.gsd/doctor-history.jsonl
+.gsd/gsd.db-shm
+.gsd/gsd.db-wal
+.gsd/activity/
+.gsd/audit/
+.gsd/journal/
+.gsd/parallel/
+.gsd/runtime/
+.gsd/worktrees/
+# M001 was migrated to gsdb2 stubs (see commit 88a217d); originals live in pre-migration history
+.gsd/milestones/M001/
