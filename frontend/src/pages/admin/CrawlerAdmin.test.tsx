@@ -188,9 +188,9 @@ describe('CrawlerAdmin — Crawler Schedules section', () => {
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
       '/admin/crawler-adapter-configs/'
     );
-    // Sanity: /admin/jobs (list) is also part of initial mount.
+    // Sanity: /admin/jobs/ (list) is also part of initial mount.
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-      '/admin/jobs',
+      '/admin/jobs/',
       expect.objectContaining({ params: { limit: 20 } })
     );
   });

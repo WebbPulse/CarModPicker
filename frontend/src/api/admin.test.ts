@@ -237,7 +237,7 @@ describe('adminApi — crawlers base', () => {
 
     const result = await adminApi.getCrawlers();
 
-    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/crawlers');
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/crawlers/');
     expect(result.data.adapters).toEqual(['test-adapter']);
     expect(result.data.adapter_info[0]?.tier).toBe('http');
   });
@@ -442,13 +442,13 @@ describe('adminApi — background jobs', () => {
     vi.clearAllMocks();
   });
 
-  it('listJobs GETs /admin/jobs with no params when none provided', async () => {
+  it('listJobs GETs /admin/jobs/ with no params when none provided', async () => {
     const jobs = makeJobsList();
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: jobs });
 
     const result = await adminApi.listJobs();
 
-    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs', {
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs/', {
       params: undefined,
     });
     expect(result.data.items[0]?.job_type).toBe('crawler_run');
@@ -466,7 +466,7 @@ describe('adminApi — background jobs', () => {
 
     await adminApi.listJobs(params);
 
-    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs', {
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/admin/jobs/', {
       params,
     });
   });
