@@ -892,7 +892,7 @@ function RunningCrawlerProgress({
 }
 
 function CrawlerAdmin() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
 
   // Crawler tools
@@ -1444,20 +1444,26 @@ function CrawlerAdmin() {
     }
   };
 
-  if (!user) {
+  if (isAuthLoading || !user) {
     return (
-      <div>
+      <div className="container mx-auto px-3 py-4">
         <PageHeader title="Crawler & Jobs" />
-        <Card>
-          <ErrorAlert message="Please log in to access the admin dashboard." />
-        </Card>
+        {isAuthLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Spinner size="lg" text="Loading…" />
+          </div>
+        ) : (
+          <Card>
+            <ErrorAlert message="Please log in to access the admin dashboard." />
+          </Card>
+        )}
       </div>
     );
   }
 
   if (!user.is_admin) {
     return (
-      <div>
+      <div className="container mx-auto px-3 py-4">
         <PageHeader title="Crawler & Jobs" />
         <Card>
           <ErrorAlert message="You do not have permission to access the admin dashboard." />

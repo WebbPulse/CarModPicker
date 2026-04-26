@@ -1,0 +1,103 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - banner [ref=e7]:
+      - generic [ref=e9]:
+        - generic [ref=e11]:
+          - link "CarModPicker" [ref=e12] [cursor=pointer]:
+            - /url: /
+            - img [ref=e14]
+            - generic [ref=e16]: CarModPicker
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - generic [ref=e21]: Loading...
+        - navigation [ref=e22]:
+          - generic [ref=e24]:
+            - generic [ref=e25]:
+              - link "Builder" [ref=e26] [cursor=pointer]:
+                - /url: /builder
+                - img [ref=e28]
+                - generic [ref=e30]: Builder
+              - link "Build Lists" [ref=e31] [cursor=pointer]:
+                - /url: /build-lists
+                - img [ref=e33]
+                - generic [ref=e35]: Build Lists
+              - link "Parts Catalog" [ref=e36] [cursor=pointer]:
+                - /url: /parts
+                - img [ref=e38]
+                - generic [ref=e40]: Parts Catalog
+              - link "Search" [ref=e41] [cursor=pointer]:
+                - /url: /search
+                - img [ref=e43]
+                - generic [ref=e45]: Search
+            - generic [ref=e46]:
+              - link "Get Extension" [ref=e47] [cursor=pointer]:
+                - /url: https://chromewebstore.google.com/detail/dbglgmnnfandmnacdpibkfggkadjikkg?utm_source=item-share-cb
+                - img [ref=e49]
+                - generic [ref=e51]: Get Extension
+              - link "Report a Bug" [ref=e52] [cursor=pointer]:
+                - /url: /bug-report
+                - img [ref=e54]
+                - generic [ref=e56]: Report a Bug
+              - link "Support Us" [ref=e57] [cursor=pointer]:
+                - /url: /support
+                - img [ref=e59]
+                - generic [ref=e61]: Support Us
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - img [ref=e65]
+        - generic [ref=e67]: CarModPicker is under active development. Data wipes may occur before the official launch. Thanks for testing!
+      - button "Dismiss banner" [ref=e68]:
+        - img [ref=e69]
+  - main [ref=e71]:
+    - status [ref=e74]:
+      - img [ref=e75]
+      - paragraph [ref=e77]: Loading page...
+  - contentinfo [ref=e78]:
+    - generic [ref=e80]:
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - img [ref=e86]
+            - generic [ref=e88]: CarModPicker
+          - paragraph [ref=e89]: Your ultimate platform for discovering, planning, and sharing car modifications. Build, customize, and connect with fellow car enthusiasts.
+        - generic [ref=e90]:
+          - heading "Quick Links" [level=3] [ref=e91]
+          - list [ref=e92]:
+            - listitem [ref=e93]:
+              - link "About Us" [ref=e94] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e95]:
+              - link "Contact" [ref=e96] [cursor=pointer]:
+                - /url: /contact-us
+            - listitem [ref=e97]:
+              - link "Privacy Policy" [ref=e98] [cursor=pointer]:
+                - /url: /privacy-policy
+            - listitem [ref=e99]:
+              - link "Terms of Service" [ref=e100] [cursor=pointer]:
+                - /url: /terms-of-service
+            - listitem [ref=e101]:
+              - button "Cookie preferences" [ref=e102]
+            - listitem [ref=e103]:
+              - link "Report a Bug" [ref=e104] [cursor=pointer]:
+                - /url: /bug-report
+            - listitem [ref=e105]:
+              - link "Support Us" [ref=e106] [cursor=pointer]:
+                - /url: /support
+            - listitem [ref=e107]:
+              - link "Parts Catalog" [ref=e108] [cursor=pointer]:
+                - /url: /parts
+        - generic [ref=e109]:
+          - heading "Connect" [level=3] [ref=e110]
+          - generic [ref=e111]:
+            - link [ref=e112] [cursor=pointer]:
+              - /url: https://github.com/TW-WebbPulse
+              - img [ref=e113]
+            - link [ref=e115] [cursor=pointer]:
+              - /url: https://twitter.com
+              - img [ref=e116]
+            - link [ref=e118] [cursor=pointer]:
+              - /url: https://www.linkedin.com/in/tylert2610/
+              - img [ref=e119]
+      - generic [ref=e123]:
+        - paragraph [ref=e124]: © 2026 CarModPicker. All rights reserved.
+        - generic [ref=e126]: Made with ❤️ for car enthusiasts
