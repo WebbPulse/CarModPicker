@@ -43,10 +43,10 @@
 - [x] **S09: S09** `risk:medium` `depends:[]`
   > After this: Visit /build-lists/{id} in dev — page is on the new design system, all interactions use S08 primitives. Run npm run test:e2e -- build-list.spec.ts — green at mobile/tablet/desktop. Tab through the page — focus indicators visible, escape on dialogs works.
 
-- [ ] **S10: S10** `risk:medium` `depends:[]`
+- [x] **S10: S10** `risk:medium` `depends:[]`
   > After this: Visit /parts in dev — page on new design system; each part card shows the S06 sparkline + delta where observations exist. Run npm run test:e2e -- parts-catalog.spec.ts — green at mobile/tablet/desktop. Tab through the page; keyboard nav works.
 
-- [ ] **S11: Admin shell redesign + extraction-health UI** `risk:medium` `depends:[S08,S04]`
+- [ ] **S11: S11** `risk:medium` `depends:[]`
   > After this: Visit /admin in dev — shell on new design system. Click into Extraction Health — page shows 111/111 compliance, per-tier coverage gradient (T0/T1/T2 with field-presence heatmap), per-adapter failure rates over 7d window. Run npm run test:e2e -- admin.spec.ts — green at three breakpoints.
 
 - [ ] **S12: Repo-wide ripple reskin** `risk:medium` `depends:[S08,S09,S10,S11]`

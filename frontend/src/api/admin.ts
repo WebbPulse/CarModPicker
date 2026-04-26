@@ -270,6 +270,57 @@ export interface CrawlerReconcileAllResponse {
   results: CrawlerReconcileResult[];
 }
 
+// Extraction-health (admin only) — mirrors backend Pydantic models in
+// `backend/app/api/endpoints/admin/extraction_health.py`. Per MEM046/D009 the
+// failure-rate signal is sourced from `crawled_pages.parse_status` over a
+// 7-day rolling window (NOT CloudWatch EMF). Per MEM037 the canonical adapter
+// count is 108 (T0:83 / T1:15 / T2:10).
+
+/** Per-tier coverage block: parts with any specs + per-field presence ratios. */
+export interface CoverageTierBlock {
+  parts_with_specs: number;
+  parts_total: number;
+  /** UNIVERSAL_FIELD_NAMES → presence ratio in [0, 1]. */
+  per_field: Record<string, number>;
+}
+
+/** Coverage gradient keyed by fetcher tier. */
+export interface CoverageBlock {
+  per_tier: Record<'http' | 'tls' | 'browser', CoverageTierBlock>;
+}
+
+/** Compliance counts; per_tier values are pre-rendered "<n>/<n>" strings. */
+export interface ComplianceBlock {
+  compliant: number;
+  total: number;
+  per_tier: Record<'http' | 'tls' | 'browser', string>;
+}
+
+/** One row of the 7-day per-adapter failure-rate table. */
+export interface FailureRateRow {
+  adapter: string;
+  failed: number;
+  parsed: number;
+  /** Failure ratio in [0, 1]; 0.0 when failed+parsed == 0. */
+  rate: number;
+  tier: string;
+}
+
+/** Window metadata describing the failure-rate aggregation period. */
+export interface WindowMeta {
+  days: number;
+  /** ISO-8601 start of the window (UTC). */
+  since: string;
+}
+
+/** Full payload from `GET /admin/extraction-health` (admin only). */
+export interface ExtractionHealthResponse {
+  compliance: ComplianceBlock;
+  coverage: CoverageBlock;
+  failure_rate_7d: FailureRateRow[];
+  window: WindowMeta;
+}
+
 export const adminApi = {
   runMigrations: () =>
     apiClient.post<MigrationResult>('/admin/db-ops/migrations/run'),
@@ -418,4 +469,14 @@ export const adminApi = {
     dry_run: boolean;
     batch_size?: number;
   }) => apiClient.post<RescanResponse>('/admin/parts/rescan', body),
+
+  /**
+   * Admin extraction-health snapshot — compliance counts, per-tier coverage
+   * gradient, and 7-day per-adapter failure rates. Backend handler is mounted
+   * at `/admin/extraction-health/` (router prefix + `@router.get("/")`); FastAPI
+   * resolves the no-slash form via redirect. Sources failure-rate from
+   * `crawled_pages.parse_status` (D009) — works in dev/test without IAM.
+   */
+  getExtractionHealth: () =>
+    apiClient.get<ExtractionHealthResponse>('/admin/extraction-health'),
 };
