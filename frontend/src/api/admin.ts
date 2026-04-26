@@ -336,7 +336,7 @@ export const adminApi = {
     apiClient.get<{
       adapters: string[];
       adapter_info: { name: string; tier: 'http' | 'tls' | 'browser' }[];
-    }>('/admin/crawlers'),
+    }>('/admin/crawlers/'),
   getCrawlerServiceAccount: () =>
     apiClient.get<CrawlerServiceAccount>('/admin/crawlers/service-account'),
   runCrawlers: (body: CrawlerRunRequest) =>
@@ -408,7 +408,7 @@ export const adminApi = {
     job_type?: string;
     limit?: number;
     offset?: number;
-  }) => apiClient.get<BackgroundJobList>('/admin/jobs', { params }),
+  }) => apiClient.get<BackgroundJobList>('/admin/jobs/', { params }),
   getJob: (jobId: string) =>
     apiClient.get<BackgroundJob>(`/admin/jobs/${jobId}`),
   getCrawlerJobProgress: (jobId: string) =>
