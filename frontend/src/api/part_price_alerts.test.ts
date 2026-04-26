@@ -3,7 +3,7 @@
 // reference methods as unbound values; the eslint rule is a false positive
 // because vitest's mock runtime invokes them via the same mockApiClient identity
 // (see frontend/src/test/setup.ts dual-mock block).
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/unbound-method */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from './client';
 import { partPriceAlertsApi } from './part_price_alerts';

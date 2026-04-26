@@ -1,7 +1,7 @@
 // Component test for PriceAlertSubscribeButton (M002/S07/T04).
 // Covers: anonymous→login-redirect, authenticated→listMine prefill,
 // successful subscribe POST, threshold validation rejection, 422 error.
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/unbound-method */
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../../api/client';
@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 describe('PriceAlertSubscribeButton', () => {
-  it('redirects anonymous users to /login?next=/parts/:partId on click (does not open dialog)', async () => {
+  it('redirects anonymous users to /login?next=/parts/:partId on click (does not open dialog)', () => {
     // Anonymous → useAuth().user is null → no listMine call should happen.
     render(
       <PriceAlertSubscribeButton
