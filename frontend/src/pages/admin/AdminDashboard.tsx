@@ -2,11 +2,11 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-import ActionButton from '../../components/buttons/ActionButton';
 import { ErrorAlert } from '../../components/common/Alerts';
 import Card from '../../components/common/Card';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
+import { Button } from '../../components/ui/button';
 
 function AdminDashboard() {
   const { user } = useAuth();
@@ -87,6 +87,12 @@ function AdminDashboard() {
       icon: '📊',
       path: '/admin/statistics',
     },
+    {
+      title: 'Extraction Health',
+      description: 'Adapter compliance, per-tier coverage, and 7d failure rates',
+      icon: '🩺',
+      path: '/admin/extraction-health',
+    },
   ];
 
   return (
@@ -114,12 +120,12 @@ function AdminDashboard() {
               <p className="text-gray-400 mb-3 text-sm">
                 {section.description}
               </p>
-              <ActionButton
+              <Button
                 onClick={() => void navigate(section.path)}
                 className="w-full"
               >
                 {section.title}
-              </ActionButton>
+              </Button>
             </div>
           ))}
         </div>

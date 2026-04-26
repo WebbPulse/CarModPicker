@@ -43,7 +43,7 @@ No failure modes / load profile / negative tests block here — the function is 
   - Files: `frontend/src/api/admin.ts`, `frontend/src/api/admin.test.ts`
   - Verify: cd frontend && npm test -- --run admin.test.ts && npm run type-check
 
-- [ ] **T02: Reskin AdminDashboard interactive primitives + add Extraction Health entry + wire route** `est:30m`
+- [x] **T02: Reskin AdminDashboard interactive primitives + add Extraction Health entry + wire route** `est:30m`
   Replace `ActionButton` with `ui/Button` (default variant, full width via `className="w-full"`) on `AdminDashboard.tsx` for the per-section CTA. Leave `Card`, `PageHeader`, `SectionHeader`, `ErrorAlert` untouched per MEM107/MEM115 (they belong to S12). Append a new entry to the `adminSections` array: `{ title: 'Extraction Health', description: 'Adapter compliance, per-tier coverage, and 7d failure rates', icon: '🩺', path: '/admin/extraction-health' }`.
 
 Wire the new route in `frontend/src/App.tsx`: add `const ExtractionHealth = lazy(() => import('./pages/admin/ExtractionHealth.tsx'));` near the other admin lazy imports, and `<Route path="/admin/extraction-health" element={<ExtractionHealth />} />` inside the existing admin `RouteGroupBoundary` block.

@@ -79,6 +79,9 @@ const SystemAdmin = lazy(() => import('./pages/admin/SystemAdmin.tsx'));
 const SystemStatistics = lazy(
   () => import('./pages/admin/SystemStatistics.tsx')
 );
+const ExtractionHealth = lazy(
+  () => import('./pages/admin/ExtractionHealth.tsx')
+);
 const BugReport = lazy(() => import('./pages/BugReport.tsx'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'));
 const PartsCuration = lazy(() => import('./pages/admin/PartsCuration.tsx'));
@@ -364,6 +367,10 @@ function App() {
                   <Route
                     path="/admin/parts-curation"
                     element={<PartsCuration />}
+                  />
+                  <Route
+                    path="/admin/extraction-health"
+                    element={<ExtractionHealth />}
                   />
                 </Route>
               </Routes>
