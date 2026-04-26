@@ -56,7 +56,7 @@ The `ExtractionHealth.tsx` page itself is built in T03; for this task, a minimal
   - Files: `frontend/src/pages/admin/AdminDashboard.tsx`, `frontend/src/App.tsx`, `frontend/src/App.coverage.test.tsx`, `frontend/src/pages/admin/ExtractionHealth.tsx`
   - Verify: cd frontend && npm test -- --run App.coverage.test.tsx AdminDashboard.test.tsx && npm run type-check
 
-- [ ] **T03: Build ExtractionHealth page rendering compliance + coverage + failure-rate** `est:1h30m`
+- [x] **T03: Build ExtractionHealth page rendering compliance + coverage + failure-rate** `est:1h30m`
   Replace the placeholder `frontend/src/pages/admin/ExtractionHealth.tsx` with a full implementation:
 
 1. **Auth guard** — same shape as `AdminDashboard.tsx`: `useAuth()`; if `user && !user.is_admin` navigate to `/`; render `ErrorAlert` if no user or non-admin (mirrors AdminDashboard idioms).
