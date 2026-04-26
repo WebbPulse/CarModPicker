@@ -15,11 +15,12 @@ The service does NOT enforce a batch cap — that lives at the endpoint layer
 from __future__ import annotations
 
 import statistics
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Row, func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.part import Part as DBPart
@@ -298,15 +299,13 @@ def aggregate_batch(
     canonical_ids = set(canonical_for_requested.values())
     # Pull every sibling that points at any of these canonicals so listings
     # in the link group can be aggregated under the canonical id.
-    sibling_rows: list[tuple[UUID, UUID]] = []
+    sibling_rows: Sequence[Row[tuple[UUID, UUID | None]]] = []
     if canonical_ids:
-        sibling_rows = list(
-            db.execute(
-                select(DBPart.id, DBPart.canonical_part_id).where(
-                    DBPart.canonical_part_id.in_(canonical_ids)
-                )
-            ).all()
-        )
+        sibling_rows = db.execute(
+            select(DBPart.id, DBPart.canonical_part_id).where(
+                DBPart.canonical_part_id.in_(canonical_ids)
+            )
+        ).all()
     # Map every part-row in any group → its canonical id.
     part_to_canonical: dict[UUID, UUID] = {}
     for canon in canonical_ids:
@@ -340,7 +339,7 @@ def aggregate_batch(
     # 3) Pull all in-window observations (price + observed_at) per canonical so we
     # can compute `last_cents`/`last_observed_at` and the trend slope without an
     # N+1 fan-out. One SELECT bounded by `canonical_id_expr.in_(canonical_ids)`.
-    obs_rows: list[tuple[UUID, int, datetime]] = []
+    obs_rows: Sequence[Row[tuple[UUID, int, datetime]]] = []
     if canonical_ids:
         obs_stmt = (
             select(
@@ -355,7 +354,7 @@ def aggregate_batch(
         if since is not None:
             obs_stmt = obs_stmt.where(DBPartPriceHistory.observed_at >= since)
         obs_stmt = obs_stmt.order_by(DBPartPriceHistory.observed_at.asc())
-        obs_rows = list(db.execute(obs_stmt).all())
+        obs_rows = db.execute(obs_stmt).all()
 
     obs_by_canonical: dict[UUID, list[tuple[int, datetime]]] = {}
     for canon_id, price, observed_at in obs_rows:

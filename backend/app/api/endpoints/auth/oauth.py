@@ -21,7 +21,7 @@ from app.api.dependencies.auth import (
     get_current_user,
     verify_password,
 )
-from app.api.endpoints.auth._helpers import _issue_login_response, _maybe_2fa_challenge
+from app.api.endpoints.auth._helpers import issue_login_response, maybe_2fa_challenge
 from app.api.models.oauth_account import OAuthAccount
 from app.api.models.user import User as DBUser
 from app.api.models.webauthn_credential import WebAuthnCredential
@@ -131,12 +131,12 @@ async def google_sign_in(
             ResponsePatterns.raise_bad_request("Inactive user")
         if user.is_service_account:
             ResponsePatterns.raise_unauthorized("Account not available")
-        challenge = _maybe_2fa_challenge(user)
+        challenge = maybe_2fa_challenge(user)
         if challenge is not None:
             logger.info(f"Google sign-in: 2FA required for user {user.username}")
             return challenge
         logger.info(f"Google sign-in: existing link, logging in user {user.username}")
-        return _issue_login_response(user)
+        return issue_login_response(user)
 
     email_match = db.scalars(select(DBUser).where(DBUser.email == identity.email)).first()
     if email_match is not None:
@@ -253,7 +253,7 @@ async def google_link(
     db.add(link)
     db.commit()
     logger.info(f"Google linked to existing user {user.username}")
-    return _issue_login_response(user)
+    return issue_login_response(user)
 
 
 @router.post("/google/signup")
@@ -307,7 +307,7 @@ async def google_signup(
     db.commit()
     db.refresh(user)
     logger.info(f"Google signup: created user {user.username} (email {user.email})")
-    return _issue_login_response(user)
+    return issue_login_response(user)
 
 
 @router.post("/2fa")
@@ -342,7 +342,7 @@ async def oauth_two_factor(
         ResponsePatterns.raise_internal_server_error("2FA configuration error")
 
     logger.info(f"OAuth 2FA completed for user {user.username}")
-    return _issue_login_response(user)
+    return issue_login_response(user)
 
 
 @router.post("/google/connect", response_model=OAuthAccountRead)

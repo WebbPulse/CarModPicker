@@ -261,7 +261,7 @@ def _upsert_crawled_page(
     db.flush()
 
 
-def _http_status_from_exception(e: BaseException) -> Optional[int]:
+def http_status_from_exception(e: BaseException) -> Optional[int]:
     """
     Extract an HTTP status code from any exception the fetcher tiers can raise.
 
@@ -279,7 +279,7 @@ def _http_status_from_exception(e: BaseException) -> Optional[int]:
     return None
 
 
-def _classify_fetch_error(e: BaseException, status: Optional[int]) -> str:
+def classify_fetch_error(e: BaseException, status: Optional[int]) -> str:
     """
     Bucket a fetch/parse failure into a short label for the per-adapter
     http_errors breakdown. HTTP statuses are stringified ("404", "503"); other
@@ -586,7 +586,9 @@ def run_crawler(
                     if len(parse_miss_urls) < _MAX_SAMPLES:
                         parse_miss_urls.append({"url": url})
                     continue
-                payload = adapter.apply_universal_extraction(html, payload)
+                enriched = adapter.apply_universal_extraction(html, payload)
+                assert enriched is not None  # apply_universal_extraction returns its input when non-None
+                payload = enriched
                 arch_url = canonicalize_url(url)
                 html_utf8, _, html_sha = crawl_html_fingerprint(html)
                 existing = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == arch_url)).first()
@@ -628,8 +630,8 @@ def run_crawler(
                 # alongside 49 healthy pages. HttpFetcher raises
                 # requests.HTTPError (status on .response); TlsFetcher and
                 # FlareSolverrFetcher raise FetcherError with .status_code.
-                status = _http_status_from_exception(e)
-                bucket = _classify_fetch_error(e, status)
+                status = http_status_from_exception(e)
+                bucket = classify_fetch_error(e, status)
                 http_errors[bucket] = http_errors.get(bucket, 0) + 1
                 # Pre-trip the breaker on any terminal 429/503 per D-11: a
                 # single such response is upstream explicitly telling us to

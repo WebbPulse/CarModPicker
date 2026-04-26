@@ -55,26 +55,26 @@ def test_mark_url_gone_flips_existing_parsed_row(db_session: Session) -> None:
     assert row.parse_status == "gone"
 
 
-def test_http_status_from_exception_handles_all_fetcher_types() -> None:
+def testhttp_status_from_exception_handles_all_fetcher_types() -> None:
     """404 must be extractable from all three fetcher error shapes the runner sees."""
     # HttpFetcher path: requests.HTTPError with a Response object
     resp = requests.Response()
     resp.status_code = 404
     http_err = requests.exceptions.HTTPError("404 Not Found")
     http_err.response = resp
-    assert runner._http_status_from_exception(http_err) == 404
+    assert runner.http_status_from_exception(http_err) == 404
 
     # TlsFetcher path: FetcherError with explicit status_code
     tls_err = FetcherError("TlsFetcher got HTTP 404", status_code=404)
-    assert runner._http_status_from_exception(tls_err) == 404
+    assert runner.http_status_from_exception(tls_err) == 404
 
     # FlareSolverrFetcher path: FlareSolverrError (subclass of FetcherError)
     flare_err = FlareSolverrError("upstream 410", status_code=410)
-    assert runner._http_status_from_exception(flare_err) == 410
+    assert runner.http_status_from_exception(flare_err) == 410
 
     # Timeouts and other non-HTTP errors return None
-    assert runner._http_status_from_exception(TimeoutError("slow")) is None
-    assert runner._http_status_from_exception(FetcherError("request failed")) is None
+    assert runner.http_status_from_exception(TimeoutError("slow")) is None
+    assert runner.http_status_from_exception(FetcherError("request failed")) is None
 
 
 def _query_filter_urls(

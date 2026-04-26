@@ -31,7 +31,7 @@ router = APIRouter()
 # The cancel endpoint reads these globals to signal the right stop event.
 # Import-time circular risk is avoided because both modules only import from
 # `admin._helpers` (leaf) and each other at runtime via module-level references.
-from app.api.endpoints.admin.crawlers import _job_stop_events, _job_tasks  # noqa: E402
+from app.api.endpoints.admin.crawlers import job_stop_events, job_tasks  # noqa: E402
 
 
 @router.get(
@@ -67,7 +67,7 @@ async def list_background_jobs(
         job_service.sweep_orphan_jobs(
             db,
             current_worker_instance_id=WORKER_INSTANCE_ID,
-            live_job_ids=list(_job_tasks.keys()),
+            live_job_ids=list(job_tasks.keys()),
         )
     except Exception:
         logger.exception("Runtime orphan-job sweep on list_background_jobs failed")
@@ -234,7 +234,7 @@ async def cancel_background_job(
         except (BotoCoreError, ClientError) as e:
             logger.warning("Job #%s cancel: failed to stop ECS task %s: %s", job_id, task_arn, e)
     else:
-        stop_event = _job_stop_events.get(job_id)
+        stop_event = job_stop_events.get(job_id)
         if stop_event is not None:
             stop_event.set()
             logger.info("Job #%s cancel: stop event signalled.", job_id)

@@ -49,7 +49,7 @@ from __future__ import annotations
 import logging
 import os
 
-from aws_embedded_metrics import metric_scope
+from aws_embedded_metrics.metric_scope import metric_scope
 from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
 
 from app.core.config import settings
@@ -89,7 +89,8 @@ def emit_crawler_run_metrics(
         return
 
     try:
-        _emit_scoped(
+        # @metric_scope injects the `metrics` arg; pyright can't see through the decorator.
+        _emit_scoped(  # type: ignore[call-arg]
             adapter_name=adapter_name,
             env=env,
             run_type=run_type,
@@ -159,7 +160,8 @@ def emit_extraction_failure(*, adapter_name: str) -> None:
         return
 
     try:
-        _emit_extraction_failure_scoped(adapter_name=adapter_name, env=env)
+        # @metric_scope injects the `metrics` arg; pyright can't see through the decorator.
+        _emit_extraction_failure_scoped(adapter_name=adapter_name, env=env)  # type: ignore[call-arg]
     except Exception as exc:  # email.py analog: log + continue, never crash ingest_payload
         logger.error(
             "emit_extraction_failure failed for adapter=%s: %s",

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 _HEARTBEAT_INTERVAL_SEC = 15
 
 
-def _stamp_heartbeat(job_id: UUID) -> None:
+def stamp_heartbeat(job_id: UUID) -> None:
     """Write a single heartbeat row. Runs in a thread to keep the event loop free."""
     db = SessionLocal()
     try:
@@ -38,7 +38,7 @@ def _stamp_heartbeat(job_id: UUID) -> None:
         db.close()
 
 
-async def _heartbeat_loop(job_id: UUID, interval: float = _HEARTBEAT_INTERVAL_SEC) -> None:
+async def heartbeat_loop(job_id: UUID, interval: float = _HEARTBEAT_INTERVAL_SEC) -> None:
     """
     Periodically refresh a job's last_heartbeat_at so the runtime sweep can tell
     the worker is still alive. Cancelled by the caller when the real job task
@@ -47,7 +47,7 @@ async def _heartbeat_loop(job_id: UUID, interval: float = _HEARTBEAT_INTERVAL_SE
     while True:
         try:
             await asyncio.sleep(interval)
-            await asyncio.to_thread(_stamp_heartbeat, job_id)
+            await asyncio.to_thread(stamp_heartbeat, job_id)
         except asyncio.CancelledError:
             return
         except Exception:
@@ -60,7 +60,7 @@ def _get_superadmin_emails(db: Session) -> List[str]:
     return list(users)
 
 
-def _notify_job_completion(job_id: UUID) -> None:
+def notify_job_completion(job_id: UUID) -> None:
     """
     Send a job-report email to all superadmins.
     Opens its own DB session; safe to call from a background thread.

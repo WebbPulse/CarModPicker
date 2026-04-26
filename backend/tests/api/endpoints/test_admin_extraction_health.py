@@ -12,7 +12,7 @@ from app.api.models.part import Part as DBPart
 from app.core.config import settings
 from app.crawlers.adapters import ADAPTER_REGISTRY
 from app.crawlers.adapters.base import UNIVERSAL_FIELD_NAMES
-from app.crawlers.compliance_audit import _classify_tier
+from app.crawlers.compliance_audit import classify_tier
 from tests.api.endpoints.test_admin import create_and_login_admin_user, create_and_login_user
 
 # Endpoint path resolved against the API prefix; the registry registers it under
@@ -29,7 +29,7 @@ def _pick_adapter_slug(tier: str) -> str:
     break this suite.
     """
     for slug, cls in ADAPTER_REGISTRY.items():
-        if _classify_tier(cls) == tier:
+        if classify_tier(cls) == tier:
             return slug
     raise AssertionError(f"No registered adapter found with tier={tier!r}")
 
@@ -163,7 +163,7 @@ class TestExtractionHealthFailureRate:
         assert row["parsed"] == 1
         assert abs(row["rate"] - 0.5) < 1e-9
         # Tier annotation must come from ADAPTER_REGISTRY.
-        assert row["tier"] == _classify_tier(ADAPTER_REGISTRY[adapter_slug])
+        assert row["tier"] == classify_tier(ADAPTER_REGISTRY[adapter_slug])
 
     def test_extraction_health_excludes_old_failures(
         self, client: TestClient, db_session: Session
