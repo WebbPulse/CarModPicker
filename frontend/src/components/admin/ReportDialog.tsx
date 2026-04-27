@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { partReportsApi } from '../../services/Api';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 interface ReportDialogProps {
   isOpen: boolean;
@@ -79,64 +74,65 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
           <DialogTitle>Report Part</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-        <div>
-          <p className="text-gray-300 mb-2">
-            Report: <span className="font-semibold text-white">{partName}</span>
-          </p>
-          <p className="text-sm text-gray-400">
-            Help us maintain quality by reporting inappropriate or incorrect
-            content.
-          </p>
-        </div>
+          <div>
+            <p className="text-gray-300 mb-2">
+              Report:{' '}
+              <span className="font-semibold text-white">{partName}</span>
+            </p>
+            <p className="text-sm text-gray-400">
+              Help us maintain quality by reporting inappropriate or incorrect
+              content.
+            </p>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Reason for Report *
-          </label>
-          <select
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isSubmitting}
-          >
-            <option value="">Select a reason</option>
-            {REPORT_REASONS.map((reportReason) => (
-              <option key={reportReason.value} value={reportReason.value}>
-                {reportReason.display}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Reason for Report *
+            </label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSubmitting}
+            >
+              <option value="">Select a reason</option>
+              {REPORT_REASONS.map((reportReason) => (
+                <option key={reportReason.value} value={reportReason.value}>
+                  {reportReason.display}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Additional Details (Optional)
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Please provide any additional details about your report..."
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            rows={4}
-            disabled={isSubmitting}
-          />
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Additional Details (Optional)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Please provide any additional details about your report..."
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              rows={4}
+              disabled={isSubmitting}
+            />
+          </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!reason.trim() || isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Report'}
-          </Button>
-        </div>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={!reason.trim() || isSubmitting}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -114,9 +114,7 @@ describe('useApiRequest', () => {
       await result.current.executeRequest();
     });
 
-    expect(result.current.error).toBe(
-      'name is required. must be positive'
-    );
+    expect(result.current.error).toBe('name is required. must be positive');
   });
 
   it('falls back to err.message when the error is not an AxiosError', async () => {

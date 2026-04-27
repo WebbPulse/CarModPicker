@@ -40,8 +40,7 @@ const mockApiClient = sharedMockedApiClient;
 // below makes every apiClient reference — direct, via services/Api default,
 // or via a domain API — point at the same `vi.fn()` so assertions converge.
 vi.mock('../../services/Api', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../services/Api')>();
+  const actual = await importOriginal<typeof import('../../services/Api')>();
   return {
     ...actual,
     default: mockApiClient,

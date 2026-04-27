@@ -17,7 +17,7 @@ const historyCache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<PartPriceHistoryReadWithRetailer[]>>();
 
 export function getCachedHistory(
-  partId: string,
+  partId: string
 ): PartPriceHistoryReadWithRetailer[] | null {
   const entry = historyCache.get(partId);
   if (!entry) return null;
@@ -29,7 +29,7 @@ export function getCachedHistory(
 }
 
 export function fetchHistory(
-  partId: string,
+  partId: string
 ): Promise<PartPriceHistoryReadWithRetailer[]> {
   const existing = inflight.get(partId);
   if (existing) return existing;

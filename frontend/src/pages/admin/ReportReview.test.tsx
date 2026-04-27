@@ -140,9 +140,7 @@ describe('ReportReview page', () => {
     });
 
     expect(
-      screen.getByText(
-        /You do not have permission to access report review\./i
-      )
+      screen.getByText(/You do not have permission to access report review\./i)
     ).toBeInTheDocument();
     // List fetch should NOT fire for non-admin — the early return runs first,
     // and the fetch useEffect requires user.is_admin.

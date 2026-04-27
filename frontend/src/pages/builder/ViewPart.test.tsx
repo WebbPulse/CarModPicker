@@ -165,9 +165,7 @@ describe('ViewPart page', () => {
 
     // VoteButtons renders both upvote + downvote buttons (accessible via
     // their `title` attributes → accessible name).
-    expect(
-      screen.getByRole('button', { name: /upvote/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upvote/i })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /downvote/i })
     ).toBeInTheDocument();

@@ -27,9 +27,8 @@ const { mockGet, mockUpdate } = vi.hoisted(() => ({
 // AppSettings named type re-export. vi.importActual pulls the setup.ts-mocked
 // module (which has just { default: mockApiClient }).
 vi.mock('../services/Api', async () => {
-  const actual = await vi.importActual<typeof import('../services/Api')>(
-    '../services/Api'
-  );
+  const actual =
+    await vi.importActual<typeof import('../services/Api')>('../services/Api');
   return {
     ...actual,
     appSettingsApi: {

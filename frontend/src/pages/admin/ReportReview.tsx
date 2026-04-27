@@ -311,7 +311,9 @@ function ReportReview() {
                         <h4 className="font-medium text-foreground mb-1">
                           Description
                         </h4>
-                        <p className="text-muted-foreground">{report.description}</p>
+                        <p className="text-muted-foreground">
+                          {report.description}
+                        </p>
                       </div>
                     )}
 
@@ -320,7 +322,9 @@ function ReportReview() {
                         <h4 className="font-medium text-foreground mb-1">
                           Admin Notes
                         </h4>
-                        <p className="text-muted-foreground">{report.admin_notes}</p>
+                        <p className="text-muted-foreground">
+                          {report.admin_notes}
+                        </p>
                       </div>
                     )}
 
@@ -376,64 +380,66 @@ function ReportReview() {
             <DialogTitle>{`Review Report #${selectedReport?.id ?? ''}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-          <div>
-            <h4 className="font-medium text-foreground mb-2">Report Details</h4>
-            <div className="bg-muted p-3 rounded text-foreground">
-              <p>
-                <strong>Entity:</strong> {selectedReport?.entity_name} (
-                {selectedReport?.entity_type})
-              </p>
-              <p>
-                <strong>Reason:</strong> {selectedReport?.reason}
-              </p>
-              <p>
-                <strong>Reporter:</strong> {selectedReport?.reporter_username}
-              </p>
-              {selectedReport?.description && (
+            <div>
+              <h4 className="font-medium text-foreground mb-2">
+                Report Details
+              </h4>
+              <div className="bg-muted p-3 rounded text-foreground">
                 <p>
-                  <strong>Description:</strong> {selectedReport.description}
+                  <strong>Entity:</strong> {selectedReport?.entity_name} (
+                  {selectedReport?.entity_type})
                 </p>
-              )}
+                <p>
+                  <strong>Reason:</strong> {selectedReport?.reason}
+                </p>
+                <p>
+                  <strong>Reporter:</strong> {selectedReport?.reporter_username}
+                </p>
+                {selectedReport?.description && (
+                  <p>
+                    <strong>Description:</strong> {selectedReport.description}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="admin_notes"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Admin Notes
-            </label>
-            <Textarea
-              id="admin_notes"
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              rows={4}
-              placeholder="Add notes about your decision..."
-            />
-          </div>
+            <div>
+              <label
+                htmlFor="admin_notes"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
+                Admin Notes
+              </label>
+              <Textarea
+                id="admin_notes"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                rows={4}
+                placeholder="Add notes about your decision..."
+              />
+            </div>
 
-          {updateError && <ErrorAlert message={updateError} />}
+            {updateError && <ErrorAlert message={updateError} />}
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={closeReviewDialog}>
-              Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void handleUpdateReport('dismissed')}
-              disabled={isUpdating}
-            >
-              Dismiss Report
-            </Button>
-            <Button
-              onClick={() => void handleUpdateReport('resolved')}
-              className="bg-success hover:bg-success/90 text-success-foreground"
-              disabled={isUpdating}
-            >
-              Resolve Report
-            </Button>
-          </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="secondary" onClick={closeReviewDialog}>
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void handleUpdateReport('dismissed')}
+                disabled={isUpdating}
+              >
+                Dismiss Report
+              </Button>
+              <Button
+                onClick={() => void handleUpdateReport('resolved')}
+                className="bg-success hover:bg-success/90 text-success-foreground"
+                disabled={isUpdating}
+              >
+                Resolve Report
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

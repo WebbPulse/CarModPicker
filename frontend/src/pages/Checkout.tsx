@@ -75,7 +75,9 @@ function Checkout() {
                 <div className="text-white font-medium">
                   CarModPicker Premium
                 </div>
-                <div className="text-sm text-muted-foreground">Monthly plan</div>
+                <div className="text-sm text-muted-foreground">
+                  Monthly plan
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-white font-semibold">

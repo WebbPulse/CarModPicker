@@ -38,7 +38,7 @@ import BuildListsCatalog from './BuildListsCatalog';
 // Helper: seed the apiClient.get mock with a URL-routed implementation so
 // initial mount (make stats + paginated build-lists fetch) resolves with the
 // requested shape.
-function seedApiClient(buildLists: typeof mockBuildList[] = [mockBuildList]) {
+function seedApiClient(buildLists: (typeof mockBuildList)[] = [mockBuildList]) {
   vi.mocked(apiClient.get).mockImplementation((url: string) => {
     if (url.includes('/car-generations/stats/car-makes')) {
       return Promise.resolve({ data: { Toyota: 1 } });
@@ -118,18 +118,14 @@ describe('BuildListsCatalog page', () => {
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/no build lists found/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(/no build lists found/i)).toBeInTheDocument()
     );
     expect(screen.queryByText(mockBuildList.name)).not.toBeInTheDocument();
   });
 
   it('forwards car_id deeplink filter to the car-generations API', async () => {
     render(
-      <MemoryRouter
-        initialEntries={[`/build-lists?car_id=${mockCar.id}`]}
-      >
+      <MemoryRouter initialEntries={[`/build-lists?car_id=${mockCar.id}`]}>
         <BuildListsCatalog />
       </MemoryRouter>
     );

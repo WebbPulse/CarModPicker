@@ -189,16 +189,16 @@ describe('AccountAlerts', () => {
     expect(rows[0]).toHaveAttribute('data-alert-id', alertA.id);
     expect(rows[1]).toHaveAttribute('data-alert-id', alertB.id);
     // alertA is "Not sent yet"; alertB has a last_fired_at → "Last sent <date>".
-    expect(within(rows[0]!).getByTestId('alert-row-last-fired')).toHaveTextContent(
-      /not sent yet/i
-    );
-    expect(within(rows[1]!).getByTestId('alert-row-last-fired')).toHaveTextContent(
-      /last sent/i
-    );
+    expect(
+      within(rows[0]!).getByTestId('alert-row-last-fired')
+    ).toHaveTextContent(/not sent yet/i);
+    expect(
+      within(rows[1]!).getByTestId('alert-row-last-fired')
+    ).toHaveTextContent(/last sent/i);
     // alertB threshold $199.99.
-    expect(within(rows[1]!).getByTestId('alert-row-threshold')).toHaveTextContent(
-      '$199.99'
-    );
+    expect(
+      within(rows[1]!).getByTestId('alert-row-threshold')
+    ).toHaveTextContent('$199.99');
   });
 
   it('clicking Unsubscribe DELETEs the alert and removes the row from the list', async () => {

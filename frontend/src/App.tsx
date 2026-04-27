@@ -1,11 +1,5 @@
 import { Suspense, useEffect } from 'react';
-import {
-  Navigate,
-  Outlet,
-  Route,
-  Routes,
-  useLocation,
-} from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
@@ -57,9 +51,7 @@ const VerifyEmailConfirm = lazy(
 const ExtensionAuth = lazy(
   () => import('./pages/authentication/ExtensionAuth.tsx')
 );
-const AccountAlerts = lazy(
-  () => import('./pages/account/AccountAlerts.tsx')
-);
+const AccountAlerts = lazy(() => import('./pages/account/AccountAlerts.tsx'));
 const Builder = lazy(() => import('./pages/builder/Builder.tsx'));
 const ViewCar = lazy(() => import('./pages/builder/ViewCar.tsx'));
 const ViewUser = lazy(() => import('./pages/ViewUser.tsx'));

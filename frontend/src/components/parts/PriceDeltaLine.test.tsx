@@ -4,7 +4,7 @@ import PriceDeltaLine from './PriceDeltaLine';
 import type { PriceHistorySummary } from '../../types/Api';
 
 function makeSummary(
-  overrides: Partial<PriceHistorySummary> = {},
+  overrides: Partial<PriceHistorySummary> = {}
 ): PriceHistorySummary {
   return {
     min_cents: 4500,
@@ -39,7 +39,7 @@ describe('PriceDeltaLine', () => {
           last_observed_at: null,
           trend: 'flat',
         })}
-      />,
+      />
     );
     expect(container.firstChild).toBeNull();
   });
@@ -55,10 +55,10 @@ describe('PriceDeltaLine', () => {
           last_observed_at: '2026-04-01T12:00:00Z',
           trend: 'flat',
         })}
-      />,
+      />
     );
     expect(screen.getByTestId('price-delta-line').textContent).toMatch(
-      /Tracked since/,
+      /Tracked since/
     );
   });
 
@@ -71,7 +71,7 @@ describe('PriceDeltaLine', () => {
           max_cents: 5500, // $55
           trend: 'down',
         })}
-      />,
+      />
     );
     const text = screen.getByTestId('price-delta-line').textContent ?? '';
     expect(text).toContain('$45');
@@ -88,7 +88,7 @@ describe('PriceDeltaLine', () => {
           max_cents: 5550, // rounds to $56 (banker's-naive round; 5550/100=55.5 → 56)
           trend: 'up',
         })}
-      />,
+      />
     );
     const text = screen.getByTestId('price-delta-line').textContent ?? '';
     expect(text).toContain('$49');
@@ -96,23 +96,17 @@ describe('PriceDeltaLine', () => {
   });
 
   it('uses ↑ arrow for trend=up', () => {
-    render(
-      <PriceDeltaLine summary={makeSummary({ trend: 'up' })} />,
-    );
+    render(<PriceDeltaLine summary={makeSummary({ trend: 'up' })} />);
     expect(screen.getByTestId('price-delta-arrow').textContent).toBe('↑');
   });
 
   it('uses ↓ arrow for trend=down', () => {
-    render(
-      <PriceDeltaLine summary={makeSummary({ trend: 'down' })} />,
-    );
+    render(<PriceDeltaLine summary={makeSummary({ trend: 'down' })} />);
     expect(screen.getByTestId('price-delta-arrow').textContent).toBe('↓');
   });
 
   it('uses · arrow for trend=flat', () => {
-    render(
-      <PriceDeltaLine summary={makeSummary({ trend: 'flat' })} />,
-    );
+    render(<PriceDeltaLine summary={makeSummary({ trend: 'flat' })} />);
     expect(screen.getByTestId('price-delta-arrow').textContent).toBe('·');
   });
 
@@ -123,7 +117,7 @@ describe('PriceDeltaLine', () => {
           observation_count: 1,
           trend: 'up',
         })}
-      />,
+      />
     );
     expect(screen.getByTestId('price-delta-arrow').textContent).toBe('↑');
   });

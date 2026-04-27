@@ -101,7 +101,9 @@ describe('ViewUser page', () => {
     // "<id>". <error-message>" when userApiError is set.
     await waitFor(() =>
       expect(
-        screen.getByText(/failed to load profile for user id "missing-user-id"/i)
+        screen.getByText(
+          /failed to load profile for user id "missing-user-id"/i
+        )
       ).toBeInTheDocument()
     );
   });

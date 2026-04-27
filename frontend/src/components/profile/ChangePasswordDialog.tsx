@@ -3,12 +3,7 @@ import { FaShieldAlt } from 'react-icons/fa';
 import { useAuth } from '../../hooks/useAuth';
 import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 
 interface ChangePasswordDialogProps {
@@ -218,9 +213,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
                   type="text"
                   value={formData.otp}
                   onChange={(e) => {
-                    const value = e.target.value
-                      .replace(/\D/g, '')
-                      .slice(0, 6);
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setFormData((prev) => ({ ...prev, otp: value }));
                     setError(null);
                   }}

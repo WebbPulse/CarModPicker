@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from './confirm-dialog';
 
 function renderControlled(
-  initialProps: Partial<React.ComponentProps<typeof ConfirmDialog>> = {},
+  initialProps: Partial<React.ComponentProps<typeof ConfirmDialog>> = {}
 ) {
   const onConfirm = vi.fn();
   const onOpenChange = vi.fn();
@@ -18,7 +18,7 @@ function renderControlled(
       description="This action cannot be undone."
       confirmLabel="Delete"
       {...initialProps}
-    />,
+    />
   );
   return { onConfirm, onOpenChange, ...utils };
 }
@@ -31,7 +31,7 @@ describe('ConfirmDialog', () => {
         onOpenChange={vi.fn()}
         onConfirm={vi.fn()}
         title="Delete build list"
-      />,
+      />
     );
     expect(screen.queryByTestId('confirm-dialog')).toBeNull();
   });
@@ -41,13 +41,13 @@ describe('ConfirmDialog', () => {
     expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
     expect(screen.getByText('Delete build list')).toBeInTheDocument();
     expect(
-      screen.getByText('This action cannot be undone.'),
+      screen.getByText('This action cannot be undone.')
     ).toBeInTheDocument();
     expect(screen.getByTestId('confirm-dialog-confirm')).toHaveTextContent(
-      'Confirm',
+      'Confirm'
     );
     expect(screen.getByTestId('confirm-dialog-cancel')).toHaveTextContent(
-      'Cancel',
+      'Cancel'
     );
   });
 
@@ -111,7 +111,9 @@ describe('ConfirmDialog', () => {
     });
     const warningEl = screen.getByTestId('confirm-dialog-warning');
     expect(warningEl).toBeInTheDocument();
-    expect(warningEl).toHaveTextContent('This part is currently in 3 build lists');
+    expect(warningEl).toHaveTextContent(
+      'This part is currently in 3 build lists'
+    );
   });
 
   it('does not render the warning slot when omitted', () => {

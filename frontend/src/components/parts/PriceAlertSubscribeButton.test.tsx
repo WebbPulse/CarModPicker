@@ -42,8 +42,7 @@ vi.mock('../../hooks/useAuth', () => ({
 // pushing browser history. importOriginal preserves Link, BrowserRouter, etc.
 const navigateMock = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('react-router-dom')>();
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => navigateMock,

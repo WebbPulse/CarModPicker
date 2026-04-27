@@ -17,7 +17,7 @@ const statusBadgeVariants = cva(
     defaultVariants: {
       variant: 'pending',
     },
-  },
+  }
 );
 
 const statusLabels: Record<NonNullable<StatusBadgeProps['variant']>, string> = {
@@ -67,7 +67,7 @@ const priorityBadgeVariants = cva(
     defaultVariants: {
       priority: 'medium',
     },
-  },
+  }
 );
 
 const priorityLabels: Record<

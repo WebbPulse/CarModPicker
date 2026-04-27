@@ -128,9 +128,7 @@ describe('buildListPartsApi', () => {
 
     await buildListPartsApi.deleteBuildListPartById(blpId);
 
-    expect(apiClient.delete).toHaveBeenCalledWith(
-      `/build-list-parts/${blpId}`
-    );
+    expect(apiClient.delete).toHaveBeenCalledWith(`/build-list-parts/${blpId}`);
   });
 
   it('getBuildListPartsBasic GETs /build-list-parts/:id', async () => {

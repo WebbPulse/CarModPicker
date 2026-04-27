@@ -517,236 +517,239 @@ function UserManagement() {
             <DialogTitle>{`Edit User: ${selectedUser?.username ?? ''}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-          <div className="space-y-1">
-            <label
-              htmlFor="edit-username"
-              className="block text-sm font-medium text-foreground"
-            >
-              Username
-            </label>
-            <Input
-              id="edit-username"
-              value={formData.username || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, username: e.target.value || null })
-              }
-              placeholder="Username"
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="edit-email"
-              className="block text-sm font-medium text-foreground"
-            >
-              Email
-            </label>
-            <Input
-              id="edit-email"
-              type="email"
-              value={formData.email || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value || null })
-              }
-              placeholder="Email address"
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="edit-password"
-              className="block text-sm font-medium text-foreground"
-            >
-              New Password (leave empty to keep current)
-            </label>
-            <Input
-              id="edit-password"
-              type="password"
-              value={formData.password || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  password: e.target.value || null,
-                })
-              }
-              placeholder="New password"
-            />
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="edit-image-url"
-              className="block text-sm font-medium text-foreground"
-            >
-              Image URL
-            </label>
-            <Input
-              id="edit-image-url"
-              value={formData.image_urls?.[0] || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  image_urls: e.target.value ? [e.target.value] : null,
-                })
-              }
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-disabled"
-                checked={formData.disabled ?? false}
-                onChange={(e) =>
-                  setFormData({ ...formData, disabled: e.target.checked })
-                }
-                className="rounded"
-              />
-              <label htmlFor="edit-disabled" className="text-foreground">
-                Disabled
-              </label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-email-verified"
-                checked={formData.email_verified ?? false}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    email_verified: e.target.checked,
-                  })
-                }
-                className="rounded"
-              />
-              <label htmlFor="edit-email-verified" className="text-foreground">
-                Email Verified
-              </label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-is-admin"
-                checked={formData.is_admin ?? false}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_admin: e.target.checked })
-                }
-                className="rounded"
-                disabled={
-                  selectedUser?.id === currentUser.id &&
-                  formData.is_admin === true
-                }
-              />
-              <label htmlFor="edit-is-admin" className="text-foreground">
-                Admin
-              </label>
-              {selectedUser?.id === currentUser.id && (
-                <span className="text-xs text-muted-foreground">
-                  (Cannot remove your own admin status)
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-is-superuser"
-                checked={formData.is_superuser ?? false}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_superuser: e.target.checked })
-                }
-                className="rounded"
-                disabled={
-                  selectedUser?.id === currentUser.id &&
-                  formData.is_superuser === true
-                }
-              />
-              <label htmlFor="edit-is-superuser" className="text-foreground">
-                Superuser
-              </label>
-              {selectedUser?.id === currentUser.id && (
-                <span className="text-xs text-muted-foreground">
-                  (Cannot remove your own superuser status)
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="border-t border-border pt-4 space-y-2">
-            <label className="block text-sm text-foreground">
-              Subscription tier
-            </label>
-            <select
-              id="edit-subscription-tier"
-              value={formData.subscription_tier ?? 'free'}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  subscription_tier: e.target.value as 'free' | 'premium',
-                })
-              }
-              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-            >
-              <option value="free">Free</option>
-              <option value="premium">Premium</option>
-            </select>
-            <label className="block text-sm text-foreground mt-2">
-              Subscription status
-            </label>
-            <select
-              id="edit-subscription-status"
-              value={formData.subscription_status ?? 'active'}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  subscription_status: e.target.value as
-                    | 'active'
-                    | 'cancelled'
-                    | 'expired',
-                })
-              }
-              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-            >
-              <option value="active">Active</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="expired">Expired</option>
-            </select>
             <div className="space-y-1">
               <label
-                htmlFor="edit-subscription-expires"
+                htmlFor="edit-username"
                 className="block text-sm font-medium text-foreground"
               >
-                Subscription expires at (leave empty for no expiry)
+                Username
               </label>
               <Input
-                id="edit-subscription-expires"
-                type="date"
-                value={
-                  formData.subscription_expires_at
-                    ? formData.subscription_expires_at.slice(0, 10)
-                    : ''
+                id="edit-username"
+                value={formData.username || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, username: e.target.value || null })
                 }
+                placeholder="Username"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="edit-email"
+                className="block text-sm font-medium text-foreground"
+              >
+                Email
+              </label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value || null })
+                }
+                placeholder="Email address"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="edit-password"
+                className="block text-sm font-medium text-foreground"
+              >
+                New Password (leave empty to keep current)
+              </label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password || ''}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    subscription_expires_at: e.target.value
-                      ? e.target.value
-                      : null,
+                    password: e.target.value || null,
                   })
                 }
+                placeholder="New password"
               />
             </div>
-          </div>
-          {updateError && <ErrorAlert message={updateError} />}
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={closeEditDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void handleUpdateUser()}
-              disabled={isUpdating || !formData.username || !formData.email}
-            >
-              {isUpdating ? 'Updating...' : 'Update User'}
-            </Button>
-          </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="edit-image-url"
+                className="block text-sm font-medium text-foreground"
+              >
+                Image URL
+              </label>
+              <Input
+                id="edit-image-url"
+                value={formData.image_urls?.[0] || ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    image_urls: e.target.value ? [e.target.value] : null,
+                  })
+                }
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-disabled"
+                  checked={formData.disabled ?? false}
+                  onChange={(e) =>
+                    setFormData({ ...formData, disabled: e.target.checked })
+                  }
+                  className="rounded"
+                />
+                <label htmlFor="edit-disabled" className="text-foreground">
+                  Disabled
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-email-verified"
+                  checked={formData.email_verified ?? false}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      email_verified: e.target.checked,
+                    })
+                  }
+                  className="rounded"
+                />
+                <label
+                  htmlFor="edit-email-verified"
+                  className="text-foreground"
+                >
+                  Email Verified
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-is-admin"
+                  checked={formData.is_admin ?? false}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_admin: e.target.checked })
+                  }
+                  className="rounded"
+                  disabled={
+                    selectedUser?.id === currentUser.id &&
+                    formData.is_admin === true
+                  }
+                />
+                <label htmlFor="edit-is-admin" className="text-foreground">
+                  Admin
+                </label>
+                {selectedUser?.id === currentUser.id && (
+                  <span className="text-xs text-muted-foreground">
+                    (Cannot remove your own admin status)
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-is-superuser"
+                  checked={formData.is_superuser ?? false}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_superuser: e.target.checked })
+                  }
+                  className="rounded"
+                  disabled={
+                    selectedUser?.id === currentUser.id &&
+                    formData.is_superuser === true
+                  }
+                />
+                <label htmlFor="edit-is-superuser" className="text-foreground">
+                  Superuser
+                </label>
+                {selectedUser?.id === currentUser.id && (
+                  <span className="text-xs text-muted-foreground">
+                    (Cannot remove your own superuser status)
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="border-t border-border pt-4 space-y-2">
+              <label className="block text-sm text-foreground">
+                Subscription tier
+              </label>
+              <select
+                id="edit-subscription-tier"
+                value={formData.subscription_tier ?? 'free'}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    subscription_tier: e.target.value as 'free' | 'premium',
+                  })
+                }
+                className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              >
+                <option value="free">Free</option>
+                <option value="premium">Premium</option>
+              </select>
+              <label className="block text-sm text-foreground mt-2">
+                Subscription status
+              </label>
+              <select
+                id="edit-subscription-status"
+                value={formData.subscription_status ?? 'active'}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    subscription_status: e.target.value as
+                      | 'active'
+                      | 'cancelled'
+                      | 'expired',
+                  })
+                }
+                className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              >
+                <option value="active">Active</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="expired">Expired</option>
+              </select>
+              <div className="space-y-1">
+                <label
+                  htmlFor="edit-subscription-expires"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  Subscription expires at (leave empty for no expiry)
+                </label>
+                <Input
+                  id="edit-subscription-expires"
+                  type="date"
+                  value={
+                    formData.subscription_expires_at
+                      ? formData.subscription_expires_at.slice(0, 10)
+                      : ''
+                  }
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      subscription_expires_at: e.target.value
+                        ? e.target.value
+                        : null,
+                    })
+                  }
+                />
+              </div>
+            </div>
+            {updateError && <ErrorAlert message={updateError} />}
+            <div className="flex justify-end space-x-2">
+              <Button variant="secondary" onClick={closeEditDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleUpdateUser()}
+                disabled={isUpdating || !formData.username || !formData.email}
+              >
+                {isUpdating ? 'Updating...' : 'Update User'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

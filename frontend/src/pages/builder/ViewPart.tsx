@@ -740,8 +740,7 @@ function ViewPart() {
                       className="text-sm text-gray-400 mb-3"
                     >
                       {formatCents(summary.min_cents)}–
-                      {formatCents(summary.max_cents)} across{' '}
-                      {retailers.length}{' '}
+                      {formatCents(summary.max_cents)} across {retailers.length}{' '}
                       {retailers.length === 1 ? 'retailer' : 'retailers'}
                       {headerLastObserved && (
                         <>
@@ -847,10 +846,7 @@ function ViewPart() {
 
       {/* Dialog for Editing Part */}
       {part && canEdit && (
-        <Dialog
-          open={isEditPartFormOpen}
-          onOpenChange={setIsEditPartFormOpen}
-        >
+        <Dialog open={isEditPartFormOpen} onOpenChange={setIsEditPartFormOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{`Edit ${part.name}`}</DialogTitle>

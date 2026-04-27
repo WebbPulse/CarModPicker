@@ -125,9 +125,7 @@ describe('UserManagement page', () => {
     );
 
     // Wait for the first fetch to settle.
-    await waitFor(() =>
-      expect(vi.mocked(apiClient.get)).toHaveBeenCalled()
-    );
+    await waitFor(() => expect(vi.mocked(apiClient.get)).toHaveBeenCalled());
     vi.mocked(apiClient.get).mockClear();
 
     const searchInput = screen.getByPlaceholderText(

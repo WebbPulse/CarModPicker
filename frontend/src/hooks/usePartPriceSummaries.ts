@@ -18,30 +18,29 @@ function errorMessage(err: unknown): string {
 }
 
 const EMPTY_SUMMARIES: Record<string, PriceHistorySummary> = Object.freeze(
-  {},
+  {}
 ) as Record<string, PriceHistorySummary>;
 
 export function usePartPriceSummaries(
   partIds: string[],
-  window: PriceHistoryBatchRequest['window'] = '90d',
+  window: PriceHistoryBatchRequest['window'] = '90d'
 ): UsePartPriceSummariesResult {
   // Sorted-stable ID join — used both as memo dep and dedupe key. Computing
   // a primitive string lets the effect's deps array be primitive-only, which
   // sidesteps the new-array-each-render re-render loop.
   const sortedKey = useMemo(
     () => (partIds.length === 0 ? '' : [...partIds].sort().join(',')),
-    [partIds],
+    [partIds]
   );
   const sortedIds = useMemo(
     () => (sortedKey === '' ? [] : sortedKey.split(',')),
-    [sortedKey],
+    [sortedKey]
   );
   const stableKey = sortedKey === '' ? '' : `${sortedKey}|${window ?? '90d'}`;
 
   const lastKeyRef = useRef<string | null>(null);
-  const [summaries, setSummaries] = useState<
-    Record<string, PriceHistorySummary>
-  >(EMPTY_SUMMARIES);
+  const [summaries, setSummaries] =
+    useState<Record<string, PriceHistorySummary>>(EMPTY_SUMMARIES);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

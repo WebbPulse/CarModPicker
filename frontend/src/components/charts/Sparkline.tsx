@@ -22,9 +22,9 @@ export default function Sparkline({
     () =>
       [...history].sort(
         (a, b) =>
-          new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime(),
+          new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime()
       ),
-    [history],
+    [history]
   );
 
   if (sorted.length === 0) return null;

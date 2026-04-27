@@ -16,15 +16,11 @@ export const partPriceAlertsApi = {
     apiClient.post<PartPriceAlertRead>('/part-price-alerts/', data),
 
   // List the current user's active alerts.
-  listMine: () =>
-    apiClient.get<PartPriceAlertRead[]>('/part-price-alerts/me'),
+  listMine: () => apiClient.get<PartPriceAlertRead[]>('/part-price-alerts/me'),
 
   // Patch threshold and/or active flag on the user's own alert.
   updateAlert: (alertId: string, data: PartPriceAlertUpdate) =>
-    apiClient.patch<PartPriceAlertRead>(
-      `/part-price-alerts/${alertId}`,
-      data
-    ),
+    apiClient.patch<PartPriceAlertRead>(`/part-price-alerts/${alertId}`, data),
 
   // Soft-delete (active=false).
   deleteAlert: (alertId: string) =>

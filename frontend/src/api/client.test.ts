@@ -20,14 +20,7 @@
    @typescript-eslint/no-unsafe-member-access,
    @typescript-eslint/no-unsafe-assignment,
    @typescript-eslint/no-unsafe-call */
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('client.ts — token helpers (real module)', () => {
   beforeEach(() => {

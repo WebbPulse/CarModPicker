@@ -26,12 +26,15 @@ export function LoadingOverlay({
       aria-busy="true"
       className={cn(
         'absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm',
-        className,
+        className
       )}
       {...props}
     >
       <div className="flex flex-col items-center gap-2 text-foreground">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+        <Loader2
+          className="h-6 w-6 animate-spin text-primary"
+          aria-hidden="true"
+        />
         {label ? (
           <p className="text-sm text-muted-foreground">{label}</p>
         ) : (

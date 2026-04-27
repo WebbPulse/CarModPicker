@@ -8,7 +8,9 @@ import type {
   ReportWithDetails,
 } from '../../../types/Api';
 
-export const makeReport = (overrides: Partial<ReportRead> = {}): ReportRead => ({
+export const makeReport = (
+  overrides: Partial<ReportRead> = {}
+): ReportRead => ({
   id: '66666666-6666-7666-8666-666666666666',
   user_id: '11111111-1111-7111-8111-111111111111',
   entity_type: 'part',

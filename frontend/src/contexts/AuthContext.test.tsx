@@ -47,9 +47,8 @@ const { mockLogout, mockRemoveStoredToken } = vi.hoisted(() => ({
 // setup.ts mock, resolves to the { default: mockApiClient } shape), merging
 // in the missing named exports with our hoisted vi.fn()s.
 vi.mock('../services/Api', async () => {
-  const actual = await vi.importActual<typeof import('../services/Api')>(
-    '../services/Api'
-  );
+  const actual =
+    await vi.importActual<typeof import('../services/Api')>('../services/Api');
   return {
     ...actual,
     authApi: { logout: mockLogout },

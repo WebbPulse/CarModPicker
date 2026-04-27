@@ -121,7 +121,9 @@ const renderWithRouter = (
     ),
   });
 
-const makePaginatedPartsResponse = (items: typeof mockPart[] = [mockPart]) => ({
+const makePaginatedPartsResponse = (
+  items: (typeof mockPart)[] = [mockPart]
+) => ({
   data: items.map((p) => ({
     ...p,
     upvotes: 0,
@@ -144,7 +146,7 @@ describe('UserParts page', () => {
     vi.clearAllMocks();
   });
 
-  it('lists the authenticated user\'s parts from the API', async () => {
+  it("lists the authenticated user's parts from the API", async () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url.startsWith('/parts/with-votes')) {
         return Promise.resolve({ data: makePaginatedPartsResponse() });
@@ -173,9 +175,7 @@ describe('UserParts page', () => {
     // usePartsFilters scopes the list to the authenticated user_id. Verify
     // a /parts/with-votes call was made.
     await waitFor(() => {
-      const calls = vi
-        .mocked(apiClient.get)
-        .mock.calls.map(([url]) => url);
+      const calls = vi.mocked(apiClient.get).mock.calls.map(([url]) => url);
       expect(calls.some((u) => u.startsWith('/parts/with-votes'))).toBe(true);
     });
 

@@ -20,7 +20,9 @@ import type {
 // Reusable BugReportRead fixture — matches backend response shape.
 // bug_reports.ts uses pure JSON (no FormData); the FormData path
 // lives in pages/BugReport.tsx, not in this API module.
-const makeBugReport = (overrides: Partial<BugReportRead> = {}): BugReportRead => ({
+const makeBugReport = (
+  overrides: Partial<BugReportRead> = {}
+): BugReportRead => ({
   id: '88888888-8888-7888-8888-888888888888',
   user_id: '11111111-1111-7111-8111-111111111111',
   title: 'Crash on login',

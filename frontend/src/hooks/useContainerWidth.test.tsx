@@ -15,7 +15,9 @@ import { useContainerWidth } from './useContainerWidth';
 // a capturing stub that lets the test fire the resize callback manually.
 // Pattern mirrors App.coverage.test.tsx:54-68.
 
-type ObserverCallback = (entries: Array<Pick<ResizeObserverEntry, 'contentRect'>>) => void;
+type ObserverCallback = (
+  entries: Array<Pick<ResizeObserverEntry, 'contentRect'>>
+) => void;
 
 const observedCallbacks = new Set<ObserverCallback>();
 
@@ -33,15 +35,14 @@ class ResizeObserverStub {
 }
 
 beforeAll(() => {
-  (globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub }).ResizeObserver = ResizeObserverStub;
+  (
+    globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub }
+  ).ResizeObserver = ResizeObserverStub;
   // Also stub requestAnimationFrame so the observer callback fires inline.
-  vi.stubGlobal(
-    'requestAnimationFrame',
-    (cb: FrameRequestCallback): number => {
-      cb(0);
-      return 0;
-    }
-  );
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
+    cb(0);
+    return 0;
+  });
   vi.stubGlobal('cancelAnimationFrame', (): void => {});
 });
 

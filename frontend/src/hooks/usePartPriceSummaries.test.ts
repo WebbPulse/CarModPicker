@@ -28,7 +28,7 @@ function buildResponse<T>(data: T): AxiosResponse<T> {
 }
 
 function makeSummary(
-  overrides: Partial<PriceHistorySummary> = {},
+  overrides: Partial<PriceHistorySummary> = {}
 ): PriceHistorySummary {
   return {
     min_cents: 1000,
@@ -43,7 +43,7 @@ function makeSummary(
 
 function buildBatch(
   summaries: Record<string, PriceHistorySummary>,
-  window = '90d',
+  window = '90d'
 ): PriceHistoryBatchResponse {
   return {
     summaries,
@@ -75,12 +75,10 @@ describe('usePartPriceSummaries', () => {
       'p-2': makeSummary({ trend: 'down' }),
     };
     vi.mocked(apiClient.post).mockResolvedValueOnce(
-      buildResponse(buildBatch(summaries)),
+      buildResponse(buildBatch(summaries))
     );
 
-    const { result } = renderHook(() =>
-      usePartPriceSummaries(['p-1', 'p-2']),
-    );
+    const { result } = renderHook(() => usePartPriceSummaries(['p-1', 'p-2']));
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -94,13 +92,13 @@ describe('usePartPriceSummaries', () => {
       expect.objectContaining({
         part_ids: ['p-1', 'p-2'],
         window: '90d',
-      }),
+      })
     );
   });
 
   it('uses the provided window argument', async () => {
     vi.mocked(apiClient.post).mockResolvedValueOnce(
-      buildResponse(buildBatch({}, '30d')),
+      buildResponse(buildBatch({}, '30d'))
     );
 
     renderHook(() => usePartPriceSummaries(['x'], '30d'));
@@ -110,18 +108,18 @@ describe('usePartPriceSummaries', () => {
     });
     expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
       '/parts/price-history',
-      expect.objectContaining({ part_ids: ['x'], window: '30d' }),
+      expect.objectContaining({ part_ids: ['x'], window: '30d' })
     );
   });
 
   it('debounces identical re-renders into a single fetch (stable key)', async () => {
     vi.mocked(apiClient.post).mockResolvedValue(
-      buildResponse(buildBatch({ a: makeSummary() })),
+      buildResponse(buildBatch({ a: makeSummary() }))
     );
 
     const { rerender } = renderHook(
       ({ ids }: { ids: string[] }) => usePartPriceSummaries(ids),
-      { initialProps: { ids: ['a', 'b'] } },
+      { initialProps: { ids: ['a', 'b'] } }
     );
 
     await waitFor(() => {
@@ -151,7 +149,7 @@ describe('usePartPriceSummaries', () => {
     expect(result.current.summaries).toEqual({});
     expect(warn).toHaveBeenCalledWith(
       '[usePartPriceSummaries]',
-      expect.any(Error),
+      expect.any(Error)
     );
     warn.mockRestore();
   });
@@ -163,7 +161,7 @@ describe('usePartPriceSummaries', () => {
 
     const { rerender, result } = renderHook(
       ({ ids }: { ids: string[] }) => usePartPriceSummaries(ids),
-      { initialProps: { ids: ['a'] } },
+      { initialProps: { ids: ['a'] } }
     );
 
     await waitFor(() => {

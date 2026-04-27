@@ -38,8 +38,7 @@ vi.mock('../../hooks/useAuth', () => ({
 // without actually mutating browser history.
 const navigateMock = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('react-router-dom')>();
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -107,23 +106,23 @@ describe('ExtractionHealth page', () => {
 
     // Per-tier compliance pills render with the backend-formatted strings.
     expect(screen.getByTestId('compliance-pill-http')).toHaveTextContent(
-      '83/83',
+      '83/83'
     );
     expect(screen.getByTestId('compliance-pill-tls')).toHaveTextContent(
-      '15/15',
+      '15/15'
     );
     expect(screen.getByTestId('compliance-pill-browser')).toHaveTextContent(
-      '10/10',
+      '10/10'
     );
 
     // Window subtitle renders the days + since metadata.
     expect(
-      screen.getByText(/Last 7 days \(since 2026-04-18T00:00:00\+00:00\)/i),
+      screen.getByText(/Last 7 days \(since 2026-04-18T00:00:00\+00:00\)/i)
     ).toBeInTheDocument();
 
     // The api client was called against the documented endpoint.
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-      '/admin/extraction-health',
+      '/admin/extraction-health'
     );
 
     // Failure-rate table renders both rows; sorted by rate desc — adapter-b
@@ -145,7 +144,7 @@ describe('ExtractionHealth page', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/HTTP 500.*crawled_pages\.parse_status/i),
+        screen.getByText(/HTTP 500.*crawled_pages\.parse_status/i)
       ).toBeInTheDocument();
     });
 
@@ -160,8 +159,8 @@ describe('ExtractionHealth page', () => {
     // useEffect issues navigate('/'); both must be observable.
     expect(
       screen.getByText(
-        /you do not have permission to access the admin dashboard/i,
-      ),
+        /you do not have permission to access the admin dashboard/i
+      )
     ).toBeInTheDocument();
 
     await waitFor(() => {
@@ -170,7 +169,7 @@ describe('ExtractionHealth page', () => {
 
     // No data fetch should fire for a non-admin caller.
     expect(vi.mocked(apiClient.get)).not.toHaveBeenCalledWith(
-      '/admin/extraction-health',
+      '/admin/extraction-health'
     );
   });
 });

@@ -143,9 +143,7 @@ describe('imageApi — admin bucket stats', () => {
 
     const result = await imageApi.getBucketCountByEntityType();
 
-    expect(getMock).toHaveBeenCalledWith(
-      '/images/admin/count-by-entity-type'
-    );
+    expect(getMock).toHaveBeenCalledWith('/images/admin/count-by-entity-type');
     expect(result.data.by_entity_type['part']).toBe(500);
   });
 

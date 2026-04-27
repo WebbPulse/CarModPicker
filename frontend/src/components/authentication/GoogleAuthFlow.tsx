@@ -2,12 +2,7 @@ import { useEffect, useState } from 'react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { FaEye, FaEyeSlash, FaLock, FaShieldAlt, FaUser } from 'react-icons/fa';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import {
   isGoogleConfigured,

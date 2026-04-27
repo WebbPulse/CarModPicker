@@ -34,7 +34,10 @@ export const ALL_ROUTES: ReadonlyArray<CoverageRoute> = [
   { path: '/forgot-password/confirm', group: 'public' },
   { path: '/extension-auth', group: 'public' },
   { path: '/car-generations/some-car', group: 'public' },
-  { path: '/build-lists/00000000-0000-0000-0000-000000000000', group: 'public' },
+  {
+    path: '/build-lists/00000000-0000-0000-0000-000000000000',
+    group: 'public',
+  },
   {
     path: '/build-lists/00000000-0000-0000-0000-000000000000/build-log',
     group: 'public',

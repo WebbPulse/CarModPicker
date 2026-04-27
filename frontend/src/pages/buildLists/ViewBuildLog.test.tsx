@@ -131,10 +131,7 @@ describe('ViewBuildLog page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-logs/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-logs/:buildListId"
-            element={<ViewBuildLog />}
-          />
+          <Route path="/build-logs/:buildListId" element={<ViewBuildLog />} />
         </Routes>
       </MemoryRouter>
     );
@@ -158,10 +155,7 @@ describe('ViewBuildLog page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-logs/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-logs/:buildListId"
-            element={<ViewBuildLog />}
-          />
+          <Route path="/build-logs/:buildListId" element={<ViewBuildLog />} />
         </Routes>
       </MemoryRouter>
     );
@@ -187,10 +181,7 @@ describe('ViewBuildLog page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-logs/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-logs/:buildListId"
-            element={<ViewBuildLog />}
-          />
+          <Route path="/build-logs/:buildListId" element={<ViewBuildLog />} />
         </Routes>
       </MemoryRouter>
     );
@@ -204,9 +195,7 @@ describe('ViewBuildLog page', () => {
     const textarea = await screen.findByLabelText(/post content/i);
     await user.type(textarea, 'Swapped in new headers today');
 
-    const postButton = screen
-      .getAllByRole('button', { name: /^post$/i })
-      .pop();
+    const postButton = screen.getAllByRole('button', { name: /^post$/i }).pop();
     if (!postButton) throw new Error('Post submit button not found');
     await user.click(postButton);
 
@@ -232,10 +221,7 @@ describe('ViewBuildLog page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-logs/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-logs/:buildListId"
-            element={<ViewBuildLog />}
-          />
+          <Route path="/build-logs/:buildListId" element={<ViewBuildLog />} />
         </Routes>
       </MemoryRouter>
     );
@@ -249,9 +235,8 @@ describe('ViewBuildLog page', () => {
     // ImageUpload renders a visible "Upload Image" button that clicks a
     // hidden <input type="file">. Locate the hidden input directly since it
     // has no label and click-through is an implementation detail.
-    const fileInput = document.querySelector<HTMLInputElement>(
-      'input[type="file"]'
-    );
+    const fileInput =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) throw new Error('File input not found');
 
     const file = new File(['x'], 'progress.jpg', { type: 'image/jpeg' });

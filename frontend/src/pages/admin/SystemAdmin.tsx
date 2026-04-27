@@ -537,11 +537,10 @@ function SystemAdmin() {
                 dangerColor="warning"
                 description={
                   <>
-                    Permanently remove every car generation, car model, and
-                    make from the catalog. Build lists are unlinked from cars
-                    (not deleted). Run &quot;Init Car Generations&quot;
-                    afterward to repopulate from a clean slate. This action
-                    cannot be undone.
+                    Permanently remove every car generation, car model, and make
+                    from the catalog. Build lists are unlinked from cars (not
+                    deleted). Run &quot;Init Car Generations&quot; afterward to
+                    repopulate from a clean slate. This action cannot be undone.
                   </>
                 }
               >
@@ -581,11 +580,11 @@ function SystemAdmin() {
                 dangerColor="destructive"
                 description={
                   <>
-                    Permanently remove every global part from the catalog
-                    (also removes their part listings, votes, reports, and
-                    build list part associations). Or remove only part
-                    manufacturers (parts keep their data; part manufacturer
-                    references are cleared). These actions cannot be undone.
+                    Permanently remove every global part from the catalog (also
+                    removes their part listings, votes, reports, and build list
+                    part associations). Or remove only part manufacturers (parts
+                    keep their data; part manufacturer references are cleared).
+                    These actions cannot be undone.
                   </>
                 }
               >
@@ -658,10 +657,10 @@ function SystemAdmin() {
                 dangerColor="info"
                 description={
                   <>
-                    Bucket objects that are not referenced by any entity
-                    (global parts, users, cars, build lists, image cache) can
-                    be safely removed to free space. Only orphaned objects are
-                    deleted; no entity loses its images.
+                    Bucket objects that are not referenced by any entity (global
+                    parts, users, cars, build lists, image cache) can be safely
+                    removed to free space. Only orphaned objects are deleted; no
+                    entity loses its images.
                   </>
                 }
               >
@@ -687,7 +686,9 @@ function SystemAdmin() {
                     loading={isPurgingOrphaned}
                     className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   >
-                    {isPurgingOrphaned ? 'Purging...' : 'Purge orphaned objects'}
+                    {isPurgingOrphaned
+                      ? 'Purging...'
+                      : 'Purge orphaned objects'}
                   </Button>
                 </div>
                 {orphanedResult && (
@@ -748,7 +749,11 @@ function SystemAdmin() {
         loadingLabel="Deleting..."
         variant="destructive"
         loading={isPurgingOrphaned}
-        error={purgeOrphanError ? `Failed to delete storage: ${purgeOrphanError}` : null}
+        error={
+          purgeOrphanError
+            ? `Failed to delete storage: ${purgeOrphanError}`
+            : null
+        }
       />
       <ConfirmDialog
         open={isDeleteAllPartsConfirmOpen}
@@ -763,15 +768,21 @@ function SystemAdmin() {
         description={
           <>
             Are you sure you want to delete the catalog{' '}
-            <span className="font-semibold text-foreground">"all global parts"</span>?
-            This action cannot be undone.
+            <span className="font-semibold text-foreground">
+              "all global parts"
+            </span>
+            ? This action cannot be undone.
           </>
         }
         confirmLabel="Confirm Delete"
         loadingLabel="Deleting..."
         variant="destructive"
         loading={isDeletingAllParts}
-        error={deleteAllPartsError ? `Failed to delete catalog: ${deleteAllPartsError}` : null}
+        error={
+          deleteAllPartsError
+            ? `Failed to delete catalog: ${deleteAllPartsError}`
+            : null
+        }
       />
       <ConfirmDialog
         open={isDeleteAllPartManufacturersConfirmOpen}
@@ -826,7 +837,9 @@ function SystemAdmin() {
         variant="destructive"
         loading={isDeletingAllCars}
         error={
-          deleteAllCarsError ? `Failed to delete catalog: ${deleteAllCarsError}` : null
+          deleteAllCarsError
+            ? `Failed to delete catalog: ${deleteAllCarsError}`
+            : null
         }
       />
     </div>

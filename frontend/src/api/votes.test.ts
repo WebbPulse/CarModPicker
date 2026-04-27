@@ -102,9 +102,7 @@ describe('votesApi (polymorphic)', () => {
 
     await votesApi.removeVote('part', mockPart.id);
 
-    expect(apiClient.delete).toHaveBeenCalledWith(
-      `/votes/part/${mockPart.id}`
-    );
+    expect(apiClient.delete).toHaveBeenCalledWith(`/votes/part/${mockPart.id}`);
   });
 
   it('removeVote DELETEs /votes/:entityType/:entityId for build_list', async () => {
@@ -144,7 +142,10 @@ describe('votesApi (polymorphic)', () => {
       data: buildListSummary,
     });
 
-    const result = await votesApi.getVoteSummary('build_list', mockBuildList.id);
+    const result = await votesApi.getVoteSummary(
+      'build_list',
+      mockBuildList.id
+    );
 
     expect(apiClient.get).toHaveBeenCalledWith(
       `/votes/build_list/${mockBuildList.id}/summary`

@@ -39,9 +39,7 @@ function authValue(
   };
 }
 
-function settingsValue(
-  settings: AppSettings | null
-): AppSettingsContextType {
+function settingsValue(settings: AppSettings | null): AppSettingsContextType {
   return {
     settings,
     isLoading: false,

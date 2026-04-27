@@ -72,9 +72,7 @@ const Pagination: React.FC<PaginationProps> = ({
   }
 
   return (
-    <div
-      className={cn('mt-8 flex flex-col items-center gap-4', className)}
-    >
+    <div className={cn('mt-8 flex flex-col items-center gap-4', className)}>
       <div className="text-sm text-muted-foreground">
         Showing {startItem} - {endItem} of {totalItems} results
       </div>
@@ -95,10 +93,7 @@ const Pagination: React.FC<PaginationProps> = ({
           {pageNumbers.map((page) => {
             if (page === 'ellipsis-start' || page === 'ellipsis-end') {
               return (
-                <span
-                  key={String(page)}
-                  className="px-2 text-muted-foreground"
-                >
+                <span key={String(page)} className="px-2 text-muted-foreground">
                   ...
                 </span>
               );

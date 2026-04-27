@@ -42,10 +42,7 @@ const Spinner: React.FC<SpinnerProps> = ({
     <div
       role="status"
       aria-live="polite"
-      className={cn(
-        'flex flex-col items-center justify-center',
-        className,
-      )}
+      className={cn('flex flex-col items-center justify-center', className)}
     >
       {icon}
       {text ? (

@@ -770,7 +770,8 @@ function PartsCuration() {
               . Existing canonical links may be re-elected.
             </p>
             <p className="text-xs text-warning mb-6">
-              Run a dry-run first if you haven&apos;t — this mutation has no undo.
+              Run a dry-run first if you haven&apos;t — this mutation has no
+              undo.
             </p>
             <div className="flex justify-end gap-3">
               <Button

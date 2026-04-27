@@ -21,9 +21,7 @@ describe('VerifyEmailConfirm page', () => {
       route:
         '/verify-email/confirm?token=abc&status=success&message=Email+verified',
     });
-    expect(
-      screen.getByText(/email verification result/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/email verification result/i)).toBeInTheDocument();
     expect(screen.getByText(/email verified/i)).toBeInTheDocument();
   });
 

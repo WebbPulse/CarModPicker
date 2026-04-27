@@ -65,7 +65,10 @@ describe('ErrorBoundary', () => {
     // Sentry.captureException called exactly once with the thrown Error plus
     // { extra: { componentStack: <string from React> } }
     expect(mockedCapture).toHaveBeenCalledTimes(1);
-    const call = mockedCapture.mock.calls[0] as [Error, { extra: { componentStack: string } }];
+    const call = mockedCapture.mock.calls[0] as [
+      Error,
+      { extra: { componentStack: string } },
+    ];
     const [errorArg, extraArg] = call;
     expect(errorArg).toBeInstanceOf(Error);
     expect(errorArg.message).toBe('boom');

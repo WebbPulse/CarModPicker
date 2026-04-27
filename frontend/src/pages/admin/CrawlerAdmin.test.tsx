@@ -340,8 +340,9 @@ describe('CrawlerAdmin — Background Jobs section', () => {
 
     const jobCallsInitial = vi
       .mocked(apiClient.get)
-      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
-      .length;
+      .mock.calls.filter(([url]) =>
+        String(url).startsWith('/admin/jobs')
+      ).length;
 
     // Advance past the first 5 s poll tick. We expect at least one extra
     // /admin/jobs fetch from the setInterval callback.
@@ -349,8 +350,9 @@ describe('CrawlerAdmin — Background Jobs section', () => {
 
     const jobCallsAfter = vi
       .mocked(apiClient.get)
-      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
-      .length;
+      .mock.calls.filter(([url]) =>
+        String(url).startsWith('/admin/jobs')
+      ).length;
 
     expect(jobCallsAfter).toBeGreaterThan(jobCallsInitial);
   });
@@ -381,16 +383,18 @@ describe('CrawlerAdmin — Background Jobs section', () => {
 
     const jobCallsInitial = vi
       .mocked(apiClient.get)
-      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
-      .length;
+      .mock.calls.filter(([url]) =>
+        String(url).startsWith('/admin/jobs')
+      ).length;
 
     // Advance well past the 5 s poll tick; no running job → no new fetch.
     await advanceTimersAndFlush(10000);
 
     const jobCallsAfter = vi
       .mocked(apiClient.get)
-      .mock.calls.filter(([url]) => String(url).startsWith('/admin/jobs'))
-      .length;
+      .mock.calls.filter(([url]) =>
+        String(url).startsWith('/admin/jobs')
+      ).length;
 
     expect(jobCallsAfter).toBe(jobCallsInitial);
   });
