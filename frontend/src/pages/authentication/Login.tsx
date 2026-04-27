@@ -337,11 +337,13 @@ function Login() {
                   <div className="h-px flex-1 bg-muted"></div>
                 </div>
                 {passkeySupported && (
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="lg"
+                    className="w-full"
                     onClick={() => void handlePasskeyLogin()}
                     disabled={isLoading || isPasskeyLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-foreground hover:bg-card transition-colors disabled:opacity-50"
                   >
                     <FaKey />
                     <span>
@@ -349,7 +351,7 @@ function Login() {
                         ? 'Waiting for your passkey…'
                         : 'Sign in with a passkey'}
                     </span>
-                  </button>
+                  </Button>
                 )}
                 <GoogleAuthFlow
                   onLoggedIn={(user) => {

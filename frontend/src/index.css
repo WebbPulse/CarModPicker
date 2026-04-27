@@ -14,7 +14,12 @@ body {
     'Segoe UI',
     Roboto,
     sans-serif;
-  background: hsl(var(--background));
+  background: linear-gradient(
+    135deg,
+    hsl(var(--canvas-1)) 0%,
+    hsl(var(--canvas-2)) 50%,
+    hsl(var(--canvas-1)) 100%
+  );
   background-attachment: fixed;
   color: hsl(var(--foreground));
   line-height: 1.6;
