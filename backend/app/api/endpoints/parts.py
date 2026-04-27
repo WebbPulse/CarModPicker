@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import Select, exists, func, or_, select
+from sqlalchemy import Select, exists, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
@@ -684,7 +684,7 @@ def _apply_parts_list_filters(
         query = query.where(DBPart.is_universal == True)  # noqa: E712
     elif car_ids:
         part_fits_any_car = exists().where((part_cars.c.part_id == DBPart.id) & (part_cars.c.car_id.in_(car_ids)))
-        query = query.where(or_(DBPart.is_universal, part_fits_any_car))
+        query = query.where(part_fits_any_car)
     if user_id is not None:
         query = query.where(DBPart.user_id == user_id)
     else:
