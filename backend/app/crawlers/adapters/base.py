@@ -162,9 +162,7 @@ class RetailerCrawlerAdapter(ABC):
         """
         ...
 
-    def apply_universal_extraction(
-        self, html: str, payload: Optional[ScrapedPayload]
-    ) -> Optional[ScrapedPayload]:
+    def apply_universal_extraction(self, html: str, payload: Optional[ScrapedPayload]) -> Optional[ScrapedPayload]:
         """
         Run the five universal extractors over ``html`` and merge the results
         into ``payload.specifications``.

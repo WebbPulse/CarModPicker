@@ -27,12 +27,8 @@ class PartPriceAlert(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
-    )
-    part_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True
-    )
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
     threshold_cents: Mapped[int] = mapped_column(nullable=False)
     active: Mapped[bool] = mapped_column(default=True, nullable=False)
     last_fired_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

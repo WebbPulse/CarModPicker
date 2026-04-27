@@ -48,7 +48,6 @@ from app.crawlers.parsing import (
 )
 from tests.crawlers.conftest import load_fixture_html
 
-
 # ---------------------------------------------------------------------------
 # extract_weight
 # ---------------------------------------------------------------------------
@@ -115,9 +114,7 @@ class TestExtractWeight:
             (2.5, "pounds", 2.5 * 453.59237),
         ],
     )
-    def test_unit_normalization_to_grams(
-        self, value: float, unit: str, expected_grams: float
-    ) -> None:
+    def test_unit_normalization_to_grams(self, value: float, unit: str, expected_grams: float) -> None:
         html = f"<html><body><div>Weight: {value} {unit}</div></body></html>"
         result = extract_weight(html)
         assert result is not None
@@ -188,10 +185,7 @@ class TestExtractMaterial:
         assert extract_material(html) == ("titanium", "medium")
 
     def test_body_text_match_is_low_confidence(self) -> None:
-        html = (
-            "<html><body><p>Forged from premium aluminum for the track.</p>"
-            "</body></html>"
-        )
+        html = "<html><body><p>Forged from premium aluminum for the track.</p>" "</body></html>"
         assert extract_material(html) == ("aluminum", "low")
 
     def test_aluminium_spelling_canonicalizes_to_aluminum(self) -> None:
@@ -309,10 +303,7 @@ class TestExtractWarranty:
 
 class TestExtractFitmentNotes:
     def test_chassis_plus_year_in_same_sentence_is_high_confidence(self) -> None:
-        html = (
-            "<html><body><p>Direct fit for E46 M3, 2001-2006 production years.</p>"
-            "</body></html>"
-        )
+        html = "<html><body><p>Direct fit for E46 M3, 2001-2006 production years.</p>" "</body></html>"
         result = extract_fitment_notes(html)
         assert result is not None
         text, conf = result
@@ -431,27 +422,19 @@ class TestExtractorsOnTrackedFixtures:
     def test_amsperformance_fixture_yields_weight_with_high_confidence(self) -> None:
         html = load_fixture_html("amsperformance")
         out = extract_universal_fields(html)
-        assert "weight_grams" in out, (
-            f"AMSPerformance fixture should yield a weight from JSON-LD; got {out!r}"
-        )
+        assert "weight_grams" in out, f"AMSPerformance fixture should yield a weight from JSON-LD; got {out!r}"
         _, confidence = out["weight_grams"]
-        assert confidence == "high", (
-            f"AMSPerformance JSON-LD weight should be high-confidence; got {confidence!r}"
-        )
+        assert confidence == "high", f"AMSPerformance JSON-LD weight should be high-confidence; got {confidence!r}"
 
     def test_subispeed_fixture_yields_material(self) -> None:
         html = load_fixture_html("subispeed")
         out = extract_universal_fields(html)
-        assert "material" in out, (
-            f"SubiSpeed fixture should yield a material; got {out!r}"
-        )
+        assert "material" in out, f"SubiSpeed fixture should yield a material; got {out!r}"
 
     def test_briantooleyracing_fixture_yields_fitment_notes(self) -> None:
         html = load_fixture_html("briantooleyracing")
         out = extract_universal_fields(html)
-        assert "fitment_notes" in out, (
-            f"BrianTooleyRacing fixture should yield fitment notes; got {out!r}"
-        )
+        assert "fitment_notes" in out, f"BrianTooleyRacing fixture should yield fitment notes; got {out!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -469,8 +452,7 @@ def test_universal_extractor_demo_cli() -> None:
     """
     backend_dir = Path(__file__).resolve().parents[2]
     assert (backend_dir / "app" / "crawlers" / "universal_extractor_demo.py").is_file(), (
-        f"Demo module missing under {backend_dir}; expected at "
-        "app/crawlers/universal_extractor_demo.py"
+        f"Demo module missing under {backend_dir}; expected at " "app/crawlers/universal_extractor_demo.py"
     )
 
     result = subprocess.run(
@@ -495,6 +477,4 @@ def test_universal_extractor_demo_cli() -> None:
         "subispeed",
         "texasspeed",
     ):
-        assert adapter_slug in stdout, (
-            f"Expected adapter slug {adapter_slug!r} in demo stdout; got:\n{stdout}"
-        )
+        assert adapter_slug in stdout, f"Expected adapter slug {adapter_slug!r} in demo stdout; got:\n{stdout}"

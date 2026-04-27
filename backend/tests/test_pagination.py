@@ -48,9 +48,7 @@ def test_db_session() -> Generator[Session, None, None]:
             session.add(make_entity)
             session.flush()
         car_model_entity = session.scalars(
-            select(CarModel).where(
-                CarModel.car_make_id == make_entity.id, CarModel.name == model_name
-            )
+            select(CarModel).where(CarModel.car_make_id == make_entity.id, CarModel.name == model_name)
         ).first()
         if car_model_entity is None:
             car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
@@ -147,10 +145,7 @@ class TestTotalCount:
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
         """Test getting total count of filtered query (by make via join)."""
         stmt = (
-            select(CarGeneration)
-            .join(CarGeneration.car_model)
-            .join(CarModel.car_make)
-            .where(CarMake.name == "Make1")
+            select(CarGeneration).join(CarGeneration.car_model).join(CarModel.car_make).where(CarMake.name == "Make1")
         )
         total = get_total_count(test_db_session, stmt)
 

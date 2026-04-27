@@ -39,8 +39,7 @@ from typing import Any, Dict, List, Optional
 # fails, the FAILED.json must literally name R036 so the next agent doesn't
 # have to re-derive D004.
 REMEDIATION_NOTE = (
-    "Perf gate missed. Open R036 (materialized part_price_summary) per D004 "
-    "— see .gsd/REQUIREMENTS.md."
+    "Perf gate missed. Open R036 (materialized part_price_summary) per D004 " "— see .gsd/REQUIREMENTS.md."
 )
 
 DEFAULT_GET_NAME = "GET /api/parts/{id}/price-history"
@@ -91,9 +90,7 @@ def _coerce_int(row: Dict[str, str], column: str) -> int:
         raise ValueError(f"column {column!r} not integer ({raw!r}) in row {row!r}") from exc
 
 
-def _extract_endpoint_stats(
-    rows: List[Dict[str, str]], type_: str, name: str
-) -> Dict[str, Any]:
+def _extract_endpoint_stats(rows: List[Dict[str, str]], type_: str, name: str) -> Dict[str, Any]:
     """Return p50/p95/p99/max/requests/failures for one endpoint row.
 
     Locust columns of interest:
@@ -169,13 +166,9 @@ def evaluate(
 
     failures: List[str] = []
     if get_stats["p95_ms"] >= get_budget_ms:
-        failures.append(
-            f"GET p95={get_stats['p95_ms']:.0f}ms >= budget {get_budget_ms}ms"
-        )
+        failures.append(f"GET p95={get_stats['p95_ms']:.0f}ms >= budget {get_budget_ms}ms")
     if post_stats["p95_ms"] >= post_budget_ms:
-        failures.append(
-            f"POST p95={post_stats['p95_ms']:.0f}ms >= budget {post_budget_ms}ms"
-        )
+        failures.append(f"POST p95={post_stats['p95_ms']:.0f}ms >= budget {post_budget_ms}ms")
     total_failures = get_stats["failures"] + post_stats["failures"]
     if total_failures > 0:
         failures.append(f"error rate > 0 (failures={total_failures})")

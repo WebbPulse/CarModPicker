@@ -41,15 +41,11 @@ def get_or_create_retailer(
         else:
             domain_alt = "www." + domain_normalized
         retailer = db.scalars(
-            select(DBRetailer).where(
-                or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt)
-            )
+            select(DBRetailer).where(or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt))
         ).first()
         if retailer:
             return retailer
-    retailer = db.scalars(
-        select(DBRetailer).where(DBRetailer.name.ilike(name.strip()))
-    ).first()
+    retailer = db.scalars(select(DBRetailer).where(DBRetailer.name.ilike(name.strip()))).first()
     if retailer:
         if domain and not retailer.domain:
             retailer.domain = domain.strip().lower()
@@ -89,9 +85,7 @@ def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[
             db.flush()
         return part_manufacturer
     except IntegrityError:
-        existing = db.scalars(
-            select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))
-        ).first()
+        existing = db.scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))).first()
         if existing is not None:
             return existing
         raise

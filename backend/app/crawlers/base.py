@@ -707,9 +707,7 @@ def ingest_payload(
     category_id = default_category_id
     inferred_name = infer_category(payload.name, payload.description)
     if inferred_name:
-        cat = db.scalars(
-            select(DBCategory).where(DBCategory.name == inferred_name, DBCategory.is_active)
-        ).first()
+        cat = db.scalars(select(DBCategory).where(DBCategory.name == inferred_name, DBCategory.is_active)).first()
         if cat:
             category_id = cat.id
             logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
@@ -760,9 +758,7 @@ def ingest_payload(
         if spec_model is not None:
             try:
                 validated = spec_model.model_validate(payload.specifications)
-                validated_specifications: Optional[Dict[str, Any]] = validated.model_dump(
-                    exclude_none=True
-                )
+                validated_specifications: Optional[Dict[str, Any]] = validated.model_dump(exclude_none=True)
             except pydantic.ValidationError as e:
                 logger.warning(
                     "spec validation failed: adapter=%s category=%s subslug=%s url=%s errors=%s",

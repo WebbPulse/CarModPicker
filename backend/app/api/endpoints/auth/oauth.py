@@ -229,19 +229,25 @@ async def google_link(
 
     # Race-safety: another concurrent link could have inserted the row. Check both
     # constraints we'll hit and return clear errors instead of a 500 IntegrityError.
-    if db.scalars(
-        select(OAuthAccount).where(
-            OAuthAccount.provider == GOOGLE_PROVIDER,
-            OAuthAccount.provider_account_id == google_sub,
-        )
-    ).first() is not None:
+    if (
+        db.scalars(
+            select(OAuthAccount).where(
+                OAuthAccount.provider == GOOGLE_PROVIDER,
+                OAuthAccount.provider_account_id == google_sub,
+            )
+        ).first()
+        is not None
+    ):
         ResponsePatterns.raise_conflict("This Google account is already linked", "OAUTH_ALREADY_LINKED")
-    if db.scalars(
-        select(OAuthAccount).where(
-            OAuthAccount.user_id == user.id,
-            OAuthAccount.provider == GOOGLE_PROVIDER,
-        )
-    ).first() is not None:
+    if (
+        db.scalars(
+            select(OAuthAccount).where(
+                OAuthAccount.user_id == user.id,
+                OAuthAccount.provider == GOOGLE_PROVIDER,
+            )
+        ).first()
+        is not None
+    ):
         ResponsePatterns.raise_conflict("Account already has Google linked", "OAUTH_ACCOUNT_EXISTS")
 
     link = OAuthAccount(
@@ -281,12 +287,15 @@ async def google_signup(
         # Race: someone else (or another tab) signed up with this email between the initial
         # call and this one. Force them through the merge flow instead.
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-    if db.scalars(
-        select(OAuthAccount).where(
-            OAuthAccount.provider == GOOGLE_PROVIDER,
-            OAuthAccount.provider_account_id == google_sub,
-        )
-    ).first() is not None:
+    if (
+        db.scalars(
+            select(OAuthAccount).where(
+                OAuthAccount.provider == GOOGLE_PROVIDER,
+                OAuthAccount.provider_account_id == google_sub,
+            )
+        ).first()
+        is not None
+    ):
         ResponsePatterns.raise_conflict("This Google account is already linked", "OAUTH_ALREADY_LINKED")
 
     user = DBUser(
@@ -373,12 +382,15 @@ async def google_connect(
             "This Google account is linked to a different user", "OAUTH_LINKED_TO_OTHER_USER"
         )
 
-    if db.scalars(
-        select(OAuthAccount).where(
-            OAuthAccount.user_id == current_user.id,
-            OAuthAccount.provider == GOOGLE_PROVIDER,
-        )
-    ).first() is not None:
+    if (
+        db.scalars(
+            select(OAuthAccount).where(
+                OAuthAccount.user_id == current_user.id,
+                OAuthAccount.provider == GOOGLE_PROVIDER,
+            )
+        ).first()
+        is not None
+    ):
         ResponsePatterns.raise_conflict("Google is already linked to this account", "OAUTH_ACCOUNT_EXISTS")
 
     email_match = db.scalars(select(DBUser).where(DBUser.email == identity.email)).first()
@@ -406,11 +418,11 @@ async def list_oauth_accounts(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[OAuthAccountRead]:
-    rows = list(db.scalars(
-        select(OAuthAccount)
-        .where(OAuthAccount.user_id == current_user.id)
-        .order_by(OAuthAccount.created_at.desc())
-    ).all())
+    rows = list(
+        db.scalars(
+            select(OAuthAccount).where(OAuthAccount.user_id == current_user.id).order_by(OAuthAccount.created_at.desc())
+        ).all()
+    )
     return [OAuthAccountRead.model_validate(r) for r in rows]
 
 
@@ -425,7 +437,9 @@ async def delete_oauth_account(
     Refuses if removing it would leave the user with no way to sign in: no password set,
     no other linked OAuth accounts, and no passkeys.
     """
-    link = db.scalars(select(OAuthAccount).where(OAuthAccount.id == account_id, OAuthAccount.user_id == current_user.id)).first()
+    link = db.scalars(
+        select(OAuthAccount).where(OAuthAccount.id == account_id, OAuthAccount.user_id == current_user.id)
+    ).first()
     if link is None:
         ResponsePatterns.raise_not_found("OAuth account")
     assert link is not None
@@ -437,9 +451,7 @@ async def delete_oauth_account(
                 OAuthAccount.id != link.id,
             )
         ).first()
-        passkey = db.scalars(
-            select(WebAuthnCredential).where(WebAuthnCredential.user_id == current_user.id)
-        ).first()
+        passkey = db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.user_id == current_user.id)).first()
         if other_oauth is None and passkey is None:
             ResponsePatterns.raise_bad_request(
                 "Set a password or register a passkey before removing your only sign-in method"

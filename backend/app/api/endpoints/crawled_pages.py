@@ -411,10 +411,7 @@ async def count_crawled_pages_by_source(
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """Admin only: crawled_pages row count per source (adapter name or chrome_extension)."""
-    rows = db.execute(
-        select(DBCrawledPage.source, func.count(DBCrawledPage.id))
-        .group_by(DBCrawledPage.source)
-    ).all()
+    rows = db.execute(select(DBCrawledPage.source, func.count(DBCrawledPage.id)).group_by(DBCrawledPage.source)).all()
     result = {source: count for source, count in rows}
     logger.info("Admin %s retrieved crawled_pages counts-by-source: %s sources", current_user.id, len(result))
     return result
@@ -434,8 +431,9 @@ async def count_crawled_pages_by_source_and_status(
     parsed/total progress indicator in CrawlerAdmin — lets us see how close each
     adapter is to a full catalog even across interrupted runs."""
     rows = db.execute(
-        select(DBCrawledPage.source, DBCrawledPage.parse_status, func.count(DBCrawledPage.id))
-        .group_by(DBCrawledPage.source, DBCrawledPage.parse_status)
+        select(DBCrawledPage.source, DBCrawledPage.parse_status, func.count(DBCrawledPage.id)).group_by(
+            DBCrawledPage.source, DBCrawledPage.parse_status
+        )
     ).all()
     result: dict[str, dict[str, int]] = {}
     for source, status, count in rows:
@@ -474,9 +472,7 @@ async def list_crawled_pages(
         stmt = stmt.where(DBCrawledPage.crawled_at >= from_date)
     if to_date:
         stmt = stmt.where(DBCrawledPage.crawled_at <= to_date)
-    return list(db.scalars(
-        stmt.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit)
-    ).all())
+    return list(db.scalars(stmt.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit)).all())
 
 
 # ---------------------------------------------------------------------------

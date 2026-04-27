@@ -44,8 +44,7 @@ def read_registry_map() -> dict[str, str]:
             continue
         if cls_name in class_to_slug and class_to_slug[cls_name] != slug:
             print(
-                f"ERROR: class {cls_name} mapped to both "
-                f"{class_to_slug[cls_name]!r} and {slug!r}",
+                f"ERROR: class {cls_name} mapped to both " f"{class_to_slug[cls_name]!r} and {slug!r}",
                 file=sys.stderr,
             )
             raise SystemExit(1)
@@ -91,11 +90,7 @@ def first_body_line(cls: ast.ClassDef) -> int:
         raise RuntimeError(f"class {cls.name} has empty body")
     first = body[0]
     # Detect docstring
-    if (
-        isinstance(first, ast.Expr)
-        and isinstance(first.value, ast.Constant)
-        and isinstance(first.value.value, str)
-    ):
+    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
         if len(body) > 1:
             return body[1].lineno
         # class has only a docstring -- still insert after it
@@ -113,9 +108,7 @@ def ensure_classvar_import(source: str) -> str:
         if isinstance(node, ast.ImportFrom) and node.module == "typing":
             typing_imports.append(node)
 
-    if any(
-        any(alias.name == "ClassVar" for alias in imp.names) for imp in typing_imports
-    ):
+    if any(any(alias.name == "ClassVar" for alias in imp.names) for imp in typing_imports):
         return source
 
     lines = source.splitlines(keepends=True)
@@ -143,9 +136,7 @@ def ensure_classvar_import(source: str) -> str:
         return "".join(lines)
 
     # No existing typing import. Insert after the last top-level import.
-    import_nodes: list[ast.stmt] = [
-        n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))
-    ]
+    import_nodes: list[ast.stmt] = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))]
     if import_nodes:
         last_imp = import_nodes[-1]
         end = getattr(last_imp, "end_lineno", last_imp.lineno)

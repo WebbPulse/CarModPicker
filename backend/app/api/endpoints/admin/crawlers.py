@@ -375,7 +375,9 @@ async def run_crawlers_endpoint(
             )
     else:
         # Ensure service account exists before kicking off the job
-        crawler_user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
+        crawler_user = db.scalars(
+            select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))
+        ).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -408,7 +410,11 @@ async def run_crawlers_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Schedule '{sched.name}' has no adapters.",
             )
-        configs = list(db.scalars(select(DBCrawlerAdapterConfig).where(DBCrawlerAdapterConfig.adapter_name.in_(member_names))).all())
+        configs = list(
+            db.scalars(
+                select(DBCrawlerAdapterConfig).where(DBCrawlerAdapterConfig.adapter_name.in_(member_names))
+            ).all()
+        )
         configs_by_name = {c.adapter_name: c for c in configs}
         missing = [n for n in member_names if n not in configs_by_name]
         if missing:
@@ -756,7 +762,9 @@ async def rescrape_all_archived_crawled_pages(
                 detail=f"crawler_user_id={body.crawler_user_id}: user is disabled.",
             )
     else:
-        crawler_user = db.scalars(select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))).first()
+        crawler_user = db.scalars(
+            select(DBUser).where(DBUser.is_service_account.is_(True), DBUser.disabled.is_(False))
+        ).first()
         if not crawler_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

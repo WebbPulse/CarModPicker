@@ -24,12 +24,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT_PATH = (
-    Path(__file__).resolve().parents[1] / "scripts" / "generate_ext_api_contract.py"
-)
-CONTRACT_PATH = (
-    Path(__file__).resolve().parents[2] / "chrome-extension" / "API_CONTRACT.md"
-)
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "generate_ext_api_contract.py"
+CONTRACT_PATH = Path(__file__).resolve().parents[2] / "chrome-extension" / "API_CONTRACT.md"
 
 
 def test_api_contract_matches_generator() -> None:

@@ -34,7 +34,6 @@ from app.api.services.part_price_aggregation_service import (
 )
 from tests.conftest import get_default_category_id
 
-
 # --- helpers -----------------------------------------------------------------
 
 
@@ -140,9 +139,7 @@ def test_aggregate_single_part_basic(db_session: Session, test_user: User) -> No
     assert result.window == "90d"
 
 
-def test_aggregate_single_part_window_filters_old_observations(
-    db_session: Session, test_user: User
-) -> None:
+def test_aggregate_single_part_window_filters_old_observations(db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "winfilter")
     part = _make_part(db_session, test_user, name="Window Part")
     listing = _make_listing(db_session, part, retailer)
@@ -163,16 +160,12 @@ def test_aggregate_single_part_window_filters_old_observations(
     assert result.summary.max_cents == 2500
 
 
-def test_aggregate_single_part_includes_link_group_siblings(
-    db_session: Session, test_user: User
-) -> None:
+def test_aggregate_single_part_includes_link_group_siblings(db_session: Session, test_user: User) -> None:
     retailer_a = _make_retailer(db_session, "lg-a")
     retailer_b = _make_retailer(db_session, "lg-b")
 
     canonical = _make_part(db_session, test_user, name="Canon Part")
-    duplicate = _make_part(
-        db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part"
-    )
+    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part")
 
     listing_canon = _make_listing(db_session, canonical, retailer_a)
     listing_dupe = _make_listing(db_session, duplicate, retailer_b)
@@ -245,9 +238,7 @@ def test_aggregate_single_part_trend_up_down_flat(
     assert result.summary.trend == expected
 
 
-def test_aggregate_single_part_invalid_window_raises(
-    db_session: Session, test_user: User
-) -> None:
+def test_aggregate_single_part_invalid_window_raises(db_session: Session, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Part")
     with pytest.raises(ValueError):
         aggregate_single_part(db_session, part.id, "99x")
@@ -259,9 +250,7 @@ def test_aggregate_single_part_invalid_window_raises(
 # --- batch tests -------------------------------------------------------------
 
 
-def test_aggregate_batch_returns_entry_per_requested_id(
-    db_session: Session, test_user: User
-) -> None:
+def test_aggregate_batch_returns_entry_per_requested_id(db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-entry")
     part_a = _make_part(db_session, test_user, name="Batch A")
     part_b = _make_part(db_session, test_user, name="Batch B")
@@ -297,9 +286,7 @@ def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -
     retailer_a = _make_retailer(db_session, "dedup-a")
     retailer_b = _make_retailer(db_session, "dedup-b")
     canonical = _make_part(db_session, test_user, name="Dedup Canon")
-    duplicate = _make_part(
-        db_session, test_user, canonical_part_id=canonical.id, name="Dedup Dupe"
-    )
+    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Dedup Dupe")
 
     listing_canon = _make_listing(db_session, canonical, retailer_a)
     listing_dupe = _make_listing(db_session, duplicate, retailer_b)
@@ -322,9 +309,7 @@ def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -
     assert dupe_item.max_cents == 1500
 
 
-def test_aggregate_batch_query_count(
-    db_session: Session, test_user: User, query_counter
-) -> None:
+def test_aggregate_batch_query_count(db_session: Session, test_user: User, query_counter) -> None:
     """For a 10-part-id batch, ≤ 5 SELECTs (no N+1).
 
     Budget: requested-row resolution + sibling resolution + min/max/count + obs
@@ -352,7 +337,6 @@ def test_aggregate_batch_query_count(
 
     assert len(result) == 10
     # Hard cap from the plan: ≤ 5 SQL statements for the aggregation work.
-    assert counter.count <= 5, (
-        f"aggregate_batch issued {counter.count} SELECTs (expected ≤ 5):\n"
-        + "\n".join(counter.statements)
+    assert counter.count <= 5, f"aggregate_batch issued {counter.count} SELECTs (expected ≤ 5):\n" + "\n".join(
+        counter.statements
     )

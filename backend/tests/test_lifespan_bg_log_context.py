@@ -36,21 +36,22 @@ async def test_orphan_schedule_sweep_runs_under_bg_log_context() -> None:
     def fake_sweep_orphan_jobs(db: object, current_worker_instance_id: object = None) -> list[object]:
         return []
 
-    with patch.object(
-        main_module.crawler_schedule_service,
-        "sweep_orphan_schedules",
-        side_effect=fake_sweep_orphan_schedules,
-    ), patch.object(
-        main_module.job_service,
-        "sweep_orphan_jobs",
-        side_effect=fake_sweep_orphan_jobs,
-    ), patch.object(
-        main_module, "init_crawler_service_account", return_value=None
-    ), patch.object(
-        main_module, "init_crawler_adapter_configs", return_value=None
-    ), patch.object(
-        main_module, "init_car_generations", return_value=None
-    ), patch("app.main.SessionLocal", return_value=MagicMock()):
+    with (
+        patch.object(
+            main_module.crawler_schedule_service,
+            "sweep_orphan_schedules",
+            side_effect=fake_sweep_orphan_schedules,
+        ),
+        patch.object(
+            main_module.job_service,
+            "sweep_orphan_jobs",
+            side_effect=fake_sweep_orphan_jobs,
+        ),
+        patch.object(main_module, "init_crawler_service_account", return_value=None),
+        patch.object(main_module, "init_crawler_adapter_configs", return_value=None),
+        patch.object(main_module, "init_car_generations", return_value=None),
+        patch("app.main.SessionLocal", return_value=MagicMock()),
+    ):
         async with main_module.lifespan(MagicMock()):
             pass
 
@@ -80,21 +81,22 @@ async def test_orphan_jobs_sweep_runs_under_bg_log_context() -> None:
         captured.append((request_id_var.get(), user_id_var.get()))
         return []
 
-    with patch.object(
-        main_module.crawler_schedule_service,
-        "sweep_orphan_schedules",
-        side_effect=fake_sweep_orphan_schedules,
-    ), patch.object(
-        main_module.job_service,
-        "sweep_orphan_jobs",
-        side_effect=fake_sweep_orphan_jobs,
-    ), patch.object(
-        main_module, "init_crawler_service_account", return_value=None
-    ), patch.object(
-        main_module, "init_crawler_adapter_configs", return_value=None
-    ), patch.object(
-        main_module, "init_car_generations", return_value=None
-    ), patch("app.main.SessionLocal", return_value=MagicMock()):
+    with (
+        patch.object(
+            main_module.crawler_schedule_service,
+            "sweep_orphan_schedules",
+            side_effect=fake_sweep_orphan_schedules,
+        ),
+        patch.object(
+            main_module.job_service,
+            "sweep_orphan_jobs",
+            side_effect=fake_sweep_orphan_jobs,
+        ),
+        patch.object(main_module, "init_crawler_service_account", return_value=None),
+        patch.object(main_module, "init_crawler_adapter_configs", return_value=None),
+        patch.object(main_module, "init_car_generations", return_value=None),
+        patch("app.main.SessionLocal", return_value=MagicMock()),
+    ):
         async with main_module.lifespan(MagicMock()):
             pass
 
@@ -112,25 +114,22 @@ async def test_request_id_is_reset_after_lifespan_exits() -> None:
     """
     from app import main as main_module
 
-    with patch.object(
-        main_module.crawler_schedule_service,
-        "sweep_orphan_schedules",
-        return_value=[],
-    ), patch.object(
-        main_module.job_service, "sweep_orphan_jobs", return_value=[]
-    ), patch.object(
-        main_module, "init_crawler_service_account", return_value=None
-    ), patch.object(
-        main_module, "init_crawler_adapter_configs", return_value=None
-    ), patch.object(
-        main_module, "init_car_generations", return_value=None
-    ), patch("app.main.SessionLocal", return_value=MagicMock()):
+    with (
+        patch.object(
+            main_module.crawler_schedule_service,
+            "sweep_orphan_schedules",
+            return_value=[],
+        ),
+        patch.object(main_module.job_service, "sweep_orphan_jobs", return_value=[]),
+        patch.object(main_module, "init_crawler_service_account", return_value=None),
+        patch.object(main_module, "init_crawler_adapter_configs", return_value=None),
+        patch.object(main_module, "init_car_generations", return_value=None),
+        patch("app.main.SessionLocal", return_value=MagicMock()),
+    ):
         async with main_module.lifespan(MagicMock()):
             pass
 
-    assert request_id_var.get() == "-", (
-        f"request_id_var should reset to '-' after lifespan, got {request_id_var.get()!r}"
-    )
-    assert user_id_var.get() == "-", (
-        f"user_id_var should reset to '-' after lifespan, got {user_id_var.get()!r}"
-    )
+    assert (
+        request_id_var.get() == "-"
+    ), f"request_id_var should reset to '-' after lifespan, got {request_id_var.get()!r}"
+    assert user_id_var.get() == "-", f"user_id_var should reset to '-' after lifespan, got {user_id_var.get()!r}"

@@ -74,9 +74,8 @@ def _run_with_parse_misses(
     fake_adapter.parse_product_page.return_value = None
     # Opt-out health probe.
     from app.crawlers.adapters.base import HealthResult
-    fake_adapter.check_health.return_value = HealthResult(
-        healthy=True, reason="skipped_by_config", status_code=None
-    )
+
+    fake_adapter.check_health.return_value = HealthResult(healthy=True, reason="skipped_by_config", status_code=None)
 
     db_mock = MagicMock(wraps=db_session)
     db_mock.close = MagicMock()

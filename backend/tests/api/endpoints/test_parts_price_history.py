@@ -114,9 +114,7 @@ def test_get_price_history_default_window_returns_summary_object(
     assert len(body["retailers"]) == 1
 
 
-def test_get_price_history_window_30d_filters_old(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_get_price_history_window_30d_filters_old(client: TestClient, db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "win30")
     part = _make_part(db_session, test_user, name="Window 30 Part")
     listing = _make_listing(db_session, part, retailer)
@@ -158,9 +156,7 @@ def test_get_price_history_window_all_includes_everything(
     assert body["window"] == "all"
 
 
-def test_get_price_history_invalid_window_returns_422(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_get_price_history_invalid_window_returns_422(client: TestClient, db_session: Session, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Part")
     db_session.commit()
 
@@ -213,15 +209,11 @@ def test_get_price_history_part_not_found_returns_404(client: TestClient) -> Non
     assert response.status_code == 404
 
 
-def test_get_price_history_aggregates_link_group(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_get_price_history_aggregates_link_group(client: TestClient, db_session: Session, test_user: User) -> None:
     retailer_a = _make_retailer(db_session, "lg-a")
     retailer_b = _make_retailer(db_session, "lg-b")
     canonical = _make_part(db_session, test_user, name="Canon Part")
-    duplicate = _make_part(
-        db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part"
-    )
+    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part")
 
     listing_canon = _make_listing(db_session, canonical, retailer_a)
     listing_dupe = _make_listing(db_session, duplicate, retailer_b)
@@ -247,9 +239,7 @@ def test_get_price_history_aggregates_link_group(
 # --- POST /api/parts/price-history (T03) -------------------------------------
 
 
-def test_post_batch_price_history_basic(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_post_batch_price_history_basic(client: TestClient, db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-basic")
     parts = []
     now = datetime.now(UTC)
@@ -310,9 +300,7 @@ def test_post_batch_price_history_includes_empty_entries(
     assert empty_item["trend"] == "flat"
 
 
-def test_post_batch_price_history_window_default_90d(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_post_batch_price_history_window_default_90d(client: TestClient, db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-default-window")
     part = _make_part(db_session, test_user, name="Default Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -325,9 +313,7 @@ def test_post_batch_price_history_window_default_90d(
     assert body["window"] == "90d"
 
 
-def test_post_batch_price_history_window_custom(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_post_batch_price_history_window_custom(client: TestClient, db_session: Session, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-custom-window")
     part = _make_part(db_session, test_user, name="Custom Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -409,9 +395,7 @@ def test_post_batch_price_history_aggregates_link_group(
     retailer_a = _make_retailer(db_session, "batch-lg-a")
     retailer_b = _make_retailer(db_session, "batch-lg-b")
     canonical = _make_part(db_session, test_user, name="Batch Canon")
-    duplicate = _make_part(
-        db_session, test_user, canonical_part_id=canonical.id, name="Batch Dupe"
-    )
+    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Batch Dupe")
     listing_canon = _make_listing(db_session, canonical, retailer_a)
     listing_dupe = _make_listing(db_session, duplicate, retailer_b)
 
@@ -462,7 +446,8 @@ def test_post_batch_price_history_query_count(
     # 4) observations pull. The endpoint adds a SAVEPOINT/SELECT or two from the
     # FastAPI dependency surface; the contract is "no N+1" — anything close to N
     # would balloon past the budget. ≤ 6 SELECTs per batch is the bar D-04 sets.
-    assert counter.count <= 6, (
-        f"expected ≤ 6 SELECTs for a 50-id batch, got {counter.count}.\n"
-        f"Statements:\n" + "\n".join(counter.statements)
+    assert (
+        counter.count <= 6
+    ), f"expected ≤ 6 SELECTs for a 50-id batch, got {counter.count}.\n" f"Statements:\n" + "\n".join(
+        counter.statements
     )

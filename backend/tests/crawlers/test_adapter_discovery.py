@@ -26,8 +26,7 @@ def test_adapter_count_baseline() -> None:
 
     actual = len(ADAPTER_REGISTRY)
     assert actual == 108, (
-        f"Adapter count drift: got {actual}. "
-        f"If intentional, bump the expected count in THIS test."
+        f"Adapter count drift: got {actual}. " f"If intentional, bump the expected count in THIS test."
     )
 
 
@@ -48,12 +47,9 @@ def test_all_adapters_have_non_empty_name() -> None:
     missing = [
         cls.__module__ + "." + cls.__qualname__
         for cls in ADAPTER_REGISTRY.values()
-        if not isinstance(getattr(cls, "ADAPTER_NAME", None), str)
-        or not cls.ADAPTER_NAME.strip()
+        if not isinstance(getattr(cls, "ADAPTER_NAME", None), str) or not cls.ADAPTER_NAME.strip()
     ]
-    assert missing == [], (
-        f"Adapters with missing/empty ADAPTER_NAME: {missing!r}. See D-02."
-    )
+    assert missing == [], f"Adapters with missing/empty ADAPTER_NAME: {missing!r}. See D-02."
 
 
 def test_adapter_names_are_unique() -> None:
@@ -61,6 +57,4 @@ def test_adapter_names_are_unique() -> None:
     from app.crawlers.adapters import ADAPTER_REGISTRY
 
     keys = list(ADAPTER_REGISTRY.keys())
-    assert len(keys) == len(set(keys)), (
-        f"Duplicate ADAPTER_NAME slugs detected: keys={keys!r}"
-    )
+    assert len(keys) == len(set(keys)), f"Duplicate ADAPTER_NAME slugs detected: keys={keys!r}"

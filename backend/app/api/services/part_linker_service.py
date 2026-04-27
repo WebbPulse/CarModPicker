@@ -124,9 +124,7 @@ def find_canonical_candidates(
 
 def _point_siblings_at(db: Session, old_canonical_id: UUID, new_canonical_id: UUID) -> int:
     """Repoint every part currently linked to ``old_canonical_id`` onto ``new_canonical_id``."""
-    rows = list(
-        db.scalars(select(DBPart).where(DBPart.canonical_part_id == old_canonical_id)).all()
-    )
+    rows = list(db.scalars(select(DBPart).where(DBPart.canonical_part_id == old_canonical_id)).all())
     for row in rows:
         row.canonical_part_id = new_canonical_id
         db.add(row)
@@ -148,9 +146,7 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
     # "return value is canonical" contract violation. Under the subject-row lock
     # the re-read is consistent with anything about to mutate it.
     # Silent no-op on SQLite (Pitfall 1); concurrency guarantees hold on Postgres.
-    locked_subject = db.scalars(
-        select(DBPart).where(DBPart.id == new_canonical.id).with_for_update()
-    ).one_or_none()
+    locked_subject = db.scalars(select(DBPart).where(DBPart.id == new_canonical.id).with_for_update()).one_or_none()
     if locked_subject is None:
         # Row vanished (delete race). Fall back to returning the passed-in object;
         # callers treat this as an already-canonical no-op.
@@ -176,15 +172,11 @@ def reelect_canonical(db: Session, new_canonical: DBPart) -> DBPart:
     old_canonical_id = new_canonical.canonical_part_id
     lock_ids_set: set[UUID] = {new_canonical.id, old_canonical_id}
     sibling_ids = db.scalars(
-        select(DBPart.id)
-        .where(DBPart.canonical_part_id == old_canonical_id)
-        .with_for_update()
+        select(DBPart.id).where(DBPart.canonical_part_id == old_canonical_id).with_for_update()
     ).all()
     lock_ids_set.update(sibling_ids)
     lock_ids = sorted(lock_ids_set)
-    db.scalars(
-        select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()
-    ).all()
+    db.scalars(select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()).all()
 
     old_canonical = db.get(DBPart, old_canonical_id)
 
@@ -222,26 +214,18 @@ def unlink_part(db: Session, part: DBPart) -> DBPart:
     Silent no-op on SQLite (Pitfall 1); concurrency test runs on Postgres.
     """
     # Lock the subject row first (stable ordering — subject.id is always in set).
-    subject = db.scalars(
-        select(DBPart).where(DBPart.id == part.id).with_for_update()
-    ).one()
+    subject = db.scalars(select(DBPart).where(DBPart.id == part.id).with_for_update()).one()
 
     canonical_id = subject.canonical_part_id
     if canonical_id is None:
         return subject
 
     # Lock the canonical row.
-    db.scalars(
-        select(DBPart).where(DBPart.id == canonical_id).with_for_update()
-    ).one()
+    db.scalars(select(DBPart).where(DBPart.id == canonical_id).with_for_update()).one()
 
     # Lock every sibling that shares this canonical so any interleaving with
     # reelect_canonical / _point_siblings_at / another unlink serializes here.
-    db.scalars(
-        select(DBPart.id)
-        .where(DBPart.canonical_part_id == canonical_id)
-        .with_for_update()
-    ).all()
+    db.scalars(select(DBPart.id).where(DBPart.canonical_part_id == canonical_id).with_for_update()).all()
 
     # Now safe to mutate.
     subject.canonical_part_id = None
@@ -292,11 +276,7 @@ def link_new_part(
     # reelect_canonical transactions acquire row locks in the same deterministic
     # order and cannot deadlock on index-dependent lock acquisition.
     lock_ids = sorted({c.id for c in candidates} | {new_part.id})
-    locked = db.scalars(
-        select(DBPart)
-        .where(DBPart.id.in_(lock_ids))
-        .with_for_update()
-    ).all()
+    locked = db.scalars(select(DBPart).where(DBPart.id.in_(lock_ids)).with_for_update()).all()
     locked_by_id = {p.id: p for p in locked}
     candidates = [locked_by_id[c.id] for c in candidates]
     new_part = locked_by_id[new_part.id]
@@ -367,7 +347,5 @@ def link_group_part_ids(db: Session, part_id: UUID) -> list[UUID]:
     if part is None:
         return [part_id]
     canonical_id = part.canonical_part_id or part.id
-    sibling_ids = list(
-        db.scalars(select(DBPart.id).where(DBPart.canonical_part_id == canonical_id)).all()
-    )
+    sibling_ids = list(db.scalars(select(DBPart.id).where(DBPart.canonical_part_id == canonical_id)).all())
     return [canonical_id, *sibling_ids]

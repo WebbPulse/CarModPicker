@@ -37,17 +37,13 @@ def _worker_suffix() -> str:
     return os.environ.get("PYTEST_XDIST_WORKER", "main")
 
 
-def _seed(
-    postgres_engine, shared_gtin: str
-) -> tuple[uuid.UUID, uuid.UUID, list[uuid.UUID]]:
+def _seed(postgres_engine, shared_gtin: str) -> tuple[uuid.UUID, uuid.UUID, list[uuid.UUID]]:
     """Seed a test user, category, manufacturer, and 10 parts sharing a gtin.
 
     ``shared_gtin`` is the per-test unique key that honors the WARN 8 isolation
     contract — every verify query filters by this key.
     """
-    SessionLocal = sessionmaker(
-        bind=postgres_engine, autocommit=False, autoflush=False
-    )
+    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
     with SessionLocal() as s:
         # NOTE: User.email_verified (NOT is_verified) per backend/app/api/models/user.py:29.
         user = DBUser(
@@ -66,9 +62,7 @@ def _seed(
         s.add(category)
         s.flush()
 
-        manufacturer = DBPartManufacturer(
-            name=f"mfr_{_worker_suffix()}_{uuid.uuid4().hex[:8]}"
-        )
+        manufacturer = DBPartManufacturer(name=f"mfr_{_worker_suffix()}_{uuid.uuid4().hex[:8]}")
         s.add(manufacturer)
         s.flush()
 
@@ -94,9 +88,7 @@ def test_link_new_part_10_thread_contention(postgres_engine) -> None:
     shared_gtin = f"G{_worker_suffix()}{uuid.uuid4().hex[:12]}"
     _, _, part_ids = _seed(postgres_engine, shared_gtin)
 
-    SessionLocal = sessionmaker(
-        bind=postgres_engine, autocommit=False, autoflush=False
-    )
+    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
 
     def link_one(part_id: uuid.UUID) -> uuid.UUID:
         with SessionLocal() as s:
@@ -119,14 +111,10 @@ def test_link_new_part_10_thread_contention(postgres_engine) -> None:
             .select_from(DBPart)
             .where(DBPart.gtin == shared_gtin, DBPart.canonical_part_id.is_(None))
         )
-        assert canonical_count == 1, (
-            f"Expected exactly 1 canonical for gtin={shared_gtin}, got {canonical_count}"
-        )
+        assert canonical_count == 1, f"Expected exactly 1 canonical for gtin={shared_gtin}, got {canonical_count}"
 
         # Collect all parts sharing the gtin.
-        parts = verify.scalars(
-            select(DBPart).where(DBPart.gtin == shared_gtin)
-        ).all()
+        parts = verify.scalars(select(DBPart).where(DBPart.gtin == shared_gtin)).all()
         assert len(parts) == 10
 
         canonical_ids = {p.id for p in parts if p.canonical_part_id is None}
@@ -141,19 +129,14 @@ def test_link_new_part_10_thread_contention(postgres_engine) -> None:
                 )
 
         # INVARIANT 3: no orphans — every canonical_part_id value resolves to a live canonical.
-        sibling_refs = {
-            p.canonical_part_id for p in parts if p.canonical_part_id is not None
-        }
+        sibling_refs = {p.canonical_part_id for p in parts if p.canonical_part_id is not None}
         live_canonicals = set(
             verify.scalars(
-                select(DBPart.id).where(
-                    DBPart.id.in_(sibling_refs), DBPart.canonical_part_id.is_(None)
-                )
+                select(DBPart.id).where(DBPart.id.in_(sibling_refs), DBPart.canonical_part_id.is_(None))
             ).all()
         )
         assert sibling_refs == live_canonicals, (
-            f"Some siblings point to dead canonicals. "
-            f"sibling_refs={sibling_refs}, live={live_canonicals}"
+            f"Some siblings point to dead canonicals. " f"sibling_refs={sibling_refs}, live={live_canonicals}"
         )
 
 
@@ -162,9 +145,7 @@ def test_unlink_and_relink_under_load(postgres_engine) -> None:
     shared_gtin = f"G2{_worker_suffix()}{uuid.uuid4().hex[:12]}"
     _, _, part_ids = _seed(postgres_engine, shared_gtin)
 
-    SessionLocal = sessionmaker(
-        bind=postgres_engine, autocommit=False, autoflush=False
-    )
+    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
 
     def link_one(part_id: uuid.UUID) -> None:
         with SessionLocal() as s:
@@ -194,14 +175,10 @@ def test_unlink_and_relink_under_load(postgres_engine) -> None:
     # Final invariants — at most one canonical per resolved-head, no orphans.
     # Filter by shared_gtin per WARN 8 contract.
     with SessionLocal() as verify:
-        parts = verify.scalars(
-            select(DBPart).where(DBPart.gtin == shared_gtin)
-        ).all()
+        parts = verify.scalars(select(DBPart).where(DBPart.gtin == shared_gtin)).all()
         canonical_ids = {p.id for p in parts if p.canonical_part_id is None}
         assert len(canonical_ids) <= 10, "Sanity: canonical count bounded by pool size"
-        sibling_refs = {
-            p.canonical_part_id for p in parts if p.canonical_part_id is not None
-        }
+        sibling_refs = {p.canonical_part_id for p in parts if p.canonical_part_id is not None}
         orphans = sibling_refs - canonical_ids
         assert not orphans, f"Found orphaned canonical refs: {orphans}"
 
@@ -233,9 +210,7 @@ def test_reelect_and_link_and_unlink_concurrency(postgres_engine) -> None:
     shared_gtin = f"G3{_worker_suffix()}{uuid.uuid4().hex[:12]}"
     user_id, category_id, part_ids = _seed(postgres_engine, shared_gtin)
 
-    SessionLocal = sessionmaker(
-        bind=postgres_engine, autocommit=False, autoflush=False
-    )
+    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
 
     # Stage 1: establish an initial canonical by linking part_ids[0]. This
     # mutates the group into canonical + 9 unlinked siblings — exactly the
@@ -249,9 +224,7 @@ def test_reelect_and_link_and_unlink_concurrency(postgres_engine) -> None:
     # Stage 2: add an 11th part sharing the gtin so link_new_part has a
     # brand-new sibling to insert against the existing canonical.
     with SessionLocal() as s:
-        manufacturer_id = s.scalars(
-            select(DBPart.part_manufacturer_id).where(DBPart.id == part_ids[0])
-        ).one()
+        manufacturer_id = s.scalars(select(DBPart.part_manufacturer_id).where(DBPart.id == part_ids[0])).one()
         extra = DBPart(
             name="Extra Part",
             user_id=user_id,
@@ -308,15 +281,11 @@ def test_reelect_and_link_and_unlink_concurrency(postgres_engine) -> None:
     # Final invariants: every sibling resolves to a live canonical, no cycles.
     # Filter by shared_gtin per WARN 8 contract.
     with SessionLocal() as verify:
-        parts = verify.scalars(
-            select(DBPart).where(DBPart.gtin == shared_gtin)
-        ).all()
+        parts = verify.scalars(select(DBPart).where(DBPart.gtin == shared_gtin)).all()
         canonical_ids = {p.id for p in parts if p.canonical_part_id is None}
         assert canonical_ids, "At least one canonical must survive the race"
 
-        sibling_refs = {
-            p.canonical_part_id for p in parts if p.canonical_part_id is not None
-        }
+        sibling_refs = {p.canonical_part_id for p in parts if p.canonical_part_id is not None}
         orphans = sibling_refs - canonical_ids
         assert not orphans, f"Found orphaned canonical refs after race: {orphans}"
 

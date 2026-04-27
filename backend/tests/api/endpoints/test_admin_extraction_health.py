@@ -39,9 +39,7 @@ class TestExtractionHealthAuth:
         response = client.get(EXTRACTION_HEALTH_PATH)
         assert response.status_code == 401
 
-    def test_extraction_health_forbidden_non_admin(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
         token = create_and_login_user(client, db_session, "extraction_health_non_admin")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get(EXTRACTION_HEALTH_PATH, headers=headers)
@@ -49,9 +47,7 @@ class TestExtractionHealthAuth:
 
 
 class TestExtractionHealthCompliance:
-    def test_extraction_health_returns_compliance_block(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_returns_compliance_block(self, client: TestClient, db_session: Session) -> None:
         token = create_and_login_admin_user(client, db_session, "extraction_health_compliance")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get(EXTRACTION_HEALTH_PATH, headers=headers)
@@ -126,9 +122,7 @@ class TestExtractionHealthCoverage:
 
 
 class TestExtractionHealthFailureRate:
-    def test_extraction_health_failure_rate_window(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_failure_rate_window(self, client: TestClient, db_session: Session) -> None:
         adapter_slug = _pick_adapter_slug("http")
         now = datetime.now(timezone.utc)
         # One failed + one parsed crawled_page inside the 7-day window.
@@ -165,9 +159,7 @@ class TestExtractionHealthFailureRate:
         # Tier annotation must come from ADAPTER_REGISTRY.
         assert row["tier"] == classify_tier(ADAPTER_REGISTRY[adapter_slug])
 
-    def test_extraction_health_excludes_old_failures(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_excludes_old_failures(self, client: TestClient, db_session: Session) -> None:
         adapter_slug = _pick_adapter_slug("http")
         old = datetime.now(timezone.utc) - timedelta(days=30)
         db_session.add(
@@ -193,9 +185,7 @@ class TestExtractionHealthFailureRate:
         if rows:
             assert rows[0]["failed"] == 0
 
-    def test_extraction_health_skips_unknown_sources(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_skips_unknown_sources(self, client: TestClient, db_session: Session) -> None:
         unknown_source = "not_a_real_adapter"
         # Sanity-check the precondition.
         assert unknown_source not in ADAPTER_REGISTRY
@@ -221,9 +211,7 @@ class TestExtractionHealthFailureRate:
 
 
 class TestExtractionHealthWindow:
-    def test_extraction_health_returns_window_metadata(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_extraction_health_returns_window_metadata(self, client: TestClient, db_session: Session) -> None:
         token = create_and_login_admin_user(client, db_session, "extraction_health_window_meta")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get(EXTRACTION_HEALTH_PATH, headers=headers)

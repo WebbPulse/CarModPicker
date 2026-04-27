@@ -38,9 +38,9 @@ def test_audit_passes_when_all_compliant(capsys: pytest.CaptureFixture[str]) -> 
     assert rc == 0, f"audit() exit code drift: got {rc}\nstdout:\n{captured.out}"
     total = len(ADAPTER_REGISTRY)
     expected_total_line = f"Total:        {total}/{total} compliant"
-    assert expected_total_line in captured.out, (
-        f"Expected {expected_total_line!r} in audit stdout; got:\n{captured.out}"
-    )
+    assert (
+        expected_total_line in captured.out
+    ), f"Expected {expected_total_line!r} in audit stdout; got:\n{captured.out}"
     assert "OK — every adapter declares at least one category_targets entry" in captured.out
 
 
@@ -89,8 +89,8 @@ def test_audit_reports_offenders_when_non_compliant(
     assert "_t03_bad_adapter" in captured.out
     # The compliant adapter must NOT appear in the offenders block.
     offenders_block = captured.out.split("M002/S03 adapter compliance audit", 1)[0]
-    assert "_t03_good_adapter" not in offenders_block, (
-        f"Compliant adapter leaked into offenders block:\n{offenders_block}"
-    )
+    assert (
+        "_t03_good_adapter" not in offenders_block
+    ), f"Compliant adapter leaked into offenders block:\n{offenders_block}"
     # Total line should reflect the patched registry (1/2 compliant).
     assert "Total:        1/2 compliant" in captured.out

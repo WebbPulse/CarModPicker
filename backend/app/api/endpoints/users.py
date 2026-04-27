@@ -571,9 +571,7 @@ async def get_all_users(
         )
 
     # Get total count (after applying search filter)
-    total_count = db.scalar(
-        select(func.count()).select_from(stmt.subquery())
-    ) or 0
+    total_count = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
     # Get paginated users
     users = list(db.scalars(stmt.offset(skip).limit(limit)).all())

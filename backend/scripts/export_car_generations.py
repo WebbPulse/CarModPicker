@@ -10,6 +10,7 @@ NOTE: Must be run BEFORE car_generations_data.py is converted to the thin
 shim (on a branch where the big dict literal still exists). For Phase 3,
 run the script BEFORE step 4 of the plan's Task 2.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,10 +20,7 @@ from pathlib import Path
 # shim replacement lands.
 from app.core.car_generations_data import CAR_GENERATIONS
 
-TARGET = (
-    Path(__file__).resolve().parent.parent
-    / "app" / "core" / "car_generations_data.json"
-)
+TARGET = Path(__file__).resolve().parent.parent / "app" / "core" / "car_generations_data.json"
 
 
 def main() -> int:

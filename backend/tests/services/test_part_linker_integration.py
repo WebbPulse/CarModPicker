@@ -166,9 +166,9 @@ def test_link_new_part_into_existing_canonical(
     db_session.refresh(canonical)
 
     assert canonical.canonical_part_id is None, "Canonical must stay canonical"
-    assert new_part.canonical_part_id == canonical.id, (
-        f"New part should point at canonical; got {new_part.canonical_part_id}"
-    )
+    assert (
+        new_part.canonical_part_id == canonical.id
+    ), f"New part should point at canonical; got {new_part.canonical_part_id}"
 
 
 def test_new_part_reelects_canonical_under_richer_metadata(
@@ -208,9 +208,7 @@ def test_new_part_reelects_canonical_under_richer_metadata(
     assert older.canonical_part_id == richer.id, "Older should be repointed at richer"
 
 
-def test_merge_multiple_candidate_canonicals(
-    db_session: Session, test_user: Any, test_part_manufacturer: Any
-) -> None:
+def test_merge_multiple_candidate_canonicals(db_session: Session, test_user: Any, test_part_manufacturer: Any) -> None:
     """Scenario (d): new part shares gtin with A and url with B → canonicals merge.
 
     WARN 7: the merge path is only exercised when BOTH gtin lookup AND url
@@ -265,9 +263,7 @@ def test_merge_multiple_candidate_canonicals(
     db_session.refresh(canon_b)
     db_session.refresh(new_part)
 
-    canonicals_after = [
-        p for p in (canon_a, canon_b, new_part) if p.canonical_part_id is None
-    ]
+    canonicals_after = [p for p in (canon_a, canon_b, new_part) if p.canonical_part_id is None]
     assert len(canonicals_after) == 1, (
         f"Merge should leave exactly 1 canonical; got {len(canonicals_after)}: "
         f"canon_a={canon_a.canonical_part_id}, "
@@ -278,9 +274,9 @@ def test_merge_multiple_candidate_canonicals(
     surviving_id = canonicals_after[0].id
     for p in (canon_a, canon_b, new_part):
         if p.id != surviving_id:
-            assert p.canonical_part_id == surviving_id, (
-                f"{p.name} should point at surviving canonical; got {p.canonical_part_id}"
-            )
+            assert (
+                p.canonical_part_id == surviving_id
+            ), f"{p.name} should point at surviving canonical; got {p.canonical_part_id}"
 
 
 def test_unlink_promotes_sibling_to_standalone(
@@ -327,6 +323,4 @@ def test_unlink_promotes_sibling_to_standalone(
     unlink_part(db_session, canonical)
     db_session.commit()
     db_session.refresh(canonical)
-    assert canonical.canonical_part_id is None, (
-        "Unlinked part should be standalone canonical after unlink_part"
-    )
+    assert canonical.canonical_part_id is None, "Unlinked part should be standalone canonical after unlink_part"

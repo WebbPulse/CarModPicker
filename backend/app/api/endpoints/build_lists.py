@@ -204,9 +204,7 @@ async def read_build_lists_with_votes(
         stmt = stmt.order_by(order_by_votes.desc(), DBBuildList.id.desc())
 
     # Get paginated IDs first so we can re-order the final fetch deterministically.
-    id_stmt = (
-        stmt.with_only_columns(DBBuildList.id).order_by(None)
-    )
+    id_stmt = stmt.with_only_columns(DBBuildList.id).order_by(None)
     # Reapply the same sort criteria to the id-only select
     if sort == "price_asc":
         id_stmt = id_stmt.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
@@ -276,8 +274,7 @@ async def read_build_lists_with_votes(
         select(
             total_cost_subq.c.build_list_id,
             total_cost_subq.c.total_cost_cents,
-        )
-        .where(total_cost_subq.c.build_list_id.in_(build_list_ids))
+        ).where(total_cost_subq.c.build_list_id.in_(build_list_ids))
     ).all()
     total_cost_cents_dict: Dict[UUID, Optional[int]] = {}
     for row in cost_rows:
@@ -312,8 +309,7 @@ async def read_build_lists_with_votes(
     user_votes_dict: Dict[UUID, str] = {}
     if current_user:
         user_votes = db.execute(
-            select(DBVote.entity_id, DBVote.vote_type)
-            .where(
+            select(DBVote.entity_id, DBVote.vote_type).where(
                 DBVote.entity_type == "build_list",
                 DBVote.entity_id.in_(build_list_ids),
                 DBVote.user_id == current_user.id,
@@ -424,8 +420,9 @@ async def create_build_list_phase(
 
     # Next sort_order: max + 1
     max_order = db.scalar(
-        select(func.coalesce(func.max(DBBuildListPhase.sort_order), -1))
-        .where(DBBuildListPhase.build_list_id == build_list_id)
+        select(func.coalesce(func.max(DBBuildListPhase.sort_order), -1)).where(
+            DBBuildListPhase.build_list_id == build_list_id
+        )
     )
     sort_order = (max_order + 1) if max_order is not None else 0
 
@@ -514,18 +511,11 @@ async def read_my_build_lists(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Get total count
-    total = db.scalar(
-        select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == current_user.id)
-    ) or 0
+    total = db.scalar(select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == current_user.id)) or 0
 
     # Get paginated results
     build_lists = list(
-        db.scalars(
-            select(DBBuildList)
-            .where(DBBuildList.user_id == current_user.id)
-            .offset(skip)
-            .limit(limit)
-        ).all()
+        db.scalars(select(DBBuildList).where(DBBuildList.user_id == current_user.id).offset(skip).limit(limit)).all()
     )
     if not build_lists:
         logger.info(f"No Build Lists found for user with id {current_user.id}")
@@ -560,12 +550,7 @@ async def read_build_lists_by_user(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     build_lists = list(
-        db.scalars(
-            select(DBBuildList)
-            .where(DBBuildList.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
-        ).all()
+        db.scalars(select(DBBuildList).where(DBBuildList.user_id == user_id).offset(skip).limit(limit)).all()
     )
     if not build_lists:
         logger.info(f"No Build Lists found for user with id {user_id}")

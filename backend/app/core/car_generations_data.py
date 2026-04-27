@@ -13,6 +13,7 @@ To add a new car generation:
 2. Re-run `python scripts/export_car_generations.py` if editing via Python
 3. The initialization logic will automatically create it in the database
 """
+
 from __future__ import annotations
 
 import re

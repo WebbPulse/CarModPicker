@@ -89,9 +89,7 @@ def list_active_alerts_for_user(db: Session, user_id: UUID) -> list[DBPartPriceA
     )
 
 
-def get_alert_for_owner(
-    db: Session, alert_id: UUID, user_id: UUID
-) -> Optional[DBPartPriceAlert]:
+def get_alert_for_owner(db: Session, alert_id: UUID, user_id: UUID) -> Optional[DBPartPriceAlert]:
     """Return the alert if it exists AND belongs to user_id; None otherwise.
 
     Used by PATCH/DELETE endpoints to enforce per-user ownership without
@@ -193,8 +191,7 @@ def evaluate_alerts_for_listing(
         # Defensive — the chokepoint guarantees both exist, but evaluate should
         # never crash a price-write transaction.
         logger.warning(
-            "price_alert_evaluator_missing_entity: part_id=%s retailer_id=%s "
-            "part_present=%s retailer_present=%s",
+            "price_alert_evaluator_missing_entity: part_id=%s retailer_id=%s " "part_present=%s retailer_present=%s",
             part_id,
             retailer_id,
             part is not None,
@@ -205,10 +202,7 @@ def evaluate_alerts_for_listing(
     for alert in candidate_alerts:
         start = time.monotonic()
         try:
-            if (
-                alert.last_fired_at is not None
-                and observed_at - _ensure_aware(alert.last_fired_at) < ALERT_COOLDOWN
-            ):
+            if alert.last_fired_at is not None and observed_at - _ensure_aware(alert.last_fired_at) < ALERT_COOLDOWN:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
                 logger.info(
                     "price_alert_evaluated: alert_id=%s part_id=%s "
@@ -232,9 +226,7 @@ def evaluate_alerts_for_listing(
                 )
                 continue
 
-            success = email_module.send_price_drop_alert_email(
-                user.email, part, retailer, price_cents, alert
-            )
+            success = email_module.send_price_drop_alert_email(user.email, part, retailer, price_cents, alert)
             logger.info(
                 "price_alert_email_sent: alert_id=%s user_id=%s success=%s",
                 alert.id,

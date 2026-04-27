@@ -63,8 +63,7 @@ def test_passing_fixture_returns_zero_and_writes_passed_evidence(tmp_path: Path)
     """Happy path: in-budget p95s, zero failures → exit 0 + PASSED.json."""
     result = _run_gate(PASSING_FIXTURE, tmp_path)
     assert result.returncode == 0, (
-        f"expected exit 0 on passing CSV, got {result.returncode}\n"
-        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        f"expected exit 0 on passing CSV, got {result.returncode}\n" f"stdout: {result.stdout}\nstderr: {result.stderr}"
     )
     passed_files = list(tmp_path.glob("price-history-PASSED-*.json"))
     failed_files = list(tmp_path.glob("price-history-FAILED-*.json"))
@@ -88,8 +87,7 @@ def test_failing_fixture_returns_one_and_writes_failed_evidence_with_remediation
     field. If this regresses we ship a silent perf gate."""
     result = _run_gate(FAILING_FIXTURE, tmp_path)
     assert result.returncode == 1, (
-        f"expected exit 1 on failing CSV, got {result.returncode}\n"
-        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        f"expected exit 1 on failing CSV, got {result.returncode}\n" f"stdout: {result.stdout}\nstderr: {result.stderr}"
     )
     failed_files = list(tmp_path.glob("price-history-FAILED-*.json"))
     passed_files = list(tmp_path.glob("price-history-PASSED-*.json"))
@@ -114,8 +112,7 @@ def test_missing_csv_returns_four(tmp_path: Path) -> None:
     """Q7 negative test: missing CSV file → exit 4."""
     result = _run_gate(tmp_path / "does-not-exist.csv", tmp_path)
     assert result.returncode == 4, (
-        f"expected exit 4 on missing CSV, got {result.returncode}\n"
-        f"stderr: {result.stderr}"
+        f"expected exit 4 on missing CSV, got {result.returncode}\n" f"stderr: {result.stderr}"
     )
 
 
@@ -123,13 +120,10 @@ def test_empty_csv_returns_five(tmp_path: Path) -> None:
     """Q7 negative test: zero data rows → exit 5."""
     empty = tmp_path / "empty.csv"
     # Header-only — parses cleanly but yields no rows.
-    empty.write_text(
-        "Type,Name,Request Count,Failure Count,50%,95%,99%,100%,Average Response Time\n"
-    )
+    empty.write_text("Type,Name,Request Count,Failure Count,50%,95%,99%,100%,Average Response Time\n")
     result = _run_gate(empty, tmp_path)
     assert result.returncode == 5, (
-        f"expected exit 5 on header-only CSV, got {result.returncode}\n"
-        f"stderr: {result.stderr}"
+        f"expected exit 5 on header-only CSV, got {result.returncode}\n" f"stderr: {result.stderr}"
     )
 
 
@@ -149,8 +143,7 @@ def test_csv_missing_endpoint_row_returns_six(tmp_path: Path) -> None:
     )
     result = _run_gate(only_aggregated, tmp_path)
     assert result.returncode == 6, (
-        f"expected exit 6 on missing endpoint row, got {result.returncode}\n"
-        f"stderr: {result.stderr}"
+        f"expected exit 6 on missing endpoint row, got {result.returncode}\n" f"stderr: {result.stderr}"
     )
 
 

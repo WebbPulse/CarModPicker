@@ -26,7 +26,6 @@ from app.core.log_context import (
 )
 from tests.conftest import login_user
 
-
 # Loggers that emit OUTSIDE the request middleware scope in TestClient context
 # (TestClient's own httpx/asyncio machinery fires before middleware sets
 # ContextVars, and python_multipart runs during form parsing before the
@@ -112,12 +111,8 @@ def test_log_propagation_request_scope(
     in_scope = [r for r in caplog_with_context.records if _in_request_scope(r)]
     assert len(in_scope) > 0, "no in-scope log records captured during request"
     for rec in in_scope:
-        assert getattr(rec, "request_id", "-") != "-", (
-            f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
-        )
-        assert getattr(rec, "user_id", "-") != "-", (
-            f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
-        )
+        assert getattr(rec, "request_id", "-") != "-", f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
+        assert getattr(rec, "user_id", "-") != "-", f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
 
 
 def test_bg_log_context(caplog_with_context) -> None:
@@ -195,6 +190,4 @@ def test_log_propagation_sqlalchemy(
     if not sa_records:
         pytest.skip("sqlalchemy did not emit INFO log records in test env")
     for rec in sa_records:
-        assert getattr(rec, "request_id", "-") != "-", (
-            f"sqlalchemy log missing request_id: {rec.getMessage()}"
-        )
+        assert getattr(rec, "request_id", "-") != "-", f"sqlalchemy log missing request_id: {rec.getMessage()}"

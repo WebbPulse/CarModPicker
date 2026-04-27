@@ -113,9 +113,7 @@ def coilover_under_suspension(
             default_registry._specs["suspension"] = previous  # type: ignore[assignment]
 
 
-def _ingest_kwargs(
-    *, current_user: User, default_category_id: UUID
-) -> dict[str, Any]:
+def _ingest_kwargs(*, current_user: User, default_category_id: UUID) -> dict[str, Any]:
     return {
         "current_user": current_user,
         "default_category_id": default_category_id,
@@ -154,9 +152,7 @@ class TestIngestAcceptsValidSpecifications:
             db_session,
             payload,
             adapter_name="test_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
 
         # Inferred slug landed on the suspension category, not the default.
@@ -189,16 +185,12 @@ class TestIngestDropsInvalidSpecifications:
             specifications=bad_specs,
         )
 
-        with caplog_with_context.at_level(
-            logging.WARNING, logger="app.crawlers.base"
-        ):
+        with caplog_with_context.at_level(logging.WARNING, logger="app.crawlers.base"):
             part = crawler_base.ingest_payload(
                 db_session,
                 payload,
                 adapter_name="bad_adapter",
-                **_ingest_kwargs(
-                    current_user=test_user, default_category_id=default_category_id
-                ),
+                **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
             )
 
         # Drop-to-None contract: part still ingests, specifications cleared.
@@ -210,9 +202,7 @@ class TestIngestDropsInvalidSpecifications:
         # the WARN must mention the adapter name, the inferred DB category,
         # and the bridged sub-slug (coilover) so S04's admin endpoint can
         # show per-sub-category failure rates.
-        warn_records = [
-            r for r in caplog_with_context.records if r.levelno == logging.WARNING
-        ]
+        warn_records = [r for r in caplog_with_context.records if r.levelno == logging.WARNING]
         assert any(
             "spec validation failed" in r.getMessage()
             and "bad_adapter" in r.getMessage()
@@ -244,9 +234,7 @@ class TestIngestDropsInvalidSpecifications:
             db_session,
             payload,
             adapter_name="coerce_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         assert part.specifications is None
 
@@ -269,9 +257,7 @@ class TestIngestEmitsExtractionFailureMetric:
         # name at the call site, so patching app.core.cloudwatch_emf wouldn't
         # intercept the imported reference.
         mock_emitter = MagicMock()
-        monkeypatch.setattr(
-            "app.crawlers.base.emit_extraction_failure", mock_emitter
-        )
+        monkeypatch.setattr("app.crawlers.base.emit_extraction_failure", mock_emitter)
 
         payload = make_scraped_payload(
             name="Metric Test Coilover",
@@ -285,9 +271,7 @@ class TestIngestEmitsExtractionFailureMetric:
             db_session,
             payload,
             adapter_name="metric_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
 
         mock_emitter.assert_called_once_with(adapter_name="metric_adapter")
@@ -309,9 +293,7 @@ class TestIngestPassThroughCases:
     ) -> None:
         # specifications=None → validation hook skipped; emitter must not fire.
         mock_emitter = MagicMock()
-        monkeypatch.setattr(
-            "app.crawlers.base.emit_extraction_failure", mock_emitter
-        )
+        monkeypatch.setattr("app.crawlers.base.emit_extraction_failure", mock_emitter)
 
         payload = make_scraped_payload(
             name="No-Specs Coilover",
@@ -324,9 +306,7 @@ class TestIngestPassThroughCases:
             db_session,
             payload,
             adapter_name="passthrough_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         assert part.specifications is None
         mock_emitter.assert_not_called()
@@ -354,9 +334,7 @@ class TestIngestPassThroughCases:
         None (i.e. infer_category itself returned None).
         """
         mock_emitter = MagicMock()
-        monkeypatch.setattr(
-            "app.crawlers.base.emit_extraction_failure", mock_emitter
-        )
+        monkeypatch.setattr("app.crawlers.base.emit_extraction_failure", mock_emitter)
 
         # Seed a "wheels" category — infer_category returns "wheels" for the
         # text below, the bridge maps it to "universal", and UniversalSpec
@@ -383,9 +361,7 @@ class TestIngestPassThroughCases:
             db_session,
             payload,
             adapter_name="legacy_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         # Bridge → universal → UniversalSpec rejects unknown fields → drop.
         assert part is not None
@@ -407,9 +383,7 @@ class TestIngestPassThroughCases:
         tail of categories without a dedicated spec to still flow validated
         specs through.
         """
-        existing = (
-            db_session.query(Category).filter(Category.name == "wheels").first()
-        )
+        existing = db_session.query(Category).filter(Category.name == "wheels").first()
         if existing is None:
             db_session.add(
                 Category(
@@ -439,9 +413,7 @@ class TestIngestPassThroughCases:
             db_session,
             payload,
             adapter_name="universal_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         assert part.specifications == universal_specs
 
@@ -483,9 +455,7 @@ class TestIngestUsesBridgeToResolveSubslug:
             db_session,
             payload,
             adapter_name="bridge_test_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         assert part.category_id == suspension_category.id
         # Validation accepted CoiloverSpec-specific fields → bridge fired.
@@ -504,9 +474,7 @@ class TestIngestUsesBridgeToResolveSubslug:
         UniversalSpec via the bridge and gets rejected — proving the bridge
         sends non-suspension/engine/brakes parents to universal, where
         CoiloverSpec-specific keys aren't accepted."""
-        wheels = (
-            db_session.query(Category).filter(Category.name == "wheels").first()
-        )
+        wheels = db_session.query(Category).filter(Category.name == "wheels").first()
         if wheels is None:
             db_session.add(
                 Category(
@@ -520,9 +488,7 @@ class TestIngestUsesBridgeToResolveSubslug:
             db_session.commit()
 
         mock_emitter = MagicMock()
-        monkeypatch.setattr(
-            "app.crawlers.base.emit_extraction_failure", mock_emitter
-        )
+        monkeypatch.setattr("app.crawlers.base.emit_extraction_failure", mock_emitter)
 
         # spring_rate_front is a CoiloverSpec field; UniversalSpec rejects it.
         # Name + description hit only wheels keywords — bridge → universal.
@@ -537,9 +503,7 @@ class TestIngestUsesBridgeToResolveSubslug:
             db_session,
             payload,
             adapter_name="bridge_reject_adapter",
-            **_ingest_kwargs(
-                current_user=test_user, default_category_id=default_category_id
-            ),
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
         )
         assert part.specifications is None
         mock_emitter.assert_called_once_with(adapter_name="bridge_reject_adapter")

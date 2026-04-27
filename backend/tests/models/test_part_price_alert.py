@@ -56,9 +56,7 @@ def _make_part(db: Session, user: User, name: str = "Test Part") -> Part:
 # ---------------------------------------------------------------------------
 
 
-def test_part_price_alert_defaults_active_and_no_last_fired(
-    db_session: Session, test_user: User
-) -> None:
+def test_part_price_alert_defaults_active_and_no_last_fired(db_session: Session, test_user: User) -> None:
     """A freshly created alert defaults to active=True with last_fired_at=None
     and populated timestamps."""
     part = _make_part(db_session, test_user)
@@ -80,9 +78,7 @@ def test_part_price_alert_defaults_active_and_no_last_fired(
     assert alert.updated_at is not None
 
 
-def test_part_price_alert_unique_user_part(
-    db_session: Session, test_user: User
-) -> None:
+def test_part_price_alert_unique_user_part(db_session: Session, test_user: User) -> None:
     """A second alert for the same (user_id, part_id) pair must fail with
     IntegrityError — re-subscribing is supposed to update, not insert."""
     part = _make_part(db_session, test_user)
@@ -106,9 +102,7 @@ def test_part_price_alert_unique_user_part(
     db_session.rollback()
 
 
-def test_part_price_alert_same_user_different_parts_allowed(
-    db_session: Session, test_user: User
-) -> None:
+def test_part_price_alert_same_user_different_parts_allowed(db_session: Session, test_user: User) -> None:
     """The unique constraint is on (user_id, part_id) — same user can have
     alerts on multiple distinct parts."""
     part_a = _make_part(db_session, test_user, name="Part A")
@@ -122,9 +116,7 @@ def test_part_price_alert_same_user_different_parts_allowed(
     assert alert_a.id != alert_b.id
 
 
-def test_part_price_alert_different_users_same_part_allowed(
-    db_session: Session, test_user: User
-) -> None:
+def test_part_price_alert_different_users_same_part_allowed(db_session: Session, test_user: User) -> None:
     """The unique constraint is on (user_id, part_id) — two different users
     can each subscribe to the same part."""
     other = User(
@@ -147,9 +139,7 @@ def test_part_price_alert_different_users_same_part_allowed(
     assert alert_a.id != alert_b.id
 
 
-def test_part_price_alert_last_fired_at_writable(
-    db_session: Session, test_user: User
-) -> None:
+def test_part_price_alert_last_fired_at_writable(db_session: Session, test_user: User) -> None:
     """last_fired_at can be set explicitly (mirrors the cooldown bookkeeping
     the evaluator service does in T03)."""
     part = _make_part(db_session, test_user)
@@ -210,9 +200,7 @@ def test_update_schema_rejects_negative_threshold() -> None:
         PartPriceAlertUpdate(threshold_cents=-5)
 
 
-def test_read_schema_round_trips_orm_instance(
-    db_session: Session, test_user: User
-) -> None:
+def test_read_schema_round_trips_orm_instance(db_session: Session, test_user: User) -> None:
     """PartPriceAlertRead must serialize an ORM instance correctly via
     from_attributes=True — proves the field set matches the model."""
     part = _make_part(db_session, test_user)

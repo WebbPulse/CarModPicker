@@ -598,9 +598,7 @@ class TestBuildLists:
 
         # The test demonstrates that unverified email users cannot access protected endpoints
 
-    def test_copy_build_list_success(
-        self, client: TestClient, premium_test_user: User, db_session: Session
-    ) -> None:
+    def test_copy_build_list_success(self, client: TestClient, premium_test_user: User, db_session: Session) -> None:
         """Test successfully copying a build list.
 
         Uses premium_test_user: IN-02 closed the free-tier cap bypass on the copy
@@ -829,9 +827,7 @@ class TestBuildLists:
         assert copied_build_list["user_id"] == str(test_user.id)
         assert copied_build_list["user_id"] != str(original_owner.id)
 
-    def test_copy_free_tier_cap(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_copy_free_tier_cap(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """IN-02 regression — free-tier user at the 1-list cap cannot copy to
         create a second list.
 
@@ -853,9 +849,7 @@ class TestBuildLists:
             "description": "first and only free-tier build list",
             "car_id": str(car["id"]),
         }
-        resp = client.post(
-            f"{settings.API_STR}/build-lists/", json=original_data, headers=headers
-        )
+        resp = client.post(f"{settings.API_STR}/build-lists/", json=original_data, headers=headers)
         assert resp.status_code == 200, resp.text
         original_id = resp.json()["id"]
 
@@ -865,9 +859,7 @@ class TestBuildLists:
             json={"new_name": "should-fail"},
             headers=headers,
         )
-        assert resp.status_code == 402, (
-            f"Expected 402 on copy at free-tier cap, got {resp.status_code}: {resp.text}"
-        )
+        assert resp.status_code == 402, f"Expected 402 on copy at free-tier cap, got {resp.status_code}: {resp.text}"
         # The error-handler middleware (``app/api/middleware/error_handler.py``
         # — see the ``handle_http_exception`` function) maps
         # HTTPException.detail → response body's "message" key. Accept either
@@ -875,9 +867,9 @@ class TestBuildLists:
         # `test_free_user_cannot_create_second_build_list` test above.
         data = resp.json()
         msg = data.get("detail") or data.get("message") or ""
-        assert "Free accounts are limited to 1 build list" in msg, (
-            f"Expected cap-exceeded message in 402 body, got: {data}"
-        )
+        assert (
+            "Free accounts are limited to 1 build list" in msg
+        ), f"Expected cap-exceeded message in 402 body, got: {data}"
 
         # Step 3: verify no 2nd build list was created. Uses the by-user
         # endpoint which returns a flat list (not paginated dict) so we can
@@ -889,9 +881,7 @@ class TestBuildLists:
         assert resp.status_code == 200
         user_lists = resp.json()
         assert isinstance(user_lists, list), f"Expected list response, got {type(user_lists)}"
-        assert len(user_lists) == 1, (
-            f"Expected exactly 1 build list after blocked copy, got {len(user_lists)}"
-        )
+        assert len(user_lists) == 1, f"Expected exactly 1 build list after blocked copy, got {len(user_lists)}"
         assert user_lists[0]["id"] == original_id
 
     def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:

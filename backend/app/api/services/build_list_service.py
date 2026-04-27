@@ -162,9 +162,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
 
         # Delete all associated build list parts first
         # This ensures proper cascade deletion and avoids foreign key constraint violations
-        build_list_parts = db.scalars(
-            select(DBBuildListPart).where(DBBuildListPart.build_list_id == entity_id)
-        ).all()
+        build_list_parts = db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == entity_id)).all()
         for part in build_list_parts:
             db.delete(part)
 
@@ -191,12 +189,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         """Get build lists by car ID with pagination."""
         log = logger if logger is not None else get_logger()
         build_lists = list(
-            db.scalars(
-                select(DBBuildList)
-                .where(DBBuildList.car_id == car_id)
-                .offset(skip)
-                .limit(limit)
-            ).all()
+            db.scalars(select(DBBuildList).where(DBBuildList.car_id == car_id).offset(skip).limit(limit)).all()
         )
 
         log.info(f"Retrieved {len(build_lists)} build lists for car {car_id}")
@@ -213,12 +206,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         """Get build lists by user ID with pagination."""
         log = logger if logger is not None else get_logger()
         build_lists = list(
-            db.scalars(
-                select(DBBuildList)
-                .where(DBBuildList.user_id == user_id)
-                .offset(skip)
-                .limit(limit)
-            ).all()
+            db.scalars(select(DBBuildList).where(DBBuildList.user_id == user_id).offset(skip).limit(limit)).all()
         )
 
         log.info(f"Retrieved {len(build_lists)} build lists for user {user_id}")
@@ -232,11 +220,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
     ) -> int:
         """Count build lists owned by a specific user."""
         log = logger if logger is not None else get_logger()
-        count = db.scalar(
-            select(func.count())
-            .select_from(DBBuildList)
-            .where(DBBuildList.user_id == user_id)
-        ) or 0
+        count = db.scalar(select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == user_id)) or 0
         log.info(f"Counted {count} build lists for user {user_id}")
         return count
 
@@ -335,9 +319,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
 
         # Get all build list parts from the original build list
         original_parts = list(
-            db.scalars(
-                select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)
-            ).all()
+            db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all()
         )
 
         # Create NEW BuildListPart entities for each original part

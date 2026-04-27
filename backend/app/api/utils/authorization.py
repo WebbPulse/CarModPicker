@@ -39,9 +39,7 @@ def can_edit_build_list_part(
         return build_list.user_id == user.id
 
     if db:
-        build_list = db.scalars(
-            select(DBBuildList).where(DBBuildList.id == build_list_part.build_list_id)
-        ).first()
+        build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_list_part.build_list_id)).first()
         if build_list and build_list.user_id == user.id:
             return True
 

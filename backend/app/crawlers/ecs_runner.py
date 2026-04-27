@@ -91,11 +91,7 @@ def _notify_completion(db, job_id: UUID) -> None:
         if job is None:
             return
         recipients = list(
-            db.scalars(
-                select(DBUser.email).where(
-                    DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)
-                )
-            ).all()
+            db.scalars(select(DBUser.email).where(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False))).all()
         )
         if recipients:
             sent = send_job_report_email(job, recipients)
@@ -201,9 +197,7 @@ def main() -> None:
             # WR-01 — use ``_coerce_bool`` so JSON string values like
             # ``{"a90shop": "false"}`` are parsed correctly rather than being
             # silently treated as truthy.
-            skip_known_urls_by_adapter = {
-                k: _coerce_bool(v) for k, v in json.loads(skip_by_adapter_str).items()
-            }
+            skip_known_urls_by_adapter = {k: _coerce_bool(v) for k, v in json.loads(skip_by_adapter_str).items()}
 
         logger.info(
             "ECS crawler task starting: adapters=%s category_id=%s job_id=%s delay_sec=%s parallel=%s",

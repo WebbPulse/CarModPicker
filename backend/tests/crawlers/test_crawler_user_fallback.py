@@ -40,9 +40,7 @@ def _clear_service_accounts(db_session: Session) -> None:
     committed a service-account row via ``init_crawler_service_account``. We
     delete defensively.
     """
-    for u in db_session.scalars(
-        select(User).where(User.is_service_account.is_(True))
-    ).all():
+    for u in db_session.scalars(select(User).where(User.is_service_account.is_(True))).all():
         db_session.delete(u)
     db_session.commit()
 
@@ -72,9 +70,7 @@ def _make_user(
     return user
 
 
-def test_env_fallback_accepts_uuid_string(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_env_fallback_accepts_uuid_string(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """WR-03 pin — a valid UUID string in CRAWLER_USER_ID resolves to a user.
 
     Pre-fix: ``int(raw)`` would have raised ValueError here, masked as a
@@ -89,9 +85,7 @@ def test_env_fallback_accepts_uuid_string(
     assert result.id == target.id
 
 
-def test_env_fallback_rejects_non_uuid(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_env_fallback_rejects_non_uuid(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Negative path — a non-UUID string raises CrawlerConfigError with the
     canonical "must be a valid UUID" message.
     """
@@ -102,9 +96,7 @@ def test_env_fallback_rejects_non_uuid(
         _get_crawler_user(db_session)
 
 
-def test_env_fallback_raises_when_user_missing(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_env_fallback_raises_when_user_missing(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Negative path — valid UUID format but no matching user row raises
     ``CrawlerConfigError`` with "no user found".
     """
@@ -116,9 +108,7 @@ def test_env_fallback_raises_when_user_missing(
         _get_crawler_user(db_session)
 
 
-def test_env_fallback_raises_when_user_disabled(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_env_fallback_raises_when_user_disabled(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Negative path — valid UUID resolving to a disabled user raises
     ``CrawlerConfigError`` with "user is disabled".
     """
@@ -130,9 +120,7 @@ def test_env_fallback_raises_when_user_disabled(
         _get_crawler_user(db_session)
 
 
-def test_service_account_takes_precedence(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_service_account_takes_precedence(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Precedence guarantee — a present service account wins over the env-var
     fallback. This protects operators from accidentally redirecting crawler
     ingestion to a stray user via a leftover ``CRAWLER_USER_ID`` env var.

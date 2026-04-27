@@ -297,9 +297,7 @@ def ownership_verification(
             db = cast(Session, db_value)
             current_user = cast(DBUser, user_value)
             model_class = func.__annotations__["return"]
-            entity = db.scalars(
-                select(model_class).where(getattr(model_class, "id") == entity_id)
-            ).first()
+            entity = db.scalars(select(model_class).where(getattr(model_class, "id") == entity_id)).first()
 
             if not entity:
                 detail = not_found_detail or f"{entity_name.title()} not found"

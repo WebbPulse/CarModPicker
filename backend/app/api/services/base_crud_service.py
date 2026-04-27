@@ -321,11 +321,10 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             raise AttributeError(f"Model {self.model.__name__} does not have a user_id attribute")
 
         # Use getattr for dynamic attribute access
-        count = db.scalar(
-            select(func.count())
-            .select_from(self.model)
-            .where(getattr(self.model, "user_id") == user_id)
-        ) or 0
+        count = (
+            db.scalar(select(func.count()).select_from(self.model).where(getattr(self.model, "user_id") == user_id))
+            or 0
+        )
 
         if logger:
             logger.info(f"Counted {count} {self.entity_name}s for user {user_id}")
@@ -345,9 +344,7 @@ class BaseCRUDService(Generic[ModelType, CreateSchema, ReadSchema, UpdateSchema]
             True if entity exists, False otherwise
         """
         # Use getattr for dynamic attribute access
-        exists = db.scalars(
-            select(self.model).where(getattr(self.model, "id") == entity_id)
-        ).first() is not None
+        exists = db.scalars(select(self.model).where(getattr(self.model, "id") == entity_id)).first() is not None
 
         if logger:
             logger.info(f"Entity {self.entity_name} {entity_id} exists: {exists}")

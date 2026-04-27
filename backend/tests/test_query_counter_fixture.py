@@ -2,6 +2,7 @@
 
 Pins the fixture's contract so downstream regression tests (e.g.
 test_build_log_n_plus_one.py) can rely on it."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -42,9 +43,9 @@ def test_non_select_statements_not_counted(db_session: Session, query_counter) -
         db_session.flush()
         db_session.scalars(select(DBUser)).all()
     assert counter.count >= 1, "Expected at least 1 SELECT to be counted"
-    assert all("SELECT" in s.upper() for s in counter.statements), (
-        f"Non-SELECT statement leaked into counter: {counter.statements}"
-    )
+    assert all(
+        "SELECT" in s.upper() for s in counter.statements
+    ), f"Non-SELECT statement leaked into counter: {counter.statements}"
 
 
 def test_listener_removed_after_exit(db_session: Session, query_counter) -> None:
@@ -55,6 +56,6 @@ def test_listener_removed_after_exit(db_session: Session, query_counter) -> None
     # Now emit more SELECTs OUTSIDE the context — counter must not move.
     db_session.scalars(select(DBUser)).all()
     db_session.scalars(select(DBUser)).all()
-    assert counter.count == saved, (
-        f"Counter moved after context exit ({saved} -> {counter.count}); event.remove failed."
-    )
+    assert (
+        counter.count == saved
+    ), f"Counter moved after context exit ({saved} -> {counter.count}); event.remove failed."

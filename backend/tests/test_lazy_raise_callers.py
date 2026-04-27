@@ -43,32 +43,24 @@ def _seed_post(db_session: Session, user: DBUser, tag: str) -> DBBuildLogPost:
     return post
 
 
-def test_build_log_post_author_raises_without_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_log_post_author_raises_without_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITHOUT selectinload — first access to ``post.author`` must raise."""
     post = _seed_post(db_session, test_user, "author_raise")
 
     # Fetch fresh — the returned instance has `author` unloaded.
-    fetched = db_session.scalars(
-        select(DBBuildLogPost).where(DBBuildLogPost.id == post.id)
-    ).first()
+    fetched = db_session.scalars(select(DBBuildLogPost).where(DBBuildLogPost.id == post.id)).first()
     assert fetched is not None
     # WARN 10: first access raises directly; no db_session.expire() call needed.
     with pytest.raises(sqlalchemy.exc.InvalidRequestError):
         _ = fetched.author
 
 
-def test_build_log_post_author_works_with_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_log_post_author_works_with_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITH ``selectinload(DBBuildLogPost.author)`` — access must not raise."""
     post = _seed_post(db_session, test_user, "author_works")
 
     fetched = db_session.scalars(
-        select(DBBuildLogPost)
-        .where(DBBuildLogPost.id == post.id)
-        .options(selectinload(DBBuildLogPost.author))
+        select(DBBuildLogPost).where(DBBuildLogPost.id == post.id).options(selectinload(DBBuildLogPost.author))
     ).first()
     assert fetched is not None
     # eager-loaded; this access must not raise
@@ -76,68 +68,52 @@ def test_build_log_post_author_works_with_selectinload(
     assert fetched.author.id == test_user.id
 
 
-def test_build_list_parts_raises_without_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_list_parts_raises_without_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITHOUT selectinload — first access to ``build_list.build_list_parts`` must raise."""
     bl = DBBuildList(name="lazy_raise_parts_raise", user_id=test_user.id)
     db_session.add(bl)
     db_session.commit()
 
-    fetched = db_session.scalars(
-        select(DBBuildList).where(DBBuildList.id == bl.id)
-    ).first()
+    fetched = db_session.scalars(select(DBBuildList).where(DBBuildList.id == bl.id)).first()
     assert fetched is not None
     with pytest.raises(sqlalchemy.exc.InvalidRequestError):
         _ = fetched.build_list_parts
 
 
-def test_build_list_parts_works_with_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_list_parts_works_with_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITH selectinload(build_list_parts) — access returns the (empty) list."""
     bl = DBBuildList(name="lazy_raise_parts_works", user_id=test_user.id)
     db_session.add(bl)
     db_session.commit()
 
     fetched = db_session.scalars(
-        select(DBBuildList)
-        .where(DBBuildList.id == bl.id)
-        .options(selectinload(DBBuildList.build_list_parts))
+        select(DBBuildList).where(DBBuildList.id == bl.id).options(selectinload(DBBuildList.build_list_parts))
     ).first()
     assert fetched is not None
     # empty list is fine; the access itself must not raise
     assert fetched.build_list_parts == []
 
 
-def test_build_list_phases_raises_without_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_list_phases_raises_without_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITHOUT selectinload — first access to ``build_list.build_list_phases`` must raise."""
     bl = DBBuildList(name="lazy_raise_phases_raise", user_id=test_user.id)
     db_session.add(bl)
     db_session.commit()
 
-    fetched = db_session.scalars(
-        select(DBBuildList).where(DBBuildList.id == bl.id)
-    ).first()
+    fetched = db_session.scalars(select(DBBuildList).where(DBBuildList.id == bl.id)).first()
     assert fetched is not None
     with pytest.raises(sqlalchemy.exc.InvalidRequestError):
         _ = fetched.build_list_phases
 
 
-def test_build_list_phases_works_with_selectinload(
-    db_session: Session, test_user: DBUser
-) -> None:
+def test_build_list_phases_works_with_selectinload(db_session: Session, test_user: DBUser) -> None:
     """Fetch WITH selectinload(build_list_phases) — access returns the (empty) list."""
     bl = DBBuildList(name="lazy_raise_phases_works", user_id=test_user.id)
     db_session.add(bl)
     db_session.commit()
 
     fetched = db_session.scalars(
-        select(DBBuildList)
-        .where(DBBuildList.id == bl.id)
-        .options(selectinload(DBBuildList.build_list_phases))
+        select(DBBuildList).where(DBBuildList.id == bl.id).options(selectinload(DBBuildList.build_list_phases))
     ).first()
     assert fetched is not None
     assert fetched.build_list_phases == []

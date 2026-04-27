@@ -7,6 +7,7 @@ dict reference.
 WARNING: Callers MUST NOT mutate the returned dict — @lru_cache returns the
 same object reference on every call (see Pitfall JS-01 in 03-RESEARCH.md).
 """
+
 from __future__ import annotations
 
 import functools

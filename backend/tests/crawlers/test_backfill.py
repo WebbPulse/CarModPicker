@@ -44,9 +44,7 @@ def cli_state_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def patched_session_factory(
-    db_session: Session, engine: Engine
-) -> Generator[None, None, None]:
+def patched_session_factory(db_session: Session, engine: Engine) -> Generator[None, None, None]:
     """Patch ``backfill.SessionLocal`` to mint sessions on the test connection.
 
     The CLI opens its own session per batch (and a bootstrap session for the
@@ -279,9 +277,7 @@ def test_idempotent_second_run_processes_zero_parts(
         return ("parsed_ok", part.id, None)
 
     with patch.object(backfill, "rescrape_crawled_page_from_archive", _stub_rescrape):
-        rc1 = backfill.main(
-            argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"]
-        )
+        rc1 = backfill.main(argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"])
     assert rc1 == 0
 
     db_session.expire_all()
@@ -294,9 +290,7 @@ def test_idempotent_second_run_processes_zero_parts(
         return ("parsed_ok", uuid4(), None)
 
     with patch.object(backfill, "rescrape_crawled_page_from_archive", _stub_rescrape_second):
-        rc2 = backfill.main(
-            argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"]
-        )
+        rc2 = backfill.main(argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"])
     assert rc2 == 0
     assert second_calls == [], "second run must not invoke rescrape — specs already populated"
 
@@ -399,9 +393,7 @@ def test_above_threshold_failure_rate_exits_2(
         return ("parse_failed", None, "stub error")
 
     with patch.object(backfill, "rescrape_crawled_page_from_archive", _stub_rescrape):
-        rc = backfill.main(
-            argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"]
-        )
+        rc = backfill.main(argv=["--state-dir", str(cli_state_dir), "--batch-size", "10"])
 
     assert rc == 2
 
@@ -466,25 +458,19 @@ def test_source_filter_restricts_adapter(
 def test_argparse_rejects_invalid_batch_size(cli_state_dir: Path) -> None:
     """--batch-size 0 fails fast with SystemExit code 2 (argparse error)."""
     with pytest.raises(SystemExit) as excinfo:
-        backfill.main(
-            argv=["--batch-size", "0", "--state-dir", str(cli_state_dir)]
-        )
+        backfill.main(argv=["--batch-size", "0", "--state-dir", str(cli_state_dir)])
     assert excinfo.value.code == 2
 
 
 def test_argparse_rejects_negative_batch_size(cli_state_dir: Path) -> None:
     """--batch-size -1 also fails fast."""
     with pytest.raises(SystemExit) as excinfo:
-        backfill.main(
-            argv=["--batch-size", "-1", "--state-dir", str(cli_state_dir)]
-        )
+        backfill.main(argv=["--batch-size", "-1", "--state-dir", str(cli_state_dir)])
     assert excinfo.value.code == 2
 
 
 def test_argparse_rejects_invalid_failure_rate(cli_state_dir: Path) -> None:
     """--max-failure-rate 1.5 must be in [0, 1]; argparse exits 2."""
     with pytest.raises(SystemExit) as excinfo:
-        backfill.main(
-            argv=["--max-failure-rate", "1.5", "--state-dir", str(cli_state_dir)]
-        )
+        backfill.main(argv=["--max-failure-rate", "1.5", "--state-dir", str(cli_state_dir)])
     assert excinfo.value.code == 2

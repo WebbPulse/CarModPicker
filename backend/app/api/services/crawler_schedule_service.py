@@ -195,9 +195,7 @@ def delete_schedule(schedule_name: str) -> None:
 
 def reconcile_all(db: Session) -> list[dict[str, Any]]:
     """Reconcile every schedule row. Returns per-row results."""
-    rows = list(
-        db.scalars(select(CrawlerSchedule).order_by(CrawlerSchedule.name)).all()
-    )
+    rows = list(db.scalars(select(CrawlerSchedule).order_by(CrawlerSchedule.name)).all())
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
@@ -221,9 +219,7 @@ def sweep_orphan_schedules(db: Session) -> list[str]:
     prefix = _prefix()
     our_prefix = f"{prefix}-crawler-"
     group = settings.SCHEDULER_GROUP_NAME
-    live_names = {
-        schedule_name_for(name) for name in db.scalars(select(CrawlerSchedule.name)).all()
-    }
+    live_names = {schedule_name_for(name) for name in db.scalars(select(CrawlerSchedule.name)).all()}
 
     deleted: list[str] = []
     try:

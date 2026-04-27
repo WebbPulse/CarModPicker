@@ -28,9 +28,7 @@ from app.core.config import settings
 from app.core.init_service_accounts import init_crawler_service_account
 
 
-def test_create_fresh_service_account_logs_with_s_format(
-    db_session: Session, caplog
-) -> None:
+def test_create_fresh_service_account_logs_with_s_format(db_session: Session, caplog) -> None:
     """WR-04 pin — fresh-DB path renders ``id=%s`` without TypeError.
 
     Pre-fix, this call would raise ``TypeError`` at the first
@@ -41,18 +39,14 @@ def test_create_fresh_service_account_logs_with_s_format(
     # Fresh DB: no user with this username yet. db_session's outer transaction
     # rolls back between tests, so no cross-test pollution.
     assert (
-        db_session.scalars(
-            select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)
-        ).first()
+        db_session.scalars(select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)).first()
         is None
     )
 
     # Must not raise — ``%d`` + UUID would have raised ``TypeError`` here.
     init_crawler_service_account(db_session)
 
-    user = db_session.scalars(
-        select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)
-    ).one()
+    user = db_session.scalars(select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)).one()
     assert user.is_service_account is True
     assert user.email_verified is True
     assert user.disabled is False
@@ -60,9 +54,7 @@ def test_create_fresh_service_account_logs_with_s_format(
     # Direct WR-04 pin: the "Created crawler service account" log line must
     # have rendered. ``getMessage()`` performs the ``%s`` substitution — if the
     # format string ever regresses to ``%d``, this call would raise TypeError.
-    create_logs = [
-        r for r in caplog.records if "Created crawler service account" in r.getMessage()
-    ]
+    create_logs = [r for r in caplog.records if "Created crawler service account" in r.getMessage()]
     assert len(create_logs) == 1
     assert f"id={user.id}" in create_logs[0].getMessage()
     assert f"username={settings.CRAWLER_SERVICE_ACCOUNT_USERNAME}" in create_logs[0].getMessage()
@@ -89,19 +81,13 @@ def test_existing_non_service_user_is_adopted(db_session: Session, caplog) -> No
 
     init_crawler_service_account(db_session)
 
-    users = db_session.scalars(
-        select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)
-    ).all()
+    users = db_session.scalars(select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)).all()
     assert len(users) == 1
     assert users[0].is_service_account is True
     # Sanity: the same row was flipped, not replaced.
     assert users[0].id == original_id
 
-    adopt_logs = [
-        r
-        for r in caplog.records
-        if "Marked existing user as service account" in r.getMessage()
-    ]
+    adopt_logs = [r for r in caplog.records if "Marked existing user as service account" in r.getMessage()]
     assert len(adopt_logs) == 1
     assert f"id={users[0].id}" in adopt_logs[0].getMessage()
 
@@ -116,18 +102,12 @@ def test_already_service_account_is_idempotent(db_session: Session, caplog) -> N
     init_crawler_service_account(db_session)
     init_crawler_service_account(db_session)  # second call: no-op path
 
-    users = db_session.scalars(
-        select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)
-    ).all()
+    users = db_session.scalars(select(User).where(User.username == settings.CRAWLER_SERVICE_ACCOUNT_USERNAME)).all()
     assert len(users) == 1
     assert users[0].is_service_account is True
 
     # The no-op path emits a DEBUG "already exists" log on the second call.
-    already_logs = [
-        r
-        for r in caplog.records
-        if "Crawler service account already exists" in r.getMessage()
-    ]
+    already_logs = [r for r in caplog.records if "Crawler service account already exists" in r.getMessage()]
     assert len(already_logs) >= 1
     assert f"id={users[0].id}" in already_logs[0].getMessage()
 
@@ -144,9 +124,7 @@ def test_log_formatting_accepts_uuid_id_field(db_session: Session, caplog) -> No
 
     # Filter to only our logger's records so we don't accidentally probe
     # unrelated log lines emitted elsewhere in the stack.
-    our_records = [
-        r for r in caplog.records if r.name == "app.core.init_service_accounts"
-    ]
+    our_records = [r for r in caplog.records if r.name == "app.core.init_service_accounts"]
     assert our_records, "Expected at least one log record from init_service_accounts"
 
     for record in our_records:

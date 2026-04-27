@@ -34,7 +34,6 @@ from app.api.services.part_price_alert_service import evaluate_alerts_for_listin
 from app.api.services.part_listing_service import create_or_update_listing_and_price
 from tests.conftest import get_default_category_id
 
-
 # --- helpers ----------------------------------------------------------------
 
 
@@ -158,9 +157,7 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
     assert alert.last_fired_at == observed_at or alert.last_fired_at.replace(tzinfo=UTC) == observed_at
 
 
-def test_above_threshold_skips(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_above_threshold_skips(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "above")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -182,9 +179,7 @@ def test_above_threshold_skips(
     assert alert.last_fired_at is None
 
 
-def test_at_threshold_fires(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_at_threshold_fires(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """price_cents == threshold_cents is "at or below" → fires."""
     user = _make_user(db_session, "at")
     part = _make_part(db_session, user)
@@ -207,9 +202,7 @@ def test_at_threshold_fires(
 # --- cooldown ---------------------------------------------------------------
 
 
-def test_24h_cooldown_suppresses_second_fire(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_24h_cooldown_suppresses_second_fire(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "cooldown_supp")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -231,17 +224,13 @@ def test_24h_cooldown_suppresses_second_fire(
     assert calls == [], "alert within 24h cooldown must not re-fire"
 
 
-def test_cooldown_reset_after_25h_fires_again(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cooldown_reset_after_25h_fires_again(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "cooldown_reset")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
     # Pre-seed last_fired_at = 25 hours ago — outside the 24h window.
     fired_at = datetime.now(UTC) - timedelta(hours=25)
-    alert = _make_alert(
-        db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at
-    )
+    alert = _make_alert(db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at)
 
     stub, calls = _stub_email_send(return_value=True)
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
@@ -258,17 +247,14 @@ def test_cooldown_reset_after_25h_fires_again(
     assert len(calls) == 1, "alert past 24h cooldown must re-fire"
     db_session.refresh(alert)
     assert alert.last_fired_at == new_observed or (
-        alert.last_fired_at is not None
-        and alert.last_fired_at.replace(tzinfo=UTC) == new_observed
+        alert.last_fired_at is not None and alert.last_fired_at.replace(tzinfo=UTC) == new_observed
     )
 
 
 # --- cross-user isolation ---------------------------------------------------
 
 
-def test_alert_on_one_part_does_not_fire_on_another_part(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Alice's alert on part A must not fire on bob's listing observation on part B."""
     alice = _make_user(db_session, "iso_alice")
     bob = _make_user(db_session, "iso_bob")
@@ -296,9 +282,7 @@ def test_alert_on_one_part_does_not_fire_on_another_part(
 # --- failure paths ----------------------------------------------------------
 
 
-def test_send_failure_leaves_last_fired_at_unchanged(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_send_failure_leaves_last_fired_at_unchanged(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "send_fail")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -318,14 +302,10 @@ def test_send_failure_leaves_last_fired_at_unchanged(
 
     assert len(calls) == 1, "evaluator must attempt the send"
     db_session.refresh(alert)
-    assert alert.last_fired_at is None, (
-        "SES failure must leave last_fired_at None so the next observation retries"
-    )
+    assert alert.last_fired_at is None, "SES failure must leave last_fired_at None so the next observation retries"
 
 
-def test_exception_in_one_alert_does_not_block_another(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_exception_in_one_alert_does_not_block_another(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Two alerts on the same part — the first send raises, the second still fires."""
     alice = _make_user(db_session, "exc_alice")
     bob = _make_user(db_session, "exc_bob")
@@ -367,9 +347,7 @@ def test_exception_in_one_alert_does_not_block_another(
 # --- inactive alerts are skipped --------------------------------------------
 
 
-def test_inactive_alert_is_skipped(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_inactive_alert_is_skipped(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "inactive")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)

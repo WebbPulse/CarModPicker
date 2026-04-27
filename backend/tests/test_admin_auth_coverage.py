@@ -61,16 +61,10 @@ def test_admin_route_forbids_regular_user(method: str, path: str, client: TestCl
     username = f"cov_user_{method.lower()}_{abs(hash(path)) & 0xFFFF:04x}"
     create_and_login_user(client, username=username)
     token = login_user(client, username)
-    resp = client.request(
-        method, _fill_path_params(path), headers={"Authorization": f"Bearer {token}"}
-    )
-    assert resp.status_code == 403, (
-        f"{method} {path} with regular user -> {resp.status_code} (expected 403)"
-    )
+    resp = client.request(method, _fill_path_params(path), headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 403, f"{method} {path} with regular user -> {resp.status_code} (expected 403)"
 
 
 def test_admin_route_count_at_or_above_expected() -> None:
     # D-30 drift guard
-    assert len(ADMIN_ROUTES) >= 23, (
-        f"Expected >=23 admin routes (post-split), got {len(ADMIN_ROUTES)}"
-    )
+    assert len(ADMIN_ROUTES) >= 23, f"Expected >=23 admin routes (post-split), got {len(ADMIN_ROUTES)}"
