@@ -79,9 +79,7 @@ class AdminEndpointDeps(TypedDict):
 # ``car_generation_service``. The two functions share a name but have
 # incompatible contracts — see the docstrings on each definition before
 # attempting any further consolidation.
-from app.api.utils.endpoint_decorators import (  # noqa: E402
-    validate_pagination_params as validate_pagination_params,
-)
+from app.api.utils.endpoint_decorators import validate_pagination_params as validate_pagination_params  # noqa: E402
 
 
 def get_standard_public_endpoint_dependencies(

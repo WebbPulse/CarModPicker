@@ -41,13 +41,6 @@ from app.api.schemas.part_price_history import (
 )
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_linker_service import link_group_part_ids, link_new_part
-from app.api.services.part_price_aggregation_service import (
-    ALLOWED_WINDOWS,
-    aggregate_batch,
-    aggregate_single_part,
-    apply_retailer_filter,
-    parse_window,
-)
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_existing_part_for_ugc_create,
@@ -55,6 +48,13 @@ from app.api.services.part_listing_service import (
     find_part_by_product_url,
     normalize_gtin,
     normalize_part_number,
+)
+from app.api.services.part_price_aggregation_service import (
+    ALLOWED_WINDOWS,
+    aggregate_batch,
+    aggregate_single_part,
+    apply_retailer_filter,
+    parse_window,
 )
 from app.api.utils.authorization import require_part_edit_permission
 from app.api.utils.base_endpoint_router import BaseEndpointRouter

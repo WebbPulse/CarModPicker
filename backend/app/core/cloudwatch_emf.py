@@ -49,8 +49,8 @@ from __future__ import annotations
 import logging
 import os
 
-from aws_embedded_metrics.metric_scope import metric_scope
 from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
+from aws_embedded_metrics.metric_scope import metric_scope
 
 from app.core.config import settings
 

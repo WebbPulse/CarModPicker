@@ -61,13 +61,13 @@ import logging
 import os
 
 import sentry_sdk
-from sentry_sdk.types import Event, Hint
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 # Starlette integration REQUIRED even with FastApi — NOT auto-enabled (Landmine 2)
 from sentry_sdk.integrations.starlette import StarletteIntegration
+from sentry_sdk.types import Event, Hint
 
 from app.core.config import settings
 from app.core.log_context import request_id_var, user_id_var

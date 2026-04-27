@@ -13,9 +13,9 @@ page with a status query string.
 import logging
 from uuid import UUID
 
+import jwt
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse
-import jwt
 from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session

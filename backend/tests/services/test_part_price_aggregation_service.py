@@ -23,8 +23,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
 from app.api.models.user import User
 from app.api.services.part_price_aggregation_service import (
