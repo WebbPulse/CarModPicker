@@ -33,7 +33,7 @@ class PartPriceHistoryReadWithRetailer(PartPriceHistoryRead):
 # --- S05 price-history aggregation schemas -----------------------------------
 
 PriceTrend = Literal["up", "down", "flat"]
-PriceWindow = Literal["30d", "90d", "180d", "1y", "all"]
+PriceWindow = Literal["7d", "30d", "90d", "180d", "1y", "all"]
 
 
 class PriceHistorySummary(BaseModel):

@@ -35,6 +35,11 @@ import EditPartForm from '../../components/parts/EditPartForm';
 import ImageGallery from '../../components/parts/ImageGallery';
 import ImageGalleryManage from '../../components/parts/ImageGalleryManage';
 import PriceAlertSubscribeButton from '../../components/parts/PriceAlertSubscribeButton';
+import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
+import {
+  type DateRangeOption,
+  getDateRangeStartMs,
+} from '../../components/parts/priceHistoryDateRange';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Sparkline from '../../components/charts/Sparkline';
 import Divider from '../../components/layout/Divider';
@@ -72,8 +77,35 @@ const deletePartRequestFn = (partId: string) => partsApi.deletePart(partId);
 const fetchListingsRequestFn = (partId: string) =>
   partsApi.getPartListings(partId);
 
-const fetchPriceSummaryRequestFn = (partId: string) =>
-  partsApi.getPartPriceHistorySummary(partId, { window: '90d' });
+/** Map the chart's calendar-anchored picker option to the closest API
+ *  rolling window. The chart applies a client-side calendar filter on top,
+ *  so it's fine for the API window to be slightly larger than the picker
+ *  intends — we just need it to span at least the picker range. */
+function dateRangeToApiWindow(
+  range: DateRangeOption
+): '7d' | '30d' | '1y' | 'all' {
+  switch (range) {
+    case 'all_time':
+      return 'all';
+    case 'this_year':
+      return '1y';
+    case 'this_month':
+      return '30d';
+    case 'this_week':
+      return '7d';
+  }
+}
+
+const fetchPriceSummaryRequestFn = ({
+  partId,
+  range,
+}: {
+  partId: string;
+  range: DateRangeOption;
+}) =>
+  partsApi.getPartPriceHistorySummary(partId, {
+    window: dateRangeToApiWindow(range),
+  });
 
 function formatCents(cents: number | null): string {
   if (cents == null) return '—';
@@ -111,6 +143,8 @@ function ViewPart() {
     downvotes: number;
     user_vote: 'upvote' | 'downvote' | null;
   } | null>(null);
+  const [historyDateRange, setHistoryDateRange] =
+    useState<DateRangeOption>('this_month');
 
   const {
     data: part,
@@ -172,6 +206,7 @@ function ViewPart() {
 
   const {
     data: priceSummary,
+    isLoading: isLoadingPriceSummary,
     error: priceSummaryApiError,
     executeRequest: fetchPriceSummary,
   } = useApiRequest(fetchPriceSummaryRequestFn);
@@ -183,15 +218,15 @@ function ViewPart() {
     void fetchVoteSummary(partId);
     void fetchCategories(undefined);
     void fetchListings(partId);
-    void fetchPriceSummary(partId);
-  }, [
-    partId,
-    fetchPart,
-    fetchVoteSummary,
-    fetchCategories,
-    fetchListings,
-    fetchPriceSummary,
-  ]);
+  }, [partId, fetchPart, fetchVoteSummary, fetchCategories, fetchListings]);
+
+  // Refetch price summary whenever the date-range selection changes — the
+  // chart is the source of truth for the loaded history dataset, so summary
+  // stats and per-retailer sparklines re-derive from this same response.
+  useEffect(() => {
+    if (!partId) return;
+    void fetchPriceSummary({ partId, range: historyDateRange });
+  }, [partId, historyDateRange, fetchPriceSummary]);
 
   // If the loaded part is a duplicate (canonical_part_id is set), redirect to
   // the canonical so the user lands on the surface record for this product.
@@ -732,6 +767,17 @@ function ViewPart() {
                 );
               }
 
+              const history = priceSummary?.history ?? [];
+              // Keep the chart (and its window picker) visible whenever a
+              // summary has loaded — even if the currently-selected window
+              // returned no observations — so the user can switch back to
+              // a window that does have data.
+              const showChart = priceSummary != null;
+              // Sparklines mirror the chart's calendar-anchored window so
+              // the mini-graphs and main graph always tell the same story
+              // even when the API returned a slightly larger rolling window.
+              const sparkCutoffMs = getDateRangeStartMs(historyDateRange);
+
               return (
                 <>
                   {summary && observationCount > 0 && (
@@ -750,7 +796,24 @@ function ViewPart() {
                       )}
                     </p>
                   )}
-                  <ul className="space-y-3">
+                  <div
+                    className={
+                      showChart
+                        ? 'grid grid-cols-1 lg:grid-cols-2 gap-6 items-start'
+                        : ''
+                    }
+                  >
+                    {showChart && (
+                      <div className="min-w-0">
+                        <PriceHistoryLineChart
+                          data={history}
+                          dateRange={historyDateRange}
+                          onDateRangeChange={setHistoryDateRange}
+                          isLoading={isLoadingPriceSummary}
+                        />
+                      </div>
+                    )}
+                    <ul className="space-y-3 min-w-0">
                     {rows.map((row) => {
                       const observedAt = row.lastObservedAt
                         ? new Date(row.lastObservedAt)
@@ -762,7 +825,11 @@ function ViewPart() {
                           STALE_LISTING_THRESHOLD_DAYS;
                       const sparkHistory = row.fromHistory
                         ? (priceSummary?.history ?? []).filter(
-                            (h) => h.retailer_id === row.retailerId
+                            (h) =>
+                              h.retailer_id === row.retailerId &&
+                              (sparkCutoffMs === null ||
+                                new Date(h.observed_at).getTime() >=
+                                  sparkCutoffMs)
                           )
                         : [];
                       return (
@@ -817,6 +884,7 @@ function ViewPart() {
                       );
                     })}
                   </ul>
+                  </div>
                 </>
               );
             })()}

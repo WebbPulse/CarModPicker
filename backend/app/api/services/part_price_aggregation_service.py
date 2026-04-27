@@ -37,7 +37,7 @@ from app.api.schemas.part_price_history import (
 )
 from app.api.services.part_linker_service import link_group_part_ids
 
-_VALID_WINDOWS = {"30d", "90d", "180d", "1y", "all"}
+_VALID_WINDOWS = {"7d", "30d", "90d", "180d", "1y", "all"}
 ALLOWED_WINDOWS: list[str] = sorted(_VALID_WINDOWS)
 
 
@@ -52,6 +52,8 @@ def parse_window(window: str) -> Optional[datetime]:
     if window == "all":
         return None
     now = datetime.now(UTC)
+    if window == "7d":
+        return now - timedelta(days=7)
     if window == "30d":
         return now - timedelta(days=30)
     if window == "90d":

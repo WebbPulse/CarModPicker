@@ -354,7 +354,7 @@ export type PriceHistoryBatchSummaryItem = PriceHistorySummary;
 
 export interface PriceHistoryBatchRequest {
   part_ids: string[];
-  window?: '30d' | '90d' | '180d' | '1y' | 'all';
+  window?: '7d' | '30d' | '90d' | '180d' | '1y' | 'all';
 }
 
 export interface PriceHistoryBatchResponse {
