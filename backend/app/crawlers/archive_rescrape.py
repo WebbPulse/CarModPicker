@@ -307,8 +307,13 @@ def run_rescrape_all_archived_pages(
         # stop_event check.
         if stop_event is not None and stop_event.is_set():
             return None
-        log.info(
-            "Archive rescrape [%d/%d]: processing %s (source=%s)",
+        # Per-URL line is debug-only — at 7k+ URLs/run it dominates
+        # CloudWatch and ops only need the every-2s aggregate progress
+        # line below. ``idx`` is the URL's dispatch position (sort order
+        # by id), NOT the completed-count, so phrase it as a sequence
+        # number to avoid being mistaken for a [done/total] fraction.
+        log.debug(
+            "Archive rescrape: processing #%d of %d — %s (source=%s)",
             idx,
             total,
             page_url,
