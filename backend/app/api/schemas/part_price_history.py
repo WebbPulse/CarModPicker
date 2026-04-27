@@ -65,6 +65,15 @@ class PriceHistorySinglePartResponse(BaseModel):
     summary: PriceHistorySummary
     retailers: list[RetailerPriceBreakdown] = Field(default_factory=list)
     history: list[PartPriceHistoryReadWithRetailer] = Field(default_factory=list)
+    pre_window_anchors: list[PartPriceHistoryReadWithRetailer] = Field(
+        default_factory=list,
+        description=(
+            "Most recent observation per retailer occurring strictly before the "
+            "window cutoff. Lets clients render a 'last known' carry-over point "
+            "so a sparse window doesn't show a stranded observation. Empty for "
+            "window='all'."
+        ),
+    )
     window: str = Field(..., description="Echoed window literal applied to this response")
 
 

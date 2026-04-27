@@ -767,7 +767,15 @@ function ViewPart() {
                 );
               }
 
-              const history = priceSummary?.history ?? [];
+              // Concatenate pre-window anchors into the chart's data so its
+              // carry-over logic can pin a "last known" point on the y-axis
+              // when the selected window is sparse. Anchors sit before the
+              // window cutoff, so the chart's in-window filter naturally
+              // excludes them from the visible series.
+              const history = [
+                ...(priceSummary?.history ?? []),
+                ...(priceSummary?.pre_window_anchors ?? []),
+              ];
               // Keep the chart (and its window picker) visible whenever a
               // summary has loaded — even if the currently-selected window
               // returned no observations — so the user can switch back to

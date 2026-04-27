@@ -221,7 +221,62 @@ export default function PriceHistoryLineChart({
     }
     const aggregated = [...byRetailerDay.values()];
 
+    // For windowed views, carry the last known price from before the window
+    // so each retailer's line extends back to the window start. Computed
+    // before the y-range so carry-over prices are factored into chart bounds
+    // (otherwise a pinned point could render off-chart).
+    const cutoffMs = getDateRangeStartMs(dateRange);
+    const lastKnownBeforeWindow =
+      cutoffMs !== null
+        ? (() => {
+            const m = new Map<
+              string,
+              { price_cents: number; observed_at: string }
+            >();
+            for (const d of data) {
+              const t = parseObservedAt(d.observed_at).getTime();
+              if (t >= cutoffMs) continue;
+              const existing = m.get(d.retailer_name);
+              if (
+                !existing ||
+                t > parseObservedAt(existing.observed_at).getTime()
+              ) {
+                m.set(d.retailer_name, {
+                  price_cents: d.price_cents,
+                  observed_at: d.observed_at,
+                });
+              }
+            }
+            return m;
+          })()
+        : null;
+
+    // A retailer gets a carry-over marker only when its first in-window
+    // observation isn't already at the window start (or when it has no
+    // in-window data at all). Skipping retailers that already start at
+    // cutoffMs avoids inflating the y-range with carry-over prices that
+    // would never render.
+    const carryOverActive = new Map<
+      string,
+      { price_cents: number; observed_at: string }
+    >();
+    if (cutoffMs !== null && lastKnownBeforeWindow !== null) {
+      const inWindowFirstX = new Map<string, number>();
+      for (const d of aggregated) {
+        const x = dayStartMs(d.observed_at);
+        const cur = inWindowFirstX.get(d.retailer_name);
+        if (cur === undefined || x < cur) inWindowFirstX.set(d.retailer_name, x);
+      }
+      for (const [retailer, value] of lastKnownBeforeWindow) {
+        const firstX = inWindowFirstX.get(retailer);
+        if (firstX === undefined || firstX > cutoffMs) {
+          carryOverActive.set(retailer, value);
+        }
+      }
+    }
+
     const prices = aggregated.map((d) => d.price_cents);
+    for (const v of carryOverActive.values()) prices.push(v.price_cents);
     const priceMin = prices.length > 0 ? Math.min(...prices) : 0;
     const priceMax = prices.length > 0 ? Math.max(...prices) : 10000;
     const pricePadding = Math.max((priceMax - priceMin) * 0.1, 100);
@@ -249,7 +304,16 @@ export default function PriceHistoryLineChart({
     const yScale = (c: number) =>
       padding.top + chartHeight - ((c - yMin) / yRange) * chartHeight;
 
-    const retailers = [...new Set(aggregated.map((d) => d.retailer_name))];
+    // Include retailers that only have pre-window data so their carry-over
+    // marker still appears (otherwise the line would vanish entirely).
+    const retailersInWindow = [
+      ...new Set(aggregated.map((d) => d.retailer_name)),
+    ];
+    const retailersInWindowSet = new Set(retailersInWindow);
+    const carryOverOnlyRetailers = [...carryOverActive.keys()].filter(
+      (r) => !retailersInWindowSet.has(r)
+    );
+    const retailers = [...retailersInWindow, ...carryOverOnlyRetailers];
     const retailerColors = Object.fromEntries(
       retailers.map((name, i) => [
         name,
@@ -257,37 +321,13 @@ export default function PriceHistoryLineChart({
       ])
     );
 
-    // For windowed views, carry the last known price from before the window
-    // so each retailer's line extends back to the window start, instead of
-    // starting partway through.
-    const cutoffMs = getDateRangeStartMs(dateRange);
-    const lastKnownBeforeWindow =
-      cutoffMs !== null
-        ? (() => {
-            const m = new Map<
-              string,
-              { price_cents: number; observed_at: string }
-            >();
-            for (const d of data) {
-              const t = parseObservedAt(d.observed_at).getTime();
-              if (t >= cutoffMs) continue;
-              const existing = m.get(d.retailer_name);
-              if (
-                !existing ||
-                t > parseObservedAt(existing.observed_at).getTime()
-              ) {
-                m.set(d.retailer_name, {
-                  price_cents: d.price_cents,
-                  observed_at: d.observed_at,
-                });
-              }
-            }
-            return m;
-          })()
-        : null;
-
     const lines = retailers.map((retailerName) => {
-      let points = aggregated
+      let points: Array<{
+        x: number;
+        y: number;
+        observedAt: string;
+        isCarryOver?: boolean;
+      }> = aggregated
         .filter((d) => d.retailer_name === retailerName)
         .map((d) => ({
           x: dayStartMs(d.observed_at),
@@ -296,33 +336,52 @@ export default function PriceHistoryLineChart({
         }))
         .sort((a, b) => a.x - b.x);
 
-      if (
-        cutoffMs !== null &&
-        lastKnownBeforeWindow !== null &&
-        points.length > 0 &&
-        points[0]!.x > cutoffMs
-      ) {
-        const carryOver = lastKnownBeforeWindow.get(retailerName);
-        if (carryOver) {
-          points = [
-            {
-              x: cutoffMs,
-              y: carryOver.price_cents,
-              observedAt: carryOver.observed_at,
-            },
-            ...points,
-          ];
-        }
+      const carryOver =
+        cutoffMs !== null ? carryOverActive.get(retailerName) : undefined;
+      if (carryOver && cutoffMs !== null) {
+        points = [
+          {
+            x: cutoffMs,
+            y: carryOver.price_cents,
+            observedAt: carryOver.observed_at,
+            isCarryOver: true,
+          },
+          ...points,
+        ];
       }
 
-      const pathD = points
+      const fullPathD = points
         .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`)
         .join(' ');
+
+      // Split into a dashed segment (carry-over → first real point) and a
+      // solid segment (real points only). When the window has no real
+      // points, the carry-over renders as a marker alone with no line.
+      const carryOverPoint = points.find((p) => p.isCarryOver);
+      const realPoints = points.filter((p) => !p.isCarryOver);
+      const firstRealPoint = realPoints[0];
+
+      const dashedPathD =
+        carryOverPoint && firstRealPoint
+          ? `M ${xScale(carryOverPoint.x)} ${yScale(carryOverPoint.y)} L ${xScale(firstRealPoint.x)} ${yScale(firstRealPoint.y)}`
+          : '';
+
+      const solidPathD =
+        realPoints.length > 1
+          ? realPoints
+              .map(
+                (p, i) =>
+                  `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`
+              )
+              .join(' ')
+          : '';
 
       return {
         retailerName,
         color: retailerColors[retailerName] ?? RETAILER_COLORS[0],
-        pathD,
+        fullPathD,
+        dashedPathD,
+        solidPathD,
         points,
       };
     });
@@ -595,51 +654,75 @@ export default function PriceHistoryLineChart({
           />
 
           {/* Data lines — each <g> is registered in lineGroupRefs for direct opacity control */}
-          {lines.map(({ retailerName, color, pathD, points }) => {
-            const lastPoint = points[points.length - 1];
-            return (
-              <g
-                key={retailerName}
-                ref={(el) => {
-                  if (el) lineGroupRefs.current.set(retailerName, el);
-                  else lineGroupRefs.current.delete(retailerName);
-                }}
-              >
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* Wide transparent hit area for line hover */}
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={16}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  onMouseEnter={() => {
-                    if (lastPoint) {
-                      const cx = chartData.xScale(lastPoint.x);
-                      const cy = chartData.yScale(lastPoint.y);
-                      handleLineEnter(retailerName, cx, cy, [
-                        {
-                          retailerName,
-                          observedAt: lastPoint.observedAt,
-                          priceCents: lastPoint.y,
-                        },
-                      ]);
-                    }
+          {lines.map(
+            ({
+              retailerName,
+              color,
+              fullPathD,
+              dashedPathD,
+              solidPathD,
+              points,
+            }) => {
+              const lastPoint = points[points.length - 1];
+              return (
+                <g
+                  key={retailerName}
+                  ref={(el) => {
+                    if (el) lineGroupRefs.current.set(retailerName, el);
+                    else lineGroupRefs.current.delete(retailerName);
                   }}
-                  onMouseLeave={handleLeave}
-                  className="cursor-pointer"
-                />
-              </g>
-            );
-          })}
+                >
+                  {dashedPathD && (
+                    <path
+                      d={dashedPathD}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeDasharray="5 4"
+                      strokeOpacity={0.6}
+                    />
+                  )}
+                  {solidPathD && (
+                    <path
+                      d={solidPathD}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                  {/* Wide transparent hit area covers both segments */}
+                  {fullPathD && (
+                    <path
+                      d={fullPathD}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={16}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      onMouseEnter={() => {
+                        if (lastPoint) {
+                          const cx = chartData.xScale(lastPoint.x);
+                          const cy = chartData.yScale(lastPoint.y);
+                          handleLineEnter(retailerName, cx, cy, [
+                            {
+                              retailerName,
+                              observedAt: lastPoint.observedAt,
+                              priceCents: lastPoint.y,
+                            },
+                          ]);
+                        }
+                      }}
+                      onMouseLeave={handleLeave}
+                      className="cursor-pointer"
+                    />
+                  )}
+                </g>
+              );
+            }
+          )}
 
           {/* Data point hit areas — co-located groups precomputed, no per-hover O(n*m) loop */}
           {lines.map(({ retailerName, color, points }) =>
@@ -654,6 +737,17 @@ export default function PriceHistoryLineChart({
                   priceCents: p.y,
                 },
               ];
+              let carryOverDate: string | null = null;
+              if (p.isCarryOver) {
+                const cdate = parseObservedAt(p.observedAt);
+                const sameYear =
+                  cdate.getFullYear() === new Date().getFullYear();
+                carryOverDate = cdate.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  ...(sameYear ? {} : { year: '2-digit' }),
+                });
+              }
               return (
                 <g key={`${retailerName}-${p.x}`}>
                   <circle
@@ -667,15 +761,41 @@ export default function PriceHistoryLineChart({
                     onMouseLeave={handleLeave}
                     className="cursor-pointer"
                   />
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={4}
-                    fill={color}
-                    stroke="rgb(15 23 42)"
-                    strokeWidth={1}
-                    pointerEvents="none"
-                  />
+                  {p.isCarryOver ? (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill="rgb(15 23 42)"
+                      stroke={color}
+                      strokeWidth={2}
+                      pointerEvents="none"
+                    />
+                  ) : (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill={color}
+                      stroke="rgb(15 23 42)"
+                      strokeWidth={1}
+                      pointerEvents="none"
+                    />
+                  )}
+                  {carryOverDate && (
+                    <text
+                      x={cx + 7}
+                      y={cy - 6}
+                      fill={color}
+                      stroke="rgb(15 23 42)"
+                      strokeWidth={3}
+                      paintOrder="stroke"
+                      className="text-[10px] font-medium"
+                      pointerEvents="none"
+                    >
+                      {carryOverDate}
+                    </text>
+                  )}
                 </g>
               );
             })

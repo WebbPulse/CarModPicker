@@ -163,11 +163,41 @@ def aggregate_single_part(
         for h, _l, r in rows
     ]
 
+    # Most-recent observation per retailer from BEFORE the window — lets clients
+    # anchor a carry-over point on the chart's y-axis so sparse windows don't
+    # show stranded points. Pull rows DESC and keep the first per retailer.
+    pre_window_anchors: list[PartPriceHistoryReadWithRetailer] = []
+    if since is not None:
+        anchor_stmt = (
+            select(DBPartPriceHistory, DBPartListing, DBRetailer)
+            .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
+            .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
+            .where(DBPartListing.part_id.in_(group_ids))
+            .where(DBPartPriceHistory.observed_at < since)
+            .order_by(DBPartPriceHistory.observed_at.desc())
+        )
+        seen_retailers: set[UUID] = set()
+        for h, _l, r in db.execute(anchor_stmt).all():
+            if r.id in seen_retailers:
+                continue
+            seen_retailers.add(r.id)
+            pre_window_anchors.append(
+                PartPriceHistoryReadWithRetailer(
+                    id=h.id,
+                    part_listing_id=h.part_listing_id,
+                    price_cents=h.price_cents,
+                    observed_at=h.observed_at,
+                    retailer_id=r.id,
+                    retailer_name=r.name,
+                )
+            )
+
     if not rows:
         return PriceHistorySinglePartResponse(
             summary=_empty_summary(),
             retailers=[],
             history=[],
+            pre_window_anchors=pre_window_anchors,
             window=window,
         )
 
@@ -215,6 +245,7 @@ def aggregate_single_part(
         summary=summary,
         retailers=retailer_breakdowns,
         history=history,
+        pre_window_anchors=pre_window_anchors,
         window=window,
     )
 
@@ -234,12 +265,14 @@ def apply_retailer_filter(
     """
     filtered_history = [h for h in result.history if h.retailer_id == retailer_id]
     filtered_retailers = [r for r in result.retailers if r.retailer_id == retailer_id]
+    filtered_anchors = [a for a in result.pre_window_anchors if a.retailer_id == retailer_id]
 
     if not filtered_history:
         return PriceHistorySinglePartResponse(
             summary=_empty_summary(),
             retailers=filtered_retailers,
             history=[],
+            pre_window_anchors=filtered_anchors,
             window=result.window,
         )
 
@@ -258,6 +291,7 @@ def apply_retailer_filter(
         summary=summary,
         retailers=filtered_retailers,
         history=filtered_history,
+        pre_window_anchors=filtered_anchors,
         window=result.window,
     )
 

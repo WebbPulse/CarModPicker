@@ -347,6 +347,12 @@ export interface PriceHistorySinglePartResponse {
   summary: PriceHistorySummary;
   retailers: RetailerPriceBreakdown[];
   history: PartPriceHistoryReadWithRetailer[];
+  /** Most recent observation per retailer from BEFORE the window cutoff.
+   *  Lets clients render a "last known" carry-over point on the chart's
+   *  y-axis so a sparse window doesn't strand a single observation.
+   *  Empty when window='all'. Optional for backwards-compat with older
+   *  API responses; consumers should `?? []`. */
+  pre_window_anchors?: PartPriceHistoryReadWithRetailer[];
   window: string;
 }
 
