@@ -46,4 +46,5 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_part_price_alerts_user_id'), table_name='part_price_alerts')
     op.drop_index(op.f('ix_part_price_alerts_part_id'), table_name='part_price_alerts')
     op.drop_index(op.f('ix_part_price_alerts_id'), table_name='part_price_alerts')
+    # SAFE: downgrade reversal of already-applied migration — see SAFE-04
     op.drop_table('part_price_alerts')
