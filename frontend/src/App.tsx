@@ -152,7 +152,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative flex flex-col min-h-screen bg-linear-to-br from-card via-muted to-card">
+      <div className="relative flex flex-col min-h-screen">
         {/* Background Pattern */}
         <div className="fixed inset-0 opacity-5">
           <div
