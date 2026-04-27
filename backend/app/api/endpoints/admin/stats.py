@@ -10,11 +10,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter as DBCrawlerScheduleAdapter
 from app.api.models.associations.part_car import part_cars
 from app.api.models.background_job import BackgroundJob as DBBackgroundJob
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.associations.crawler_schedule_adapter import CrawlerScheduleAdapter as DBCrawlerScheduleAdapter
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.crawler_adapter_config import CrawlerAdapterConfig as DBCrawlerAdapterConfig
 from app.api.models.crawler_schedule import CrawlerSchedule as DBCrawlerSchedule

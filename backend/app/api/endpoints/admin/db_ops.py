@@ -11,7 +11,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select, update as sql_update
+from sqlalchemy import func, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user

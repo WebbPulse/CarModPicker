@@ -12,8 +12,8 @@ import uuid
 from datetime import timedelta
 from typing import Any, Dict, Tuple
 
-from fastapi.testclient import TestClient
 import jwt
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, create_access_token

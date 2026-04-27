@@ -28,20 +28,16 @@ from .api.endpoints import (
     users,
     votes,
 )
-from .api.endpoints.admin import (
-    crawlers as admin_crawlers,
-    db_ops as admin_db_ops,
-    extraction_health as admin_extraction_health,
-    jobs as admin_jobs,
-    parts as admin_parts,
-    stats as admin_stats,
-)
-from .api.endpoints.auth import (
-    core as auth_core,
-    oauth as auth_oauth,
-    two_factor as auth_2fa,
-    webauthn as auth_webauthn,
-)
+from .api.endpoints.admin import crawlers as admin_crawlers
+from .api.endpoints.admin import db_ops as admin_db_ops
+from .api.endpoints.admin import extraction_health as admin_extraction_health
+from .api.endpoints.admin import jobs as admin_jobs
+from .api.endpoints.admin import parts as admin_parts
+from .api.endpoints.admin import stats as admin_stats
+from .api.endpoints.auth import core as auth_core
+from .api.endpoints.auth import oauth as auth_oauth
+from .api.endpoints.auth import two_factor as auth_2fa
+from .api.endpoints.auth import webauthn as auth_webauthn
 from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
 from .api.services import crawler_schedule_service

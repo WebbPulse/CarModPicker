@@ -16,8 +16,8 @@ from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.user import User as DBUser
+from app.api.services.part_linker_service import _point_siblings_at  # type: ignore[attr-defined]
 from app.api.services.part_linker_service import (
-    _point_siblings_at,  # type: ignore[attr-defined]
     find_canonical_candidates,
     link_group_part_ids,
     reelect_canonical,

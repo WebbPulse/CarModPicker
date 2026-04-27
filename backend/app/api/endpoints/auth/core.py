@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
+import jwt
 import pyotp
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-import jwt
 from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session

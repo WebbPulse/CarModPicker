@@ -10,8 +10,8 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends
 import jwt
+from fastapi import APIRouter, Depends
 from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session

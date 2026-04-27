@@ -8,9 +8,9 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+import jwt
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, status
-import jwt
 from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
