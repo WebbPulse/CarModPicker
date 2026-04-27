@@ -166,8 +166,8 @@ export default function PriceAlertSubscribeButton({
           <DialogHeader>
             <DialogTitle>Get a price-drop alert</DialogTitle>
             <DialogDescription>
-              We&apos;ll email you when an observed price drops to or below
-              your threshold. You can unsubscribe at any time.
+              We&apos;ll email you when an observed price drops to or below your
+              threshold. You can unsubscribe at any time.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

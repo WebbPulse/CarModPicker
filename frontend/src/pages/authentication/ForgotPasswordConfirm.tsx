@@ -130,11 +130,7 @@ function ForgotPasswordConfirm() {
             </div>
             <ErrorAlert message={apiError} />
             <div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Setting Password...' : 'Set New Password'}
               </Button>
             </div>

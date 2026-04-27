@@ -204,9 +204,11 @@ describe('App route coverage (FE-03 drift guard, D-10, D-24)', () => {
         // lazyWithReload stub throws on mount → nearest RouteGroupBoundary
         // catches → fallback UI renders with data-route-group attribute.
         const { container } = render(
-          (<MemoryRouter initialEntries={[path]}>
-            <App />
-          </MemoryRouter>) as ReactNode
+          (
+            <MemoryRouter initialEntries={[path]}>
+              <App />
+            </MemoryRouter>
+          ) as ReactNode
         );
         const fallbackMarker = container.querySelector(
           `[data-route-group="${group}"]`

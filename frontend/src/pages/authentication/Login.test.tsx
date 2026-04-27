@@ -60,12 +60,8 @@ vi.mock('../../hooks/useGoogleSignIn', () => ({
 }));
 
 const fillAndSubmit = (username: string, password: string) => {
-  const usernameInput = screen.getByPlaceholderText(
-    /enter your username/i
-  );
-  const passwordInput = screen.getByPlaceholderText(
-    /enter your password/i
-  );
+  const usernameInput = screen.getByPlaceholderText(/enter your username/i);
+  const passwordInput = screen.getByPlaceholderText(/enter your password/i);
   fireEvent.change(usernameInput, { target: { value: username } });
   fireEvent.change(passwordInput, { target: { value: password } });
   const form = usernameInput.closest('form');
@@ -89,7 +85,9 @@ describe('Login page', () => {
     expect(
       screen.getByPlaceholderText(/enter your password/i)
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /sign in/i })
+    ).toBeInTheDocument();
     expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /forgot your password/i })

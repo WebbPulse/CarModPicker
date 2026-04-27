@@ -66,9 +66,7 @@ describe('RouteGroupBoundary', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/kaboom/)).toBeInTheDocument();
     expect(screen.getByText(/event id:/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /retry/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /go home/i })
     ).toBeInTheDocument();

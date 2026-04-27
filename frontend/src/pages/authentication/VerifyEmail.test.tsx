@@ -11,7 +11,12 @@
 // see ExtensionAuth.test.tsx for the same workaround).
 /* eslint-disable @typescript-eslint/unbound-method */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '../../test/utils/test-utils';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+} from '../../test/utils/test-utils';
 import { mockUser } from '../../test/mocks/api';
 import { apiClient } from '../../api/client';
 import VerifyEmail from './VerifyEmail';
@@ -44,7 +49,9 @@ describe('VerifyEmail page', () => {
       },
     });
     // Page displays user email and a "Send Verification Email" button.
-    expect(screen.getAllByText(new RegExp(mockUser.email, 'i')).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(new RegExp(mockUser.email, 'i')).length
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole('button', { name: /send verification email/i })
     ).toBeInTheDocument();
@@ -76,9 +83,7 @@ describe('VerifyEmail page', () => {
     expect(body.email).toBe(mockUser.email);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/verification email sent/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/verification email sent/i)).toBeInTheDocument();
     });
   });
 });

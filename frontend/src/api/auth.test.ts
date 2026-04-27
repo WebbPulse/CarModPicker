@@ -245,10 +245,9 @@ describe('authApi — WebAuthn', () => {
 
     await authApi.webauthnRegisterOptions('my-key');
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/webauthn/register/options',
-      { nickname: 'my-key' }
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/webauthn/register/options', {
+      nickname: 'my-key',
+    });
   });
 
   it('webauthnRegisterVerify POSTs /auth/webauthn/register/verify with the full body', async () => {
@@ -282,10 +281,9 @@ describe('authApi — WebAuthn', () => {
 
     await authApi.webauthnLoginOptions('someone');
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/webauthn/login/options',
-      { username: 'someone' }
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/webauthn/login/options', {
+      username: 'someone',
+    });
   });
 
   it('webauthnLoginOptions passes undefined username when not provided', async () => {
@@ -295,10 +293,9 @@ describe('authApi — WebAuthn', () => {
 
     await authApi.webauthnLoginOptions();
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/webauthn/login/options',
-      { username: undefined }
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/webauthn/login/options', {
+      username: undefined,
+    });
   });
 
   it('webauthnLoginVerify POSTs /auth/webauthn/login/verify, stores token, unwraps user', async () => {
@@ -316,10 +313,7 @@ describe('authApi — WebAuthn', () => {
 
     const result = await authApi.webauthnLoginVerify(body);
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/webauthn/login/verify',
-      body
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/webauthn/login/verify', body);
     expect(setStoredTokenMock).toHaveBeenCalledWith('webauthn-tok');
     expect(result.data).toEqual(mockUser);
   });
@@ -410,10 +404,7 @@ describe('authApi — Google OAuth', () => {
 
     const result = await authApi.googleSignup(data);
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/oauth/google/signup',
-      data
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/oauth/google/signup', data);
     expect(setStoredTokenMock).toHaveBeenCalledWith('gsignup-tok');
     expect(result.data).toEqual(mockUser);
   });
@@ -449,10 +440,7 @@ describe('authApi — Google OAuth', () => {
 
     await authApi.googleConnect(data);
 
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/oauth/google/connect',
-      data
-    );
+    expect(postMock).toHaveBeenCalledWith('/auth/oauth/google/connect', data);
   });
 
   it('listOAuthAccounts GETs /auth/oauth', async () => {

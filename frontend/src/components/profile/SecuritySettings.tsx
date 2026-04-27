@@ -336,7 +336,11 @@ function SecuritySettings({
               )}
               {passwordError && <ErrorAlert message={passwordError} />}
 
-              <Field id="currentPassword" label="Current Password" icon={<FaLock />}>
+              <Field
+                id="currentPassword"
+                label="Current Password"
+                icon={<FaLock />}
+              >
                 <Input
                   id="currentPassword"
                   name="currentPassword"
@@ -377,7 +381,11 @@ function SecuritySettings({
                 />
               </Field>
 
-              <Field id="confirmNewPassword" label="Confirm New Password" icon={<FaLock />}>
+              <Field
+                id="confirmNewPassword"
+                label="Confirm New Password"
+                icon={<FaLock />}
+              >
                 <Input
                   id="confirmNewPassword"
                   name="confirmNewPassword"
@@ -432,7 +440,9 @@ function SecuritySettings({
                   loading={isChangingPassword}
                   className="flex-1"
                 >
-                  {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                  {isChangingPassword
+                    ? 'Changing Password...'
+                    : 'Change Password'}
                 </Button>
                 <Button
                   type="button"
@@ -589,7 +599,11 @@ function SecuritySettings({
                   </div>
 
                   <div className="space-y-4">
-                    <Field id="disablePassword" label="Password" icon={<FaLock />}>
+                    <Field
+                      id="disablePassword"
+                      label="Password"
+                      icon={<FaLock />}
+                    >
                       <Input
                         id="disablePassword"
                         name="disablePassword"

@@ -147,7 +147,9 @@ describe('PartsCuration page', () => {
     // Both members render; Promote/Unlink only on non-canonical rows.
     expect(await screen.findByText('Canonical Part')).toBeInTheDocument();
     expect(screen.getByText('Duplicate Part')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Promote/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Promote/i })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Unlink/i })).toBeInTheDocument();
   });
 

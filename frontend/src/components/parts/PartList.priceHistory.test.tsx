@@ -64,7 +64,7 @@ function buildResponse<T>(data: T): AxiosResponse<T> {
 }
 
 function makeSummary(
-  overrides: Partial<PriceHistorySummary> = {},
+  overrides: Partial<PriceHistorySummary> = {}
 ): PriceHistorySummary {
   return {
     min_cents: 1000,
@@ -136,7 +136,7 @@ describe('PartList — price-history integration', () => {
       '/parts/price-history',
       expect.objectContaining({
         part_ids: expect.arrayContaining(['p-zero', 'p-single', 'p-multi']),
-      }),
+      })
     );
   });
 
@@ -172,13 +172,13 @@ describe('PartList — price-history integration', () => {
     // renders nothing for the sparkline.
     await waitFor(() => {
       const multiCells = container.querySelectorAll(
-        '[data-testid="sparkline-cell"][data-part-id="p-multi"]',
+        '[data-testid="sparkline-cell"][data-part-id="p-multi"]'
       );
       expect(multiCells.length).toBeGreaterThan(0);
     });
 
     const zeroCells = container.querySelectorAll(
-      '[data-testid="sparkline-cell"][data-part-id="p-zero"]',
+      '[data-testid="sparkline-cell"][data-part-id="p-zero"]'
     );
     expect(zeroCells.length).toBe(0);
   });
@@ -205,7 +205,7 @@ describe('PartList — price-history integration', () => {
     // from summary, no additional GET to /parts/:id/price-history fired.
     await waitFor(() => {
       expect(
-        container.querySelector('[data-testid="sparkline-dot"]'),
+        container.querySelector('[data-testid="sparkline-dot"]')
       ).not.toBeNull();
     });
 

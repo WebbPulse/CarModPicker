@@ -62,7 +62,7 @@ export default function SparklineCell({
           }
         }
       },
-      { rootMargin: '100px' },
+      { rootMargin: '100px' }
     );
     observer.observe(node);
     observerRef.current = observer;
@@ -109,11 +109,7 @@ export default function SparklineCell({
           ]
         : [];
     return (
-      <span
-        ref={wrapperRef}
-        data-testid="sparkline-cell"
-        data-part-id={partId}
-      >
+      <span ref={wrapperRef} data-testid="sparkline-cell" data-part-id={partId}>
         <Sparkline
           history={synthetic}
           width={width}

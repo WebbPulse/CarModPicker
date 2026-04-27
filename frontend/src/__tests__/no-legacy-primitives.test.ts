@@ -65,11 +65,7 @@ const INLINE_BADGE_FACTORY_RE =
 const SRC_DIR = resolve(__dirname, '..');
 const GUARD_FILE = resolve(__dirname, 'no-legacy-primitives.test.ts');
 
-const COMMON_IGNORES = [
-  '**/node_modules/**',
-  '**/dist/**',
-  '**/coverage/**',
-];
+const COMMON_IGNORES = ['**/node_modules/**', '**/dist/**', '**/coverage/**'];
 
 interface Violation {
   file: string;
@@ -81,7 +77,7 @@ function scan(
   globs: string[],
   patterns: RegExp[],
   allowlist: Set<string>,
-  ignore: string[] = COMMON_IGNORES,
+  ignore: string[] = COMMON_IGNORES
 ): Violation[] {
   const seen = new Set<string>();
   const violations: Violation[] = [];
@@ -159,7 +155,11 @@ describe('M003-S06: no legacy design-system re-entry', () => {
       resolve(SRC_DIR, 'index.css'),
       resolve(SRC_DIR, 'styles/tokens.css'),
     ]);
-    const violations = scan(consumerGlobs, [RAW_PALETTE_RE, TEXT_ACCENT_RE], allowlist);
+    const violations = scan(
+      consumerGlobs,
+      [RAW_PALETTE_RE, TEXT_ACCENT_RE],
+      allowlist
+    );
     expect(violations).toEqual([]);
   });
 
@@ -178,7 +178,11 @@ describe('M003-S06: no legacy design-system re-entry', () => {
       resolve(SRC_DIR, 'index.css'),
       resolve(SRC_DIR, 'styles/tokens.css'),
     ]);
-    const violations = scan(consumerGlobs, [GLASS_CLASS_RE, GLASS_CLASSNAME_RE], allowlist);
+    const violations = scan(
+      consumerGlobs,
+      [GLASS_CLASS_RE, GLASS_CLASSNAME_RE],
+      allowlist
+    );
     expect(violations).toEqual([]);
   });
 
@@ -197,7 +201,11 @@ describe('M003-S06: no legacy design-system re-entry', () => {
       resolve(SRC_DIR, 'components/ui/loading-overlay.tsx'),
       resolve(SRC_DIR, 'components/ui/status-badge.tsx'),
     ]);
-    const patterns = [HAND_ROLLED_TEXTAREA_RE, INLINE_LOADING_OVERLAY_RE, INLINE_BADGE_FACTORY_RE];
+    const patterns = [
+      HAND_ROLLED_TEXTAREA_RE,
+      INLINE_LOADING_OVERLAY_RE,
+      INLINE_BADGE_FACTORY_RE,
+    ];
     const violations = scan(consumerGlobs, patterns, allowlist);
     expect(violations).toEqual([]);
   });

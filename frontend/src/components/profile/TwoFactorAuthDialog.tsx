@@ -5,12 +5,7 @@ import { authApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 
 interface TwoFactorAuthDialogProps {

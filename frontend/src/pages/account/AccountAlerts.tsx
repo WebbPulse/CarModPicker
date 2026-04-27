@@ -81,9 +81,7 @@ function AlertRow({
             className="text-blue-400 hover:text-blue-300 underline transition-colors"
             data-testid="alert-row-part-link"
           >
-            {partLoading
-              ? 'Loading part…'
-              : (partName ?? 'Part unavailable')}
+            {partLoading ? 'Loading part…' : (partName ?? 'Part unavailable')}
           </Link>
         </div>
         <div className="mt-1 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
@@ -195,16 +193,13 @@ function AccountAlerts() {
     };
   }, [alerts, partsById, loadingPartIds]);
 
-  const handleUnsubscribed = useCallback(
-    (alertId: string) => {
-      setRemovedIds((prev) => {
-        const next = new Set(prev);
-        next.add(alertId);
-        return next;
-      });
-    },
-    []
-  );
+  const handleUnsubscribed = useCallback((alertId: string) => {
+    setRemovedIds((prev) => {
+      const next = new Set(prev);
+      next.add(alertId);
+      return next;
+    });
+  }, []);
 
   const dismissStatusBanner = () => {
     const next = new URLSearchParams(searchParams);

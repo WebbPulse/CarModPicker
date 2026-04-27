@@ -15,10 +15,7 @@ const AuthRedirectLink: React.FC<AuthRedirectLinkProps> = ({
   return (
     <p className="mt-6 text-center text-sm text-gray-400">
       {text}{' '}
-      <Link
-        to={to}
-        className="font-medium text-info hover:text-info/90"
-      >
+      <Link to={to} className="font-medium text-info hover:text-info/90">
         {linkText}
       </Link>
     </p>

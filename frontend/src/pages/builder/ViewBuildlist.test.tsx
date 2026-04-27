@@ -143,10 +143,7 @@ describe('ViewBuildList page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-lists/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-lists/:buildListId"
-            element={<ViewBuildList />}
-          />
+          <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
         </Routes>
       </MemoryRouter>
     );
@@ -209,10 +206,7 @@ describe('ViewBuildList page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-lists/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-lists/:buildListId"
-            element={<ViewBuildList />}
-          />
+          <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
         </Routes>
       </MemoryRouter>
     );
@@ -258,18 +252,13 @@ describe('ViewBuildList page', () => {
     render(
       <MemoryRouter initialEntries={[`/build-lists/${mockBuildList.id}`]}>
         <Routes>
-          <Route
-            path="/build-lists/:buildListId"
-            element={<ViewBuildList />}
-          />
+          <Route path="/build-lists/:buildListId" element={<ViewBuildList />} />
         </Routes>
       </MemoryRouter>
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/currently has no parts/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(/currently has no parts/i)).toBeInTheDocument()
     );
   });
 });

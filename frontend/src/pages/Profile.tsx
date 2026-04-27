@@ -161,12 +161,42 @@ function Profile() {
     );
   }
 
-  const socialFields: { id: string; label: string; placeholder: string; key: keyof typeof socialLinks }[] = [
-    { id: 'instagram_url', label: 'Instagram', placeholder: 'https://instagram.com/yourusername', key: 'instagram_url' },
-    { id: 'facebook_url', label: 'Facebook', placeholder: 'https://facebook.com/yourpage', key: 'facebook_url' },
-    { id: 'reddit_url', label: 'Reddit', placeholder: 'https://reddit.com/user/yourusername', key: 'reddit_url' },
-    { id: 'youtube_url', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel', key: 'youtube_url' },
-    { id: 'tiktok_url', label: 'TikTok', placeholder: 'https://tiktok.com/@yourusername', key: 'tiktok_url' },
+  const socialFields: {
+    id: string;
+    label: string;
+    placeholder: string;
+    key: keyof typeof socialLinks;
+  }[] = [
+    {
+      id: 'instagram_url',
+      label: 'Instagram',
+      placeholder: 'https://instagram.com/yourusername',
+      key: 'instagram_url',
+    },
+    {
+      id: 'facebook_url',
+      label: 'Facebook',
+      placeholder: 'https://facebook.com/yourpage',
+      key: 'facebook_url',
+    },
+    {
+      id: 'reddit_url',
+      label: 'Reddit',
+      placeholder: 'https://reddit.com/user/yourusername',
+      key: 'reddit_url',
+    },
+    {
+      id: 'youtube_url',
+      label: 'YouTube',
+      placeholder: 'https://youtube.com/@yourchannel',
+      key: 'youtube_url',
+    },
+    {
+      id: 'tiktok_url',
+      label: 'TikTok',
+      placeholder: 'https://tiktok.com/@yourusername',
+      key: 'tiktok_url',
+    },
   ];
 
   return (
@@ -333,10 +363,7 @@ function Profile() {
         </Button>
 
         <div className="mt-4 space-y-2">
-          <Button
-            onClick={() => void navigate('/my-parts')}
-            className="w-full"
-          >
+          <Button onClick={() => void navigate('/my-parts')} className="w-full">
             Manage My Parts
           </Button>
         </div>

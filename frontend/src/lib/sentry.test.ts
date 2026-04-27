@@ -15,7 +15,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockedInit = vi.fn();
 const mockedBrowserTracing = vi.fn(() => ({ name: 'browserTracing' }));
-const mockedReplay = vi.fn((opts: unknown) => ({ name: 'replay', _opts: opts }));
+const mockedReplay = vi.fn((opts: unknown) => ({
+  name: 'replay',
+  _opts: opts,
+}));
 const mockedCaptureException = vi.fn();
 const mockedSetUser = vi.fn();
 
@@ -142,14 +145,17 @@ describe('beforeErrorSampling auth-route gate', () => {
     });
   }
 
-  it.each(['/login', '/register', '/oauth-callback', '/reset-password', '/2fa'])(
-    'drops replay on auth path %s',
-    async (path: string) => {
-      const hook = await extractHook();
-      setPath(path);
-      expect(hook()).toBe(false);
-    }
-  );
+  it.each([
+    '/login',
+    '/register',
+    '/oauth-callback',
+    '/reset-password',
+    '/2fa',
+  ])('drops replay on auth path %s', async (path: string) => {
+    const hook = await extractHook();
+    setPath(path);
+    expect(hook()).toBe(false);
+  });
 
   it.each(['/login/extra', '/register/foo', '/oauth-callback/redirect'])(
     'drops replay on auth-path prefix match %s',

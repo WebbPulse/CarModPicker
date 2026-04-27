@@ -231,7 +231,7 @@ function ExtractionHealth() {
                         )}
                       </div>
                     );
-                  },
+                  }
                 )}
               </div>
             </Card>

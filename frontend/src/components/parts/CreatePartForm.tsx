@@ -644,7 +644,11 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isLoading || isCreating}>
-          {isLoading || isCreating ? <Spinner inline size="xs" /> : 'Create Part'}
+          {isLoading || isCreating ? (
+            <Spinner inline size="xs" />
+          ) : (
+            'Create Part'
+          )}
         </Button>
       </div>
     </form>

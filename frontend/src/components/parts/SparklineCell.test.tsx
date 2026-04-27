@@ -26,7 +26,7 @@ function buildResponse<T>(data: T): AxiosResponse<T> {
 }
 
 function makeSummary(
-  overrides: Partial<PriceHistorySummary> = {},
+  overrides: Partial<PriceHistorySummary> = {}
 ): PriceHistorySummary {
   return {
     min_cents: 1000,
@@ -39,9 +39,7 @@ function makeSummary(
   };
 }
 
-function makeHistory(
-  count: number,
-): PartPriceHistoryReadWithRetailer[] {
+function makeHistory(count: number): PartPriceHistoryReadWithRetailer[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `h-${i}`,
     part_listing_id: 'pl-1',
@@ -53,7 +51,7 @@ function makeHistory(
 }
 
 function makeSingleResponse(
-  history: PartPriceHistoryReadWithRetailer[],
+  history: PartPriceHistoryReadWithRetailer[]
 ): PriceHistorySinglePartResponse {
   return {
     summary: makeSummary({ observation_count: history.length }),
@@ -102,9 +100,7 @@ afterEach(() => {
 
 describe('SparklineCell', () => {
   it('renders nothing when summary is null', () => {
-    const { container } = render(
-      <SparklineCell partId="p-1" summary={null} />,
-    );
+    const { container } = render(<SparklineCell partId="p-1" summary={null} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -113,7 +109,7 @@ describe('SparklineCell', () => {
       <SparklineCell
         partId="p-1"
         summary={makeSummary({ observation_count: 0 })}
-      />,
+      />
     );
     expect(container.firstChild).toBeNull();
   });
@@ -127,7 +123,7 @@ describe('SparklineCell', () => {
           last_cents: 1500,
           last_observed_at: '2026-04-01T00:00:00Z',
         })}
-      />,
+      />
     );
     const dot = container.querySelector('[data-testid="sparkline-dot"]');
     expect(dot).not.toBeNull();
@@ -136,22 +132,22 @@ describe('SparklineCell', () => {
 
   it('does not fetch until IntersectionObserver fires (lazy-load)', async () => {
     vi.mocked(apiClient.get).mockResolvedValue(
-      buildResponse(makeSingleResponse(makeHistory(3))),
+      buildResponse(makeSingleResponse(makeHistory(3)))
     );
 
     const { container } = render(
       <SparklineCell
         partId="p-1"
         summary={makeSummary({ observation_count: 3 })}
-      />,
+      />
     );
 
     // Wrapper is rendered but no polyline yet, no fetch yet.
     expect(
-      container.querySelector('[data-testid="sparkline-cell"]'),
+      container.querySelector('[data-testid="sparkline-cell"]')
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-testid="sparkline-polyline"]'),
+      container.querySelector('[data-testid="sparkline-polyline"]')
     ).toBeNull();
     expect(vi.mocked(apiClient.get)).not.toHaveBeenCalled();
 
@@ -167,14 +163,14 @@ describe('SparklineCell', () => {
     });
     await waitFor(() => {
       expect(
-        container.querySelector('[data-testid="sparkline-polyline"]'),
+        container.querySelector('[data-testid="sparkline-polyline"]')
       ).not.toBeNull();
     });
   });
 
   it('caches per-partId across mounts within TTL — second mount does not refetch', async () => {
     vi.mocked(apiClient.get).mockResolvedValue(
-      buildResponse(makeSingleResponse(makeHistory(3))),
+      buildResponse(makeSingleResponse(makeHistory(3)))
     );
 
     // First mount → trigger intersection → fetch fires.
@@ -182,7 +178,7 @@ describe('SparklineCell', () => {
       <SparklineCell
         partId="p-1"
         summary={makeSummary({ observation_count: 3 })}
-      />,
+      />
     );
     await act(async () => {
       ioInstances[0]!.trigger([{ isIntersecting: true }]);
@@ -199,14 +195,12 @@ describe('SparklineCell', () => {
       <SparklineCell
         partId="p-1"
         summary={makeSummary({ observation_count: 3 })}
-      />,
+      />
     );
 
     await waitFor(() => {
       expect(
-        second.container.querySelector(
-          '[data-testid="sparkline-polyline"]',
-        ),
+        second.container.querySelector('[data-testid="sparkline-polyline"]')
       ).not.toBeNull();
     });
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(1);
@@ -220,7 +214,7 @@ describe('SparklineCell', () => {
       <SparklineCell
         partId="p-err"
         summary={makeSummary({ observation_count: 3 })}
-      />,
+      />
     );
     await act(async () => {
       ioInstances[0]!.trigger([{ isIntersecting: true }]);
@@ -234,7 +228,7 @@ describe('SparklineCell', () => {
       expect(warn).toHaveBeenCalled();
     });
     expect(
-      container.querySelector('[data-testid="sparkline-polyline"]'),
+      container.querySelector('[data-testid="sparkline-polyline"]')
     ).toBeNull();
 
     warn.mockRestore();

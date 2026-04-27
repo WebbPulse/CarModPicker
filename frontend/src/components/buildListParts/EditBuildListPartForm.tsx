@@ -5,12 +5,7 @@ import type {
   BuildListPhaseRead,
 } from '../../types/Api';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 interface EditBuildListPartFormProps {
   buildListPart: BuildListPartReadWithPart;

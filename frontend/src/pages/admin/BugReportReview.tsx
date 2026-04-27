@@ -24,10 +24,7 @@ import {
 import { LoadingOverlay } from '../../components/ui/loading-overlay';
 import Pagination from '../../components/ui/pagination';
 import Spinner from '../../components/ui/spinner';
-import {
-  PriorityBadge,
-  StatusBadge,
-} from '../../components/ui/status-badge';
+import { PriorityBadge, StatusBadge } from '../../components/ui/status-badge';
 import { Textarea } from '../../components/ui/textarea';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
@@ -214,9 +211,7 @@ function BugReportReview() {
 
   const renderPriorityBadge = (priority: string) => {
     const value: 'low' | 'medium' | 'high' | 'critical' =
-      priority === 'low' ||
-      priority === 'high' ||
-      priority === 'critical'
+      priority === 'low' || priority === 'high' || priority === 'critical'
         ? priority
         : 'medium';
     return <PriorityBadge priority={value} />;
@@ -274,9 +269,7 @@ function BugReportReview() {
               Resolved
             </Button>
             <Button
-              variant={
-                selectedStatus === 'dismissed' ? 'default' : 'secondary'
-              }
+              variant={selectedStatus === 'dismissed' ? 'default' : 'secondary'}
               onClick={() => setSelectedStatus('dismissed')}
             >
               Dismissed
@@ -372,7 +365,9 @@ function BugReportReview() {
                       <h4 className="font-medium text-foreground mb-1">
                         Description
                       </h4>
-                      <p className="text-muted-foreground">{bugReport.description}</p>
+                      <p className="text-muted-foreground">
+                        {bugReport.description}
+                      </p>
                     </div>
 
                     {bugReport.steps_to_reproduce && (
@@ -451,7 +446,9 @@ function BugReportReview() {
                         <h4 className="font-medium text-foreground mb-1">
                           Admin Notes
                         </h4>
-                        <p className="text-muted-foreground">{bugReport.admin_notes}</p>
+                        <p className="text-muted-foreground">
+                          {bugReport.admin_notes}
+                        </p>
                       </div>
                     )}
 
@@ -505,87 +502,87 @@ function BugReportReview() {
             <DialogTitle>{`Review Bug Report #${selectedBugReport?.id ?? ''}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-          <div>
-            <h4 className="font-medium text-foreground mb-2">
-              Bug Report Details
-            </h4>
-            <div className="bg-muted p-3 rounded text-foreground">
-              <p>
-                <strong>Title:</strong> {selectedBugReport?.title}
-              </p>
-              <p>
-                <strong>Description:</strong> {selectedBugReport?.description}
-              </p>
-              <p>
-                <strong>Reporter:</strong>{' '}
-                {selectedBugReport?.reporter_username || 'Anonymous'}
-              </p>
+            <div>
+              <h4 className="font-medium text-foreground mb-2">
+                Bug Report Details
+              </h4>
+              <div className="bg-muted p-3 rounded text-foreground">
+                <p>
+                  <strong>Title:</strong> {selectedBugReport?.title}
+                </p>
+                <p>
+                  <strong>Description:</strong> {selectedBugReport?.description}
+                </p>
+                <p>
+                  <strong>Reporter:</strong>{' '}
+                  {selectedBugReport?.reporter_username || 'Anonymous'}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="priority"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Priority
-            </label>
-            <select
-              id="priority"
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
+            <div>
+              <label
+                htmlFor="priority"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
+                Priority
+              </label>
+              <select
+                id="priority"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
 
-          <div>
-            <label
-              htmlFor="admin_notes"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Admin Notes
-            </label>
-            <Textarea
-              id="admin_notes"
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              rows={4}
-              placeholder="Add notes about your decision..."
-            />
-          </div>
+            <div>
+              <label
+                htmlFor="admin_notes"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
+                Admin Notes
+              </label>
+              <Textarea
+                id="admin_notes"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                rows={4}
+                placeholder="Add notes about your decision..."
+              />
+            </div>
 
-          {updateError && <ErrorAlert message={updateError} />}
+            {updateError && <ErrorAlert message={updateError} />}
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={closeReviewDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void handleUpdateBugReport('in_progress')}
-              disabled={isUpdating}
-            >
-              Mark In Progress
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void handleUpdateBugReport('dismissed')}
-              disabled={isUpdating}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={() => void handleUpdateBugReport('resolved')}
-              className="bg-success hover:bg-success/90 text-success-foreground"
-              disabled={isUpdating}
-            >
-              Resolve
-            </Button>
-          </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="secondary" onClick={closeReviewDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleUpdateBugReport('in_progress')}
+                disabled={isUpdating}
+              >
+                Mark In Progress
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void handleUpdateBugReport('dismissed')}
+                disabled={isUpdating}
+              >
+                Dismiss
+              </Button>
+              <Button
+                onClick={() => void handleUpdateBugReport('resolved')}
+                className="bg-success hover:bg-success/90 text-success-foreground"
+                disabled={isUpdating}
+              >
+                Resolve
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

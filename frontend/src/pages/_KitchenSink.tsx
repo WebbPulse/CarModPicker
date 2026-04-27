@@ -55,7 +55,12 @@ import {
   SheetTitle,
 } from '../components/ui/sheet';
 import Spinner, { type SpinnerSize } from '../components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../components/ui/tabs';
 import { toast } from 'sonner';
 import { Toaster } from '../components/ui/toast';
 
@@ -87,7 +92,8 @@ const SPINNER_SIZES: SpinnerSize[] = ['xs', 'sm', 'base', 'md', 'lg', 'xl'];
 
 export default function KitchenSink() {
   const [comboboxValue, setComboboxValue] = React.useState<string>('rx7');
-  const [emptyComboboxValue, setEmptyComboboxValue] = React.useState<string>('');
+  const [emptyComboboxValue, setEmptyComboboxValue] =
+    React.useState<string>('');
   const [paginationPage, setPaginationPage] = React.useState<number>(7);
 
   React.useEffect(() => {
@@ -164,7 +170,11 @@ export default function KitchenSink() {
           </label>
           <label className="space-y-2 text-sm">
             <span className="font-medium">Disabled</span>
-            <Input placeholder="Cannot edit" disabled defaultValue="Read only" />
+            <Input
+              placeholder="Cannot edit"
+              disabled
+              defaultValue="Read only"
+            />
             <span className="block text-xs text-muted-foreground">
               Field is disabled.
             </span>

@@ -380,7 +380,11 @@ function BugReport() {
             >
               Cancel
             </Button>
-            <Button type="submit" loading={isSubmitting} disabled={isSubmitting}>
+            <Button
+              type="submit"
+              loading={isSubmitting}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Submitting...' : 'Submit Bug Report'}
             </Button>
           </div>

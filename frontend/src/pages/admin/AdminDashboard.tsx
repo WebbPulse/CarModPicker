@@ -89,7 +89,8 @@ function AdminDashboard() {
     },
     {
       title: 'Extraction Health',
-      description: 'Adapter compliance, per-tier coverage, and 7d failure rates',
+      description:
+        'Adapter compliance, per-tier coverage, and 7d failure rates',
       icon: '🩺',
       path: '/admin/extraction-health',
     },

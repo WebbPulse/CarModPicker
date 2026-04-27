@@ -66,7 +66,9 @@ describe('usersApi — CRUD', () => {
 
   it('updateUser PUTs /users/:id with the UserUpdate body', async () => {
     const body = { username: 'updated' };
-    putMock.mockResolvedValueOnce({ data: { ...mockUser, username: 'updated' } });
+    putMock.mockResolvedValueOnce({
+      data: { ...mockUser, username: 'updated' },
+    });
 
     await usersApi.updateUser(mockUser.id, body);
 
@@ -156,7 +158,13 @@ describe('usersApi — admin endpoints', () => {
 
   it('getAllUsers GETs /users/admin/users with params', async () => {
     getMock.mockResolvedValueOnce({
-      data: { items: [mockUser], total: 1, skip: 0, limit: 10, has_next: false },
+      data: {
+        items: [mockUser],
+        total: 1,
+        skip: 0,
+        limit: 10,
+        has_next: false,
+      },
     });
     const params = { skip: 0, limit: 10 };
 

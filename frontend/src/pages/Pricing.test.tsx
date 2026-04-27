@@ -45,7 +45,9 @@ describe('Pricing page', () => {
       screen.getByRole('heading', { name: /simple pricing/i })
     ).toBeInTheDocument();
     // Tier card headings: Free and Premium.
-    expect(screen.getByRole('heading', { name: /^free$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /^free$/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /^premium$/i })
     ).toBeInTheDocument();

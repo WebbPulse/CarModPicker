@@ -44,7 +44,7 @@ vi.mock('../../hooks/useAuth', () => ({
 vi.mock('../../services/Api', async () => {
   const actual =
     await vi.importActual<typeof import('../../services/Api')>(
-      '../../services/Api',
+      '../../services/Api'
     );
   return actual;
 });
@@ -61,7 +61,7 @@ function seedAuthenticated(): void {
 }
 
 function makeRetailer(
-  overrides: Partial<RetailerPriceBreakdown> & { retailer_id: string },
+  overrides: Partial<RetailerPriceBreakdown> & { retailer_id: string }
 ): RetailerPriceBreakdown {
   const base: RetailerPriceBreakdown = {
     retailer_id: overrides.retailer_id,
@@ -79,7 +79,7 @@ function makeListing(
   id: string,
   retailerName: string,
   daysAgo: number | null,
-  overrides: Partial<PartListingReadWithRetailer> = {},
+  overrides: Partial<PartListingReadWithRetailer> = {}
 ): PartListingReadWithRetailer {
   const updated =
     daysAgo === null
@@ -142,7 +142,7 @@ function renderViewPart() {
       <Routes>
         <Route path="/parts/:partId" element={<ViewPart />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
@@ -173,19 +173,19 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
     // Page loads.
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { level: 1, name: mockPart.name }),
-      ).toBeInTheDocument(),
+        screen.getByRole('heading', { level: 1, name: mockPart.name })
+      ).toBeInTheDocument()
     );
 
     // Section header is always rendered (sibling of subscribe button), but
     // the body — the table + summary header — should not appear.
     expect(
-      screen.queryByTestId('price-summary-header'),
+      screen.queryByTestId('price-summary-header')
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId('retailer-row')).not.toBeInTheDocument();
     // Empty-state copy renders instead.
     expect(
-      screen.getByText('No retailer pricing observed yet.'),
+      screen.getByText('No retailer pricing observed yet.')
     ).toBeInTheDocument();
   });
 
@@ -215,12 +215,12 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
     renderViewPart();
 
     await waitFor(() =>
-      expect(screen.getByTestId('price-summary-header')).toBeInTheDocument(),
+      expect(screen.getByTestId('price-summary-header')).toBeInTheDocument()
     );
 
     // One row per retailer, no tabs anywhere.
     expect(screen.getAllByTestId('retailer-row')).toHaveLength(
-      retailers.length,
+      retailers.length
     );
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     for (const r of retailers) {
@@ -259,7 +259,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
     renderViewPart();
 
     const header = await waitFor(() =>
-      screen.getByTestId('price-summary-header'),
+      screen.getByTestId('price-summary-header')
     );
     // Format: $9.00–$21.00 across 2 retailers, last observed ↓ <date>
     expect(header.textContent).toContain('$9.00');
@@ -271,7 +271,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
 
   it('shows the stale caveat exactly once for a retailer with last_observed_at 90 days ago', async () => {
     const ninetyDaysAgo = new Date(
-      Date.now() - 90 * 24 * 60 * 60 * 1000,
+      Date.now() - 90 * 24 * 60 * 60 * 1000
     ).toISOString();
     const retailers = [
       makeRetailer({
@@ -303,7 +303,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
     renderViewPart();
 
     await waitFor(() =>
-      expect(screen.getByText('Stale Shop')).toBeInTheDocument(),
+      expect(screen.getByText('Stale Shop')).toBeInTheDocument()
     );
 
     // Single source of truth for the stale caveat — exactly one occurrence.
@@ -336,7 +336,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
     renderViewPart();
 
     const link = await waitFor(() =>
-      screen.getByRole('link', { name: /View at retailer/i }),
+      screen.getByRole('link', { name: /View at retailer/i })
     );
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');

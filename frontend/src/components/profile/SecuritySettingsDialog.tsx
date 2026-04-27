@@ -6,12 +6,7 @@ import { authApi, usersApi } from '../../services/Api';
 import type { TOTPSetupResponse } from '../../types/Api';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import ConnectedAccountsSettings from './ConnectedAccountsSettings';
 import PasskeySettings from './PasskeySettings';
@@ -435,7 +430,9 @@ function SecuritySettingsDialog({
               onSubmit={(e) => void handlePasswordChange(e)}
               className="space-y-6"
             >
-              {passwordSuccess && <ConfirmationAlert message={passwordSuccess} />}
+              {passwordSuccess && (
+                <ConfirmationAlert message={passwordSuccess} />
+              )}
               {passwordError && <ErrorAlert message={passwordError} />}
 
               <IconField
@@ -546,7 +543,9 @@ function SecuritySettingsDialog({
                   loading={isChangingPassword}
                   className="flex-1"
                 >
-                  {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                  {isChangingPassword
+                    ? 'Changing Password...'
+                    : 'Change Password'}
                 </Button>
                 <Button
                   type="button"
@@ -581,8 +580,8 @@ function SecuritySettingsDialog({
                       </h3>
                       <p className="text-sm text-gray-400">
                         Add an extra layer of security to your account by
-                        requiring a code from your authenticator app when you log
-                        in.
+                        requiring a code from your authenticator app when you
+                        log in.
                       </p>
                     </div>
                   </div>
@@ -595,8 +594,8 @@ function SecuritySettingsDialog({
                         Authenticator, Authy, etc.)
                       </li>
                       <li>
-                        Enter the 6-digit code from your app to verify and enable
-                        2FA
+                        Enter the 6-digit code from your app to verify and
+                        enable 2FA
                       </li>
                       <li>You'll need this code every time you log in</li>
                     </ol>
@@ -690,7 +689,8 @@ function SecuritySettingsDialog({
                     <div>
                       <h3 className="text-lg font-semibold">2FA is Enabled</h3>
                       <p className="text-sm text-gray-400">
-                        Your account is protected with two-factor authentication.
+                        Your account is protected with two-factor
+                        authentication.
                       </p>
                     </div>
                   </div>
@@ -783,9 +783,9 @@ function SecuritySettingsDialog({
                 <div>
                   <h3 className="text-lg font-semibold">Session length</h3>
                   <p className="text-sm text-gray-400">
-                    Choose how long you stay signed in. Shorter sessions are more
-                    secure. A new token with the selected expiry is issued when
-                    you save.
+                    Choose how long you stay signed in. Shorter sessions are
+                    more secure. A new token with the selected expiry is issued
+                    when you save.
                   </p>
                 </div>
               </div>
@@ -809,7 +809,10 @@ function SecuritySettingsDialog({
                   className="block w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-gray-300 focus:border-primary focus:ring-1 focus:ring-primary"
                 >
                   {SESSION_EXPIRE_OPTIONS.map((opt) => (
-                    <option key={opt.value ?? 'default'} value={opt.value ?? ''}>
+                    <option
+                      key={opt.value ?? 'default'}
+                      value={opt.value ?? ''}
+                    >
                       {opt.label}
                     </option>
                   ))}

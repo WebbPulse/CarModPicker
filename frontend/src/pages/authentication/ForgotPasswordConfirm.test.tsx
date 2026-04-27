@@ -29,9 +29,7 @@ describe('ForgotPasswordConfirm page', () => {
     // The phrase "Set new password" appears twice: once as the card title
     // and once as the submit button label. Assert at least one match.
     expect(screen.getAllByText(/set new password/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getByPlaceholderText(/^new password$/i)
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/^new password$/i)).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(/confirm new password/i)
     ).toBeInTheDocument();

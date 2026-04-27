@@ -83,7 +83,9 @@ describe('Profile page', () => {
     // PageHeader subtitle contains the username, and Username/Email
     // CardInfoItems also render it. Use getAllByText for robustness.
     await waitFor(() =>
-      expect(screen.getAllByText(new RegExp(mockUser.username)).length).toBeGreaterThan(0)
+      expect(
+        screen.getAllByText(new RegExp(mockUser.username)).length
+      ).toBeGreaterThan(0)
     );
     expect(
       screen.getAllByText(new RegExp(mockUser.email)).length
@@ -112,9 +114,8 @@ describe('Profile page', () => {
     // ImageUpload exposes a hidden <input type="file"> and a "Choose Image"
     // button that triggers the input. userEvent.upload targets the input
     // directly.
-    const fileInput = document.querySelector<HTMLInputElement>(
-      'input[type="file"]'
-    );
+    const fileInput =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) throw new Error('Could not find hidden file input');
 
     const file = new File(['hello'], 'avatar.jpg', { type: 'image/jpeg' });
@@ -133,9 +134,11 @@ describe('Profile page', () => {
     );
 
     // Verify the FormData actually carries the file under the 'file' key.
-    const call = vi.mocked(apiClient.post).mock.calls.find(
-      ([url]) => typeof url === 'string' && url.includes('/images/upload')
-    );
+    const call = vi
+      .mocked(apiClient.post)
+      .mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/images/upload')
+      );
     expect(call).toBeDefined();
     const fd: FormData = call?.[1] as FormData;
     expect(fd.get('file')).toBe(file);
@@ -155,9 +158,8 @@ describe('Profile page', () => {
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
 
-    const fileInput = document.querySelector<HTMLInputElement>(
-      'input[type="file"]'
-    );
+    const fileInput =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) throw new Error('Could not find hidden file input');
 
     const file = new File(['hello'], 'avatar.jpg', { type: 'image/jpeg' });

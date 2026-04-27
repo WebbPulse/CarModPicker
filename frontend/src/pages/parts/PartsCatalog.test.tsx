@@ -124,7 +124,9 @@ const renderWithRouter = (
 // Paginated response shape matches PaginatedResponse<PartReadWithVotes>
 // (see frontend/src/types/Api.ts:334-337). PartReadWithVotes extends PartRead
 // with upvotes/downvotes/total_votes/user_vote.
-const makePaginatedPartsResponse = (items: typeof mockPart[] = [mockPart]) => ({
+const makePaginatedPartsResponse = (
+  items: (typeof mockPart)[] = [mockPart]
+) => ({
   data: items.map((p) => ({
     ...p,
     upvotes: 0,
@@ -178,9 +180,7 @@ describe('PartsCatalog page', () => {
 
     // PartList drives an effect that calls /parts/with-votes.
     await waitFor(() => {
-      const calls = vi
-        .mocked(apiClient.get)
-        .mock.calls.map(([url]) => url);
+      const calls = vi.mocked(apiClient.get).mock.calls.map(([url]) => url);
       expect(calls.some((u) => u.startsWith('/parts/with-votes'))).toBe(true);
     });
 

@@ -24,7 +24,7 @@ const cardVariants = cva(
       variant: 'default',
       padding: 'md',
     },
-  },
+  }
 );
 
 export interface CardProps
@@ -33,7 +33,13 @@ export interface CardProps
   ref?: React.Ref<HTMLDivElement>;
 }
 
-export function Card({ className, variant, padding, ref, ...props }: CardProps) {
+export function Card({
+  className,
+  variant,
+  padding,
+  ref,
+  ...props
+}: CardProps) {
   return (
     <div
       ref={ref}
@@ -63,7 +69,7 @@ export function CardTitle({ className, ref, ...props }: DivWithRef) {
       ref={ref}
       className={cn(
         'text-lg font-semibold leading-none tracking-tight',
-        className,
+        className
       )}
       {...props}
     />

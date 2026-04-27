@@ -4,23 +4,21 @@ import { cn } from '../../lib/utils';
 
 export type DangerColor = 'destructive' | 'warning' | 'info';
 
-const PANEL_TONE: Record<
-  DangerColor,
-  { container: string; heading: string }
-> = {
-  destructive: {
-    container: 'bg-destructive/20 border-destructive/50',
-    heading: 'text-destructive',
-  },
-  warning: {
-    container: 'bg-warning/20 border-warning/50',
-    heading: 'text-warning',
-  },
-  info: {
-    container: 'bg-info/20 border-info/50',
-    heading: 'text-info',
-  },
-};
+const PANEL_TONE: Record<DangerColor, { container: string; heading: string }> =
+  {
+    destructive: {
+      container: 'bg-destructive/20 border-destructive/50',
+      heading: 'text-destructive',
+    },
+    warning: {
+      container: 'bg-warning/20 border-warning/50',
+      heading: 'text-warning',
+    },
+    info: {
+      container: 'bg-info/20 border-info/50',
+      heading: 'text-info',
+    },
+  };
 
 export interface DangerActionPanelProps {
   title: string;

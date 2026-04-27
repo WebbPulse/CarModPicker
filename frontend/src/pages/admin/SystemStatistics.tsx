@@ -641,7 +641,9 @@ function SystemStatistics() {
                 !crawlBucketSummary.crawl_bucket_configured ? (
                   <p className="text-xs text-muted-foreground leading-snug">
                     Bucket not configured: scraped page HTML is saved under{' '}
-                    <span className="font-mono text-muted-foreground">crawl_html/</span>{' '}
+                    <span className="font-mono text-muted-foreground">
+                      crawl_html/
+                    </span>{' '}
                     on disk instead. Set{' '}
                     <span className="font-mono text-muted-foreground">
                       CRAWL_BUCKET

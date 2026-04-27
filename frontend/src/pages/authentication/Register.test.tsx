@@ -132,7 +132,9 @@ describe('Register page', () => {
     // are valid representations of the same validation outcome, so we use
     // getAllByText and assert at least one node exists.
     await waitFor(() => {
-      expect(screen.getAllByText(/passwords don't match/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/passwords don't match/i).length
+      ).toBeGreaterThan(0);
     });
     expect(apiClient.post).not.toHaveBeenCalled();
   });

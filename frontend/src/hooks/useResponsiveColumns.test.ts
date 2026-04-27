@@ -68,7 +68,10 @@ describe('useResponsiveColumns', () => {
       useResponsiveColumns(keys, priority, minWidth, 400)
     );
 
-    expect(result.current.visibleColumns).toEqual(['name', 'part_manufacturer']);
+    expect(result.current.visibleColumns).toEqual([
+      'name',
+      'part_manufacturer',
+    ]);
     expect(result.current.totalMinWidth).toBe(350);
   });
 

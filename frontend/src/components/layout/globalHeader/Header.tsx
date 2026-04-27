@@ -59,7 +59,9 @@ function Header() {
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <Spinner inline />
-                  <span className="text-sm text-muted-foreground">Loading...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Loading...
+                  </span>
                 </div>
               ) : isAuthenticated ? (
                 <div className="flex items-center space-x-4">

@@ -108,10 +108,7 @@ function ViewUser() {
               <p className="text-muted-foreground">No image set.</p>
             )}
           </CardInfoItem>
-          <CardInfoItem
-            label="Username"
-            className="md:col-start-1"
-          >
+          <CardInfoItem label="Username" className="md:col-start-1">
             <p>{user.username}</p>
           </CardInfoItem>
         </div>

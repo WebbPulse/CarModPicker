@@ -91,7 +91,9 @@ export function Combobox({
                         key={option.value}
                         value={option.value}
                         onSelect={(currentValue) => {
-                          onChange?.(currentValue === value ? '' : currentValue);
+                          onChange?.(
+                            currentValue === value ? '' : currentValue
+                          );
                           setOpen(false);
                         }}
                         className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50"
@@ -99,9 +101,7 @@ export function Combobox({
                         <Check
                           className={cn(
                             'mr-2 h-4 w-4',
-                            value === option.value
-                              ? 'opacity-100'
-                              : 'opacity-0',
+                            value === option.value ? 'opacity-100' : 'opacity-0'
                           )}
                         />
                         {option.label}

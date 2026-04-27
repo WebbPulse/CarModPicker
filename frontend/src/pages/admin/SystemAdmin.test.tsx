@@ -41,8 +41,7 @@ vi.mock('../../services/Api', async () => {
     apiClient: client,
     adminApi: {
       runMigrations: () => client.post('/admin/db-ops/migrations/run'),
-      getCurrentRevision: () =>
-        client.get('/admin/db-ops/migrations/current'),
+      getCurrentRevision: () => client.get('/admin/db-ops/migrations/current'),
       initCarGenerations: () =>
         client.post('/admin/db-ops/init/car-generations'),
       initPartCategories: () =>
@@ -263,9 +262,7 @@ describe('SystemAdmin page', () => {
     );
     // Result summary shows count 2.
     await waitFor(() =>
-      expect(
-        screen.getByText(/orphaned object\(s\) of/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(/orphaned object\(s\) of/i)).toBeInTheDocument()
     );
   });
 

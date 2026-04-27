@@ -6,7 +6,7 @@ import type { PartPriceHistoryReadWithRetailer } from '../../types/Api';
 function obs(
   id: string,
   cents: number,
-  observed_at: string,
+  observed_at: string
 ): PartPriceHistoryReadWithRetailer {
   return {
     id,
@@ -26,7 +26,7 @@ describe('Sparkline', () => {
 
   it('renders a single filled dot when history has exactly one observation', () => {
     const { container } = render(
-      <Sparkline history={[obs('1', 4999, '2026-04-01T00:00:00Z')]} />,
+      <Sparkline history={[obs('1', 4999, '2026-04-01T00:00:00Z')]} />
     );
     const svg = container.querySelector('svg');
     expect(svg).not.toBeNull();
@@ -34,7 +34,7 @@ describe('Sparkline', () => {
     expect(dot).not.toBeNull();
     // No polyline path when there's only one point
     expect(
-      container.querySelector('[data-testid="sparkline-polyline"]'),
+      container.querySelector('[data-testid="sparkline-polyline"]')
     ).toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe('Sparkline', () => {
     ];
     const { container } = render(<Sparkline history={history} />);
     const polyline = container.querySelector(
-      '[data-testid="sparkline-polyline"]',
+      '[data-testid="sparkline-polyline"]'
     );
     expect(polyline).not.toBeNull();
     const points = polyline?.getAttribute('points') ?? '';
@@ -69,7 +69,7 @@ describe('Sparkline', () => {
     ];
     const { container } = render(<Sparkline history={history} />);
     const polyline = container.querySelector(
-      '[data-testid="sparkline-polyline"]',
+      '[data-testid="sparkline-polyline"]'
     );
     const points = (polyline?.getAttribute('points') ?? '')
       .split(' ')
@@ -87,10 +87,10 @@ describe('Sparkline', () => {
           obs('2', 2000, '2026-02-01T00:00:00Z'),
         ]}
         ariaLabel="Brake pad price trend"
-      />,
+      />
     );
     expect(
-      screen.getByRole('img', { name: 'Brake pad price trend' }),
+      screen.getByRole('img', { name: 'Brake pad price trend' })
     ).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('Sparkline', () => {
     ];
     const { container } = render(<Sparkline history={history} />);
     const polyline = container.querySelector(
-      '[data-testid="sparkline-polyline"]',
+      '[data-testid="sparkline-polyline"]'
     );
     const points = (polyline?.getAttribute('points') ?? '')
       .split(' ')

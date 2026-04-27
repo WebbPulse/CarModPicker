@@ -82,10 +82,7 @@ describe('BugReport page', () => {
     );
 
     await user.type(screen.getByLabelText(/title/i), 'Test bug');
-    await user.type(
-      screen.getByLabelText(/^description/i),
-      'Description text'
-    );
+    await user.type(screen.getByLabelText(/^description/i), 'Description text');
     await user.click(
       screen.getByRole('button', { name: /submit bug report/i })
     );
@@ -110,10 +107,7 @@ describe('BugReport page', () => {
       </MemoryRouter>
     );
 
-    await user.type(
-      screen.getByLabelText(/^description/i),
-      'Some description'
-    );
+    await user.type(screen.getByLabelText(/^description/i), 'Some description');
 
     // Bypass HTML5 `required` validation so the JS guard in handleSubmit runs.
     const form = document.querySelector('form');

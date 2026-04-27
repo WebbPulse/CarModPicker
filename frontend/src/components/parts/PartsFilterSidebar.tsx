@@ -96,182 +96,184 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
     <aside className="lg:w-64 flex-shrink-0 lg:self-stretch lg:min-h-[calc(100vh-2rem)]">
       <Card className="sticky top-4 overflow-hidden lg:h-full p-0">
         <div className="lg:absolute lg:inset-0 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 flex-shrink-0">
-          <h2 className="text-base font-semibold text-gray-100">Filters</h2>
-          {hasActiveFilters && (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              onClick={clearAllFilters}
-              className="h-auto p-0 text-sm"
-            >
-              Clear all
-            </Button>
-          )}
-        </div>
-        <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-8rem)] lg:max-h-none lg:flex-1 lg:min-h-0">
-          {/* Car / Vehicle Filter */}
-          <VehicleFilterSection
-            showUniversalParts={showUniversalParts}
-            setShowUniversalParts={setShowUniversalParts}
-            selectedMake={selectedMake}
-            selectedModel={selectedModel}
-            selectedGeneration={selectedGeneration}
-            setSelectedMake={setSelectedMake}
-            setSelectedModel={setSelectedModel}
-            setSelectedGeneration={setSelectedGeneration}
-            availableMakes={availableMakes}
-            uniqueModels={uniqueModels}
-            generations={generations}
-            isLoadingMakes={isLoadingMakes}
-            isLoadingCars={isLoadingCars}
-          />
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 flex-shrink-0">
+            <h2 className="text-base font-semibold text-gray-100">Filters</h2>
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={clearAllFilters}
+                className="h-auto p-0 text-sm"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
+          <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-8rem)] lg:max-h-none lg:flex-1 lg:min-h-0">
+            {/* Car / Vehicle Filter */}
+            <VehicleFilterSection
+              showUniversalParts={showUniversalParts}
+              setShowUniversalParts={setShowUniversalParts}
+              selectedMake={selectedMake}
+              selectedModel={selectedModel}
+              selectedGeneration={selectedGeneration}
+              setSelectedMake={setSelectedMake}
+              setSelectedModel={setSelectedModel}
+              setSelectedGeneration={setSelectedGeneration}
+              availableMakes={availableMakes}
+              uniqueModels={uniqueModels}
+              generations={generations}
+              isLoadingMakes={isLoadingMakes}
+              isLoadingCars={isLoadingCars}
+            />
 
-          {/* Quality / source filter */}
-          <div>
-            <h3 className={sectionTitleClass}>Source</h3>
-            <label className={checkboxRowClass}>
-              <input
-                type="checkbox"
-                checked={hideUgc}
-                onChange={(e) => setHideUgc(e.target.checked)}
-                className={checkboxInputClass}
-              />
-              <span className="flex-1">
-                Hide community-contributed
-                <span className="block text-xs text-gray-500">
-                  Show only scraped catalog parts (more reliable details).
+            {/* Quality / source filter */}
+            <div>
+              <h3 className={sectionTitleClass}>Source</h3>
+              <label className={checkboxRowClass}>
+                <input
+                  type="checkbox"
+                  checked={hideUgc}
+                  onChange={(e) => setHideUgc(e.target.checked)}
+                  className={checkboxInputClass}
+                />
+                <span className="flex-1">
+                  Hide community-contributed
+                  <span className="block text-xs text-gray-500">
+                    Show only scraped catalog parts (more reliable details).
+                  </span>
                 </span>
-              </span>
-            </label>
-          </div>
-
-          {/* Price range filter */}
-          <div>
-            <h3 className={sectionTitleClass}>Price Range</h3>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="price-min"
-                  className="text-sm text-gray-500 shrink-0 w-12"
-                >
-                  Min ($)
-                </label>
-                <Input
-                  id="price-min"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="No min"
-                  value={priceMin}
-                  onChange={(e) => setPriceMin(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="price-max"
-                  className="text-sm text-gray-500 shrink-0 w-12"
-                >
-                  Max ($)
-                </label>
-                <Input
-                  id="price-max"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="No max"
-                  value={priceMax}
-                  onChange={(e) => setPriceMax(e.target.value)}
-                />
-              </div>
+              </label>
             </div>
-          </div>
 
-          {/* Category Filter */}
-          <div>
-            <h3 className={sectionTitleClass}>Part Category</h3>
-            <div className="space-y-2">
-              {selectedCategoryIds.length > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedCategoryIds([])}
-                  className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
-                >
-                  Clear categories
-                </Button>
-              )}
-              {activeCategories
-                .filter((cat) => availableCategoryIds.includes(cat.id))
-                .map((cat) => (
-                  <label key={cat.id} className={checkboxRowClass}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCategoryIds.includes(cat.id)}
-                      onChange={() => toggleCategory(cat.id)}
-                      className={checkboxInputClass}
-                    />
-                    <span>{cat.display_name || cat.name}</span>
-                  </label>
-                ))}
-            </div>
-          </div>
-
-          {/* PartManufacturer Filter */}
-          <div>
-            <h3 className={sectionTitleClass}>Part Manufacturer</h3>
-            <div className="space-y-2">
-              <Input
-                type="text"
-                placeholder="Search part manufacturers..."
-                value={part_manufacturerSearchTerm}
-                onChange={(e) => setPartManufacturerSearchTerm(e.target.value)}
-              />
-              {selectedPartManufacturerIds.length > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPartManufacturerIds([])}
-                  className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
-                >
-                  Clear part manufacturers
-                </Button>
-              )}
-              {availablePartManufacturers
-                .filter((b) => availablePartManufacturerIds.includes(b.id))
-                .filter(
-                  (b) =>
-                    !part_manufacturerSearchTerm.trim() ||
-                    b.name
-                      .toLowerCase()
-                      .includes(
-                        part_manufacturerSearchTerm.trim().toLowerCase()
-                      )
-                )
-                .map((part_manufacturer) => (
+            {/* Price range filter */}
+            <div>
+              <h3 className={sectionTitleClass}>Price Range</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
                   <label
-                    key={part_manufacturer.id}
-                    className={checkboxRowClass}
+                    htmlFor="price-min"
+                    className="text-sm text-gray-500 shrink-0 w-12"
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedPartManufacturerIds.includes(
-                        part_manufacturer.id
-                      )}
-                      onChange={() =>
-                        togglePartManufacturer(part_manufacturer.id)
-                      }
-                      className={checkboxInputClass}
-                    />
-                    <span>{part_manufacturer.name}</span>
+                    Min ($)
                   </label>
-                ))}
+                  <Input
+                    id="price-min"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="No min"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="price-max"
+                    className="text-sm text-gray-500 shrink-0 w-12"
+                  >
+                    Max ($)
+                  </label>
+                  <Input
+                    id="price-max"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="No max"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <h3 className={sectionTitleClass}>Part Category</h3>
+              <div className="space-y-2">
+                {selectedCategoryIds.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedCategoryIds([])}
+                    className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
+                  >
+                    Clear categories
+                  </Button>
+                )}
+                {activeCategories
+                  .filter((cat) => availableCategoryIds.includes(cat.id))
+                  .map((cat) => (
+                    <label key={cat.id} className={checkboxRowClass}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCategoryIds.includes(cat.id)}
+                        onChange={() => toggleCategory(cat.id)}
+                        className={checkboxInputClass}
+                      />
+                      <span>{cat.display_name || cat.name}</span>
+                    </label>
+                  ))}
+              </div>
+            </div>
+
+            {/* PartManufacturer Filter */}
+            <div>
+              <h3 className={sectionTitleClass}>Part Manufacturer</h3>
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Search part manufacturers..."
+                  value={part_manufacturerSearchTerm}
+                  onChange={(e) =>
+                    setPartManufacturerSearchTerm(e.target.value)
+                  }
+                />
+                {selectedPartManufacturerIds.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedPartManufacturerIds([])}
+                    className="block w-full text-left justify-start h-auto px-3 py-2 text-sm text-gray-500 hover:text-gray-300"
+                  >
+                    Clear part manufacturers
+                  </Button>
+                )}
+                {availablePartManufacturers
+                  .filter((b) => availablePartManufacturerIds.includes(b.id))
+                  .filter(
+                    (b) =>
+                      !part_manufacturerSearchTerm.trim() ||
+                      b.name
+                        .toLowerCase()
+                        .includes(
+                          part_manufacturerSearchTerm.trim().toLowerCase()
+                        )
+                  )
+                  .map((part_manufacturer) => (
+                    <label
+                      key={part_manufacturer.id}
+                      className={checkboxRowClass}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPartManufacturerIds.includes(
+                          part_manufacturer.id
+                        )}
+                        onChange={() =>
+                          togglePartManufacturer(part_manufacturer.id)
+                        }
+                        className={checkboxInputClass}
+                      />
+                      <span>{part_manufacturer.name}</span>
+                    </label>
+                  ))}
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </Card>
     </aside>

@@ -110,8 +110,7 @@ const TIER_META: Record<
     badge: 'bg-success/40 border-success/60 text-success',
     row: 'border-l-2 border-l-success/70',
     chipSelected: 'border-success bg-success/40 text-success',
-    chipUnselected:
-      'border-success/40 text-success/70 hover:border-success',
+    chipUnselected: 'border-success/40 text-success/70 hover:border-success',
     dot: 'bg-success',
   },
   tls: {
@@ -120,8 +119,7 @@ const TIER_META: Record<
     badge: 'bg-warning/40 border-warning/60 text-warning',
     row: 'border-l-2 border-l-warning/70',
     chipSelected: 'border-warning bg-warning/40 text-warning',
-    chipUnselected:
-      'border-warning/40 text-warning/70 hover:border-warning',
+    chipUnselected: 'border-warning/40 text-warning/70 hover:border-warning',
     dot: 'bg-warning',
   },
   browser: {
@@ -130,7 +128,8 @@ const TIER_META: Record<
     badge: 'bg-destructive/40 border-destructive/60 text-destructive',
     row: 'border-l-2 border-l-destructive/70',
     chipSelected: 'border-destructive bg-destructive/40 text-destructive',
-    chipUnselected: 'border-destructive/40 text-destructive/70 hover:border-destructive',
+    chipUnselected:
+      'border-destructive/40 text-destructive/70 hover:border-destructive',
     dot: 'bg-destructive',
   },
   unverified: {
@@ -139,8 +138,7 @@ const TIER_META: Record<
     badge: 'bg-info/40 border-info/60 text-info',
     row: 'border-l-2 border-l-info/70',
     chipSelected: 'border-info bg-info/40 text-info',
-    chipUnselected:
-      'border-info/40 text-info/70 hover:border-info',
+    chipUnselected: 'border-info/40 text-info/70 hover:border-info',
     dot: 'bg-info',
   },
 };
@@ -1082,9 +1080,7 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
           <div className="mt-2 pt-2 border-t border-gray-700/60 space-y-3">
             <p className="text-xs text-gray-500">
               Started {startedAt.toLocaleString()}
-              {completedAt && (
-                <> · Finished {completedAt.toLocaleString()}</>
-              )}
+              {completedAt && <> · Finished {completedAt.toLocaleString()}</>}
             </p>
 
             {job.params && (
@@ -1125,11 +1121,8 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
                   </span>
                   Running for{' '}
-                  <ElapsedTimer
-                    startedAt={startedAt}
-                    endedAt={completedAt}
-                  />{' '}
-                  — results will appear when the job completes
+                  <ElapsedTimer startedAt={startedAt} endedAt={completedAt} /> —
+                  results will appear when the job completes
                 </div>
               )}
 
@@ -1312,8 +1305,8 @@ const AdapterTuningCard = memo(function AdapterTuningCard({
         Adapter Tuning
       </h2>
       <p className="text-xs text-muted-foreground mb-2">
-        Per-retailer delay, run limit, and default category. Applies on the
-        next scheduled run — no AWS sync needed.
+        Per-retailer delay, run limit, and default category. Applies on the next
+        scheduled run — no AWS sync needed.
       </p>
 
       {configSaveError && (
@@ -1514,11 +1507,7 @@ const AdapterTuningRow = memo(function AdapterTuningRow({
             }
           } else {
             const n = Number(raw);
-            if (
-              Number.isFinite(n) &&
-              n >= 1 &&
-              n !== row.per_run_limit
-            ) {
+            if (Number.isFinite(n) && n >= 1 && n !== row.per_run_limit) {
               void onSave(row.adapter_name, { per_run_limit: n });
             }
           }
@@ -1919,10 +1908,7 @@ const ScheduleRow = memo(function ScheduleRow({
   onSetDraft: (id: string, draft: ScheduleDraft) => void;
   onSave: (id: string, patch: CrawlerScheduleUpdate) => Promise<void> | void;
   onDelete: (row: CrawlerSchedule) => Promise<void> | void;
-  onToggleAdapter: (
-    row: CrawlerSchedule,
-    name: string
-  ) => Promise<void> | void;
+  onToggleAdapter: (row: CrawlerSchedule, name: string) => Promise<void> | void;
 }) {
   const reconcileFailed = !!row.last_reconcile_error;
   const handleCustomCommit = useCallback(
@@ -2179,8 +2165,7 @@ const SchedulesCard = memo(function SchedulesCard({
         ...prev,
         [row.id]: {
           preset,
-          customExpression:
-            preset === 'custom' ? row.schedule_expression : '',
+          customExpression: preset === 'custom' ? row.schedule_expression : '',
         },
       };
     });
@@ -2283,8 +2268,8 @@ const SchedulesCard = memo(function SchedulesCard({
             Crawler Schedules
           </h2>
           <p className="text-[11px] text-gray-400">
-            Each schedule fires one EventBridge trigger and runs its members
-            in parallel.
+            Each schedule fires one EventBridge trigger and runs its members in
+            parallel.
           </p>
         </div>
         <Button
@@ -2644,9 +2629,7 @@ function CrawlerAdmin() {
   const setCrawlerLimitForAdapter = useCallback(
     (adapter: string, value: string) => {
       setCrawlerLimits((prev) =>
-        (prev[adapter] ?? '') === value
-          ? prev
-          : { ...prev, [adapter]: value }
+        (prev[adapter] ?? '') === value ? prev : { ...prev, [adapter]: value }
       );
     },
     []
@@ -2891,346 +2874,349 @@ function CrawlerAdmin() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
         {/* Column 1: Schedules (small) + Adapter Tuning (tall) */}
         <div className="space-y-3 min-w-0">
-        {/* Crawler Schedules */}
-        <SchedulesCard
-          userIsAdmin={!!user?.is_admin}
-          sortedAdapters={sortedAdapters}
-          adapterTiers={adapterTiers}
-        />
+          {/* Crawler Schedules */}
+          <SchedulesCard
+            userIsAdmin={!!user?.is_admin}
+            sortedAdapters={sortedAdapters}
+            adapterTiers={adapterTiers}
+          />
 
-        {/* Adapter Tuning */}
-        <AdapterTuningCard
-          isLoadingConfigs={isLoadingConfigs}
-          adapterConfigs={adapterConfigs}
-          sortedAdapterConfigs={sortedAdapterConfigs}
-          adapterTiers={adapterTiers}
-          savingConfigName={savingConfigName}
-          adapterStatusCounts={adapterStatusCounts}
-          crawlerCategories={crawlerCategories}
-          configSaveError={configSaveError}
-          onSave={handleSaveAdapterConfig}
-        />
+          {/* Adapter Tuning */}
+          <AdapterTuningCard
+            isLoadingConfigs={isLoadingConfigs}
+            adapterConfigs={adapterConfigs}
+            sortedAdapterConfigs={sortedAdapterConfigs}
+            adapterTiers={adapterTiers}
+            savingConfigName={savingConfigName}
+            adapterStatusCounts={adapterStatusCounts}
+            crawlerCategories={crawlerCategories}
+            configSaveError={configSaveError}
+            onSave={handleSaveAdapterConfig}
+          />
         </div>
 
         {/* Column 2: Background Jobs (small) + Manual Run (tall) */}
         <div className="space-y-3 min-w-0">
-        {/* Background Jobs */}
-        <BackgroundJobsCard
-          jobsList={jobsList}
-          isLoadingJobs={isLoadingJobs}
-          expandedJobId={expandedJobId}
-          jobProgress={jobProgress}
-          adapterStatusCounts={adapterStatusCounts}
-          onToggleExpanded={handleToggleJobExpanded}
-          onCancel={handleCancelJob}
-        />
+          {/* Background Jobs */}
+          <BackgroundJobsCard
+            jobsList={jobsList}
+            isLoadingJobs={isLoadingJobs}
+            expandedJobId={expandedJobId}
+            jobProgress={jobProgress}
+            adapterStatusCounts={adapterStatusCounts}
+            onToggleExpanded={handleToggleJobExpanded}
+            onCancel={handleCancelJob}
+          />
 
-        {/* Manual Run — one-off live crawl or archive rescrape */}
-        <Card padding="sm">
-          <h2 className="text-base font-semibold text-white leading-tight">
-            Manual Run
-          </h2>
-          <p className="text-xs text-muted-foreground mb-2">
-            Trigger a one-off live crawl or archive rescrape now, outside the
-            scheduled cadence.
-          </p>
+          {/* Manual Run — one-off live crawl or archive rescrape */}
+          <Card padding="sm">
+            <h2 className="text-base font-semibold text-white leading-tight">
+              Manual Run
+            </h2>
+            <p className="text-xs text-muted-foreground mb-2">
+              Trigger a one-off live crawl or archive rescrape now, outside the
+              scheduled cadence.
+            </p>
 
-          {isLoadingCrawlers ? (
-            <div className="flex justify-center items-center py-6">
-              <Spinner />
-            </div>
-          ) : (
-            <>
-              <div className="mb-2 p-2 rounded-lg border border-white/15 bg-gray-900/40">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
-                      Crawler service account
-                    </label>
-                    {crawlerServiceAccount ? (
-                      <div className="flex items-center gap-2 px-2 py-1 rounded border border-white/10 bg-gray-800/60 text-xs">
-                        <span className="font-mono text-foreground">
-                          {crawlerServiceAccount.username}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          #{crawlerServiceAccount.id}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center px-2 py-1 rounded border border-yellow-600/40 bg-yellow-900/20 text-[10px] text-yellow-400">
-                        Not found — restart app
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
-                      Default category
-                    </label>
-                    <select
-                      value={crawlerDefaultCategoryId}
-                      onChange={(e) =>
-                        setCrawlerDefaultCategoryId(e.target.value)
-                      }
-                      className="w-full px-2 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:ring-1 focus:ring-success/20 focus:outline-none"
-                    >
-                      <option value="">Select category...</option>
-                      {crawlerCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            {isLoadingCrawlers ? (
+              <div className="flex justify-center items-center py-6">
+                <Spinner />
               </div>
-
-              <div className="p-2 bg-success/10 border border-success/60 rounded-lg mb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-success">
-                    Live crawlers
-                  </h3>
-                  <div className="flex items-center gap-2 text-[10px]">
-                    <span className="text-muted-foreground">
-                      {selectedCrawlers.size}/{crawlerAdapters.length} selected
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <button
-                      type="button"
-                      onClick={selectAllCrawlers}
-                      className="text-success hover:text-success/90"
-                    >
-                      All
-                    </button>
-                    <span className="text-muted-foreground">|</span>
-                    <button
-                      type="button"
-                      onClick={deselectAllCrawlers}
-                      className="text-success hover:text-success/90"
-                    >
-                      None
-                    </button>
-                    <span className="text-muted-foreground">·</span>
-                    {tierToggleStats.map(({ tier, total, selectedCount }) => {
-                      const allSelected = selectedCount === total;
-                      const someSelected = selectedCount > 0 && !allSelected;
-                      const meta = TIER_META[tier];
-                      const cls = allSelected
-                        ? meta.chipSelected
-                        : someSelected
-                          ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
-                          : meta.chipUnselected;
-                      return (
-                        <button
-                          key={tier}
-                          type="button"
-                          onClick={() => toggleTierSelection(tier)}
-                          title={`${meta.full} — ${selectedCount}/${total} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
-                          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
-                        >
-                          {meta.label}
-                          <span className="ml-1 opacity-70">
-                            {selectedCount}/{total}
+            ) : (
+              <>
+                <div className="mb-2 p-2 rounded-lg border border-white/15 bg-gray-900/40">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
+                        Crawler service account
+                      </label>
+                      {crawlerServiceAccount ? (
+                        <div className="flex items-center gap-2 px-2 py-1 rounded border border-white/10 bg-gray-800/60 text-xs">
+                          <span className="font-mono text-foreground">
+                            {crawlerServiceAccount.username}
                           </span>
-                        </button>
-                      );
-                    })}
+                          <span className="text-[10px] text-muted-foreground">
+                            #{crawlerServiceAccount.id}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center px-2 py-1 rounded border border-yellow-600/40 bg-yellow-900/20 text-[10px] text-yellow-400">
+                          Not found — restart app
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
+                        Default category
+                      </label>
+                      <select
+                        value={crawlerDefaultCategoryId}
+                        onChange={(e) =>
+                          setCrawlerDefaultCategoryId(e.target.value)
+                        }
+                        className="w-full px-2 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:ring-1 focus:ring-success/20 focus:outline-none"
+                      >
+                        <option value="">Select category...</option>
+                        {crawlerCategories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mb-2">
-                  Tip: <span className="text-foreground">global limit</span>{' '}
-                  applies per adapter (e.g. 50 = up to 50 pages each, not
-                  shared). Uncheck any to skip, then click{' '}
-                  <span className="text-foreground">Run selected</span>.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
-                      Delay
-                    </label>
-                    <select
-                      value={crawlerDelaySec}
-                      onChange={(e) =>
-                        setCrawlerDelaySec(Number(e.target.value))
-                      }
-                      className="w-full px-1.5 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:outline-none"
-                    >
-                      <option value={2.5}>2.5 s</option>
-                      <option value={5}>5 s</option>
-                      <option value={10}>10 s</option>
-                      <option value={15}>15 s</option>
-                      <option value={30}>30 s</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
-                      Global limit
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <LocalTextInput
-                        type="number"
-                        min="1"
-                        placeholder="—"
-                        initialValue={globalCrawlerLimit}
-                        inputKey={globalLimitSyncKey}
-                        onCommit={setGlobalCrawlerLimit}
-                        className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
-                      />
-                      {[25, 50, 100, 250].map((n) => {
-                        const active = globalCrawlerLimit === String(n);
+
+                <div className="p-2 bg-success/10 border border-success/60 rounded-lg mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-success">
+                      Live crawlers
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="text-muted-foreground">
+                        {selectedCrawlers.size}/{crawlerAdapters.length}{' '}
+                        selected
+                      </span>
+                      <span className="text-muted-foreground">·</span>
+                      <button
+                        type="button"
+                        onClick={selectAllCrawlers}
+                        className="text-success hover:text-success/90"
+                      >
+                        All
+                      </button>
+                      <span className="text-muted-foreground">|</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllCrawlers}
+                        className="text-success hover:text-success/90"
+                      >
+                        None
+                      </button>
+                      <span className="text-muted-foreground">·</span>
+                      {tierToggleStats.map(({ tier, total, selectedCount }) => {
+                        const allSelected = selectedCount === total;
+                        const someSelected = selectedCount > 0 && !allSelected;
+                        const meta = TIER_META[tier];
+                        const cls = allSelected
+                          ? meta.chipSelected
+                          : someSelected
+                            ? `${meta.chipUnselected} ring-1 ring-inset ring-current/40`
+                            : meta.chipUnselected;
                         return (
                           <button
-                            key={n}
+                            key={tier}
                             type="button"
-                            onClick={() => {
-                              setGlobalCrawlerLimit(active ? '' : String(n));
-                              setGlobalLimitSyncKey((k) => k + 1);
-                            }}
-                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none ${
-                              active
-                                ? 'border-success bg-success/40 text-success'
-                                : 'border-gray-600 text-muted-foreground hover:border-success hover:text-success'
-                            }`}
-                            title={`Set global limit to ${n}`}
+                            onClick={() => toggleTierSelection(tier)}
+                            title={`${meta.full} — ${selectedCount}/${total} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
                           >
-                            {n}
+                            {meta.label}
+                            <span className="ml-1 opacity-70">
+                              {selectedCount}/{total}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
-                      HTML save dir
-                    </label>
-                    <LocalTextInput
-                      type="text"
-                      placeholder="Optional"
-                      initialValue={crawlerHtmlSaveDir}
-                      onCommit={setCrawlerHtmlSaveDir}
-                      className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
-                    />
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Tip: <span className="text-foreground">global limit</span>{' '}
+                    applies per adapter (e.g. 50 = up to 50 pages each, not
+                    shared). Uncheck any to skip, then click{' '}
+                    <span className="text-foreground">Run selected</span>.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
+                        Delay
+                      </label>
+                      <select
+                        value={crawlerDelaySec}
+                        onChange={(e) =>
+                          setCrawlerDelaySec(Number(e.target.value))
+                        }
+                        className="w-full px-1.5 py-1 text-xs rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:outline-none"
+                      >
+                        <option value={2.5}>2.5 s</option>
+                        <option value={5}>5 s</option>
+                        <option value={10}>10 s</option>
+                        <option value={15}>15 s</option>
+                        <option value={30}>30 s</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
+                        Global limit
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <LocalTextInput
+                          type="number"
+                          min="1"
+                          placeholder="—"
+                          initialValue={globalCrawlerLimit}
+                          inputKey={globalLimitSyncKey}
+                          onCommit={setGlobalCrawlerLimit}
+                          className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
+                        />
+                        {[25, 50, 100, 250].map((n) => {
+                          const active = globalCrawlerLimit === String(n);
+                          return (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => {
+                                setGlobalCrawlerLimit(active ? '' : String(n));
+                                setGlobalLimitSyncKey((k) => k + 1);
+                              }}
+                              className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none ${
+                                active
+                                  ? 'border-success bg-success/40 text-success'
+                                  : 'border-gray-600 text-muted-foreground hover:border-success hover:text-success'
+                              }`}
+                              title={`Set global limit to ${n}`}
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase">
+                        HTML save dir
+                      </label>
+                      <LocalTextInput
+                        type="text"
+                        placeholder="Optional"
+                        initialValue={crawlerHtmlSaveDir}
+                        onCommit={setCrawlerHtmlSaveDir}
+                        className={`${inputVariants()} min-h-0 py-1 text-xs w-full`}
+                      />
+                    </div>
                   </div>
-                </div>
-                <label
-                  htmlFor="skip-known-urls"
-                  className="flex items-center gap-2 mb-2 text-xs text-foreground select-none cursor-pointer"
-                >
-                  <input
-                    id="skip-known-urls"
-                    type="checkbox"
-                    checked={skipKnownUrls}
-                    onChange={(e) => setSkipKnownUrls(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-border bg-card text-success focus:ring-success"
-                  />
-                  Skip already-archived URLs
-                  <span className="text-[10px] text-muted-foreground">
-                    (omit parse_status=parsed)
-                  </span>
-                </label>
-
-                <LiveCrawlerRowList
-                  sortedAdapters={sortedAdapters}
-                  adapterTiers={adapterTiers}
-                  selectedCrawlers={selectedCrawlers}
-                  crawlerLimits={crawlerLimits}
-                  adapterStatusCounts={adapterStatusCounts}
-                  onToggleSelected={toggleCrawlerSelection}
-                  onLimitChange={setCrawlerLimitForAdapter}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => void handleRunSelectedCrawlers()}
-                    disabled={isRunningCrawlers || selectedCrawlers.size === 0}
-                    className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
+                  <label
+                    htmlFor="skip-known-urls"
+                    className="flex items-center gap-2 mb-2 text-xs text-foreground select-none cursor-pointer"
                   >
-                    {isRunningCrawlers ? (
+                    <input
+                      id="skip-known-urls"
+                      type="checkbox"
+                      checked={skipKnownUrls}
+                      onChange={(e) => setSkipKnownUrls(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-border bg-card text-success focus:ring-success"
+                    />
+                    Skip already-archived URLs
+                    <span className="text-[10px] text-muted-foreground">
+                      (omit parse_status=parsed)
+                    </span>
+                  </label>
+
+                  <LiveCrawlerRowList
+                    sortedAdapters={sortedAdapters}
+                    adapterTiers={adapterTiers}
+                    selectedCrawlers={selectedCrawlers}
+                    crawlerLimits={crawlerLimits}
+                    adapterStatusCounts={adapterStatusCounts}
+                    onToggleSelected={toggleCrawlerSelection}
+                    onLimitChange={setCrawlerLimitForAdapter}
+                  />
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => void handleRunSelectedCrawlers()}
+                      disabled={
+                        isRunningCrawlers || selectedCrawlers.size === 0
+                      }
+                      className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
+                    >
+                      {isRunningCrawlers ? (
+                        <span className="flex items-center">
+                          <Spinner size="sm" inline />
+                          <span className="ml-1">Running...</span>
+                        </span>
+                      ) : (
+                        `Run selected (${selectedCrawlers.size})`
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => void handleRunAllCrawlers()}
+                      disabled={isRunningCrawlers}
+                      className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
+                    >
+                      Run all
+                    </Button>
+                  </div>
+
+                  {crawlerError && (
+                    <div className="mt-2">
+                      <ErrorAlert message={crawlerError} />
+                    </div>
+                  )}
+
+                  {crawlerResult && (
+                    <div className="mt-2 p-1.5 rounded border border-success bg-gray-900/50 text-xs">
+                      <div className="font-semibold text-success">
+                        {crawlerResult.status === 'started'
+                          ? 'Crawler job started'
+                          : 'Crawler'}
+                      </div>
+                      <p className="text-foreground">{crawlerResult.message}</p>
+                      {crawlerResult.adapters.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                          {crawlerResult.adapters.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-2 bg-violet-900/10 border border-violet-700/60 rounded-lg">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-200 mb-1">
+                    Archive rescrape
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Re-run parse → ingest on every URL with archived HTML (same
+                    pipeline as a live crawl). Background job — watch server
+                    logs for per-outcome counts.
+                  </p>
+                  <Button
+                    onClick={() => void handleRescrapeArchives()}
+                    disabled={isRescrapingArchives}
+                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs py-1 px-2.5"
+                  >
+                    {isRescrapingArchives ? (
                       <span className="flex items-center">
-                        <Spinner size="sm" inline />
-                        <span className="ml-1">Running...</span>
+                        <span className="mr-2">
+                          <Spinner size="sm" inline />
+                        </span>
+                        Starting…
                       </span>
                     ) : (
-                      `Run selected (${selectedCrawlers.size})`
+                      'Rescrape latest archives'
                     )}
                   </Button>
-                  <Button
-                    onClick={() => void handleRunAllCrawlers()}
-                    disabled={isRunningCrawlers}
-                    className="bg-success hover:bg-success/90 text-white text-xs py-1 px-2.5"
-                  >
-                    Run all
-                  </Button>
-                </div>
-
-                {crawlerError && (
-                  <div className="mt-2">
-                    <ErrorAlert message={crawlerError} />
-                  </div>
-                )}
-
-                {crawlerResult && (
-                  <div className="mt-2 p-1.5 rounded border border-success bg-gray-900/50 text-xs">
-                    <div className="font-semibold text-success">
-                      {crawlerResult.status === 'started'
-                        ? 'Crawler job started'
-                        : 'Crawler'}
+                  {rescrapeArchivesError && (
+                    <div className="mt-2">
+                      <ErrorAlert message={rescrapeArchivesError} />
                     </div>
-                    <p className="text-foreground">{crawlerResult.message}</p>
-                    {crawlerResult.adapters.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                        {crawlerResult.adapters.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-2 bg-violet-900/10 border border-violet-700/60 rounded-lg">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-200 mb-1">
-                  Archive rescrape
-                </h3>
-                <p className="text-[11px] text-muted-foreground mb-2">
-                  Re-run parse → ingest on every URL with archived HTML (same
-                  pipeline as a live crawl). Background job — watch server logs
-                  for per-outcome counts.
-                </p>
-                <Button
-                  onClick={() => void handleRescrapeArchives()}
-                  disabled={isRescrapingArchives}
-                  className="bg-violet-600 hover:bg-violet-700 text-white text-xs py-1 px-2.5"
-                >
-                  {isRescrapingArchives ? (
-                    <span className="flex items-center">
-                      <span className="mr-2">
-                        <Spinner size="sm" inline />
-                      </span>
-                      Starting…
-                    </span>
-                  ) : (
-                    'Rescrape latest archives'
                   )}
-                </Button>
-                {rescrapeArchivesError && (
-                  <div className="mt-2">
-                    <ErrorAlert message={rescrapeArchivesError} />
-                  </div>
-                )}
-                {rescrapeArchivesResult && (
-                  <div className="mt-2 p-1.5 rounded border border-green-700 bg-green-900/20 text-xs">
-                    <p className="font-semibold text-green-400">
-                      {rescrapeArchivesResult.status === 'started'
-                        ? 'Job queued.'
-                        : rescrapeArchivesResult.status}
-                    </p>
-                    <p className="text-foreground text-[11px] mt-0.5">
-                      {rescrapeArchivesResult.message}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </Card>
+                  {rescrapeArchivesResult && (
+                    <div className="mt-2 p-1.5 rounded border border-green-700 bg-green-900/20 text-xs">
+                      <p className="font-semibold text-green-400">
+                        {rescrapeArchivesResult.status === 'started'
+                          ? 'Job queued.'
+                          : rescrapeArchivesResult.status}
+                      </p>
+                      <p className="text-foreground text-[11px] mt-0.5">
+                        {rescrapeArchivesResult.message}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </Card>
         </div>
       </div>
     </div>

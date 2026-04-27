@@ -514,21 +514,21 @@ function ViewBuildLog() {
               <DialogTitle>New Post</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="post-content"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Post Content (Markdown supported)
-              </label>
-              <Textarea
-                id="post-content"
-                ref={createTextareaRef}
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                className="font-mono"
-                rows={12}
-                placeholder="Share your build progress, ask questions, or provide updates...
+              <div>
+                <label
+                  htmlFor="post-content"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Post Content (Markdown supported)
+                </label>
+                <Textarea
+                  id="post-content"
+                  ref={createTextareaRef}
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  className="font-mono"
+                  rows={12}
+                  placeholder="Share your build progress, ask questions, or provide updates...
 
 Markdown examples:
 **bold text**
@@ -538,47 +538,47 @@ Markdown examples:
 [Link text](https://example.com)
 ![Image](image-url)
 `code`"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Markdown formatting is supported. Use **bold**, *italic*, #
-                headings, - lists, and more.
-              </p>
-            </div>
-            <div>
-              <ImageUpload
-                entityType="build_log_post"
-                entityId={buildListId ?? ''}
-                onImageUploaded={handleImageUploaded}
-                label="Upload Image"
-                maxSizeMB={10}
-                showPreview={false}
-                className="mb-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload an image and it will be inserted into your post as
-                markdown.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setNewPostContent('');
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleCreatePost()}
-                disabled={!newPostContent.trim()}
-                className="bg-info hover:bg-info/90 text-white"
-              >
-                Post
-              </Button>
-            </div>
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Markdown formatting is supported. Use **bold**, *italic*, #
+                  headings, - lists, and more.
+                </p>
+              </div>
+              <div>
+                <ImageUpload
+                  entityType="build_log_post"
+                  entityId={buildListId ?? ''}
+                  onImageUploaded={handleImageUploaded}
+                  label="Upload Image"
+                  maxSizeMB={10}
+                  showPreview={false}
+                  className="mb-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload an image and it will be inserted into your post as
+                  markdown.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setNewPostContent('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleCreatePost()}
+                  disabled={!newPostContent.trim()}
+                  className="bg-info hover:bg-info/90 text-white"
+                >
+                  Post
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -601,62 +601,62 @@ Markdown examples:
               <DialogTitle>Edit Post</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="edit-content"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Post Content (Markdown supported)
-              </label>
-              <Textarea
-                id="edit-content"
-                ref={editTextareaRef}
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="font-mono"
-                rows={12}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Markdown formatting is supported. Use **bold**, *italic*, #
-                headings, - lists, and more.
-              </p>
-            </div>
-            <div>
-              <ImageUpload
-                entityType="build_log_post"
-                entityId={buildListId ?? ''}
-                onImageUploaded={handleEditImageUploaded}
-                label="Upload Image"
-                maxSizeMB={10}
-                showPreview={false}
-                className="mb-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload an image and it will be inserted into your post as
-                markdown.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  setPostToEdit(null);
-                  setEditContent('');
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleEditPost()}
-                disabled={!editContent.trim()}
-                className="bg-info hover:bg-info/90 text-white"
-              >
-                Save
-              </Button>
-            </div>
+              <div>
+                <label
+                  htmlFor="edit-content"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Post Content (Markdown supported)
+                </label>
+                <Textarea
+                  id="edit-content"
+                  ref={editTextareaRef}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="font-mono"
+                  rows={12}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Markdown formatting is supported. Use **bold**, *italic*, #
+                  headings, - lists, and more.
+                </p>
+              </div>
+              <div>
+                <ImageUpload
+                  entityType="build_log_post"
+                  entityId={buildListId ?? ''}
+                  onImageUploaded={handleEditImageUploaded}
+                  label="Upload Image"
+                  maxSizeMB={10}
+                  showPreview={false}
+                  className="mb-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload an image and it will be inserted into your post as
+                  markdown.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setPostToEdit(null);
+                    setEditContent('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleEditPost()}
+                  disabled={!editContent.trim()}
+                  className="bg-info hover:bg-info/90 text-white"
+                >
+                  Save
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

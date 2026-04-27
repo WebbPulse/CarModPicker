@@ -71,7 +71,11 @@ describe('Home page', () => {
   });
 
   it('renders the CarModPicker hero + unauthenticated CTAs (Get Started + Sign In)', () => {
-    render(<BrowserRouter><Home /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <Home />
+      </BrowserRouter>
+    );
 
     expect(
       screen.getByRole('heading', { name: /carmodpicker/i })
@@ -92,7 +96,11 @@ describe('Home page', () => {
       checkAuthStatus: vi.fn(),
     });
 
-    render(<BrowserRouter><Home /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <Home />
+      </BrowserRouter>
+    );
 
     // Hero "Create Build" CTA links to /builder.
     const createBuildLinks = screen.getAllByRole('link', {
@@ -106,7 +114,11 @@ describe('Home page', () => {
   });
 
   it('renders Featured Builds and Popular Parts section headings', () => {
-    render(<BrowserRouter><Home /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <Home />
+      </BrowserRouter>
+    );
 
     expect(
       screen.getByRole('heading', { name: /featured builds/i })
@@ -117,9 +129,11 @@ describe('Home page', () => {
   });
 
   it('fires off the initial API fetches on mount', async () => {
-    render(<BrowserRouter><Home /></BrowserRouter>);
-    await waitFor(() =>
-      expect(vi.mocked(apiClient.get)).toHaveBeenCalled()
+    render(
+      <BrowserRouter>
+        <Home />
+      </BrowserRouter>
     );
+    await waitFor(() => expect(vi.mocked(apiClient.get)).toHaveBeenCalled());
   });
 });
