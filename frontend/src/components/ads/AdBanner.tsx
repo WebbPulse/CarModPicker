@@ -67,7 +67,7 @@ function SingleAd({
         />
       ) : (
         <div
-          className="text-neutral-500 text-xs text-center p-4 flex flex-col items-center justify-center"
+          className="text-muted-foreground text-xs text-center p-4 flex flex-col items-center justify-center"
           style={{ height: AD_HEIGHT, width: AD_WIDTH }}
         >
           <span>Ad {index + 1}</span>

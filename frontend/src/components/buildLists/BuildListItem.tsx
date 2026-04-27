@@ -88,7 +88,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
         to={`/build-lists/${buildList.id}`}
         className="block hover:no-underline flex-grow"
       >
-        <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
+        <Card className="flex flex-col h-full hover:border-info border-2 border-transparent transition-colors">
           {buildList.image_urls?.[0] && (
             <ImageWithPlaceholder
               srcUrl={buildList.image_urls[0]}
@@ -100,7 +100,7 @@ const BuildListItem: React.FC<BuildListItemProps> = ({
           )}
           <div className="flex-grow flex flex-col">
             <div className="flex items-start justify-between mb-2">
-              <h3 className="text-lg font-semibold text-indigo-400 flex-grow">
+              <h3 className="text-lg font-semibold text-info flex-grow">
                 {buildList.name}
               </h3>
               {/* Always show net vote score (upvotes - downvotes) */}

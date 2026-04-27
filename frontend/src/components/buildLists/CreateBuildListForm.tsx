@@ -205,7 +205,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       setSelectedGeneration(null);
                     }
                   }}
-                  className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                  className="text-info hover:text-info/90 transition-colors"
                 >
                   {selectedModel
                     ? '← Back to Car Models'
@@ -229,7 +229,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       <Card
                         key={make}
                         onClick={() => setSelectedMake(make)}
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {make}
@@ -259,7 +259,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                       <Card
                         key={model}
                         onClick={() => setSelectedModel(model)}
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors"
+                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors"
                       >
                         <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
                           {model}
@@ -282,9 +282,9 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                     <Card
                       key={car.id}
                       onClick={() => setSelectedGeneration(car)}
-                      className="cursor-pointer hover:border-indigo-500 hover:scale-105 border-2 border-transparent transition-colors p-5"
+                      className="cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors p-5"
                     >
-                      <h4 className="text-base font-semibold text-indigo-400 mb-1 break-words px-1">
+                      <h4 className="text-base font-semibold text-info mb-1 break-words px-1">
                         {carGenerationDisplayName(car)}
                       </h4>
                       <p className="text-xs text-gray-400">
@@ -337,7 +337,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
             <div>
               <label
                 htmlFor="buildlist-name"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Build List Name
               </label>
@@ -354,7 +354,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
             <div>
               <label
                 htmlFor="buildlist-description"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Description (Optional)
               </label>

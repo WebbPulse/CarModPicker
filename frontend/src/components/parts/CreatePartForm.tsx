@@ -417,7 +417,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       <div>
         <label
           htmlFor="global-part-name"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Part Name *
         </label>
@@ -435,7 +435,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       <div>
         <label
           htmlFor="global-part-number"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Part Number
         </label>
@@ -496,7 +496,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       <div>
         <label
           htmlFor="global-part-description"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Description
         </label>
@@ -513,7 +513,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
       <div>
         <label
           htmlFor="global-part-product-url"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Product URL
         </label>
@@ -600,7 +600,7 @@ function CreatePartForm({ onPartCreated }: CreatePartFormProps) {
           id="global-part-universal"
           checked={formData.is_universal}
           onChange={handleUniversalChange}
-          className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+          className="rounded border-gray-500 bg-gray-700 text-info focus:ring-info"
         />
         <label
           htmlFor="global-part-universal"

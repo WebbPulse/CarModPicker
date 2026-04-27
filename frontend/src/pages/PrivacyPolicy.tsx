@@ -14,21 +14,21 @@ function PrivacyPolicy() {
   });
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="glass-card rounded-2xl p-8 md:p-12">
+      <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 md:p-12">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">
           <span className="text-gradient">Privacy Policy</span>
         </h1>
-        <p className="text-neutral-500 text-sm mb-8">
+        <p className="text-muted-foreground text-sm mb-8">
           Last updated: {LAST_UPDATED}
         </p>
 
-        <div className="prose prose-invert max-w-none text-neutral-300 space-y-6 leading-relaxed">
+        <div className="prose prose-invert max-w-none text-foreground space-y-6 leading-relaxed">
           <p>
             CarModPicker ("we", "us", "the Service") is a hobbyist project
             operated by an individual. This policy describes, in plain terms,
             what data we handle and what you should reasonably expect. By using
             the Service you agree to this policy and to our{' '}
-            <Link to="/terms-of-service" className="text-primary-400 underline">
+            <Link to="/terms-of-service" className="text-primary underline">
               Terms of Service
             </Link>
             .
@@ -85,7 +85,7 @@ function PrivacyPolicy() {
                   href="https://developers.google.com/terms/api-services-user-data-policy"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary-400 underline"
+                  className="text-primary underline"
                 >
                   Google API Services User Data Policy
                 </a>
@@ -146,7 +146,7 @@ function PrivacyPolicy() {
                   href="https://www.google.com/settings/ads"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary-400 underline"
+                  className="text-primary underline"
                 >
                   Google Ads Settings
                 </a>{' '}
@@ -155,7 +155,7 @@ function PrivacyPolicy() {
                   href="https://www.aboutads.info/choices"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary-400 underline"
+                  className="text-primary underline"
                 >
                   aboutads.info/choices
                 </a>
@@ -179,7 +179,7 @@ function PrivacyPolicy() {
                 href="https://developer.chrome.com/docs/webstore/program-policies/limited-use/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 Chrome Web Store User Data Policy
               </a>
@@ -254,7 +254,7 @@ function PrivacyPolicy() {
               data by emailing{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -293,7 +293,7 @@ function PrivacyPolicy() {
               a minor has provided us personal information, contact us at{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>{' '}
@@ -398,7 +398,7 @@ function PrivacyPolicy() {
               Questions about this policy? Email{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary-400 underline"
+                className="text-primary underline"
               >
                 {CONTACT_EMAIL}
               </a>

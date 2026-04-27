@@ -10,7 +10,7 @@ function Footer() {
   return (
     <footer className="relative mt-auto w-full">
       {/* Background with gradient */}
-      <div className="absolute inset-0 bg-linear-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95"></div>
+      <div className="absolute inset-0 bg-linear-to-r from-card via-muted to-card opacity-95"></div>
 
       {/* Footer Content */}
       <div className="relative">
@@ -20,14 +20,14 @@ function Footer() {
             {/* PartManufacturer Section */}
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-linear-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-linear-to-br from-primary to-primary rounded-lg flex items-center justify-center">
                   <GiRaceCar className="text-white text-sm" />
                 </div>
-                <span className="text-xl font-bold bg-linear-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+                <span className="text-xl font-bold bg-linear-to-r from-white to-foreground bg-clip-text text-transparent">
                   CarModPicker
                 </span>
               </div>
-              <p className="text-neutral-400 text-sm leading-relaxed max-w-md">
+              <p className="text-muted-foreground text-sm leading-relaxed max-w-md">
                 Your ultimate platform for discovering, planning, and sharing
                 car modifications. Build, customize, and connect with fellow car
                 enthusiasts.
@@ -43,7 +43,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/about"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     About Us
                   </Link>
@@ -51,7 +51,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/contact-us"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Contact
                   </Link>
@@ -59,7 +59,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/privacy-policy"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Privacy Policy
                   </Link>
@@ -67,7 +67,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/terms-of-service"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Terms of Service
                   </Link>
@@ -76,7 +76,7 @@ function Footer() {
                   <button
                     type="button"
                     onClick={resetCookieConsent}
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm text-left"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm text-left"
                   >
                     Cookie preferences
                   </button>
@@ -84,7 +84,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/bug-report"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Report a Bug
                   </Link>
@@ -92,7 +92,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/support"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Support Us
                   </Link>
@@ -100,7 +100,7 @@ function Footer() {
                 <li>
                   <Link
                     to="/parts"
-                    className="text-neutral-400 hover:text-white transition-colors duration-300 text-sm"
+                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
                   >
                     Parts Catalog
                   </Link>
@@ -118,7 +118,7 @@ function Footer() {
                   href="https://github.com/TW-WebbPulse"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
+                  className="w-10 h-10 border border-white/10 bg-white/5 backdrop-blur-md rounded-lg flex items-center justify-center text-muted-foreground hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   <FaGithub className="text-lg" />
                 </a>
@@ -126,7 +126,7 @@ function Footer() {
                   href="https://twitter.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
+                  className="w-10 h-10 border border-white/10 bg-white/5 backdrop-blur-md rounded-lg flex items-center justify-center text-muted-foreground hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   <FaTwitter className="text-lg" />
                 </a>
@@ -134,7 +134,7 @@ function Footer() {
                   href="https://www.linkedin.com/in/tylert2610/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 glass rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all duration-300"
+                  className="w-10 h-10 border border-white/10 bg-white/5 backdrop-blur-md rounded-lg flex items-center justify-center text-muted-foreground hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   <FaLinkedin className="text-lg" />
                 </a>
@@ -147,12 +147,12 @@ function Footer() {
         <div className="border-t border-white/10">
           <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-              <p className="text-neutral-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 &copy; {new Date().getFullYear()} CarModPicker. All rights
                 reserved.
               </p>
               <div className="flex items-center space-x-6 text-sm">
-                <span className="text-neutral-500">
+                <span className="text-muted-foreground">
                   Made with ❤️ for car enthusiasts
                 </span>
               </div>

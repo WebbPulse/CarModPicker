@@ -120,7 +120,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
                 const v = parseInt(e.target.value, 10);
                 if (!Number.isNaN(v) && v >= 1) setQuantity(v);
               }}
-              className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-info focus:border-info sm:text-sm"
             />
           </div>
 
@@ -139,7 +139,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
                   const v = e.target.value;
                   setPhaseId(v === '' ? null : v);
                 }}
-                className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-info focus:border-info sm:text-sm"
               >
                 <option value="">None</option>
                 {phases
@@ -166,7 +166,7 @@ const EditBuildListPartForm: React.FC<EditBuildListPartFormProps> = ({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add your notes about this part..."
               rows={4}
-              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-white"
+              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-info focus:border-info sm:text-sm text-white"
             />
           </div>
 

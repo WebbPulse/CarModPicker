@@ -115,7 +115,7 @@ export default function ImageGalleryManage({
           />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
             {isSelectedPrimary ? (
-              <span className="text-xs font-medium text-emerald-300 bg-emerald-900/80 px-2 py-1 rounded">
+              <span className="text-xs font-medium text-success bg-success/80 px-2 py-1 rounded">
                 Primary
               </span>
             ) : (
@@ -126,7 +126,7 @@ export default function ImageGalleryManage({
                   void handleSetPrimary(displayIndex);
                 }}
                 disabled={isSettingPrimarySelected}
-                className="text-xs font-medium text-white bg-primary-600 hover:bg-primary-500 px-2 py-1 rounded border border-white/80 disabled:opacity-50"
+                className="text-xs font-medium text-white bg-primary hover:bg-primary px-2 py-1 rounded border border-white/80 disabled:opacity-50"
               >
                 {isSettingPrimarySelected ? 'Updating…' : 'Set as primary'}
               </button>
@@ -161,9 +161,9 @@ export default function ImageGalleryManage({
                       setSelectedIndex(idx);
                     }
                   }}
-                  className={`shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 bg-gray-800/50 relative group cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                  className={`shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 bg-gray-800/50 relative group cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900 ${
                     isSelected
-                      ? 'border-primary-500 ring-2 ring-primary-500/50'
+                      ? 'border-primary ring-2 ring-primary/50'
                       : 'border-gray-600 hover:border-gray-500'
                   }`}
                 >
@@ -178,7 +178,7 @@ export default function ImageGalleryManage({
                   {/* Overlay: click on empty area selects image; buttons use stopPropagation */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
                     {idx === 0 ? (
-                      <span className="text-xs font-medium text-emerald-300 bg-emerald-900/80 px-2 py-1 rounded">
+                      <span className="text-xs font-medium text-success bg-success/80 px-2 py-1 rounded">
                         Primary
                       </span>
                     ) : (
@@ -189,7 +189,7 @@ export default function ImageGalleryManage({
                           void handleSetPrimary(idx);
                         }}
                         disabled={isSettingPrimary}
-                        className="text-xs font-medium text-white bg-primary-600 hover:bg-primary-500 px-2 py-1 rounded border border-white/80 disabled:opacity-50"
+                        className="text-xs font-medium text-white bg-primary hover:bg-primary px-2 py-1 rounded border border-white/80 disabled:opacity-50"
                       >
                         {isSettingPrimary ? 'Updating…' : 'Set as primary'}
                       </button>
@@ -267,7 +267,7 @@ export default function ImageGalleryManage({
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
                 {isPrimary ? (
-                  <span className="text-xs font-medium text-emerald-300 bg-emerald-900/80 px-2 py-1 rounded">
+                  <span className="text-xs font-medium text-success bg-success/80 px-2 py-1 rounded">
                     Primary
                   </span>
                 ) : (
@@ -275,7 +275,7 @@ export default function ImageGalleryManage({
                     type="button"
                     onClick={() => void handleSetPrimary(imageIndex)}
                     disabled={isSettingPrimary}
-                    className="text-xs font-medium text-white bg-primary-600 hover:bg-primary-500 px-2 py-1 rounded disabled:opacity-50"
+                    className="text-xs font-medium text-white bg-primary hover:bg-primary px-2 py-1 rounded disabled:opacity-50"
                   >
                     {isSettingPrimary ? 'Updating…' : 'Set as primary'}
                   </button>
@@ -296,7 +296,7 @@ export default function ImageGalleryManage({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
+          className="text-sm text-primary hover:text-primary/90 font-medium transition-colors"
         >
           Show {remainingCount} more image{remainingCount !== 1 ? 's' : ''}
         </button>

@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
+import { LoadingOverlay } from '../../components/ui/loading-overlay';
 import Pagination from '../../components/ui/pagination';
 import Spinner from '../../components/ui/spinner';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
@@ -336,41 +337,39 @@ function UserManagement() {
         </Card>
       ) : users && users.length > 0 ? (
         <Card className="relative">
-          {isLoadingUsers && (
-            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <Spinner />
-            </div>
-          )}
+          <LoadingOverlay visible={isLoadingUsers} />
           <SectionHeader title="Users" />
+          {/* M003/S06 IA decision: 11-col table accepted as horizontal-scroll
+              at narrow viewports per M003-UAT.md #5(a) and MEM179. */}
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="border-b border-gray-700">
+              <thead className="border-b border-border">
                 <tr>
-                  <th className="p-2 text-gray-300">ID</th>
-                  <th className="p-2 text-gray-300">Username</th>
-                  <th className="p-2 text-gray-300">Email</th>
-                  <th className="p-2 text-gray-300">Status</th>
-                  <th className="p-2 text-gray-300">Email Verified</th>
-                  <th className="p-2 text-gray-300">2FA</th>
-                  <th className="p-2 text-gray-300">Sign-in</th>
-                  <th className="p-2 text-gray-300">Subscription</th>
-                  <th className="p-2 text-gray-300">Admin</th>
-                  <th className="p-2 text-gray-300">Superuser</th>
-                  <th className="p-2 text-gray-300">Actions</th>
+                  <th className="p-2 text-foreground">ID</th>
+                  <th className="p-2 text-foreground">Username</th>
+                  <th className="p-2 text-foreground">Email</th>
+                  <th className="p-2 text-foreground">Status</th>
+                  <th className="p-2 text-foreground">Email Verified</th>
+                  <th className="p-2 text-foreground">2FA</th>
+                  <th className="p-2 text-foreground">Sign-in</th>
+                  <th className="p-2 text-foreground">Subscription</th>
+                  <th className="p-2 text-foreground">Admin</th>
+                  <th className="p-2 text-foreground">Superuser</th>
+                  <th className="p-2 text-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-800">
-                    <td className="p-2 text-gray-200">{user.id}</td>
-                    <td className="p-2 text-gray-200">{user.username}</td>
-                    <td className="p-2 text-gray-200">{user.email}</td>
+                  <tr key={user.id} className="border-b border-border">
+                    <td className="p-2 text-foreground">{user.id}</td>
+                    <td className="p-2 text-foreground">{user.username}</td>
+                    <td className="p-2 text-foreground">{user.email}</td>
                     <td className="p-2">
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           user.disabled
-                            ? 'bg-red-600 text-red-100'
-                            : 'bg-green-600 text-green-100'
+                            ? 'bg-destructive text-destructive-foreground'
+                            : 'bg-success text-success-foreground'
                         }`}
                       >
                         {user.disabled ? 'Disabled' : 'Active'}
@@ -380,8 +379,8 @@ function UserManagement() {
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           user.email_verified
-                            ? 'bg-green-600 text-green-100'
-                            : 'bg-yellow-600 text-yellow-100'
+                            ? 'bg-success text-success-foreground'
+                            : 'bg-warning text-warning-foreground'
                         }`}
                       >
                         {user.email_verified ? 'Verified' : 'Unverified'}
@@ -391,8 +390,8 @@ function UserManagement() {
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           user.totp_enabled
-                            ? 'bg-green-600 text-green-100'
-                            : 'bg-gray-600 text-gray-100'
+                            ? 'bg-success text-success-foreground'
+                            : 'bg-muted text-muted-foreground'
                         }`}
                       >
                         {user.totp_enabled ? 'Enabled' : 'Disabled'}
@@ -404,7 +403,7 @@ function UserManagement() {
                           (a) => a.provider === 'google'
                         ) && (
                           <span
-                            className="px-2 py-1 rounded text-xs bg-blue-600 text-blue-100"
+                            className="px-2 py-1 rounded text-xs bg-info text-info-foreground"
                             title={
                               user.oauth_accounts.find(
                                 (a) => a.provider === 'google'
@@ -415,7 +414,7 @@ function UserManagement() {
                           </span>
                         )}
                         {!user.oauth_accounts?.length && (
-                          <span className="text-gray-400 text-xs">
+                          <span className="text-muted-foreground text-xs">
                             Password
                           </span>
                         )}
@@ -425,8 +424,8 @@ function UserManagement() {
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           user.subscription_tier === 'premium'
-                            ? 'bg-amber-600 text-amber-100'
-                            : 'bg-gray-600 text-gray-100'
+                            ? 'bg-warning text-warning-foreground'
+                            : 'bg-muted text-muted-foreground'
                         }`}
                       >
                         {user.subscription_tier === 'premium'
@@ -435,27 +434,27 @@ function UserManagement() {
                       </span>
                       {user.subscription_tier === 'premium' &&
                         user.subscription_status !== 'active' && (
-                          <span className="ml-1 text-xs text-gray-400">
+                          <span className="ml-1 text-xs text-muted-foreground">
                             ({user.subscription_status})
                           </span>
                         )}
                     </td>
                     <td className="p-2">
                       {user.is_admin ? (
-                        <span className="px-2 py-1 rounded text-xs bg-blue-600 text-blue-100">
+                        <span className="px-2 py-1 rounded text-xs bg-info text-info-foreground">
                           Admin
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="p-2">
                       {user.is_superuser ? (
-                        <span className="px-2 py-1 rounded text-xs bg-purple-600 text-purple-100">
+                        <span className="px-2 py-1 rounded text-xs bg-primary text-primary-foreground">
                           Superuser
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="p-2">
@@ -498,7 +497,7 @@ function UserManagement() {
       ) : users && users.length === 0 && !isLoadingUsers ? (
         <Card>
           <SectionHeader title="Users" />
-          <p className="text-gray-400 text-center py-8">
+          <p className="text-muted-foreground text-center py-8">
             {searchTerm
               ? 'No users found matching your search.'
               : 'No users found.'}
@@ -521,7 +520,7 @@ function UserManagement() {
           <div className="space-y-1">
             <label
               htmlFor="edit-username"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Username
             </label>
@@ -538,7 +537,7 @@ function UserManagement() {
           <div className="space-y-1">
             <label
               htmlFor="edit-email"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Email
             </label>
@@ -556,7 +555,7 @@ function UserManagement() {
           <div className="space-y-1">
             <label
               htmlFor="edit-password"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               New Password (leave empty to keep current)
             </label>
@@ -576,7 +575,7 @@ function UserManagement() {
           <div className="space-y-1">
             <label
               htmlFor="edit-image-url"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Image URL
             </label>
@@ -603,7 +602,7 @@ function UserManagement() {
                 }
                 className="rounded"
               />
-              <label htmlFor="edit-disabled" className="text-gray-300">
+              <label htmlFor="edit-disabled" className="text-foreground">
                 Disabled
               </label>
             </div>
@@ -620,7 +619,7 @@ function UserManagement() {
                 }
                 className="rounded"
               />
-              <label htmlFor="edit-email-verified" className="text-gray-300">
+              <label htmlFor="edit-email-verified" className="text-foreground">
                 Email Verified
               </label>
             </div>
@@ -638,11 +637,11 @@ function UserManagement() {
                   formData.is_admin === true
                 }
               />
-              <label htmlFor="edit-is-admin" className="text-gray-300">
+              <label htmlFor="edit-is-admin" className="text-foreground">
                 Admin
               </label>
               {selectedUser?.id === currentUser.id && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   (Cannot remove your own admin status)
                 </span>
               )}
@@ -661,18 +660,18 @@ function UserManagement() {
                   formData.is_superuser === true
                 }
               />
-              <label htmlFor="edit-is-superuser" className="text-gray-300">
+              <label htmlFor="edit-is-superuser" className="text-foreground">
                 Superuser
               </label>
               {selectedUser?.id === currentUser.id && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   (Cannot remove your own superuser status)
                 </span>
               )}
             </div>
           </div>
-          <div className="border-t border-gray-700 pt-4 space-y-2">
-            <label className="block text-sm text-gray-300">
+          <div className="border-t border-border pt-4 space-y-2">
+            <label className="block text-sm text-foreground">
               Subscription tier
             </label>
             <select
@@ -684,12 +683,12 @@ function UserManagement() {
                   subscription_tier: e.target.value as 'free' | 'premium',
                 })
               }
-              className="w-full rounded bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               <option value="free">Free</option>
               <option value="premium">Premium</option>
             </select>
-            <label className="block text-sm text-gray-300 mt-2">
+            <label className="block text-sm text-foreground mt-2">
               Subscription status
             </label>
             <select
@@ -704,7 +703,7 @@ function UserManagement() {
                     | 'expired',
                 })
               }
-              className="w-full rounded bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>
@@ -713,7 +712,7 @@ function UserManagement() {
             <div className="space-y-1">
               <label
                 htmlFor="edit-subscription-expires"
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium text-foreground"
               >
                 Subscription expires at (leave empty for no expiry)
               </label>

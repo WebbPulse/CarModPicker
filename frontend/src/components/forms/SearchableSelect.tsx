@@ -261,7 +261,7 @@ function SearchableSelect({
       {label && (
         <label
           htmlFor={id}
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           {label}
         </label>
@@ -291,7 +291,7 @@ function SearchableSelect({
           }}
           placeholder={placeholder}
           disabled={disabled || isLoading}
-          className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-300 ease-out input-modern min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed pr-10"
+          className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ease-out min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed pr-10"
           autoComplete="off"
         />
 
@@ -354,7 +354,7 @@ function SearchableSelect({
               <button
                 type="button"
                 onClick={() => void handleCreateNew()}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors text-primary-400 ${
+                className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors text-primary ${
                   highlightedIndex === filteredOptions.length
                     ? 'bg-gray-700'
                     : ''
@@ -388,7 +388,7 @@ function SearchableSelect({
                       onClick={() => handleSelect(option.value)}
                       className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors ${
                         option.value === value
-                          ? 'bg-primary-500/20 text-primary-400'
+                          ? 'bg-primary/20 text-primary'
                           : 'text-white'
                       } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
                       onMouseEnter={() => setHighlightedIndex(index)}
@@ -411,7 +411,7 @@ function SearchableSelect({
                 onClick={() => handleSelect(option.value)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors ${
                   option.value === value
-                    ? 'bg-primary-500/20 text-primary-400'
+                    ? 'bg-primary/20 text-primary'
                     : 'text-white'
                 } ${index === highlightedIndex ? 'bg-gray-700' : ''}`}
                 onMouseEnter={() => setHighlightedIndex(index)}

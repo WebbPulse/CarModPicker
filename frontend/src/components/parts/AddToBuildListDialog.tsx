@@ -162,7 +162,7 @@ function AddToBuildListDialog({
         {/* Part Preview */}
         <Card>
           <div className="mb-4">
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-muted-foreground">
               This will add the part to your build list where you can add notes
               and customize it.
             </p>
@@ -206,7 +206,7 @@ function AddToBuildListDialog({
         <div className="space-y-2">
           <label
             htmlFor="add-to-build-list-quantity"
-            className="block text-sm font-medium text-neutral-200"
+            className="block text-sm font-medium text-foreground"
           >
             Quantity
           </label>
@@ -220,16 +220,16 @@ function AddToBuildListDialog({
               const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v) && v >= 1) setQuantity(v);
             }}
-            className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
           />
         </div>
 
         {/* Build List Selection */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-neutral-200">
+          <h3 className="text-xl font-semibold text-foreground">
             Select Build List(s)
           </h3>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-muted-foreground">
             Select one or more build lists, then add the part to all selected at
             once.
           </p>
@@ -253,7 +253,7 @@ function AddToBuildListDialog({
                     padding="sm"
                     className={`cursor-pointer transition-all duration-200 flex items-center gap-2 py-2 px-3 min-h-0 ${
                       isSelected
-                        ? 'border-2 border-primary-500 bg-primary-500/25 shadow-md ring-2 ring-primary-500/30'
+                        ? 'border-2 border-primary bg-primary/25 shadow-md ring-2 ring-primary/30'
                         : 'border border-transparent hover:bg-white/5 hover:border-white/20'
                     }`}
                     onClick={() => toggleBuildListSelection(buildList.id)}
@@ -261,8 +261,8 @@ function AddToBuildListDialog({
                     <div
                       className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                         isSelected
-                          ? 'bg-primary-500 border-primary-500'
-                          : 'border-neutral-500 bg-transparent'
+                          ? 'bg-primary border-primary'
+                          : 'border-border bg-transparent'
                       }`}
                     >
                       {isSelected && (
@@ -287,7 +287,7 @@ function AddToBuildListDialog({
                       </span>
                       {isCarMismatch && (
                         <span
-                          className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning border border-warning/40"
                           title="This build list is for a different car model than this part"
                         >
                           Different car
@@ -306,7 +306,7 @@ function AddToBuildListDialog({
               })}
             </div>
           ) : (
-            <div className="text-center py-6 text-neutral-400">
+            <div className="text-center py-6 text-muted-foreground">
               <p>No build lists found.</p>
               <p className="text-sm mt-2">
                 Create a build list first to add parts to it.
@@ -317,10 +317,10 @@ function AddToBuildListDialog({
 
         {/* Car mismatch disclaimer */}
         {hasCarMismatch && (
-          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+          <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
             <div className="flex gap-3">
               <svg
-                className="flex-shrink-0 w-5 h-5 text-amber-400 mt-0.5"
+                className="flex-shrink-0 w-5 h-5 text-warning mt-0.5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -333,10 +333,10 @@ function AddToBuildListDialog({
                 />
               </svg>
               <div>
-                <p className="text-sm font-medium text-amber-200">
+                <p className="text-sm font-medium text-warning">
                   Car mismatch
                 </p>
-                <p className="text-sm text-amber-200/90 mt-1">
+                <p className="text-sm text-warning/90 mt-1">
                   This part is associated with a different car model than one or
                   more of the selected build lists. Parts may not be compatible
                   across vehicles. Please verify fitment and do your own due

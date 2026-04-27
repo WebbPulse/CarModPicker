@@ -35,7 +35,7 @@ function Field({ id, label, helperText, icon, children }: FieldProps) {
     <div>
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-neutral-300 mb-2"
+        className="block text-sm font-medium text-foreground mb-2"
       >
         {label}
       </label>
@@ -51,7 +51,7 @@ function Field({ id, label, helperText, icon, children }: FieldProps) {
         {children}
       </div>
       {helperText ? (
-        <div className="mt-2 text-sm text-neutral-400">{helperText}</div>
+        <div className="mt-2 text-sm text-muted-foreground">{helperText}</div>
       ) : null}
     </div>
   );
@@ -300,7 +300,7 @@ function SecuritySettings({
               onClick={() => setActiveTab('password')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === 'password'
-                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -314,7 +314,7 @@ function SecuritySettings({
               onClick={() => setActiveTab('2fa')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === '2fa'
-                  ? 'text-primary-400 border-b-2 border-primary-400'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -460,7 +460,7 @@ function SecuritySettings({
               {!user?.totp_enabled && !setupData && (
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3 text-gray-300">
-                    <FaShieldAlt className="text-primary-400 text-2xl" />
+                    <FaShieldAlt className="text-primary text-2xl" />
                     <div>
                       <h3 className="text-lg font-semibold">
                         Enable Two-Factor Authentication
@@ -515,7 +515,7 @@ function SecuritySettings({
                     <p className="text-sm text-gray-400 mb-2">
                       Or enter this code manually:
                     </p>
-                    <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
+                    <p className="text-sm font-mono text-primary bg-gray-800/50 p-2 rounded">
                       {setupData.manual_entry_key}
                     </p>
                   </div>

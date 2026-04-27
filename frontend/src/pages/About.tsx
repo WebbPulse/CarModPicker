@@ -42,7 +42,7 @@ function About() {
       title: 'Car Management',
       description:
         'Keep track of all your vehicles and their modification history.',
-      color: 'from-green-500 to-emerald-500',
+      color: 'from-green-500 to-success',
     },
     {
       id: 'community',
@@ -76,7 +76,7 @@ function About() {
       title: 'Quality',
       description:
         'Ensuring the highest standards for parts and community content.',
-      color: 'from-green-500 to-emerald-500',
+      color: 'from-green-500 to-success',
     },
     {
       id: 'community-values',
@@ -98,10 +98,10 @@ function About() {
               {/* Logo */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-linear-to-br from-primary-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-primary via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <GiRaceCar className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-linear-to-br from-primary-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-linear-to-br from-primary/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -111,12 +111,12 @@ function About() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-xl md:text-2xl text-neutral-300 mb-3 leading-relaxed">
+              <p className="text-xl md:text-2xl text-foreground mb-3 leading-relaxed">
                 Your ultimate platform for discovering, planning, and sharing
                 car modifications
               </p>
 
-              <p className="text-lg text-neutral-400 mb-6 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-lg text-muted-foreground mb-6 max-w-4xl mx-auto leading-relaxed">
                 Whether you're a seasoned car enthusiast looking to customize
                 your ride or just starting your journey, we provide the tools
                 and community to help you build your dream car. Our platform
@@ -147,7 +147,7 @@ function About() {
               <h2 className="text-4xl md:text-5xl font-bold mb-4">
                 <span className="text-gradient">Our Mission</span>
               </h2>
-              <p className="text-xl text-neutral-400 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-xl text-muted-foreground max-w-4xl mx-auto leading-relaxed">
                 To empower car enthusiasts worldwide by providing the most
                 comprehensive platform for discovering, planning, and sharing
                 car modifications. We believe every car has a story, and every
@@ -165,7 +165,7 @@ function About() {
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-gradient">What We Offer</span>
             </h2>
-            <p className="text-xl text-neutral-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Powerful tools and features designed specifically for car
               enthusiasts
             </p>
@@ -189,7 +189,7 @@ function About() {
                     <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-gradient transition-colors">
                       {feature.title}
                     </h3>
-                    <p className="text-neutral-400 leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                       {feature.description}
                     </p>
                   </div>
@@ -207,7 +207,7 @@ function About() {
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-gradient">Our Values</span>
             </h2>
-            <p className="text-xl text-neutral-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               The principles that guide everything we do
             </p>
           </div>
@@ -228,7 +228,7 @@ function About() {
                 <h3 className="text-xl font-semibold text-white mb-2 hover:text-gradient transition-colors">
                   {value.title}
                 </h3>
-                <p className="text-neutral-400 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   {value.description}
                 </p>
               </Card>

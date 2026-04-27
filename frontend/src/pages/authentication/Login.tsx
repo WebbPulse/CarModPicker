@@ -13,6 +13,7 @@ import {
   browserSupportsWebAuthn,
   startAuthentication,
 } from '@simplewebauthn/browser';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import { Input } from '../../components/ui/input';
@@ -158,7 +159,7 @@ function Login() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
         <div
           className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float"
           style={{ animationDelay: '1s' }}
@@ -166,18 +167,18 @@ function Login() {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="glass-card rounded-2xl p-8 animate-slideInUp">
+        <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 animate-slideInUp">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <GiRaceCar className="text-white text-2xl" />
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                <GiRaceCar className="text-primary-foreground text-2xl" />
               </div>
             </div>
             <h2 className="text-3xl font-bold text-white mb-2">
               {requires2FA ? 'Two-Factor Authentication' : 'Welcome Back'}
             </h2>
-            <p className="text-neutral-400">
+            <p className="text-muted-foreground">
               {requires2FA
                 ? 'Enter the 6-digit code from your authenticator app'
                 : 'Sign in to your CarModPicker account'}
@@ -191,12 +192,12 @@ function Login() {
                 <div>
                   <label
                     htmlFor="username"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     Username
                   </label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                       <FaUser />
                     </span>
                     <Input
@@ -217,12 +218,12 @@ function Login() {
                 <div>
                   <label
                     htmlFor="password"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     Password
                   </label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                       <FaLock />
                     </span>
                     <Input
@@ -240,7 +241,7 @@ function Login() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
                     >
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </button>
@@ -250,19 +251,19 @@ function Login() {
             ) : (
               <>
                 <div className="flex justify-center mb-4">
-                  <div className="w-20 h-20 bg-primary-500/20 rounded-full flex items-center justify-center">
-                    <FaShieldAlt className="text-primary-400 text-3xl" />
+                  <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
+                    <FaShieldAlt className="text-primary text-3xl" />
                   </div>
                 </div>
                 <div>
                   <label
                     htmlFor="otp"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     Authentication Code
                   </label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                       <FaShieldAlt />
                     </span>
                     <Input
@@ -292,7 +293,7 @@ function Login() {
                     setOtp('');
                     setApiError(null);
                   }}
-                  className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-300 w-full text-center"
+                  className="text-sm text-primary hover:text-primary/90 transition-colors duration-300 w-full text-center"
                 >
                   ← Back to login
                 </button>
@@ -301,16 +302,16 @@ function Login() {
 
             {apiError && (
               <div className="animate-slideInUp">
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                  <p className="text-red-400 text-sm">{apiError}</p>
-                </div>
+                <Alert variant="destructive">
+                  <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
               </div>
             )}
 
             <div className="flex items-center justify-between">
               <Link
                 to="/forgot-password"
-                className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-300"
+                className="text-sm text-primary hover:text-primary/90 transition-colors duration-300"
               >
                 Forgot your password?
               </Link>
@@ -329,18 +330,18 @@ function Login() {
             {!requires2FA && (passkeySupported || isGoogleConfigured()) && (
               <>
                 <div className="flex items-center gap-3 my-2">
-                  <div className="h-px flex-1 bg-neutral-700"></div>
-                  <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                  <div className="h-px flex-1 bg-muted"></div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
                     or
                   </span>
-                  <div className="h-px flex-1 bg-neutral-700"></div>
+                  <div className="h-px flex-1 bg-muted"></div>
                 </div>
                 {passkeySupported && (
                   <button
                     type="button"
                     onClick={() => void handlePasskeyLogin()}
                     disabled={isLoading || isPasskeyLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-neutral-700 text-neutral-200 hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-foreground hover:bg-card transition-colors disabled:opacity-50"
                   >
                     <FaKey />
                     <span>
@@ -364,11 +365,11 @@ function Login() {
 
           {/* Footer */}
           <div className="mt-8 text-center">
-            <p className="text-neutral-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Don't have an account?{' '}
               <Link
                 to="/register"
-                className="text-primary-400 hover:text-primary-300 font-semibold transition-colors duration-300"
+                className="text-primary hover:text-primary/90 font-semibold transition-colors duration-300"
               >
                 Sign up
               </Link>
@@ -378,11 +379,11 @@ function Login() {
 
         {/* Additional Info */}
         <div className="mt-8 text-center">
-          <p className="text-neutral-500 text-xs">
+          <p className="text-muted-foreground text-xs">
             By signing in, you agree to our{' '}
             <Link
               to="/privacy-policy"
-              className="text-neutral-400 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-white transition-colors"
             >
               Privacy Policy
             </Link>

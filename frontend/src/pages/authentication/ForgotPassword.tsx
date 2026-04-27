@@ -55,7 +55,7 @@ function ForgotPassword() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-neutral-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Email
               </label>

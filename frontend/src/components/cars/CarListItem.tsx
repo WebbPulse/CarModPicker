@@ -19,10 +19,10 @@ const CarListItem: React.FC<CarListItemProps> = ({ car }) => {
       to={`/car-generations/${car.id}`}
       className="block hover:no-underline h-full"
     >
-      <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
+      <Card className="flex flex-col h-full hover:border-info border-2 border-transparent transition-colors">
         {/* Add hover effect */}
         <div className="flex-grow flex flex-col">
-          <h3 className="text-lg font-semibold text-indigo-400 mb-2">
+          <h3 className="text-lg font-semibold text-info mb-2">
             {carFullDisplayName(car)}
           </h3>
           <div className="grid grid-cols-1 gap-1 text-xs flex-grow">

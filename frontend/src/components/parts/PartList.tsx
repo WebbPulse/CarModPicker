@@ -111,7 +111,7 @@ function SortableTh({
     <th
       className={`px-4 py-3 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-gray-700/50 transition-colors ${
         align === 'right' ? 'text-right' : 'text-left'
-      } ${isActive ? 'text-indigo-300' : 'text-gray-400'}`}
+      } ${isActive ? 'text-info' : 'text-gray-400'}`}
       onClick={() => onSort(column)}
       role="columnheader"
       aria-sort={
@@ -127,7 +127,7 @@ function SortableTh({
       >
         {children}
         {isActive && (
-          <span className="text-indigo-400" aria-hidden>
+          <span className="text-info" aria-hidden>
             {sortDirection === 'asc' ? '↑' : '↓'}
           </span>
         )}
@@ -744,7 +744,7 @@ function PartList({
                             loading="lazy"
                           />
                         </div>
-                        <span className="font-medium text-gray-200 group-hover:text-indigo-300 truncate block min-w-0">
+                        <span className="font-medium text-gray-200 group-hover:text-info truncate block min-w-0">
                           {part.name}
                         </span>
                       </Link>

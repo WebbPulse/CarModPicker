@@ -63,9 +63,9 @@ function StatPanel({
 }) {
   return (
     <section
-      className={`rounded-lg border border-gray-800/90 bg-gray-950/65 px-2.5 py-2 min-w-0 ${className}`}
+      className={`rounded-lg border border-border bg-card/65 px-2.5 py-2 min-w-0 ${className}`}
     >
-      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5 pb-1 border-b border-gray-800">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 pb-1 border-b border-border">
         {title}
       </h3>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 items-baseline text-xs">
@@ -80,12 +80,12 @@ function StatRow({ label, value }: { label: string; value: number | null }) {
   return (
     <>
       <span
-        className="text-[11px] text-gray-500 truncate min-w-0 leading-tight"
+        className="text-xs text-muted-foreground truncate min-w-0 leading-tight"
         title={label}
       >
         {label}
       </span>
-      <span className="text-xs font-semibold tabular-nums text-gray-100 text-right leading-tight">
+      <span className="text-xs font-semibold tabular-nums text-foreground text-right leading-tight">
         {formatStatCount(value)}
       </span>
     </>
@@ -108,17 +108,17 @@ function StatRowWithDetail({
   return (
     <>
       <span
-        className="text-[11px] text-gray-500 truncate min-w-0 leading-tight"
+        className="text-xs text-muted-foreground truncate min-w-0 leading-tight"
         title={label}
       >
         {label}
       </span>
       <div className="text-right leading-tight">
-        <div className="text-xs font-semibold tabular-nums text-gray-100">
+        <div className="text-xs font-semibold tabular-nums text-foreground">
           {formatStatCount(value)}
         </div>
         {subValue !== undefined && (
-          <div className="text-[10px] tabular-nums text-gray-500">
+          <div className="text-xs tabular-nums text-muted-foreground">
             {subValue}
           </div>
         )}
@@ -458,7 +458,7 @@ function SystemStatistics() {
           <div className="flex items-center gap-2">
             {isLoadingCounts && (
               <div
-                className="flex items-center gap-2 text-xs text-gray-400"
+                className="flex items-center gap-2 text-xs text-foreground"
                 aria-live="polite"
               >
                 <Spinner inline />
@@ -559,11 +559,11 @@ function SystemStatistics() {
               }
               detail={
                 bucketEntitySummary ? (
-                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
-                    <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                  <div className="rounded border border-border bg-background/40 px-1.5 py-1">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">
                       By key prefix
                     </div>
-                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5 text-xs font-mono text-muted-foreground">
                       {BUCKET_ENTITY_TYPE_ORDER.map((prefix) => {
                         const n = bucketEntitySummary.by_entity_type[prefix];
                         if (!n) return null;
@@ -573,7 +573,7 @@ function SystemStatistics() {
                             className="flex justify-between gap-1 min-w-0 leading-tight"
                           >
                             <span className="truncate">{prefix}</span>
-                            <span className="tabular-nums shrink-0 text-gray-400">
+                            <span className="tabular-nums shrink-0 text-foreground">
                               {n.toLocaleString()}
                             </span>
                           </div>
@@ -595,14 +595,14 @@ function SystemStatistics() {
                               className="flex justify-between gap-1 min-w-0 leading-tight"
                             >
                               <span className="truncate">{prefix}</span>
-                              <span className="tabular-nums shrink-0 text-gray-400">
+                              <span className="tabular-nums shrink-0 text-foreground">
                                 {(n ?? 0).toLocaleString()}
                               </span>
                             </div>
                           );
                         })}
                       {bucketEntitySummary.other > 0 ? (
-                        <div className="col-span-2 min-[420px]:col-span-3 flex justify-between gap-2 text-amber-500/90 leading-tight pt-0.5 border-t border-gray-800/80 mt-0.5">
+                        <div className="col-span-2 sm:col-span-3 flex justify-between gap-2 text-warning/90 leading-tight pt-0.5 border-t border-border mt-0.5">
                           <span>Non-standard keys</span>
                           <span className="tabular-nums shrink-0">
                             {bucketEntitySummary.other.toLocaleString()}
@@ -612,7 +612,7 @@ function SystemStatistics() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[10px] text-gray-600 leading-snug">
+                  <p className="text-xs text-muted-foreground leading-snug">
                     Uploads from the app/extension (USER_IMAGES_BUCKET). Scraped
                     part photos are usually remote URLs, not counted here. Use
                     “Load S3 counts” above to fetch.
@@ -639,11 +639,11 @@ function SystemStatistics() {
               detail={
                 crawlBucketSummary &&
                 !crawlBucketSummary.crawl_bucket_configured ? (
-                  <p className="text-[10px] text-gray-600 leading-snug">
+                  <p className="text-xs text-muted-foreground leading-snug">
                     Bucket not configured: scraped page HTML is saved under{' '}
-                    <span className="font-mono text-gray-500">crawl_html/</span>{' '}
+                    <span className="font-mono text-muted-foreground">crawl_html/</span>{' '}
                     on disk instead. Set{' '}
-                    <span className="font-mono text-gray-500">
+                    <span className="font-mono text-muted-foreground">
                       CRAWL_BUCKET
                     </span>{' '}
                     (and AWS / LocalStack) to store archives in S3—then counts
@@ -651,18 +651,18 @@ function SystemStatistics() {
                     .url).
                   </p>
                 ) : crawlBucketSummary?.crawl_bucket_error ? (
-                  <p className="text-[10px] text-red-400/90">
+                  <p className="text-xs text-destructive">
                     {crawlBucketSummary.crawl_bucket_error}
                   </p>
                 ) : crawlBucketSummary &&
                   crawlBucketSummary.crawl_bucket_configured &&
                   Object.keys(crawlBucketSummary.crawl_bucket_by_prefix)
                     .length > 0 ? (
-                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1">
-                    <div className="text-[9px] font-medium uppercase tracking-wide text-gray-600 mb-0.5">
+                  <div className="rounded border border-border bg-background/40 px-1.5 py-1">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">
                       By top-level prefix
                     </div>
-                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5 text-xs font-mono text-muted-foreground">
                       {Object.entries(crawlBucketSummary.crawl_bucket_by_prefix)
                         .sort(([a], [b]) => a.localeCompare(b))
                         .map(([prefix, n]) => (
@@ -671,7 +671,7 @@ function SystemStatistics() {
                             className="flex justify-between gap-1 min-w-0 leading-tight"
                           >
                             <span className="truncate">{prefix}</span>
-                            <span className="tabular-nums shrink-0 text-gray-400">
+                            <span className="tabular-nums shrink-0 text-foreground">
                               {n.toLocaleString()}
                             </span>
                           </div>
@@ -679,7 +679,7 @@ function SystemStatistics() {
                     </div>
                   </div>
                 ) : crawlBucketSummary?.crawl_bucket_configured ? (
-                  <p className="text-[10px] text-gray-600 leading-snug">
+                  <p className="text-xs text-muted-foreground leading-snug">
                     Bucket is configured but empty (no archived HTML keys yet).
                   </p>
                 ) : undefined
@@ -699,7 +699,7 @@ function SystemStatistics() {
                 adminTableCounts &&
                 Object.keys(adminTableCounts.votes_by_entity_type).length >
                   0 ? (
-                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                  <div className="rounded border border-border bg-background/40 px-1.5 py-1 grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-0.5 text-xs font-mono text-muted-foreground">
                     {Object.entries(adminTableCounts.votes_by_entity_type)
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([entityType, n]) => (
@@ -708,7 +708,7 @@ function SystemStatistics() {
                           className="flex justify-between gap-1 min-w-0 leading-tight"
                         >
                           <span className="truncate">{entityType}</span>
-                          <span className="tabular-nums shrink-0 text-gray-400">
+                          <span className="tabular-nums shrink-0 text-foreground">
                             {n.toLocaleString()}
                           </span>
                         </div>
@@ -724,7 +724,7 @@ function SystemStatistics() {
                 adminTableCounts &&
                 Object.keys(adminTableCounts.reports_by_entity_type).length >
                   0 ? (
-                  <div className="rounded border border-gray-800/90 bg-black/25 px-1.5 py-1 grid grid-cols-1 min-[360px]:grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-gray-500">
+                  <div className="rounded border border-border bg-background/40 px-1.5 py-1 grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-0.5 text-xs font-mono text-muted-foreground">
                     {Object.entries(adminTableCounts.reports_by_entity_type)
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([entityType, n]) => (
@@ -733,7 +733,7 @@ function SystemStatistics() {
                           className="flex justify-between gap-1 min-w-0 leading-tight"
                         >
                           <span className="truncate">{entityType}</span>
-                          <span className="tabular-nums shrink-0 text-gray-400">
+                          <span className="tabular-nums shrink-0 text-foreground">
                             {n.toLocaleString()}
                           </span>
                         </div>

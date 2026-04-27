@@ -25,6 +25,7 @@ import {
 } from '../../components/ui/dialog';
 import Pagination from '../../components/ui/pagination';
 import Spinner from '../../components/ui/spinner';
+import { Textarea } from '../../components/ui/textarea';
 import { BUILD_LOG_POSTS_PER_PAGE } from '../../constants';
 
 const fetchBuildLogRequestFn = (buildListId: string, page: number = 1) => {
@@ -266,7 +267,7 @@ function ViewBuildLog() {
         <div className="mb-4">
           <Link
             to={`/build-lists/${buildList.id}`}
-            className="text-indigo-400 hover:text-indigo-300 underline"
+            className="text-info hover:text-info/90 underline"
           >
             ← Back to Build List
           </Link>
@@ -280,7 +281,7 @@ function ViewBuildLog() {
             <Button
               type="button"
               onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="bg-info hover:bg-info/90 text-white"
             >
               New Post
             </Button>
@@ -288,9 +289,9 @@ function ViewBuildLog() {
         </div>
 
         {buildLog && buildLog.posts.length === 0 ? (
-          <div className="text-center py-12 text-gray-200">
+          <div className="text-center py-12 text-foreground">
             <p className="text-lg mb-2">No posts yet.</p>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-muted-foreground">
               {currentUser
                 ? 'Be the first to post in this build log!'
                 : 'Log in to post in this build log.'}
@@ -327,7 +328,7 @@ function ViewBuildLog() {
                 const isEdited = post.created_at !== post.updated_at;
 
                 return (
-                  <Card key={post.id} className="bg-gray-800/50">
+                  <Card key={post.id} className="bg-muted/50">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
@@ -338,8 +339,8 @@ function ViewBuildLog() {
                               className="w-10 h-10 rounded object-cover flex-shrink-0"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
-                              <span className="text-lg text-gray-200">
+                            <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-lg text-foreground">
                                 {(post.author_username || 'U')
                                   .charAt(0)
                                   .toUpperCase()}
@@ -347,76 +348,76 @@ function ViewBuildLog() {
                             </div>
                           )}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-indigo-400">
+                            <span className="font-semibold text-info">
                               {post.author_username || 'Unknown User'}
                             </span>
-                            <span className="text-gray-300 text-sm">
+                            <span className="text-muted-foreground text-sm">
                               {formatDate(post.created_at)}
                             </span>
                             {isEdited && (
-                              <span className="text-gray-300 text-xs italic">
+                              <span className="text-muted-foreground text-xs italic">
                                 (edited)
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="text-gray-200 prose prose-invert prose-sm max-w-none">
+                        <div className="text-foreground prose prose-invert prose-sm max-w-none">
                           <ReactMarkdown
                             components={{
                               p: ({ children }) => (
-                                <p className="mb-2 last:mb-0 text-gray-200">
+                                <p className="mb-2 last:mb-0 text-foreground">
                                   {children}
                                 </p>
                               ),
                               h1: ({ children }) => (
-                                <h1 className="text-2xl font-bold mb-2 mt-4 first:mt-0 text-gray-100">
+                                <h1 className="text-2xl font-bold mb-2 mt-4 first:mt-0 text-foreground">
                                   {children}
                                 </h1>
                               ),
                               h2: ({ children }) => (
-                                <h2 className="text-xl font-bold mb-2 mt-4 first:mt-0 text-gray-100">
+                                <h2 className="text-xl font-bold mb-2 mt-4 first:mt-0 text-foreground">
                                   {children}
                                 </h2>
                               ),
                               h3: ({ children }) => (
-                                <h3 className="text-lg font-bold mb-2 mt-4 first:mt-0 text-gray-200">
+                                <h3 className="text-lg font-bold mb-2 mt-4 first:mt-0 text-foreground">
                                   {children}
                                 </h3>
                               ),
                               ul: ({ children }) => (
-                                <ul className="list-disc list-inside mb-2 space-y-1 text-gray-200">
+                                <ul className="list-disc list-inside mb-2 space-y-1 text-foreground">
                                   {children}
                                 </ul>
                               ),
                               ol: ({ children }) => (
-                                <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-200">
+                                <ol className="list-decimal list-inside mb-2 space-y-1 text-foreground">
                                   {children}
                                 </ol>
                               ),
                               li: ({ children }) => (
-                                <li className="ml-4 text-gray-200">
+                                <li className="ml-4 text-foreground">
                                   {children}
                                 </li>
                               ),
                               code: ({ children, className }) => {
                                 const isInline = !className;
                                 return isInline ? (
-                                  <code className="bg-gray-700 px-1 py-0.5 rounded text-sm font-mono text-gray-100">
+                                  <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono text-foreground">
                                     {children}
                                   </code>
                                 ) : (
-                                  <code className="block bg-gray-700 p-2 rounded text-sm font-mono overflow-x-auto text-gray-100">
+                                  <code className="block bg-muted p-2 rounded text-sm font-mono overflow-x-auto text-foreground">
                                     {children}
                                   </code>
                                 );
                               },
                               pre: ({ children }) => (
-                                <pre className="bg-gray-700 p-2 rounded mb-2 overflow-x-auto text-gray-100">
+                                <pre className="bg-muted p-2 rounded mb-2 overflow-x-auto text-foreground">
                                   {children}
                                 </pre>
                               ),
                               blockquote: ({ children }) => (
-                                <blockquote className="border-l-4 border-indigo-500 pl-4 italic my-2 text-gray-200">
+                                <blockquote className="border-l-4 border-info pl-4 italic my-2 text-foreground">
                                   {children}
                                 </blockquote>
                               ),
@@ -425,7 +426,7 @@ function ViewBuildLog() {
                                   href={href}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-indigo-400 hover:text-indigo-300 underline"
+                                  className="text-info hover:text-info/90 underline"
                                 >
                                   {children}
                                 </a>
@@ -438,12 +439,12 @@ function ViewBuildLog() {
                                 />
                               ),
                               strong: ({ children }) => (
-                                <strong className="font-bold text-gray-100">
+                                <strong className="font-bold text-foreground">
                                   {children}
                                 </strong>
                               ),
                               em: ({ children }) => (
-                                <em className="italic text-gray-200">
+                                <em className="italic text-foreground">
                                   {children}
                                 </em>
                               ),
@@ -459,7 +460,7 @@ function ViewBuildLog() {
                             <button
                               type="button"
                               onClick={() => openEditDialog(post)}
-                              className="text-indigo-400 hover:text-indigo-300 text-sm"
+                              className="text-info hover:text-info/90 text-sm"
                             >
                               Edit
                             </button>
@@ -468,7 +469,7 @@ function ViewBuildLog() {
                             <button
                               type="button"
                               onClick={() => openDeleteDialog(post)}
-                              className="text-red-400 hover:text-red-300 text-sm"
+                              className="text-destructive hover:text-destructive/80 text-sm"
                             >
                               Delete
                             </button>
@@ -516,16 +517,16 @@ function ViewBuildLog() {
             <div>
               <label
                 htmlFor="post-content"
-                className="block text-sm font-medium text-gray-200 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Post Content (Markdown supported)
               </label>
-              <textarea
+              <Textarea
                 id="post-content"
                 ref={createTextareaRef}
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                className="font-mono"
                 rows={12}
                 placeholder="Share your build progress, ask questions, or provide updates...
 
@@ -538,7 +539,7 @@ Markdown examples:
 ![Image](image-url)
 `code`"
               />
-              <p className="text-xs text-gray-300 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Markdown formatting is supported. Use **bold**, *italic*, #
                 headings, - lists, and more.
               </p>
@@ -553,7 +554,7 @@ Markdown examples:
                 showPreview={false}
                 className="mb-2"
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Upload an image and it will be inserted into your post as
                 markdown.
               </p>
@@ -573,7 +574,7 @@ Markdown examples:
                 type="button"
                 onClick={() => void handleCreatePost()}
                 disabled={!newPostContent.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="bg-info hover:bg-info/90 text-white"
               >
                 Post
               </Button>
@@ -603,19 +604,19 @@ Markdown examples:
             <div>
               <label
                 htmlFor="edit-content"
-                className="block text-sm font-medium text-gray-200 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Post Content (Markdown supported)
               </label>
-              <textarea
+              <Textarea
                 id="edit-content"
                 ref={editTextareaRef}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                className="font-mono"
                 rows={12}
               />
-              <p className="text-xs text-gray-300 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Markdown formatting is supported. Use **bold**, *italic*, #
                 headings, - lists, and more.
               </p>
@@ -630,7 +631,7 @@ Markdown examples:
                 showPreview={false}
                 className="mb-2"
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Upload an image and it will be inserted into your post as
                 markdown.
               </p>
@@ -651,7 +652,7 @@ Markdown examples:
                 type="button"
                 onClick={() => void handleEditPost()}
                 disabled={!editContent.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="bg-info hover:bg-info/90 text-white"
               >
                 Save
               </Button>

@@ -317,7 +317,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
       <div>
         <label
           htmlFor="global-part-name"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Part Name *
         </label>
@@ -335,7 +335,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
       <div className="relative">
         <label
           htmlFor="global-part-category"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Category *
         </label>
@@ -346,7 +346,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
           onChange={handleCategoryChange}
           disabled={isLoadingCategories}
           required
-          className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-300 ease-out input-modern min-h-[44px] [&>option]:bg-gray-800 [&>option]:text-white"
+          className="w-full px-5 py-3 bg-gray-800 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 ease-out min-h-[44px] [&>option]:bg-gray-800 [&>option]:text-white"
         >
           {isLoadingCategories ? (
             <option>Loading categories...</option>
@@ -366,7 +366,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
       <div>
         <label
           htmlFor="global-part-number"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Part Number
         </label>
@@ -427,7 +427,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
       <div>
         <label
           htmlFor="global-part-description"
-          className="block text-sm font-medium text-neutral-300 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Description
         </label>
@@ -447,7 +447,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
           id="global-part-universal-edit"
           checked={formData.is_universal}
           onChange={handleUniversalChange}
-          className="rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+          className="rounded border-gray-500 bg-gray-700 text-info focus:ring-info"
         />
         <label
           htmlFor="global-part-universal-edit"

@@ -7,9 +7,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// jsdom ResizeObserver stub — ViewPart pulls in nothing that explicitly
-// needs it today, but the Tabs primitive (Radix) and downstream charts
-// historically have, so stub defensively to match ViewPart.test.tsx.
+// jsdom ResizeObserver stub — kept defensively for downstream charts.
 class ResizeObserverStub {
   constructor(_cb: ResizeObserverCallback) {
     void _cb;
@@ -81,6 +79,7 @@ function makeListing(
   id: string,
   retailerName: string,
   daysAgo: number | null,
+  overrides: Partial<PartListingReadWithRetailer> = {},
 ): PartListingReadWithRetailer {
   const updated =
     daysAgo === null
@@ -104,6 +103,7 @@ function makeListing(
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     },
+    ...overrides,
   };
 }
 
@@ -146,13 +146,13 @@ function renderViewPart() {
   );
 }
 
-describe('ViewPart price summary block', () => {
+describe('ViewPart Price by retailer block (collapsed)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     seedAuthenticated();
   });
 
-  it('does not render the Price summary block when observation_count is 0', async () => {
+  it('does not render the Price by retailer block when observation_count is 0 AND listings empty', async () => {
     const summary: PriceHistorySinglePartResponse = {
       summary: {
         min_cents: null,
@@ -177,20 +177,25 @@ describe('ViewPart price summary block', () => {
       ).toBeInTheDocument(),
     );
 
-    // Section heading exists (always rendered as a sibling block), but the
-    // body — the stat strip / retailer breakdown — should not appear.
+    // Section header is always rendered (sibling of subscribe button), but
+    // the body — the table + summary header — should not appear.
     expect(
-      screen.queryByTestId('price-summary-stat-strip'),
+      screen.queryByTestId('price-summary-header'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('retailer-row')).not.toBeInTheDocument();
+    // Empty-state copy renders instead.
     expect(
-      screen.queryByTestId('retailer-breakdown-flat'),
-    ).not.toBeInTheDocument();
+      screen.getByText('No retailer pricing observed yet.'),
+    ).toBeInTheDocument();
   });
 
-  it('renders a flat retailer list (no tabs) when retailer count <= 3', async () => {
+  it('renders one retailer-row per priceSummary.retailers entry — no tabs', async () => {
     const retailers = [
       makeRetailer({ retailer_id: 'r1', retailer_name: 'Acme Parts' }),
       makeRetailer({ retailer_id: 'r2', retailer_name: 'Bravo Auto' }),
+      makeRetailer({ retailer_id: 'r3', retailer_name: 'Charlie Speed' }),
+      makeRetailer({ retailer_id: 'r4', retailer_name: 'Delta Performance' }),
+      makeRetailer({ retailer_id: 'r5', retailer_name: 'Echo Tuning' }),
     ];
     const summary: PriceHistorySinglePartResponse = {
       summary: {
@@ -210,26 +215,31 @@ describe('ViewPart price summary block', () => {
     renderViewPart();
 
     await waitFor(() =>
-      expect(
-        screen.getByTestId('price-summary-stat-strip'),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('price-summary-header')).toBeInTheDocument(),
     );
 
-    // Flat list rendered, no tabs.
-    expect(screen.getByTestId('retailer-breakdown-flat')).toBeInTheDocument();
+    // One row per retailer, no tabs anywhere.
+    expect(screen.getAllByTestId('retailer-row')).toHaveLength(
+      retailers.length,
+    );
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    // Both retailer names are visible.
-    expect(screen.getByText('Acme Parts')).toBeInTheDocument();
-    expect(screen.getByText('Bravo Auto')).toBeInTheDocument();
+    for (const r of retailers) {
+      expect(screen.getByText(r.retailer_name)).toBeInTheDocument();
+    }
   });
 
-  it('renders Tabs (one trigger per retailer + All) when retailer count > 3', async () => {
+  it('renders the one-line summary header above the table when observation_count > 0', async () => {
     const retailers = [
-      makeRetailer({ retailer_id: 'r1', retailer_name: 'Acme' }),
-      makeRetailer({ retailer_id: 'r2', retailer_name: 'Bravo' }),
-      makeRetailer({ retailer_id: 'r3', retailer_name: 'Charlie' }),
-      makeRetailer({ retailer_id: 'r4', retailer_name: 'Delta' }),
-      makeRetailer({ retailer_id: 'r5', retailer_name: 'Echo' }),
+      makeRetailer({
+        retailer_id: 'r1',
+        retailer_name: 'Acme Parts',
+        last_cents: 1200,
+      }),
+      makeRetailer({
+        retailer_id: 'r2',
+        retailer_name: 'Bravo Auto',
+        last_cents: 1800,
+      }),
     ];
     const summary: PriceHistorySinglePartResponse = {
       summary: {
@@ -237,8 +247,52 @@ describe('ViewPart price summary block', () => {
         max_cents: 2100,
         last_cents: 1500,
         last_observed_at: '2026-04-01T00:00:00Z',
-        trend: 'up',
-        observation_count: 10,
+        trend: 'down',
+        observation_count: 6,
+      },
+      retailers,
+      history: [],
+      window: '90d',
+    };
+    installGetRouting({ summary });
+
+    renderViewPart();
+
+    const header = await waitFor(() =>
+      screen.getByTestId('price-summary-header'),
+    );
+    // Format: $9.00–$21.00 across 2 retailers, last observed ↓ <date>
+    expect(header.textContent).toContain('$9.00');
+    expect(header.textContent).toContain('$21.00');
+    expect(header.textContent).toContain('across 2 retailers');
+    expect(header.textContent).toContain('last observed');
+    expect(header.textContent).toContain('↓');
+  });
+
+  it('shows the stale caveat exactly once for a retailer with last_observed_at 90 days ago', async () => {
+    const ninetyDaysAgo = new Date(
+      Date.now() - 90 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const retailers = [
+      makeRetailer({
+        retailer_id: 'r1',
+        retailer_name: 'Fresh Shop',
+        last_observed_at: '2026-04-20T00:00:00Z',
+      }),
+      makeRetailer({
+        retailer_id: 'r2',
+        retailer_name: 'Stale Shop',
+        last_observed_at: ninetyDaysAgo,
+      }),
+    ];
+    const summary: PriceHistorySinglePartResponse = {
+      summary: {
+        min_cents: 1000,
+        max_cents: 2000,
+        last_cents: 1500,
+        last_observed_at: '2026-04-20T00:00:00Z',
+        trend: 'flat',
+        observation_count: 5,
       },
       retailers,
       history: [],
@@ -249,79 +303,44 @@ describe('ViewPart price summary block', () => {
     renderViewPart();
 
     await waitFor(() =>
-      expect(
-        screen.getByTestId('price-summary-stat-strip'),
-      ).toBeInTheDocument(),
-    );
-
-    // Tablist present; flat list absent.
-    expect(screen.getByRole('tablist')).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('retailer-breakdown-flat'),
-    ).not.toBeInTheDocument();
-
-    // One trigger per retailer + an 'All' trigger = 6 tabs.
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(retailers.length + 1);
-    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
-    for (const r of retailers) {
-      expect(
-        screen.getByRole('tab', { name: r.retailer_name }),
-      ).toBeInTheDocument();
-    }
-  });
-
-  it("shows the 'as of' stale caveat for a listing with last_price_updated_at 90 days ago", async () => {
-    const summary: PriceHistorySinglePartResponse = {
-      summary: {
-        min_cents: 1000,
-        max_cents: 2000,
-        last_cents: 1500,
-        last_observed_at: '2026-04-01T00:00:00Z',
-        trend: 'flat',
-        observation_count: 3,
-      },
-      retailers: [],
-      history: [],
-      window: '90d',
-    };
-    const listings = [makeListing('L1', 'Stale Shop', 90)];
-    installGetRouting({ summary, listings });
-
-    renderViewPart();
-
-    await waitFor(() =>
       expect(screen.getByText('Stale Shop')).toBeInTheDocument(),
     );
 
-    // The amber 'as of' caveat is present.
-    expect(screen.getByText(/as of/i)).toBeInTheDocument();
+    // Single source of truth for the stale caveat — exactly one occurrence.
+    const staleMatches = screen.getAllByText(/as of/i);
+    expect(staleMatches).toHaveLength(1);
   });
 
-  it("does not show the 'as of' caveat when last_price_updated_at is 5 days ago", async () => {
+  it("renders View at retailer link with target=_blank rel='noopener noreferrer' + ExternalLink svg", async () => {
+    const retailers = [
+      makeRetailer({ retailer_id: 'r-L1', retailer_name: 'Linked Shop' }),
+    ];
     const summary: PriceHistorySinglePartResponse = {
       summary: {
-        min_cents: 1000,
-        max_cents: 2000,
+        min_cents: 1500,
+        max_cents: 1500,
         last_cents: 1500,
-        last_observed_at: '2026-04-01T00:00:00Z',
+        last_observed_at: '2026-04-20T00:00:00Z',
         trend: 'flat',
         observation_count: 3,
       },
-      retailers: [],
+      retailers,
       history: [],
       window: '90d',
     };
-    const listings = [makeListing('L1', 'Fresh Shop', 5)];
+    // makeListing assigns retailer_id = `r-${id}` — pass id "L1" to align
+    // with the retailer above so the join produces a product_url.
+    const listings = [makeListing('L1', 'Linked Shop', 5)];
     installGetRouting({ summary, listings });
 
     renderViewPart();
 
-    await waitFor(() =>
-      expect(screen.getByText('Fresh Shop')).toBeInTheDocument(),
+    const link = await waitFor(() =>
+      screen.getByRole('link', { name: /View at retailer/i }),
     );
-
-    // No stale caveat — the regular 'updated' span renders, but no 'as of'.
-    expect(screen.queryByText(/as of/i)).not.toBeInTheDocument();
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    // Lucide ExternalLink renders as an <svg> child of the link.
+    expect(link.querySelector('svg')).not.toBeNull();
   });
 });

@@ -60,9 +60,9 @@ function ImageGallery({
                 type="button"
                 key={url}
                 onClick={() => setSelectedIndex(idx)}
-                className={`shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 bg-gray-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                className={`shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 bg-gray-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900 ${
                   idx === displayIndex
-                    ? 'border-primary-500 ring-2 ring-primary-500/50'
+                    ? 'border-primary ring-2 ring-primary/50'
                     : 'border-gray-600 hover:border-gray-500'
                 }`}
               >
@@ -119,7 +119,7 @@ function ImageGallery({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"
+          className="text-sm text-primary hover:text-primary/90 font-medium transition-colors"
         >
           Show {remainingCount} more image{remainingCount !== 1 ? 's' : ''}
         </button>

@@ -163,7 +163,7 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
               onSubmit={(e) => void handleLinkSubmit(e)}
               className="space-y-5"
             >
-              <p className="text-neutral-300 text-sm">
+              <p className="text-foreground text-sm">
                 An account already exists for{' '}
                 <span className="text-white font-medium">
                   {state.payload.email}
@@ -173,12 +173,12 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
               <div>
                 <label
                   htmlFor="google-link-password"
-                  className="block text-sm font-medium text-neutral-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <FaLock />
                   </span>
                   <Input
@@ -194,7 +194,7 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
                   >
                     {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
@@ -204,12 +204,12 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
                 <div>
                   <label
                     htmlFor="google-link-otp"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     Authentication code
                   </label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                       <FaShieldAlt />
                     </span>
                     <Input
@@ -257,7 +257,7 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
               onSubmit={(e) => void handleSignupSubmit(e)}
               className="space-y-5"
             >
-              <p className="text-neutral-300 text-sm">
+              <p className="text-foreground text-sm">
                 Welcome! Pick a username to finish creating your account for{' '}
                 <span className="text-white font-medium">
                   {state.payload.email}
@@ -267,12 +267,12 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
               <div>
                 <label
                   htmlFor="google-signup-username"
-                  className="block text-sm font-medium text-neutral-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Username
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <FaUser />
                   </span>
                   <Input
@@ -316,19 +316,19 @@ const GoogleAuthFlow: React.FC<GoogleAuthFlowProps> = ({
               onSubmit={(e) => void handle2FASubmit(e)}
               className="space-y-5"
             >
-              <p className="text-neutral-300 text-sm">
+              <p className="text-foreground text-sm">
                 Enter the 6-digit code from your authenticator app to complete
                 sign-in.
               </p>
               <div>
                 <label
                   htmlFor="google-2fa-otp"
-                  className="block text-sm font-medium text-neutral-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Authentication code
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <FaShieldAlt />
                   </span>
                   <Input

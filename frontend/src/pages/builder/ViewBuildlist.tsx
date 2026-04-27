@@ -322,7 +322,7 @@ function ViewBuildList() {
                 type="button"
                 onClick={() => void handleCopyBuildList()}
                 loading={isCopyingBuildList}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="bg-info hover:bg-info/90 text-white"
               >
                 {isCopyingBuildList ? 'Copying...' : 'Copy Build List'}
               </Button>
@@ -366,7 +366,7 @@ function ViewBuildList() {
               <CardInfoItem label="Associated Car:">
                 <Link
                   to={`/car-generations/${associatedCar.id}`}
-                  className="text-indigo-400 hover:text-indigo-300 underline"
+                  className="text-info hover:text-info/90 underline"
                 >
                   {`${carFullDisplayName(associatedCar)} (${formatCarYearRange(associatedCar.start_year, associatedCar.end_year)})`}
                 </Link>
@@ -376,7 +376,7 @@ function ViewBuildList() {
               <CardInfoItem label="Build List Owner:">
                 <Link
                   to={`/user/${buildListOwner.id}`}
-                  className="text-indigo-400 hover:text-indigo-300 underline"
+                  className="text-info hover:text-info/90 underline"
                 >
                   {buildListOwner.username}
                 </Link>

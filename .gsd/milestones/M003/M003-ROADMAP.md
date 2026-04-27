@@ -17,22 +17,22 @@
 
 ## Slices
 
-- [ ] **S01: Global token sweep — palette utility migration** `risk:medium` `depends:[]`
+- [x] **S01: S01** `risk:medium` `depends:[]`
   > After this: Every raw palette utility (`bg-primary-500`, `text-neutral-300`, `text-emerald-400`, `text-indigo-300`, `text-accent-*`, `bg-emerald-400`, etc.) replaced with semantic tokens across all consumer files in `frontend/src/`. Refreshed Playwright baselines at 360/768/1280 for every page touched. Build, lint, type-check, vitest, e2e all green.
 
-- [ ] **S02: Glass-card & legacy `:root` var purge — pass 1 reskin** `risk:medium` `depends:[S01]`
+- [x] **S02: S02** `risk:medium` `depends:[]`
   > After this: Every `glass-card` / `glass-button` / `glass` reference and every `var(--primary-*)` / `var(--neutral-*)` / `var(--accent-*)` / `var(--gradient-*)` consumer migrated to semantic tokens / equivalent ui/* primitive surfaces. Home, Login, Register, Header, AccountAlerts, AdminDashboard reskinned (~8 high-traffic pages). Baselines refreshed for touched pages.
 
-- [ ] **S03: Responsive audit + ViewPart IA collapse + outbound link safety** `risk:high` `depends:[S02]`
+- [x] **S03: S03** `risk:high` `depends:[]`
   > After this: Per-viewport verdict list (pass / fixed / acceptable-as-scroll) in slice summary for every dense `<table>` view (4 admin tables + ResponsiveTableWrapper) and every dense card-grid view (PartsCatalog, BuildLists, BuildListPart list, Search) at 360 / 768 / 1280 with realistic densest data. The `/parts` price-column overflow is fixed at root cause. ViewPart shows ONE 'Price by retailer' block (last price + sparkline + observation timing + outbound link per retailer); summary stats either dropped or compressed to a one-line header. Every outbound retailer link uses `target="_blank" rel="noopener noreferrer"` + Lucide external-link icon affordance.
 
-- [ ] **S04: Hard delete — `@theme` palette + `:root` legacy block + pass-2 decorative/animation utilities** `risk:high` `depends:[S01,S02,S03]`
+- [x] **S04: S04** `risk:high` `depends:[]`
   > After this: `frontend/src/index.css` legacy `:root` palette block (lines 38-98), `@theme` palette mirror (lines 7-36), `.glass*` (lines 295-381), `.btn-primary/secondary/outline` (lines 383-482), `.card` / `.card-interactive` / `.card-table-container` (lines 484-582), `.input-modern` (lines 584-616), `.text-gradient` / `.shadow-glow` / `.border-gradient` (lines 736-756), `.skeleton` (line 647), `.hero-gradient` (line 660), and all 11 keyframes + their `.animate-*` classes are deleted. `vite build` succeeds — any missed legacy class is a build error. Targeted token / keyframe additions for surviving uses (Home entrance animation, etc.) committed atomically with rationale BEFORE the deletion.
 
-- [ ] **S05: Page-by-page polish pass at three breakpoints** `risk:medium` `depends:[S04]`
+- [x] **S05: S05** `risk:medium` `depends:[]`
   > After this: All ~40 routes visited at 360 / 768 / 1280; structural cleanup applied (layout fixes, redundant block collapses on judgment up to medium-impact, off-palette stat panels reskinned, animation replacements where the polish surfaces a need). High-impact IA changes surfaced and resolved with user approval. Per-page verdict list in slice summary. Baselines refreshed for every page touched.
 
-- [ ] **S06: Migration completion gauntlet + UAT** `risk:low` `depends:[S05]`
+- [x] **S06: S06** `risk:low` `depends:[]`
   > After this: All gates pass: zero raw palette utility hits, zero `glass-*` hits, zero legacy `:root` consumer hits in `frontend/src/`; `vite build`, `tsc --noEmit`, `eslint`, `vitest`, full Playwright suite at 3 viewports all green; manual UAT walkthrough at three viewports across priority pages (Home, PartsCatalog, ViewPart, ViewBuildList, ViewCar, Login, Register, Header, AccountAlerts, AdminDashboard, AdminExtractionHealth) documented in slice summary or M003-UAT.md.
 
 ## Boundary Map

@@ -3,7 +3,7 @@
 // Covers every method on `usersApi` (12 total) plus the FormData-based
 // `uploadProfilePicture` path (POST /users/me/profile-picture with a
 // multipart/form-data header and FormData body). See PATTERNS.md §7 for the
-// canonical Wave 1 skeleton.
+// canonical Wave 1 scaffold.
 //
 // apiClient is auto-mocked by setup.ts (Phase 8 D-18). Narrow the HTTP verbs
 // at module scope via MockedFunction cast — same pattern as

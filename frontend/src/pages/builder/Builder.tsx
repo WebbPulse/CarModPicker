@@ -150,7 +150,7 @@ function Builder() {
                 <BuildListCard key={buildList.id} buildList={buildList} />
               ))
             ) : isFirstPage ? (
-              <div className="col-span-full text-center py-8 text-gray-400">
+              <div className="col-span-full text-center py-8 text-muted-foreground">
                 <p className="mb-4">
                   You don't have any build lists yet. Click the tile above to
                   create your first one!

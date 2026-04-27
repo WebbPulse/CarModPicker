@@ -6,6 +6,7 @@ import SectionHeader from '../components/layout/SectionHeader';
 import SocialLinks from '../components/profile/SocialLinks';
 import { ErrorAlert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
+import CardInfoItem from '../components/ui/card-info-item';
 import Spinner from '../components/ui/spinner';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -95,29 +96,24 @@ function ViewUser() {
       <PageHeader title={`Profile: ${user.username}`} />
       <Card>
         <SectionHeader title="Public Profile Information" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
-          <div>
-            <p className="font-medium text-gray-300">Profile Picture</p>
-            <div className="text-gray-300">
-              {user.image_urls?.[0] ? (
-                <img
-                  src={user.image_urls[0]}
-                  alt={`${user.username}'s profile`}
-                  className="h-48 w-48 rounded-lg object-cover"
-                />
-              ) : (
-                <p className="text-gray-400">No image set.</p>
-              )}
-            </div>
-          </div>
-          {/* This div creates an empty cell in the top-right on medium screens and up */}
-          <div className="hidden md:block"></div>
-          <div>
-            <p className="font-medium text-gray-300">Username</p>
-            <div className="text-gray-300">
-              <p>{user.username}</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <CardInfoItem label="Profile Picture">
+            {user.image_urls?.[0] ? (
+              <img
+                src={user.image_urls[0]}
+                alt={`${user.username}'s profile`}
+                className="h-48 w-48 rounded-lg object-cover"
+              />
+            ) : (
+              <p className="text-muted-foreground">No image set.</p>
+            )}
+          </CardInfoItem>
+          <CardInfoItem
+            label="Username"
+            className="md:col-start-1"
+          >
+            <p>{user.username}</p>
+          </CardInfoItem>
         </div>
         <SocialLinks
           links={{
@@ -142,7 +138,7 @@ function ViewUser() {
             ))}
           </div>
         ) : (
-          <p className="text-gray-400 mt-4">
+          <p className="text-muted-foreground mt-4">
             This user has no public build lists yet.
           </p>
         )}

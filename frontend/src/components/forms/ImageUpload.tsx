@@ -133,7 +133,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {label && (
-        <label className="block text-sm font-medium text-neutral-300">
+        <label className="block text-sm font-medium text-foreground">
           {label}
         </label>
       )}
@@ -201,7 +201,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             </React.Fragment>
           )}
         </button>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-muted-foreground">
           Max size: {maxSizeMB}MB. Allowed: {allowedExtensions.join(', ')}
         </p>
       </div>

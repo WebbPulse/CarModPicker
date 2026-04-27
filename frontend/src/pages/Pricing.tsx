@@ -56,7 +56,7 @@ function Pricing() {
       ctaLabel: 'Current plan',
       ctaTo: '/builder',
       highlight: false,
-      iconColor: 'from-neutral-500 to-neutral-600',
+      iconColor: 'from-muted-foreground to-muted-foreground',
     },
     {
       id: 'premium',
@@ -75,7 +75,7 @@ function Pricing() {
       ctaLabel: userIsPremium ? "You're Premium" : 'Go Premium',
       ctaTo: isAuthenticated ? '/checkout' : '/register',
       highlight: true,
-      iconColor: 'from-amber-400 to-orange-500',
+      iconColor: 'from-warning to-warning',
     },
   ];
 
@@ -88,10 +88,10 @@ function Pricing() {
             <div className="animate-fadeInScale">
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-linear-to-br from-amber-400 via-orange-500 to-red-500 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
+                  <div className="w-20 h-20 bg-linear-to-br from-warning to-warning rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
                     <FaCrown className="text-white text-3xl" />
                   </div>
-                  <div className="absolute -inset-2 bg-linear-to-br from-amber-400/30 via-orange-500/30 to-red-500/30 rounded-3xl blur-xl animate-pulse"></div>
+                  <div className="absolute -inset-2 bg-warning/30 rounded-3xl blur-xl animate-pulse"></div>
                 </div>
               </div>
 
@@ -99,11 +99,11 @@ function Pricing() {
                 <span className="text-gradient">Simple Pricing</span>
               </h1>
 
-              <p className="text-xl md:text-2xl text-neutral-300 mb-3 leading-relaxed">
+              <p className="text-xl md:text-2xl text-foreground mb-3 leading-relaxed">
                 Free to start. Go Premium when your garage grows.
               </p>
 
-              <p className="text-lg text-neutral-400 mb-6 max-w-3xl mx-auto leading-relaxed">
+              <p className="text-lg text-muted-foreground mb-6 max-w-3xl mx-auto leading-relaxed">
                 Every feature of CarModPicker is available to everyone. Premium
                 removes ads and lifts the limit on how many build lists you can
                 create.
@@ -123,13 +123,13 @@ function Pricing() {
                 variant="glass"
                 className={`group animate-slideInUp h-full flex flex-col ${
                   tier.highlight
-                    ? 'ring-2 ring-amber-400/50 shadow-[0_0_40px_rgba(251,191,36,0.15)]'
+                    ? 'ring-2 ring-warning/50 shadow-warning-glow'
                     : ''
                 }`}
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 {tier.highlight && (
-                  <div className="inline-flex self-start items-center gap-1.5 px-3 py-1 mb-4 rounded-full text-xs font-semibold bg-linear-to-r from-amber-400 to-orange-500 text-neutral-900">
+                  <div className="inline-flex self-start items-center gap-1.5 px-3 py-1 mb-4 rounded-full text-xs font-semibold bg-linear-to-r from-warning to-warning text-background">
                     <FaCrown className="text-[0.7rem]" />
                     Most Popular
                   </div>
@@ -144,7 +144,7 @@ function Pricing() {
                 <h3 className="text-2xl font-semibold text-white mb-1">
                   {tier.name}
                 </h3>
-                <p className="text-neutral-400 text-sm mb-4 leading-relaxed">
+                <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
                   {tier.tagline}
                 </p>
 
@@ -152,7 +152,7 @@ function Pricing() {
                   <span className="text-4xl font-bold text-white">
                     {tier.price}
                   </span>
-                  <span className="text-neutral-400 text-sm">
+                  <span className="text-muted-foreground text-sm">
                     {tier.cadence}
                   </span>
                 </div>
@@ -166,8 +166,8 @@ function Pricing() {
                       <span
                         className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
                           feature.included
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-neutral-700/50 text-neutral-500'
+                            ? 'bg-success/20 text-success'
+                            : 'bg-muted/50 text-muted-foreground'
                         }`}
                       >
                         {feature.included ? (
@@ -179,8 +179,8 @@ function Pricing() {
                       <span
                         className={
                           feature.included
-                            ? 'text-neutral-200'
-                            : 'text-neutral-500 line-through'
+                            ? 'text-foreground'
+                            : 'text-muted-foreground line-through'
                         }
                       >
                         {feature.label}
@@ -192,7 +192,7 @@ function Pricing() {
                 {tier.highlight && !userIsPremium ? (
                   <Link
                     to={tier.ctaTo}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-neutral-900 bg-linear-to-r from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:brightness-110 transition-all duration-200"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-background bg-linear-to-r from-warning to-warning shadow-lg shadow-warning/20 hover:shadow-warning/40 hover:brightness-110 transition-all duration-200"
                   >
                     <FaCrown />
                     {tier.ctaLabel}
@@ -200,7 +200,7 @@ function Pricing() {
                 ) : (
                   <Link
                     to={tier.ctaTo}
-                    className="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-medium text-neutral-200 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all duration-200"
+                    className="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-medium text-foreground bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white transition-all duration-200"
                   >
                     {tier.ctaLabel}
                   </Link>
@@ -219,7 +219,7 @@ function Pricing() {
               <h2 className="text-3xl md:text-4xl font-bold mb-3">
                 <span className="text-gradient">What you get with Premium</span>
               </h2>
-              <p className="text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
                 Premium is how the platform stays online without leaning on ads.
                 A few dollars a month keeps the servers running and the roadmap
                 moving.
@@ -230,7 +230,7 @@ function Pricing() {
                 <h3 className="text-xl font-semibold text-white mb-2">
                   Unlimited build lists
                 </h3>
-                <p className="text-neutral-400 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   Running a daily, a track car, and a project in the garage?
                   Track them all. Free accounts are capped at{' '}
                   {FREE_TIER_BUILD_LIST_LIMIT} build list.
@@ -240,7 +240,7 @@ function Pricing() {
                 <h3 className="text-xl font-semibold text-white mb-2">
                   Ad-free everywhere
                 </h3>
-                <p className="text-neutral-400 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   Side-column banners are hidden across the site while your
                   subscription is active.
                 </p>
@@ -249,7 +249,7 @@ function Pricing() {
                 <h3 className="text-xl font-semibold text-white mb-2">
                   Cancel any time
                 </h3>
-                <p className="text-neutral-400 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   Month-to-month, no contract. Your existing build lists stay on
                   your account if you downgrade.
                 </p>
@@ -258,7 +258,7 @@ function Pricing() {
                 <h3 className="text-xl font-semibold text-white mb-2">
                   Support the project
                 </h3>
-                <p className="text-neutral-400 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   CarModPicker is built by one person. Premium subscriptions
                   fund hosting, parts-catalog crawls, and new features.
                 </p>

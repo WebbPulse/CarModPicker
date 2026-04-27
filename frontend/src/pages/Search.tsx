@@ -7,6 +7,7 @@ import SectionHeader from '../components/layout/SectionHeader';
 import { ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { Input } from '../components/ui/input';
 import Spinner from '../components/ui/spinner';
 import UserCard from '../components/users/UserCard';
 import {
@@ -329,22 +330,22 @@ function Search() {
       <Card className="mb-8">
         <div className="flex gap-4">
           <div className="flex-1">
-            <input
+            <Input
               type="text"
               placeholder="Search build lists, users, and parts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+              className="w-full"
             />
           </div>
-          <button
+          <Button
             type="button"
             onClick={handleSearch}
-            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium"
+            className="bg-info hover:bg-info/90 text-white"
           >
             Search
-          </button>
+          </Button>
         </div>
       </Card>
 
@@ -375,7 +376,7 @@ function Search() {
                     title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
                   />
                   {buildLists.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-muted-foreground">
                       <p>No build lists found.</p>
                     </div>
                   ) : (
@@ -422,7 +423,7 @@ function Search() {
                     title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
                   />
                   {users.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-muted-foreground">
                       <p>No users found.</p>
                     </div>
                   ) : (
@@ -493,10 +494,10 @@ function Search() {
             currentQuery && (
               <Card>
                 <div className="text-center py-12">
-                  <p className="text-xl text-gray-400 mb-2">
+                  <p className="text-xl text-muted-foreground mb-2">
                     No results found for "{currentQuery}"
                   </p>
-                  <p className="text-gray-500">
+                  <p className="text-muted-foreground">
                     Try different search terms or check your spelling.
                   </p>
                 </div>
@@ -509,10 +510,10 @@ function Search() {
       {!isLoading && !error && !currentQuery && (
         <Card>
           <div className="text-center py-12">
-            <p className="text-xl text-gray-400 mb-2">
+            <p className="text-xl text-muted-foreground mb-2">
               Enter a search term to find build lists, users, and parts
             </p>
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               Search across names, descriptions, part manufacturers, and more
             </p>
           </div>

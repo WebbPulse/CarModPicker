@@ -29,11 +29,11 @@ const sectionTitleClass =
 const optionButtonClass = (active: boolean) =>
   `block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
     active
-      ? 'bg-indigo-600/30 text-indigo-300 font-medium'
+      ? 'bg-info/30 text-info font-medium'
       : 'text-gray-300 hover:bg-gray-700/50 hover:text-gray-100'
   }`;
 const inputClass =
-  'w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-colors';
+  'w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-info focus:border-info/50 transition-colors';
 
 const VehicleFilterSection: React.FC<VehicleFilterSectionProps> = (props) => {
   const {

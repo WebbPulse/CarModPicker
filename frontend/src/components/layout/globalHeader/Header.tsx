@@ -15,6 +15,7 @@ import { GiRaceCar } from 'react-icons/gi';
 import { Link } from 'react-router-dom';
 import { CHROME_EXTENSION_STORE_URL } from '../../../constants';
 import { useAuth } from '../../../hooks/useAuth';
+import { Button } from '../../ui/button';
 import Spinner from '../../ui/spinner';
 
 function Header() {
@@ -33,7 +34,7 @@ function Header() {
   return (
     <header className="w-full">
       {/* Background with gradient */}
-      <div className="absolute inset-0 bg-linear-to-r from-neutral-900 via-neutral-800 to-neutral-900 opacity-95 backdrop-blur-md"></div>
+      <div className="absolute inset-0 bg-linear-to-r from-card via-muted to-card opacity-95 backdrop-blur-md"></div>
 
       {/* Main Header Content */}
       <div className="relative">
@@ -45,10 +46,10 @@ function Header() {
               to="/"
               className="flex items-center space-x-2 group animate-slideInLeft"
             >
-              <div className="w-10 h-10 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-primary-500/25 transition-all duration-300 group-hover:scale-110">
+              <div className="w-10 h-10 bg-linear-to-br from-primary to-primary rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-primary/25 transition-all duration-300 group-hover:scale-110">
                 <GiRaceCar className="text-white text-xl" />
               </div>
-              <span className="text-2xl font-bold bg-linear-to-r from-white to-neutral-300 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-linear-to-r from-white to-foreground bg-clip-text text-transparent">
                 CarModPicker
               </span>
             </Link>
@@ -58,15 +59,15 @@ function Header() {
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <Spinner inline />
-                  <span className="text-sm text-neutral-400">Loading...</span>
+                  <span className="text-sm text-muted-foreground">Loading...</span>
                 </div>
               ) : isAuthenticated ? (
                 <div className="flex items-center space-x-4">
                   <Link
                     to="/profile"
-                    className="flex items-center space-x-2 glass px-4 py-2 rounded-xl hover:bg-white/10 transition-all duration-300 group"
+                    className="flex items-center space-x-2 border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl transition-all duration-300 group"
                   >
-                    <FaUser className="text-primary-400 group-hover:scale-110 transition-transform duration-300" />
+                    <FaUser className="text-primary group-hover:scale-110 transition-transform duration-300" />
                     <span className="text-sm font-medium text-white">
                       {user?.username}
                     </span>
@@ -74,7 +75,7 @@ function Header() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex items-center space-x-2 glass-button px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary-300 transition-all duration-300"
+                    className="flex items-center space-x-2 border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary transition-all duration-300"
                   >
                     <FaSignOutAlt />
                     <span>Logout</span>
@@ -84,16 +85,13 @@ function Header() {
                 <div className="flex items-center space-x-3">
                   <Link
                     to="/login"
-                    className="glass-button px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary-300 transition-all duration-300"
+                    className="border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary transition-all duration-300"
                   >
                     Login
                   </Link>
-                  <Link
-                    to="/register"
-                    className="btn-primary px-4 py-2 rounded-xl text-sm font-medium"
-                  >
-                    Register
-                  </Link>
+                  <Button asChild className="rounded-xl">
+                    <Link to="/register">Register</Link>
+                  </Button>
                 </div>
               )}
 
@@ -101,7 +99,7 @@ function Header() {
               <button
                 type="button"
                 onClick={toggleMobileMenu}
-                className="md:hidden glass-button p-2 rounded-lg text-white hover:text-primary-300 transition-all duration-300"
+                className="md:hidden border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 p-2 rounded-lg text-white hover:text-primary transition-all duration-300"
               >
                 {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
               </button>
@@ -153,22 +151,22 @@ function Header() {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden animate-slideInUp">
-            <div className="glass-card mx-4 mb-4 rounded-xl border border-white/10">
+            <div className="border border-white/10 bg-white/5 backdrop-blur-xl mx-4 mb-4 rounded-xl">
               <div className="p-4 space-y-3">
                 {isAuthenticated ? (
                   <div className="space-y-3">
                     <Link
                       to="/profile"
-                      className="flex items-center space-x-2 text-white hover:text-primary-300 transition-colors duration-300"
+                      className="flex items-center space-x-2 text-white hover:text-primary transition-colors duration-300"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <FaUser className="text-primary-400" />
+                      <FaUser className="text-primary" />
                       <span className="font-medium">{user?.username}</span>
                     </Link>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full flex items-center justify-center space-x-2 glass-button px-4 py-2 rounded-xl text-sm font-medium text-white"
+                      className="w-full flex items-center justify-center space-x-2 border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white"
                     >
                       <FaSignOutAlt />
                       <span>Logout</span>
@@ -178,18 +176,19 @@ function Header() {
                   <div className="space-y-3">
                     <Link
                       to="/login"
-                      className="block w-full text-center glass-button px-4 py-2 rounded-xl text-sm font-medium text-white"
+                      className="block w-full text-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Login
                     </Link>
-                    <Link
-                      to="/register"
-                      className="block w-full text-center btn-primary px-4 py-2 rounded-xl text-sm font-medium"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Register
-                    </Link>
+                    <Button asChild className="w-full rounded-xl">
+                      <Link
+                        to="/register"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Register
+                      </Link>
+                    </Button>
                   </div>
                 )}
 
@@ -276,7 +275,7 @@ function NavLink({
   return (
     <Link
       to={to}
-      className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group"
+      className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-foreground hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group"
     >
       <span className="group-hover:scale-110 transition-transform duration-300">
         {icon}
@@ -302,7 +301,7 @@ function MobileNavLink({
     <Link
       to={to}
       onClick={onClick}
-      className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
+      className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-foreground hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
     >
       <span className="text-lg">{icon}</span>
       <span>{children}</span>
@@ -325,7 +324,7 @@ function ExternalNavLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group"
+      className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-foreground hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group"
     >
       <span className="group-hover:scale-110 transition-transform duration-300">
         {icon}
@@ -353,7 +352,7 @@ function MobileExternalNavLink({
       target="_blank"
       rel="noopener noreferrer"
       onClick={onClick}
-      className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
+      className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-foreground hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
     >
       <span className="text-lg">{icon}</span>
       <span>{children}</span>

@@ -5,6 +5,7 @@ import {
   FaPuzzlePiece,
 } from 'react-icons/fa';
 import { Navigate, useSearchParams } from 'react-router-dom';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import Spinner from '../../components/ui/spinner';
 import { useAuth } from '../../hooks/useAuth';
 import { getStoredToken } from '../../services/Api';
@@ -154,11 +155,11 @@ function ExtensionAuth() {
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="relative z-10 w-full max-w-md">
-        <div className="glass-card rounded-2xl p-8 animate-slideInUp">
+        <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 animate-slideInUp">
           <div className="text-center mb-6">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <FaPuzzlePiece className="text-white text-2xl" />
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                <FaPuzzlePiece className="text-primary-foreground text-2xl" />
               </div>
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">
@@ -173,33 +174,31 @@ function ExtensionAuth() {
           )}
 
           {handoff.kind === 'success' && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5 text-center">
-              <FaCheckCircle className="text-green-400 text-3xl mx-auto mb-3" />
-              <p className="text-green-300 font-medium mb-1">
-                Extension signed in
-              </p>
-              <p className="text-neutral-400 text-sm">
-                You can close this tab and return to the extension.
-              </p>
-            </div>
+            <Alert variant="success" className="text-center">
+              <FaCheckCircle className="!static text-3xl mx-auto mb-3" />
+              <AlertDescription>
+                <p className="font-medium mb-1">Extension signed in</p>
+                <p className="text-muted-foreground text-sm">
+                  You can close this tab and return to the extension.
+                </p>
+              </AlertDescription>
+            </Alert>
           )}
 
           {handoff.kind === 'error' && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5">
-              <div className="flex items-start gap-3">
-                <FaExclamationTriangle className="text-red-400 text-xl mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-red-300 font-medium mb-1">
-                    Sign-in couldn't be completed
-                  </p>
-                  <p className="text-red-200/80 text-sm">{handoff.message}</p>
-                </div>
-              </div>
-            </div>
+            <Alert variant="destructive">
+              <FaExclamationTriangle className="!top-5 !left-4 text-xl flex-shrink-0" />
+              <AlertDescription>
+                <p className="font-medium mb-1">
+                  Sign-in couldn't be completed
+                </p>
+                <p className="text-sm opacity-80">{handoff.message}</p>
+              </AlertDescription>
+            </Alert>
           )}
 
           {handoff.kind === 'idle' && (
-            <div className="text-center text-neutral-400 text-sm">
+            <div className="text-center text-muted-foreground text-sm">
               Preparing…
             </div>
           )}

@@ -89,7 +89,7 @@ function CarModelMultiSelect({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium text-neutral-300">
+        <label className="block text-sm font-medium text-foreground">
           {label}
         </label>
       )}
@@ -99,7 +99,7 @@ function CarModelMultiSelect({
           {selectedCars.map((car) => (
             <span
               key={car.id}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-sm text-indigo-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-info/20 border border-info/40 text-sm text-info"
             >
               <span
                 className="truncate max-w-[200px]"
@@ -111,7 +111,7 @@ function CarModelMultiSelect({
                 <button
                   type="button"
                   onClick={() => handleRemoveCar(car.id)}
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-indigo-500/30 text-indigo-300 hover:text-white transition-colors"
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-info/30 text-info hover:text-white transition-colors"
                   aria-label={`Remove ${formatCarLabel(car)}`}
                 >
                   <svg
@@ -151,7 +151,7 @@ function CarModelMultiSelect({
         availableOptions.length === 0 &&
         !isLoading &&
         value.length > 0 && (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-muted-foreground">
             All available car models are already selected.
           </p>
         )}

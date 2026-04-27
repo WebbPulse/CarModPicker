@@ -538,19 +538,20 @@ test('/parts/:id detail renders retailer breakdown + stale caveat', async ({
   await page.goto(`/parts/${MULTI_PART_ID}`);
   await waitForPageReady(page);
 
-  // The new "Price summary (90 days)" block (heading) must be present.
+  // The collapsed "Price by retailer" block (heading) must be present.
   await expect(
-    page.getByRole('heading', { name: 'Price summary (90 days)' }),
+    page.getByRole('heading', { name: 'Price by retailer' }),
   ).toBeVisible();
 
-  // Stale caveat text — appears next to the listing whose
-  // last_price_updated_at is 90 days ago. The exact local-formatted date is
-  // computed from STALE_LISTING_OBSERVED_AT to stay deterministic.
+  // Stale caveat text — appears next to the retailer whose last_observed_at
+  // is 90 days ago. The exact local-formatted date is computed from
+  // STALE_LISTING_OBSERVED_AT to stay deterministic.
   const staleCaveat = `(as of ${STALE_LISTING_LOCAL_DATE})`;
   await expect(page.getByText(staleCaveat).first()).toBeVisible();
 
-  // Fresh listing must NOT carry a stale caveat — count occurrences.
-  // STALE caveat appears exactly once across the page.
+  // Fresh retailer must NOT carry a stale caveat — count occurrences.
+  // STALE caveat appears exactly once across the page (single source of
+  // truth — the legacy listings-block caveat was removed in S03/T03).
   await expect(page.getByText(staleCaveat)).toHaveCount(1);
 
   await expect(page).toHaveScreenshot({ fullPage: true });
@@ -564,17 +565,17 @@ test('/parts/:id with zero observations hides Price summary block', async ({
   await page.goto(`/parts/${ZERO_PART_ID}`);
   await waitForPageReady(page);
 
-  // The "Price summary (90 days)" heading still renders (it's a section
-  // header), but the PriceSummaryBlock body — driven by the per-retailer
-  // breakdown list — must NOT render when observation_count is zero.
-  // Assert via a stable test surface: the retailer-breakdown row is absent.
+  // The "Price by retailer" heading still renders (it's a section header),
+  // but the collapsed body — the retailer-row list and the one-line summary
+  // header — must NOT render when there are zero observations AND zero
+  // listings. The empty-state copy renders instead.
   await expect(
-    page.locator('[data-testid="retailer-breakdown-row"]'),
+    page.locator('[data-testid="retailer-row"]'),
   ).toHaveCount(0);
   await expect(
-    page.locator('[data-testid="retailer-breakdown-flat"]'),
+    page.locator('[data-testid="price-summary-header"]'),
   ).toHaveCount(0);
   await expect(
-    page.locator('[data-testid="price-summary-stat-strip"]'),
-  ).toHaveCount(0);
+    page.getByText('No retailer pricing observed yet.'),
+  ).toBeVisible();
 });

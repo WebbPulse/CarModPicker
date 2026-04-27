@@ -136,9 +136,9 @@ export default function HomePage() {
     <div className="min-h-screen">
       {/* Landing-page ambient glow — fixed to viewport so it extends behind the ad gutters and persists while scrolling. */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float"></div>
         <div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl animate-float"
+          className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float"
           style={{ animationDelay: '1.5s' }}
         ></div>
       </div>
@@ -148,16 +148,16 @@ export default function HomePage() {
         <div className="container mx-auto relative z-10">
           <div className="text-center max-w-3xl mx-auto animate-slideInUp">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-2xl animate-glow">
+              <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center shadow-2xl animate-glow">
                 <GiRaceCar className="text-white text-2xl" />
               </div>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-linear-to-r from-white via-primary-100 to-primary-300 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-linear-to-r from-white to-primary bg-clip-text text-transparent">
               CarModPicker
             </h1>
 
-            <p className="text-lg md:text-xl text-neutral-300 mb-6 leading-relaxed">
+            <p className="text-lg md:text-xl text-foreground mb-6 leading-relaxed">
               Discover, plan, and share your car modifications with the
               community
             </p>
@@ -201,7 +201,7 @@ export default function HomePage() {
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-linear-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                   <FaFire className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white">
@@ -210,7 +210,7 @@ export default function HomePage() {
               </div>
               <Link
                 to="/build-lists"
-                className="text-primary-400 hover:text-primary-300 transition-colors text-sm font-semibold"
+                className="text-primary hover:text-primary/90 transition-colors text-sm font-semibold"
               >
                 View All →
               </Link>
@@ -234,7 +234,7 @@ export default function HomePage() {
               </div>
             ) : (
               <Card>
-                <p className="text-neutral-400 text-center py-8">
+                <p className="text-muted-foreground text-center py-8">
                   No featured builds yet. Be the first to create one!
                 </p>
               </Card>
@@ -246,7 +246,7 @@ export default function HomePage() {
             {/* Popular Parts */}
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-primary rounded-lg flex items-center justify-center">
                   <HiSparkles className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Popular Parts</h2>
@@ -270,7 +270,7 @@ export default function HomePage() {
                       to={`/parts/${part.id}`}
                       className="block hover:no-underline"
                     >
-                      <Card className="hover:border-primary-500 border-2 border-transparent transition-all duration-300 group">
+                      <Card className="hover:border-primary border-2 border-transparent transition-all duration-300 group">
                         <div className="flex gap-4">
                           <div className="flex-shrink-0">
                             <ImageWithPlaceholder
@@ -282,12 +282,12 @@ export default function HomePage() {
                             />
                           </div>
                           <div className="flex-grow min-w-0">
-                            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-primary-400 transition-colors truncate">
+                            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-primary transition-colors truncate">
                               {part.name}
                             </h3>
-                            <div className="flex items-center gap-2 text-xs text-neutral-400">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <FaArrowUp className="text-primary-400" />
+                                <FaArrowUp className="text-primary" />
                                 {part.total_votes}
                               </span>
                             </div>
@@ -298,14 +298,14 @@ export default function HomePage() {
                   ))}
                   <Link
                     to="/parts"
-                    className="block text-center text-primary-400 hover:text-primary-300 transition-colors text-sm font-semibold mt-4"
+                    className="block text-center text-primary hover:text-primary/90 transition-colors text-sm font-semibold mt-4"
                   >
                     View All Parts →
                   </Link>
                 </div>
               ) : (
                 <Card>
-                  <p className="text-neutral-400 text-center py-4 text-sm">
+                  <p className="text-muted-foreground text-center py-4 text-sm">
                     No parts yet
                   </p>
                 </Card>
@@ -315,7 +315,7 @@ export default function HomePage() {
             {/* Quick Actions */}
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-linear-to-br from-emerald-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-success to-primary rounded-lg flex items-center justify-center">
                   <GiCarWheel className="text-white text-lg" />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Quick Actions</h2>
@@ -382,40 +382,40 @@ export default function HomePage() {
 
         {/* Stats Banner */}
         <div className="mt-12">
-          <Card className="glass-card">
+          <Card variant="glass">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center max-w-4xl mx-auto">
               <div className="animate-slideInUp">
-                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
                   {buildListsCountData?.count ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">Build Lists</div>
+                <div className="text-sm text-muted-foreground">Build Lists</div>
               </div>
               <div
                 className="animate-slideInUp"
                 style={{ animationDelay: '0.1s' }}
               >
-                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
                   {partsCountData?.count ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">Parts</div>
+                <div className="text-sm text-muted-foreground">Parts</div>
               </div>
               <div
                 className="animate-slideInUp"
                 style={{ animationDelay: '0.2s' }}
               >
-                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
                   {retailersCountData?.count ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">Retailers</div>
+                <div className="text-sm text-muted-foreground">Retailers</div>
               </div>
               <div
                 className="animate-slideInUp"
                 style={{ animationDelay: '0.3s' }}
               >
-                <div className="text-3xl md:text-4xl font-bold text-primary-400 mb-2">
+                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
                   {partManufacturersCountData?.count ?? '—'}
                 </div>
-                <div className="text-sm text-neutral-400">
+                <div className="text-sm text-muted-foreground">
                   Part Manufacturers
                 </div>
               </div>

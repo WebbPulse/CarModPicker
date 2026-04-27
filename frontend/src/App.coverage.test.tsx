@@ -3,6 +3,8 @@ import type { ComponentType, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ALL_ROUTES, type RouteGroup } from './test/route-coverage-list';
+
 /**
  * Phase 6 FE-03 / D-10 / D-24 — parametrized App-level route-group coverage.
  *
@@ -128,68 +130,13 @@ vi.mock('./hooks/useAppSettings', () => ({
 // but ordering here is intentional for reader clarity).
 import App from './App';
 
-type RouteGroup = 'admin' | 'authentication' | 'builder' | 'public';
-
-// Hand-maintained enumeration of every <Route path> in App.tsx with its
-// expected RouteGroupBoundary group. Source-of-truth count:
+// ALL_ROUTES + RouteGroup are imported from ./test/route-coverage-list so that
+// frontend/e2e/polish-coverage.spec.ts (M003/S05/T06) can consume the same
+// list under the e2e/Playwright tsconfig (which excludes other src/* files).
+// Source-of-truth count:
 //   `grep -cE 'path="' frontend/src/App.tsx` returns 38 (2026-04-25).
-// PR-review rule: any new <Route> in App.tsx requires a matching entry here,
+// PR-review rule: any new <Route> in App.tsx requires a matching entry there,
 // otherwise the drift guard below fails CI.
-const ALL_ROUTES: ReadonlyArray<{ path: string; group: RouteGroup }> = [
-  // ── public ── 21 entries: 20 real paths + 1 nonexistent to exercise `*` 404
-  { path: '/', group: 'public' },
-  { path: '/about', group: 'public' },
-  { path: '/privacy-policy', group: 'public' },
-  { path: '/terms-of-service', group: 'public' },
-  { path: '/contact-us', group: 'public' },
-  { path: '/support', group: 'public' },
-  { path: '/pricing', group: 'public' },
-  { path: '/bug-report', group: 'public' },
-  { path: '/search', group: 'public' },
-  { path: '/user/00000000-0000-0000-0000-000000000000', group: 'public' },
-  { path: '/verify-email/confirm', group: 'public' },
-  { path: '/forgot-password/confirm', group: 'public' },
-  { path: '/extension-auth', group: 'public' },
-  { path: '/car-generations/some-car', group: 'public' },
-  { path: '/build-lists/00000000-0000-0000-0000-000000000000', group: 'public' },
-  {
-    path: '/build-lists/00000000-0000-0000-0000-000000000000/build-log',
-    group: 'public',
-  },
-  { path: '/build-lists', group: 'public' },
-  { path: '/parts/some-part/edit', group: 'public' },
-  { path: '/parts/some-part', group: 'public' },
-  { path: '/parts', group: 'public' },
-  // Dev-only kitchen-sink route (S08/T05). Mounted only when
-  // import.meta.env.DEV is true; vitest sets DEV=true so the route exists
-  // during this test and the public boundary must catch its forced throw.
-  { path: '/_kitchen-sink', group: 'public' },
-  { path: '/nonexistent-route-for-404-test', group: 'public' },
-
-  // ── authentication ── 3 entries (GuestRoute — only reachable when NOT authenticated)
-  { path: '/login', group: 'authentication' },
-  { path: '/register', group: 'authentication' },
-  { path: '/forgot-password', group: 'authentication' },
-
-  // ── builder ── 6 entries (ProtectedRoute + EmailVerifiedRoute — only reachable when AUTHENTICATED + email-verified)
-  { path: '/profile', group: 'builder' },
-  { path: '/account/alerts', group: 'builder' },
-  { path: '/builder', group: 'builder' },
-  { path: '/my-parts', group: 'builder' },
-  { path: '/checkout', group: 'builder' },
-  { path: '/verify-email', group: 'builder' },
-
-  // ── admin ── 9 entries (no auth guard around admin routes in App.tsx)
-  { path: '/admin', group: 'admin' },
-  { path: '/admin/reports', group: 'admin' },
-  { path: '/admin/bug-reports', group: 'admin' },
-  { path: '/admin/users', group: 'admin' },
-  { path: '/admin/crawler', group: 'admin' },
-  { path: '/admin/system', group: 'admin' },
-  { path: '/admin/statistics', group: 'admin' },
-  { path: '/admin/parts-curation', group: 'admin' },
-  { path: '/admin/extraction-health', group: 'admin' },
-] as const;
 
 /**
  * Select the auth state that lets a given group's routes actually mount

@@ -10,7 +10,7 @@ interface UserCardProps {
 const UserCard: React.FC<UserCardProps> = ({ user }) => {
   return (
     <Link to={`/user/${user.id}`} className="block hover:no-underline h-full">
-      <Card className="flex flex-col h-full hover:border-indigo-500 border-2 border-transparent transition-colors">
+      <Card className="flex flex-col h-full hover:border-info border-2 border-transparent transition-colors">
         <div className="flex items-center gap-4">
           {user.image_urls?.[0] ? (
             <img
@@ -26,7 +26,7 @@ const UserCard: React.FC<UserCardProps> = ({ user }) => {
             </div>
           )}
           <div className="flex-grow">
-            <h3 className="text-lg font-semibold text-indigo-400 mb-1">
+            <h3 className="text-lg font-semibold text-info mb-1">
               {user.username}
             </h3>
             <p className="text-sm text-gray-400">{user.email}</p>

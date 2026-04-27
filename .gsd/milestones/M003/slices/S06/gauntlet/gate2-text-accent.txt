@@ -1,0 +1,2 @@
+$ rg 'text-accent-(emerald|amber|rose|purple)' frontend/src/{components,pages,contexts,hooks,api,lib,__tests__}/
+EXIT_CODE: 1 (zero hits = pass)

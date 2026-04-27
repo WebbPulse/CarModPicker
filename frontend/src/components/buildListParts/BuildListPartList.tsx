@@ -315,7 +315,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                         />
                       </div>
                       <span
-                        className={`font-medium truncate block min-w-0 group-hover:text-indigo-300 ${
+                        className={`font-medium truncate block min-w-0 group-hover:text-info ${
                           purchased
                             ? 'text-gray-400 line-through'
                             : 'text-gray-200'
@@ -746,7 +746,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                     </p>
                   </div>
                 </div>
-                <p className="text-xl font-bold text-emerald-400 mt-2">
+                <p className="text-xl font-bold text-success mt-2">
                   {formatPrice(purchasedPrice)}
                 </p>
               </div>

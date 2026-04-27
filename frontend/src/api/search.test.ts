@@ -1,7 +1,7 @@
 // Tests for searchApi (frontend/src/api/search.ts).
 // Plan 08-06 (Wave 1, Utility cluster).
 //
-// Canonical skeleton: PATTERNS.md §7. apiClient is auto-mocked by
+// Canonical scaffold: PATTERNS.md §7. apiClient is auto-mocked by
 // frontend/src/test/setup.ts (D-18), so no per-file vi.mock is required.
 //
 // Narrow the mocked HTTP-verb references at module scope via a cast to

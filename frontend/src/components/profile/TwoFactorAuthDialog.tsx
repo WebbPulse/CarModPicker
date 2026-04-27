@@ -159,7 +159,7 @@ function TwoFactorAuthDialog({
           {!isEnabled && !setupData && (
             <div className="space-y-4">
               <div className="flex items-center space-x-3 text-gray-300">
-                <FaShieldAlt className="text-primary-400 text-2xl" />
+                <FaShieldAlt className="text-primary text-2xl" />
                 <div>
                   <h3 className="text-lg font-semibold">
                     Enable Two-Factor Authentication
@@ -214,7 +214,7 @@ function TwoFactorAuthDialog({
                 <p className="text-sm text-gray-400 mb-2">
                   Or enter this code manually:
                 </p>
-                <p className="text-sm font-mono text-primary-400 bg-gray-800/50 p-2 rounded">
+                <p className="text-sm font-mono text-primary bg-gray-800/50 p-2 rounded">
                   {setupData.manual_entry_key}
                 </p>
               </div>
@@ -222,7 +222,7 @@ function TwoFactorAuthDialog({
               <div>
                 <label
                   htmlFor="2fa-setup-otp"
-                  className="block text-sm font-medium text-neutral-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Enter 6-digit code from your app
                 </label>
@@ -301,7 +301,7 @@ function TwoFactorAuthDialog({
                 <div>
                   <label
                     htmlFor="2fa-disable-password"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     Password
                   </label>
@@ -333,7 +333,7 @@ function TwoFactorAuthDialog({
                 <div>
                   <label
                     htmlFor="2fa-disable-otp"
-                    className="block text-sm font-medium text-neutral-300 mb-2"
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
                     2FA Code
                   </label>
@@ -363,7 +363,7 @@ function TwoFactorAuthDialog({
                       className="pl-10"
                     />
                   </div>
-                  <div className="mt-2 text-sm text-neutral-400">
+                  <div className="mt-2 text-sm text-muted-foreground">
                     Enter the 6-digit code from your authenticator app
                   </div>
                 </div>
