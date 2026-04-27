@@ -223,6 +223,14 @@ resource "aws_ecs_task_definition" "crawler" {
       { name = "SENTRY_RELEASE", value = var.sentry_release },
       { name = "SENTRY_SERVICE_NAME", value = "ecs-crawler" },
       { name = "AWS_EMF_ENVIRONMENT", value = "Local" },
+
+      # RDS connection budget. db.t4g.micro caps at ~87 max_connections;
+      # App Runner already burns up to DB_POOL_SIZE+DB_MAX_OVERFLOW=50
+      # per process. Cap rescrape parallelism low so it can't push RDS
+      # into the rds_reserved-only zone while a live crawl or admin
+      # browsing is in flight. Live crawler workers fall back to the
+      # auto-derived budget in _compute_adapter_workers (currently 30).
+      { name = "CRAWLER_RESCRAPE_MAX_WORKERS", value = "10" },
     ]
 
     secrets = [

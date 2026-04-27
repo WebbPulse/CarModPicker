@@ -18,14 +18,18 @@ _DB_RETRY_DELAY_SEC = 0.3
 # Get settings using the function (which could be overridden in tests)
 settings = get_settings()
 
-# Sized so admin crawler runs can scale to the full adapter catalog (~64
-# parallel workers) while keeping ``API_CONNECTION_RESERVE`` connections
-# free for live traffic. Each parallel adapter holds one ``SessionLocal``
-# for its entire run (see ``crawlers/runner.py``), so total capacity must
-# fit ``crawler_workers + API_CONNECTION_RESERVE``. The crawler runner
-# reads these constants to auto-size its ThreadPoolExecutor.
+# Sized for the production RDS instance class (db.t4g.micro, ~87
+# max_connections). Two processes share this engine config — App Runner
+# (live API) and Fargate (live crawl + archive rescrape) — so the per-
+# process ceiling (DB_POOL_SIZE + DB_MAX_OVERFLOW = 50) must leave
+# headroom for the other process plus rds_reserved. Each parallel
+# crawler adapter and each rescrape worker holds one ``SessionLocal`` for
+# its full run, so the worker budget is auto-derived as
+# ``DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE`` and can be
+# capped further via ``CRAWLER_MAX_ADAPTER_WORKERS`` /
+# ``CRAWLER_RESCRAPE_MAX_WORKERS``.
 DB_POOL_SIZE = 25
-DB_MAX_OVERFLOW = 75
+DB_MAX_OVERFLOW = 25
 API_CONNECTION_RESERVE = 20
 
 engine = create_engine(
