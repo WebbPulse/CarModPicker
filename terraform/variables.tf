@@ -81,15 +81,15 @@ variable "crawler_default_category_id" {
 # ECS Fargate — Crawler task compute
 # ---------------------------------------------------------------------------
 variable "crawler_ecs_cpu" {
-  description = "CPU units for the ECS crawler task (256 = 0.25 vCPU)"
+  description = "CPU units for the ECS crawler task (512 = 0.5 vCPU)"
   type        = string
-  default     = "256"
+  default     = "512"
 }
 
 variable "crawler_ecs_memory" {
   description = "Memory in MB for the ECS crawler task"
   type        = string
-  default     = "512"
+  default     = "2048"
 }
 
 # ---------------------------------------------------------------------------
