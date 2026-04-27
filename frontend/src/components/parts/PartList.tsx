@@ -3,28 +3,25 @@ import { Link } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
-import ResponsiveTableWrapper from '../tables/ResponsiveTableWrapper';
 import { carGenerationsApi, partVotesApi, partsApi } from '../../services/Api';
 import type {
-  PartManufacturerResponse,
   CarGenerationRead,
   CategoryResponse,
-  PartReadWithVotes,
   PaginationInfo,
+  PartManufacturerResponse,
+  PartReadWithVotes,
 } from '../../types/Api';
+import ResponsiveTableWrapper from '../tables/ResponsiveTableWrapper';
 
 import { CACHE_DURATION_MS } from '../../constants';
-import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import { carFullDisplayName } from '../../utils/carUtils';
-import { usePartPriceSummaries } from '../../hooks/usePartPriceSummaries';
+import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import SectionHeader from '../layout/SectionHeader';
 import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import Spinner from '../ui/spinner';
-import SectionHeader from '../layout/SectionHeader';
-import PriceDeltaLine from './PriceDeltaLine';
-import SparklineCell from './SparklineCell';
 import VoteButtons from './VoteButtons';
 
 // Simple cache for global parts data to improve UX when switching between pages
@@ -502,12 +499,6 @@ function PartList({
   const errorState = providedData ? null : error;
   const parts = providedData ?? displayData;
 
-  // Batch-fetch price-history summaries for the displayed page in a single
-  // POST. The hook handles empty-IDs short-circuit, debounce on stable key,
-  // and silent failure (console.warn + empty summaries map) — see S06/T01.
-  const partIds = useMemo(() => (parts ?? []).map((p) => p.id), [parts]);
-  const { summaries: priceSummaries } = usePartPriceSummaries(partIds, '90d');
-
   // Hooks must be called unconditionally, before any early returns
   const getCategoryName = useCallback(
     (categoryId: string) => {
@@ -820,24 +811,13 @@ function PartList({
                   )}
                   {visibleColumns.includes('price') && (
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="flex flex-col items-end leading-tight">
-                          {part.best_price_cents != null ? (
-                            <span className="font-semibold text-green-400">
-                              ${(part.best_price_cents / 100).toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">—</span>
-                          )}
-                          <PriceDeltaLine summary={priceSummaries[part.id]} />
-                        </div>
-                        <SparklineCell
-                          partId={part.id}
-                          summary={priceSummaries[part.id]}
-                          width={60}
-                          height={16}
-                        />
-                      </div>
+                      {part.best_price_cents != null ? (
+                        <span className="font-semibold text-green-400">
+                          ${(part.best_price_cents / 100).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('actions') && (
@@ -954,15 +934,6 @@ function PartList({
                             {part.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <PriceDeltaLine summary={priceSummaries[part.id]} />
-                          <SparklineCell
-                            partId={part.id}
-                            summary={priceSummaries[part.id]}
-                            width={120}
-                            height={24}
-                          />
-                        </div>
                       </div>
                       {part.best_price_cents != null && (
                         <div className="flex-shrink-0 text-right">
