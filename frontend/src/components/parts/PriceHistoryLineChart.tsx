@@ -251,32 +251,10 @@ export default function PriceHistoryLineChart({
           })()
         : null;
 
-    // A retailer gets a carry-over marker only when its first in-window
-    // observation isn't already at the window start (or when it has no
-    // in-window data at all). Skipping retailers that already start at
-    // cutoffMs avoids inflating the y-range with carry-over prices that
-    // would never render.
-    const carryOverActive = new Map<
-      string,
-      { price_cents: number; observed_at: string }
-    >();
-    if (cutoffMs !== null && lastKnownBeforeWindow !== null) {
-      const inWindowFirstX = new Map<string, number>();
-      for (const d of aggregated) {
-        const x = dayStartMs(d.observed_at);
-        const cur = inWindowFirstX.get(d.retailer_name);
-        if (cur === undefined || x < cur) inWindowFirstX.set(d.retailer_name, x);
-      }
-      for (const [retailer, value] of lastKnownBeforeWindow) {
-        const firstX = inWindowFirstX.get(retailer);
-        if (firstX === undefined || firstX > cutoffMs) {
-          carryOverActive.set(retailer, value);
-        }
-      }
-    }
-
     const prices = aggregated.map((d) => d.price_cents);
-    for (const v of carryOverActive.values()) prices.push(v.price_cents);
+    if (lastKnownBeforeWindow) {
+      for (const v of lastKnownBeforeWindow.values()) prices.push(v.price_cents);
+    }
     const priceMin = prices.length > 0 ? Math.min(...prices) : 0;
     const priceMax = prices.length > 0 ? Math.max(...prices) : 10000;
     const pricePadding = Math.max((priceMax - priceMin) * 0.1, 100);
@@ -310,9 +288,11 @@ export default function PriceHistoryLineChart({
       ...new Set(aggregated.map((d) => d.retailer_name)),
     ];
     const retailersInWindowSet = new Set(retailersInWindow);
-    const carryOverOnlyRetailers = [...carryOverActive.keys()].filter(
-      (r) => !retailersInWindowSet.has(r)
-    );
+    const carryOverOnlyRetailers = lastKnownBeforeWindow
+      ? [...lastKnownBeforeWindow.keys()].filter(
+          (r) => !retailersInWindowSet.has(r)
+        )
+      : [];
     const retailers = [...retailersInWindow, ...carryOverOnlyRetailers];
     const retailerColors = Object.fromEntries(
       retailers.map((name, i) => [
@@ -337,17 +317,36 @@ export default function PriceHistoryLineChart({
         .sort((a, b) => a.x - b.x);
 
       const carryOver =
-        cutoffMs !== null ? carryOverActive.get(retailerName) : undefined;
-      if (carryOver && cutoffMs !== null) {
-        points = [
-          {
-            x: cutoffMs,
-            y: carryOver.price_cents,
-            observedAt: carryOver.observed_at,
-            isCarryOver: true,
-          },
-          ...points,
-        ];
+        cutoffMs !== null && lastKnownBeforeWindow !== null
+          ? lastKnownBeforeWindow.get(retailerName)
+          : undefined;
+      if (carryOver) {
+        // Pin to the y-axis (xMin) when the original observation is off-chart,
+        // otherwise show at its natural day position. The point's `observedAt`
+        // still carries the real date, which the date label and tooltip use.
+        const carryOverX = Math.max(
+          xMin,
+          dayStartMs(carryOver.observed_at)
+        );
+        const firstInWindowX = points[0]?.x;
+        // Skip when the carry-over would land exactly on the first in-window
+        // point — same x AND same price means the dashed segment is zero-
+        // length and the markers stack with no story to tell.
+        const wouldOverlapExactly =
+          firstInWindowX !== undefined &&
+          firstInWindowX === carryOverX &&
+          points[0]!.y === carryOver.price_cents;
+        if (!wouldOverlapExactly) {
+          points = [
+            {
+              x: carryOverX,
+              y: carryOver.price_cents,
+              observedAt: carryOver.observed_at,
+              isCarryOver: true,
+            },
+            ...points,
+          ];
+        }
       }
 
       const fullPathD = points
@@ -434,7 +433,12 @@ export default function PriceHistoryLineChart({
 
     const xTickValuesRaw: Date[] = [];
     const startDate = new Date(xMin);
-    const maxXTicks = 8;
+    // Cap label density to whatever the chart width can accommodate without
+    // labels colliding. Each "MM/DD/YY" label is ~60px wide including a small
+    // gap, so we floor the available chart width by 70 for breathing room.
+    // Clamp to [2, 8] so very narrow widths still show endpoints and we never
+    // exceed the historical max.
+    const maxXTicks = Math.max(2, Math.min(8, Math.floor(chartWidth / 70)));
     const dayCount = Math.ceil(xRange / MS_PER_DAY);
     const step = Math.max(1, Math.ceil(dayCount / maxXTicks));
     const tickDate = new Date(

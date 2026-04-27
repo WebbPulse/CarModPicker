@@ -505,28 +505,7 @@ function ViewPart() {
           </div>
         </div>
 
-        {/* Voting Section */}
-        {partWithVotes && (
-          <div className="mb-6 p-4 bg-gray-800 rounded-lg">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">
-                Community Rating
-              </h3>
-              <VoteButtons
-                entityId={part.id}
-                upvotes={partWithVotes.upvotes}
-                downvotes={partWithVotes.downvotes}
-                userVote={partWithVotes.user_vote ?? null}
-                onVoteUpdate={handleVoteUpdate}
-                voteApi={{
-                  voteOnEntity: (id, data) => partVotesApi.voteOnPart(id, data),
-                  removeVote: (id) => partVotesApi.removeVote(id),
-                }}
-                size="lg"
-              />
-            </div>
-          </div>
-        )}
+        <Divider />
 
         {/* Part images (left half) + description (right half) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
@@ -671,17 +650,39 @@ function ViewPart() {
           </CardInfoItem>
         </div>
 
-        {/* Price by retailer — collapsed block per MEM150: a single table
-            joining priceSummary.retailers (last/min/max/sparkline source)
-            to listingsData (product_url for the outbound link). */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <SectionHeader title="Price by retailer" />
-            <PriceAlertSubscribeButton
-              partId={part.id}
-              currentBestPriceCents={part.best_price_cents ?? null}
-            />
+        {/* Community rating sits as a slim row just above the pricing block:
+            voting is a secondary action best surfaced after the reader has
+            evaluated specs/fitment, so we keep it out of the top-of-card
+            real estate. Constrained to the left column so it doesn't span
+            the full card width. */}
+        {partWithVotes && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="flex items-center gap-4 border-y border-gray-700/50 py-3 min-w-0">
+              <span className="text-sm font-medium text-gray-300">
+                Community Rating
+              </span>
+              <VoteButtons
+                entityId={part.id}
+                upvotes={partWithVotes.upvotes}
+                downvotes={partWithVotes.downvotes}
+                userVote={partWithVotes.user_vote ?? null}
+                onVoteUpdate={handleVoteUpdate}
+                voteApi={{
+                  voteOnEntity: (id, data) => partVotesApi.voteOnPart(id, data),
+                  removeVote: (id) => partVotesApi.removeVote(id),
+                }}
+                size="md"
+              />
+            </div>
           </div>
+        )}
+
+        {/* Pricing — chart (left) and per-retailer outbound links (right) live
+            side-by-side under their own column headings. Only the Price
+            history column gets its own sub-card; the retailer list stays
+            inline with the surrounding part-info layout. The price-alert
+            subscribe button sits inside that card, above the chart. */}
+        <div className="mb-6">
           {priceSummaryApiError && (
             <p className="text-sm text-gray-400">Price summary unavailable</p>
           )}
@@ -786,24 +787,29 @@ function ViewPart() {
               // even when the API returned a slightly larger rolling window.
               const sparkCutoffMs = getDateRangeStartMs(historyDateRange);
 
+              const summaryLine =
+                summary && observationCount > 0 ? (
+                  <p
+                    data-testid="price-summary-header"
+                    className="text-sm text-gray-400 mb-3"
+                  >
+                    {formatCents(summary.min_cents)}–
+                    {formatCents(summary.max_cents)} across {retailers.length}{' '}
+                    {retailers.length === 1 ? 'retailer' : 'retailers'}
+                    {headerLastObserved && (
+                      <>
+                        , last observed {trendArrow(summary.trend)}{' '}
+                        {headerLastObserved}
+                      </>
+                    )}
+                  </p>
+                ) : null;
               return (
                 <>
-                  {summary && observationCount > 0 && (
-                    <p
-                      data-testid="price-summary-header"
-                      className="text-sm text-gray-400 mb-3"
-                    >
-                      {formatCents(summary.min_cents)}–
-                      {formatCents(summary.max_cents)} across {retailers.length}{' '}
-                      {retailers.length === 1 ? 'retailer' : 'retailers'}
-                      {headerLastObserved && (
-                        <>
-                          , last observed {trendArrow(summary.trend)}{' '}
-                          {headerLastObserved}
-                        </>
-                      )}
-                    </p>
-                  )}
+                  {/* When the chart is showing, the summary lives under its
+                      heading; in the no-chart fallback, render it above the
+                      retailer list so the stat line still appears. */}
+                  {!showChart && summaryLine}
                   <div
                     className={
                       showChart
@@ -813,15 +819,29 @@ function ViewPart() {
                   >
                     {showChart && (
                       <div className="min-w-0">
-                        <PriceHistoryLineChart
-                          data={history}
-                          dateRange={historyDateRange}
-                          onDateRangeChange={setHistoryDateRange}
-                          isLoading={isLoadingPriceSummary}
-                        />
+                        <SectionHeader title="Price history" />
+                        {summaryLine}
+                        <div className="mb-4">
+                          <PriceAlertSubscribeButton
+                            partId={part.id}
+                            currentBestPriceCents={
+                              part.best_price_cents ?? null
+                            }
+                          />
+                        </div>
+                        <Card variant="glass" padding="md">
+                          <PriceHistoryLineChart
+                            data={history}
+                            dateRange={historyDateRange}
+                            onDateRangeChange={setHistoryDateRange}
+                            isLoading={isLoadingPriceSummary}
+                          />
+                        </Card>
                       </div>
                     )}
-                    <ul className="space-y-3 min-w-0">
+                    <div className="min-w-0">
+                      <SectionHeader title="Price by retailer" />
+                      <ul className="space-y-3">
                     {rows.map((row) => {
                       const observedAt = row.lastObservedAt
                         ? new Date(row.lastObservedAt)
@@ -831,7 +851,7 @@ function ViewPart() {
                         (Date.now() - observedAt.getTime()) /
                           (1000 * 60 * 60 * 24) >
                           STALE_LISTING_THRESHOLD_DAYS;
-                      const sparkHistory = row.fromHistory
+                      const inWindowHistory = row.fromHistory
                         ? (priceSummary?.history ?? []).filter(
                             (h) =>
                               h.retailer_id === row.retailerId &&
@@ -840,6 +860,18 @@ function ViewPart() {
                                   sparkCutoffMs)
                           )
                         : [];
+                      // Mirror the main chart's carry-over: prepend the
+                      // retailer's pre-window anchor so the sparkline trends
+                      // from the last known price into the in-window data
+                      // instead of stranding a single point.
+                      const retailerAnchor = row.fromHistory
+                        ? (priceSummary?.pre_window_anchors ?? []).find(
+                            (a) => a.retailer_id === row.retailerId
+                          )
+                        : undefined;
+                      const sparkHistory = retailerAnchor
+                        ? [retailerAnchor, ...inWindowHistory]
+                        : inWindowHistory;
                       return (
                         <li
                           key={row.retailerId}
@@ -891,7 +923,8 @@ function ViewPart() {
                         </li>
                       );
                     })}
-                  </ul>
+                      </ul>
+                    </div>
                   </div>
                 </>
               );
