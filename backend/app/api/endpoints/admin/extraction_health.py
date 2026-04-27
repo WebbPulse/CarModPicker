@@ -88,11 +88,7 @@ def _empty_specs_or_null():
     pulling crawler-runtime imports into the FastAPI request path.
     """
     cast_specs = cast(DBPart.specifications, String)
-    return (
-        DBPart.specifications.is_(None)
-        | (cast_specs == "{}")
-        | (cast_specs == "null")
-    )
+    return DBPart.specifications.is_(None) | (cast_specs == "{}") | (cast_specs == "null")
 
 
 def _field_present_count(
@@ -124,9 +120,7 @@ def _field_present_count(
         # JSON-typed expression matches present-and-not-null entries.
         present_clause = DBPart.specifications[field_name].isnot(None)
     else:
-        raise NotImplementedError(
-            f"_field_present_count: unsupported dialect {dialect!r}"
-        )
+        raise NotImplementedError(f"_field_present_count: unsupported dialect {dialect!r}")
 
     stmt = (
         select(func.count(func.distinct(DBPart.id)))
@@ -163,10 +157,7 @@ def _compute_compliance() -> ComplianceBlock:
         total_count += 1
         per_tier_counts[tier] = (compliant, total)
 
-    per_tier_str = {
-        tier: f"{compliant}/{total}"
-        for tier, (compliant, total) in per_tier_counts.items()
-    }
+    per_tier_str = {tier: f"{compliant}/{total}" for tier, (compliant, total) in per_tier_counts.items()}
 
     return ComplianceBlock(
         compliant=total_compliant,

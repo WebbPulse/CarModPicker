@@ -100,9 +100,7 @@ async def delete_build_list_phase(
 
     # Unassign parts from this phase
     db.execute(
-        update(DBBuildListPart)
-        .where(DBBuildListPart.build_list_phase_id == phase_id)
-        .values(build_list_phase_id=None)
+        update(DBBuildListPart).where(DBBuildListPart.build_list_phase_id == phase_id).values(build_list_phase_id=None)
     )
 
     deleted_data = BuildListPhaseRead.model_validate(db_phase)

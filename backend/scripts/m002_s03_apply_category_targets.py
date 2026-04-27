@@ -52,9 +52,7 @@ SKIP_FILES = {"__init__.py", "base.py", "generic.py"}
 
 #: Capture the ADAPTER_NAME slug literal and the leading whitespace so the new
 #: line lands at the same indentation. Tolerates double or single quotes.
-ADAPTER_NAME_RE = re.compile(
-    r'^(?P<indent>[ \t]*)ADAPTER_NAME\s*:\s*ClassVar\[str\]\s*=\s*["\'](?P<slug>[^"\']+)["\']'
-)
+ADAPTER_NAME_RE = re.compile(r'^(?P<indent>[ \t]*)ADAPTER_NAME\s*:\s*ClassVar\[str\]\s*=\s*["\'](?P<slug>[^"\']+)["\']')
 EXISTING_TARGETS_RE = re.compile(r"^[ \t]*category_targets\s*[:=]")
 
 

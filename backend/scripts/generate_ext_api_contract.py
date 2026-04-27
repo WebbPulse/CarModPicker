@@ -63,9 +63,7 @@ def resolve_ref(ref: str, schemas: dict[str, Any]) -> dict[str, Any]:
     return schemas.get(name, {})
 
 
-def flatten_schema(
-    schema: dict[str, Any], schemas: dict[str, Any], depth: int = 0
-) -> dict[str, Any]:
+def flatten_schema(schema: dict[str, Any], schemas: dict[str, Any], depth: int = 0) -> dict[str, Any]:
     """Inline ``$ref``-driven references up to depth 3 so the Markdown is human-readable."""
     if depth > 3:
         return schema
@@ -74,10 +72,7 @@ def flatten_schema(
     if "properties" in schema:
         return {
             **schema,
-            "properties": {
-                k: flatten_schema(v, schemas, depth + 1)
-                for k, v in schema["properties"].items()
-            },
+            "properties": {k: flatten_schema(v, schemas, depth + 1) for k, v in schema["properties"].items()},
         }
     return schema
 

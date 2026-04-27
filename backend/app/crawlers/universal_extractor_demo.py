@@ -43,7 +43,6 @@ from typing import Iterable, List, Tuple
 # adapters package has been walked. Importing the registry here forces that.
 from app.crawlers.adapters import ADAPTER_REGISTRY
 
-
 # Adapter slugs to demo against — each must have a tracked product.html
 # fixture under tests/crawlers/fixtures/<slug>/. Keep in lockstep with the
 # slice plan and the subprocess test in test_universal_extractor.py.
@@ -91,8 +90,7 @@ def _summary_for_adapter(adapter_slug: str, fixtures_root: Path) -> str:
     """
     if adapter_slug not in ADAPTER_REGISTRY:
         raise KeyError(
-            f"adapter {adapter_slug!r} not in ADAPTER_REGISTRY; "
-            f"known: {sorted(ADAPTER_REGISTRY)[:8]}..."
+            f"adapter {adapter_slug!r} not in ADAPTER_REGISTRY; " f"known: {sorted(ADAPTER_REGISTRY)[:8]}..."
         )
     fixture_path = fixtures_root / adapter_slug / "product.html"
     if not fixture_path.is_file():

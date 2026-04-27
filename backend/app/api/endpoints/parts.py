@@ -622,8 +622,7 @@ async def read_parts_with_votes(
     user_votes_dict: Dict[UUID, str] = {}
     if current_user:
         user_votes = db.execute(
-            select(DBVote.entity_id, DBVote.vote_type)
-            .where(
+            select(DBVote.entity_id, DBVote.vote_type).where(
                 DBVote.entity_type == "part",
                 DBVote.entity_id.in_(part_ids),
                 DBVote.user_id == current_user.id,
@@ -766,17 +765,11 @@ async def get_parts_filter_options(
         include_ugc=include_ugc,
     )
     available_categories = list(
-        db.scalars(
-            q.with_only_columns(DBPart.category_id)
-            .distinct()
-            .where(DBPart.category_id.isnot(None))
-        ).all()
+        db.scalars(q.with_only_columns(DBPart.category_id).distinct().where(DBPart.category_id.isnot(None))).all()
     )
     available_part_manufacturers = list(
         db.scalars(
-            q.with_only_columns(DBPart.part_manufacturer_id)
-            .distinct()
-            .where(DBPart.part_manufacturer_id.isnot(None))
+            q.with_only_columns(DBPart.part_manufacturer_id).distinct().where(DBPart.part_manufacturer_id.isnot(None))
         ).all()
     )
     result: Dict[str, Any] = {
@@ -954,9 +947,7 @@ async def create_or_update_part_listing(
     db.commit()
     db.refresh(listing)
     listing_with_retailer = db.scalars(
-        select(DBPartListing)
-        .where(DBPartListing.id == listing.id)
-        .options(joinedload(DBPartListing.retailer))
+        select(DBPartListing).where(DBPartListing.id == listing.id).options(joinedload(DBPartListing.retailer))
     ).first()
     return PartListingReadWithRetailer.model_validate(listing_with_retailer)
 
@@ -1289,9 +1280,7 @@ async def count_parts_by_user(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
     """Count parts created by a specific user."""
-    count = deps["db"].scalar(
-        select(func.count()).select_from(DBPart).where(DBPart.user_id == user_id)
-    ) or 0
+    count = deps["db"].scalar(select(func.count()).select_from(DBPart).where(DBPart.user_id == user_id)) or 0
     return {"count": count}
 
 

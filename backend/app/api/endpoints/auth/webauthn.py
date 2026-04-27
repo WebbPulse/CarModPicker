@@ -285,11 +285,13 @@ async def list_webauthn_credentials(
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WebAuthnCredentialSummary]:
-    creds = list(db.scalars(
-        select(WebAuthnCredential)
-        .where(WebAuthnCredential.user_id == current_user.id)
-        .order_by(WebAuthnCredential.created_at.desc())
-    ).all())
+    creds = list(
+        db.scalars(
+            select(WebAuthnCredential)
+            .where(WebAuthnCredential.user_id == current_user.id)
+            .order_by(WebAuthnCredential.created_at.desc())
+        ).all()
+    )
     return [WebAuthnCredentialSummary.model_validate(c) for c in creds]
 
 
@@ -304,8 +306,9 @@ async def rename_webauthn_credential(
     if not nickname:
         ResponsePatterns.raise_bad_request("Nickname cannot be empty")
     cred = db.scalars(
-        select(WebAuthnCredential)
-        .where(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
+        select(WebAuthnCredential).where(
+            WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id
+        )
     ).first()
     if not cred:
         ResponsePatterns.raise_not_found("Passkey")
@@ -322,8 +325,9 @@ async def delete_webauthn_credential(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     cred = db.scalars(
-        select(WebAuthnCredential)
-        .where(WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id)
+        select(WebAuthnCredential).where(
+            WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id
+        )
     ).first()
     if not cred:
         ResponsePatterns.raise_not_found("Passkey")

@@ -42,7 +42,9 @@ class RetailerService(BaseCRUDService[DBRetailer, RetailerCreate, RetailerRead, 
 
     def get_active_retailers(self, db: Session) -> List[DBRetailer]:
         """Get all active retailers ordered by name."""
-        return list(db.scalars(select(DBRetailer).where(DBRetailer.is_active.is_(True)).order_by(DBRetailer.name)).all())
+        return list(
+            db.scalars(select(DBRetailer).where(DBRetailer.is_active.is_(True)).order_by(DBRetailer.name)).all()
+        )
 
 
 router = APIRouter()
@@ -215,7 +217,9 @@ async def delete_retailer(
     """Delete a retailer (admin only)."""
     db = deps["db"]
     db_retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
-    listings_count = db.scalar(select(func.count()).select_from(DBPartListing).where(DBPartListing.retailer_id == retailer_id)) or 0
+    listings_count = (
+        db.scalar(select(func.count()).select_from(DBPartListing).where(DBPartListing.retailer_id == retailer_id)) or 0
+    )
     if listings_count > 0:
         ResponsePatterns.raise_conflict(
             f"Cannot delete retailer that has {listings_count} part listing(s)",

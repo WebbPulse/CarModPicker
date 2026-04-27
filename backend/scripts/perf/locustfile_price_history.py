@@ -32,9 +32,7 @@ from locust.env import Environment
 
 # Default pool location — overridable via PART_ID_POOL env var so a contributor
 # can point locust at a custom pool without editing this file.
-_DEFAULT_POOL_PATH = (
-    Path(__file__).resolve().parent.parent.parent / ".perf-runs" / "part-id-pool.json"
-)
+_DEFAULT_POOL_PATH = Path(__file__).resolve().parent.parent.parent / ".perf-runs" / "part-id-pool.json"
 PART_ID_POOL_PATH = Path(os.environ.get("PART_ID_POOL_PATH", str(_DEFAULT_POOL_PATH)))
 
 WINDOW = os.environ.get("PERF_WINDOW", "90d")

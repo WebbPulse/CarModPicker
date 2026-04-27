@@ -192,27 +192,33 @@ class BaseVoteService(Generic[VoteModelType, VoteCreateSchema, VoteReadSchema, E
         )
 
         # Get vote counts - Protocol ensures id and vote_type attributes exist
-        upvotes = db.scalar(
-            select(func.count())
-            .select_from(self.vote_model)
-            .where(
-                and_(
-                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
-                    self.vote_model.vote_type == "upvote",  # type: ignore[arg-type]
+        upvotes = (
+            db.scalar(
+                select(func.count())
+                .select_from(self.vote_model)
+                .where(
+                    and_(
+                        getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
+                        self.vote_model.vote_type == "upvote",  # type: ignore[arg-type]
+                    )
                 )
             )
-        ) or 0
+            or 0
+        )
 
-        downvotes = db.scalar(
-            select(func.count())
-            .select_from(self.vote_model)
-            .where(
-                and_(
-                    getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
-                    self.vote_model.vote_type == "downvote",  # type: ignore[arg-type]
+        downvotes = (
+            db.scalar(
+                select(func.count())
+                .select_from(self.vote_model)
+                .where(
+                    and_(
+                        getattr(self.vote_model, self.vote_entity_id_field) == entity_id,
+                        self.vote_model.vote_type == "downvote",  # type: ignore[arg-type]
+                    )
                 )
             )
-        ) or 0
+            or 0
+        )
 
         total_votes = upvotes + downvotes
         score = upvotes - downvotes

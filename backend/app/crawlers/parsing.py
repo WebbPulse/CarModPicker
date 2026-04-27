@@ -665,10 +665,14 @@ def _weight_from_json_ld(html_text: str) -> Optional[Tuple[float, _Confidence]]:
         unit_str = str(unit).strip()
         # Map common UN/CEFACT unit codes that JSON-LD uses to our table.
         unit_code_map = {
-            "LBR": "lb", "LB": "lb",
-            "KGM": "kg", "KG": "kg",
-            "GRM": "g", "G": "g",
-            "ONZ": "oz", "OZ": "oz",
+            "LBR": "lb",
+            "LB": "lb",
+            "KGM": "kg",
+            "KG": "kg",
+            "GRM": "g",
+            "G": "g",
+            "ONZ": "oz",
+            "OZ": "oz",
         }
         unit_str = unit_code_map.get(unit_str.upper(), unit_str)
         grams = _to_grams(value, unit_str)

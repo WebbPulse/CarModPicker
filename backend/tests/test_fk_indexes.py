@@ -6,6 +6,7 @@ Introspection-only; no DB required (uses SQLAlchemy Table metadata).
 See .planning/phases/04-db-parts-hardening/04-CONTEXT.md D-14 and D-15 for the
 audit rules (composite-index left-prefix rule).
 """
+
 from __future__ import annotations
 
 from app.api.models.build_list import BuildList
@@ -59,8 +60,7 @@ def test_left_prefix_skip_honored() -> None:
     per D-14.
     """
     assert Vote.__table__.c["user_id"].index in (False, None), (
-        "Vote.user_id should not carry column-level index=True; "
-        "ix_votes_user_entity_type already left-prefixes it."
+        "Vote.user_id should not carry column-level index=True; " "ix_votes_user_entity_type already left-prefixes it."
     )
     assert Report.__table__.c["user_id"].index in (False, None), (
         "Report.user_id should not carry column-level index=True; "

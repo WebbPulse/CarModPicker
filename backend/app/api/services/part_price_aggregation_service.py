@@ -37,7 +37,6 @@ from app.api.schemas.part_price_history import (
 )
 from app.api.services.part_linker_service import link_group_part_ids
 
-
 _VALID_WINDOWS = {"30d", "90d", "180d", "1y", "all"}
 ALLOWED_WINDOWS: list[str] = sorted(_VALID_WINDOWS)
 
@@ -49,9 +48,7 @@ def parse_window(window: str) -> Optional[datetime]:
     outside the whitelist — the endpoint layer turns this into HTTP 422.
     """
     if window not in _VALID_WINDOWS:
-        raise ValueError(
-            f"Invalid window {window!r}; expected one of {sorted(_VALID_WINDOWS)}"
-        )
+        raise ValueError(f"Invalid window {window!r}; expected one of {sorted(_VALID_WINDOWS)}")
     if window == "all":
         return None
     now = datetime.now(UTC)
@@ -287,9 +284,7 @@ def aggregate_batch(
     # We need: for each requested part_id, the canonical_id; for each canonical_id,
     # the full list of part_ids in that group (so a request for both A and its
     # duplicate B doesn't double-count).
-    rows_self = db.execute(
-        select(DBPart.id, DBPart.canonical_part_id).where(DBPart.id.in_(part_ids))
-    ).all()
+    rows_self = db.execute(select(DBPart.id, DBPart.canonical_part_id).where(DBPart.id.in_(part_ids))).all()
     canonical_for_requested: dict[UUID, UUID] = {}
     requested_known: set[UUID] = set()
     for pid, canon in rows_self:
@@ -302,9 +297,7 @@ def aggregate_batch(
     sibling_rows: Sequence[Row[tuple[UUID, UUID | None]]] = []
     if canonical_ids:
         sibling_rows = db.execute(
-            select(DBPart.id, DBPart.canonical_part_id).where(
-                DBPart.canonical_part_id.in_(canonical_ids)
-            )
+            select(DBPart.id, DBPart.canonical_part_id).where(DBPart.canonical_part_id.in_(canonical_ids))
         ).all()
     # Map every part-row in any group → its canonical id.
     part_to_canonical: dict[UUID, UUID] = {}
@@ -332,8 +325,7 @@ def aggregate_batch(
         minmax_stmt = minmax_stmt.where(DBPartPriceHistory.observed_at >= since)
     minmax_rows = db.execute(minmax_stmt).all() if canonical_ids else []
     minmax_by_canonical: dict[UUID, tuple[Optional[int], Optional[int], int]] = {
-        row.canonical_id: (row.min_cents, row.max_cents, int(row.cnt or 0))
-        for row in minmax_rows
+        row.canonical_id: (row.min_cents, row.max_cents, int(row.cnt or 0)) for row in minmax_rows
     }
 
     # 3) Pull all in-window observations (price + observed_at) per canonical so we

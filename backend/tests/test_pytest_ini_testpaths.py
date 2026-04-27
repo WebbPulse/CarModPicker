@@ -7,8 +7,8 @@ The v1.0-MILESTONE-AUDIT.md flagged WR-01 as "pytest.ini testpaths points to
 (correct), so WR-01 was treated as non-issue by Phase 07 plan 07-01. This
 static-structure test is the permanent pin so any future drift fails CI.
 """
-from pathlib import Path
 
+from pathlib import Path
 
 _PYTEST_INI = Path(__file__).resolve().parent.parent / "pytest.ini"
 

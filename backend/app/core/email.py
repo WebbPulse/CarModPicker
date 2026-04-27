@@ -110,15 +110,10 @@ def send_price_drop_alert_email(
     )
 
     if settings.DEBUG:
-        unsubscribe_url = (
-            f"http://localhost:8000/api/part-price-alerts/unsubscribe?token={token}"
-        )
+        unsubscribe_url = f"http://localhost:8000/api/part-price-alerts/unsubscribe?token={token}"
         part_url = f"http://localhost:4000/parts/{part.id}"
     else:
-        unsubscribe_url = (
-            "https://api.carmodpicker.com/api/part-price-alerts/unsubscribe?"
-            f"token={token}"
-        )
+        unsubscribe_url = "https://api.carmodpicker.com/api/part-price-alerts/unsubscribe?" f"token={token}"
         part_url = f"https://www.carmodpicker.com/parts/{part.id}"
 
     formatted_price = f"${price_cents / 100:.2f}"

@@ -35,21 +35,15 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
         _collect_image_urls(image_urls)
 
     # Users: image_urls
-    for image_urls in db.scalars(
-        select(DBUser.image_urls).where(DBUser.image_urls.isnot(None))
-    ).all():
+    for image_urls in db.scalars(select(DBUser.image_urls).where(DBUser.image_urls.isnot(None))).all():
         _collect_image_urls(image_urls)
 
     # Cars: image_urls
-    for image_urls in db.scalars(
-        select(DBCar.image_urls).where(DBCar.image_urls.isnot(None))
-    ).all():
+    for image_urls in db.scalars(select(DBCar.image_urls).where(DBCar.image_urls.isnot(None))).all():
         _collect_image_urls(image_urls)
 
     # Build lists: image_urls
-    for image_urls in db.scalars(
-        select(DBBuildList.image_urls).where(DBBuildList.image_urls.isnot(None))
-    ).all():
+    for image_urls in db.scalars(select(DBBuildList.image_urls).where(DBBuildList.image_urls.isnot(None))).all():
         _collect_image_urls(image_urls)
 
     # Image source mappings (dedup cache)

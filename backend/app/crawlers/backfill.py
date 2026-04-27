@@ -116,11 +116,7 @@ def _select_candidate_part_ids(
     if chunk <= 0:
         return []
 
-    stmt = (
-        select(DBPart.id)
-        .join(DBCrawledPage, DBCrawledPage.part_id == DBPart.id)
-        .where(_empty_specs_filter())
-    )
+    stmt = select(DBPart.id).join(DBCrawledPage, DBCrawledPage.part_id == DBPart.id).where(_empty_specs_filter())
     if source is not None:
         stmt = stmt.where(DBCrawledPage.source == source)
     if after_part_id is not None:

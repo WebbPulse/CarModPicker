@@ -91,8 +91,7 @@ def _discover_adapters() -> None:
                             (
                                 modinfo.name,
                                 ValueError(
-                                    f"duplicate ADAPTER_NAME {name!r}: "
-                                    f"{existing.__module__} vs {attr.__module__}"
+                                    f"duplicate ADAPTER_NAME {name!r}: " f"{existing.__module__} vs {attr.__module__}"
                                 ),
                             )
                         )

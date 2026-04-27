@@ -139,8 +139,7 @@ class TestCategoryToSubslugMapping:
         # sub-slug yet — every one must bridge to universal so the hook fires.
         for category in ("wheels", "exhaust", "body", "interior", "lighting", "drivetrain", "other"):
             assert (
-                category_to_subslug(category, name="Sample Part", description="")
-                == UNIVERSAL_SUBSLUG
+                category_to_subslug(category, name="Sample Part", description="") == UNIVERSAL_SUBSLUG
             ), f"category={category!r} should resolve to universal"
 
     def test_keyword_in_wrong_parent_does_not_hijack_subslug(self) -> None:

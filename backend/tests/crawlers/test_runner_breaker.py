@@ -75,6 +75,7 @@ def _run_with_stubs(
     fake_adapter.parse_product_page.return_value = None
     # check_health returns healthy so the runner proceeds to the URL loop.
     from app.crawlers.adapters.base import HealthResult
+
     fake_adapter.check_health.return_value = HealthResult(healthy=True, reason="skipped_by_config", status_code=None)
 
     db_mock = MagicMock(wraps=db_session)

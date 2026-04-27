@@ -5,6 +5,7 @@ backend/app/api/services/build_list_service.py:82-88 and the post-backfill
 invariant asserted by D-27: SELECT COUNT(*) FROM build_lists WHERE id NOT IN
 (SELECT build_list_id FROM build_logs) = 0.
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,9 +41,7 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
     db_session.commit()
 
     # Invariant: the just-created BuildList has a BuildLog row.
-    bl_row = db_session.scalars(
-        select(DBBuildLog).where(DBBuildLog.build_list_id == bl.id)
-    ).first()
+    bl_row = db_session.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == bl.id)).first()
     assert bl_row is not None, f"BuildList {bl.id} has no eager BuildLog row"
 
 
@@ -73,8 +72,6 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
     db_session.commit()
 
     orphan_count = db_session.scalar(
-        select(func.count())
-        .select_from(DBBuildList)
-        .where(~DBBuildList.id.in_(select(DBBuildLog.build_list_id)))
+        select(func.count()).select_from(DBBuildList).where(~DBBuildList.id.in_(select(DBBuildLog.build_list_id)))
     )
     assert orphan_count == 0, f"{orphan_count} build_list rows lack a build_log"

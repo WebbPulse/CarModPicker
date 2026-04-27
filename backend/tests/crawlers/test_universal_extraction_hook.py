@@ -32,7 +32,6 @@ import pytest
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload
 
-
 # ---------------------------------------------------------------------------
 # Test adapter helpers
 # ---------------------------------------------------------------------------
@@ -112,9 +111,7 @@ class TestApplyUniversalExtractionAutoExtracts:
         assert result.specifications["weight_grams"] == pytest.approx(25 * 453.59237)
         assert result.specifications["weight_grams_confidence"] == "medium"
 
-    def test_debug_log_emitted_per_extracted_field(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_debug_log_emitted_per_extracted_field(self, caplog: pytest.LogCaptureFixture) -> None:
         """
         Locks in the slice plan's observability contract: a DEBUG line per
         successfully merged universal field, including the adapter name and
@@ -131,14 +128,11 @@ class TestApplyUniversalExtractionAutoExtracts:
         debug_messages = [
             r.getMessage()
             for r in caplog.records
-            if r.levelno == logging.DEBUG
-            and "universal_extraction" in r.getMessage()
+            if r.levelno == logging.DEBUG and "universal_extraction" in r.getMessage()
         ]
         assert any(
             "weight_grams" in m and adapter.ADAPTER_NAME in m for m in debug_messages
-        ), (
-            f"Expected DEBUG with adapter+weight_grams, got: {debug_messages!r}"
-        )
+        ), f"Expected DEBUG with adapter+weight_grams, got: {debug_messages!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -199,10 +193,7 @@ class TestApplyUniversalExtractionAdapterWins:
         """
         adapter = _AdapterWinsAdapter()
         adapter_specs = {"weight_grams": 999.0}  # only weight is adapter-set
-        html = (
-            "<html><body><div>Weight: 25 lb</div><div>Material: Aluminum</div>"
-            "</body></html>"
-        )
+        html = "<html><body><div>Weight: 25 lb</div><div>Material: Aluminum</div>" "</body></html>"
         payload = _make_payload(specifications=adapter_specs)
 
         result = adapter.apply_universal_extraction(html, payload)
@@ -242,9 +233,7 @@ class TestApplyUniversalExtractionEmptyInputs:
     def test_payload_none_is_a_noop(self) -> None:
         adapter = _DefaultHookAdapter()
         # Hook docstring promises this short-circuits.
-        result = adapter.apply_universal_extraction(
-            "<html><body><div>Weight: 25 lb</div></body></html>", None
-        )
+        result = adapter.apply_universal_extraction("<html><body><div>Weight: 25 lb</div></body></html>", None)
         assert result is None
 
     def test_null_specifications_become_dict_when_extraction_fires(self) -> None:
@@ -268,6 +257,7 @@ class TestSuppressUniversalValidationGate:
         self,
     ) -> None:
         with pytest.raises(TypeError, match="suppress_universal"):
+
             class _BadAdapter(RetailerCrawlerAdapter):  # noqa: N801 — local fixture
                 ADAPTER_NAME: ClassVar[str] = "_bad_adapter_t05"
                 suppress_universal: ClassVar[list[str]] = ["not_a_real_field"]
@@ -275,13 +265,12 @@ class TestSuppressUniversalValidationGate:
                 def discover_product_urls(self) -> Iterator[str]:
                     return iter([])
 
-                def parse_product_page(
-                    self, html: str, url: str
-                ) -> Optional[ScrapedPayload]:
+                def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
                     return None
 
     def test_suppress_universal_rejects_non_string_entry(self) -> None:
         with pytest.raises(TypeError):
+
             class _BadTypesAdapter(RetailerCrawlerAdapter):  # noqa: N801
                 ADAPTER_NAME: ClassVar[str] = "_bad_types_adapter_t05"
                 suppress_universal: ClassVar[list] = [123]  # type: ignore[list-item]
@@ -289,13 +278,12 @@ class TestSuppressUniversalValidationGate:
                 def discover_product_urls(self) -> Iterator[str]:
                     return iter([])
 
-                def parse_product_page(
-                    self, html: str, url: str
-                ) -> Optional[ScrapedPayload]:
+                def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
                     return None
 
     def test_suppress_universal_rejects_non_list_value(self) -> None:
         with pytest.raises(TypeError, match="suppress_universal"):
+
             class _BadShapeAdapter(RetailerCrawlerAdapter):  # noqa: N801
                 ADAPTER_NAME: ClassVar[str] = "_bad_shape_adapter_t05"
                 # Wrong type — not list/tuple. Use Any so type-checkers don't reject
@@ -305,7 +293,5 @@ class TestSuppressUniversalValidationGate:
                 def discover_product_urls(self) -> Iterator[str]:
                     return iter([])
 
-                def parse_product_page(
-                    self, html: str, url: str
-                ) -> Optional[ScrapedPayload]:
+                def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
                     return None

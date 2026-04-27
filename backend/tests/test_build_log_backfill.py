@@ -3,11 +3,11 @@
 Phase 4 plan 04-02 task 3. Static file-read tests — no live Postgres required.
 A full migration round-trip is reviewer-gated per D-31 / plan 04-06.
 """
+
 from __future__ import annotations
 
 import pathlib
 import re
-
 
 VERSIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "alembic" / "versions"
 

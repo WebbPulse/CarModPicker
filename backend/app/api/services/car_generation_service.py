@@ -60,9 +60,7 @@ class CarGenerationService(
         else:
             verify_entity_exists(db, self.model, entity_id, self.entity_name)
 
-        gen = db.scalars(
-            _car_generation_select_with_make_model().where(DBCarGeneration.id == entity_id)
-        ).first()
+        gen = db.scalars(_car_generation_select_with_make_model().where(DBCarGeneration.id == entity_id)).first()
         if gen is None:
             from fastapi import HTTPException
 
@@ -120,9 +118,7 @@ class CarGenerationService(
         if not ids:
             return []
         gens = list(
-            db.scalars(
-                _car_generation_select_with_make_model().where(DBCarGeneration.id.in_(ids))
-            ).unique().all()
+            db.scalars(_car_generation_select_with_make_model().where(DBCarGeneration.id.in_(ids))).unique().all()
         )
         if logger:
             logger.info(f"Retrieved {len(gens)} car_generations by ID batch")
@@ -142,9 +138,7 @@ class CarGenerationService(
         """
         validate_pagination_params(skip, limit)
         stmt: Select[tuple[DBCarGeneration]] = (
-            _car_generation_select_with_make_model()
-            .join(DBCarGeneration.car_model)
-            .join(CarModel.car_make)
+            _car_generation_select_with_make_model().join(DBCarGeneration.car_model).join(CarModel.car_make)
         )
 
         if car_make_name:

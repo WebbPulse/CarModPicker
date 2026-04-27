@@ -291,9 +291,5 @@ def list_jobs(
     if job_type_filter:
         stmt = stmt.where(BackgroundJob.job_type == job_type_filter)
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    items = list(
-        db.scalars(
-            stmt.order_by(desc(BackgroundJob.started_at)).offset(offset).limit(limit)
-        ).all()
-    )
+    items = list(db.scalars(stmt.order_by(desc(BackgroundJob.started_at)).offset(offset).limit(limit)).all())
     return items, total

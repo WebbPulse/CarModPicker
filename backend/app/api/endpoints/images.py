@@ -154,7 +154,9 @@ async def upload_image(
         # Deduplication: if source_url provided and we already have it, return existing file_key
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
-            existing = db.scalars(select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)).first()
+            existing = db.scalars(
+                select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)
+            ).first()
             if existing:
                 presigned_url = storage_service.get_presigned_url(existing.file_key)
                 logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")

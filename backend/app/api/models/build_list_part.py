@@ -28,12 +28,8 @@ class BuildListPart(Base):
     build_list_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("build_lists.id"), nullable=False, index=True
     )
-    part_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True
-    )
-    added_by: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
-    )
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
+    added_by: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
     purchased: Mapped[bool] = mapped_column(default=False, nullable=False)

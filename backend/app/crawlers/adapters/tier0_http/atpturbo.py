@@ -436,6 +436,7 @@ class ATPTurboAdapter(RetailerCrawlerAdapter):
 
     ADAPTER_NAME: ClassVar[str] = "atpturbo"
     category_targets: ClassVar[list[str]] = ["turbo", "universal"]
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from BFS discovery; env override wins when set."""
 

@@ -161,9 +161,7 @@ class TestEmissionPosition:
             (
                 i
                 for i, l in enumerate(lines)
-                if "logger.log(summary_level" in l
-                or '"Adapter %s done' in l
-                or "'Adapter %s done" in l
+                if "logger.log(summary_level" in l or '"Adapter %s done' in l or "'Adapter %s done" in l
             ),
             None,
         )

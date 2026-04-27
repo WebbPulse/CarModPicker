@@ -92,9 +92,7 @@ async def get_build_log_by_build_list(
         # Post-DATA-08 backfill invariant: every build_list has a build_log row.
         # If this branch fires, something broke the invariant — do not silently
         # auto-create (the old fallback hid data-integrity issues).
-        logger.error(
-            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
-        )
+        logger.error("Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id)
         ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Validate pagination parameters
@@ -105,11 +103,10 @@ async def get_build_log_by_build_list(
     # `db.scalar` returns Optional[int]; COUNT(*) is never NULL in practice (returns 0
     # when no rows match), so coerce to int to satisfy create_paginated_response's
     # non-optional `total` param.
-    total_posts = db.scalar(
-        select(func.count())
-        .select_from(DBBuildLogPost)
-        .where(DBBuildLogPost.build_log_id == build_log.id)
-    ) or 0
+    total_posts = (
+        db.scalar(select(func.count()).select_from(DBBuildLogPost).where(DBBuildLogPost.build_log_id == build_log.id))
+        or 0
+    )
 
     # DATA-01: Load paginated posts + eager-load authors via selectinload.
     # selectinload emits exactly 1 additional IN-clause SELECT for authors
@@ -205,9 +202,7 @@ async def create_build_log_post(
         # Post-DATA-08 backfill invariant: every build_list has a build_log row.
         # If this branch fires, something broke the invariant — do not silently
         # auto-create (the old fallback hid data-integrity issues).
-        logger.error(
-            "Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id
-        )
+        logger.error("Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id)
         ResponsePatterns.raise_not_found("build log", build_list_id)
 
     # Create the post

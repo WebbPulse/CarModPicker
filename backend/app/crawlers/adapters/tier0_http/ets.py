@@ -524,6 +524,7 @@ class ETSAdapter(RetailerCrawlerAdapter):
 
     ADAPTER_NAME: ClassVar[str] = "ets"
     category_targets: ClassVar[list[str]] = ["universal"]
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():

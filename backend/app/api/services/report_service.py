@@ -132,9 +132,7 @@ class ReportService:
         if status:
             stmt = stmt.where(DBReport.status == status)
 
-        reports = db.scalars(
-            stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
-        ).all()
+        reports = db.scalars(stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)).all()
 
         return [ReportRead.model_validate(report) for report in reports]
 
@@ -174,9 +172,7 @@ class ReportService:
             base_stmt = base_stmt.where(DBReport.status == status)
 
         # Get total count before pagination
-        total_count = db.scalar(
-            select(func.count()).select_from(base_stmt.subquery())
-        ) or 0
+        total_count = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
 
         # Get entity details based on type
         entity_details: List[ReportWithDetails] = []
@@ -188,9 +184,7 @@ class ReportService:
             # Get reviewer username if reviewed
             reviewer_username = None
             if report.reviewed_by:
-                reviewer = db.scalars(
-                    select(DBUser).where(DBUser.id == report.reviewed_by)
-                ).first()
+                reviewer = db.scalars(select(DBUser).where(DBUser.id == report.reviewed_by)).first()
                 reviewer_username = reviewer.username if reviewer else None
 
             entity_details.append(
@@ -315,9 +309,7 @@ class ReportService:
         if status:
             stmt = stmt.where(DBReport.status == status)
 
-        reports = db.scalars(
-            stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
-        ).all()
+        reports = db.scalars(stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)).all()
 
         if logger:
             logger.info(f"Retrieved {len(reports)} reports by user {user_id}")
@@ -371,9 +363,7 @@ class ReportService:
         # Get reviewer username if reviewed
         reviewer_username = None
         if report.reviewed_by:
-            reviewer = db.scalars(
-                select(DBUser).where(DBUser.id == report.reviewed_by)
-            ).first()
+            reviewer = db.scalars(select(DBUser).where(DBUser.id == report.reviewed_by)).first()
             reviewer_username = reviewer.username if reviewer else None
 
         return ReportWithDetails(

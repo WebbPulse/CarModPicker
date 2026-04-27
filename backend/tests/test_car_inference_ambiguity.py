@@ -20,7 +20,6 @@ import pytest
 
 from app.core.car_inference import infer_car_generations
 
-
 # Each vector: (name, description, expected_tuple_if_should_match_or_None, rationale)
 #
 # When `expected` is None, the vector pins "no match for the collision code"
@@ -194,9 +193,7 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
 # requiring the full result to be empty. Key: (name, desc). Value: forbidden triple.
 #
 # The 19 negative vectors not listed here must produce an EMPTY inference result.
-NEGATIVE_FORBIDDEN_TUPLES: dict[
-    tuple[str, Optional[str]], tuple[str, str, str]
-] = {
+NEGATIVE_FORBIDDEN_TUPLES: dict[tuple[str, Optional[str]], tuple[str, str, str]] = {
     # Bilstein EVO T1 — the "T1" token legitimately matches GM trucks. The ambiguity
     # we're pinning is that EVO standalone does NOT fire Huracán EVO, not that the
     # whole inference must be empty.
@@ -224,24 +221,16 @@ def test_ambiguity_resolution_pins_current_behavior(
     """
     result = infer_car_generations(name, desc)
     if expected is not None:
-        assert expected in result, (
-            f"{rationale}: expected {expected} in result, got {result}"
-        )
+        assert expected in result, f"{rationale}: expected {expected} in result, got {result}"
         return
 
     forbidden = NEGATIVE_FORBIDDEN_TUPLES.get((name, desc))
     if forbidden is not None:
-        assert forbidden not in result, (
-            f"{rationale}: forbidden {forbidden} must not appear, got {result}"
-        )
+        assert forbidden not in result, f"{rationale}: forbidden {forbidden} must not appear, got {result}"
     else:
-        assert result == [], (
-            f"{rationale}: expected no inference, got {result}"
-        )
+        assert result == [], f"{rationale}: expected no inference, got {result}"
 
 
 def test_vector_count_meets_floor() -> None:
     """Plan 04-06 D-37 requires at least 20 vectors."""
-    assert len(AMBIGUITY_VECTORS) >= 20, (
-        f"Expected >=20 ambiguity vectors; got {len(AMBIGUITY_VECTORS)}"
-    )
+    assert len(AMBIGUITY_VECTORS) >= 20, f"Expected >=20 ambiguity vectors; got {len(AMBIGUITY_VECTORS)}"

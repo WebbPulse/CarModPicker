@@ -54,11 +54,7 @@ def _notify_completion(db, job_id: UUID) -> None:
         if job is None:
             return
         recipients = list(
-            db.scalars(
-                select(DBUser.email).where(
-                    DBUser.is_superuser.is_(True), DBUser.disabled.is_(False)
-                )
-            ).all()
+            db.scalars(select(DBUser.email).where(DBUser.is_superuser.is_(True), DBUser.disabled.is_(False))).all()
         )
         if recipients:
             sent = send_job_report_email(job, recipients)
@@ -172,8 +168,7 @@ def main() -> None:
             elapsed_seconds=time.monotonic() - rescrape_start,
         )
         logger.info(
-            "ECS archive rescrape EMF emitted: adapter=aggregate run_type=rescrape "
-            "parsed_ok=%s parse_failed=%s",
+            "ECS archive rescrape EMF emitted: adapter=aggregate run_type=rescrape " "parsed_ok=%s parse_failed=%s",
             counts.get("parsed_ok"),
             counts.get("parse_failed"),
         )

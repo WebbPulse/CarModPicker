@@ -38,9 +38,6 @@ def test_bandit_fails_on_high_severity(high_severity_fixture: Path) -> None:
         text=True,
     )
     assert result.returncode != 0, (
-        f"bandit -ll unexpectedly exited 0 on HIGH fixture. "
-        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+        f"bandit -ll unexpectedly exited 0 on HIGH fixture. " f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "Severity: High" in result.stdout, (
-        f"Expected 'Severity: High' in bandit output, got: {result.stdout!r}"
-    )
+    assert "Severity: High" in result.stdout, f"Expected 'Severity: High' in bandit output, got: {result.stdout!r}"

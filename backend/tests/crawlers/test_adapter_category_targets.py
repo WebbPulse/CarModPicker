@@ -43,17 +43,14 @@ def test_every_adapter_declares_category_targets(adapter_name, adapter_cls) -> N
     """
     targets = getattr(adapter_cls, "category_targets", None)
     assert isinstance(targets, (list, tuple)), (
-        f"{adapter_name}: category_targets is not a list/tuple "
-        f"(got {type(targets).__name__})"
+        f"{adapter_name}: category_targets is not a list/tuple " f"(got {type(targets).__name__})"
     )
     assert len(targets) >= 1, (
-        f"{adapter_name}: category_targets is empty; declare at least "
-        f"one slug (e.g. 'universal')"
+        f"{adapter_name}: category_targets is empty; declare at least " f"one slug (e.g. 'universal')"
     )
     for entry in targets:
         assert isinstance(entry, str) and entry.strip(), (
-            f"{adapter_name}: invalid category_targets entry {entry!r}; "
-            f"each entry must be a non-empty string"
+            f"{adapter_name}: invalid category_targets entry {entry!r}; " f"each entry must be a non-empty string"
         )
 
 
@@ -71,8 +68,7 @@ def test_every_category_target_resolves_via_registry(adapter_name, adapter_cls) 
     """
     for entry in getattr(adapter_cls, "category_targets", []):
         assert default_registry.resolve(entry) is not None, (
-            f"{adapter_name}: category_targets entry {entry!r} does not "
-            f"resolve via default_registry"
+            f"{adapter_name}: category_targets entry {entry!r} does not " f"resolve via default_registry"
         )
 
 
@@ -99,9 +95,7 @@ def test_specialist_adapters_declare_concrete_slugs() -> None:
         targets = list(getattr(cls, "category_targets", []))
         for specialty in required_specialties:
             if specialty not in targets:
-                missing.append(
-                    f"{slug}: expected {specialty!r} in category_targets, got {targets!r}"
-                )
+                missing.append(f"{slug}: expected {specialty!r} in category_targets, got {targets!r}")
     assert missing == [], "Specialist mapping drift:\n  " + "\n  ".join(missing)
 
 

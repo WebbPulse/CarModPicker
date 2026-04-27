@@ -174,10 +174,7 @@ def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
         "access_token",
     )
     if not any(key in combined.lower() for key in scrub_eligible_keys):
-        pytest.skip(
-            "No scrub-eligible fields present in any cassette — "
-            "REDACTED marker not required"
-        )
+        pytest.skip("No scrub-eligible fields present in any cassette — " "REDACTED marker not required")
 
     assert "REDACTED" in combined, (
         "No `REDACTED` marker found across committed cassettes — vcr_config "

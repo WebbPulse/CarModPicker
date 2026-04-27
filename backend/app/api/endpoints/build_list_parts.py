@@ -154,7 +154,9 @@ async def get_build_list_parts(
 
     _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
 
-    db_build_list_parts = list(db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all())
+    db_build_list_parts = list(
+        db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all()
+    )
 
     build_list_parts = [BuildListPartRead.model_validate(part) for part in db_build_list_parts]
 
@@ -434,7 +436,9 @@ async def get_parts_in_build_list(
                 joinedload(DBBuildListPart.build_list_phase),
             )
             .where(DBBuildListPart.build_list_id == build_list_id)
-        ).unique().all()
+        )
+        .unique()
+        .all()
     )
 
     # Resolve each BuildListPart.part to its canonical for display. BuildListPart.part_id
@@ -600,7 +604,12 @@ async def count_build_lists_containing_part(
 
     _ = get_entity_or_404(db, DBPart, part_id, "part")
 
-    count = db.scalar(select(func.count(func.distinct(DBBuildListPart.build_list_id))).where(DBBuildListPart.part_id == part_id)) or 0
+    count = (
+        db.scalar(
+            select(func.count(func.distinct(DBBuildListPart.build_list_id))).where(DBBuildListPart.part_id == part_id)
+        )
+        or 0
+    )
 
     logger.info(f"Part {part_id} is contained in {count} build list(s)")
     return {"count": count}

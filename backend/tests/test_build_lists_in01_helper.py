@@ -10,16 +10,13 @@ Fix: one helper `_apply_build_list_filters(stmt_)` called from both
 the count-select and the main result-select, so `total` and the
 paginated page are always drawn from the same population.
 """
+
 import ast
 from pathlib import Path
 
-
 _HELPER_NAME = "_apply_build_list_filters"
 
-_BUILD_LISTS_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "app" / "api" / "endpoints" / "build_lists.py"
-)
+_BUILD_LISTS_PATH = Path(__file__).resolve().parent.parent / "app" / "api" / "endpoints" / "build_lists.py"
 
 
 def _load_source() -> str:
@@ -38,10 +35,7 @@ def test_apply_build_list_filters_helper_exists() -> None:
     string, so we parse and count real definitions instead.
     """
     tree = _load_tree()
-    defs = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == _HELPER_NAME
-    ]
+    defs = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == _HELPER_NAME]
     assert len(defs) == 1, (
         f"Expected exactly 1 FunctionDef named {_HELPER_NAME!r}, "
         f"found {len(defs)}. The IN-01 helper must exist exactly once."
@@ -59,10 +53,9 @@ def test_helper_invoked_from_both_count_and_main_select() -> None:
     """
     tree = _load_tree()
     calls = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == _HELPER_NAME
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == _HELPER_NAME
     ]
     assert len(calls) == 2, (
         f"Expected exactly 2 call sites for {_HELPER_NAME!r} "
@@ -74,6 +67,5 @@ def test_helper_invoked_from_both_count_and_main_select() -> None:
 def test_in01_docstring_marker_present() -> None:
     src = _load_source()
     assert "IN-01" in src, (
-        "IN-01 marker comment missing from build_lists.py — "
-        "future readers will not see the consolidation rationale."
+        "IN-01 marker comment missing from build_lists.py — " "future readers will not see the consolidation rationale."
     )

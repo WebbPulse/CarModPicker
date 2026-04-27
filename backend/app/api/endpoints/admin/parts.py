@@ -111,9 +111,7 @@ class RescanResponse(BaseModel):
 
 def _first_listing_for(db: Session, part_id: UUID) -> Optional[DBPartListing]:
     return db.scalars(
-        select(DBPartListing)
-        .where(DBPartListing.part_id == part_id)
-        .order_by(DBPartListing.created_at.asc())
+        select(DBPartListing).where(DBPartListing.part_id == part_id).order_by(DBPartListing.created_at.asc())
     ).first()
 
 
@@ -151,12 +149,14 @@ async def lookup_parts_by_product_url(
     if not normalized:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL is required")
 
-    listings = list(db.scalars(
-        select(DBPartListing)
-        .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .where(DBPartListing.product_url == normalized)
-        .order_by(DBPart.source.asc(), DBPart.created_at.asc())
-    ).all())
+    listings = list(
+        db.scalars(
+            select(DBPartListing)
+            .join(DBPart, DBPart.id == DBPartListing.part_id)
+            .where(DBPartListing.product_url == normalized)
+            .order_by(DBPart.source.asc(), DBPart.created_at.asc())
+        ).all()
+    )
 
     matches: List[UrlLookupMatch] = []
     for listing in listings:
@@ -324,10 +324,7 @@ async def rescan_parts_for_canonical_linking(
     while True:
         batch = list(
             db.scalars(
-                select(DBPart)
-                .order_by(DBPart.created_at.asc(), DBPart.id.asc())
-                .offset(offset)
-                .limit(batch_size)
+                select(DBPart).order_by(DBPart.created_at.asc(), DBPart.id.asc()).offset(offset).limit(batch_size)
             ).all()
         )
         if not batch:

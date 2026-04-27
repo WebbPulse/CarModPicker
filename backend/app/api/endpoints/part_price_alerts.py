@@ -170,11 +170,7 @@ def _unsubscribe_redirect_url(success: bool, message: str) -> str:
     Mirrors the DEBUG/prod branch in verify_email_confirm: localhost frontend
     in dev, www.carmodpicker.com in prod. ``status`` is `success` or `error`.
     """
-    base = (
-        "http://localhost:4000/account/alerts"
-        if settings.DEBUG
-        else "https://www.carmodpicker.com/account/alerts"
-    )
+    base = "http://localhost:4000/account/alerts" if settings.DEBUG else "https://www.carmodpicker.com/account/alerts"
     status_word = "success" if success else "error"
     # Treat the message as already-form-friendly (caller passes a `+`-joined
     # string) — we never put user-controlled text here, only fixed phrases.
@@ -221,13 +217,9 @@ async def unsubscribe_via_token(
                 status_code=302,
             )
 
-        alert = db.scalars(
-            select(DBPartPriceAlert).where(DBPartPriceAlert.id == alert_id)
-        ).first()
+        alert = db.scalars(select(DBPartPriceAlert).where(DBPartPriceAlert.id == alert_id)).first()
         if alert is None:
-            logger.warning(
-                "price_alert_unsubscribe_alert_missing: alert_id=%s", alert_id
-            )
+            logger.warning("price_alert_unsubscribe_alert_missing: alert_id=%s", alert_id)
             return RedirectResponse(
                 url=_unsubscribe_redirect_url(False, "Invalid+or+expired+link"),
                 status_code=302,

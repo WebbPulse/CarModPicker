@@ -15,6 +15,7 @@ WHY exactly 2 for the posts+authors path: selectinload batches author fetches
 into a single IN-clause SELECT regardless of author count — this is the property
 the N+1 fix buys. One more author is free; 100 more is still free.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -104,8 +105,7 @@ def test_posts_and_authors_fetch_emits_exactly_2_queries(
 
     assert counter.count == 2, (
         f"ROADMAP Phase 4 Success Criterion 1 requires EXACTLY 2 queries "
-        f"(1 posts + 1 selectinload authors). Got {counter.count}:\n"
-        + "\n".join(counter.statements)
+        f"(1 posts + 1 selectinload authors). Got {counter.count}:\n" + "\n".join(counter.statements)
     )
     assert len(posts) == 10
 
@@ -129,8 +129,7 @@ def test_full_endpoint_round_trip_is_bounded(
     assert response.status_code == 200
     assert counter.count <= 6, (
         f"Full endpoint round-trip should be bounded (build_list + build_log + "
-        f"count + posts + authors-IN ~= 5; +1 tolerance). Got {counter.count}:\n"
-        + "\n".join(counter.statements)
+        f"count + posts + authors-IN ~= 5; +1 tolerance). Got {counter.count}:\n" + "\n".join(counter.statements)
     )
 
 
