@@ -96,16 +96,18 @@ function Header() {
                   </Button>
                 </div>
               )}
-
-              {/* Mobile Menu Button */}
-              <button
-                type="button"
-                onClick={toggleMobileMenu}
-                className="md:hidden border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 p-2 rounded-lg text-white hover:text-primary transition-all duration-300"
-              >
-                {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
-              </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              type="button"
+              onClick={toggleMobileMenu}
+              aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMobileMenuOpen}
+              className="md:hidden border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 p-2 rounded-lg text-white hover:text-primary transition-all duration-300"
+            >
+              {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+            </button>
           </div>
         </div>
 
