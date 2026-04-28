@@ -68,7 +68,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'category' | 'phase'>('category');
+  const [viewMode, setViewMode] = useState<'category' | 'phase' | 'purchased'>(
+    'category'
+  );
   const [newPhaseName, setNewPhaseName] = useState('');
   const [isAddingPhase, setIsAddingPhase] = useState(false);
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
@@ -397,11 +399,14 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
           {/* View mode: By category | By phase */}
           <Tabs
             value={viewMode}
-            onValueChange={(v) => setViewMode(v as 'category' | 'phase')}
+            onValueChange={(v) =>
+              setViewMode(v as 'category' | 'phase' | 'purchased')
+            }
           >
             <TabsList data-testid="build-list-view-mode-tabs">
               <TabsTrigger value="category">By category</TabsTrigger>
               <TabsTrigger value="phase">By phase</TabsTrigger>
+              <TabsTrigger value="purchased">By purchased</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

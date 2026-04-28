@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
@@ -53,6 +53,20 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
 const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
 
+type SortKey =
+  | 'part'
+  | 'part_manufacturer'
+  | 'part_number'
+  | 'fit'
+  | 'qty'
+  | 'price';
+type SortDir = 'asc' | 'desc';
+interface SortState {
+  key: SortKey;
+  dir: SortDir;
+}
+const DEFAULT_SORT: SortState = { key: 'part', dir: 'asc' };
+
 interface GroupedPart {
   category: CategoryResponse | null;
   parts: BuildListPartReadWithPart[];
@@ -64,7 +78,8 @@ interface BuildListPartTableProps {
   categoryIcon: string;
   part_manufacturers: PartManufacturerResponse[];
   carsById: Record<string, CarGenerationRead>;
-  containerWidth: number;
+  sort: SortState;
+  onSortChange: (key: SortKey) => void;
   onEdit?: (buildListPart: BuildListPartReadWithPart) => void;
   onDelete?: (buildListPartId: string) => void;
   onTogglePurchased?: (buildListPart: BuildListPartReadWithPart) => void;
@@ -118,13 +133,127 @@ function getPartManufacturerName(
   return '—';
 }
 
+// Build a comparator for the active sort. Falls back to part name on ties so
+// the order is stable across renders. Empty/missing values sort last regardless
+// of direction so blanks don't crowd the top when descending.
+function buildSortComparator(
+  sort: SortState,
+  part_manufacturers: PartManufacturerResponse[],
+  carsById: Record<string, CarGenerationRead>
+): (a: BuildListPartReadWithPart, b: BuildListPartReadWithPart) => number {
+  const dirMul = sort.dir === 'asc' ? 1 : -1;
+  const nameCmp = (
+    a: BuildListPartReadWithPart,
+    b: BuildListPartReadWithPart
+  ) => a.part.name.localeCompare(b.part.name);
+
+  const stringValue = (p: BuildListPartReadWithPart): string | null => {
+    switch (sort.key) {
+      case 'part':
+        return p.part.name;
+      case 'part_manufacturer': {
+        const v = getPartManufacturerName(p, part_manufacturers);
+        return v === '—' ? null : v;
+      }
+      case 'part_number':
+        return p.part.part_number ?? null;
+      case 'fit': {
+        const v = getFitCell(p, carsById).label;
+        return v === '—' ? null : v;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const numericValue = (p: BuildListPartReadWithPart): number | null => {
+    if (sort.key === 'qty') return p.quantity || 1;
+    if (sort.key === 'price') {
+      const cents = p.part.best_price_cents;
+      if (cents == null) return null;
+      const qty = p.quantity || 1;
+      return cents * qty;
+    }
+    return null;
+  };
+
+  return (a, b) => {
+    let cmp = 0;
+    if (sort.key === 'qty' || sort.key === 'price') {
+      const av = numericValue(a);
+      const bv = numericValue(b);
+      if (av == null && bv == null) cmp = 0;
+      else if (av == null)
+        cmp = 1; // missing → last
+      else if (bv == null) cmp = -1;
+      else cmp = (av - bv) * dirMul;
+    } else {
+      const av = stringValue(a);
+      const bv = stringValue(b);
+      if (!av && !bv) cmp = 0;
+      else if (!av) cmp = 1;
+      else if (!bv) cmp = -1;
+      else cmp = av.localeCompare(bv) * dirMul;
+    }
+    return cmp !== 0 ? cmp : nameCmp(a, b);
+  };
+}
+
+interface SortableHeaderProps {
+  sortKey: SortKey;
+  label: string;
+  sort: SortState;
+  onSortChange: (key: SortKey) => void;
+  align?: 'left' | 'right';
+}
+
+const SortableHeader: React.FC<SortableHeaderProps> = ({
+  sortKey,
+  label,
+  sort,
+  onSortChange,
+  align = 'left',
+}) => {
+  const active = sort.key === sortKey;
+  const indicator = active ? (sort.dir === 'asc' ? '▲' : '▼') : '';
+  const justify = align === 'right' ? 'justify-end' : 'justify-start';
+  const ariaSort: 'ascending' | 'descending' | 'none' = active
+    ? sort.dir === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : 'none';
+  return (
+    <th
+      scope="col"
+      aria-sort={ariaSort}
+      className={`px-4 py-3 font-medium whitespace-nowrap min-w-0 ${
+        align === 'right' ? 'text-right' : ''
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onSortChange(sortKey)}
+        className={`flex items-center gap-1 ${justify} w-full font-medium hover:text-gray-200 transition-colors ${
+          active ? 'text-gray-200' : ''
+        }`}
+      >
+        <span>{label}</span>
+        <span className="text-xs w-3 inline-block" aria-hidden="true">
+          {indicator}
+        </span>
+      </button>
+    </th>
+  );
+};
+
 const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   group,
   categoryName,
   categoryIcon,
   part_manufacturers,
   carsById,
-  containerWidth,
+  sort,
+  onSortChange,
   onEdit,
   onDelete,
   onTogglePurchased,
@@ -136,6 +265,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 }) => {
   const showCheckbox = canMarkPurchased && onTogglePurchased;
   const showActions = Boolean(onEdit || onDelete);
+  const [tableRef, tableContainerWidth] = useContainerWidth<HTMLDivElement>();
 
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
     const keys: TableColumnKey[] = [];
@@ -156,11 +286,11 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
     tableColumnKeys,
     COLUMN_PRIORITY,
     COLUMN_MIN_WIDTH,
-    containerWidth
+    tableContainerWidth
   );
 
   return (
-    <div className="space-y-2">
+    <div ref={tableRef} className="space-y-2">
       {/* Category Header */}
       <div className="flex items-center gap-2 px-1 py-0.5">
         <span className="text-base">{categoryIcon}</span>
@@ -190,34 +320,53 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                 </th>
               )}
               {visibleColumns.includes('part') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Part name
-                </th>
+                <SortableHeader
+                  sortKey="part"
+                  label="Part name"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               )}
               {visibleColumns.includes('part_manufacturer') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Part Manufacturer
-                </th>
+                <SortableHeader
+                  sortKey="part_manufacturer"
+                  label="Part Manufacturer"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               )}
               {visibleColumns.includes('part_number') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Part #
-                </th>
+                <SortableHeader
+                  sortKey="part_number"
+                  label="Part #"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               )}
               {visibleColumns.includes('fit') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Fit
-                </th>
+                <SortableHeader
+                  sortKey="fit"
+                  label="Fit"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               )}
               {visibleColumns.includes('qty') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap min-w-0">
-                  Qty
-                </th>
+                <SortableHeader
+                  sortKey="qty"
+                  label="Qty"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
               )}
               {visibleColumns.includes('price') && (
-                <th className="px-4 py-3 font-medium whitespace-nowrap text-right">
-                  Price
-                </th>
+                <SortableHeader
+                  sortKey="price"
+                  label="Price"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                  align="right"
+                />
               )}
               {visibleColumns.includes('actions') && (
                 <th
@@ -442,7 +591,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
 interface BuildListPartListProps {
   buildListParts: BuildListPartReadWithPart[];
   categories: CategoryResponse[];
-  viewMode?: 'category' | 'phase';
+  viewMode?: 'category' | 'phase' | 'purchased';
   phases?: BuildListPhaseRead[];
   part_manufacturers?: PartManufacturerResponse[];
   carsById?: Record<string, CarGenerationRead>;
@@ -459,6 +608,8 @@ interface BuildListPartListProps {
 }
 
 const PHASE_ICON = '📋';
+const PURCHASED_ICON = '✅';
+const NOT_PURCHASED_ICON = '🛒';
 const UNASSIGNED_LABEL = 'Unassigned';
 const DEFAULT_PHASES: BuildListPhaseRead[] = [];
 
@@ -480,7 +631,15 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   canDeletePart,
   emptyMessage = 'No parts added to this build list yet.',
 }) => {
-  const [containerRef, containerWidth] = useContainerWidth<HTMLDivElement>();
+  // Shared sort state across all groups. Resets on reload (component unmount).
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
+  const handleSortChange = (key: SortKey) => {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    );
+  };
 
   // Create a map of category_id to category for quick lookup
   const categoryMap = useMemo(() => {
@@ -576,23 +735,80 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     );
   }, [buildListParts, phaseOrderMap, phaseNameMap]);
 
+  // Group by purchased state: "Not purchased" first, then "Purchased".
+  // Empty groups are dropped so we don't render a blank section.
+  const groupedByPurchased = useMemo(() => {
+    const notPurchased: BuildListPartReadWithPart[] = [];
+    const purchased: BuildListPartReadWithPart[] = [];
+    buildListParts.forEach((part) => {
+      if (part.purchased) purchased.push(part);
+      else notPurchased.push(part);
+    });
+    const byName = (
+      a: BuildListPartReadWithPart,
+      b: BuildListPartReadWithPart
+    ) => a.part.name.localeCompare(b.part.name);
+    notPurchased.sort(byName);
+    purchased.sort(byName);
+    const groups: {
+      label: string;
+      icon: string;
+      parts: BuildListPartReadWithPart[];
+    }[] = [];
+    if (notPurchased.length > 0) {
+      groups.push({
+        label: 'Not purchased',
+        icon: NOT_PURCHASED_ICON,
+        parts: notPurchased,
+      });
+    }
+    if (purchased.length > 0) {
+      groups.push({
+        label: 'Purchased',
+        icon: PURCHASED_ICON,
+        parts: purchased,
+      });
+    }
+    return groups;
+  }, [buildListParts]);
+
   const displayGroups = useMemo(() => {
+    const cmp = buildSortComparator(sort, part_manufacturers, carsById);
+    const withActiveSort = (parts: BuildListPartReadWithPart[]) =>
+      [...parts].sort(cmp);
+
     if (viewMode === 'phase') {
       return groupedByPhase.map((g) => ({
         category: null as CategoryResponse | null,
-        parts: g.parts,
+        parts: withActiveSort(g.parts),
         groupLabel: g.phaseName,
         groupIcon: PHASE_ICON,
       }));
     }
+    if (viewMode === 'purchased') {
+      return groupedByPurchased.map((g) => ({
+        category: null as CategoryResponse | null,
+        parts: withActiveSort(g.parts),
+        groupLabel: g.label,
+        groupIcon: g.icon,
+      }));
+    }
     return groupedParts.map((g) => ({
       category: g.category,
-      parts: g.parts,
+      parts: withActiveSort(g.parts),
       groupLabel:
         g.category?.display_name || g.category?.name || 'Uncategorized',
       groupIcon: g.category?.icon || '📦',
     }));
-  }, [viewMode, groupedParts, groupedByPhase]);
+  }, [
+    viewMode,
+    groupedParts,
+    groupedByPhase,
+    groupedByPurchased,
+    sort,
+    part_manufacturers,
+    carsById,
+  ]);
 
   // Calculate total price (from best_price_cents when available)
   const totalPrice = useMemo(() => {
@@ -666,7 +882,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   const remainingCount = buildListParts.filter((p) => !p.purchased).length;
 
   return (
-    <div ref={containerRef} className="space-y-3">
+    <div className="space-y-3">
       {/* Cost Summary Card */}
       <Card className="bg-gray-800 border-2 border-blue-600">
         <div className="space-y-3 p-4">
@@ -755,36 +971,42 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         </div>
       </Card>
 
-      {/* Parts grouped by category or phase - table layout matching parts/search */}
-      {displayGroups.map((group, index) => {
-        const groupKey =
-          viewMode === 'phase'
-            ? `phase-${group.groupLabel}-${index}`
-            : String(
-                group.category?.id ??
-                  group.parts[0]?.part.category_id ??
-                  'uncategorized'
-              );
-        return (
-          <BuildListPartTable
-            key={groupKey}
-            group={group}
-            categoryName={group.groupLabel}
-            categoryIcon={group.groupIcon}
-            part_manufacturers={part_manufacturers}
-            carsById={carsById}
-            containerWidth={containerWidth}
-            {...(onEdit != null && { onEdit })}
-            {...(onDelete != null && { onDelete })}
-            {...(onTogglePurchased != null && { onTogglePurchased })}
-            canEdit={canEdit}
-            canDelete={canDelete}
-            canMarkPurchased={canMarkPurchased}
-            {...(canEditPart != null && { canEditPart })}
-            {...(canDeletePart != null && { canDeletePart })}
-          />
-        );
-      })}
+      {/* Parts grouped by category, phase, or purchased state — masonry: 2 cols on md+, 1 col below */}
+      <div className="columns-1 md:columns-2 gap-4 [column-fill:_balance]">
+        {displayGroups.map((group, index) => {
+          const groupKey =
+            viewMode === 'phase'
+              ? `phase-${group.groupLabel}-${index}`
+              : viewMode === 'purchased'
+                ? `purchased-${group.groupLabel}`
+                : String(
+                    group.category?.id ??
+                      group.parts[0]?.part.category_id ??
+                      'uncategorized'
+                  );
+          return (
+            <div key={groupKey} className="break-inside-avoid mb-4">
+              <BuildListPartTable
+                group={group}
+                categoryName={group.groupLabel}
+                categoryIcon={group.groupIcon}
+                part_manufacturers={part_manufacturers}
+                carsById={carsById}
+                sort={sort}
+                onSortChange={handleSortChange}
+                {...(onEdit != null && { onEdit })}
+                {...(onDelete != null && { onDelete })}
+                {...(onTogglePurchased != null && { onTogglePurchased })}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canMarkPurchased={canMarkPurchased}
+                {...(canEditPart != null && { canEditPart })}
+                {...(canDeletePart != null && { canDeletePart })}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
