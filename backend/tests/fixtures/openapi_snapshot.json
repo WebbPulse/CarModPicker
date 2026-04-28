@@ -952,6 +952,24 @@
         "title": "BugReportWithDetails",
         "type": "object"
       },
+      "BuildListAppendImages": {
+        "properties": {
+          "file_keys": {
+            "description": "Image references to append: file keys (from images/upload) or external URLs; max 12.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "File Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file_keys"
+        ],
+        "title": "BuildListAppendImages",
+        "type": "object"
+      },
       "BuildListCreate": {
         "properties": {
           "car_id": {
@@ -977,12 +995,14 @@
                 "items": {
                   "type": "string"
                 },
+                "maxItems": 12,
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Images: file keys (from images/upload) and/or external URLs; max 12. First entry is the primary/display image.",
             "title": "Image Urls"
           },
           "name": {
@@ -1415,6 +1435,21 @@
         "title": "BuildListRead",
         "type": "object"
       },
+      "BuildListSetPrimaryImageRequest": {
+        "properties": {
+          "index": {
+            "description": "0-based index into the build list's image_urls gallery",
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "title": "BuildListSetPrimaryImageRequest",
+        "type": "object"
+      },
       "BuildListUpdate": {
         "properties": {
           "car_id": {
@@ -1446,12 +1481,14 @@
                 "items": {
                   "type": "string"
                 },
+                "maxItems": 12,
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
             "title": "Image Urls"
           },
           "name": {
@@ -4439,6 +4476,7 @@
           "window": {
             "default": "90d",
             "enum": [
+              "7d",
               "30d",
               "90d",
               "180d",
@@ -4574,6 +4612,14 @@
               "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
             },
             "title": "History",
+            "type": "array"
+          },
+          "pre_window_anchors": {
+            "description": "Most recent observation per retailer occurring strictly before the window cutoff. Lets clients render a 'last known' carry-over point so a sparse window doesn't show a stranded observation. Empty for window='all'.",
+            "items": {
+              "$ref": "#/components/schemas/PartPriceHistoryReadWithRetailer"
+            },
+            "title": "Pre Window Anchors",
             "type": "array"
           },
           "retailers": {
@@ -11191,6 +11237,71 @@
         ]
       }
     },
+    "/api/build-lists/{build_list_id}/append-images": {
+      "post": {
+        "description": "Append image file keys to a build list's gallery.",
+        "operationId": "append_images_to_build_list_api_build_lists__build_list_id__append_images_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildListAppendImages"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListRead"
+                }
+              }
+            },
+            "description": "Images appended to build list"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Append Images To Build List",
+        "tags": [
+          "build-lists"
+        ]
+      }
+    },
     "/api/build-lists/{build_list_id}/copy": {
       "post": {
         "description": "Copy a build list and all its parts.\nCreates a new build list owned by the current user with all parts from the original.\nAll authenticated users can copy any build list.",
@@ -11251,6 +11362,70 @@
           }
         ],
         "summary": "Copy Build List",
+        "tags": [
+          "build-lists"
+        ]
+      }
+    },
+    "/api/build-lists/{build_list_id}/images/{image_index}": {
+      "delete": {
+        "description": "Remove the image at the given index from the build list's gallery.",
+        "operationId": "remove_image_from_build_list_api_build_lists__build_list_id__images__image_index__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "image_index",
+            "required": true,
+            "schema": {
+              "title": "Image Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListRead"
+                }
+              }
+            },
+            "description": "Image removed from build list"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Remove Image From Build List",
         "tags": [
           "build-lists"
         ]
@@ -11370,6 +11545,71 @@
           }
         ],
         "summary": "Create Build List Phase",
+        "tags": [
+          "build-lists"
+        ]
+      }
+    },
+    "/api/build-lists/{build_list_id}/primary-image": {
+      "patch": {
+        "description": "Set the image at the given index as the primary (display) image.",
+        "operationId": "set_primary_image_for_build_list_api_build_lists__build_list_id__primary_image_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildListSetPrimaryImageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListRead"
+                }
+              }
+            },
+            "description": "Primary image updated"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Set Primary Image For Build List",
         "tags": [
           "build-lists"
         ]
@@ -15610,13 +15850,13 @@
             }
           },
           {
-            "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+            "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '7d', '90d', 'all']",
             "in": "query",
             "name": "window",
             "required": false,
             "schema": {
               "default": "90d",
-              "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '90d', 'all']",
+              "description": "Time window for aggregation. Allowed: ['180d', '1y', '30d', '7d', '90d', 'all']",
               "title": "Window",
               "type": "string"
             }

@@ -33,7 +33,7 @@ import ReportDialog from '../../components/admin/ReportDialog';
 import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import EditPartForm from '../../components/parts/EditPartForm';
 import ImageGallery from '../../components/parts/ImageGallery';
-import ImageGalleryManage from '../../components/parts/ImageGalleryManage';
+import ImageGalleryManage from '../../components/images/ImageGalleryManage';
 import PriceAlertSubscribeButton from '../../components/parts/PriceAlertSubscribeButton';
 import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
 import {
@@ -515,9 +515,13 @@ function ViewPart() {
                 <ImageGalleryManage
                   imageUrls={part.image_urls ?? null}
                   altText={part.name}
-                  partId={part.id}
-                  onPartUpdated={handlePartUpdated}
+                  onSetPrimary={(idx) =>
+                    partsApi.setPartPrimaryImage(part.id, idx)
+                  }
+                  onRemove={(idx) => partsApi.removePartImage(part.id, idx)}
+                  onUpdated={handlePartUpdated}
                   layout="hero"
+                  emptyMessage="No images available for this part."
                 />
               ) : (
                 <ImageGallery

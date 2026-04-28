@@ -15,6 +15,8 @@ interface ImageWithPlaceholderProps {
   fallbackTextClassName?: string;
   /** img loading: "lazy" defers off-screen images (better scroll perf in long lists). */
   loading?: 'lazy' | 'eager';
+  /** Fires when the underlying <img> finishes loading. Lets parents read naturalWidth/Height. */
+  onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }
 
 const DEFAULT_FALLBACK_TEXT = 'No image set';
@@ -27,6 +29,7 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
   containerClassName = '',
   fallbackTextClassName = 'text-gray-400',
   loading = 'eager',
+  onLoad,
 }) => {
   const [loadError, setLoadError] = useState(false);
 
@@ -53,6 +56,7 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
         loading={loading}
         decoding="async"
         onError={() => setLoadError(true)}
+        onLoad={onLoad}
       />
     </div>
   );

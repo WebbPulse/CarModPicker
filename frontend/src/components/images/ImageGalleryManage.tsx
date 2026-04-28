@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { partsApi } from '../../services/Api';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
-import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
+import ImageWithPlaceholder from './ImageWithPlaceholder';
 import { ErrorAlert } from '../ui/alert';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 
@@ -11,24 +10,31 @@ interface ImageGalleryManageProps {
   /** Image URLs (presigned from API). First entry is the primary/display image. */
   imageUrls?: string[] | null;
   altText: string;
-  /** Global part ID (required for manage actions) */
-  partId: string;
-  /** Called after an image is removed or primary is changed so parent can refresh part */
-  onPartUpdated: () => void | Promise<void>;
+  /** Set the image at index as the primary image. */
+  onSetPrimary: (index: number) => Promise<unknown>;
+  /** Remove the image at index. */
+  onRemove: (index: number) => Promise<unknown>;
+  /** Called after a successful set-primary or remove so the parent can refresh. */
+  onUpdated: () => void | Promise<void>;
   /** When "hero", show large primary image with carousel of others beneath */
   layout?: 'carousel' | 'hero';
+  /** Custom message when no images are available */
+  emptyMessage?: string;
 }
 
 /**
- * Displays part images with management actions for users with edit permission:
+ * Displays images with management actions for users with edit permission:
  * set primary image, remove image. Supports carousel (default) or hero layout.
+ * Entity-agnostic — caller wires the API via onSetPrimary / onRemove.
  */
 export default function ImageGalleryManage({
   imageUrls,
   altText,
-  partId,
-  onPartUpdated,
+  onSetPrimary,
+  onRemove,
+  onUpdated,
   layout = 'carousel',
+  emptyMessage = 'No images available.',
 }: ImageGalleryManageProps) {
   const [showAll, setShowAll] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
@@ -49,8 +55,8 @@ export default function ImageGalleryManage({
     setSettingPrimaryIndex(index);
     setRemoveError(null);
     try {
-      await partsApi.setPartPrimaryImage(partId, index);
-      await onPartUpdated();
+      await onSetPrimary(index);
+      await onUpdated();
     } catch (e) {
       setRemoveError(
         e instanceof Error ? e.message : 'Failed to set primary image'
@@ -77,8 +83,8 @@ export default function ImageGalleryManage({
     setIsRemoving(true);
     setRemoveError(null);
     try {
-      await partsApi.removePartImage(partId, imageIndexToRemove);
-      await onPartUpdated();
+      await onRemove(imageIndexToRemove);
+      await onUpdated();
       closeRemoveDialog();
     } catch (e) {
       setRemoveError(e instanceof Error ? e.message : 'Failed to remove image');
@@ -90,7 +96,7 @@ export default function ImageGalleryManage({
   if (allUrls.length === 0) {
     return (
       <div className="h-48 flex items-center justify-center border border-gray-600 bg-gray-800/50 rounded-lg p-4">
-        <p className="text-gray-400">No images available for this part.</p>
+        <p className="text-gray-400">{emptyMessage}</p>
       </div>
     );
   }

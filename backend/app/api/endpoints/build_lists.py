@@ -5,10 +5,11 @@ This endpoint now uses standardized patterns for pagination, error handling,
 and response documentation while maintaining build list-specific functionality.
 """
 
+import logging
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
@@ -21,9 +22,12 @@ from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.build_list import (
+    MAX_IMAGES_PER_BUILDLIST,
+    BuildListAppendImages,
     BuildListCreate,
     BuildListRead,
     BuildListReadWithVotes,
+    BuildListSetPrimaryImageRequest,
     BuildListUpdate,
 )
 from app.api.schemas.build_list_phase import BuildListPhaseCreate, BuildListPhaseRead
@@ -607,3 +611,139 @@ async def copy_build_list(
 
     logger.info(f"User {current_user.id} copied build list {build_list_id} to {new_build_list.id}")
     return BuildListRead.model_validate(new_build_list)
+
+
+# Image management endpoints (mirror parts.py pattern).
+# Build list owner or admin only.
+
+
+def _get_build_list_image_file_keys(build_list: DBBuildList) -> List[str]:
+    """Return ordered list of image file keys. First entry is the primary/display image."""
+    return list(build_list.image_urls or [])
+
+
+@router.post(
+    "/{build_list_id}/append-images",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Images appended to build list",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def append_images_to_build_list(
+    build_list_id: UUID,
+    data: BuildListAppendImages,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Append image file keys to a build list's gallery."""
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    existing = list(build_list.image_urls or [])
+    if len(existing) >= MAX_IMAGES_PER_BUILDLIST:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Build list already has the maximum number of images ({MAX_IMAGES_PER_BUILDLIST}).",
+        )
+
+    seen = set(existing)
+    for fk in data.file_keys:
+        if fk and fk not in seen and len(existing) < MAX_IMAGES_PER_BUILDLIST:
+            existing.append(fk)
+            seen.add(fk)
+
+    build_list.image_urls = existing[:MAX_IMAGES_PER_BUILDLIST]
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)
+
+
+@router.delete(
+    "/{build_list_id}/images/{image_index}",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Image removed from build list",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def remove_image_from_build_list(
+    build_list_id: UUID,
+    image_index: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Remove the image at the given index from the build list's gallery."""
+    from app.api.services.storage_service import storage_service
+    from app.api.utils.image_utils import is_file_key
+
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    file_keys = _get_build_list_image_file_keys(build_list)
+    if image_index < 0 or image_index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {image_index}. Build list has {len(file_keys)} image(s).",
+        )
+
+    removed_key = file_keys[image_index]
+    new_keys = [fk for i, fk in enumerate(file_keys) if i != image_index]
+
+    build_list.image_urls = new_keys if new_keys else None
+
+    if removed_key and is_file_key(removed_key):
+        try:
+            storage_service.delete_image(removed_key)
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Failed to delete image from storage for build list %s: %s",
+                build_list_id,
+                e,
+            )
+
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)
+
+
+@router.patch(
+    "/{build_list_id}/primary-image",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Primary image updated",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def set_primary_image_for_build_list(
+    build_list_id: UUID,
+    data: BuildListSetPrimaryImageRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Set the image at the given index as the primary (display) image."""
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    file_keys = _get_build_list_image_file_keys(build_list)
+    if data.index < 0 or data.index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {data.index}. Build list has {len(file_keys)} image(s).",
+        )
+
+    primary_key = file_keys[data.index]
+    new_order = [primary_key] + [fk for i, fk in enumerate(file_keys) if i != data.index]
+    build_list.image_urls = new_order
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)

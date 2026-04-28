@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { carGenerationsApi } from '../../services/Api';
+import apiClient, { buildListsApi, carGenerationsApi } from '../../services/Api';
 import {
   carFullDisplayName,
   carGenerationDisplayName,
@@ -184,25 +184,45 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
       car_id: selectedGeneration?.id || null,
     };
 
-    // Only include image_urls if it was changed (new file key uploaded)
-    if (imageChanged) {
-      payload.image_urls = imageFileKey ? [imageFileKey] : null;
-    }
-
-    // Always submit the data, even if no changes detected
-    // This provides better UX and allows users to "save" without making changes
-
     const result = await executeUpdateBuildList({
       buildListId: buildList.id,
       data: payload,
     });
 
     if (result) {
+      // Handle image changes separately so existing gallery images are not wiped.
+      let updated = result;
+      if (imageChanged) {
+        try {
+          if (imageFileKey) {
+            // Append the new image to the gallery (preserves existing images)
+            const appended = await buildListsApi.appendBuildListImages(
+              buildList.id,
+              [imageFileKey]
+            );
+            updated = appended.data;
+          } else {
+            // User removed the displayed image — delete only the first one (index 0)
+            const removed = await buildListsApi.removeBuildListImage(
+              buildList.id,
+              0
+            );
+            updated = removed.data;
+          }
+        } catch (err) {
+          setFormMessage({
+            type: 'error',
+            text:
+              err instanceof Error ? err.message : 'Failed to update image.',
+          });
+          return;
+        }
+      }
       setFormMessage({
         type: 'success',
         text: 'Build list updated successfully!',
       });
-      onBuildListUpdated(result);
+      onBuildListUpdated(updated);
     }
   };
 

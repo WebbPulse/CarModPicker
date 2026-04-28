@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
-import apiClient, { buildListVotesApi } from '../../services/Api';
+import apiClient, {
+  buildListsApi,
+  buildListVotesApi,
+} from '../../services/Api';
 import type {
+  BuildListPartReadWithPart,
   BuildListRead,
   CarGenerationRead,
   UserRead,
@@ -12,9 +16,12 @@ import type {
 } from '../../types/Api';
 
 import { Link } from 'react-router-dom';
+import BuildCostSummary from '../../components/buildListParts/BuildCostSummary';
 import BuildListParts from '../../components/buildListParts/BuildListParts';
 import CreateBuildListPartForm from '../../components/buildListParts/CreateBuildListPartForm';
 import EditBuildListForm from '../../components/buildLists/EditBuildListForm';
+import ImageGalleryManage from '../../components/images/ImageGalleryManage';
+import ImageUpload from '../../components/forms/ImageUpload';
 import ImageGallery from '../../components/parts/ImageGallery';
 import VoteButtons from '../../components/parts/VoteButtons';
 import Divider from '../../components/layout/Divider';
@@ -64,6 +71,15 @@ function ViewBuildList() {
   const [partsRefreshTrigger, setPartsRefreshTrigger] = useState<number>(0);
   const [isCreatePartFormOpen, setIsCreatePartFormOpen] = useState(false);
   const [voteSummary, setVoteSummary] = useState<VoteSummary | null>(null);
+  const [buildListParts, setBuildListParts] = useState<
+    BuildListPartReadWithPart[]
+  >([]);
+  const handlePartsChange = useCallback(
+    (parts: BuildListPartReadWithPart[]) => {
+      setBuildListParts(parts);
+    },
+    []
+  );
 
   const {
     data: buildList,
@@ -349,16 +365,65 @@ function ViewBuildList() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-gray-300 items-start">
-          <div className="min-w-0">
-            <ImageGallery
-              imageUrls={buildList.image_urls ?? null}
-              altText={buildList.name}
-              layout="hero"
-              emptyMessage="No image available for this build list."
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 items-start">
+          <div className="min-w-0 space-y-3">
+            {canManage ? (
+              <ImageGalleryManage
+                imageUrls={buildList.image_urls ?? null}
+                altText={buildList.name}
+                onSetPrimary={(idx) =>
+                  buildListsApi.setBuildListPrimaryImage(buildList.id, idx)
+                }
+                onRemove={(idx) =>
+                  buildListsApi.removeBuildListImage(buildList.id, idx)
+                }
+                onUpdated={() => {
+                  void fetchBuildList(buildList.id);
+                }}
+                layout="hero"
+                emptyMessage="No images available for this build list."
+              />
+            ) : (
+              <ImageGallery
+                imageUrls={buildList.image_urls ?? null}
+                altText={buildList.name}
+                layout="hero"
+                emptyMessage="No image available for this build list."
+              />
+            )}
+            {canManage && (buildList.image_urls?.length ?? 0) < 12 && (
+              <ImageUpload
+                key={`bl-image-add-${buildList.image_urls?.length ?? 0}`}
+                entityType="build_list"
+                entityId={buildList.id}
+                showPreview={false}
+                label="Add Image"
+                maxSizeMB={10}
+                onImageUploaded={(fileKey) => {
+                  void (async () => {
+                    try {
+                      await buildListsApi.appendBuildListImages(buildList.id, [
+                        fileKey,
+                      ]);
+                      await fetchBuildList(buildList.id);
+                    } catch {
+                      // Errors surface via the gallery's own error UI on next action;
+                      // a transient failure here is rare since the upload already succeeded.
+                    }
+                  })();
+                }}
+              />
+            )}
           </div>
-          <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-2.5">
+            {buildListParts.length > 0 && (
+              <CardInfoItem label="Build Cost:">
+                <BuildCostSummary
+                  buildListParts={buildListParts}
+                  className="mt-1"
+                />
+              </CardInfoItem>
+            )}
             <CardInfoItem label="Description:">
               <p>{buildList.description || 'No description provided.'}</p>
             </CardInfoItem>
@@ -499,6 +564,7 @@ function ViewBuildList() {
           buildListCarId={buildList.car_id ?? null}
           canManageParts={canManage || false}
           refreshKey={partsRefreshTrigger}
+          onPartsChange={handlePartsChange}
           {...(canManage && { onAddPartClick: openCreatePartDialog })}
           title={`Parts in ${buildList.name}`}
           emptyMessage="This build list currently has no parts."

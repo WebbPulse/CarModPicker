@@ -6,13 +6,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from app.api.schemas.part import apply_image_url_presigning
 
+MAX_IMAGES_PER_BUILDLIST = 12
+
 
 # Schema for request body when creating/updating a build list
 class BuildListCreate(BaseModel):
     name: str = Field(..., min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
     car_id: UUID = Field(..., description="Car ID is required - build lists must be associated with a car")
-    image_urls: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = Field(
+        None,
+        max_length=MAX_IMAGES_PER_BUILDLIST,
+        description="Images: file keys (from images/upload) and/or external URLs; max 12. First entry is the primary/display image.",
+    )
 
 
 # Schema for request body when updating a build list (all fields optional)
@@ -20,7 +26,11 @@ class BuildListUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, description="Build list name cannot be empty")
     description: Optional[str] = None
     car_id: Optional[UUID] = None
-    image_urls: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = Field(
+        None,
+        max_length=MAX_IMAGES_PER_BUILDLIST,
+        description="Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
+    )
 
 
 # Schema for response body when reading a build list
@@ -52,3 +62,15 @@ class BuildListReadWithVotes(BuildListRead):
         None,
         description="Sum of (part quantity * best price) for all parts in the build list",
     )
+
+
+class BuildListAppendImages(BaseModel):
+    file_keys: List[str] = Field(
+        ...,
+        max_length=MAX_IMAGES_PER_BUILDLIST,
+        description="Image references to append: file keys (from images/upload) or external URLs; max 12.",
+    )
+
+
+class BuildListSetPrimaryImageRequest(BaseModel):
+    index: int = Field(..., ge=0, description="0-based index into the build list's image_urls gallery")

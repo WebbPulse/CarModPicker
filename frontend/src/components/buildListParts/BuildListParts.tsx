@@ -20,8 +20,13 @@ import { normalizeCarReadList } from '../../utils/carUtils';
 import SectionHeader from '../layout/SectionHeader';
 import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import { Card } from '../ui/card';
 import { ConfirmDialog } from '../ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import BuildListPartList from './BuildListPartList';
@@ -33,6 +38,7 @@ interface BuildListPartsProps {
   canManageParts: boolean;
   refreshKey: number;
   onAddPartClick?: () => void;
+  onPartsChange?: (parts: BuildListPartReadWithPart[]) => void;
   title?: string;
   emptyMessage?: string;
 }
@@ -57,6 +63,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   canManageParts,
   refreshKey,
   onAddPartClick,
+  onPartsChange,
   title = 'Parts in Build List',
   emptyMessage = 'No parts added to this build list yet.',
 }) => {
@@ -77,6 +84,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const [editingPhaseName, setEditingPhaseName] = useState('');
   const [deletingPhaseId, setDeletingPhaseId] = useState<string | null>(null);
   const [phaseError, setPhaseError] = useState<string | null>(null);
+  const [isManagePhasesOpen, setIsManagePhasesOpen] = useState(false);
 
   const {
     data: buildListParts,
@@ -124,6 +132,13 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       setLocalBuildListParts(buildListParts);
     }
   }, [buildListParts]);
+
+  // Notify parent whenever the parts list changes (after fetches and optimistic updates)
+  useEffect(() => {
+    if (localBuildListParts && onPartsChange) {
+      onPartsChange(localBuildListParts);
+    }
+  }, [localBuildListParts, onPartsChange]);
 
   useEffect(() => {
     void fetchBuildListParts(buildListId);
@@ -405,8 +420,8 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
           >
             <TabsList data-testid="build-list-view-mode-tabs">
               <TabsTrigger value="category">By category</TabsTrigger>
-              <TabsTrigger value="phase">By phase</TabsTrigger>
               <TabsTrigger value="purchased">By purchased</TabsTrigger>
+              <TabsTrigger value="phase">By phase</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -417,98 +432,120 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         )}
       </div>
 
+      {canManageParts && viewMode === 'phase' && (
+        <div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsManagePhasesOpen(true)}
+            data-testid="build-list-manage-phases-trigger"
+          >
+            Manage phases
+          </Button>
+        </div>
+      )}
+
       {canManageParts && (
-        <Card className="p-4">
-          <h3 className="text-base font-semibold text-gray-200 mb-2">Phases</h3>
-          <p className="text-sm text-gray-400 mb-3">
-            Organize parts into phases or priority groups. Assign phases when
-            adding or editing parts.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            <Input
-              type="text"
-              value={newPhaseName}
-              onChange={(e) => setNewPhaseName(e.target.value)}
-              placeholder="New phase name"
-              className="w-48"
-              data-testid="build-list-add-phase-input"
-            />
-            <Button
-              type="button"
-              onClick={() => void handleAddPhase()}
-              disabled={!newPhaseName.trim() || isAddingPhase}
-              loading={isAddingPhase}
-              data-testid="build-list-add-phase-submit"
-            >
-              {isAddingPhase ? 'Adding...' : 'Add phase'}
-            </Button>
-          </div>
-          {phaseError && (
-            <div className="text-red-400 text-sm mb-2">{phaseError}</div>
-          )}
-          {phasesList.length > 0 ? (
-            <ul className="space-y-2">
-              {[...phasesList]
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map((phase) => (
-                  <li
-                    key={phase.id}
-                    data-testid={`build-list-phase-row-${phase.id}`}
-                    className="flex items-center gap-2 py-1 border-b border-gray-700 last:border-0"
-                  >
-                    {editingPhaseId === phase.id ? (
-                      <>
-                        <Input
-                          type="text"
-                          value={editingPhaseName}
-                          onChange={(e) => setEditingPhaseName(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={handleCancelEditPhase}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => void handleSaveEditPhase()}
-                        >
-                          Save
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-gray-200 flex-1">
-                          {phase.name}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => handleStartEditPhase(phase)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => setDeletingPhaseId(phase.id)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-500">
-              No phases yet. Add one above to group parts by phase.
+        <Dialog
+          open={isManagePhasesOpen}
+          onOpenChange={setIsManagePhasesOpen}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Phases</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-400 mb-3">
+              Organize parts into phases or priority groups. Assign phases when
+              adding or editing parts.
             </p>
-          )}
-        </Card>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <Input
+                type="text"
+                value={newPhaseName}
+                onChange={(e) => setNewPhaseName(e.target.value)}
+                placeholder="New phase name"
+                className="w-48"
+                data-testid="build-list-add-phase-input"
+              />
+              <Button
+                type="button"
+                onClick={() => void handleAddPhase()}
+                disabled={!newPhaseName.trim() || isAddingPhase}
+                loading={isAddingPhase}
+                data-testid="build-list-add-phase-submit"
+              >
+                {isAddingPhase ? 'Adding...' : 'Add phase'}
+              </Button>
+            </div>
+            {phaseError && (
+              <div className="text-red-400 text-sm mb-2">{phaseError}</div>
+            )}
+            {phasesList.length > 0 ? (
+              <ul className="space-y-2">
+                {[...phasesList]
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map((phase) => (
+                    <li
+                      key={phase.id}
+                      data-testid={`build-list-phase-row-${phase.id}`}
+                      className="flex items-center gap-2 py-1 border-b border-gray-700 last:border-0"
+                    >
+                      {editingPhaseId === phase.id ? (
+                        <>
+                          <Input
+                            type="text"
+                            value={editingPhaseName}
+                            onChange={(e) =>
+                              setEditingPhaseName(e.target.value)
+                            }
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleCancelEditPhase}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => void handleSaveEditPhase()}
+                          >
+                            Save
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-gray-200 flex-1">
+                            {phase.name}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => handleStartEditPhase(phase)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setDeletingPhaseId(phase.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">
+                No phases yet. Add one above to group parts by phase.
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
       )}
 
       <ConfirmDialog

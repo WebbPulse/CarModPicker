@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ImageWithPlaceholder from '../images/ImageWithPlaceholder';
 import { buildExternalImageUrl } from '../../utils/externalImageUrls';
 
 const CAROUSEL_SIZE = 5;
+// Default 4:3 until the real image loads; clamp wide/tall extremes so the card
+// never collapses or dominates the column.
+const DEFAULT_HERO_ASPECT = 4 / 3;
+const MIN_HERO_ASPECT = 3 / 4; // taller than 3:4 (portrait) gets clamped
+const MAX_HERO_ASPECT = 16 / 9; // wider than 16:9 gets clamped
 
 interface ImageGalleryProps {
   /** Image URLs (presigned from API). First entry is the primary/display image. */
@@ -25,8 +30,15 @@ function ImageGallery({
 }: ImageGalleryProps) {
   const [showAll, setShowAll] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [heroAspect, setHeroAspect] = useState<number>(DEFAULT_HERO_ASPECT);
 
   const allUrls = imageUrls && imageUrls.length > 0 ? imageUrls : [];
+
+  // Reset to the default aspect when the user picks a different image so we
+  // don't render the new image with the previous one's ratio for a frame.
+  useEffect(() => {
+    setHeroAspect(DEFAULT_HERO_ASPECT);
+  }, [selectedIndex]);
 
   if (allUrls.length === 0) {
     return (
@@ -42,14 +54,26 @@ function ImageGallery({
 
     return (
       <div className="space-y-3">
-        {/* Large image: shows whichever thumbnail is selected (primary by default) */}
-        <div className="aspect-[4/3] max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50">
+        {/* Large image: container matches the actual image aspect (clamped) */}
+        <div
+          className="max-h-[420px] w-full rounded-lg overflow-hidden border border-gray-600 bg-gray-800/50"
+          style={{ aspectRatio: heroAspect }}
+        >
           <ImageWithPlaceholder
             srcUrl={buildExternalImageUrl(selectedUrl, 'hero')}
             altText={`${altText} - image ${displayIndex + 1}`}
             imageClassName="w-full h-full object-contain"
             containerClassName="w-full h-full"
             fallbackText="Failed to load"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                const ratio = img.naturalWidth / img.naturalHeight;
+                setHeroAspect(
+                  Math.max(MIN_HERO_ASPECT, Math.min(MAX_HERO_ASPECT, ratio))
+                );
+              }
+            }}
           />
         </div>
         {/* Selector carousel: click a thumbnail to show it in the large view */}

@@ -77,4 +77,20 @@ export const buildListsApi = {
       `/build-lists/${buildListId}/phases`,
       data
     ),
+
+  // Image management (build list owner or admin)
+  appendBuildListImages: (buildListId: string, fileKeys: string[]) =>
+    apiClient.post<BuildListRead>(
+      `/build-lists/${buildListId}/append-images`,
+      { file_keys: fileKeys }
+    ),
+  removeBuildListImage: (buildListId: string, imageIndex: number) =>
+    apiClient.delete<BuildListRead>(
+      `/build-lists/${buildListId}/images/${imageIndex}`
+    ),
+  setBuildListPrimaryImage: (buildListId: string, index: number) =>
+    apiClient.patch<BuildListRead>(
+      `/build-lists/${buildListId}/primary-image`,
+      { index }
+    ),
 };

@@ -810,56 +810,6 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     carsById,
   ]);
 
-  // Calculate total price (from best_price_cents when available)
-  const totalPrice = useMemo(() => {
-    return buildListParts.reduce((sum, part) => {
-      const price = part.part.best_price_cents;
-      const quantity = part.quantity || 1;
-      if (price != null) {
-        return sum + price * quantity;
-      }
-      return sum;
-    }, 0);
-  }, [buildListParts]);
-
-  // Calculate remaining price (unpurchased parts)
-  const remainingPrice = useMemo(() => {
-    return buildListParts.reduce((sum, part) => {
-      if (part.purchased) return sum; // Skip purchased parts
-      const price = part.part.best_price_cents;
-      const quantity = part.quantity || 1;
-      if (price != null) {
-        return sum + price * quantity;
-      }
-      return sum;
-    }, 0);
-  }, [buildListParts]);
-
-  // Calculate purchased price (purchased parts)
-  const purchasedPrice = useMemo(() => {
-    return buildListParts.reduce((sum, part) => {
-      if (!part.purchased) return sum; // Skip unpurchased parts
-      const price = part.part.best_price_cents;
-      const quantity = part.quantity || 1;
-      if (price != null) {
-        return sum + price * quantity;
-      }
-      return sum;
-    }, 0);
-  }, [buildListParts]);
-
-  // Calculate purchase progress percentage
-  const purchaseProgress = useMemo(() => {
-    if (totalPrice === 0) return 0;
-    return Math.round((purchasedPrice / totalPrice) * 100);
-  }, [totalPrice, purchasedPrice]);
-
-  const formatPrice = (priceInCents: number) => {
-    // Convert cents to dollars
-    const priceInDollars = priceInCents / 100;
-    return `$${priceInDollars.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -878,99 +828,8 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     );
   }
 
-  const purchasedCount = buildListParts.filter((p) => p.purchased).length;
-  const remainingCount = buildListParts.filter((p) => !p.purchased).length;
-
   return (
     <div className="space-y-3">
-      {/* Cost Summary Card */}
-      <Card className="bg-gray-800 border-2 border-blue-600">
-        <div className="space-y-3 p-4">
-          {/* Total Build Cost - Always shown */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-200">
-                Total Build Cost
-              </h3>
-              <p className="text-xs text-gray-400 mt-1">
-                {buildListParts.length} part
-                {buildListParts.length !== 1 ? 's' : ''} total
-                {purchasedCount > 0 || remainingCount > 0 ? (
-                  <>
-                    {' '}
-                    • {purchasedCount} purchased • {remainingCount} remaining
-                  </>
-                ) : null}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-blue-400">
-                {formatPrice(totalPrice)}
-              </p>
-            </div>
-          </div>
-
-          {/* Purchase Progress Bar - Shown when there are purchased parts */}
-          {totalPrice > 0 && (purchasedCount > 0 || remainingCount > 0) && (
-            <div className="pt-2 border-t border-gray-700">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-gray-400">Purchase Progress</span>
-                <span className="text-xs font-semibold text-gray-300">
-                  {purchaseProgress}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2.5">
-                <div
-                  className="bg-green-500 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${purchaseProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Remaining and Purchased Costs - Shown when there are purchased parts */}
-          {(purchasedCount > 0 || remainingCount > 0) && (
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-700">
-              {/* Remaining Cost */}
-              <div className="bg-gray-900/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-1">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-300">
-                      Remaining
-                    </h4>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {remainingCount} part{remainingCount !== 1 ? 's' : ''} to
-                      purchase
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xl font-bold text-green-400 mt-2">
-                  {formatPrice(remainingPrice)}
-                </p>
-              </div>
-
-              {/* Purchased Cost */}
-              <div className="bg-gray-900/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-1">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-300">
-                      Purchased
-                    </h4>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {purchasedCount} part{purchasedCount !== 1 ? 's' : ''}{' '}
-                      acquired
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xl font-bold text-success mt-2">
-                  {formatPrice(purchasedPrice)}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
-
       {/* Parts grouped by category, phase, or purchased state — masonry: 2 cols on md+, 1 col below */}
       <div className="columns-1 md:columns-2 gap-4 [column-fill:_balance]">
         {displayGroups.map((group, index) => {
