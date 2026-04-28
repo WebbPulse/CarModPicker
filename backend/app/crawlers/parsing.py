@@ -8,13 +8,19 @@ Adapters can use these and add retailer-specific selectors.
 
 import html
 import json
+import logging
 import re
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.base import ScrapedPayload
+
+if TYPE_CHECKING:
+    from app.crawlers.adapters.base import RetailerCrawlerAdapter
+
+logger = logging.getLogger(__name__)
 
 
 def meta_content(tag: Optional[Tag]) -> Optional[str]:
@@ -237,6 +243,519 @@ def part_manufacturer_fallback_from_title(title: str) -> Optional[str]:
     # VF-Engineering: "VF" standalone or "VF" + digits (VF650, VF540, VF620, etc.)
     if re.search(r"\bVF(?:\b|\d)", title.strip(), re.IGNORECASE):
         return "VF-Engineering"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# part_manufacturer_universal — JSON-LD / microdata / OpenGraph ladder (S03 T02)
+# ---------------------------------------------------------------------------
+#
+# Mirrors the brand-precedence ladder used by m004_ground_truth.truth_from_html
+# but lives in production code. Per MEM212 the measurement and production
+# copies stay separate — same shape, separate ownership — so a measurement
+# tweak can't silently move the predictor.
+
+# Reject HTML inputs longer than this (5MB) — short-circuits past HTML-based
+# steps. Mirrors the HTML_SIZE_CAP_BYTES in m004_ground_truth.
+MANUFACTURER_HTML_SIZE_CAP_BYTES: int = 5 * 1024 * 1024
+
+
+# Shared reject-token sets used by ``part_manufacturer_universal`` when an
+# adapter declares ``MANUFACTURER_SELECTORS`` with a canonical-coerce
+# mapping. Extracted as module-level frozensets (S03 T03) from the
+# pre-existing per-adapter copies in csfrace.py / grimmspeed.py so the
+# universal pipeline can apply the same reject logic without each adapter
+# re-declaring them. Existing per-adapter constants stay in place — ripping
+# them out is S04+ scope and would touch the adapter-local
+# ``_normalize_part_manufacturer`` helpers, which is out of S03 lift scope.
+#
+# Adapters MAY supplement these via tuple-form selector mappings:
+# ``MANUFACTURER_SELECTORS = {".brand": ("CSF", "wheels", "exhaust")}``.
+# Tokens are compared case-insensitively after trimming.
+_BRAND_REJECT_TOKENS: frozenset[str] = frozenset(
+    {"the", "new", "oem", "race", "racing"}
+)
+
+_CAR_MAKES: frozenset[str] = frozenset(
+    {
+        "acura",
+        "audi",
+        "bmw",
+        "chevrolet",
+        "chevy",
+        "chrysler",
+        "dodge",
+        "ford",
+        "honda",
+        "hyundai",
+        "infiniti",
+        "jeep",
+        "kia",
+        "lexus",
+        "mazda",
+        "mercedes",
+        "mercedes-benz",
+        "mini",
+        "mitsubishi",
+        "nissan",
+        "plymouth",
+        "pontiac",
+        "porsche",
+        "ram",
+        "saab",
+        "scion",
+        "subaru",
+        "toyota",
+        "volkswagen",
+        "vw",
+        "yamaha",
+    }
+)
+
+
+def _brand_from_jsonld_item(
+    item: Dict[str, Any],
+) -> Optional[Tuple[str, str]]:
+    """Return (value, source) where source ∈ {'jsonld_brand', 'jsonld_manufacturer'} or None.
+
+    JSON-LD ``brand`` may be a str, dict.name, or list[str | dict.name]. When
+    ``brand`` is missing or empty we fall through to ``manufacturer`` (same
+    shape) so a ``Product.manufacturer.name`` payload still wins over
+    microdata/OG. Empty/whitespace strings are treated as None at every layer.
+    """
+
+    def _read(value: Any) -> Optional[str]:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        if isinstance(value, dict):
+            name = value.get("name")
+            if isinstance(name, str):
+                stripped = name.strip()
+                return stripped or None
+            return None
+        if isinstance(value, list):
+            for entry in value:
+                resolved = _read(entry)
+                if resolved:
+                    return resolved
+        return None
+
+    brand = _read(item.get("brand"))
+    if brand:
+        return (brand, "jsonld_brand")
+    manufacturer = _read(item.get("manufacturer"))
+    if manufacturer:
+        return (manufacturer, "jsonld_manufacturer")
+    return None
+
+
+def _stringify_microdata_value(tag: Tag) -> Optional[str]:
+    """Pull a sane string out of an itemprop element.
+
+    Handles three element shapes: ``<meta itemprop='x' content='...'>``,
+    nested ``<span itemprop='name'>`` (canonical schema.org Brand shape), and
+    plain text content. Returns ``None`` for empty values so callers can fall
+    through to the next layer. Mirrors the helper in
+    ``m004_ground_truth._stringify_microdata_value`` deliberately — production
+    and measurement copies stay separate per MEM212.
+    """
+    if not isinstance(tag, Tag):
+        return None
+
+    if tag.name == "meta":
+        content = tag.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        return None
+
+    name_child = tag.find(attrs={"itemprop": "name"})
+    if isinstance(name_child, Tag) and name_child is not tag:
+        inner_meta = name_child.get("content") if name_child.name == "meta" else None
+        if isinstance(inner_meta, str) and inner_meta.strip():
+            return inner_meta.strip()
+        inner_text = name_child.get_text(separator=" ", strip=True)
+        if inner_text:
+            return inner_text
+
+    text = tag.get_text(separator=" ", strip=True)
+    if text:
+        return text
+    return None
+
+
+_MANUFACTURER_OG_PROPS: Tuple[str, ...] = (
+    "og:brand",
+    "product:brand",
+    "og:product:brand",
+)
+
+
+def _adapter_name(adapter: "Optional[RetailerCrawlerAdapter]") -> str:
+    """Return a stable adapter identifier for log lines, or 'none'."""
+    if adapter is None:
+        return "none"
+    name = getattr(adapter, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    return type(adapter).__name__ or "none"
+
+
+def _selector_text(tag: Tag) -> Optional[str]:
+    """Extract a sane string from a CSS-selector match.
+
+    ``meta`` tags expose value via ``content``; everything else uses the
+    stripped text content. Returns ``None`` for empty values so
+    ``_resolve_from_adapter_selectors`` can fall through to the next entry.
+    """
+    if not isinstance(tag, Tag):
+        return None
+    if tag.name == "meta":
+        content = tag.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        return None
+    text = tag.get_text(strip=True)
+    return text or None
+
+
+def _resolve_from_adapter_selectors(
+    html_text: str,
+    adapter: "Optional[RetailerCrawlerAdapter]",
+) -> Optional[str]:
+    """Consult ``adapter.MANUFACTURER_SELECTORS`` for a retailer-specific brand.
+
+    Iterates the dict in declaration order — first non-rejected value wins.
+    Each value is either:
+
+    * A canonical-string mapping ``"CSF"`` — the resolved selector string is
+      checked against the shared ``_BRAND_REJECT_TOKENS | _CAR_MAKES`` reject
+      set; reject matches coerce to the canonical string, non-rejects pass
+      through unchanged.
+    * A tuple ``("CSF", "wheels", "exhaust")`` — first entry is the canonical
+      string, remaining entries are *additional* reject tokens supplementing
+      the shared set. Same coercion rules apply.
+
+    Defensive: every BeautifulSoup selector call is wrapped — a malformed
+    selector or a parser failure logs ``manufacturer_universal_failed`` and
+    falls through to the next entry. The function never raises.
+    """
+    if adapter is None:
+        return None
+    selectors = getattr(type(adapter), "MANUFACTURER_SELECTORS", None)
+    if not isinstance(selectors, dict) or not selectors:
+        return None
+
+    try:
+        soup = BeautifulSoup(html_text, "html.parser")
+    except Exception as exc:  # noqa: BLE001 — defensive boundary
+        logger.debug(
+            "manufacturer_universal_failed",
+            extra={"source": "adapter_selectors", "error": repr(exc)},
+        )
+        return None
+
+    for selector, mapping in selectors.items():
+        if not isinstance(selector, str) or not selector.strip():
+            continue
+        try:
+            tag = soup.select_one(selector)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "manufacturer_universal_failed",
+                extra={"source": "adapter_selectors", "error": repr(exc)},
+            )
+            continue
+        if tag is None:
+            continue
+
+        try:
+            value = _selector_text(tag)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "manufacturer_universal_failed",
+                extra={"source": "adapter_selectors", "error": repr(exc)},
+            )
+            continue
+        if not value:
+            continue
+
+        # Decode the mapping shape into (canonical, extra_rejects).
+        canonical: Optional[str] = None
+        extra_rejects: frozenset[str] = frozenset()
+        if isinstance(mapping, str):
+            canonical = mapping
+        elif isinstance(mapping, tuple) and mapping:
+            head = mapping[0]
+            if isinstance(head, str):
+                canonical = head
+            extra_rejects = frozenset(
+                t.lower().strip()
+                for t in mapping[1:]
+                if isinstance(t, str) and t.strip()
+            )
+
+        low = value.lower().strip()
+        if (
+            low in _BRAND_REJECT_TOKENS
+            or low in _CAR_MAKES
+            or low in extra_rejects
+        ):
+            if canonical:
+                return canonical
+            continue
+        return value
+
+    return None
+
+
+def part_manufacturer_universal(
+    name: str,
+    description: Optional[str],
+    html: Optional[str],
+    *,
+    product_url: Optional[str] = None,
+    adapter: "Optional[RetailerCrawlerAdapter]" = None,
+) -> Optional[str]:
+    """Resolve a part manufacturer using the universal brand-precedence ladder.
+
+    Resolution order, first hit wins:
+
+      1. JSON-LD ``Product.brand`` (str / dict.name / list[str | dict.name]),
+         then JSON-LD ``Product.manufacturer`` as a same-block fallback.
+      2. Microdata: ``itemprop="brand"`` then ``itemprop="manufacturer"``.
+      3. OpenGraph / product meta tags: ``og:brand`` → ``product:brand`` →
+         ``og:product:brand``.
+      4. ``part_manufacturer_from_title(name)``.
+      5. ``part_manufacturer_from_description(description, product_name=name)``.
+      6. ``part_manufacturer_fallback_from_title(name)``.
+
+    Defensive contract:
+
+    * Never raises. Every BeautifulSoup/JSON parse is wrapped in
+      ``try/except Exception`` (per MEM212 / m004_ground_truth pattern); on
+      failure the function emits ``manufacturer_universal_failed`` at debug
+      and falls through to the next layer.
+    * ``html is None`` or whitespace-only short-circuits past steps 1–3 to the
+      title/description/fallback ladder so HTML-less callers still work.
+    * Inputs over ``MANUFACTURER_HTML_SIZE_CAP_BYTES`` (5MB) short-circuit past
+      HTML-based steps — mirrors ``HTML_SIZE_CAP_BYTES`` in the measurement
+      module.
+    * Empty/whitespace strings from any source are treated as None.
+
+    On each successful resolution emits a ``manufacturer_universal_resolved``
+    debug log line with ``source`` ∈ ``{'adapter_selectors', 'jsonld_brand',
+    'jsonld_manufacturer', 'microdata', 'opengraph', 'title', 'description',
+    'fallback', 'none'}``, ``adapter`` (adapter name or ``'none'``), and
+    ``value`` so a future agent can grep crawler logs to localize regressions
+    by source.
+
+    Adapter consultation (S03 T03):
+
+    * When ``adapter is not None`` and the adapter declares a non-empty
+      ``MANUFACTURER_SELECTORS`` ClassVar, this function consults those CSS
+      selectors FIRST — ahead of JSON-LD/microdata/OG — because a retailer-
+      specific selector is cheaper and more accurate than guessing from
+      generic schema markup.
+    * After all HTML-based layers + title/description/fallback have run, the
+      ``infer_manufacturer_for_part`` inheritance hook is reserved for a
+      future ingest call site that has access to a parsed ``ScrapedPayload``.
+      ``part_manufacturer_universal`` does NOT call ``infer_manufacturer_for_part``
+      in S03 because no current caller (the harness ``_predict_manufacturer``
+      and any future ingest call site) passes a ``parsed`` object — the slot
+      is declared on the base for forward compatibility with S07's backfill.
+    """
+    adapter_label = _adapter_name(adapter)
+
+    # Steps 1–3 require a non-trivial, in-cap HTML payload.
+    has_html = bool(html and html.strip())
+    if has_html and len(html or "") > MANUFACTURER_HTML_SIZE_CAP_BYTES:
+        logger.debug(
+            "manufacturer_universal_failed",
+            extra={
+                "source": "html_size_cap",
+                "error": "html exceeds MANUFACTURER_HTML_SIZE_CAP_BYTES",
+            },
+        )
+        has_html = False
+
+    if has_html:
+        assert html is not None  # for type narrowing — has_html guard above
+        # 0. Adapter-declared MANUFACTURER_SELECTORS (cheap retailer-specific
+        # layer; S03 T03). Runs ahead of JSON-LD because a retailer's CSS
+        # selector is more authoritative than schema.org markup that may
+        # carry a car-make leakage from the title.
+        adapter_hit = _resolve_from_adapter_selectors(html, adapter)
+        if adapter_hit is not None:
+            logger.debug(
+                "manufacturer_universal_resolved",
+                extra={
+                    "source": "adapter_selectors",
+                    "adapter": adapter_label,
+                    "value": adapter_hit,
+                },
+            )
+            return adapter_hit
+
+        # 1. JSON-LD Product.brand → Product.manufacturer fallback
+        try:
+            item = extract_json_ld_product(html, product_url=product_url)
+        except Exception as exc:  # noqa: BLE001 — defensive boundary
+            logger.debug(
+                "manufacturer_universal_failed",
+                extra={"source": "jsonld", "error": repr(exc)},
+            )
+            item = None
+        if isinstance(item, dict):
+            try:
+                brand_hit = _brand_from_jsonld_item(item)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(
+                    "manufacturer_universal_failed",
+                    extra={"source": "jsonld", "error": repr(exc)},
+                )
+                brand_hit = None
+            if brand_hit is not None:
+                value, source = brand_hit
+                logger.debug(
+                    "manufacturer_universal_resolved",
+                    extra={
+                        "source": source,
+                        "adapter": adapter_label,
+                        "value": value,
+                    },
+                )
+                return value
+
+        # 2. Microdata: itemprop=brand → itemprop=manufacturer
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "manufacturer_universal_failed",
+                extra={"source": "microdata", "error": repr(exc)},
+            )
+            soup = None
+        if soup is not None:
+            for prop in ("brand", "manufacturer"):
+                try:
+                    candidate = soup.find(attrs={"itemprop": prop})
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(
+                        "manufacturer_universal_failed",
+                        extra={"source": "microdata", "error": repr(exc)},
+                    )
+                    candidate = None
+                if isinstance(candidate, Tag):
+                    try:
+                        value = _stringify_microdata_value(candidate)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug(
+                            "manufacturer_universal_failed",
+                            extra={"source": "microdata", "error": repr(exc)},
+                        )
+                        value = None
+                    if value:
+                        logger.debug(
+                            "manufacturer_universal_resolved",
+                            extra={
+                                "source": "microdata",
+                                "adapter": adapter_label,
+                                "value": value,
+                            },
+                        )
+                        return value
+
+            # 3. OpenGraph / product:* meta tags
+            for prop in _MANUFACTURER_OG_PROPS:
+                try:
+                    meta = soup.find("meta", property=prop)
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(
+                        "manufacturer_universal_failed",
+                        extra={"source": "opengraph", "error": repr(exc)},
+                    )
+                    meta = None
+                if isinstance(meta, Tag):
+                    content = meta.get("content")
+                    if isinstance(content, str) and content.strip():
+                        value = content.strip()
+                        logger.debug(
+                            "manufacturer_universal_resolved",
+                            extra={
+                                "source": "opengraph",
+                                "adapter": adapter_label,
+                                "value": value,
+                            },
+                        )
+                        return value
+
+    # 4. Title heuristic
+    try:
+        title_hit = part_manufacturer_from_title(name) if name else None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "manufacturer_universal_failed",
+            extra={"source": "title", "error": repr(exc)},
+        )
+        title_hit = None
+    if title_hit:
+        logger.debug(
+            "manufacturer_universal_resolved",
+            extra={
+                "source": "title",
+                "adapter": adapter_label,
+                "value": title_hit,
+            },
+        )
+        return title_hit
+
+    # 5. Description heuristic
+    try:
+        description_hit = part_manufacturer_from_description(
+            description, product_name=name
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "manufacturer_universal_failed",
+            extra={"source": "description", "error": repr(exc)},
+        )
+        description_hit = None
+    if description_hit:
+        logger.debug(
+            "manufacturer_universal_resolved",
+            extra={
+                "source": "description",
+                "adapter": adapter_label,
+                "value": description_hit,
+            },
+        )
+        return description_hit
+
+    # 6. Fallback regex on title
+    try:
+        fallback_hit = part_manufacturer_fallback_from_title(name) if name else None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "manufacturer_universal_failed",
+            extra={"source": "fallback", "error": repr(exc)},
+        )
+        fallback_hit = None
+    if fallback_hit:
+        logger.debug(
+            "manufacturer_universal_resolved",
+            extra={
+                "source": "fallback",
+                "adapter": adapter_label,
+                "value": fallback_hit,
+            },
+        )
+        return fallback_hit
+
+    logger.debug(
+        "manufacturer_universal_resolved",
+        extra={"source": "none", "adapter": adapter_label, "value": None},
+    )
     return None
 
 
@@ -642,6 +1161,13 @@ _WEIGHT_LABELED_RE = re.compile(
     r"weight\s{0,4}[:=]?\s{0,4}(\d{1,8}(?:\.\d{1,4})?)\s{0,4}(lbs?|pounds?|kgs?|kilograms?|g|grams?|oz|ounces?)\b",
     re.IGNORECASE,
 )
+# Composite ``X lbs Y oz`` shape — common on US retailer pages. Bounded
+# numeric ({1,4}) and whitespace ({0,4}) runs preserve the MEM029 ReDoS
+# contract. Both lbs and oz legs are converted via ``_to_grams`` and summed.
+_WEIGHT_LBS_OZ_RE = re.compile(
+    r"(?<!\d)(\d{1,4})\s{0,4}(lbs?)\s{0,4}(\d{1,4})\s{0,4}(oz|ounces?)\b",
+    re.IGNORECASE,
+)
 
 
 def _weight_from_json_ld(html_text: str) -> Optional[Tuple[float, _Confidence]]:
@@ -759,6 +1285,23 @@ def extract_weight(html_text: str) -> Optional[Tuple[float, _Confidence]]:
     except Exception:  # noqa: BLE001
         body_text = cleaned
 
+    # Composite "X lbs Y oz" — match before the single-value patterns so the
+    # whole composite resolves rather than the lbs leg alone.
+    composite = _WEIGHT_LBS_OZ_RE.search(body_text)
+    if composite:
+        try:
+            lbs_value = float(composite.group(1))
+            oz_value = float(composite.group(3))
+        except ValueError:
+            lbs_value = 0.0
+            oz_value = 0.0
+        lbs_grams = _to_grams(lbs_value, composite.group(2))
+        oz_grams = _to_grams(oz_value, composite.group(4))
+        if lbs_grams is not None and oz_grams is not None:
+            total = lbs_grams + oz_grams
+            if _WEIGHT_GRAM_MIN <= total <= _WEIGHT_GRAM_MAX:
+                return (total, "medium")
+
     labeled = _WEIGHT_LABELED_RE.search(body_text)
     if labeled:
         try:
@@ -831,14 +1374,19 @@ def extract_material(html_text: str) -> Optional[Tuple[str, _Confidence]]:
     item = extract_json_ld_product(capped)
     if item is not None:
         material_field = item.get("material")
+        # Lowercase normalization at the JSON-LD ingest point: even though
+        # ``_match_first_material`` patterns are ``re.IGNORECASE``, normalizing
+        # here keeps the lexicon contract self-evident (canonical lowercase
+        # forms in / canonical lowercase forms out) and protects against any
+        # future lexicon entry that might drop the IGNORECASE flag.
         if isinstance(material_field, str) and material_field.strip():
-            canonical = _match_first_material(material_field)
+            canonical = _match_first_material(material_field.strip().lower())
             if canonical is not None:
                 return (canonical, "high")
         elif isinstance(material_field, dict):
             name = material_field.get("name")
             if isinstance(name, str) and name.strip():
-                canonical = _match_first_material(name)
+                canonical = _match_first_material(name.strip().lower())
                 if canonical is not None:
                     return (canonical, "high")
 
@@ -885,7 +1433,10 @@ _FINISH_COLORS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bgold\b", re.IGNORECASE), "gold"),
 ]
 
-_FINISH_LABELED_RE = re.compile(r"finish\s*[:=]?\s*([^\n<>]{1,80})", re.IGNORECASE)
+_FINISH_LABELED_RE = re.compile(
+    r"(?:finish|coating|surface)\s{0,4}[:=]?\s{0,4}([^\n<>]{1,80})",
+    re.IGNORECASE,
+)
 
 
 def _match_first_finish(text: str) -> Optional[Tuple[str, bool]]:
@@ -966,6 +1517,16 @@ _WARRANTY_RE = re.compile(
     r"(?<!\d)(\d{1,4})[\s\-]{0,4}(year|years|yr|yrs|month|months|day|days)\s{0,4}(?:limited\s{1,4})?warranty",
     re.IGNORECASE,
 )
+# Lifetime warranty: literal token ``lifetime`` adjacent to coverage cue. Maps
+# to ``warranty_days = 36500.0`` (100 years — sentinel-ish but semantically
+# correct). Bounded whitespace run preserves the MEM029 ReDoS contract; the
+# coverage-token requirement guards against bare ``lifetime`` (e.g.
+# ``lifetime achievement``) producing a spurious match.
+_WARRANTY_LIFETIME_RE = re.compile(
+    r"\b(lifetime)\s{0,4}(warranty|guarantee|coverage)\b",
+    re.IGNORECASE,
+)
+_WARRANTY_LIFETIME_DAYS = 36500.0
 
 
 def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
@@ -1001,6 +1562,8 @@ def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
                 factor = _WARRANTY_UNIT_DAYS.get(m.group(2).lower())
                 if factor is not None and qty > 0:
                     return (qty * factor, "high")
+            if _WARRANTY_LIFETIME_RE.search(text):
+                return (_WARRANTY_LIFETIME_DAYS, "high")
 
     try:
         soup = BeautifulSoup(capped, "html.parser")
@@ -1018,16 +1581,37 @@ def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
         if factor is not None and qty > 0:
             return (qty * factor, "medium")
 
+    if _WARRANTY_LIFETIME_RE.search(body_text):
+        return (_WARRANTY_LIFETIME_DAYS, "medium")
+
     return None
 
 
-# Word-bounded chassis-code matcher — same shape as ``_CHASSIS_LIKE_PATTERN``
-# (E46, E9x, F80, G82) but anchored at word boundaries rather than start/end of
-# string, so we can find chassis mentions inside running prose. Bounded digit
-# runs ({1,4}) keep the search linear-time on adversarial input.
+# Word-bounded chassis-code matcher for fitment-notes use only. Wider than
+# ``_CHASSIS_LIKE_PATTERN`` (1-3 leading alphas instead of 1) so Honda chassis
+# like ``FK8``/``FK2``/``DC5`` and generic ``MK7``/``MK4`` resolve. Bounded
+# numeric and alpha runs keep the search linear-time on adversarial input
+# (MEM021 / MEM029). DOES NOT replace ``_CHASSIS_LIKE_PATTERN`` — that pattern
+# gates part_manufacturer recognition (rejects E46-as-brand) and would
+# over-shadow legitimate part codes like ``VF540`` if widened to the same
+# 1-3 alpha shape.
 _CHASSIS_IN_TEXT_RE = re.compile(
-    r"\b([A-Z][0-9]{1,4}x?)\b",
+    r"\b([A-Z]{1,3}[0-9]{1,4}x?)\b",
 )
+
+
+def _looks_like_fitment_chassis(token: str) -> bool:
+    """True if ``token`` looks like a chassis code in a fitment-notes context.
+
+    Accepts the same wider 1-3 alpha + 1-4 digit shape as
+    ``_CHASSIS_IN_TEXT_RE``. Used by ``extract_fitment_notes`` to gate which
+    in-text tokens count as chassis hits, separately from
+    ``_looks_like_chassis_code`` (which is locked to the narrower 1-alpha
+    pattern to keep part_manufacturer recognition stable).
+    """
+    if not token or len(token) < 2:
+        return False
+    return bool(_CHASSIS_IN_TEXT_RE.fullmatch(token.strip()))
 
 # Year ranges like "2008-2013", "2010 to 2015", "'08-'13".
 _YEAR_RANGE_RE = re.compile(
@@ -1070,7 +1654,7 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
         chassis_hit = False
         for m in _CHASSIS_IN_TEXT_RE.finditer(sent):
             token = m.group(1)
-            if _looks_like_chassis_code(token):
+            if _looks_like_fitment_chassis(token):
                 chassis_hit = True
                 break
         year_hit = bool(_YEAR_RANGE_RE.search(sent))
@@ -1094,7 +1678,7 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
     # Last-ditch: any standalone chassis-like token anywhere in the text.
     for m in _CHASSIS_IN_TEXT_RE.finditer(body_text):
         token = m.group(1)
-        if _looks_like_chassis_code(token):
+        if _looks_like_fitment_chassis(token):
             # Grab a 200-char window around the hit for context.
             start = max(0, m.start() - 80)
             end = min(len(body_text), m.end() + 120)
@@ -1103,24 +1687,77 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
     return None
 
 
-# Public entry point: run all five extractors and return the non-None hits.
+# Manufacturer part number (MPN) — bounded labeled-row regex per MEM029/MEM245.
+# Token body bounded to 1..63 chars to keep worst-case linear.
+_MPN_LABELED_RE = re.compile(
+    r"(?:mpn|manufacturer\s{1,4}part\s{1,4}(?:number|#|no\.?)|part\s{1,4}(?:number|#|no\.?))"
+    r"\s{0,4}[:=]?\s{0,4}([A-Za-z0-9][A-Za-z0-9\-_/.]{1,63})",
+    re.IGNORECASE,
+)
+
+
+def extract_manufacturer_part_number(
+    html_text: Optional[str],
+) -> Optional[Tuple[str, _Confidence]]:
+    """
+    Extract a part's manufacturer part number (MPN).
+
+    Confidence tiers (mirrors ``extract_finish`` precedence):
+    high: JSON-LD ``mpn`` property is a non-empty string.
+    medium: labeled body row matches ``_MPN_LABELED_RE``.
+    Body-sweep is intentionally skipped — free-text MPN extraction is too
+    noisy and risks shadowing serial numbers (per T03 plan).
+
+    Returns the canonicalized MPN as upper-cased, whitespace-collapsed string.
+    """
+    if html_text is None:
+        return None
+    capped = _cap_html(html_text)
+    if capped is None:
+        return None
+
+    item = extract_json_ld_product(capped)
+    if item is not None:
+        mpn_field = item.get("mpn")
+        if isinstance(mpn_field, str) and mpn_field.strip():
+            return (mpn_field.strip().upper(), "high")
+
+    try:
+        soup = BeautifulSoup(capped, "html.parser")
+        body_text = soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        body_text = capped
+
+    labeled = _MPN_LABELED_RE.search(body_text)
+    if labeled:
+        token = labeled.group(1).strip()
+        if token:
+            return (token.upper(), "medium")
+
+    return None
+
+
+# Public entry point: run all six extractors and return the non-None hits.
 _UNIVERSAL_FIELD_NAMES: Tuple[str, ...] = (
     "weight_grams",
     "material",
     "finish",
     "warranty_days",
     "fitment_notes",
+    "manufacturer_part_number",
 )
 
 
 def extract_universal_fields(html_text: Optional[str]) -> Dict[str, Tuple[Any, str]]:
     """
-    Run all five universal-field extractors and return the non-None results.
+    Run all six universal-field extractors and return the non-None results.
 
-    Keys mirror the CategorySpec base field names declared in S02 T02:
-    ``weight_grams``, ``material``, ``finish``, ``warranty_days``,
-    ``fitment_notes``. Each value is a ``(value, confidence)`` tuple. Returns
-    an empty dict when ``html_text`` is None/empty or when nothing extracts.
+    Keys mirror the CategorySpec base field names declared in S02 T02 (extended
+    in S06 T03 with ``manufacturer_part_number``): ``weight_grams``,
+    ``material``, ``finish``, ``warranty_days``, ``fitment_notes``,
+    ``manufacturer_part_number``. Each value is a ``(value, confidence)``
+    tuple. Returns an empty dict when ``html_text`` is None/empty or when
+    nothing extracts.
 
     This is the call-site that ``RetailerCrawlerAdapter.apply_universal_extraction``
     (T03) consumes — see ``S02-PLAN.md``.
@@ -1149,5 +1786,9 @@ def extract_universal_fields(html_text: Optional[str]) -> Dict[str, Tuple[Any, s
     fitment_hit = extract_fitment_notes(html_text)
     if fitment_hit is not None:
         out["fitment_notes"] = fitment_hit
+
+    mpn_hit = extract_manufacturer_part_number(html_text)
+    if mpn_hit is not None:
+        out["manufacturer_part_number"] = mpn_hit
 
     return out

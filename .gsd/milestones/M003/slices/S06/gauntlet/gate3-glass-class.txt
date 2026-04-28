@@ -1,3 +1,0 @@
-$ rg 'glass-(card|button)?' frontend/src/{components,pages,contexts,hooks,api,lib,__tests__}/
-EXIT_CODE: 1 (zero hits = pass)
-NOTE: T03 rewrote the comment in no-legacy-primitives.test.ts that previously contained the bare 'glass-' literal; the regex sources are now constructed via string concatenation per MEM163 convention.

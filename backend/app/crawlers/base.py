@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Tuple, cast
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 from uuid import UUID
@@ -44,6 +44,12 @@ from app.core.car_inference import infer_car_generations, resolve_car_triples_to
 from app.core.category_inference import infer_category
 from app.core.cloudwatch_emf import emit_extraction_failure
 from app.crawlers.specs import default_registry
+
+if TYPE_CHECKING:
+    # Forward-ref only — adapters/base.py imports ``ScrapedPayload`` from this
+    # module, so a runtime import here would be circular. ``ingest_payload``
+    # only needs the type for its ``adapter`` parameter annotation.
+    from app.crawlers.adapters.base import RetailerCrawlerAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -653,6 +659,7 @@ def ingest_payload(
     logger: logging.Logger,
     source: str = "scraped",
     adapter_name: Optional[str] = None,
+    adapter: Optional["RetailerCrawlerAdapter"] = None,
 ) -> DBPart:
     """
     Resolve retailer and part_manufacturer, then create or update global part + PartListing/PartPriceHistory
@@ -662,6 +669,13 @@ def ingest_payload(
     the ``ExtractionFailureRate`` EMF metric emitted when ``payload.specifications``
     fails Pydantic validation against the SpecRegistry-resolved schema. Defaults
     to ``"unknown"`` so log lines are never bare for legacy callers.
+
+    ``adapter`` is the optional adapter instance whose ``infer_car_for_part``
+    hook is consulted ahead of the universal ``infer_car_generations`` pipeline
+    (S04 T04). When the hook returns a non-empty triples list, those triples
+    win and the universal pipeline is skipped; otherwise the universal
+    pipeline fires as before. Defaults to ``None`` so legacy callers (and
+    tests that don't supply an adapter) keep the T03 behavior unchanged.
     """
     domain = domain_from_url(payload.product_url)
     if not domain:
@@ -719,8 +733,24 @@ def ingest_payload(
                 default_category_id,
             )
 
-    # Infer car make/model/generation from name/description/URL when possible
-    triples = infer_car_generations(payload.name, payload.description, payload.product_url)
+    # Infer car make/model/generation: adapter override wins over the universal pipeline (S04 T04).
+    # The adapter hook returns triples (NOT car IDs) so adapters stay DB-free; the resolver
+    # below handles UUID lookup. ``infer_car_for_part`` defaults to ``None``, so adapters that
+    # don't override fall through to the universal pipeline identically to T03 behavior.
+    adapter_triples = adapter.infer_car_for_part(payload) if adapter is not None else None
+    if adapter_triples:
+        logger.debug(
+            "adapter_car_inference_resolved",
+            extra={
+                "adapter_name": getattr(type(adapter), "ADAPTER_NAME", "?")
+                if adapter is not None
+                else "?",
+                "triple_count": len(adapter_triples),
+            },
+        )
+        triples = adapter_triples
+    else:
+        triples = infer_car_generations(payload.name, payload.description, payload.product_url)
     inferred_car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
     if inferred_car_ids:
         logger.debug(

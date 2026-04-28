@@ -137,9 +137,6 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# ── GSD baseline (auto-generated) ──
-.gsd-id
-.mcp.json
 .bg-shell/
 *~
 .vscode/
@@ -157,34 +154,3 @@ tmp/
 playwright-report/
 test-results/
 .playwright-mcp/
-
-# ===========================================
-# GSD runtime state (local only — not tracked)
-# ===========================================
-.gsd/STATE.md
-.gsd/last-snapshot.md
-.gsd/state-manifest.json
-.gsd/metrics.json
-.gsd/event-log.jsonl
-.gsd/doctor-history.jsonl
-.gsd/notifications.jsonl
-.gsd/gsd.db-shm
-.gsd/gsd.db-wal
-.gsd/activity/
-.gsd/audit/
-.gsd/journal/
-.gsd/parallel/
-.gsd/runtime/
-**/.gsd/runtime/
-.gsd/safety/
-.gsd/worktrees/
-.gsd/graphs/
-.gsd/auto.lock
-.gsd/auto-*.lock
-.gsd/milestones/**/*-META.json
-# Per-task verification evidence — runtime artifacts, not authoritative state
-.gsd/milestones/**/*-VERIFY.json
-.gsd/milestones/**/*-PRE-EXEC-VERIFY.json
-.gsd/milestones/**/anchors/
-# M001 was migrated to gsdb2 stubs (see commit 88a217d); originals live in pre-migration history
-.gsd/milestones/M001/

@@ -612,6 +612,7 @@ def run_crawler(
                     logger=logger,
                     source="scraped",
                     adapter_name=adapter_name,
+                    adapter=adapter,
                 )
                 _upsert_crawled_page(
                     db,

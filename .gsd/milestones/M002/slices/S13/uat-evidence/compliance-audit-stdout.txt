@@ -1,6 +1,0 @@
-M002/S03 adapter compliance audit
-  T0 (http):    83/83 compliant
-  T1 (tls):     15/15 compliant
-  T2 (browser): 10/10 compliant
-  Total:        108/108 compliant
-OK — every adapter declares at least one category_targets entry

@@ -24,11 +24,12 @@ FetcherTier = Literal["http", "tls", "browser"]
 
 logger = logging.getLogger(__name__)
 
-#: The five universal field names produced by
-#: ``app.crawlers.parsing.extract_universal_fields``. Used to validate
-#: ``suppress_universal`` entries at class-definition time so a typo in an
-#: adapter ("weight" vs "weight_grams") fails loudly rather than silently
-#: failing to suppress at runtime.
+#: The six universal field names produced by
+#: ``app.crawlers.parsing.extract_universal_fields`` (extended in M004/S06 T03
+#: with ``manufacturer_part_number``). Used to validate ``suppress_universal``
+#: entries at class-definition time so a typo in an adapter ("weight" vs
+#: "weight_grams") fails loudly rather than silently failing to suppress at
+#: runtime.
 UNIVERSAL_FIELD_NAMES: frozenset[str] = frozenset(
     {
         "weight_grams",
@@ -36,6 +37,7 @@ UNIVERSAL_FIELD_NAMES: frozenset[str] = frozenset(
         "finish",
         "warranty_days",
         "fitment_notes",
+        "manufacturer_part_number",
     }
 )
 
@@ -109,6 +111,96 @@ class RetailerCrawlerAdapter(ABC):
                         f"{sorted(UNIVERSAL_FIELD_NAMES)!r}."
                     )
 
+        # Validate MANUFACTURER_SELECTORS shape (S03 T03). A typo'd selector
+        # or a wrong-shaped value would silently fail to override at runtime;
+        # failing loudly at class-definition time keeps the override honest.
+        # Subclasses that don't override the default (an empty dict) skip this
+        # validation entirely.
+        selectors = getattr(cls, "MANUFACTURER_SELECTORS", {})
+        if selectors:
+            if not isinstance(selectors, dict):
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                    f"that is not a dict: {selectors!r}"
+                )
+            for sel_key, sel_val in selectors.items():
+                if not isinstance(sel_key, str) or not sel_key.strip():
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                        f"key {sel_key!r}; each key must be a non-empty CSS selector string."
+                    )
+                if isinstance(sel_val, str):
+                    if not sel_val.strip():
+                        raise TypeError(
+                            f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                            f"empty-string value for key {sel_key!r}; canonical strings must be non-empty."
+                        )
+                elif isinstance(sel_val, tuple):
+                    if not sel_val:
+                        raise TypeError(
+                            f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                            f"empty tuple for key {sel_key!r}; tuple values must contain at least "
+                            f"a canonical string at index 0."
+                        )
+                    for idx, entry in enumerate(sel_val):
+                        if not isinstance(entry, str) or not entry.strip():
+                            raise TypeError(
+                                f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                                f"value tuple[{idx}]={entry!r} for key {sel_key!r}; each tuple entry "
+                                f"must be a non-empty string."
+                            )
+                else:
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares MANUFACTURER_SELECTORS "
+                        f"value for key {sel_key!r} of type {type(sel_val).__name__}; "
+                        f"must be a non-empty string or a tuple of non-empty strings."
+                    )
+
+        # Validate CAR_FITMENT_SELECTORS shape (S04 T04). Mirrors the
+        # MANUFACTURER_SELECTORS validator above — same dict-of-CSS-selector
+        # shape so an adapter declaring per-retailer fitment selectors fails
+        # loudly at import on typos rather than silently dropping car
+        # inferences at runtime. Subclasses that don't override the default
+        # (an empty dict) skip this validation entirely.
+        car_selectors = getattr(cls, "CAR_FITMENT_SELECTORS", {})
+        if car_selectors:
+            if not isinstance(car_selectors, dict):
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                    f"that is not a dict: {car_selectors!r}"
+                )
+            for sel_key, sel_val in car_selectors.items():
+                if not isinstance(sel_key, str) or not sel_key.strip():
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                        f"key {sel_key!r}; each key must be a non-empty CSS selector string."
+                    )
+                if isinstance(sel_val, str):
+                    if not sel_val.strip():
+                        raise TypeError(
+                            f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                            f"empty-string value for key {sel_key!r}; canonical strings must be non-empty."
+                        )
+                elif isinstance(sel_val, tuple):
+                    if not sel_val:
+                        raise TypeError(
+                            f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                            f"empty tuple for key {sel_key!r}; tuple values must contain at least one entry."
+                        )
+                    for idx, entry in enumerate(sel_val):
+                        if not isinstance(entry, str) or not entry.strip():
+                            raise TypeError(
+                                f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                                f"value tuple[{idx}]={entry!r} for key {sel_key!r}; each tuple entry "
+                                f"must be a non-empty string."
+                            )
+                else:
+                    raise TypeError(
+                        f"{cls.__module__}.{cls.__qualname__} declares CAR_FITMENT_SELECTORS "
+                        f"value for key {sel_key!r} of type {type(sel_val).__name__}; "
+                        f"must be a non-empty string or a tuple of non-empty strings."
+                    )
+
     #: Globally-unique slug for this adapter. Enforced non-empty by __init_subclass__.
     #: Must equal the existing ADAPTER_REGISTRY key verbatim (no derivation from class name per D-02).
     ADAPTER_NAME: ClassVar[str] = ""
@@ -133,6 +225,37 @@ class RetailerCrawlerAdapter(ABC):
     #: __init_subclass__ raises TypeError on unknown names so typos are caught
     #: at import.
     suppress_universal: ClassVar[list[str]] = []
+    #: Per-retailer CSS-selector overrides consulted by
+    #: ``app.crawlers.parsing.part_manufacturer_universal`` AHEAD of the
+    #: JSON-LD/microdata/OpenGraph layers (S03 T03). Keys are CSS selectors
+    #: (e.g. ``'.product-brand'``, ``'meta[name=brand]'``). Values are either:
+    #:
+    #:   * a canonical-string mapping (e.g. ``'CSF'``) — the resolved selector
+    #:     value is checked against the shared
+    #:     ``parsing._BRAND_REJECT_TOKENS | parsing._CAR_MAKES`` reject set;
+    #:     reject matches coerce to the canonical string, non-rejects pass
+    #:     through unchanged.
+    #:   * a tuple ``('CSF', 'wheels', 'exhaust')`` — first entry is the
+    #:     canonical, remaining entries are *additional* reject tokens
+    #:     supplementing the shared set.
+    #:
+    #: Validated at ``__init_subclass__`` time: must be a dict; each key must
+    #: be a non-empty string; each value must be either a non-empty string OR
+    #: a tuple of non-empty strings of length ≥ 1. Typos / wrong types raise
+    #: ``TypeError`` at class-definition time, mirroring the existing
+    #: ``category_targets`` / ``suppress_universal`` validators.
+    MANUFACTURER_SELECTORS: ClassVar[dict[str, str | tuple[str, ...]]] = {}
+    #: Per-retailer CSS-selector overrides for car-fitment markup (S04 T04).
+    #: Reserved declarative slot mirroring ``MANUFACTURER_SELECTORS`` — keys are
+    #: CSS selectors targeting fitment regions (e.g. JSON-LD ``Product.isCompatibleWith``,
+    #: a ``.product-fitment`` block, microdata ``vehicleConfiguration``). Values
+    #: follow the same canonical-string-or-tuple shape so future selector-driven
+    #: parsers can share the same validation contract. Default empty — concrete
+    #: parsing helpers consult ``infer_car_for_part`` today; selectors here are
+    #: a forward-compat slot adapters MAY use to drive that hook's implementation.
+    #: Validated at ``__init_subclass__`` time identically to
+    #: ``MANUFACTURER_SELECTORS``.
+    CAR_FITMENT_SELECTORS: ClassVar[dict[str, str | tuple[str, ...]]] = {}
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
         # Defer default-fetcher construction until first access. Archive rescrape
@@ -161,6 +284,46 @@ class RetailerCrawlerAdapter(ABC):
         Return None if the page is not a product page or parsing fails.
         """
         ...
+
+    def infer_manufacturer_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Adapter-specific manufacturer inference hook (S03 T03).
+
+        Default returns ``None``. Subclasses MAY override to consult
+        ``parsed.name`` / ``parsed.description`` / ``parsed.specifications``
+        for retailer-specific shape that doesn't fit a CSS selector
+        (``MANUFACTURER_SELECTORS``).
+
+        The default lives on the base so callers can invoke it
+        unconditionally. Reserved slot — ``part_manufacturer_universal`` does
+        NOT call this hook in S03 because no current caller (the harness
+        ``_predict_manufacturer`` and any future ingest call site) passes a
+        parsed ``ScrapedPayload`` object today. Wiring is deferred to S07's
+        backfill, which has parsed payloads in hand.
+        """
+        return None
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[list[tuple[str, str, str]]]:
+        """Adapter-specific car-inference hook (S04 T04). Default returns ``None``.
+
+        Subclasses MAY override to return a list of
+        ``(car_make_name, car_model_name, generation_name)`` triples extracted
+        from retailer-specific fitment markup — JSON-LD
+        ``Product.isCompatibleWith``, microdata ``vehicleConfiguration``, the
+        ``CAR_FITMENT_SELECTORS`` keys, etc. The triples flow through
+        ``app.core.car_inference.resolve_car_triples_to_ids`` at the ingest
+        call site, so adapters stay DB-free; only the ingest layer touches the
+        session.
+
+        Unlike ``infer_manufacturer_for_part`` (MEM224 — declared but NOT
+        called in S03 because no current caller passes a ``ScrapedPayload``),
+        this hook IS load-bearing: ``app.crawlers.base.ingest_payload`` calls
+        it ahead of the universal ``infer_car_generations`` pipeline with
+        adapter-wins semantics. Returning ``None`` (or an empty list) hands
+        control back to the universal pipeline.
+        """
+        return None
 
     def apply_universal_extraction(self, html: str, payload: Optional[ScrapedPayload]) -> Optional[ScrapedPayload]:
         """

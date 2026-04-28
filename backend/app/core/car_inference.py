@@ -2558,6 +2558,24 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("subaru outback bm / br", "Subaru", "Outback XT", "BM/BR"),
     ("05-09 subaru outback", "Subaru", "Outback XT", "BL/BP"),
     ("10-14 subaru outback", "Subaru", "Outback XT", "BM/BR"),
+    # --- M004/S02 corpus-derived additions (decided_at: 2026-04-27, audit: zero alias decisions) ---
+    # The corpus-vote audit (`backend/scripts/m004_taxonomy_audit.py --dry-run`) emitted zero
+    # `decision == 'alias'` rows against the local Postgres corpus this milestone targets.
+    # No new alias tuples are appended. The frozen-baseline test in
+    # `tests/test_car_inference.py::TestM004S02AliasBaseline` pins the resulting
+    # `len(CAR_ALIASES)` so a future agent that lands deletions or reorderings here gets
+    # a loud failure instead of a silent recall regression.
+    # --- M004/S04 corpus-derived additions (decided_at: 2026-04-28, audit: zero-corpus environment per MEM216/MEM221) ---
+    # T02 recorded a zero-corpus pre-S04 snapshot (.gsd/milestones/M004/s04-corpus-delta.json)
+    # because the auto-mode SQLite fallback has no `crawled_pages` table. Per the T03 plan's
+    # zero-corpus branch, two defensible year-range aliases are added below — direct parallels
+    # of the existing FK8 year-range entries at lines 2283-2285 and the "2023+ honda cr-v" form
+    # at line 2287. FL5 Civic Type R production years are 2023+ (US, debuted MY2023). These
+    # close a known retailer-text gap (year-range fitment phrasing) with no ambiguity risk:
+    # "civic type r" already routes uniquely to Honda, and the M004/S02 baseline test will
+    # bump from 2035 → 2037 in the same commit (TestM004S04AliasBaseline.EXPECTED_BASELINE).
+    ("2023+ honda civic type r", "Honda", "Civic Type R", "FL5"),
+    ("2023+ civic type r", "Honda", "Civic Type R", "FL5"),
 ]
 
 # Word-boundary for short codes so "A90" doesn't match inside "BA90", and "nd" not inside "random"

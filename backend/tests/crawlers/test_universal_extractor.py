@@ -41,12 +41,17 @@ import pytest
 from app.crawlers.parsing import (
     extract_finish,
     extract_fitment_notes,
+    extract_manufacturer_part_number,
     extract_material,
     extract_universal_fields,
     extract_warranty,
     extract_weight,
 )
 from tests.crawlers.conftest import load_fixture_html
+
+# Adversarial-input length for T03 ReDoS regression tests. Sized to comfortably
+# exceed the 50KB universal-input cap so the cap path is exercised too.
+_PATHOLOGICAL_LEN = 50_000
 
 # ---------------------------------------------------------------------------
 # extract_weight
@@ -150,6 +155,38 @@ class TestExtractWeight:
         html = "<html><body><div>Weight: 5000 kg</div></body></html>"
         assert extract_weight(html) is None
 
+    # ---------- T03 Surface 1: composite "X lbs Y oz" shape ----------
+
+    def test_composite_lbs_oz_sums_to_grams(self) -> None:
+        # 2 lbs 8 oz → 2 * 453.59237 + 8 * 28.3495231 g.
+        html = "<html><body><p>Net weight 2 lbs 8 oz.</p></body></html>"
+        result = extract_weight(html)
+        assert result is not None
+        grams, conf = result
+        expected = 2 * 453.59237 + 8 * 28.3495231
+        assert grams == pytest.approx(expected)
+        assert conf == "medium"
+
+    def test_composite_with_label_resolves(self) -> None:
+        # Labeled-row variant with the composite shape — the composite branch
+        # runs ahead of the labeled-row branch so the whole composite resolves
+        # rather than just the lbs leg.
+        html = "<html><body><div>Weight: 1 lb 4 oz</div></body></html>"
+        result = extract_weight(html)
+        assert result is not None
+        grams, _ = result
+        expected = 1 * 453.59237 + 4 * 28.3495231
+        assert grams == pytest.approx(expected)
+
+    def test_composite_negative_lone_lbs_uses_single_value_path(self) -> None:
+        # Negative path: a bare "5 lbs" with no oz leg must NOT be coerced as
+        # a composite — falls through to the existing single-value resolver.
+        html = "<html><body><div>Weight: 5 lbs</div></body></html>"
+        result = extract_weight(html)
+        assert result is not None
+        grams, _ = result
+        assert grams == pytest.approx(5 * 453.59237)
+
 
 # ---------------------------------------------------------------------------
 # extract_material
@@ -209,6 +246,46 @@ class TestExtractMaterial:
         assert extract_material("") is None
         assert extract_material(None) is None  # type: ignore[arg-type]
 
+    # ---------- T03 Surface 1: lowercase normalization at JSON-LD ingest ----------
+
+    def test_json_ld_string_title_case_canonicalizes(self) -> None:
+        # JSON-LD string-form material must canonicalize from Title-Case to the
+        # lexicon's lowercase form. ``re.IGNORECASE`` already covered this in
+        # practice; the explicit lowercase guards against a future lexicon
+        # entry that drops the IGNORECASE flag.
+        html = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type": "Product", "name": "X", "material": "Stainless Steel"}
+        </script>
+        </head></html>
+        """
+        assert extract_material(html) == ("stainless steel", "high")
+
+    def test_json_ld_dict_mixed_case_canonicalizes(self) -> None:
+        html = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type": "Product", "name": "X",
+         "material": {"name": "TITANIUM"}}
+        </script>
+        </head></html>
+        """
+        assert extract_material(html) == ("titanium", "high")
+
+    def test_json_ld_unknown_material_does_not_match(self) -> None:
+        # Negative path: a JSON-LD ``material`` value not in the lexicon must
+        # NOT produce a hit (no spurious low-conf canonicalization to ""). The
+        # body-text path also has nothing to match here.
+        html = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type": "Product", "name": "X", "material": "Unobtainium"}
+        </script>
+        </head></html>
+        """
+        assert extract_material(html) is None
+
 
 # ---------------------------------------------------------------------------
 # extract_finish
@@ -251,6 +328,29 @@ class TestExtractFinish:
     def test_empty_and_none_inputs_return_none_without_raising(self) -> None:
         assert extract_finish("") is None
         assert extract_finish(None) is None  # type: ignore[arg-type]
+
+    # ---------- T03 Surface 1: Coating/Surface label widening ----------
+
+    def test_coating_label_resolves_treatment(self) -> None:
+        # ``Coating: anodized black`` → finish='anodized', medium confidence.
+        html = "<html><body><div>Coating: anodized black</div></body></html>"
+        assert extract_finish(html) == ("anodized", "medium")
+
+    def test_surface_label_resolves_treatment(self) -> None:
+        html = "<html><body><div>Surface: Powder Coated</div></body></html>"
+        assert extract_finish(html) == ("powder coated", "medium")
+
+    def test_finish_label_still_resolves_after_widening(self) -> None:
+        # Regression guard: original ``Finish:`` prefix must still match.
+        html = "<html><body><div>Finish: Polished</div></body></html>"
+        assert extract_finish(html) == ("polished", "medium")
+
+    def test_coating_label_negative_unrelated_word(self) -> None:
+        # Negative path: ``Coatings sold separately`` (no colon, no label
+        # shape) must not produce a labeled-row treatment hit. There's no
+        # treatment word in the prose, so the body-text path also returns None.
+        html = "<html><body><p>Coatings sold separately.</p></body></html>"
+        assert extract_finish(html) is None
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +395,39 @@ class TestExtractWarranty:
         assert extract_warranty("") is None
         assert extract_warranty(None) is None  # type: ignore[arg-type]
 
+    # ---------- T03 Surface 1: lifetime literal warranty ----------
+
+    @pytest.mark.parametrize("coverage_token", ["warranty", "guarantee", "coverage"])
+    def test_lifetime_literal_in_body_is_medium_confidence(self, coverage_token: str) -> None:
+        # ``lifetime warranty/guarantee/coverage`` maps to the 100-year
+        # sentinel (36500 days). Body-text path is medium-confidence.
+        html = f"<html><body><p>Backed by a lifetime {coverage_token}.</p></body></html>"
+        result = extract_warranty(html)
+        assert result is not None, f"Expected lifetime+{coverage_token} to resolve"
+        days, conf = result
+        assert days == pytest.approx(36500.0)
+        assert conf == "medium"
+
+    def test_lifetime_in_json_ld_is_high_confidence(self) -> None:
+        html = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type": "Product", "name": "X", "warranty": "Lifetime warranty"}
+        </script>
+        </head></html>
+        """
+        result = extract_warranty(html)
+        assert result is not None
+        days, conf = result
+        assert days == pytest.approx(36500.0)
+        assert conf == "high"
+
+    def test_bare_lifetime_without_coverage_token_does_not_match(self) -> None:
+        # Negative path: ``lifetime`` adjacent to non-coverage prose must NOT
+        # produce a warranty hit. Guards against e.g. ``lifetime achievement``.
+        html = "<html><body><p>Celebrating a lifetime achievement in motorsport.</p></body></html>"
+        assert extract_warranty(html) is None
+
 
 # ---------------------------------------------------------------------------
 # extract_fitment_notes
@@ -325,6 +458,103 @@ class TestExtractFitmentNotes:
     def test_empty_and_none_inputs_return_none_without_raising(self) -> None:
         assert extract_fitment_notes("") is None
         assert extract_fitment_notes(None) is None  # type: ignore[arg-type]
+
+    # ---------- T03 Surface 1: chassis regex widening (1-3 leading alphas) ----------
+
+    @pytest.mark.parametrize("chassis", ["FK8", "MK7", "DC5"])
+    def test_widened_chassis_codes_resolve(self, chassis: str) -> None:
+        # Honda (FK8/DC5) and VW/Audi (MK7) chassis codes were previously
+        # rejected by the 1-alpha-only chassis pattern. Widening to 1-3 alphas
+        # lets them through. Preserve the standalone-chassis behavior — these
+        # tokens should produce at least a low-confidence fitment hit.
+        html = f"<html><body><p>Designed for the {chassis} platform.</p></body></html>"
+        result = extract_fitment_notes(html)
+        assert result is not None, f"Expected widened chassis {chassis!r} to resolve"
+        text, _conf = result
+        assert chassis in text
+
+    def test_widened_chassis_with_year_range_is_high_confidence(self) -> None:
+        # Composite signal (chassis + year-range in same sentence) preserves
+        # the high-confidence path on widened tokens.
+        html = "<html><body><p>Direct fit for FK8 Civic Type R, 2017-2021.</p></body></html>"
+        result = extract_fitment_notes(html)
+        assert result is not None
+        text, conf = result
+        assert conf == "high"
+        assert "FK8" in text
+
+    @pytest.mark.parametrize("legacy", ["E46", "G80"])
+    def test_existing_narrow_chassis_codes_still_resolve(self, legacy: str) -> None:
+        # Regression guard: widening MUST NOT drop the legacy 1-alpha shapes.
+        html = f"<html><body><p>Built for the {legacy} chassis.</p></body></html>"
+        result = extract_fitment_notes(html)
+        assert result is not None, f"Legacy chassis {legacy!r} must still resolve"
+        text, _conf = result
+        assert legacy in text
+
+    def test_widened_chassis_negative_pure_alpha_does_not_match(self) -> None:
+        # Negative path: a 3-alpha token with no digits (looks vaguely chassis-shaped)
+        # must not produce a fitment-notes hit on its own.
+        html = "<html><body><p>The ABC product line is now in stock.</p></body></html>"
+        assert extract_fitment_notes(html) is None
+
+
+# ---------------------------------------------------------------------------
+# extract_manufacturer_part_number (M004/S06 T03)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractManufacturerPartNumber:
+    def test_json_ld_mpn_is_high_confidence(self) -> None:
+        html = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type": "Product", "name": "Coilover Set",
+         "mpn": "abc-123/x"}
+        </script>
+        </head><body></body></html>
+        """
+        result = extract_manufacturer_part_number(html)
+        assert result is not None
+        mpn, conf = result
+        assert conf == "high"
+        assert mpn == "ABC-123/X"
+
+    def test_labeled_body_row_is_medium_confidence(self) -> None:
+        html = "<html><body><div>MPN: KW-12345-XYZ</div></body></html>"
+        result = extract_manufacturer_part_number(html)
+        assert result is not None
+        mpn, conf = result
+        assert conf == "medium"
+        assert mpn == "KW-12345-XYZ"
+
+    def test_manufacturer_part_number_label_resolves(self) -> None:
+        html = "<html><body><p>Manufacturer Part Number: brz-stx-7</p></body></html>"
+        result = extract_manufacturer_part_number(html)
+        assert result is not None
+        mpn, conf = result
+        assert conf == "medium"
+        assert mpn == "BRZ-STX-7"
+
+    def test_no_signal_returns_none(self) -> None:
+        html = "<html><body><p>Universal fitment kit, ships in 24h.</p></body></html>"
+        assert extract_manufacturer_part_number(html) is None
+
+    def test_empty_and_none_inputs_return_none_without_raising(self) -> None:
+        assert extract_manufacturer_part_number("") is None
+        assert extract_manufacturer_part_number(None) is None
+
+    def test_pathological_alpha_digit_payload_completes_quickly(self) -> None:
+        # MEM029/MEM245: bounded {1,63} quantifier on the MPN token body must
+        # keep worst-case linear on a 50K-char alpha+digit pile.
+        adversarial = ("A1B2C3D4" * (_PATHOLOGICAL_LEN // 8))[:_PATHOLOGICAL_LEN]
+        start = time.perf_counter()
+        extract_manufacturer_part_number(adversarial)
+        elapsed = time.perf_counter() - start
+        assert elapsed < 1.0, (
+            f"extract_manufacturer_part_number took {elapsed:.3f}s on adversarial "
+            "input — bounded MPN regex has regressed (see MEM029/MEM245)."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +608,7 @@ class TestExtractorsAreReDoSResistant:
             extract_finish,
             extract_warranty,
             extract_fitment_notes,
+            extract_manufacturer_part_number,
         ],
     )
     def test_pathological_digit_pile_completes_quickly(self, extractor) -> None:  # type: ignore[no-untyped-def]
@@ -402,6 +633,36 @@ class TestExtractorsAreReDoSResistant:
             f"extract_universal_fields took {elapsed:.3f}s on adversarial "
             "input — at least one extractor has regressed past the per-call "
             "1s budget. Investigate before relaxing this gate."
+        )
+
+    # ---------- T03 Surface 1: ReDoS regression for the new regex shapes ----------
+
+    @pytest.mark.parametrize(
+        "extractor, payload",
+        [
+            # Composite "X lbs Y oz" — alternating digit / ' lbs ' / digit / ' oz '
+            # tokens stress the bounded numeric/whitespace runs.
+            (extract_weight, ("1 lbs 1 oz " * 5_000)[:_PATHOLOGICAL_LEN]),
+            # Lifetime literal — repeating ``lifetime`` token without coverage
+            # cue. Alpha-only payload also tests _CHASSIS_IN_TEXT_RE behavior.
+            (extract_warranty, ("lifetime " * 8_000)[:_PATHOLOGICAL_LEN]),
+            # Finish coating/surface prefix — repeating label cue.
+            (extract_finish, ("Coating: " * 8_000)[:_PATHOLOGICAL_LEN]),
+            # Widened chassis ranges over uppercase alphas + digits.
+            (extract_fitment_notes, ("FK8 " * 16_000)[:_PATHOLOGICAL_LEN]),
+        ],
+    )
+    def test_new_regex_shapes_redos_resistant(self, extractor, payload: str) -> None:  # type: ignore[no-untyped-def]
+        # Each new T03 regex (composite weight, lifetime warranty, coating
+        # finish prefix, widened chassis) must complete under 1s on a
+        # 50K-char adversarial payload. MEM029: bounded numeric and whitespace
+        # runs preserved on every modified pattern.
+        start = time.perf_counter()
+        extractor(payload)
+        elapsed = time.perf_counter() - start
+        assert elapsed < 1.0, (
+            f"{extractor.__name__} took {elapsed:.3f}s on T03 adversarial "
+            "input — new regex has regressed (see MEM021/MEM029)."
         )
 
 

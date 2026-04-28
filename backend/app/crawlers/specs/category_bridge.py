@@ -61,11 +61,12 @@ _PARENT_FOR_SUBSLUG: Dict[str, str] = {
 
 # Single-sub-slug DB categories that resolve unconditionally — no disambiguating
 # keyword needed because there is only one registered sub-slug under that
-# parent category. Today this only applies to brakes; suspension/engine each
-# have multiple potential sub-slugs (only one shipped today, but the keyword
-# gate keeps the door open for additions in S03+).
+# parent category. Today this applies to brakes and wheels; suspension/engine
+# each have multiple potential sub-slugs (only one shipped today, but the
+# keyword gate keeps the door open for additions in S03+).
 _SINGLE_SUBSLUG_CATEGORIES: Dict[str, str] = {
     "brakes": "brake",
+    "wheels": "wheel",
 }
 
 #: Catch-all slug returned when a category is set but no sub-slug applies.
@@ -98,10 +99,11 @@ def category_to_subslug(
     """
     Resolve a DB category name to a SpecRegistry sub-slug.
 
-    Mapping (initial S02 set):
+    Mapping (current set, extended in M004/S06):
 
     * ``"suspension"`` + (coilover keyword in name/description) → ``"coilover"``
     * ``"brakes"`` (always — the only brake sub-slug today) → ``"brake"``
+    * ``"wheels"`` (always — the only wheel sub-slug today) → ``"wheel"``
     * ``"engine"`` + (turbo keyword in name/description) → ``"turbo"``
     * Any other non-None ``category_name`` (or ``"suspension"``/``"engine"``
       without their disambiguating keywords) → ``"universal"``

@@ -1,3 +1,0 @@
-$ rg 'className=.*\bglass\b' frontend/src/{components,pages,contexts,hooks,api,lib,__tests__}/
-EXIT_CODE: 1 (zero hits = pass)
-NOTE: Same as gate 3 — string-concatenated regex source avoids self-tripping.

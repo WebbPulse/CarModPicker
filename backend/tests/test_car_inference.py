@@ -520,3 +520,105 @@ class TestExpandedAliases:
         assert ("BMW", "X5 M", "F95") in result
         assert ("BMW", "X6 M", "F96") in result
         assert ("BMW", "XM", "F95") in result
+
+
+class TestM004S02AliasBaseline:
+    """Frozen-baseline guard for the M004/S02 corpus-vote audit outcome.
+
+    The audit emitted zero `decision == 'alias'` rows, so no tuples were appended to
+    `CAR_ALIASES` under the M004/S02 marker. This baseline records the post-S02 length
+    (2035) as a permanent **floor** — a future agent that lands deletions which drop
+    the count below this floor gets a loud, named failure here instead of a silent
+    recall regression at inference time.
+
+    Forward-additive growth (e.g. M004/S04+ corpus-derived additions) is allowed and
+    pinned by per-slice baseline classes (TestM004S04AliasBaseline, ...). This class
+    is the historical post-S02 record and uses `>=` rather than `==` so it survives
+    additive S03+ work without modification — the per-slice classes carry strict
+    equality for their respective epochs.
+    """
+
+    EXPECTED_BASELINE: int = 2035
+
+    def test_car_aliases_length_matches_post_s02_baseline(self) -> None:
+        from app.core.car_inference import CAR_ALIASES
+
+        assert len(CAR_ALIASES) >= self.EXPECTED_BASELINE, (
+            f"CAR_ALIASES length dropped below M004/S02 floor "
+            f"({self.EXPECTED_BASELINE} -> {len(CAR_ALIASES)}). Forward-additive growth "
+            f"is allowed (per-slice TestM004S0XAliasBaseline classes pin the strict "
+            f"equality), but the post-S02 floor must hold — verify a deletion is not "
+            f"removing a corpus-vote-derived alias."
+        )
+
+    def test_s02_marker_comment_present_in_module_source(self) -> None:
+        """Ensure the M004/S02 marker comment in CAR_ALIASES survives reorderings.
+
+        T04's CSV walker locates the additions block by this marker; if a future
+        refactor strips the comment, T04's audit trail breaks silently. This test
+        keeps the marker tied to the alias list itself.
+        """
+        import inspect
+
+        from app.core import car_inference
+
+        source = inspect.getsource(car_inference)
+        assert "M004/S02 corpus-derived additions" in source, (
+            "M004/S02 marker comment missing from car_inference.py. T04's CSV walker "
+            "uses this string to locate the additions block."
+        )
+
+
+class TestM004S04AliasBaseline:
+    """Frozen-baseline guard for the M004/S04 zero-corpus + minimal-additive outcome.
+
+    T02 recorded a zero-corpus pre-S04 snapshot (the SQLite test fallback has no
+    `crawled_pages` table — MEM216 graceful-degradation branch). Per the T03 plan's
+    zero-corpus branch, two defensible year-range aliases for the FL5 Civic Type R
+    were appended under the new ``M004/S04 corpus-derived additions`` marker block,
+    bumping CAR_ALIASES from 2035 (post-S02) to 2037 (post-S04).
+
+    This class is the parallel-baseline pattern for the S04 milestone-close record —
+    it does NOT replace ``TestM004S02AliasBaseline``, which remains as historical
+    evidence of the post-S02 length. A future agent that lands further alias
+    additions in S05+ should add a TestM004S05AliasBaseline class with its own
+    EXPECTED_BASELINE rather than mutating the S02 or S04 anchors.
+    """
+
+    EXPECTED_BASELINE: int = 2037
+
+    def test_car_aliases_length_matches_post_s04_baseline(self) -> None:
+        from app.core.car_inference import CAR_ALIASES
+
+        assert len(CAR_ALIASES) == self.EXPECTED_BASELINE, (
+            f"CAR_ALIASES length drifted from M004/S04 baseline "
+            f"({self.EXPECTED_BASELINE} -> {len(CAR_ALIASES)}). If this is an intentional "
+            f"addition, bump EXPECTED_BASELINE in the same commit. If it is a deletion, "
+            f"verify it is not removing a corpus-vote-derived alias."
+        )
+
+    def test_s04_marker_comment_present_in_module_source(self) -> None:
+        """Ensure the M004/S04 marker comment in CAR_ALIASES survives reorderings.
+
+        The marker is the anchor for any future S04+ corpus-derived alias extension
+        and for milestone-close audit walkers. If a refactor strips the comment,
+        the audit trail breaks silently. This test keeps the marker tied to the
+        alias list itself.
+        """
+        import inspect
+
+        from app.core import car_inference
+
+        source = inspect.getsource(car_inference)
+        assert "M004/S04 corpus-derived additions" in source, (
+            "M004/S04 marker comment missing from car_inference.py. The marker is "
+            "the anchor for milestone-close audit walkers and future S04+ extensions."
+        )
+
+    def test_fl5_year_range_aliases_resolve_to_civic_type_r(self) -> None:
+        """The two S04-added FL5 year-range aliases must produce the FL5 triple."""
+        result = infer_car_generations("Skunk2 Mega Power Header — 2023+ Honda Civic Type R", None)
+        assert ("Honda", "Civic Type R", "FL5") in result
+
+        result = infer_car_generations("Eibach Pro-Kit Lowering Springs 2023+ Civic Type R", None)
+        assert ("Honda", "Civic Type R", "FL5") in result

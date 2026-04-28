@@ -88,6 +88,19 @@ class _AdapterWinsAdapter(RetailerCrawlerAdapter):
         return _make_payload()
 
 
+class _SuppressMpnAdapter(RetailerCrawlerAdapter):
+    """Adapter that opts out of the manufacturer_part_number universal extractor (M004/S06 T03)."""
+
+    ADAPTER_NAME: ClassVar[str] = "_suppress_mpn_adapter_t03"
+    suppress_universal: ClassVar[list[str]] = ["manufacturer_part_number"]
+
+    def discover_product_urls(self) -> Iterator[str]:
+        return iter([])
+
+    def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
+        return _make_payload()
+
+
 # ---------------------------------------------------------------------------
 # (a) Default auto-extraction
 # ---------------------------------------------------------------------------
@@ -155,6 +168,22 @@ class TestApplyUniversalExtractionSuppression:
         assert "weight_grams" not in result.specifications
         assert "weight_grams_confidence" not in result.specifications
 
+    def test_suppress_mpn_drops_manufacturer_part_number(self) -> None:
+        # M004/S06 T03: suppress_universal=['manufacturer_part_number'] must
+        # drop the field even when the body cleanly carries an MPN row.
+        adapter = _SuppressMpnAdapter()
+        html = "<html><body><div>MPN: KW-12345</div><div>Material: Aluminum</div></body></html>"
+        payload = _make_payload()
+
+        result = adapter.apply_universal_extraction(html, payload)
+
+        assert result.specifications is not None
+        # Non-suppressed fields still merge.
+        assert result.specifications.get("material") == "aluminum"
+        # MPN is suppressed entirely — neither value nor confidence companion.
+        assert "manufacturer_part_number" not in result.specifications
+        assert "manufacturer_part_number_confidence" not in result.specifications
+
 
 # ---------------------------------------------------------------------------
 # (c) Adapter-wins merge
@@ -204,6 +233,47 @@ class TestApplyUniversalExtractionAdapterWins:
         # Unset universal field merged.
         assert result.specifications["material"] == "aluminum"
         assert result.specifications["material_confidence"] == "medium"
+
+    def test_manufacturer_part_number_fills_when_adapter_did_not_set_it(self) -> None:
+        """
+        M004/S06 T03: the hook must auto-fill ``manufacturer_part_number`` from
+        a labeled body row when the adapter pre-populated other keys but left
+        MPN unset, AND must preserve the adapter-set value if it did.
+        """
+        adapter = _AdapterWinsAdapter()
+        adapter_specs = {"weight_grams": 999.0}  # MPN intentionally unset
+        html = "<html><body><div>MPN: kw-12345-xyz</div></body></html>"
+        payload = _make_payload(specifications=adapter_specs)
+
+        result = adapter.apply_universal_extraction(html, payload)
+
+        assert result.specifications is not None
+        # Adapter-set field preserved.
+        assert result.specifications["weight_grams"] == 999.0
+        # MPN filled by extractor at medium confidence (labeled body row).
+        # Validator canonicalizes to upper-case + whitespace-collapsed.
+        assert result.specifications["manufacturer_part_number"] == "KW-12345-XYZ"
+        assert result.specifications["manufacturer_part_number_confidence"] == "medium"
+
+    def test_adapter_set_manufacturer_part_number_is_preserved(self) -> None:
+        """
+        Mirror of the weight_grams adapter-wins case for the new universal
+        field: when the adapter pre-set the MPN, the universal extractor must
+        not overwrite it.
+        """
+        adapter = _AdapterWinsAdapter()
+        adapter_specs = {
+            "manufacturer_part_number": "ADAPTER-WIN-1",
+            "manufacturer_part_number_confidence": "high",
+        }
+        html = "<html><body><div>MPN: should-not-overwrite-1</div></body></html>"
+        payload = _make_payload(specifications=adapter_specs)
+
+        result = adapter.apply_universal_extraction(html, payload)
+
+        assert result.specifications is not None
+        assert result.specifications["manufacturer_part_number"] == "ADAPTER-WIN-1"
+        assert result.specifications["manufacturer_part_number_confidence"] == "high"
 
 
 # ---------------------------------------------------------------------------

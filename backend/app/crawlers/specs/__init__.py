@@ -18,11 +18,13 @@ from app.crawlers.specs.coilover import CoiloverSpec
 from app.crawlers.specs.registry import SpecRegistry, default_registry
 from app.crawlers.specs.turbo import TurboSpec
 from app.crawlers.specs.universal import UniversalSpec
+from app.crawlers.specs.wheel import WheelSpec
 
 default_registry.register("coilover", CoiloverSpec)
 default_registry.register("brake", BrakeSpec)
 default_registry.register("turbo", TurboSpec)
 default_registry.register("universal", UniversalSpec)
+default_registry.register("wheel", WheelSpec)
 
 __all__ = [
     "CategorySpec",
@@ -32,4 +34,5 @@ __all__ = [
     "BrakeSpec",
     "TurboSpec",
     "UniversalSpec",
+    "WheelSpec",
 ]

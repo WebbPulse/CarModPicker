@@ -22,8 +22,10 @@ from pydantic import ValidationError
 
 from app.crawlers.specs import (
     BrakeSpec,
+    CategorySpec,
     CoiloverSpec,
     TurboSpec,
+    WheelSpec,
     default_registry,
 )
 
@@ -135,3 +137,43 @@ class TestTurboSpec:
     def test_rejects_non_numeric_housing_ar(self) -> None:
         with pytest.raises(ValidationError):
             TurboSpec.model_validate({"housing_ar": "very-big"})
+
+
+class TestWheelSpec:
+    SLUG = "wheel"
+
+    def test_registry_resolves_to_wheel_spec(self) -> None:
+        assert default_registry.resolve(self.SLUG) is WheelSpec
+
+    def test_wheel_spec_is_category_spec_subclass(self) -> None:
+        assert issubclass(WheelSpec, CategorySpec)
+
+    def test_accepts_valid_payload(self) -> None:
+        payload = {
+            "diameter_inches": 18.0,
+            "diameter_inches_confidence": "high",
+            "width_inches": 9.5,
+            "offset_mm": 35,
+            "bolt_pattern": "5x114.3",
+        }
+        validated = WheelSpec.model_validate(payload)
+        assert validated.diameter_inches == 18.0
+        assert validated.width_inches == 9.5
+        assert validated.offset_mm == 35
+        assert validated.bolt_pattern == "5x114.3"
+
+    def test_accepts_empty_payload(self) -> None:
+        validated = WheelSpec.model_validate({})
+        assert validated.model_dump(exclude_none=True) == {}
+
+    def test_rejects_unknown_field_extra_forbid(self) -> None:
+        with pytest.raises(ValidationError):
+            WheelSpec.model_validate({"random_color": "matte black"})
+
+    def test_rejects_invalid_bolt_pattern(self) -> None:
+        with pytest.raises(ValidationError):
+            WheelSpec.model_validate({"bolt_pattern": "not-a-bolt-pattern"})
+
+    def test_rejects_non_numeric_diameter(self) -> None:
+        with pytest.raises(ValidationError):
+            WheelSpec.model_validate({"diameter_inches": "huge"})

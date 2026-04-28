@@ -41,7 +41,7 @@ from app.api.models.category import Category
 from app.api.models.part_manufacturer import PartManufacturer
 from app.api.models.user import User
 from app.crawlers import base as crawler_base
-from app.crawlers.specs import CoiloverSpec, default_registry
+from app.crawlers.specs import CoiloverSpec, WheelSpec, default_registry
 
 
 @pytest.fixture
@@ -507,3 +507,116 @@ class TestIngestUsesBridgeToResolveSubslug:
         )
         assert part.specifications is None
         mock_emitter.assert_called_once_with(adapter_name="bridge_reject_adapter")
+
+
+class TestIngestUsesBridgeToResolveWheelSubslug:
+    """
+    M004/S06: lock in the wheel-bridge wiring. A wheels-categorized part with
+    wheel-shaped fields routes through ``category_to_subslug`` →
+    ``default_registry.resolve('wheel')`` → ``WheelSpec`` and persists the
+    validated dict. A malformed wheel payload drops to None via the existing
+    fail-soft hook (no new error path — same machinery as MEM015/MEM243).
+    """
+
+    def test_wheel_payload_validates_against_wheel_spec(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_part_manufacturer: PartManufacturer,
+        default_category_id: UUID,
+        make_scraped_payload,
+    ) -> None:
+        # Seed the wheels DB category — infer_category('wheel'/'wheels' text)
+        # returns 'wheels' which the bridge maps to 'wheel' → WheelSpec.
+        existing = db_session.query(Category).filter(Category.name == "wheels").first()
+        if existing is None:
+            wheels_cat = Category(
+                name="wheels",
+                display_name="Wheels",
+                description="Wheels.",
+                is_active=True,
+                sort_order=4,
+            )
+            db_session.add(wheels_cat)
+            db_session.commit()
+            db_session.refresh(wheels_cat)
+        else:
+            wheels_cat = existing
+
+        # Wheel-specific fields that UniversalSpec would reject (extra='forbid').
+        # If validation succeeds, we know WheelSpec — not UniversalSpec — was
+        # selected via the bridge.
+        wheel_specs: dict[str, Any] = {
+            "diameter_inches": 18.0,
+            "diameter_inches_confidence": "high",
+            "width_inches": 9.5,
+            "offset_mm": 35,
+            "bolt_pattern": "5x114.3",
+        }
+        payload = make_scraped_payload(
+            name="Volk Racing TE37 Wheel Set",
+            description="Lightweight forged wheels for performance use.",
+            product_url=f"https://example.com/p/wheel-bridge-{os.getpid()}",
+            part_manufacturer=test_part_manufacturer.name,
+            specifications=wheel_specs,
+        )
+        part = crawler_base.ingest_payload(
+            db_session,
+            payload,
+            adapter_name="wheel_bridge_adapter",
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
+        )
+        assert part.category_id == wheels_cat.id
+        # Validation accepted WheelSpec-specific fields → bridge fired.
+        assert part.specifications == wheel_specs
+
+    def test_malformed_wheel_payload_drops_to_none(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_part_manufacturer: PartManufacturer,
+        default_category_id: UUID,
+        make_scraped_payload,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Seed wheels category if not present.
+        existing = db_session.query(Category).filter(Category.name == "wheels").first()
+        if existing is None:
+            db_session.add(
+                Category(
+                    name="wheels",
+                    display_name="Wheels",
+                    description="Wheels.",
+                    is_active=True,
+                    sort_order=4,
+                )
+            )
+            db_session.commit()
+
+        mock_emitter = MagicMock()
+        monkeypatch.setattr("app.crawlers.base.emit_extraction_failure", mock_emitter)
+
+        # Malformed: bolt_pattern shape mismatch → ValueError in validator →
+        # fail-soft drop to None. Confirms the existing fail-soft hook catches
+        # WheelSpec validator errors with no new error path.
+        bad_specs = {"bolt_pattern": "five-by-one-fourteen"}
+        payload = make_scraped_payload(
+            name="Forged Wheel Set",
+            description="Lightweight forged wheels.",
+            product_url=f"https://example.com/p/wheel-bad-{os.getpid()}",
+            part_manufacturer=test_part_manufacturer.name,
+            specifications=bad_specs,
+        )
+        part = crawler_base.ingest_payload(
+            db_session,
+            payload,
+            adapter_name="wheel_bad_adapter",
+            **_ingest_kwargs(current_user=test_user, default_category_id=default_category_id),
+        )
+        assert part is not None
+        assert part.specifications is None
+        mock_emitter.assert_called_once_with(adapter_name="wheel_bad_adapter")
+
+    def test_wheel_spec_resolves_via_default_registry(self) -> None:
+        """Sanity check that the registry binding is in place — independent of DB."""
+        assert default_registry.resolve("wheel") is WheelSpec
