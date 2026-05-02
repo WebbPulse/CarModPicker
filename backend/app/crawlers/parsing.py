@@ -1243,15 +1243,15 @@ def _strip_shipping_blocks(html_text: str) -> str:
     except Exception:  # noqa: BLE001  — defensive: bs4 should never raise here
         return html_text
     for tag in soup.find_all(["table", "div", "section"]):
-        if not isinstance(tag, Tag):
+        if not isinstance(tag, Tag) or not tag.attrs:
             continue
-        cls_attr = tag.get("class")
+        cls_attr = tag.attrs.get("class")
         cls_list: List[str] = []
         if isinstance(cls_attr, list):
             cls_list = [str(c).lower() for c in cls_attr]
         elif isinstance(cls_attr, str):
             cls_list = [cls_attr.lower()]
-        id_attr = tag.get("id")
+        id_attr = tag.attrs.get("id")
         id_str = str(id_attr).lower() if isinstance(id_attr, str) else ""
         if any("shipping" in c for c in cls_list) or "shipping" in id_str:
             tag.decompose()
