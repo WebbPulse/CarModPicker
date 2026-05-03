@@ -123,10 +123,11 @@ import re
 from typing import ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import quote, urlparse
 
+import requests
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
-from app.crawlers.base import ScrapedPayload, fetch_page
+from app.crawlers.base import DEFAULT_USER_AGENT, ScrapedPayload
 from app.crawlers.parsing import (
     meta_content,
     normalize_description_text,
@@ -246,14 +247,21 @@ def _encode_netsuite_image_url(url: Optional[str]) -> Optional[str]:
 def _fetch_items_page(offset: int) -> Optional[Dict]:
     """Fetch one page of the SCA items API; return the parsed JSON body or
     ``None`` on any transport/parse failure (we fall back to the cached
-    default list, so a flake here shouldn't break discovery entirely)."""
+    default list, so a flake here shouldn't break discovery entirely).
+
+    Bypasses the shared ``fetch_page`` because NetSuite's content negotiation
+    rejects its hardcoded ``Accept: text/html,...`` with HTTP 406 on JSON
+    endpoints; we send ``Accept: application/json`` instead.
+    """
     try:
-        body = fetch_page(_ITEMS_API.format(offset=offset), timeout=20)
-    except Exception:
-        return None
-    try:
-        data = json.loads(body)
-    except (json.JSONDecodeError, TypeError, ValueError):
+        resp = requests.get(
+            _ITEMS_API.format(offset=offset),
+            headers={"User-Agent": DEFAULT_USER_AGENT, "Accept": "application/json"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, json.JSONDecodeError, ValueError):
         return None
     if not isinstance(data, dict):
         return None

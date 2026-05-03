@@ -196,7 +196,9 @@ class TestParseProductPage:
         result = SuncoastPartsAdapter().parse_product_page(_product_html(), SAMPLE_URL)
         assert result is not None
         assert result.name == 'Emblem - "Speedster" in Black'
-        assert result.part_manufacturer == "Porsche"
+        # Adapter renames og:brand "Porsche" → "Porsche OEM" so the OEM SKUs
+        # don't collapse with third-party Porsche-fitment parts.
+        assert result.part_manufacturer == "Porsche OEM"
         # URL stem wins — matches the OEM Porsche MPN.
         assert result.part_number == "99755922100041"
         assert result.price_cents == 23900

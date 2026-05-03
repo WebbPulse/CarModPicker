@@ -215,8 +215,49 @@ def _is_valid_product_image(url: str) -> bool:
     return True
 
 
-def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
-    """Collect product gallery images (Magento /media/catalog/product/...), deduped, capped at 12."""
+# Magento ``mage/gallery`` JSON-init blocks embed the product image carousel
+# as ``"img":"https://..."`` / ``"full":"..."`` / ``"thumb":"..."`` entries
+# scoped to the product. Pulling images from this block instead of the bare
+# ``<img>`` sweep prevents the "complete the kit" / "related products"
+# sidebar leak that previously gave each part 12 images, half of which
+# belonged to other SKUs (one swaybar end-link photo appeared on 46 distinct
+# parts because every Audi/VW page lists it as a "related product").
+_MAGE_GALLERY_IMG_RE = re.compile(
+    r'"(?:img|full|thumb|caption)"\s*:\s*"((?:https?:\\?/\\?/|/)[^"]+\.(?:jpg|jpeg|png|webp|gif)[^"]*)"',
+    re.IGNORECASE,
+)
+
+
+def _extract_gallery_images_from_html(html: str) -> List[str]:
+    """
+    Pull product image URLs out of Magento's ``mage/gallery`` JSON-init
+    blocks. URLs are JSON-escaped (``https:\\/\\/``) so we unescape before
+    returning. Only the first matching block (the product PDP gallery) is
+    consulted — sidebars / cross-sells embed their own gallery JSON but we
+    take the document-order first, which on the Magento PDP layout is the
+    main product.
+    """
+    urls: List[str] = []
+    for m in _MAGE_GALLERY_IMG_RE.finditer(html):
+        raw = m.group(1).replace("\\/", "/")
+        urls.append(raw)
+    return urls
+
+
+def _extract_dom_images(soup: BeautifulSoup, html: str = "") -> List[str]:
+    """Collect product gallery images (Magento /media/catalog/product/...), deduped, capped at 12.
+
+    Source order:
+    1. ``og:image`` (canonical hero).
+    2. Magento ``mage/gallery`` JSON-init block (the real PDP carousel —
+       scoped to this product, so no sidebar / related-products leakage).
+    3. Last-ditch sweep of ``<img>`` tags inside the
+       ``.gallery-placeholder`` / ``.product.media`` container only —
+       NEVER an unscoped ``soup.find_all("img")`` because the page also
+       renders 10+ unrelated SKUs in "complete the kit" / "you may also
+       like" sections, which previously polluted every part with another
+       SKU's photo.
+    """
     seen: set[str] = set()
     ordered: List[str] = []
 
@@ -239,14 +280,31 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
         if content and content.strip():
             add(content.strip())
 
-    for img in soup.find_all("img"):
-        if not isinstance(img, Tag) or len(ordered) >= 12:
-            break
-        for attr in ("src", "data-src", "data-original", "data-lazy"):
-            val = img.get(attr)
-            if isinstance(val, str) and val.strip():
-                add(val.strip())
+    if html:
+        for u in _extract_gallery_images_from_html(html):
+            add(u)
+            if len(ordered) >= 12:
                 break
+
+    if len(ordered) < 12:
+        # Scoped DOM fallback: only look inside the product gallery
+        # container, never the whole page.
+        scope: Optional[Tag] = None
+        for selector in (".gallery-placeholder", ".product.media", ".product-image-main"):
+            candidate = soup.select_one(selector)
+            if isinstance(candidate, Tag):
+                scope = candidate
+                break
+        if scope is not None:
+            for img in scope.find_all("img"):
+                if not isinstance(img, Tag) or len(ordered) >= 12:
+                    break
+                for attr in ("src", "data-src", "data-original", "data-lazy"):
+                    val = img.get(attr)
+                    if isinstance(val, str) and val.strip():
+                        add(val.strip())
+                        break
+
     return ordered[:12]
 
 
@@ -274,7 +332,7 @@ class Motorsport034Adapter(RetailerCrawlerAdapter):
         DOM/og fallback. Returns None when no name can be extracted.
         """
         soup = BeautifulSoup(html, "html.parser")
-        dom_images = _extract_dom_images(soup)
+        dom_images = _extract_dom_images(soup, html=html)
         dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD Product (present on every real product page).

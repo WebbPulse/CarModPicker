@@ -208,8 +208,18 @@ def _extract_full_description_from_dom(soup: BeautifulSoup, max_len: int = 2000)
 # product image into ``data-src``/``data-srcset`` — so reading ``src`` first
 # was capturing the spinner placeholder. Header/footer assets under
 # ``/cdn/shop/t/<theme-id>/assets/`` (logos, icons, etc.) are also chrome.
+#
+# Also deny well-known footer/badge filenames under ``/cdn/shop/files/``:
+# - ``security-N.png`` and ``payment-N.png`` (trust badges; previously appeared
+#   on 500-780 distinct parts each, since they're rendered in the footer of
+#   every product page and pass the "studiorsr.com host + /cdn/shop/files/"
+#   filter)
+# - ``socialshare_*`` (open-graph share asset)
+# - ``logo-studiorsr*``, ``studiorsr_dark*`` (storefront logos)
+# - ``header_N_*``, ``sidebar*`` (theme banners)
 _STUDIORSR_IMAGE_DENY_RE = re.compile(
-    r"/cdn/shop/t/[^/]+/assets/|loading\.svg|studiorsr_dark|\.svg(?:$|\?)",
+    r"/cdn/shop/t/[^/]+/assets/|loading\.svg|\.svg(?:$|\?)"
+    r"|/cdn/shop/files/(?:security-|payment-[0-9]|socialshare_|studiorsr_dark|logo-studiorsr|header_[0-9]|sidebar)",
     re.IGNORECASE,
 )
 

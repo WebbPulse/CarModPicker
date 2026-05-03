@@ -28,7 +28,7 @@
         },
         {
           "description": "Modern Integra revival as a liftback. Featured turbocharged 4-cylinder engines. Type S variant introduced in 2024 with 320 hp, 6-speed manual, and limited-slip differential. High-performance variant with Brembo brakes and sport-tuned suspension.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "5th Gen",
           "start_year": 2023
         }
@@ -74,7 +74,7 @@
         },
         {
           "description": "Latest MDX with updated design and technology. Featured updated engines and advanced safety features. Type S variant introduced in 2022 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and air suspension.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "4th Gen",
           "start_year": 2021
         }
@@ -148,7 +148,7 @@
         },
         {
           "description": "Latest TLX with updated styling and technology. Featured updated engines and improved handling. Type S variant introduced in 2021 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and sport-tuned suspension.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "2nd Gen",
           "start_year": 2021
         }
@@ -297,7 +297,7 @@
       "generations": [
         {
           "description": "2.0T / 2.9L BiTurbo V6 QV (505 hp).",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Type 952",
           "start_year": 2015
         }
@@ -308,7 +308,7 @@
       "generations": [
         {
           "description": "SUV on Giulia platform.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Type 949",
           "start_year": 2016
         }
@@ -339,7 +339,7 @@
         },
         {
           "description": "New generation Vantage with 4.0L twin-turbo V8 producing 503-535 horsepower. Available as coupe and Roadster. V12 version available in limited production (2022-2023). Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Good aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Vantage",
           "start_year": 2018
         }
@@ -405,7 +405,7 @@
       "generations": [
         {
           "description": "Current flagship 'Super Tourer' with 5.2L twin-turbo V12 producing 671 horsepower. Available as coupe and Volante. DB12 S offers higher performance. Popular for exhaust upgrades, ECU tuning, and luxury customization. Growing aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "DB12",
           "start_year": 2023
         }
@@ -440,7 +440,7 @@
         {
           "description": "Original flagship with 5.9L V12 producing 460-520 horsepower. Available as coupe. Popular for exhaust upgrades, ECU tuning, intake modifications, and suspension improvements. Strong aftermarket support.",
           "display_name": "Vanquish I",
-          "end_year": 2007,
+          "end_year": null,
           "generation_name": "Vanquish",
           "slug": "vanquish-i",
           "start_year": 2001
@@ -490,7 +490,7 @@
       "generations": [
         {
           "description": "Ultra-exclusive hypercar with 6.5L naturally aspirated V12 hybrid powertrain producing over 1,000 horsepower. Available as Coupe, Spider, AMR Pro, and LM racing variants. Extremely limited production. Minimal aftermarket modifications due to exclusivity.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Valkyrie",
           "start_year": 2019
         }
@@ -501,7 +501,7 @@
       "generations": [
         {
           "description": "Hybrid supercar with 4.0L twin-turbo V8 hybrid powertrain producing 998 horsepower. Mid-engine layout. Limited production. Popular for exhaust upgrades and performance modifications. Growing aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Valhalla",
           "start_year": 2024
         }
@@ -544,7 +544,7 @@
         },
         {
           "description": "Newest A4 generation with updated design and technology. Featured updated engines and improved efficiency. More modern and refined.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "B10",
           "start_year": 2024
         }
@@ -631,7 +631,7 @@
         },
         {
           "description": "Latest A3 with updated design and technology. Featured updated engines and advanced safety features. S3 and RS3 variants available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "8Y",
           "start_year": 2021
         }
@@ -660,7 +660,7 @@
         },
         {
           "description": "Latest S3 with turbocharged engine producing 306 horsepower. All-wheel drive standard. Improved technology and handling.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "8Y",
           "start_year": 2021
         }
@@ -683,7 +683,7 @@
         },
         {
           "description": "Latest RS3 with 5-cylinder turbocharged engine producing 401 horsepower. All-wheel drive standard. Improved technology and performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "8Y",
           "start_year": 2021
         }
@@ -820,7 +820,7 @@
         },
         {
           "description": "Latest RS6 Avant with twin-turbo V8 engine producing 591-621 horsepower. All-wheel drive standard. Avant wagon variant. Performance variant available. Exceptional handling and power.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C8",
           "start_year": 2019
         }
@@ -837,7 +837,7 @@
         },
         {
           "description": "Latest RS7 Sportback with twin-turbo V8 engine producing 591-621 horsepower. All-wheel drive standard. Performance variant available. Improved technology and handling.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C8",
           "start_year": 2019
         }
@@ -865,7 +865,7 @@
       "generations": [
         {
           "description": "Ultra-high-performance Q8 SUV coupe with twin-turbo V8 engine producing 591-631 horsepower. All-wheel drive standard. Performance variant introduced in 2024. Flagship performance SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "4M",
           "start_year": 2019
         }
@@ -911,7 +911,7 @@
         },
         {
           "description": "Latest S6 with twin-turbo V8 engine producing 444 horsepower. All-wheel drive standard. Sedan and Avant wagon variants. Improved technology and performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C8",
           "start_year": 2019
         }
@@ -928,7 +928,7 @@
         },
         {
           "description": "Latest S7 Sportback with twin-turbo V8 engine producing 444 horsepower. All-wheel drive standard. Improved technology and performance. More refined.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C8",
           "start_year": 2020
         }
@@ -957,7 +957,7 @@
         },
         {
           "description": "Latest S8 with twin-turbo V8 engine producing 563 horsepower. All-wheel drive standard. Flagship performance sedan. Improved technology and luxury.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "D5",
           "start_year": 2019
         }
@@ -974,13 +974,13 @@
         },
         {
           "description": "SQ5 with turbocharged V6 engine producing 349-354 horsepower. All-wheel drive standard. Available as standard Q5 and Sportback variant. Improved technology.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "FY",
           "start_year": 2017
         },
         {
           "description": "Latest SQ5 with updated powertrain and technology. All-wheel drive standard. Available as standard Q5 and Sportback variant. More refined and efficient.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "FYS",
           "start_year": 2024
         }
@@ -1135,7 +1135,7 @@
         },
         {
           "description": "Latest M3 with S58 inline-6 engine producing 473-503 horsepower. Competition and CS variants available. More aggressive styling and advanced technology.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G80",
           "start_year": 2021
         }
@@ -1176,7 +1176,7 @@
         },
         {
           "description": "Latest 3 Series with improved technology and handling. Featured updated turbocharged engines and advanced safety features. More premium positioning.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G20/G21",
           "start_year": 2019
         }
@@ -1205,7 +1205,7 @@
         },
         {
           "description": "Latest 330i with turbocharged B46/B48 2.0L inline-4 engine producing 255 hp. CLAR platform with improved handling and technology. Available with mild-hybrid (eDrive).",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G20/G21",
           "start_year": 2019
         }
@@ -1222,7 +1222,7 @@
         },
         {
           "description": "Latest M4 with S58 inline-6 engine producing 473-503 horsepower. Competition and CSL variants available. More aggressive styling and advanced technology.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G82/G83",
           "start_year": 2021
         }
@@ -1262,7 +1262,7 @@
         },
         {
           "description": "Latest 2 Series coupe with improved technology and handling. Featured updated turbocharged engines. M2 variant continued with high performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G42",
           "start_year": 2022
         }
@@ -1368,7 +1368,7 @@
         },
         {
           "description": "Latest M340i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G20/G21",
           "start_year": 2019
         }
@@ -1419,7 +1419,7 @@
         },
         {
           "description": "Latest 4 Series with updated styling and technology. Featured updated engines and improved handling. M4 continued as high-performance variant.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G22/G23/G26",
           "start_year": 2021
         }
@@ -1436,7 +1436,7 @@
         },
         {
           "description": "Latest M440i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G22/G23/G26",
           "start_year": 2021
         }
@@ -1453,7 +1453,7 @@
         },
         {
           "description": "Latest M240i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G42",
           "start_year": 2022
         }
@@ -1470,7 +1470,7 @@
         },
         {
           "description": "Latest M2 with S58 inline-6 engine producing 453 horsepower. More powerful and aggressive styling. Competition variant available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G87",
           "start_year": 2023
         }
@@ -1543,7 +1543,7 @@
       "generations": [
         {
           "description": "High-performance 8 Series with S63 twin-turbo V8 engine shared with F90 M5. Available as coupe (F92), convertible (F91), and Gran Coupe (F93). Competition variants available. Replaces M6.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "F91/F92/F93",
           "start_year": 2019
         }
@@ -1650,7 +1650,7 @@
         },
         {
           "description": "Third generation X5 M with Competition variant producing up to 616 horsepower. 2024 LCI update introduced mild-hybrid S68 V8. Standard X5 M dropped, Competition only.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "F95",
           "start_year": 2020
         }
@@ -1673,7 +1673,7 @@
         },
         {
           "description": "Third generation X6 M producing 600-617 horsepower. Competition variants available. 2023 LCI update introduced mild-hybrid S68 V8. Improved power and efficiency.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "F96",
           "start_year": 2020
         }
@@ -1684,7 +1684,7 @@
       "generations": [
         {
           "description": "First electrified M Original since M1. Plug-in hybrid with V8 + electric motor producing 644 horsepower. Label Red variant produces 738 horsepower, making it the most powerful production BMW M model. Standalone performance SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "F95",
           "start_year": 2023
         }
@@ -1695,7 +1695,7 @@
       "generations": [
         {
           "description": "Electric M Performance variant of i4 Gran Coupe. Dual-motor all-wheel drive producing 536 horsepower. 0-60 mph in 3.7 seconds. EPA range 227-269 miles. Features adaptive M suspension and M Sport Brakes.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G26",
           "start_year": 2022
         }
@@ -1706,7 +1706,7 @@
       "generations": [
         {
           "description": "Electric M Performance variant of i5 sedan. Dual-motor xDrive producing 593 horsepower and 586 lb-ft torque. 0-60 mph in 3.7 seconds. EPA range 240-256 miles. 84.3 kWh usable battery.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G60",
           "start_year": 2024
         }
@@ -1717,7 +1717,7 @@
       "generations": [
         {
           "description": "Electric M Performance variant of i7 flagship sedan. Dual-motor all-wheel drive producing 650 horsepower, up to 811 lb-ft torque with M Sport Boost. 0-60 mph in 3.5 seconds. EPA range ~295 miles. 101.7 kWh usable battery.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G70",
           "start_year": 2023
         }
@@ -1728,7 +1728,7 @@
       "generations": [
         {
           "description": "Electric M Performance variant of iX SUV. Dual-motor all-wheel drive producing 610 horsepower and 749 lb-ft torque. 0-60 mph in 3.6 seconds. EPA range ~285 miles. 109.5 kWh battery with fast DC charging.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "I20",
           "start_year": 2022
         }
@@ -1831,7 +1831,7 @@
         },
         {
           "description": "Fourth-gen X5 on CLAR; M60i with S68 V8.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G05",
           "start_year": 2019
         }
@@ -1854,7 +1854,7 @@
         },
         {
           "description": "Third-gen X6 on CLAR; M60i variant.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G06",
           "start_year": 2020
         }
@@ -1865,7 +1865,7 @@
       "generations": [
         {
           "description": "First-gen X7; three-row SUV flagship. M60i and Alpina XB7 variants.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G07",
           "start_year": 2019
         }
@@ -1957,7 +1957,7 @@
         },
         {
           "description": "Seventh-gen 7 Series (non-M70; non-i7 variants).",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G70",
           "start_year": 2023
         }
@@ -1974,7 +1974,7 @@
         },
         {
           "description": "Second-gen 8 Series; convertible (G14), coupe (G15), Gran Coupe (G16). 840i, M850i.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G14/G15/G16",
           "start_year": 2019
         }
@@ -1996,7 +1996,7 @@
       "generations": [
         {
           "description": "Electric Gran Coupe; eDrive35, eDrive40, xDrive40 variants (M50 is separate model).",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G26",
           "start_year": 2022
         }
@@ -2018,7 +2018,7 @@
       "generations": [
         {
           "description": "Electric 7-Series; xDrive60 (M70 is separate model).",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "G70",
           "start_year": 2023
         }
@@ -2065,7 +2065,7 @@
       "generations": [
         {
           "description": "Supercharged 6.2L LT4 V8, 668 hp. 6MT or 10AT. Alpha platform successor to CTS-V.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2022
         }
@@ -2076,7 +2076,7 @@
       "generations": [
         {
           "description": "Twin-turbo 3.6L V6, 472 hp. 6MT or 10AT. Alpha platform successor to ATS-V.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2022
         }
@@ -2116,7 +2116,7 @@
         },
         {
           "description": "T1 platform. Escalade-V supercharged LT4 682 hp.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2021
         }
@@ -2200,7 +2200,7 @@
         },
         {
           "description": "First mid-engine Corvette. Featured LT2 V8 engine producing 490-495 horsepower. Z06 variant with flat-plane crank V8. Revolutionary design maintaining Corvette's performance legacy.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C8",
           "start_year": 2020
         }
@@ -2383,7 +2383,7 @@
         },
         {
           "description": "T1 platform. 2.7L I4T, 5.3L L84, 6.2L L87, 3.0L Duramax. ZR2.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2019
         }
@@ -2412,7 +2412,7 @@
         },
         {
           "description": "T1 with IRS. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2021
         }
@@ -2441,7 +2441,7 @@
         },
         {
           "description": "T1 long-WB. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2021
         }
@@ -2554,7 +2554,7 @@
         },
         {
           "description": "Latest Charger with updated design and technology. Featured updated engines and improved efficiency. SRT and Hellcat variants available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "2024+",
           "start_year": 2024
         }
@@ -2902,7 +2902,7 @@
       "generations": [
         {
           "description": "Front-engine V8 grand tourer with 3.9L twin-turbo engine producing 612 horsepower. Elegant coupe design. Popular for exhaust upgrades, ECU tuning, subtle aero enhancements, and interior customization. Modern platform with good aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Roma",
           "start_year": 2019
         }
@@ -2935,7 +2935,7 @@
       "generations": [
         {
           "description": "Mid-engine V6 hybrid supercar with 3.0L twin-turbo V6 and electric motor producing 818-830 horsepower. Represents Ferrari's hybrid future. Popular for exhaust upgrades, ECU tuning (hybrid system considerations), and aero modifications. Growing aftermarket support as platform matures.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "GTB",
           "start_year": 2021
         }
@@ -2946,7 +2946,7 @@
       "generations": [
         {
           "description": "Mid-engine V8 hybrid hypercar with 4.0L twin-turbo V8 and three electric motors producing 986-1000 horsepower. Extreme performance with hybrid technology. Popular for exhaust upgrades, ECU tuning (Novitec has 1100+ HP builds), aero modifications, and appearance packages. Strong aftermarket support from premium tuners.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Stradale",
           "start_year": 2019
         }
@@ -3052,7 +3052,7 @@
         },
         {
           "description": "Latest generation with updated styling and technology. Featured updated engines and improved performance. Dark Horse variant introduced. Continues Mustang legacy.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "7th Gen",
           "start_year": 2024
         }
@@ -3178,7 +3178,7 @@
         },
         {
           "description": "Bronco revival with modern off-road technology. Featured 2.3L EcoBoost and 2.7L twin-turbo V6 engines. Removable doors and top, advanced 4x4 systems. Raptor variant with 418 horsepower. Highly anticipated return of iconic off-roader.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "6th Gen",
           "start_year": 2021
         }
@@ -3242,7 +3242,7 @@
         },
         {
           "description": "Latest generation with updated 3.5L twin-turbo EcoBoost V6 producing 450 horsepower (Raptor R with 5.2L supercharged V8 producing 700 horsepower). Advanced off-road systems, improved technology. Continues Raptor's dominance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "3rd Gen",
           "start_year": 2021
         }
@@ -3350,7 +3350,7 @@
         },
         {
           "description": "Global Ranger. 2.3L / 2.7L V6 / 3.0L V6 Raptor 405 hp.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Next Gen",
           "start_year": 2024
         }
@@ -3361,7 +3361,7 @@
       "generations": [
         {
           "description": "US-market Ranger Raptor with 3.0L EcoBoost V6. First Ranger Raptor sold in North America.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2024
         }
@@ -3372,7 +3372,7 @@
       "generations": [
         {
           "description": "Compact unibody pickup. 2.5L hybrid or 2.0L EcoBoost 250 hp. Tremor/Lobo.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2022
         }
@@ -3383,7 +3383,7 @@
       "generations": [
         {
           "description": "Compact crossover on Escape platform. 2.0L EcoBoost Badlands is COBB target.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2021
         }
@@ -3418,7 +3418,7 @@
         },
         {
           "description": "6.8L gas V8, 7.3L Godzilla, 6.7L Power Stroke 500 hp / 1200 lb-ft HO.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "5th Gen",
           "start_year": 2023
         }
@@ -3449,7 +3449,7 @@
         },
         {
           "description": "T1. L84 5.3L / L87 6.2L / Duramax 3.0L. AT4X.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2019
         }
@@ -3478,7 +3478,7 @@
         },
         {
           "description": "T1 platform. L84/L87 V8s / Duramax. AT4.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "T1",
           "start_year": 2021
         }
@@ -3491,7 +3491,7 @@
       "generations": [
         {
           "description": "Genesis' compact executive sedan. Featured turbocharged 4-cylinder (2.5T) and twin-turbo V6 (3.3T) engines producing up to 365 horsepower. Excellent value and performance with Brembo brakes and sport-tuned suspension. Competes with BMW 3 Series and Mercedes C-Class. Popular for modifications including exhaust upgrades, ECU tuning, and suspension enhancements.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "RG",
           "start_year": 2017
         }
@@ -3508,7 +3508,7 @@
         },
         {
           "description": "Redesigned G80 with updated styling and technology. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Available in gas and electrified variants. Enhanced luxury and performance features.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "RG3",
           "start_year": 2021
         }
@@ -3525,7 +3525,7 @@
         },
         {
           "description": "Redesigned G90 flagship sedan with advanced technology and luxury. Featured 3.5T twin-turbo V6 and e-Supercharger hybrid variant producing up to 409 horsepower. Ultimate luxury with cutting-edge features and exceptional performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "2nd Gen",
           "start_year": 2021
         }
@@ -3536,7 +3536,7 @@
       "generations": [
         {
           "description": "Genesis' compact luxury SUV. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Sporty handling and performance in a luxury SUV package. Popular for enthusiasts seeking SUV practicality with sedan-like dynamics.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "JK1",
           "start_year": 2020
         }
@@ -3547,7 +3547,7 @@
       "generations": [
         {
           "description": "Genesis' mid-size luxury SUV. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Available as standard SUV and coupe variant (JX1C). Excellent performance and luxury. Popular for modifications and enthusiast appeal.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "JX1",
           "start_year": 2021
         }
@@ -3558,7 +3558,7 @@
       "generations": [
         {
           "description": "Genesis' compact luxury electric SUV. Featured dual-motor AWD setup with Performance variant producing up to 483 horsepower and 516 lb-ft torque. Boost Mode enables 0-60 mph in 3.6 seconds. ~77-84 kWh battery with ~235-294 mile range. Fast charging capability. Popular among EV enthusiasts for performance and luxury.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "JW1",
           "start_year": 2021
         }
@@ -3650,7 +3650,7 @@
         },
         {
           "description": "More mature and refined design language. Improved technology and safety features while maintaining sporty character, especially in Si and Type R trims.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "11th Gen",
           "start_year": 2022
         }
@@ -3721,7 +3721,7 @@
         },
         {
           "description": "More mature and sophisticated design. Hybrid powertrain became standard in many markets. Improved technology and safety features while maintaining driving dynamics.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "11th Gen",
           "start_year": 2023
         }
@@ -3860,7 +3860,7 @@
         },
         {
           "description": "Latest generation with more refined styling. Improved power delivery and handling. Continues the Type R legacy as the ultimate front-wheel-drive performance car.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "FL5",
           "start_year": 2023
         }
@@ -3991,7 +3991,7 @@
         },
         {
           "description": "Second-generation HR-V with turbocharged 1.5L engine producing 158 hp. New platform with significantly improved dynamics. Available in FWD only. Growing aftermarket community.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "RS",
           "start_year": 2023
         }
@@ -4060,7 +4060,7 @@
         },
         {
           "description": "Fifth-generation Odyssey with 3.5L V6 producing 280 hp. Available with 9-speed automatic and 10-speed automatic. Improved performance and technology. Growing aftermarket community.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "RL5",
           "start_year": 2018
         }
@@ -4137,7 +4137,7 @@
         },
         {
           "description": "Newest Elantra with updated design and technology. Featured updated engines and advanced safety features. More modern and efficient.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "CN7",
           "start_year": 2021
         }
@@ -4148,7 +4148,7 @@
       "generations": [
         {
           "description": "Hyundai's high-performance sedan under the N sub-brand. Featured 2.0L turbocharged inline-4 producing 276 horsepower and 289 lb-ft torque. Available with 6-speed manual or 8-speed dual-clutch transmission. Includes electronic limited-slip differential, variable exhaust, and launch control. Popular for ECU tuning, exhaust upgrades, suspension modifications, and track-focused builds. Strong aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "CN7",
           "start_year": 2021
         }
@@ -4187,7 +4187,7 @@
       "generations": [
         {
           "description": "Hyundai's first electric performance vehicle under the N sub-brand. Featured dual-motor all-wheel-drive system producing 601 horsepower (641 hp with N Grin Boost). 84 kWh battery with 350 kW DC fast charging. 0-60 mph in 3.4 seconds. Popular for software tuning, suspension modifications, and performance enhancements. Represents the future of Hyundai N performance with electric powertrain.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "NE",
           "start_year": 2024
         }
@@ -4395,7 +4395,7 @@
         },
         {
           "description": "Updated Q50 with refreshed styling and technology. Featured updated engines and improved fuel economy. More refined and efficient.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "V37 (Facelift)",
           "start_year": 2021
         }
@@ -4510,7 +4510,7 @@
       "generations": [
         {
           "description": "Kia's midsize sports sedan, replacing the Optima. GT trim featured 2.5L turbocharged 4-cylinder engine producing 290 horsepower and 311 lb-ft torque. Front-wheel drive with 8-speed wet dual-clutch automatic transmission. 0-60 mph in approximately 5.7-5.8 seconds. Sport-tuned suspension, aggressive styling with fastback profile, and modern technology. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension work. Excellent value and performance in midsize sedan segment.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "DL3",
           "start_year": 2021
         }
@@ -4521,7 +4521,7 @@
       "generations": [
         {
           "description": "Kia's flagship electric performance crossover. Featured dual-motor all-wheel-drive system producing 577 horsepower (576 hp in some markets). 77.4 kWh battery with 350 kW DC fast charging. 0-60 mph in 3.4 seconds. Featured GT mode, drift mode, performance tires, enhanced brakes, and electronic differential. Popular for software tuning, suspension modifications, and performance enhancements. Represents Kia's entry into high-performance electric vehicles.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "CV",
           "start_year": 2022
         },
@@ -4684,7 +4684,7 @@
         },
         {
           "description": "2nd Evoque.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "L551",
           "start_year": 2020
         }
@@ -4715,7 +4715,7 @@
         },
         {
           "description": "Latest IS with updated design and technology. Featured updated engines and advanced safety features. More premium positioning.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "XE40",
           "start_year": 2021
         }
@@ -4760,7 +4760,7 @@
       "generations": [
         {
           "description": "Lexus' compact coupe with sporty styling. Featured V6 and V8 engines. RC F variant with V8 was high-performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "ZRC",
           "start_year": 2015
         }
@@ -4782,7 +4782,7 @@
       "generations": [
         {
           "description": "High-performance RC with naturally aspirated V8 engine producing 467 horsepower. Track-focused with excellent handling and build quality.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "ZRC",
           "start_year": 2015
         }
@@ -4826,7 +4826,7 @@
       "generations": [
         {
           "description": "Lexus' flagship grand tourer with stunning design. Features 5.0L naturally aspirated V8 (LC500) producing 471 horsepower or 3.5L V6 hybrid (LC500h). Available as coupe and convertible. Built on GA-L platform with excellent handling. Popular for exhaust upgrades, aero modifications, and luxury customization. Convertible introduced in 2021, major interior/tech updates in 2024.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "URZ100",
           "start_year": 2018
         }
@@ -4861,7 +4861,7 @@
         },
         {
           "description": "Fifth generation LS with bold new design language. Featured V6 twin-turbo and hybrid powertrains. Popular for luxury customization, VIP modifications, and high-end builds.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "URF50",
           "start_year": 2018
         }
@@ -4895,7 +4895,7 @@
         },
         {
           "description": "Third generation GX with complete redesign. Features new platform, updated engines, and modern technology. Popular for off-road modifications and luxury overlanding builds.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "J250",
           "start_year": 2024
         }
@@ -4924,7 +4924,7 @@
         },
         {
           "description": "Fourth generation LX with complete redesign. Features new platform, updated engines, and modern technology. Popular for luxury off-road modifications and premium overlanding builds.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "J310",
           "start_year": 2022
         }
@@ -4976,7 +4976,7 @@
         },
         {
           "description": "Sixth generation ES with complete redesign. Features new platform, updated engines, and modern technology. Popular for modifications and luxury customization.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "XV70",
           "start_year": 2019
         }
@@ -5028,7 +5028,7 @@
         {
           "description": "Return to lightweight philosophy with Skyactiv technology. Featured improved fuel economy and handling. RF (retractable fastback) variant introduced. Maintains Miata's reputation as the best affordable sports car.",
           "display_name": "Mk4 Miata",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "ND",
           "start_year": 2016
         }
@@ -5133,7 +5133,7 @@
         },
         {
           "description": "Latest generation with improved Skyactiv-X technology. More premium interior and improved technology. Turbocharged engine option available. Maintains Mazda3's sporty character.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "BP",
           "start_year": 2019
         }
@@ -5318,7 +5318,7 @@
       "generations": [
         {
           "description": "McLaren's evolution of the 720S with 4.0L twin-turbo V8 producing 740 horsepower. Part of Super Series. Available as coupe and Spider. Higher power, improved performance, and refined aerodynamics. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Extensive aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "750S",
           "start_year": 2023
         }
@@ -5329,7 +5329,7 @@
       "generations": [
         {
           "description": "McLaren's hybrid supercar with 3.0L twin-turbo V6 and electric motor producing 671 horsepower. First McLaren with V6 engine. Combines Sports and Super Series characteristics. Popular for exhaust upgrades, ECU tuning, aero modifications, and hybrid system optimization. Growing aftermarket support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Artura",
           "start_year": 2021
         }
@@ -5410,7 +5410,7 @@
         },
         {
           "description": "Newest C-Class with updated design and technology. Featured updated engines and improved efficiency. More modern and premium.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W206",
           "start_year": 2022
         }
@@ -5462,7 +5462,7 @@
         },
         {
           "description": "Latest C63 AMG with hybrid powertrain. Featured updated technology and improved efficiency. More refined while maintaining performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W206",
           "start_year": 2022
         }
@@ -5520,7 +5520,7 @@
         },
         {
           "description": "Latest S-Class with updated design and technology. Featured MBUX infotainment and advanced autonomous features. Most advanced generation.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W223",
           "start_year": 2021
         }
@@ -5549,7 +5549,7 @@
         },
         {
           "description": "Latest SL-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced roadster generation.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "R232",
           "start_year": 2022
         }
@@ -5675,7 +5675,7 @@
         },
         {
           "description": "Latest CLA-Class with updated styling and technology. Featured CLA35 and CLA45 AMG variants. Most advanced compact 4-door coupe.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C118",
           "start_year": 2020
         }
@@ -5692,7 +5692,7 @@
         },
         {
           "description": "Modernized G-Class with updated technology while maintaining classic design. Featured G63 AMG with twin-turbo V8. Most advanced generation.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W463 (New)",
           "start_year": 2019
         }
@@ -5709,7 +5709,7 @@
         },
         {
           "description": "Latest GLC-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced compact SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "X254",
           "start_year": 2023
         }
@@ -5726,7 +5726,7 @@
         },
         {
           "description": "Latest GLE-Class with updated styling and technology. Featured AMG variants with hybrid powertrains. Most advanced mid-size SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "V167",
           "start_year": 2020
         }
@@ -5743,7 +5743,7 @@
         },
         {
           "description": "Latest GLS-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced full-size SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "X167",
           "start_year": 2020
         }
@@ -5766,7 +5766,7 @@
         },
         {
           "description": "Latest SL63 AMG with updated powertrain and technology. Featured hybrid assist. Most advanced performance roadster.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "R232",
           "start_year": 2022
         }
@@ -5800,7 +5800,7 @@
         },
         {
           "description": "Latest G63 AMG with updated powertrain producing 577 horsepower. Improved technology while maintaining classic design. Most advanced G-Class.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W463 (New)",
           "start_year": 2019
         }
@@ -5817,7 +5817,7 @@
         },
         {
           "description": "Latest GLE63 AMG with updated powertrain and hybrid assist. Featured improved technology and performance. Most advanced performance SUV.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "V167",
           "start_year": 2020
         }
@@ -5840,7 +5840,7 @@
         },
         {
           "description": "Latest S63 AMG with hybrid powertrain producing 791 horsepower. Featured advanced technology and efficiency. Most powerful S-Class.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "W223",
           "start_year": 2021
         }
@@ -5925,7 +5925,7 @@
         },
         {
           "description": "Latest CLA45 AMG with 2.0L turbo producing 382-421 horsepower. Improved technology and performance. Most powerful compact 4-door coupe.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "C118",
           "start_year": 2020
         }
@@ -6232,7 +6232,7 @@
         },
         {
           "description": "Fourth-generation Outlander on Renault-Nissan-Mitsubishi Alliance CMF platform. Featured bold new styling and 2.5L engine. PHEV version features 302 hp system output. Improved interior quality and technology.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "4th Gen",
           "start_year": 2022
         }
@@ -6319,7 +6319,7 @@
       "generations": [
         {
           "description": "Latest Z car with twin-turbo V6 engine producing 400 horsepower. Modern technology while honoring Z car heritage. Performance and Nismo variants available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "RZ34",
           "start_year": 2023
         }
@@ -6418,7 +6418,7 @@
         },
         {
           "description": "Latest generation with improved technology and safety features. Featured updated engines and continued Sentra's focus on value and efficiency.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "B18",
           "start_year": 2020
         }
@@ -6635,7 +6635,7 @@
         },
         {
           "description": "Latest 911 with updated styling and technology. Featured updated engines and improved performance. Turbo, GT3, and GT2 RS variants available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "992",
           "start_year": 2020
         }
@@ -6781,7 +6781,7 @@
         },
         {
           "description": "Updated Cayenne with refreshed styling and technology. Turbo E-Hybrid produces 729 hp and 700 lb-ft torque. 0-60 mph in 3.5 seconds. Top speed around 183 mph. Popular with enthusiasts for modifications and performance enhancements.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "PO536 (Facelift)",
           "start_year": 2024
         }
@@ -6798,7 +6798,7 @@
         },
         {
           "description": "Electric Macan with dual-motor all-wheel-drive. Turbo variant produces 630 hp with Launch Control and 833 lb-ft torque. 0-60 mph in 3.3 seconds. Top speed 162 mph. Popular for software tuning, suspension modifications, and performance enhancements.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "PO536 (Electric)",
           "start_year": 2024
         }
@@ -6821,7 +6821,7 @@
         },
         {
           "description": "Updated Panamera with refreshed styling and technology. Turbo S E-Hybrid produces 771 hp. 0-60 mph in less than 3 seconds with Sport Chrono. Top speed 202 mph. Popular with enthusiasts for modifications and performance enhancements.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "971 (Facelift)",
           "start_year": 2024
         }
@@ -6832,7 +6832,7 @@
       "generations": [
         {
           "description": "Porsche's first all-electric sedan. Featured dual-motor all-wheel-drive system. Turbo variant produces 871 hp, Turbo S produces 938 hp, Turbo GT produces 1,019 hp. 0-60 mph in 2.2-2.5 seconds. Top speed up to 190 mph with Weissach package. Popular for software tuning, suspension modifications, and performance enhancements. Represents the future of Porsche performance.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "J1",
           "start_year": 2020
         }
@@ -7025,7 +7025,7 @@
         },
         {
           "description": "Latest generation with FA24F engine producing 271 horsepower. Improved power delivery and handling. More refined while maintaining the WRX's character.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "VB",
           "start_year": 2022
         }
@@ -7042,7 +7042,7 @@
         },
         {
           "description": "Refined second generation with improved 2.4L engine producing 228 horsepower. Better handling and technology while maintaining the BRZ's focus on pure driving experience.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "ZD8",
           "start_year": 2021
         }
@@ -7199,7 +7199,7 @@
         },
         {
           "description": "Modern Outback XT with FA24F turbo engine producing 260 horsepower and 277 lb-ft torque. CVT-only transmission. Revived turbocharged Outback offering performance in a practical crossover package.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "BN/BS",
           "start_year": 2020
         }
@@ -7232,7 +7232,7 @@
       "generations": [
         {
           "description": "Subaru's three-row SUV on Global Platform. Turbocharged 2.4L FA24F. COBB Accessport support.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2019
         }
@@ -7388,7 +7388,7 @@
         },
         {
           "description": "Latest generation with hybrid powertrain option. Improved technology, safety features, and fuel economy. SE and XSE trims offer sporty styling.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "E210",
           "start_year": 2019
         }
@@ -7822,7 +7822,7 @@
         },
         {
           "description": "Third generation Tundra with complete redesign. Features new twin-turbo V6 engines and hybrid powertrain option. Modern technology and improved capability. Growing aftermarket support for modifications, lift kits, and off-road accessories.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "3rd Gen",
           "start_year": 2022
         }
@@ -7845,7 +7845,7 @@
         },
         {
           "description": "Third generation Sequoia with complete redesign. Features new twin-turbo V6 hybrid powertrain (i-Force Max), modern technology, and improved capability. Growing aftermarket support for modifications and off-road accessories.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "3rd Gen",
           "start_year": 2023
         }
@@ -7880,7 +7880,7 @@
         },
         {
           "description": "Sixth-generation Prius with bold new styling. Available as hybrid and Prime plug-in. 2.0L engine producing 194 hp combined. Most powerful and stylish Prius to date. Growing aftermarket interest.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "ZVW60",
           "start_year": 2023
         }
@@ -8037,7 +8037,7 @@
         },
         {
           "description": "Latest Jetta with updated design and technology. Featured updated engines and advanced safety features. GLI variant available.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Mk7",
           "start_year": 2019
         }
@@ -8066,7 +8066,7 @@
         },
         {
           "description": "Latest GTI with turbocharged engine producing 241-245 horsepower. Improved technology and handling. Continues hot hatch legacy.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Mk8",
           "start_year": 2021
         }
@@ -8095,7 +8095,7 @@
         },
         {
           "description": "Latest Golf R with turbocharged engine producing 315-328 horsepower and all-wheel drive. Advanced torque-vectoring and performance features. Continues as VW's flagship hot hatch.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "Mk8",
           "start_year": 2022
         }

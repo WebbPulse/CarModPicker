@@ -62,10 +62,13 @@ with ``CRAWLER_SEIBONCARBON_START_URLS`` (comma-separated) for a fixed list.
 respects that automatically (``get_crawl_delay_sec`` → ``max(--delay,
 crawl_delay)``), so no adapter-level delay override is needed.
 
-Fetcher tier: plain HTTP. Seibon has no Cloudflare bot challenge, no
-fingerprint-level blocking, and the Magento storefront answers ``requests``
-with our crawler UA without issue. Promote to ``tls`` only if we start
-seeing 403s on every URL from the same IP range.
+Fetcher tier: FlareSolverr browser. The Magento storefront sits behind
+Cloudflare Bot Management with ``cf-mitigated: challenge`` — plain
+``requests`` and ``curl_cffi`` Chrome JA3 impersonation (every profile
+through chrome136) both 403 immediately, so the check is gating on JS
+execution, not TLS fingerprint. FlareSolverr's headless Chromium solves
+the managed challenge and reuses the ``cf_clearance`` cookie across the
+session, so amortized per-page cost stays close to a normal page load.
 """
 
 import json
@@ -601,8 +604,10 @@ def _sku_from_first_image(soup: BeautifulSoup) -> Optional[str]:
 
 class SeibonCarbonAdapter(RetailerCrawlerAdapter):
     """
-    Seibon Carbon adapter. Magento storefront, plain HTTP is sufficient
-    (no Cloudflare challenge, no TLS-fingerprint filtering observed).
+    Seibon Carbon adapter. Magento storefront behind Cloudflare Bot
+    Management's managed JS challenge — TLS-fingerprint impersonation
+    isn't enough (every ``curl_cffi`` Chrome profile 403s), so this
+    runs on the ``browser`` tier via FlareSolverr.
 
     Discovery: ``CRAWLER_SEIBONCARBON_START_URLS`` env var wins. Otherwise
     walks the flat urlset at ``/sitemap.xml`` and yields every ``/<slug>.html``
@@ -621,7 +626,7 @@ class SeibonCarbonAdapter(RetailerCrawlerAdapter):
 
     ADAPTER_NAME: ClassVar[str] = "seiboncarbon"
     category_targets: ClassVar[list[str]] = ["universal"]
-    FETCHER_TIER = "http"
+    FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from ``/sitemap.xml``; env override wins when set."""

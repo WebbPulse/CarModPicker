@@ -200,6 +200,48 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "t-bolt clamp",
         "an fitting",
         "hose end",
+        # Plumbing/AN-fitting language. The audit (2026-05-03) found 192
+        # ``other`` parts that are AN fittings/adapters/hose-ends; the
+        # canonical AN-size token is ``-6AN`` / ``-8AN`` etc. (no space),
+        # so the existing ``an fitting`` keyword (with space) never matched.
+        # Add the dash-AN-N forms as separate explicit keywords. Also add
+        # NPT/ORB which are the matching thread standards on the same parts.
+        "-3an",
+        "-4an",
+        "-6an",
+        "-8an",
+        "-10an",
+        "-12an",
+        "-16an",
+        "npt",
+        "orb fitting",
+        "hose barb",
+        "adapter fitting",
+        "fitting flare",
+        "banjo fitting",
+        "union fitting",
+        # Engine swap mounts — the Hasport/Innovative catalog uses these
+        # phrases without any other engine-keyword neighbour. 2026-05-03 audit
+        # moved 58 parts from ``other`` → ``engine`` via these keywords.
+        "engine mount",
+        "motor mount",
+        "trans mount",
+        "transmission mount",
+        "swap mount",
+        "swap mounts",
+        "engine bracket",
+        # Engine internals / fuel system phrases the previous list missed
+        # because each individual word collides with another category.
+        "fuel rail",
+        "fuel filter",
+        "fuel tank",
+        "fuel feed",
+        "fuel return",
+        "fuel line",
+        "valve seat",
+        "valve guide",
+        "cam gear",
+        "throttle body",
     ],
     "wheels": [
         "wheel",
@@ -317,6 +359,35 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "sill cover",
         "center console",
         "speaker cover",
+        # Race-gear / driver safety. 2026-05-03 audit moved 83 parts from
+        # ``other`` → ``interior`` via these brand and product phrases —
+        # helmets, suits, racing shoes, fire extinguishers, window nets, and
+        # SFI/FIA-rated apparel. Brands listed (Sparco/Bell/Arai/Alpinestars/
+        # etc.) are race-only; their general consumer apparel is captured by
+        # the ``accessories`` swag list below.
+        "helmet",
+        "hans device",
+        "racing suit",
+        "driving shoe",
+        "driving shoes",
+        "race glove",
+        "race gloves",
+        "nomex",
+        "fire extinguisher",
+        "window net",
+        "rain suit",
+        "kart suit",
+        "karting suit",
+        "karting shoe",
+        "arai",
+        "sparco",
+        "alpinestars",
+        "stand21",
+        "sabelt",
+        "schroth",
+        "bell helmet",
+        "brey krause",
+        "safecraft",
     ],
     "brakes": [
         "brake",
@@ -421,6 +492,30 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "polish",
         "cleaner",
         "microfiber",
+        # 2026-05-03 audit: 167 ``other`` parts that are clearly branded
+        # apparel/swag/travel goods. ``cap``/``hat``/``lanyard`` already live
+        # in the original list above — do NOT re-add them here, ``_score_text``
+        # counts each list entry independently and duplicates double-score.
+        "jacket",
+        "tee shirt",
+        "shirt",
+        "hoodie",
+        "sweatshirt",
+        "polo",
+        "hoody",
+        "beanie",
+        "key holder",
+        "key ring",
+        "wallet",
+        "umbrella",
+        "duffle bag",
+        "tote bag",
+        "drying towel",
+        "microfiber towel",
+        "hand towel",
+        "patch",
+        "tote",
+        "backpack",
     ],
 }
 

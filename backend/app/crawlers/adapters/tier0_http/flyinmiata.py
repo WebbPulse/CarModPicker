@@ -408,6 +408,64 @@ def _extract_og_price_cents(soup: BeautifulSoup) -> Optional[int]:
     return None
 
 
+# Flyin' Miata catalog is exclusively MX-5 Miata (NA/NB/NC/ND) parts plus
+# LS-swap hardware that targets those same chassis. Names routinely encode
+# the chassis as a standalone token ("NA Front Lip Brake Duct Kit",
+# "FM Level 1 Performance clutch for NA/NB", "NC/ND oil funnel adapter")
+# or as an explicit US production-year range that fits cleanly within one
+# or more generation windows ("Big nose crankshaft bolt, 1991-05",
+# "Throttle body gasket, 1994-97", "MX5things ACC/IG power controller,
+# 2016-2023"). The ``infer_car_for_part`` hook below extracts both signals
+# from ``payload.name`` and emits Mazda Miata triples so ingest can
+# attribute correctly without us round-tripping through the universal
+# keyword scorer (which doesn't recognize the NA/NB/NC/ND tokens because
+# they overlap with too many false positives in other adapters' catalogs).
+_FM_GEN_TOKEN_RE = re.compile(r"(?:^|[ (/])(N[ABCD])(?:$|[ /),])")
+# Year ranges like "1991-05", "1990-2005", "2016-2023". Capture both
+# endpoints (year2 may be 2 digits expanded relative to year1's century).
+_FM_YEAR_RANGE_RE = re.compile(r"\b(1[89]\d{2}|20\d{2})[-–— ]+(\d{2,4})\b")
+
+# Miata generation US production windows (matches car_generations table).
+# Order matters only for deterministic output; intersection is computed
+# pairwise against year ranges below.
+_FM_GENERATIONS: tuple[tuple[str, int, int], ...] = (
+    ("NA", 1989, 1997),
+    ("NB", 1998, 2005),
+    ("NC", 2006, 2015),
+    ("ND", 2016, 2024),
+)
+
+
+def _fm_year_range_to_gens(name: str) -> set[str]:
+    """
+    Walk ``_FM_YEAR_RANGE_RE`` over ``name`` and return the set of Miata
+    generation tokens whose [start,end] window overlaps any extracted
+    range. The second-endpoint expansion handles "1991-05" → 1991..2005
+    by carrying the first year's century when the captured tail is two
+    digits and would otherwise read as a year before the first.
+    """
+    out: set[str] = set()
+    for m in _FM_YEAR_RANGE_RE.finditer(name):
+        try:
+            y1 = int(m.group(1))
+            tail = m.group(2)
+            if len(tail) == 4:
+                y2 = int(tail)
+            else:
+                # Two-digit tail: try the same century first, bump up if needed.
+                y2 = (y1 // 100) * 100 + int(tail)
+                if y2 < y1:
+                    y2 += 100
+        except ValueError:
+            continue
+        if y2 < y1 or y1 < 1989 or y2 > 2030:
+            continue
+        for token, gs, ge in _FM_GENERATIONS:
+            if y1 <= ge and y2 >= gs:
+                out.add(token)
+    return out
+
+
 class FlyinMiataAdapter(RetailerCrawlerAdapter):
     """
     Flyin' Miata adapter. Shopify storefront, plain HTTP fetch is sufficient.
@@ -426,6 +484,14 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
     images and price. ``og:title`` / ``og:description`` on this theme are
     SEO meta (tagline, not product copy) and are intentionally not used
     as name / description sources.
+
+    Car attribution: Flyin' Miata's catalog is Miata-exclusive but the
+    site has no machine-readable per-product fitment block (the theme
+    relies on category nav + freeform copy). The ``infer_car_for_part``
+    override below extracts NA/NB/NC/ND chassis tokens and US year ranges
+    from ``payload.name`` and emits Mazda Miata triples so ingest doesn't
+    have to fall through to ``is_universal=true`` for parts whose chassis
+    is obvious from the title.
     """
 
     ADAPTER_NAME: ClassVar[str] = "flyinmiata"
@@ -533,3 +599,35 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
             part_number=part_number,
             image_urls=_extract_images(soup) or None,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[list[tuple[str, str, str]]]:
+        """
+        Extract Mazda Miata generation triples from ``parsed.name``.
+
+        Two complementary signals:
+
+        1. Standalone ``NA`` / ``NB`` / ``NC`` / ``ND`` tokens (anchored
+           on word boundaries that include parens, slashes, commas).
+        2. Year ranges that overlap a generation's US production window.
+           ``"1991-05"`` resolves to ``1991..2005`` (NA + NB), ``"2016-2023"``
+           to ``2016..2023`` (ND), etc.
+
+        Returns ``None`` (NOT an empty list) when no signal fires so the
+        ingest layer falls through to the universal pipeline. Empty list
+        would short-circuit it to ``is_universal=True`` and skip the
+        keyword scorer that catches less-obvious matches.
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        gens: set[str] = set()
+        for m in _FM_GEN_TOKEN_RE.finditer(name):
+            gens.add(m.group(1))
+        gens.update(_fm_year_range_to_gens(name))
+        if not gens:
+            return None
+        # Stable order matches _FM_GENERATIONS so test diffs are predictable.
+        ordered = [g for (g, _, _) in _FM_GENERATIONS if g in gens]
+        return [("Mazda", "Miata", token) for token in ordered]

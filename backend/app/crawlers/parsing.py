@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import re
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
@@ -1510,12 +1511,34 @@ def _images_from_json_ld(item: Dict[str, Any]) -> List[str]:
     img = item.get("image")
     if not img:
         return []
+    # Normalize to a list of items. Schema.org allows ``image`` to be:
+    # - a string URL
+    # - an ``ImageObject`` dict (e.g. Shopify OS 2.0: ``{"@type":"ImageObject","url":..., ...}``)
+    # - a list of either of the above
+    # Previously the ``else img`` fallback iterated over a dict's KEYS
+    # (yielding ``"@type"``, ``"url"``, ``"image"``, ``"name"``, ``"width"``,
+    # ``"height"`` as "image URLs"); seen on every ogracing JSON-LD, polluted
+    # 251 parts.
+    if isinstance(img, str):
+        candidates: List[Any] = [img]
+    elif isinstance(img, dict):
+        candidates = [img]
+    elif isinstance(img, list):
+        candidates = img
+    else:
+        return []
     urls: List[str] = []
-    for i in ([img] if isinstance(img, str) else img) if img else []:
+    for i in candidates:
         if isinstance(i, str) and i.strip():
             urls.append(i.strip())
-        elif isinstance(i, dict) and i.get("url"):
-            urls.append(str(i["url"]).strip())
+        elif isinstance(i, dict):
+            # Prefer ``url``; fall back to ``contentUrl`` (also valid on
+            # ImageObject) and a string-typed nested ``image``.
+            for key in ("url", "contentUrl", "image"):
+                v = i.get(key)
+                if isinstance(v, str) and v.strip():
+                    urls.append(v.strip())
+                    break
     return urls
 
 
@@ -1888,6 +1911,87 @@ def _cap_html(html_text: Optional[str]) -> Optional[str]:
     return html_text
 
 
+@dataclass(frozen=True, slots=True)
+class _UniversalInputs:
+    """
+    Pre-computed inputs shared across the six universal-field extractors for
+    one page. Built once by :func:`extract_universal_fields` and passed via
+    the private ``_shared`` kwarg to each extractor; each extractor falls back
+    to computing its own inputs when ``_shared`` is None (the path direct
+    callers and tests take), so behavior is identical either way.
+
+    Two distinct body-text caches are needed because the extractors disagree
+    on what counts as "body":
+    - material/finish use the chrome-stripped flatten (``get_flattened_body_text``)
+      so that footer/nav copy can't shadow the product description.
+    - warranty/fitment_notes/manufacturer_part_number use the raw
+      ``soup.get_text()`` over the full ``capped`` HTML
+      (``get_raw_body_text``). Switching them to the flattened version would
+      change behavior: e.g. fitment_notes specifically rejects chrome via its
+      own ``_is_chrome_text`` guard rather than pre-stripping, and warranty's
+      JSON-LD-vs-body confidence tier would shift on chrome-only sites.
+
+    Hence: cache both, never substitute one for the other.
+    """
+
+    capped: Optional[str]
+    json_ld_product_computed: bool = False
+    json_ld_product: Optional[Dict[str, Any]] = None
+    # Lazily-populated mutable caches. Wrapped in single-element lists so the
+    # frozen dataclass identity stays stable per page while still allowing
+    # one-time fill on first access. The second slot in each list is a
+    # "computed?" flag that distinguishes "not computed yet" from "computed
+    # and returned None" (some pages legitimately produce empty body text).
+    _flattened_body_text_cache: List[Any] = field(default_factory=lambda: [None, False])
+    _raw_body_text_cache: List[Any] = field(default_factory=lambda: [None, False])
+
+    def get_flattened_body_text(self) -> Optional[str]:
+        """Chrome-stripped flatten — what material/finish use. Computed once."""
+        cache = self._flattened_body_text_cache
+        if cache[1]:
+            return cache[0]
+        if self.capped is None:
+            cache[0] = None
+            cache[1] = True
+            return None
+        cache[0] = _flatten_product_body_text(self.capped)
+        cache[1] = True
+        return cache[0]
+
+    def get_raw_body_text(self) -> Optional[str]:
+        """Raw ``soup.get_text()`` over capped HTML — used by warranty/fitment/MPN."""
+        cache = self._raw_body_text_cache
+        if cache[1]:
+            return cache[0]
+        if self.capped is None:
+            cache[0] = None
+            cache[1] = True
+            return None
+        try:
+            soup = BeautifulSoup(self.capped, "html.parser")
+            cache[0] = soup.get_text(separator=" ", strip=True)
+        except Exception:  # noqa: BLE001 — match the per-extractor fallback
+            cache[0] = self.capped
+        cache[1] = True
+        return cache[0]
+
+
+def _build_universal_inputs(html_text: Optional[str]) -> _UniversalInputs:
+    """Compute the shared pre-pass once per page."""
+    capped = _cap_html(html_text)
+    json_ld_product: Optional[Dict[str, Any]] = None
+    if capped is not None:
+        try:
+            json_ld_product = extract_json_ld_product(capped)
+        except Exception:  # noqa: BLE001 — the per-extractor calls swallow this too
+            json_ld_product = None
+    return _UniversalInputs(
+        capped=capped,
+        json_ld_product_computed=True,
+        json_ld_product=json_ld_product,
+    )
+
+
 # Sentinel weight bounds (grams). Anything outside is treated as scraper noise.
 _WEIGHT_GRAM_MIN = 1.0
 _WEIGHT_GRAM_MAX = 500_000.0
@@ -1942,9 +2046,16 @@ _WEIGHT_LBS_OZ_RE = re.compile(
 )
 
 
-def _weight_from_json_ld(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+def _weight_from_json_ld(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[float, _Confidence]]:
     """Pull a Product weight from JSON-LD if a numeric value + unit can be resolved."""
-    item = extract_json_ld_product(html_text)
+    if _shared is not None and _shared.json_ld_product_computed:
+        item = _shared.json_ld_product
+    else:
+        item = extract_json_ld_product(html_text)
     if not item:
         return None
     weight = item.get("weight")
@@ -2030,7 +2141,11 @@ def _strip_shipping_blocks(html_text: str) -> str:
     return str(soup)
 
 
-def extract_weight(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+def extract_weight(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[float, _Confidence]]:
     """
     Extract a product's weight, normalized to grams.
 
@@ -2041,12 +2156,21 @@ def extract_weight(html_text: str) -> Optional[Tuple[float, _Confidence]]:
 
     Returns None when no plausible weight is found, when the converted value
     falls outside ``[1 g, 500_000 g]``, or on malformed input.
+
+    ``_shared`` lets ``extract_universal_fields`` pass pre-computed inputs
+    (capped HTML, JSON-LD product dict) so all six extractors amortize work
+    that would otherwise be duplicated 6×. Direct callers (tests, single-page
+    rescrape) omit it and the function falls back to per-call computation —
+    no behavior change.
     """
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    json_ld_hit = _weight_from_json_ld(capped)
+    json_ld_hit = _weight_from_json_ld(capped, _shared=_shared)
     if json_ld_hit is not None:
         return json_ld_hit
 
@@ -2144,19 +2268,57 @@ def _match_first_material_with_span(text: str) -> Optional[Tuple[str, int, int]]
 _MATERIAL_LABELED_RE = re.compile(r"material\s*[:=]?\s*([^\n<>]{1,80})", re.IGNORECASE)
 
 
-def extract_material(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+# Tags that are almost always page chrome (header/nav/footer/sidebar) or
+# non-textual payloads. Stripping them before flattening to body text removes
+# the noisiest source of false positives in the body-sweep tier of
+# ``extract_material`` / ``extract_finish``: a footer "Aerospace-grade 6061
+# aluminum hardware" boilerplate line, a nav "Black Friday Sale." link, or
+# inline JSON-LD strings that already feed the high-confidence path. The
+# labeled-row tier benefits equally — a "Material: ..." span that lives in
+# site chrome is almost never describing the product in front of the user.
+_CHROME_TAG_NAMES: Tuple[str, ...] = ("nav", "header", "footer", "aside", "script", "style", "noscript", "template")
+
+
+def _flatten_product_body_text(html: str) -> str:
+    """
+    Return the page text with chrome tags stripped — what a shopper actually
+    reads. Falls back to the raw HTML if BeautifulSoup raises (matches the
+    safety net used at the previous call sites).
+    """
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup.find_all(_CHROME_TAG_NAMES):
+            tag.decompose()
+        return soup.get_text(separator=" ", strip=True)
+    except Exception:  # noqa: BLE001
+        return html
+
+
+def extract_material(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[str, _Confidence]]:
     """
     Extract a part's material (aluminum/steel/titanium/...) at confidence high → low.
 
     high: JSON-LD ``material`` value matches the material lexicon.
     medium: labeled "Material: …" row matches the lexicon.
     low: first body-text or title hit on the lexicon.
+
+    See :func:`extract_weight` for the ``_shared`` contract.
     """
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    item = extract_json_ld_product(capped)
+    if _shared is not None and _shared.json_ld_product_computed:
+        item = _shared.json_ld_product
+    else:
+        item = extract_json_ld_product(capped)
     if item is not None:
         material_field = item.get("material")
         # Lowercase normalization at the JSON-LD ingest point: even though
@@ -2175,11 +2337,9 @@ def extract_material(html_text: str) -> Optional[Tuple[str, _Confidence]]:
                 if canonical is not None:
                     return (canonical, "high")
 
-    try:
-        soup = BeautifulSoup(capped, "html.parser")
-        body_text = soup.get_text(separator=" ", strip=True)
-    except Exception:  # noqa: BLE001
-        body_text = capped
+    body_text = _shared.get_flattened_body_text() if _shared is not None else _flatten_product_body_text(capped)
+    if body_text is None:
+        return None
 
     labeled = _MATERIAL_LABELED_RE.search(body_text)
     if labeled:
@@ -2265,7 +2425,11 @@ def _match_first_finish_with_span(text: str) -> Optional[Tuple[str, bool, int, i
     return None
 
 
-def extract_finish(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+def extract_finish(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[str, _Confidence]]:
     """
     Extract a part's finish (anodized/polished/black/...).
 
@@ -2273,12 +2437,20 @@ def extract_finish(html_text: str) -> Optional[Tuple[str, _Confidence]]:
     mentions: a labeled treatment is medium, an unlabeled treatment is low,
     and any colour-only match is always low — so a "red anodized" mention
     beats a stray "red" appearing in the body copy.
+
+    See :func:`extract_weight` for the ``_shared`` contract.
     """
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    item = extract_json_ld_product(capped)
+    if _shared is not None and _shared.json_ld_product_computed:
+        item = _shared.json_ld_product
+    else:
+        item = extract_json_ld_product(capped)
     if item is not None:
         for key in ("color", "colour", "additionalProperty"):
             val = item.get(key)
@@ -2295,11 +2467,9 @@ def extract_finish(html_text: str) -> Optional[Tuple[str, _Confidence]]:
                     canonical, is_treatment = hit
                     return (canonical, "high" if is_treatment else "low")
 
-    try:
-        soup = BeautifulSoup(capped, "html.parser")
-        body_text = soup.get_text(separator=" ", strip=True)
-    except Exception:  # noqa: BLE001
-        body_text = capped
+    body_text = _shared.get_flattened_body_text() if _shared is not None else _flatten_product_body_text(capped)
+    if body_text is None:
+        return None
 
     labeled = _FINISH_LABELED_RE.search(body_text)
     if labeled:
@@ -2355,7 +2525,11 @@ _WARRANTY_LIFETIME_RE = re.compile(
 _WARRANTY_LIFETIME_DAYS = 36500.0
 
 
-def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
+def extract_warranty(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[float, _Confidence]]:
     """
     Extract a warranty as a float number-of-days so values are sortable.
 
@@ -2363,12 +2537,20 @@ def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
     ``"6 months warranty"``. Returns None when no warranty phrase is found.
     Confidence tiering: high on JSON-LD ``warranty`` field, medium on body
     text matches.
+
+    See :func:`extract_weight` for the ``_shared`` contract.
     """
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    item = extract_json_ld_product(capped)
+    if _shared is not None and _shared.json_ld_product_computed:
+        item = _shared.json_ld_product
+    else:
+        item = extract_json_ld_product(capped)
     if item is not None:
         warranty = item.get("warranty")
         text: Optional[str] = None
@@ -2391,11 +2573,14 @@ def extract_warranty(html_text: str) -> Optional[Tuple[float, _Confidence]]:
             if _WARRANTY_LIFETIME_RE.search(text):
                 return (_WARRANTY_LIFETIME_DAYS, "high")
 
-    try:
-        soup = BeautifulSoup(capped, "html.parser")
-        body_text = soup.get_text(separator=" ", strip=True)
-    except Exception:  # noqa: BLE001
-        body_text = capped
+    if _shared is not None:
+        body_text = _shared.get_raw_body_text() or capped
+    else:
+        try:
+            soup = BeautifulSoup(capped, "html.parser")
+            body_text = soup.get_text(separator=" ", strip=True)
+        except Exception:  # noqa: BLE001
+            body_text = capped
 
     m = _WARRANTY_RE.search(body_text)
     if m:
@@ -2509,7 +2694,11 @@ def _is_chrome_text(text: str) -> bool:
     return False
 
 
-def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
+def extract_fitment_notes(
+    html_text: str,
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
+) -> Optional[Tuple[str, _Confidence]]:
     """
     Capture the first prose chunk that mentions a chassis code (E46/F80/G82/...) and,
     ideally, a year range. Returned string is capped at 300 chars.
@@ -2521,16 +2710,24 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
 
     Snippets dominated by site-chrome tokens (Sign In / Toggle Nav / Add to Cart / ...)
     are dropped at every tier — see ``_FITMENT_CHROME_TOKENS``.
+
+    See :func:`extract_weight` for the ``_shared`` contract.
     """
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    try:
-        soup = BeautifulSoup(capped, "html.parser")
-        body_text = soup.get_text(separator=" ", strip=True)
-    except Exception:  # noqa: BLE001
-        body_text = capped
+    if _shared is not None:
+        body_text = _shared.get_raw_body_text() or capped
+    else:
+        try:
+            soup = BeautifulSoup(capped, "html.parser")
+            body_text = soup.get_text(separator=" ", strip=True)
+        except Exception:  # noqa: BLE001
+            body_text = capped
     if not body_text:
         return None
 
@@ -2597,6 +2794,8 @@ _MPN_LABELED_RE = re.compile(
 
 def extract_manufacturer_part_number(
     html_text: Optional[str],
+    *,
+    _shared: Optional["_UniversalInputs"] = None,
 ) -> Optional[Tuple[str, _Confidence]]:
     """
     Extract a part's manufacturer part number (MPN).
@@ -2608,24 +2807,35 @@ def extract_manufacturer_part_number(
     noisy and risks shadowing serial numbers (per T03 plan).
 
     Returns the canonicalized MPN as upper-cased, whitespace-collapsed string.
+
+    See :func:`extract_weight` for the ``_shared`` contract.
     """
-    if html_text is None:
+    if html_text is None and _shared is None:
         return None
-    capped = _cap_html(html_text)
+    if _shared is not None:
+        capped = _shared.capped
+    else:
+        capped = _cap_html(html_text)
     if capped is None:
         return None
 
-    item = extract_json_ld_product(capped)
+    if _shared is not None and _shared.json_ld_product_computed:
+        item = _shared.json_ld_product
+    else:
+        item = extract_json_ld_product(capped)
     if item is not None:
         mpn_field = item.get("mpn")
         if isinstance(mpn_field, str) and mpn_field.strip():
             return (mpn_field.strip().upper(), "high")
 
-    try:
-        soup = BeautifulSoup(capped, "html.parser")
-        body_text = soup.get_text(separator=" ", strip=True)
-    except Exception:  # noqa: BLE001
-        body_text = capped
+    if _shared is not None:
+        body_text = _shared.get_raw_body_text() or capped
+    else:
+        try:
+            soup = BeautifulSoup(capped, "html.parser")
+            body_text = soup.get_text(separator=" ", strip=True)
+        except Exception:  # noqa: BLE001
+            body_text = capped
 
     labeled = _MPN_LABELED_RE.search(body_text)
     if labeled:
@@ -2660,33 +2870,39 @@ def extract_universal_fields(html_text: Optional[str]) -> Dict[str, Tuple[Any, s
 
     This is the call-site that ``RetailerCrawlerAdapter.apply_universal_extraction``
     (T03) consumes — see ``S02-PLAN.md``.
+
+    Internally, ``capped``/``json_ld_product``/body-text caches are computed
+    once and threaded through each extractor via the private ``_shared``
+    kwarg, so a single call produces the same results as six independent
+    calls but with ~5-7 fewer BeautifulSoup parses (rescrape hot path).
     """
     if not html_text or not html_text.strip():
         return {}
 
+    shared = _build_universal_inputs(html_text)
     out: Dict[str, Tuple[Any, str]] = {}
 
-    weight_hit = extract_weight(html_text)
+    weight_hit = extract_weight(html_text, _shared=shared)
     if weight_hit is not None:
         out["weight_grams"] = weight_hit
 
-    material_hit = extract_material(html_text)
+    material_hit = extract_material(html_text, _shared=shared)
     if material_hit is not None:
         out["material"] = material_hit
 
-    finish_hit = extract_finish(html_text)
+    finish_hit = extract_finish(html_text, _shared=shared)
     if finish_hit is not None:
         out["finish"] = finish_hit
 
-    warranty_hit = extract_warranty(html_text)
+    warranty_hit = extract_warranty(html_text, _shared=shared)
     if warranty_hit is not None:
         out["warranty_days"] = warranty_hit
 
-    fitment_hit = extract_fitment_notes(html_text)
+    fitment_hit = extract_fitment_notes(html_text, _shared=shared)
     if fitment_hit is not None:
         out["fitment_notes"] = fitment_hit
 
-    mpn_hit = extract_manufacturer_part_number(html_text)
+    mpn_hit = extract_manufacturer_part_number(html_text, _shared=shared)
     if mpn_hit is not None:
         out["manufacturer_part_number"] = mpn_hit
 

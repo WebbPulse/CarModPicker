@@ -122,8 +122,12 @@ _BRAND_REJECT_TOKENS = frozenset({"the", "new", "oem"})
 _SHOPIFY_THUMBNAIL_RE = re.compile(r"_\d{2,4}x\d{2,4}\.\w{2,5}(?:$|\?)", re.IGNORECASE)
 
 # Image URL patterns that are site chrome rather than product gallery media.
+# ``prop65`` (CA Prop 65 warning badge) and ``5yearold`` (5-year warranty
+# badge) appear on every product page on this storefront — without explicit
+# denies they leaked onto 200+ parts (prop65) and 33 (warranty badge).
 _IMAGE_NOISE_RE = re.compile(
-    r"mega_?menu|/banner_|_banner|/logo|logo_|header_|footer_|placeholder|favicon|sprite|icon[-_]",
+    r"mega_?menu|/banner_|_banner|/logo|logo_|header_|footer_|placeholder|favicon|sprite|icon[-_]"
+    r"|prop65|5yearold|warranty[-_]?badge",
     re.IGNORECASE,
 )
 

@@ -6,7 +6,7 @@ No page parsing lives here; that is entirely in per-retailer adapters.
 Respects robots.txt: we check can_fetch_url() before each request and honor
 Crawl-delay when present (use the larger of --delay and the directive).
 
-Retryable upstream errors: on 429/502/503/504 we retry with exponential
+Retryable upstream errors: on 429/500/502/503/504 we retry with exponential
 backoff, honor Retry-After, and add jitter. Staying unbanned is prioritized
 over speed.
 """
@@ -349,10 +349,12 @@ REQUEST_DELAY_JITTER_FRACTION = 0.2
 # Status codes we retry with backoff. 429 is the canonical rate-limit signal;
 # 503 is "service unavailable" (often a polite throttle); 502 (Bad Gateway)
 # and 504 (Gateway Timeout) are transient edge/CDN failures (Wix, Cloudflare,
-# Fastly all emit them on upstream blips). All four respond well to a short
-# wait + retry — bubbling them up as hard errors loses healthy URLs to one-
-# off infrastructure noise. Retry-After is honored when present.
-RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+# Fastly all emit them on upstream blips). 500 is added because vanilla
+# WordPress/Apache origins (e.g. ecutek.com) emit it on momentary app blips
+# rather than a more specific 502/503; product-page GETs are idempotent so a
+# backed-off retry is safe, and if the origin is genuinely down the retry
+# budget + exponential backoff will give up quickly. Retry-After honored.
+RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 504)
 MAX_RATE_LIMIT_RETRIES = 5
 BACKOFF_BASE_SEC = 2.0
 BACKOFF_MAX_SEC = 300.0
@@ -627,7 +629,7 @@ def fetch_with_retries(
     ``requests.Session.get`` and ``curl_cffi.requests.Session.get`` match.
 
     Retry behavior (same for every transport that uses this):
-      - ``status_code`` in ``RETRYABLE_STATUS_CODES`` (429/502/503/504):
+      - ``status_code`` in ``RETRYABLE_STATUS_CODES`` (429/500/502/503/504):
         exponential backoff, Retry-After honored. After ``MAX_RATE_LIMIT_RETRIES``, returns
         the final rate-limited response (caller decides how to raise).
       - Exceptions in ``timeout_exceptions``: retry up to

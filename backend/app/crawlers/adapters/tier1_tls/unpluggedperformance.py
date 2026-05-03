@@ -598,7 +598,7 @@ class UnpluggedPerformanceAdapter(RetailerCrawlerAdapter):
 
     ADAPTER_NAME: ClassVar[str] = "unpluggedperformance"
     category_targets: ClassVar[list[str]] = ["universal"]
-    FETCHER_TIER = "http"
+    FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:
         """

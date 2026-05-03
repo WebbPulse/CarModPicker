@@ -137,6 +137,15 @@ _SHOPIFY_CDN_IMG_RE = re.compile(
 # Strip before dedupe so the same asset at different sizes collapses to one.
 _SHOPIFY_SIZE_SUFFIX_RE = re.compile(r"_\d+x\d*(?=\.(?:jpg|jpeg|png|webp|gif))", re.IGNORECASE)
 
+# Site-chrome filenames that match _SHOPIFY_CDN_IMG_RE but are NOT product
+# media. ``List.png`` is a "size-chart / fitment list" UI badge that the Dawn
+# theme renders on every product page; it leaked onto 241 parts via the
+# whole-HTML regex sweep before this filter.
+_RADIUM_CHROME_FILENAME_RE = re.compile(
+    r"/(?:files|products)/(?:List|Logo|Banner|Header|Footer|Placeholder|Favicon|Sprite|Icon|Prop65|Warranty)(?:[-_].*)?\.(?:png|jpg|jpeg|webp|gif)",
+    re.IGNORECASE,
+)
+
 
 def _resolve_start_urls() -> List[str]:
     """Env override wins; otherwise walk the Shopify sitemap index."""
@@ -284,6 +293,8 @@ def _extract_images(html: str, soup: BeautifulSoup) -> List[str]:
         if not u.startswith("https://"):
             return
         if not _SHOPIFY_CDN_IMG_RE.match(u):
+            return
+        if _RADIUM_CHROME_FILENAME_RE.search(u):
             return
         key = _canonical_image_key(u)
         if key in seen:

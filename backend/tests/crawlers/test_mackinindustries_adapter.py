@@ -304,8 +304,16 @@ class TestParseItemPage:
     def test_generic_accessory_has_no_brand(self) -> None:
         # "wheel-rack" slug misses every brand token; ingest will leave
         # part_manufacturer_id NULL. Adapter must not invent a brand.
+        # Override og_description too — the default fixture's "Recent
+        # gramLIGHTS..." blurb belongs to a wheel-model page; on a real
+        # /item/wheel-rack page the body wouldn't lead with an umbrella-brand
+        # mention, and the body-text fallback would correctly surface it.
         result = MackinIndustriesAdapter().parse_product_page(
-            _item_html(og_title="Wheel Rack - Mackin Industries", h1="Wheel Rack"),
+            _item_html(
+                og_title="Wheel Rack - Mackin Industries",
+                og_description="Steel wheel storage rack for the garage.",
+                h1="Wheel Rack",
+            ),
             "https://mackin-ind.com/item/wheel-rack/",
         )
         assert result is not None

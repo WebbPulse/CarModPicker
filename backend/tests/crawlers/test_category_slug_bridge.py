@@ -135,9 +135,10 @@ class TestCategoryToSubslugMapping:
         )
 
     def test_other_categories_fall_through_to_universal(self) -> None:
-        # No DB category outside suspension/engine/brakes has a registered
-        # sub-slug yet — every one must bridge to universal so the hook fires.
-        for category in ("wheels", "exhaust", "body", "interior", "lighting", "drivetrain", "other"):
+        # Categories with no registered sub-slug bridge to universal so the
+        # hook still fires. ``wheels`` is excluded — WheelSpec landed under
+        # the ``wheel`` slug (S06/T04, commit 90f568c) and resolves directly.
+        for category in ("exhaust", "body", "interior", "lighting", "drivetrain", "other"):
             assert (
                 category_to_subslug(category, name="Sample Part", description="") == UNIVERSAL_SUBSLUG
             ), f"category={category!r} should resolve to universal"
@@ -145,13 +146,15 @@ class TestCategoryToSubslugMapping:
     def test_keyword_in_wrong_parent_does_not_hijack_subslug(self) -> None:
         # A coilover keyword in a wheels-categorized part must NOT resolve to
         # the coilover sub-slug — the parent category gates the bridge so the
-        # wrong schema can't be picked up by stray prose.
+        # wrong schema can't be picked up by stray prose. ``wheels`` resolves
+        # to its own ``wheel`` sub-slug (single-sub-slug parent), not to
+        # coilover, regardless of stray keywords in the title.
         assert (
             category_to_subslug(
                 "wheels",
                 name="Wheel Spacer with Coilover Compatibility Note",
             )
-            == UNIVERSAL_SUBSLUG
+            == "wheel"
         )
         assert (
             category_to_subslug(
@@ -171,7 +174,7 @@ class TestBridgeRoundTripsWithRegistry:
             ("suspension", "ST X35 Coilovers", None, "coilover"),
             ("brakes", "Big Brake Kit", None, "brake"),
             ("engine", "K04 Turbo", None, "turbo"),
-            ("wheels", "Forged Wheel Set", None, UNIVERSAL_SUBSLUG),
+            ("wheels", "Forged Wheel Set", None, "wheel"),
             ("exhaust", "Catback Exhaust", None, UNIVERSAL_SUBSLUG),
             ("suspension", "Generic Strut", None, UNIVERSAL_SUBSLUG),
         ],

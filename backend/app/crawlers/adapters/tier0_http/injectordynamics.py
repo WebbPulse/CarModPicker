@@ -28,6 +28,15 @@ Host: ``injectordynamics.com`` (no ``www`` redirect observed). Apache sets
 header that exposes the WP REST API — which is load-bearing for discovery
 (see below).
 
+TLS chain quirk: the origin serves its leaf cert but omits the GlobalSign
+GCC R3 DV TLS CA 2020 intermediate. Browsers fetch the intermediate via
+AIA but Python's ``ssl`` module doesn't, so plain ``requests`` fails with
+``CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate``.
+Same pattern + same fix as ``hrewheels.py``: this adapter builds a
+session with a combined CA bundle (certifi + the embedded GlobalSign
+intermediate PEM) and hands it to the ``HttpFetcher``. Intermediate is
+valid until 2029-03-18; see ``_build_trust_session`` below.
+
 Discovery: **there is no ``sitemap.xml`` or ``sitemap_index.xml`` on this
 origin** (both 404). WordPress's core sitemap feature (introduced in 5.5)
 appears to be disabled or plugin-overridden; no Yoast / Rank Math / All in
@@ -139,13 +148,17 @@ Caveats:
 import html as html_mod
 import os
 import re
+import tempfile
+import threading
 from typing import ClassVar, Iterator, List, Optional
 
+import certifi
 import requests
 from bs4 import BeautifulSoup, Tag
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import DEFAULT_USER_AGENT, ScrapedPayload
+from app.crawlers.fetchers import Fetcher, HttpFetcher
 from app.crawlers.parsing import meta_content, normalize_description_text
 
 INJECTORDYNAMICS_BASE = "https://injectordynamics.com"
@@ -223,12 +236,92 @@ _IMAGE_NOISE_RE = re.compile(
 )
 
 
-def _resolve_start_urls() -> List[str]:
+# GlobalSign GCC R3 DV TLS CA 2020 — the issuing intermediate the origin
+# omits from its TLS handshake. Browsers fetch it via AIA; Python's ssl
+# module doesn't, so plain requests fails with CERTIFICATE_VERIFY_FAILED.
+# PEM fetched from http://secure.globalsign.com/cacert/gsgccr3dvtlsca2020.crt
+# (the AIA URL embedded in the leaf cert). Chains to the GlobalSign Root
+# CA - R3 already in certifi. Valid until 2029-03-18; if injectordynamics
+# switches CAs the symptom is the same SSLError and the fix is to swap
+# this PEM for the new issuer's intermediate.
+_GLOBALSIGN_GCC_R3_DV_TLS_CA_2020_PEM = """\
+-----BEGIN CERTIFICATE-----
+MIIEsDCCA5igAwIBAgIQd70OB0LV2enQSdd00CpvmjANBgkqhkiG9w0BAQsFADBM
+MSAwHgYDVQQLExdHbG9iYWxTaWduIFJvb3QgQ0EgLSBSMzETMBEGA1UEChMKR2xv
+YmFsU2lnbjETMBEGA1UEAxMKR2xvYmFsU2lnbjAeFw0yMDA3MjgwMDAwMDBaFw0y
+OTAzMTgwMDAwMDBaMFMxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWdu
+IG52LXNhMSkwJwYDVQQDEyBHbG9iYWxTaWduIEdDQyBSMyBEViBUTFMgQ0EgMjAy
+MDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKxnlJV/de+OpwyvCXAJ
+IcxPCqkFPh1lttW2oljS3oUqPKq8qX6m7K0OVKaKG3GXi4CJ4fHVUgZYE6HRdjqj
+hhnuHY6EBCBegcUFgPG0scB12Wi8BHm9zKjWxo3Y2bwhO8Fvr8R42pW0eINc6OTb
+QXC0VWFCMVzpcqgz6X49KMZowAMFV6XqtItcG0cMS//9dOJs4oBlpuqX9INxMTGp
+6EASAF9cnlAGy/RXkVS9nOLCCa7pCYV+WgDKLTF+OK2Vxw3RUJ/p8009lQeUARv2
+UCcNNPCifYX1xIspvarkdjzLwzOdLahDdQbJON58zN4V+lMj0msg+c0KnywPIRp3
+BMkCAwEAAaOCAYUwggGBMA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEF
+BQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUDZjA
+c3+rvb3ZR0tJrQpKDKw+x3wwHwYDVR0jBBgwFoAUj/BLf6guRSSuTVD6Y5qL3uLd
+G7wwewYIKwYBBQUHAQEEbzBtMC4GCCsGAQUFBzABhiJodHRwOi8vb2NzcDIuZ2xv
+YmFsc2lnbi5jb20vcm9vdHIzMDsGCCsGAQUFBzAChi9odHRwOi8vc2VjdXJlLmds
+b2JhbHNpZ24uY29tL2NhY2VydC9yb290LXIzLmNydDA2BgNVHR8ELzAtMCugKaAn
+hiVodHRwOi8vY3JsLmdsb2JhbHNpZ24uY29tL3Jvb3QtcjMuY3JsMEcGA1UdIARA
+MD4wPAYEVR0gADA0MDIGCCsGAQUFBwIBFiZodHRwczovL3d3dy5nbG9iYWxzaWdu
+LmNvbS9yZXBvc2l0b3J5LzANBgkqhkiG9w0BAQsFAAOCAQEAy8j/c550ea86oCkf
+r2W+ptTCYe6iVzvo7H0V1vUEADJOWelTv07Obf+YkEatdN1Jg09ctgSNv2h+LMTk
+KRZdAXmsE3N5ve+z1Oa9kuiu7284LjeS09zHJQB4DJJJkvtIbjL/ylMK1fbMHhAW
+i0O194TWvH3XWZGXZ6ByxTUIv1+kAIql/Mt29PmKraTT5jrzcVzQ5A9jw16yysuR
+XRrLODlkS1hyBjsfyTNZrmL1h117IFgntBA5SQNVl9ckedq5r4RSAU85jV8XK5UL
+REjRZt2I6M9Po9QL7guFLu4sPFJpwR1sPJvubS2THeo7SxYoNDtdyBHs7euaGcMa
+D/fayQ==
+-----END CERTIFICATE-----
+"""
+
+
+_BUNDLE_PATH_LOCK = threading.Lock()
+_BUNDLE_PATH: Optional[str] = None
+
+
+def _build_trust_bundle_path() -> str:
+    """
+    Return a filesystem path to a CA bundle that includes certifi's roots
+    plus the GlobalSign GCC R3 DV TLS CA 2020 intermediate. Cached
+    per-process; generated into a temp file on first call. Safe to call
+    from multiple threads.
+    """
+    global _BUNDLE_PATH
+    if _BUNDLE_PATH is not None and os.path.exists(_BUNDLE_PATH):
+        return _BUNDLE_PATH
+    with _BUNDLE_PATH_LOCK:
+        if _BUNDLE_PATH is not None and os.path.exists(_BUNDLE_PATH):
+            return _BUNDLE_PATH
+        fd, path = tempfile.mkstemp(prefix="injectordynamics-ca-bundle-", suffix=".pem")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                out.write(_GLOBALSIGN_GCC_R3_DV_TLS_CA_2020_PEM)
+                with open(certifi.where(), "r", encoding="utf-8") as src:
+                    out.write(src.read())
+        except Exception:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            raise
+        _BUNDLE_PATH = path
+        return _BUNDLE_PATH
+
+
+def _build_trust_session() -> requests.Session:
+    """Build a requests session that verifies against the augmented CA bundle."""
+    session = requests.Session()
+    session.verify = _build_trust_bundle_path()
+    return session
+
+
+def _resolve_start_urls(session: Optional[requests.Session] = None) -> List[str]:
     """Env override wins; else discover via WP REST; else hard-coded defaults."""
     raw = os.environ.get("CRAWLER_INJECTORDYNAMICS_START_URLS", "").strip()
     if raw:
         return [u.strip() for u in raw.split(",") if u.strip()]
-    urls = _discover_product_urls_via_wp_rest()
+    urls = _discover_product_urls_via_wp_rest(session=session)
     return urls if urls else list(DEFAULT_START_URLS)
 
 
@@ -258,7 +351,7 @@ def _is_product_url(url: str) -> bool:
     return True
 
 
-def _discover_product_urls_via_wp_rest() -> List[str]:
+def _discover_product_urls_via_wp_rest(session: Optional[requests.Session] = None) -> List[str]:
     """
     Walk the WP REST API (``/wp-json/wp/v2/pages?per_page=100``) and
     return every product-looking page URL. Returns ``[]`` on any failure
@@ -270,9 +363,13 @@ def _discover_product_urls_via_wp_rest() -> List[str]:
     (smoke tests, ad-hoc reruns) and the REST endpoint is Tier-0-trivial —
     plain HTTP with the crawler UA returns JSON on first try, no
     Cloudflare, no TLS fingerprinting.
+
+    ``session`` should be the adapter's trust-bundle session; without it,
+    the origin's broken TLS chain causes verification to fail.
     """
+    getter = session.get if session is not None else requests.get
     try:
-        resp = requests.get(
+        resp = getter(
             WP_PAGES_URL,
             params={"per_page": "100", "_fields": "id,slug,link,parent"},
             headers={"User-Agent": DEFAULT_USER_AGENT, "Accept": "application/json"},
@@ -479,6 +576,19 @@ class InjectorDynamicsAdapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
+    def __init__(self, fetcher: Optional[Fetcher] = None) -> None:
+        # injectordynamics.com serves only its leaf cert and omits the
+        # GlobalSign GCC R3 DV TLS CA 2020 intermediate from the handshake,
+        # so plain requests fails with CERTIFICATE_VERIFY_FAILED. Same
+        # pattern as hrewheels — replace the runner's stock HttpFetcher
+        # with one backed by an augmented requests.Session.
+        if fetcher is None or isinstance(fetcher, HttpFetcher):
+            self._trust_session: Optional[requests.Session] = _build_trust_session()
+            fetcher = HttpFetcher(session=self._trust_session)
+        else:
+            self._trust_session = None
+        super().__init__(fetcher=fetcher)
+
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered via the WP REST API, falling back to
@@ -486,7 +596,7 @@ class InjectorDynamicsAdapter(RetailerCrawlerAdapter):
         feed with ``CRAWLER_INJECTORDYNAMICS_START_URLS`` (comma-separated)
         for targeted re-crawls.
         """
-        for url in _resolve_start_urls():
+        for url in _resolve_start_urls(session=self._trust_session):
             yield url
 
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:

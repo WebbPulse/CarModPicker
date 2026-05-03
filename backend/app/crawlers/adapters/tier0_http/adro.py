@@ -502,10 +502,24 @@ class AdroAdapter(RetailerCrawlerAdapter):
 
         price_cents = extract_dom_price(soup)
         part_number = extract_sku_from_text(soup.get_text())
+        # Shape guard: ADRO's Shopify template renders ``SKU:`` as a label even
+        # for variants whose actual SKU is null. Without a value attached, the
+        # body-text scan grabs the next visible token — typically the variant
+        # dropdown label ("CHASSIS MODEL" → captured as "CHASSIS"). Reject
+        # pure-alpha captures: ADRO's real internal SKUs are alphanumeric
+        # mixes ("FXXCCT", "FXXFCC") that always contain digits or hyphens.
+        # See MEMORY: feedback_pn_extract_label_leakage.md.
+        if part_number and part_number.isalpha():
+            part_number = None
         if not part_number:
             sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
             if sku_elem:
-                part_number = normalize_part_number(sku_elem.get_text(strip=True))
+                candidate = normalize_part_number(sku_elem.get_text(strip=True))
+                # Same shape guard for the sku_elem path: an empty SKU element
+                # like ``<p class="product__sku">SKU:</p>`` normalizes to
+                # "SKU" — pure-alpha junk per the same reasoning.
+                if candidate and not candidate.isalpha():
+                    part_number = candidate
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
