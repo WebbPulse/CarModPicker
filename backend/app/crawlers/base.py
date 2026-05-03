@@ -786,9 +786,27 @@ def ingest_payload(
 
     # Lazy import: parsing.py imports ScrapedPayload from this module, so we keep
     # the reverse-direction import local to avoid a circular import at load time.
-    from app.crawlers.parsing import is_junk_part_number
+    from app.crawlers.parsing import gtin_candidate_for_pn, is_junk_part_number
 
     part_number_effective = payload.part_number
+    gtin_effective = payload.gtin
+
+    # GTIN promotion: when the adapter wrote a 12/13-digit pure-numeric value
+    # into ``part_number`` and the ``gtin`` slot is currently empty, the SKU
+    # field on the source page was almost certainly a UPC/EAN. Move it to the
+    # gtin column rather than dropping it as part-number junk.
+    if part_number_effective and not gtin_effective:
+        promoted = gtin_candidate_for_pn(part_number_effective)
+        if promoted is not None:
+            gtin_effective = promoted
+            logger.debug(
+                "Promoting GTIN-shaped part_number %r to gtin for manufacturer %r on %s",
+                part_number_effective,
+                part_manufacturer_name,
+                payload.product_url,
+            )
+            part_number_effective = None
+
     if is_junk_part_number(part_number_effective, part_manufacturer_name):
         if part_number_effective:
             logger.debug(
@@ -807,7 +825,15 @@ def ingest_payload(
         spec_mpn = payload.specifications.get("manufacturer_part_number")
         if isinstance(spec_mpn, str) and spec_mpn.strip():
             candidate = spec_mpn.strip()
-            if not is_junk_part_number(candidate, part_manufacturer_name):
+            # Spec-side GTIN promotion mirrors the payload-side check above:
+            # an MPN that looks like a UPC/EAN belongs in ``gtin``, not in the
+            # part_number slot.
+            if not gtin_effective:
+                promoted = gtin_candidate_for_pn(candidate)
+                if promoted is not None:
+                    gtin_effective = promoted
+                    candidate = ""
+            if candidate and not is_junk_part_number(candidate, part_manufacturer_name):
                 part_number_effective = candidate
 
     # Infer category. Adapter override (``infer_category_for_part``) wins over
@@ -943,7 +969,7 @@ def ingest_payload(
         is_universal=not inferred_car_ids,
         part_manufacturer_id=part_manufacturer.id if part_manufacturer is not None else None,
         part_number=part_number_effective,
-        gtin=payload.gtin,
+        gtin=gtin_effective,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
         specifications=validated_specifications,

@@ -122,6 +122,29 @@ _IMAGE_SIZE_SUFFIX_RE = re.compile(
 # either a category banner inline asset or unrelated theme art.
 _PRODUCT_IMAGE_PATH = "/product_images/forgeline/"
 
+
+# Forgeline accessory pages embed bare 1-3 digit numeric SKUs (``"3"``,
+# ``"42"``, ``"108"``) that are too short to survive the downstream
+# ``is_junk_part_number`` 4-char floor. Brand-prefix them to ``FGL<sku>``
+# so the canonical key keeps the original code while clearing the floor
+# (mirrors ``tier0_http/roadsportsupply.py:_compose_rss_part_number``).
+_FORGELINE_SHORT_NUMERIC_SKU_RE = re.compile(r"^\d{1,3}$")
+_FORGELINE_PN_PREFIX = "FGL"
+
+
+def _brand_prefix_short_numeric(part_number: Optional[str]) -> Optional[str]:
+    """
+    Promote bare 1-3 digit numeric Forgeline SKUs to the prefixed form
+    (``"42"`` -> ``"FGL42"``) so they survive the 4-char floor.
+    Returns the input unchanged for any other shape.
+    """
+    if not part_number:
+        return part_number
+    sku = part_number.strip()
+    if not sku or not _FORGELINE_SHORT_NUMERIC_SKU_RE.match(sku):
+        return part_number
+    return f"{_FORGELINE_PN_PREFIX}{sku}"
+
 # Smoke-test seed: AL304 is a current high-volume forged wheel with a clean
 # price ($1830.00 starting) and the standard wheel-template DOM.
 DEFAULT_START_URLS = [
@@ -259,7 +282,7 @@ def _extract_part_number(soup: BeautifulSoup) -> Optional[str]:
     if match:
         candidate = match.group(1).strip()
         if candidate:
-            return normalize_part_number(candidate)
+            return normalize_part_number(_brand_prefix_short_numeric(candidate))
 
     if h1_text:
         # The H1 may contain the embedded "Part # …" we already failed to
@@ -267,7 +290,7 @@ def _extract_part_number(soup: BeautifulSoup) -> Optional[str]:
         # model-code check so accessories don't pollute it.
         head = re.split(r"Part\s*#", h1_text, maxsplit=1, flags=re.IGNORECASE)[0].strip()
         if _MODEL_CODE_RE.match(head):
-            return normalize_part_number(head)
+            return normalize_part_number(_brand_prefix_short_numeric(head))
     return None
 
 

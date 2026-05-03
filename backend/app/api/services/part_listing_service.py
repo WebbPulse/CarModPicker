@@ -358,7 +358,9 @@ def find_part_by_part_manufacturer_and_part_number(
     """
     Find a canonical part by part_manufacturer_id and part_number.
 
-    Uses normalized part_number for matching. Only returns canonicals.
+    Uses ``part_number_normalized`` (the canonical alphanumeric-uppercase
+    form) for matching so styling drift between ``"AEM-30-2400"`` and
+    ``"AEM 30/2400"`` collapses into one dedup key. Only returns canonicals.
 
     By default excludes UGC (``source == "user_created"``) so the scraped
     catalog and linker stay isolated from user-contributed rows. Pass
@@ -366,24 +368,24 @@ def find_part_by_part_manufacturer_and_part_number(
     ``creator_id`` — used by the UGC-create dup check to find a user's own
     prior UGC row.
     """
-    normalized = normalize_part_number(part_number)
-    if not normalized:
+    # Lazy import to avoid a circular dependency at module load: parsing.py
+    # imports ScrapedPayload from app.crawlers.base, which transitively imports
+    # this module.
+    from app.crawlers.parsing import part_number_canonical
+
+    canonical = part_number_canonical(part_number)
+    if not canonical:
         return None
-    exact = part_number.strip()
     stmt = select(DBPart).where(
         DBPart.part_manufacturer_id == part_manufacturer_id,
-        or_(DBPart.part_number == normalized, DBPart.part_number == exact),
+        DBPart.part_number_normalized == canonical,
         DBPart.canonical_part_id.is_(None),
     )
     if not include_ugc:
         stmt = stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
         stmt = stmt.where(DBPart.user_id == creator_id)
-    candidates = db.scalars(stmt).all()
-    for c in candidates:
-        if normalize_part_number(c.part_number) == normalized:
-            return c
-    return None
+    return db.scalars(stmt).first()
 
 
 def normalize_gtin(gtin: Optional[str]) -> Optional[str]:
