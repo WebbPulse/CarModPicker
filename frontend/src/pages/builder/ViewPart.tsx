@@ -564,12 +564,27 @@ function ViewPart() {
           )}
           {part_manufacturer && (
             <CardInfoItem label="Part Manufacturer:">
-              <Link
-                to={`/parts?mode=part_manufacturer&part_manufacturer_id=${part_manufacturer.id}`}
-                className="text-blue-400 hover:text-blue-300 underline transition-colors"
-              >
-                {part_manufacturer.name}
-              </Link>
+              {part_manufacturer.is_curated ? (
+                <Link
+                  to={`/parts?mode=part_manufacturer&part_manufacturer_id=${part_manufacturer.id}`}
+                  className="text-blue-400 hover:text-blue-300 underline transition-colors"
+                >
+                  {part_manufacturer.name}
+                </Link>
+              ) : (
+                // UGC manufacturer: render as plain text. The mfr is reachable
+                // by id but isn't in the curated catalog, so a catalog link
+                // would land on an empty filter view. Tooltip explains why.
+                <span
+                  className="text-gray-300"
+                  title="Custom entry — not in the curated catalog"
+                >
+                  {part_manufacturer.name}
+                  <span className="ml-2 inline-block rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-300 align-middle">
+                    custom
+                  </span>
+                </span>
+              )}
             </CardInfoItem>
           )}
           {part.part_number && (

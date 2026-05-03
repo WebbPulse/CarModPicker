@@ -1,27 +1,51 @@
 """
-Part manufacturers endpoint for managing part manufacturers.
+Part manufacturers endpoint.
 
-Allows users to create and search part manufacturers, with admin-only update/delete operations.
+Two classes of manufacturer share this table:
+
+- **Curated** (``is_curated=True``) — created by the crawler service account
+  or admins. The catalog list/search/facet UIs only show these.
+- **UGC** (``is_curated=False``) — created by regular users while making a
+  Part. Scoped to a single ``created_by_user_id``. Reachable by id (no read
+  boundary) but excluded from catalog browsing so one user's "Honda" entry
+  doesn't pollute everyone else's autocomplete and search results.
+
+Routing of ``POST /``:
+  - service-account or admin caller -> curated row.
+  - regular user -> UGC row scoped to them, with auto-link-to-curated dedup.
+
+Edit/delete authorization:
+  - admin/superuser: any row.
+  - creator of a UGC row: their own row only (and only if no parts use it).
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_admin_user, get_current_user
+from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
 from app.api.schemas.part import PartRead
 from app.api.schemas.part_manufacturer import (
+    PartManufacturerAdminUpdate,
     PartManufacturerCreate,
     PartManufacturerResponse,
     PartManufacturerUpdate,
 )
 from app.api.services.base_crud_service import BaseCRUDService
+from app.api.services.part_listing_service import (
+    get_or_create_curated_part_manufacturer,
+    get_or_create_ugc_part_manufacturer,
+)
+from app.api.utils.authorization import (
+    require_part_manufacturer_delete_permission,
+    require_part_manufacturer_edit_permission,
+)
 from app.api.utils.base_endpoint_router import BaseEndpointRouter
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
@@ -39,6 +63,23 @@ from app.api.utils.endpoint_decorators import (
 from app.api.utils.response_patterns import ResponsePatterns
 
 
+def _user_is_admin(user: Optional[DBUser]) -> bool:
+    return user is not None and (user.is_admin or user.is_superuser)
+
+
+def _user_is_service_account(user: Optional[DBUser]) -> bool:
+    return user is not None and user.is_service_account
+
+
+def _resolve_include_ugc(requested: bool, user: Optional[DBUser]) -> bool:
+    """Honor ``include_ugc=true`` only for admins/superusers; ignore otherwise.
+
+    Catalog browse must never surface UGC to regular users — the whole point
+    of the boundary. Admins are allowed to opt in for moderation views.
+    """
+    return requested and _user_is_admin(user)
+
+
 class PartManufacturerService(
     BaseCRUDService[DBPartManufacturer, PartManufacturerCreate, PartManufacturerResponse, PartManufacturerUpdate]
 ):
@@ -50,15 +91,14 @@ class PartManufacturerService(
             entity_name="part manufacturer",
         )
 
-    def get_active_part_manufacturers(self, db: Session) -> List[DBPartManufacturer]:
-        """Get all active part manufacturers ordered by name."""
-        return list(
-            db.scalars(
-                select(DBPartManufacturer)
-                .where(DBPartManufacturer.is_active.is_(True))
-                .order_by(DBPartManufacturer.name)
-            ).all()
-        )
+    def get_active_part_manufacturers(
+        self, db: Session, *, include_ugc: bool = False
+    ) -> List[DBPartManufacturer]:
+        """Get active part manufacturers ordered by name. Curated-only by default."""
+        stmt = select(DBPartManufacturer).where(DBPartManufacturer.is_active.is_(True))
+        if not include_ugc:
+            stmt = stmt.where(DBPartManufacturer.is_curated.is_(True))
+        return list(db.scalars(stmt.order_by(DBPartManufacturer.name)).all())
 
 
 router = APIRouter()
@@ -88,16 +128,25 @@ base_router = BaseEndpointRouter(
 @router.get("/", response_model=List[PartManufacturerResponse])
 async def get_part_manufacturers(
     active_only: bool = Query(True, description="Only return active part manufacturers"),
+    include_ugc: bool = Query(
+        False,
+        description="Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[PartManufacturerResponse]:
-    """
-    Get all part manufacturers (optionally filtered to active only).
-    """
+    """List part manufacturers. Curated-only by default; admins may opt-in to UGC."""
     db = deps["db"]
+    effective_include_ugc = _resolve_include_ugc(include_ugc, current_user)
     if active_only:
-        part_manufacturers = part_manufacturer_service.get_active_part_manufacturers(db)
+        part_manufacturers = part_manufacturer_service.get_active_part_manufacturers(
+            db, include_ugc=effective_include_ugc
+        )
     else:
-        part_manufacturers = list(db.scalars(select(DBPartManufacturer).order_by(DBPartManufacturer.name)).all())
+        stmt = select(DBPartManufacturer)
+        if not effective_include_ugc:
+            stmt = stmt.where(DBPartManufacturer.is_curated.is_(True))
+        part_manufacturers = list(db.scalars(stmt.order_by(DBPartManufacturer.name)).all())
     return [PartManufacturerResponse.model_validate(pm) for pm in part_manufacturers]
 
 
@@ -110,16 +159,26 @@ async def search_part_manufacturers(
     q: str = Query(..., description="Search term for part manufacturer name or description"),
     skip: int = Query(0, ge=0, description="Number of part manufacturers to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of part manufacturers to return"),
+    include_ugc: bool = Query(
+        False,
+        description="Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
+    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> List[PartManufacturerResponse]:
-    """Search part manufacturers by name or description with pagination."""
+    """Search part manufacturers. Curated-only by default; admins may opt-in to UGC."""
     db = deps["db"]
-    logger = deps["logger"]
-
     skip, limit = validate_pagination_params(skip, limit)
-    part_manufacturers = part_manufacturer_service.list_all(
-        db=db, skip=skip, limit=limit, search=q, search_fields=["name", "description"], logger=logger
+    effective_include_ugc = _resolve_include_ugc(include_ugc, current_user)
+
+    like_term = f"%{q}%"
+    stmt = select(DBPartManufacturer).where(
+        (DBPartManufacturer.name.ilike(like_term)) | (DBPartManufacturer.description.ilike(like_term))
     )
+    if not effective_include_ugc:
+        stmt = stmt.where(DBPartManufacturer.is_curated.is_(True))
+    stmt = stmt.order_by(DBPartManufacturer.name).offset(skip).limit(limit)
+    part_manufacturers = list(db.scalars(stmt).all())
     return [PartManufacturerResponse.model_validate(pm) for pm in part_manufacturers]
 
 
@@ -128,9 +187,7 @@ async def get_part_manufacturer(
     part_manufacturer_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> PartManufacturerResponse:
-    """
-    Get specific part manufacturer details.
-    """
+    """Get a manufacturer by id. Public; no read boundary between curated and UGC."""
     db = deps["db"]
     pm = get_entity_or_404(db, DBPartManufacturer, part_manufacturer_id, "part manufacturer")
     return PartManufacturerResponse.model_validate(pm)
@@ -147,20 +204,22 @@ async def get_parts_by_part_manufacturer(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of parts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> List[PartRead]:
-    """
-    Get global parts by part manufacturer with pagination.
+    """Parts that reference this manufacturer.
+
+    Curated mfr: catalog-only (excludes ``source='user_created'`` parts).
+    UGC mfr: only the creator's parts (a UGC mfr only ever has one creator).
     """
     db = deps["db"]
-
-    _ = get_entity_or_404(db, DBPartManufacturer, part_manufacturer_id, "part manufacturer")
-
+    pm = get_entity_or_404(db, DBPartManufacturer, part_manufacturer_id, "part manufacturer")
     skip, limit = validate_pagination_params(skip, limit)
 
-    parts = list(
-        db.scalars(
-            select(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id).offset(skip).limit(limit)
-        ).all()
-    )
+    stmt = select(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id)
+    if pm.is_curated:
+        stmt = stmt.where(DBPart.source != "user_created")
+    elif pm.created_by_user_id is not None:
+        stmt = stmt.where(DBPart.user_id == pm.created_by_user_id)
+
+    parts = list(db.scalars(stmt.offset(skip).limit(limit)).all())
     return [PartRead.model_validate(part) for part in parts]
 
 
@@ -174,22 +233,32 @@ async def create_part_manufacturer(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> PartManufacturerResponse:
-    """
-    Create a new part manufacturer. Any authenticated user can create part manufacturers.
+    """Create a manufacturer.
+
+    - service-account or admin caller -> curated row.
+    - regular user -> UGC row scoped to them. If a curated row matches the
+      name (case-insensitive), the user's part silently links to the curated
+      row instead of creating a duplicate.
     """
     db = deps["db"]
+    name = part_manufacturer.name.strip() if part_manufacturer.name else ""
+    if not name:
+        ResponsePatterns.raise_bad_request("Part manufacturer name is required", "PART_MANUFACTURER_NAME_REQUIRED")
 
-    existing_pm = db.scalars(
-        select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(part_manufacturer.name))
-    ).first()
-    if existing_pm:
-        return PartManufacturerResponse.model_validate(existing_pm)
+    if _user_is_service_account(current_user) or _user_is_admin(current_user):
+        pm = get_or_create_curated_part_manufacturer(db, name)
+    else:
+        pm = get_or_create_ugc_part_manufacturer(db, name, creator_id=current_user.id)
 
-    db_pm = DBPartManufacturer(**part_manufacturer.model_dump())
-    db.add(db_pm)
+    if pm is None:
+        ResponsePatterns.raise_bad_request("Part manufacturer name is required", "PART_MANUFACTURER_NAME_REQUIRED")
+
+    if part_manufacturer.description and not pm.description:
+        pm.description = part_manufacturer.description
+        db.add(pm)
     db.commit()
-    db.refresh(db_pm)
-    return PartManufacturerResponse.model_validate(db_pm)
+    db.refresh(pm)
+    return PartManufacturerResponse.model_validate(pm)
 
 
 @router.put(
@@ -199,39 +268,59 @@ async def create_part_manufacturer(
 )
 async def update_part_manufacturer(
     part_manufacturer_id: UUID,
-    part_manufacturer: PartManufacturerUpdate,
+    part_manufacturer: PartManufacturerAdminUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_admin_user),
+    current_user: DBUser = Depends(get_current_user),
 ) -> PartManufacturerResponse:
-    """
-    Update a part manufacturer (admin only).
-    """
-    db_pm = get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
+    """Update a manufacturer.
 
-    if part_manufacturer.name and part_manufacturer.name != db_pm.name:
-        existing_pm = (
-            deps["db"]
-            .scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(part_manufacturer.name)))
-            .first()
+    - admin/superuser: any row, including ``is_curated`` toggle.
+    - creator of a UGC row: name/description/is_active only. ``is_curated``
+      changes are silently dropped for non-admin callers.
+    """
+    db = deps["db"]
+    db_pm = get_entity_or_404(db, DBPartManufacturer, part_manufacturer_id, "part manufacturer")
+    require_part_manufacturer_edit_permission(current_user, db_pm)
+
+    update_data = part_manufacturer.model_dump(exclude_unset=True)
+    # is_curated toggle is admin-only; silently drop for non-admins so a UGC
+    # creator can't promote their own row by editing it.
+    if not _user_is_admin(current_user):
+        update_data.pop("is_curated", None)
+
+    new_name = update_data.get("name")
+    if new_name and new_name != db_pm.name:
+        # Conflict check uses the same uniqueness model as the partial unique
+        # indexes: curated rows are globally unique by lower(name); UGC rows
+        # are unique per (lower(name), created_by_user_id).
+        conflict_stmt = select(DBPartManufacturer).where(
+            DBPartManufacturer.id != db_pm.id,
+            DBPartManufacturer.name.ilike(new_name),
         )
-        if existing_pm:
+        if db_pm.is_curated:
+            conflict_stmt = conflict_stmt.where(DBPartManufacturer.is_curated.is_(True))
+        else:
+            conflict_stmt = conflict_stmt.where(
+                DBPartManufacturer.is_curated.is_(False),
+                DBPartManufacturer.created_by_user_id == db_pm.created_by_user_id,
+            )
+        if db.scalars(conflict_stmt).first():
             ResponsePatterns.raise_conflict(
                 "Part manufacturer with this name already exists", "PART_MANUFACTURER_EXISTS"
             )
 
-    update_data = part_manufacturer.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_pm, field, value)
 
     try:
-        deps["db"].add(db_pm)
-        deps["db"].commit()
-        deps["db"].refresh(db_pm)
+        db.add(db_pm)
+        db.commit()
+        db.refresh(db_pm)
         return PartManufacturerResponse.model_validate(db_pm)
     except Exception as e:
-        deps["db"].rollback()
+        db.rollback()
         handle_integrity_error(e, "part manufacturer")
-        raise  # Type narrowing
+        raise
 
 
 @router.delete(
@@ -242,15 +331,20 @@ async def update_part_manufacturer(
 async def delete_part_manufacturer(
     part_manufacturer_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_admin_user),
+    current_user: DBUser = Depends(get_current_user),
 ) -> PartManufacturerResponse:
+    """Delete a manufacturer.
+
+    - admin/superuser: any row.
+    - creator of a UGC row: their own row only.
+    Cannot delete if any Part still references it.
     """
-    Delete a part manufacturer (admin only).
-    """
-    db_pm = get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
+    db = deps["db"]
+    db_pm = get_entity_or_404(db, DBPartManufacturer, part_manufacturer_id, "part manufacturer")
+    require_part_manufacturer_delete_permission(current_user, db_pm)
 
     parts_count = (
-        deps["db"].scalar(
+        db.scalar(
             select(func.count()).select_from(DBPart).where(DBPart.part_manufacturer_id == part_manufacturer_id)
         )
         or 0
@@ -262,9 +356,8 @@ async def delete_part_manufacturer(
         )
 
     pm_response = PartManufacturerResponse.model_validate(db_pm)
-
-    deps["db"].delete(db_pm)
-    deps["db"].commit()
+    db.delete(db_pm)
+    db.commit()
     return pm_response
 
 
@@ -279,9 +372,7 @@ async def get_part_manufacturer_parts_count(
     part_manufacturer_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, int]:
-    """
-    Get the count of parts for a specific part manufacturer.
-    """
+    """Count of parts referencing this manufacturer (no UGC/curated filter)."""
     get_entity_or_404(deps["db"], DBPartManufacturer, part_manufacturer_id, "part manufacturer")
 
     parts_count = (
@@ -294,3 +385,21 @@ async def get_part_manufacturer_parts_count(
 
 
 base_router.add_count_endpoint()
+
+
+@router.get(
+    "/counts/by-source",
+    responses=standard_responses(success_description="Counts of curated vs UGC part manufacturers"),
+)
+async def get_part_manufacturer_counts_by_source(
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+) -> Dict[str, int]:
+    """Total/curated/UGC manufacturer counts for the admin dashboard."""
+    db = deps["db"]
+    curated = db.scalar(
+        select(func.count()).select_from(DBPartManufacturer).where(DBPartManufacturer.is_curated.is_(True))
+    ) or 0
+    ugc = db.scalar(
+        select(func.count()).select_from(DBPartManufacturer).where(DBPartManufacturer.is_curated.is_(False))
+    ) or 0
+    return {"total": curated + ugc, "curated": curated, "ugc": ugc}

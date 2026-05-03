@@ -175,6 +175,68 @@ describe('ViewPart page', () => {
     expect(screen.getByText('+4')).toBeInTheDocument();
   });
 
+  it('renders a UGC manufacturer as plain text (no link) with a "custom" badge', async () => {
+    const ugcMfrId = 'pm-ugc-1111-7111-8111-111111111111';
+    const ugcMfrName = 'UserSubmittedBrand';
+    const partWithUgcMfr = { ...mockPart, part_manufacturer_id: ugcMfrId };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === `/parts/${mockPart.id}`) {
+        return Promise.resolve({ data: partWithUgcMfr });
+      }
+      if (url === `/votes/part/${mockPart.id}/summary`) {
+        return Promise.resolve({ data: mockVoteSummary });
+      }
+      if (url === '/categories/') {
+        return Promise.resolve({ data: [mockCategory] });
+      }
+      if (url === `/users/${mockUser.id}`) {
+        return Promise.resolve({ data: mockUser });
+      }
+      if (url === `/parts/${mockPart.id}/listings`) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === `/parts/${mockPart.id}/price-history`) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === `/part-manufacturers/${ugcMfrId}`) {
+        return Promise.resolve({
+          data: {
+            id: ugcMfrId,
+            name: ugcMfrName,
+            description: null,
+            is_active: true,
+            is_curated: false,
+            created_by_user_id: mockUser.id,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        });
+      }
+      return Promise.resolve({ data: null });
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/parts/${mockPart.id}`]}>
+        <Routes>
+          <Route path="/parts/:partId" element={<ViewPart />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // The mfr name renders.
+    await waitFor(() =>
+      expect(screen.getByText(ugcMfrName)).toBeInTheDocument()
+    );
+    // It is NOT wrapped in a link to the catalog filter view.
+    const links = screen
+      .queryAllByRole('link')
+      .filter((a) => a.getAttribute('href')?.includes('part_manufacturer_id='));
+    expect(links).toHaveLength(0);
+    // The "custom" badge is rendered.
+    expect(screen.getByText(/custom/i)).toBeInTheDocument();
+  });
+
   it('posts to the vote endpoint when the user clicks a vote button', async () => {
     installDefaultGetRouting();
     // mockVoteSummary.user_vote is 'upvote'. Clicking upvote should call

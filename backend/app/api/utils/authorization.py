@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.part import Part as DBPart
+from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.user import User as DBUser
 
 
@@ -89,5 +90,50 @@ def require_build_list_part_edit_permission(
             detail=(
                 "Not authorized to edit this build list part. "
                 "Only the user who added it, the build list owner, or admin can edit build list parts."
+            ),
+        )
+
+
+def can_edit_part_manufacturer(user: DBUser, pm: DBPartManufacturer) -> bool:
+    """Whether the user can update name/description on a manufacturer.
+
+    Curated rows are admin/superuser only. UGC rows can additionally be edited
+    by their original creator. (is_curated toggling stays admin-only — enforced
+    at the endpoint via the admin-update schema.)
+    """
+    if user.is_admin or user.is_superuser:
+        return True
+    return (not pm.is_curated) and pm.created_by_user_id == user.id
+
+
+def can_delete_part_manufacturer(user: DBUser, pm: DBPartManufacturer) -> bool:
+    """Whether the user can delete a manufacturer.
+
+    Same eligibility rules as edit. The endpoint also enforces a separate
+    in-use guard (cannot delete if any Part still references the row).
+    """
+    return can_edit_part_manufacturer(user, pm)
+
+
+def require_part_manufacturer_edit_permission(user: DBUser, pm: DBPartManufacturer) -> None:
+    """Raise HTTPException if user cannot edit the manufacturer."""
+    if not can_edit_part_manufacturer(user, pm):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Not authorized to edit this part manufacturer. "
+                "Only the original creator (for user-created entries) or an admin can edit it."
+            ),
+        )
+
+
+def require_part_manufacturer_delete_permission(user: DBUser, pm: DBPartManufacturer) -> None:
+    """Raise HTTPException if user cannot delete the manufacturer."""
+    if not can_delete_part_manufacturer(user, pm):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Not authorized to delete this part manufacturer. "
+                "Only the original creator (for user-created entries) or an admin can delete it."
             ),
         )

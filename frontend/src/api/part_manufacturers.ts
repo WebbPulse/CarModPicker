@@ -54,4 +54,8 @@ export const partManufacturersApi = {
     ),
   countPartManufacturers: () =>
     apiClient.get<{ count: number }>('/part-manufacturers/count'),
+  countPartManufacturersBySource: () =>
+    apiClient.get<{ total: number; curated: number; ugc: number }>(
+      '/part-manufacturers/counts/by-source'
+    ),
 };

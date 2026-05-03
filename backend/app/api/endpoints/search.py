@@ -10,7 +10,7 @@ This endpoint provides unified search functionality across:
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, and_, cast, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.models.build_list import BuildList as DBBuildList
@@ -128,6 +128,8 @@ async def search_all(
     # Search parts (name, description, part_manufacturer name, part_number).
     # Non-canonical duplicates are hidden so search returns only surface parts.
     # When include_ugc=False, user-contributed parts are also filtered out.
+    # The manufacturer-name OR clauses are gated on is_curated so a UGC
+    # "Honda" entry can't pull catalog parts into someone else's search.
     part_stmt = (
         select(DBPart)
         .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
@@ -136,8 +138,14 @@ async def search_all(
             or_(
                 DBPart.name.ilike(f"%{search_term}%"),
                 DBPart.description.ilike(f"%{search_term}%"),
-                DBPartManufacturer.name.ilike(f"%{search_term}%"),
-                DBPartManufacturer.description.ilike(f"%{search_term}%"),
+                and_(
+                    DBPartManufacturer.is_curated.is_(True),
+                    DBPartManufacturer.name.ilike(f"%{search_term}%"),
+                ),
+                and_(
+                    DBPartManufacturer.is_curated.is_(True),
+                    DBPartManufacturer.description.ilike(f"%{search_term}%"),
+                ),
                 DBPart.part_number.ilike(f"%{search_term}%"),
             ),
         )

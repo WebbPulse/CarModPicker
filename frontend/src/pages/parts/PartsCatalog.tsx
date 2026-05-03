@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import PartList from '../../components/parts/PartList';
 import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
@@ -11,6 +11,7 @@ import Pagination from '../../components/ui/pagination';
 import { useAuth } from '../../hooks/useAuth';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { usePartsFilters } from '../../hooks/usePartsFilters';
+import { partManufacturersApi } from '../../api/part_manufacturers';
 import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
 
 const PartsCatalog: React.FC = () => {
@@ -28,6 +29,44 @@ const PartsCatalog: React.FC = () => {
     useState(false);
 
   const filters = usePartsFilters({ syncToUrl: true });
+  const [searchParams] = useSearchParams();
+
+  // If the URL specified a part_manufacturer_id but it didn't end up in the
+  // applied filters, the most likely cause is that the id is a UGC entry
+  // (not in the curated facet). Fetch the row by id to confirm and surface
+  // an explanatory banner instead of silently returning the unscoped catalog.
+  const [ugcManufacturerNotice, setUgcManufacturerNotice] = useState<
+    string | null
+  >(null);
+  useEffect(() => {
+    const urlPmId = searchParams.get('part_manufacturer_id');
+    if (!urlPmId) {
+      setUgcManufacturerNotice(null);
+      return;
+    }
+    if (filters.selectedPartManufacturerIds.includes(urlPmId)) {
+      setUgcManufacturerNotice(null);
+      return;
+    }
+    let cancelled = false;
+    void partManufacturersApi
+      .getPartManufacturer(urlPmId)
+      .then((resp) => {
+        if (cancelled) return;
+        const pm = resp?.data;
+        if (pm && !pm.is_curated) {
+          setUgcManufacturerNotice(pm.name);
+        } else {
+          setUgcManufacturerNotice(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setUgcManufacturerNotice(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, filters.selectedPartManufacturerIds]);
 
   const handlePaginationChange = useCallback(
     (pagination: PaginationInfo | null) => {
@@ -119,6 +158,17 @@ const PartsCatalog: React.FC = () => {
               data-testid="parts-catalog-search"
             />
           </div>
+
+          {ugcManufacturerNotice && (
+            <div
+              role="status"
+              className="mb-4 rounded border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-200"
+            >
+              <strong>{ugcManufacturerNotice}</strong> was added by a community
+              member and isn't part of the curated catalog yet, so it can't be
+              browsed here.
+            </div>
+          )}
 
           <PartsActiveFilterChips {...chipsProps} />
 

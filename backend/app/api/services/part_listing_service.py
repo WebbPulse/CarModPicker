@@ -64,31 +64,121 @@ def get_or_create_retailer(
     return retailer
 
 
-def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
-    """Get existing part manufacturer by name (case-insensitive); otherwise create. Returns None if name is empty."""
+def _find_curated_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufacturer]:
+    return db.scalars(
+        select(DBPartManufacturer).where(
+            DBPartManufacturer.is_curated.is_(True),
+            DBPartManufacturer.name.ilike(name_normalized),
+        )
+    ).first()
+
+
+def _find_ugc_pm_for_user(db: Session, name_normalized: str, creator_id: UUID) -> Optional[DBPartManufacturer]:
+    return db.scalars(
+        select(DBPartManufacturer).where(
+            DBPartManufacturer.is_curated.is_(False),
+            DBPartManufacturer.created_by_user_id == creator_id,
+            DBPartManufacturer.name.ilike(name_normalized),
+        )
+    ).first()
+
+
+def get_or_create_curated_part_manufacturer(db: Session, name: str) -> Optional[DBPartManufacturer]:
+    """Get-or-create a curated (catalog) manufacturer by name (case-insensitive).
+
+    Used by the crawler service account, the seed script, and admin-driven
+    creates. UGC submissions go through ``get_or_create_ugc_part_manufacturer``
+    instead so user-typed names don't pollute the catalog.
+
+    Returns ``None`` if the name is empty.
+    """
     if not name or not name.strip():
         return None
     name_normalized = name.strip()
-    part_manufacturer = db.scalars(
-        select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))
-    ).first()
-    if part_manufacturer:
-        return part_manufacturer
+    existing = _find_curated_pm_by_name(db, name_normalized)
+    if existing:
+        return existing
     # SAVEPOINT-scoped insert: parallel rescrape workers can race here and both
-    # try to insert the same manufacturer. The unique index on name will reject
-    # the loser; wrapping in begin_nested lets us roll back just this savepoint
-    # (not the outer transaction) and re-query for the row the winner created.
+    # try to insert the same manufacturer. The partial unique index on lower(name)
+    # WHERE is_curated rejects the loser; rolling back just this savepoint lets
+    # us re-query for the row the winner created without poisoning the outer txn.
     try:
         with db.begin_nested():
-            part_manufacturer = DBPartManufacturer(name=name_normalized, is_active=True)
+            part_manufacturer = DBPartManufacturer(
+                name=name_normalized,
+                is_active=True,
+                is_curated=True,
+                created_by_user_id=None,
+            )
             db.add(part_manufacturer)
             db.flush()
         return part_manufacturer
     except IntegrityError:
-        existing = db.scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))).first()
+        existing = _find_curated_pm_by_name(db, name_normalized)
         if existing is not None:
             return existing
         raise
+
+
+def get_or_create_ugc_part_manufacturer(
+    db: Session,
+    name: str,
+    *,
+    creator_id: UUID,
+) -> Optional[DBPartManufacturer]:
+    """Get-or-create a UGC manufacturer for a specific user.
+
+    Resolution order:
+      1. If a curated row matches ``lower(strip(name))``, return the curated row.
+         User-confirmed dedup behavior: a UGC submission for "HKS" silently links
+         to the curated "HKS" rather than minting a private duplicate.
+      2. Else if this user already has a UGC row for the same name, return it.
+      3. Else create a new UGC row owned by ``creator_id``.
+
+    Returns ``None`` if the name is empty.
+    """
+    if not name or not name.strip():
+        return None
+    name_normalized = name.strip()
+
+    curated = _find_curated_pm_by_name(db, name_normalized)
+    if curated:
+        return curated
+
+    existing_ugc = _find_ugc_pm_for_user(db, name_normalized, creator_id)
+    if existing_ugc:
+        return existing_ugc
+
+    try:
+        with db.begin_nested():
+            part_manufacturer = DBPartManufacturer(
+                name=name_normalized,
+                is_active=True,
+                is_curated=False,
+                created_by_user_id=creator_id,
+            )
+            db.add(part_manufacturer)
+            db.flush()
+        return part_manufacturer
+    except IntegrityError:
+        # Someone (this user, racing) inserted in parallel, or a curated row was
+        # promoted in between. Re-query both paths.
+        curated = _find_curated_pm_by_name(db, name_normalized)
+        if curated is not None:
+            return curated
+        existing_ugc = _find_ugc_pm_for_user(db, name_normalized, creator_id)
+        if existing_ugc is not None:
+            return existing_ugc
+        raise
+
+
+def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
+    """Deprecated alias preserved for callers (crawler, seed script, adapter docstrings).
+
+    Always routes to the curated variant — every existing caller is the crawler
+    service account or the seed script, both of which seed the catalog.
+    """
+    return get_or_create_curated_part_manufacturer(db, name)
 
 
 def _normalize_url(url: Optional[str]) -> Optional[str]:

@@ -767,9 +767,16 @@ async def get_parts_filter_options(
     available_categories = list(
         db.scalars(q.with_only_columns(DBPart.category_id).distinct().where(DBPart.category_id.isnot(None))).all()
     )
+    # Facet must not surface UGC manufacturer ids — the catalog sidebar should
+    # only offer curated brands as filter options. Constrain the distinct set
+    # to ids that exist as curated rows.
+    curated_pm_subq = select(DBPartManufacturer.id).where(DBPartManufacturer.is_curated.is_(True))
     available_part_manufacturers = list(
         db.scalars(
-            q.with_only_columns(DBPart.part_manufacturer_id).distinct().where(DBPart.part_manufacturer_id.isnot(None))
+            q.with_only_columns(DBPart.part_manufacturer_id)
+            .distinct()
+            .where(DBPart.part_manufacturer_id.isnot(None))
+            .where(DBPart.part_manufacturer_id.in_(curated_pm_subq))
         ).all()
     )
     result: Dict[str, Any] = {

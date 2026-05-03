@@ -37,7 +37,7 @@ from app.api.schemas.part import PartCreate
 from app.api.services.part_listing_service import (
     domain_from_url,
     find_part_by_product_url,
-    get_or_create_part_manufacturer_by_name,
+    get_or_create_curated_part_manufacturer,
     get_or_create_retailer,
 )
 from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
@@ -694,10 +694,11 @@ def ingest_payload(
         db.add(retailer)
     db.flush()
 
-    # Central part_manufacturer list: all crawlers and the extension use the same DB. get_or_create_part_manufacturer_by_name
-    # ensures a part_manufacturer is only defined once; manual edits in the app apply everywhere.
+    # Central curated part_manufacturer list: crawler and extension service-account
+    # writes share the catalog. Always routes to a curated row so user-typed names
+    # from the app can never collide with scraper data.
     part_manufacturer_name = (payload.part_manufacturer or "").strip() or "Unknown"
-    part_manufacturer = get_or_create_part_manufacturer_by_name(db, part_manufacturer_name)
+    part_manufacturer = get_or_create_curated_part_manufacturer(db, part_manufacturer_name)
     if not part_manufacturer:
         raise ValueError("Could not resolve or create part manufacturer")
     db.flush()

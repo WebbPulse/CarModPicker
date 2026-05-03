@@ -291,6 +291,9 @@ def test_part_manufacturer(db_session: Session) -> PartManufacturer:
         name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",  # Make unique per worker
         description="A test part_manufacturer",
         is_active=True,
+        # Default to curated so the fixture matches pre-refactor behavior:
+        # appears in catalog list/search, no UGC ownership constraints.
+        is_curated=True,
     )
     db_session.add(part_manufacturer)
     db_session.commit()

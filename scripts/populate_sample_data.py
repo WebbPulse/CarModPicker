@@ -75,7 +75,7 @@ from app.api.models.report import Report  # pyright: ignore[reportMissingImports
 from app.api.models.retailer import Retailer  # pyright: ignore[reportMissingImports]
 from app.api.services.part_listing_service import (  # pyright: ignore[reportMissingImports]
     create_or_update_listing_and_price,
-    get_or_create_part_manufacturer_by_name,
+    get_or_create_curated_part_manufacturer,
     get_or_create_retailer,
 )  # pyright: ignore[reportMissingImports]
 from app.api.models.user import User  # pyright: ignore[reportMissingImports]
@@ -506,7 +506,7 @@ def create_sample_global_parts(
     ]
     part_manufacturer_map: dict[str, int] = {}
     for name in initial_part_manufacturer_names:
-        part_manufacturer = get_or_create_part_manufacturer_by_name(db, name)
+        part_manufacturer = get_or_create_curated_part_manufacturer(db, name)
         if part_manufacturer:
             part_manufacturer_map[name] = part_manufacturer.id
     db.commit()
@@ -630,7 +630,7 @@ def create_sample_global_parts(
     for p in initial_parts_raw:
         part_manufacturer_id = part_manufacturer_map.get(p["part_manufacturer"])
         if part_manufacturer_id is None:
-            b = get_or_create_part_manufacturer_by_name(db, p["part_manufacturer"])
+            b = get_or_create_curated_part_manufacturer(db, p["part_manufacturer"])
             if b:
                 part_manufacturer_map[p["part_manufacturer"]] = b.id
                 part_manufacturer_id = b.id
@@ -789,7 +789,7 @@ def create_sample_global_parts(
         all_template_part_manufacturers.update(template["part_manufacturers"])
     for name in all_template_part_manufacturers:
         if name not in part_manufacturer_map:
-            b = get_or_create_part_manufacturer_by_name(db, name)
+            b = get_or_create_curated_part_manufacturer(db, name)
             if b:
                 part_manufacturer_map[name] = b.id
     db.commit()
@@ -806,7 +806,7 @@ def create_sample_global_parts(
         part_manufacturer_name = random.choice(template["part_manufacturers"])
         part_manufacturer_id = part_manufacturer_map.get(part_manufacturer_name)
         if part_manufacturer_id is None:
-            b = get_or_create_part_manufacturer_by_name(db, part_manufacturer_name)
+            b = get_or_create_curated_part_manufacturer(db, part_manufacturer_name)
             if b:
                 part_manufacturer_map[part_manufacturer_name] = b.id
                 part_manufacturer_id = b.id
